@@ -25,6 +25,7 @@ import {
   Play,
   Search,
   SlidersHorizontal,
+  ListFilter,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -284,6 +285,7 @@ function PersonalApiKeyCard(props: {
   onEdit: () => void
 }) {
   const { t } = useTranslation()
+  const { setCurrentRow, setOpen } = useApiKeys()
   const client = useQueryClient()
   const [copying, setCopying] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
@@ -513,6 +515,17 @@ function PersonalApiKeyCard(props: {
         >
           <SlidersHorizontal className='size-4' aria-hidden='true' />
           {t('Window share')}
+        </Button>
+        <Button
+          className='h-auto min-h-10 whitespace-normal'
+          variant='outline'
+          onClick={() => {
+            setCurrentRow(props.apiKey)
+            setOpen('model-scope')
+          }}
+        >
+          <ListFilter aria-hidden='true' />
+          {t('Model scope')}
         </Button>
         <Button
           className='h-auto min-h-10 whitespace-normal'

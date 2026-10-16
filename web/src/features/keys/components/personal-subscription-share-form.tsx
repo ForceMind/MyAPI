@@ -53,12 +53,16 @@ import { formatTimestampToDate } from '@/lib/format'
 
 import type { SubscriptionSharePool } from '../subscription-share-api'
 import type { ApiKey } from '../types'
-import { SubscriptionSharePoolCard } from './subscription-share-pool-card'
+import {
+  SubscriptionSharePoolCard,
+  SubscriptionShareWindowChangeReview,
+} from './subscription-share-pool-card'
 
 type PersonalSubscriptionShareFormProps = {
   apiKey: ApiKey
   pools: SubscriptionSharePool[]
   selectedPool?: SubscriptionSharePool
+  currentPool?: SubscriptionSharePool
   selection: string
   percentage: string
   shareBasisPoints: number | null
@@ -70,6 +74,7 @@ type PersonalSubscriptionShareFormProps = {
   loading: boolean
   loadError: boolean
   mustReload: boolean
+  reloadedAfterUnknown: boolean
   saveDisabled: boolean
   onSelect: (value: string) => void
   onPercentageChange: (value: string) => void
@@ -86,7 +91,11 @@ export function PersonalSubscriptionShareForm(
 ) {
   const { t } = useTranslation()
   const desktop = useMediaQuery('(min-width: 1280px)')
-  const [accountId, setAccountId] = useState('')
+  const [accountId, setAccountId] = useState(() =>
+    props.selectedPool?.channel_id === undefined
+      ? ''
+      : String(props.selectedPool.channel_id)
+  )
   const reloadNotice = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!props.mustReload) return
@@ -115,6 +124,9 @@ export function PersonalSubscriptionShareForm(
       : null
   const windowChangeRequired =
     pool?.replacement_required || pool?.rebaseline_required
+  let actionLabel = t('Save changes')
+  if (pool?.replacement_required) actionLabel = t('Replace window')
+  if (pool?.rebaseline_required) actionLabel = t('Resume observation')
   const actions = (
     <div className='flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap'>
       <Button
@@ -132,7 +144,7 @@ export function PersonalSubscriptionShareForm(
         type='submit'
       >
         {props.saving && <Spinner data-icon='inline-start' />}
-        {props.saving ? t('Saving...') : t('Save changes')}
+        {props.saving ? t('Saving...') : actionLabel}
       </Button>
     </div>
   )
@@ -147,6 +159,7 @@ export function PersonalSubscriptionShareForm(
         <Button
           variant='ghost'
           className='-ml-3 max-w-full'
+          disabled={props.saving}
           onClick={props.onCancel}
         >
           <ArrowLeft className='size-4 shrink-0' aria-hidden='true' />
@@ -275,6 +288,11 @@ export function PersonalSubscriptionShareForm(
                             {accounts.get(Number(accountId))} · #{accountId}
                           </FieldDescription>
                         )}
+                        <FieldDescription>
+                          {t(
+                            'Choosing a connection only filters observed candidates. The server decides whether a sample belongs to the same subscription account and native window slot.'
+                          )}
+                        </FieldDescription>
                       </Field>
                     )}
                     <Field data-disabled={props.busy || props.mustReload}>
@@ -413,24 +431,15 @@ export function PersonalSubscriptionShareForm(
                           </Alert>
                         )}
                         {windowChangeRequired && (
-                          <Alert>
-                            <AlertTitle>
-                              {pool.rebaseline_required
-                                ? t('Resume observation from a fresh baseline')
-                                : t(
-                                    'This replaces the managed window for every Key in this pool'
-                                  )}
-                            </AlertTitle>
-                            <AlertDescription>
-                              {pool.rebaseline_required
-                                ? t(
-                                    'Existing estimated usage is kept. Requests that could not be attributed remain uncertain, and observation resumes from a new fresh sample.'
-                                  )
-                                : t(
-                                    'Existing Key shares and old window history are kept. The replacement starts from a new fresh baseline and does not require signing in again.'
-                                  )}
-                            </AlertDescription>
-                          </Alert>
+                          <SubscriptionShareWindowChangeReview
+                            currentPool={props.currentPool}
+                            targetPool={pool}
+                            mode={
+                              pool.rebaseline_required
+                                ? 'rebaseline'
+                                : 'replacement'
+                            }
+                          />
                         )}
                         {windowChangeRequired && (
                           <Field orientation='horizontal'>
@@ -443,9 +452,13 @@ export function PersonalSubscriptionShareForm(
                               }
                             />
                             <FieldLabel htmlFor='personal-share-window-confirmation'>
-                              {t(
-                                'I understand this recovery or replacement affects every Key in the pool.'
-                              )}
+                              {pool.rebaseline_required
+                                ? t(
+                                    'I understand this recovery affects every Key in the pool.'
+                                  )
+                                : t(
+                                    'I understand this replacement affects every Key in the pool.'
+                                  )}
                             </FieldLabel>
                           </Field>
                         )}
@@ -494,6 +507,18 @@ export function PersonalSubscriptionShareForm(
                       >
                         {t('Reload current state')}
                       </Button>
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {props.reloadedAfterUnknown && (
+                  <Alert>
+                    <AlertTitle>
+                      {t('Current server state reloaded')}
+                    </AlertTitle>
+                    <AlertDescription>
+                      {t(
+                        'Current server state reloaded. Review the window and confirmations before taking another action.'
+                      )}
                     </AlertDescription>
                   </Alert>
                 )}

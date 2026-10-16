@@ -62,12 +62,18 @@ export function Profile() {
   useEffect(() => {
     if (statusConfirmed || statusError) setProfileReadEnabled(true)
   }, [statusConfirmed, statusError])
-  const { profile, loading, error, fetchProfile, refreshProfile } =
-    useProfile(profileReadEnabled)
+  const authUserId = useAuthStore((s) => s.auth.user?.id)
+  const sessionSid = useAuthStore((s) => s.auth.session?.sid)
+  const profileIdentityKey = `${authUserId ?? 'anonymous'}:${sessionSid ?? 'no-session'}`
+  const { profile, loading, error, fetchProfile, refreshProfile } = useProfile(
+    profileReadEnabled,
+    profileIdentityKey
+  )
   const { commercialEnabled } = useFundingPresentation()
   const fundingMode = useConfirmedFundingMode()
   const personalMode = fundingMode === 'disabled'
   const permissions = useAuthStore((s) => s.auth.user?.permissions)
+  const securityScopeKey = `${authUserId ?? profile?.id ?? 'anonymous'}:${sessionSid ?? 'no-session'}`
 
   const showCommercialFeatures = commercialEnabled && fundingMode === 'enabled'
   const checkinEnabled =
@@ -117,9 +123,11 @@ export function Profile() {
               <div className='grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.46fr)] xl:items-start'>
                 <div className='min-w-0 space-y-4 sm:space-y-6'>
                   <ProfileSettingsCard
+                    key={`settings:${securityScopeKey}`}
                     profile={profile}
                     loading={loading}
                     onProfileUpdate={refreshProfile}
+                    securityScopeKey={securityScopeKey}
                     showBalanceThreshold={
                       fundingMode === 'enabled' || fundingMode === 'retirement'
                     }
@@ -147,8 +155,16 @@ export function Profile() {
                     profile={profile}
                     onProfileUpdate={refreshProfile}
                   />
-                  <ProfileSecurityCard profile={profile} loading={loading} />
-                  <LoginSessionsCard />
+                  <ProfileSecurityCard
+                    key={`access:${securityScopeKey}`}
+                    profile={profile}
+                    loading={loading}
+                    securityScopeKey={securityScopeKey}
+                  />
+                  <LoginSessionsCard
+                    key={`sessions:${securityScopeKey}`}
+                    securityScopeKey={securityScopeKey}
+                  />
                 </div>
 
                 <div className='min-w-0 space-y-4 sm:space-y-6'>
@@ -164,8 +180,16 @@ export function Profile() {
                       sidebarModules={profile.sidebar_modules}
                     />
                   )}
-                  <PasskeyCard loading={loading} />
-                  <TwoFACard loading={loading} />
+                  <PasskeyCard
+                    key={`passkey:${securityScopeKey}`}
+                    loading={loading}
+                    securityScopeKey={securityScopeKey}
+                  />
+                  <TwoFACard
+                    key={`two-fa:${securityScopeKey}`}
+                    loading={loading}
+                    securityScopeKey={securityScopeKey}
+                  />
                 </div>
               </div>
             </CardStaggerItem>

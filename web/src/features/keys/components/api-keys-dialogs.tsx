@@ -22,6 +22,7 @@ import { ApiKeysDeleteDialog } from './api-keys-delete-dialog'
 import { ApiKeysMutateDrawer } from './api-keys-mutate-drawer'
 import { useApiKeys } from './api-keys-provider'
 import { CCSwitchDialog } from './dialogs/cc-switch-dialog'
+import { ModelScopeDialog } from './model-scope-dialog'
 import { SubscriptionShareDialog } from './subscription-share-dialog'
 import { TokenBudgetDialog } from './token-budget-dialog'
 
@@ -47,6 +48,9 @@ export function ApiKeysDialogs() {
           tokenId={currentRow.id}
           onClose={() => setOpen(null)}
         />
+      )}
+      {open === 'model-scope' && currentRow && (
+        <ModelScopeDialog apiKey={currentRow} onClose={() => setOpen(null)} />
       )}
       <ApiKeysMutateDrawer
         open={open === 'create' || open === 'update'}

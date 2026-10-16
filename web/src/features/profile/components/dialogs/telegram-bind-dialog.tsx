@@ -29,6 +29,7 @@ import { TELEGRAM_BIND_RESULT_MESSAGE } from '@/features/auth/constants'
 import { getServerErrorMessageKey } from '@/lib/server-error-message'
 
 import { startTelegramBind } from '../../api'
+import { useSecurityRequestScope } from '../../hooks'
 
 // ============================================================================
 // Telegram Bind Dialog Component
@@ -39,6 +40,7 @@ interface TelegramBindDialogProps {
   onOpenChange: (open: boolean) => void
   botName: string
   onSuccess: () => void
+  securityScopeKey: string
 }
 
 export function TelegramBindDialog({
@@ -46,6 +48,7 @@ export function TelegramBindDialog({
   onOpenChange,
   botName,
   onSuccess,
+  securityScopeKey,
 }: TelegramBindDialogProps) {
   const { t } = useTranslation()
   const widgetRef = useRef<HTMLDivElement>(null)
@@ -53,12 +56,19 @@ export function TelegramBindDialog({
   const [flowToken, setFlowToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const requestScope = useSecurityRequestScope(securityScopeKey)
 
   const createBindFlow = useCallback(async () => {
+    let requestCurrent = true
     setLoading(true)
     setError(null)
     try {
-      const response = await startTelegramBind()
+      const result = await requestScope.run((signal) =>
+        startTelegramBind(signal)
+      )
+      requestCurrent = result.current
+      if (!result.current) return
+      const response = result.value
       if (!response.success || !response.data?.callback_url) {
         throw new Error(
           response.message || t('Failed to start Telegram binding')
@@ -75,19 +85,20 @@ export function TelegramBindDialog({
           : t('Failed to start Telegram binding')
       )
     } finally {
-      setLoading(false)
+      if (requestCurrent) setLoading(false)
     }
-  }, [t])
+  }, [requestScope, t])
 
   useEffect(() => {
     if (!open) {
+      requestScope.cancel()
       setCallbackUrl(null)
       setFlowToken(null)
       setError(null)
       return
     }
     void createBindFlow()
-  }, [createBindFlow, open])
+  }, [createBindFlow, open, requestScope])
 
   useEffect(() => {
     if (!open || !flowToken) return

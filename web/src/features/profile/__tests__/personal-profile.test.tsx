@@ -15,16 +15,18 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { api } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { PersonalProfile } from '../components/personal-profile'
 import type { UserProfile } from '../types'
 
 const clients: QueryClient[] = []
+const originalAuth = useAuthStore.getState()
 const profile: UserProfile = {
   id: 42,
   username: 'owner',
@@ -43,6 +45,7 @@ const profile: UserProfile = {
 
 afterEach(() => {
   clients.splice(0).forEach((client) => client.clear())
+  useAuthStore.setState(originalAuth)
   vi.restoreAllMocks()
 })
 
@@ -152,6 +155,14 @@ describe('personal profile', () => {
         name: /Change Password Update your password/,
       })
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', {
+        name: /Delete Account Root accounts cannot be deleted Unavailable/,
+      })
+    ).toBeDisabled()
+    expect(
+      vi.mocked(api.get).mock.calls.filter(([url]) => url === '/api/user/token')
+    ).toHaveLength(0)
     await user.click(entry)
     expect(entry).toHaveAttribute('aria-expanded', 'false')
     expect(
@@ -159,5 +170,108 @@ describe('personal profile', () => {
         name: /Change Password Update your password/,
       })
     ).not.toBeInTheDocument()
+  })
+
+  it('clears a pending password form and aborts its request when the signed-in session changes', async () => {
+    vi.spyOn(api, 'get').mockImplementation(async (url) => {
+      if (url === '/api/user/sessions' || url === '/api/user/oauth/bindings') {
+        return { data: { success: true, data: [] } }
+      }
+      if (url === '/api/user/2fa/status') {
+        return {
+          data: {
+            success: true,
+            data: { enabled: false, locked: false, backup_codes_remaining: 0 },
+          },
+        }
+      }
+      if (url === '/api/user/passkey') {
+        return { data: { success: true, data: { enabled: false } } }
+      }
+      if (url === '/api/status') return { data: { success: true, data: {} } }
+      throw new Error(`Unexpected test API: ${url}`)
+    })
+    type UpdateResponse = Awaited<ReturnType<typeof api.put>>
+    let resolveUpdate!: (response: UpdateResponse) => void
+    const pendingUpdate = new Promise<UpdateResponse>((resolve) => {
+      resolveUpdate = resolve
+    })
+    const put = vi.spyOn(api, 'put').mockReturnValue(pendingUpdate)
+    useAuthStore.setState({
+      auth: {
+        ...originalAuth.auth,
+        user: { id: 42, username: 'owner', role: 100 },
+        session: {
+          sid: 'session-one',
+          current: true,
+          login_method: 'password',
+          ip: '127.0.0.1',
+          user_agent: 'synthetic-test',
+          created_at: 1,
+          last_active_at: 1,
+          expires_at: 4_000_000_000,
+        },
+      },
+    })
+    const { user } = await renderProfile()
+    await user.click(
+      screen.getByRole('button', { name: /Manage login methods/ })
+    )
+    await user.click(
+      await screen.findByRole('button', {
+        name: /Change Password Update your password/,
+      })
+    )
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Change Password',
+    })
+    await user.type(
+      within(dialog).getByLabelText('Current Password'),
+      'old-password'
+    )
+    await user.type(
+      within(dialog).getByLabelText('New Password'),
+      'new-password'
+    )
+    await user.type(
+      within(dialog).getByLabelText('Confirm New Password'),
+      'new-password'
+    )
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Change Password' })
+    )
+    await waitFor(() => expect(put).toHaveBeenCalledOnce())
+    const requestSignal = put.mock.calls[0]?.[2]?.signal
+
+    act(() => {
+      useAuthStore.setState({
+        auth: {
+          ...useAuthStore.getState().auth,
+          user: { id: 84, username: 'replacement', role: 100 },
+          session: {
+            sid: 'session-two',
+            current: true,
+            login_method: 'password',
+            ip: '127.0.0.1',
+            user_agent: 'synthetic-test',
+            created_at: 2,
+            last_active_at: 2,
+            expires_at: 4_000_000_000,
+          },
+        },
+      })
+    })
+
+    expect(requestSignal?.aborted).toBe(true)
+    expect(
+      screen.queryByRole('dialog', { name: 'Change Password' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Manage login methods/ })
+    ).toHaveAttribute('aria-expanded', 'false')
+    await act(async () => {
+      resolveUpdate({ data: { success: true } } as UpdateResponse)
+      await pendingUpdate
+    })
   })
 })

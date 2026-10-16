@@ -27,8 +27,9 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { disable2FA } from '@/lib/api'
 
+import { disableTwoFA } from '../../api'
+import { useSecurityRequestScope } from '../../hooks'
 // ============================================================================
 // Two-FA Disable Dialog Component
 // ============================================================================
@@ -37,17 +38,20 @@ interface TwoFADisableDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
+  securityScopeKey: string
 }
 
 export function TwoFADisableDialog({
   open,
   onOpenChange,
   onSuccess,
+  securityScopeKey,
 }: TwoFADisableDialogProps) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [code, setCode] = useState('')
   const [confirmed, setConfirmed] = useState(false)
+  const requestScope = useSecurityRequestScope(securityScopeKey)
 
   const handleDisable = async () => {
     if (!code) {
@@ -60,9 +64,15 @@ export function TwoFADisableDialog({
       return
     }
 
+    let requestCurrent = true
     try {
       setLoading(true)
-      const response = await disable2FA(code)
+      const result = await requestScope.run((signal) =>
+        disableTwoFA(code, signal)
+      )
+      requestCurrent = result.current
+      if (!result.current) return
+      const response = result.value
 
       if (response.success) {
         toast.success(t('Two-factor authentication disabled'))
@@ -75,20 +85,26 @@ export function TwoFADisableDialog({
         toast.error(response.message || t('Failed to disable 2FA'))
       }
     } catch {
-      toast.error(t('Failed to disable 2FA'))
+      toast.error(
+        t(
+          'The result could not be confirmed. Verify the current account state before trying again.'
+        )
+      )
+      onSuccess()
     } finally {
-      setLoading(false)
+      if (requestCurrent) setLoading(false)
     }
   }
 
   const handleOpenChange = (open: boolean) => {
-    if (!loading) {
-      if (!open) {
-        setCode('')
-        setConfirmed(false)
-      }
-      onOpenChange(open)
+    if (!open && loading) return
+    if (!open) {
+      requestScope.cancel()
+      setLoading(false)
+      setCode('')
+      setConfirmed(false)
     }
+    onOpenChange(open)
   }
 
   return (
@@ -107,6 +123,7 @@ export function TwoFADisableDialog({
       contentClassName='sm:max-w-md'
       titleClassName='text-destructive flex items-center gap-2'
       contentHeight='auto'
+      showCloseButton={!loading}
       bodyClassName='space-y-4'
       footer={
         <>

@@ -34,6 +34,7 @@ const subscriptionSharePoolSchema = z.object({
   revision: safeCount,
   channel_name: z.string(),
   channel_id: positiveSafeCount.optional(),
+  window_source: z.string().min(1).optional(),
   plan_type: z.string().min(1),
   window_slot: z.string().min(1),
   window_type: z.string().min(1),
@@ -112,6 +113,7 @@ export async function getSubscriptionShare(
     disableDuplicate: true,
     skipBusinessError: true,
     skipErrorHandler: true,
+    skipAuthRefresh: true,
   })
   return parseSubscriptionShare(response.data, tokenId)
 }
@@ -126,6 +128,7 @@ export async function writeSubscriptionShare(
     {
       skipBusinessError: true,
       skipErrorHandler: true,
+      skipAuthRefresh: true,
     }
   )
   return parseSubscriptionShare(response.data, tokenId)
@@ -141,6 +144,7 @@ export async function closeSubscriptionSharePool(
     {
       skipBusinessError: true,
       skipErrorHandler: true,
+      skipAuthRefresh: true,
     }
   )
   z.object({ success: z.literal(true) }).parse(response.data)

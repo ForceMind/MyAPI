@@ -19,9 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { RadioGroupItem } from '@/components/ui/radio-group'
+import {
+  formatQuotaDuration,
+  quotaWindowLabel,
+} from '@/features/channels/lib/quota-history'
 import { formatTimestampToDate } from '@/lib/format'
 
 import type { SubscriptionSharePool } from '../subscription-share-api'
@@ -57,12 +60,177 @@ function getStateLabel(state: string, t: (key: string) => string): string {
   return t('Unavailable — requests are paused')
 }
 
+function WindowIdentity(props: {
+  pool?: SubscriptionSharePool
+  title: string
+  showAdminDetails: boolean
+  connectionLabel?: string
+  connectionKnown?: boolean
+  sampleKnown?: boolean
+}) {
+  const { t } = useTranslation()
+  if (!props.pool) {
+    return (
+      <article
+        className='bg-muted/30 min-w-0 rounded-lg border p-4'
+        aria-label={props.title}
+      >
+        <h4 className='font-medium'>{props.title}</h4>
+        <p className='text-muted-foreground mt-2 text-sm'>
+          {t(
+            'Current managed window details are not included in this Key view. The server still verifies the existing pool before any change.'
+          )}
+        </p>
+      </article>
+    )
+  }
+
+  return (
+    <article
+      className='bg-muted/30 min-w-0 rounded-lg border p-4'
+      aria-label={props.title}
+    >
+      <h4 className='font-medium'>{props.title}</h4>
+      <dl className='mt-3 grid min-w-0 gap-3 text-sm'>
+        <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+          <div>
+            <dt className='text-muted-foreground'>{t('Managed pool')}</dt>
+            <dd className='font-medium tabular-nums'>#{props.pool.pool_id}</dd>
+          </div>
+          <div>
+            <dt className='text-muted-foreground'>{t('Revision')}</dt>
+            <dd className='font-medium tabular-nums'>{props.pool.revision}</dd>
+          </div>
+        </div>
+        {props.showAdminDetails && (
+          <div className='min-w-0'>
+            <dt className='text-muted-foreground'>
+              {props.connectionLabel ?? t('Sample connection')}
+            </dt>
+            <dd className='font-medium break-all'>
+              {props.connectionKnown !== false &&
+              props.pool.channel_id !== undefined
+                ? `${props.pool.channel_name} · #${props.pool.channel_id}`
+                : t('Unknown')}
+            </dd>
+          </div>
+        )}
+        <div className='min-w-0'>
+          <dt className='text-muted-foreground'>{t('Window descriptor')}</dt>
+          <dd className='font-medium break-words'>
+            {props.pool.plan_type} ·{' '}
+            {quotaWindowLabel(props.pool.window_slot, t)} ·{' '}
+            {quotaWindowLabel(props.pool.window_type, t)} ·{' '}
+            {formatQuotaDuration(props.pool.window_seconds, t)}
+          </dd>
+        </div>
+        <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+          <div>
+            <dt className='text-muted-foreground'>{t('Snapshot')}</dt>
+            <dd className='font-medium tabular-nums'>
+              {props.sampleKnown === false
+                ? t('Unknown')
+                : `#${props.pool.snapshot_id}`}
+            </dd>
+          </div>
+          <div>
+            <dt className='text-muted-foreground'>{t('Sample age')}</dt>
+            <dd className='font-medium tabular-nums'>
+              {props.sampleKnown === false
+                ? t('Unknown')
+                : t('{{seconds}} seconds', {
+                    seconds: props.pool.sample_age_seconds.toLocaleString(),
+                  })}
+            </dd>
+          </div>
+        </div>
+        <div>
+          <dt className='text-muted-foreground'>{t('Observed at')}</dt>
+          <dd className='font-medium break-words'>
+            {props.sampleKnown === false
+              ? t('Unknown')
+              : formatTimestampToDate(props.pool.observed_at)}
+          </dd>
+        </div>
+        <div>
+          <dt className='text-muted-foreground'>{t('Resets at')}</dt>
+          <dd className='font-medium break-words'>
+            {props.sampleKnown === false
+              ? t('Unknown')
+              : formatTimestampToDate(props.pool.reset_at)}
+          </dd>
+        </div>
+      </dl>
+    </article>
+  )
+}
+
+export function SubscriptionShareWindowChangeReview(props: {
+  currentPool?: SubscriptionSharePool
+  targetPool: SubscriptionSharePool
+  mode: 'replacement' | 'rebaseline'
+}) {
+  const { t } = useTranslation()
+  const replacement = props.mode === 'replacement'
+  const title = replacement
+    ? t('Window replacement review')
+    : t('Observation recovery review')
+
+  return (
+    <section
+      className='space-y-4 rounded-xl border p-4 sm:p-5'
+      aria-label={title}
+    >
+      <div className='space-y-1'>
+        <h3 className='font-semibold'>{title}</h3>
+        <p className='text-muted-foreground text-sm'>
+          {t('This action applies to every Key in the managed pool.')}
+        </p>
+      </div>
+      <div className='grid min-w-0 gap-3 lg:grid-cols-2'>
+        <WindowIdentity
+          pool={props.currentPool}
+          title={t('Current managed window')}
+          showAdminDetails
+          connectionLabel={t('Channel')}
+          sampleKnown={replacement}
+        />
+        <WindowIdentity
+          pool={props.targetPool}
+          title={
+            replacement ? t('Target observed window') : t('Recovery sample')
+          }
+          showAdminDetails
+          connectionKnown={replacement}
+        />
+      </div>
+      <div className='space-y-2 text-sm'>
+        {replacement && (
+          <p>
+            {t(
+              'Replacement is allowed only when the server verifies the same subscription account and native window slot. Channel names and IDs identify sample connections; they do not permit a cross-account move.'
+            )}
+          </p>
+        )}
+        <p>
+          {replacement
+            ? t(
+                'Replacement starts a new tracking generation. Existing Key shares and prior window history stay with the pool. Current estimated usage does not carry into the new generation, and requests wait for a fresh baseline.'
+              )
+            : t(
+                'Recovery keeps the current window descriptor, tracking generation, and estimated usage. Unresolved requests remain uncertain while observation resumes from this fresh sample.'
+              )}
+        </p>
+      </div>
+    </section>
+  )
+}
+
 export function SubscriptionSharePoolCard(props: {
   pool: SubscriptionSharePool
   selectable: boolean
   showAdminDetails: boolean
-  closeDisabled?: boolean
-  onClosePool?: () => void
+  readOnly?: boolean
 }) {
   const { t } = useTranslation()
   const id = `subscription-share-pool-${props.pool.pool_id}-${props.pool.snapshot_id}`
@@ -100,16 +268,25 @@ export function SubscriptionSharePoolCard(props: {
             })}
           </p>
         </div>
-        <Badge
-          variant={
-            props.pool.state === 'active' || props.pool.state === 'candidate'
-              ? 'secondary'
-              : 'warning'
-          }
-          className='h-auto max-w-full whitespace-normal'
-        >
-          {stateLabel}
-        </Badge>
+        <div className='flex max-w-full flex-wrap justify-end gap-2'>
+          {props.readOnly && <Badge variant='outline'>{t('Read-only')}</Badge>}
+          {props.pool.replacement_required && (
+            <Badge variant='warning'>{t('Replacement candidate')}</Badge>
+          )}
+          {props.pool.rebaseline_required && (
+            <Badge variant='warning'>{t('Recovery sample')}</Badge>
+          )}
+          <Badge
+            variant={
+              props.pool.state === 'active' || props.pool.state === 'candidate'
+                ? 'secondary'
+                : 'warning'
+            }
+            className='h-auto max-w-full whitespace-normal'
+          >
+            {stateLabel}
+          </Badge>
+        </div>
       </div>
 
       {keyPauseLabel && (
@@ -230,17 +407,6 @@ export function SubscriptionSharePoolCard(props: {
             )}
           </p>
         )}
-      {props.onClosePool && (
-        <Button
-          type='button'
-          variant='destructive'
-          size='sm'
-          disabled={props.closeDisabled}
-          onClick={props.onClosePool}
-        >
-          {t('Close pool')}
-        </Button>
-      )}
     </div>
   )
 

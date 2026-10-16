@@ -28,8 +28,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { setup2FA, enable2FA } from '@/lib/api'
 
+import { enableTwoFA, setupTwoFA } from '../../api'
+import { useSecurityRequestScope } from '../../hooks'
 import type { TwoFASetupData } from '../../types'
 
 // ============================================================================
@@ -40,12 +41,14 @@ interface TwoFASetupDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
+  securityScopeKey: string
 }
 
 export function TwoFASetupDialog({
   open,
   onOpenChange,
   onSuccess,
+  securityScopeKey,
 }: TwoFASetupDialogProps) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
@@ -53,6 +56,7 @@ export function TwoFASetupDialog({
   const [step, setStep] = useState(0)
   const [setupData, setSetupData] = useState<TwoFASetupData | null>(null)
   const [code, setCode] = useState('')
+  const requestScope = useSecurityRequestScope(securityScopeKey)
   const stepLabels = [
     t('Scan QR Code'),
     t('Save Backup Codes'),
@@ -60,9 +64,13 @@ export function TwoFASetupDialog({
   ]
 
   const handleSetup = useCallback(async () => {
+    let requestCurrent = true
     try {
       setInitializing(true)
-      const response = await setup2FA()
+      const result = await requestScope.run((signal) => setupTwoFA(signal))
+      requestCurrent = result.current
+      if (!result.current) return
+      const response = result.value
 
       if (response.success && response.data) {
         setSetupData(response.data)
@@ -77,9 +85,9 @@ export function TwoFASetupDialog({
       toast.error(t('Failed to setup 2FA'))
       onOpenChange(false)
     } finally {
-      setInitializing(false)
+      if (requestCurrent) setInitializing(false)
     }
-  }, [onOpenChange, t])
+  }, [onOpenChange, requestScope, t])
 
   const handleEnable = async () => {
     if (!code) {
@@ -87,9 +95,15 @@ export function TwoFASetupDialog({
       return
     }
 
+    let requestCurrent = true
     try {
       setLoading(true)
-      const response = await enable2FA(code)
+      const result = await requestScope.run((signal) =>
+        enableTwoFA(code, signal)
+      )
+      requestCurrent = result.current
+      if (!result.current) return
+      const response = result.value
 
       if (response.success) {
         toast.success(t('Two-factor authentication enabled successfully!'))
@@ -103,24 +117,31 @@ export function TwoFASetupDialog({
         toast.error(response.message || t('Failed to enable 2FA'))
       }
     } catch {
-      toast.error(t('Failed to enable 2FA'))
+      toast.error(
+        t(
+          'The result could not be confirmed. Verify the current account state before trying again.'
+        )
+      )
+      onSuccess()
     } finally {
-      setLoading(false)
+      if (requestCurrent) setLoading(false)
     }
   }
 
   const handleOpenChange = (open: boolean) => {
-    if (!loading && !initializing) {
-      if (open && !setupData) {
-        handleSetup()
-      }
-      if (!open) {
-        setStep(0)
-        setCode('')
-        setSetupData(null)
-      }
-      onOpenChange(open)
+    if (!open && (initializing || loading)) return
+    if (open && !setupData) {
+      void handleSetup()
     }
+    if (!open) {
+      requestScope.cancel()
+      setLoading(false)
+      setInitializing(false)
+      setStep(0)
+      setCode('')
+      setSetupData(null)
+    }
+    onOpenChange(open)
   }
 
   // Initialize when dialog opens
@@ -145,6 +166,7 @@ export function TwoFASetupDialog({
       }
       contentClassName='sm:max-w-lg'
       contentHeight='auto'
+      showCloseButton={!initializing && !loading}
       bodyClassName='space-y-4'
       footer={
         <>

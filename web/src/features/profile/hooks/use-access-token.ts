@@ -23,21 +23,29 @@ import { toast } from 'sonner'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 
 import { generateAccessToken } from '../api'
+import { useSecurityRequestScope } from './use-security-request-scope'
 
 // ============================================================================
 // Access Token Hook
 // ============================================================================
 
-export function useAccessToken() {
+export function useAccessToken(securityScopeKey: string) {
   const [token, setToken] = useState<string>('')
   const [generating, setGenerating] = useState(false)
   const { copyToClipboard } = useCopyToClipboard({ notify: false })
+  const requestScope = useSecurityRequestScope(securityScopeKey)
 
   // Generate new access token
   const generate = useCallback(async (): Promise<boolean> => {
+    let requestCurrent = true
     try {
       setGenerating(true)
-      const response = await generateAccessToken()
+      const result = await requestScope.run((signal) =>
+        generateAccessToken(signal)
+      )
+      requestCurrent = result.current
+      if (!result.current) return false
+      const response = result.value
 
       if (response.success && response.data) {
         setToken(response.data)
@@ -51,21 +59,31 @@ export function useAccessToken() {
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Failed to generate token:', error)
-      toast.error(i18next.t('Failed to generate token'))
+      toast.error(
+        i18next.t(
+          'The result could not be confirmed. Your previous access token may already be invalid. Regenerate again only when you are ready to replace it.'
+        )
+      )
       return false
     } finally {
-      setGenerating(false)
+      if (requestCurrent) setGenerating(false)
     }
-  }, [copyToClipboard])
+  }, [copyToClipboard, requestScope])
 
   const clearToken = useCallback(() => {
     setToken('')
   }, [])
+
+  const cancel = useCallback(() => {
+    requestScope.cancel()
+    setGenerating(false)
+  }, [requestScope])
 
   return {
     token,
     generating,
     generate,
     clearToken,
+    cancel,
   }
 }

@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 
 import { updateUserProfile } from '../../api'
+import { useSecurityRequestScope } from '../../hooks'
 
 // ============================================================================
 // Change Password Dialog Component
@@ -36,12 +37,14 @@ interface ChangePasswordDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   username: string
+  securityScopeKey: string
 }
 
 export function ChangePasswordDialog({
   open,
   onOpenChange,
   username,
+  securityScopeKey,
 }: ChangePasswordDialogProps) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
@@ -50,6 +53,15 @@ export function ChangePasswordDialog({
     newPassword: '',
     confirmPassword: '',
   })
+  const requestScope = useSecurityRequestScope(securityScopeKey)
+
+  const clearForm = () => {
+    setFormData({
+      originalPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    })
+  }
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -84,29 +96,48 @@ export function ChangePasswordDialog({
       return
     }
 
+    let requestCurrent = true
     try {
       setLoading(true)
-      const response = await updateUserProfile({
-        original_password: formData.originalPassword,
-        password: formData.newPassword,
-      })
+      const result = await requestScope.run((signal) =>
+        updateUserProfile(
+          {
+            original_password: formData.originalPassword,
+            password: formData.newPassword,
+          },
+          signal
+        )
+      )
+      requestCurrent = result.current
+      if (!result.current) return
+      const response = result.value
 
       if (response.success) {
         toast.success(t('Password changed successfully'))
         onOpenChange(false)
-        setFormData({
-          originalPassword: '',
-          newPassword: '',
-          confirmPassword: '',
-        })
+        clearForm()
       } else {
         toast.error(response.message || t('Failed to change password'))
       }
     } catch {
-      toast.error(t('Failed to change password'))
+      toast.error(
+        t(
+          'The result could not be confirmed. Verify the current account state before trying again.'
+        )
+      )
     } finally {
+      if (requestCurrent) setLoading(false)
+    }
+  }
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && loading) return
+    if (!nextOpen) {
+      requestScope.cancel()
+      clearForm()
       setLoading(false)
     }
+    onOpenChange(nextOpen)
   }
 
   const formId = 'change-password-form'
@@ -114,7 +145,7 @@ export function ChangePasswordDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       title={t('Change Password')}
       description={
         <>
@@ -123,13 +154,14 @@ export function ChangePasswordDialog({
       }
       contentClassName='sm:max-w-md'
       contentHeight='auto'
+      showCloseButton={!loading}
       bodyClassName='space-y-4'
       footer={
         <>
           <Button
             type='button'
             variant='outline'
-            onClick={() => onOpenChange(false)}
+            onClick={() => handleOpenChange(false)}
             disabled={loading}
           >
             {t('Cancel')}

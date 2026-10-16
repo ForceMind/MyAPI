@@ -28,6 +28,7 @@ import {
   Link,
   Loader2,
   Gauge,
+  ListFilter,
 } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -278,6 +279,17 @@ export function DataTableRowActions<TData = ApiKey>(
           }}
         >
           {t('Assigned access')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            setCurrentRow(apiKey)
+            setOpen('model-scope')
+          }}
+        >
+          {t('Model scope')}
+          <DropdownMenuShortcut>
+            <ListFilter />
+          </DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => {

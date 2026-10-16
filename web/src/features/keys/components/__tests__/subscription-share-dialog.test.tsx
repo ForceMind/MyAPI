@@ -17,7 +17,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18next from 'i18next'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -114,7 +121,10 @@ function setSession(id: number, role: number, sid: string) {
 }
 
 function response(
-  pools: Array<typeof activePool & { reason?: string }> = [activePool, candidatePool]
+  pools: Array<typeof activePool & { reason?: string }> = [
+    activePool,
+    candidatePool,
+  ]
 ) {
   return { data: { success: true, data: { token_id: 21, pools } } }
 }
@@ -161,8 +171,12 @@ test('Root explicitly selects a window and saves an exact basis-point share', as
     '/api/token/21/subscription-share',
     expect.objectContaining({ signal: expect.any(AbortSignal) })
   )
-  expect(await within(dialog).findByText('Personal Codex')).toBeVisible()
-  expect(within(dialog).getByRole('button', { name: 'Save share' })).toBeDisabled()
+  expect(
+    await within(dialog).findByRole('radio', { name: 'Personal Codex' })
+  ).toBeVisible()
+  expect(
+    within(dialog).getByRole('button', { name: 'Save share' })
+  ).toBeDisabled()
   expect(within(dialog).getByText('Fresh candidate')).toBeVisible()
   expect(dialog).toHaveTextContent('Native window: primary · weekly')
   expect(dialog).toHaveTextContent(
@@ -174,14 +188,10 @@ test('Root explicitly selects a window and saves an exact basis-point share', as
   )
   await user.clear(within(dialog).getByLabelText('Share percentage'))
   expect(within(dialog).getByText('This creates a managed pool')).toBeVisible()
-  await user.type(
-    within(dialog).getByLabelText('Share percentage'),
-    '12.34'
-  )
+  await user.type(within(dialog).getByLabelText('Share percentage'), '12.34')
   await user.click(
     within(dialog).getByRole('checkbox', {
-      name:
-        'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+      name: 'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
     })
   )
   await user.click(within(dialog).getByRole('button', { name: 'Save share' }))
@@ -224,12 +234,16 @@ test('Root can save zero to pause a Key but cannot exceed the pool allocation', 
       'Use 0% to 100% with at most two decimal places. A 0% share blocks this Key’s requests for the window while keeping its binding and history.'
     )
   ).toBeVisible()
-  expect(within(dialog).getByRole('button', { name: 'Save share' })).toBeEnabled()
+  expect(
+    within(dialog).getByRole('button', { name: 'Save share' })
+  ).toBeEnabled()
 
   await user.clear(input)
   await user.type(input, '20.01')
   expect(
-    within(dialog).getByText('This share would make the pool allocation exceed 100%.')
+    within(dialog).getByText(
+      'This share would make the pool allocation exceed 100%.'
+    )
   ).toBeVisible()
   expect(api.put).not.toHaveBeenCalled()
 })
@@ -248,8 +262,7 @@ test('saving zero sends an explicit zero share without removing the pool binding
   await user.type(input, '0')
   await user.click(
     within(dialog).getByRole('checkbox', {
-      name:
-        'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+      name: 'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
     })
   )
   await user.click(within(dialog).getByRole('button', { name: 'Save share' }))
@@ -298,11 +311,10 @@ test('Root must confirm a pool-wide window replacement before it is written expl
   ).toBeVisible()
   await user.click(
     within(dialog).getByRole('checkbox', {
-      name:
-        'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+      name: 'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
     })
   )
-  const save = within(dialog).getByRole('button', { name: 'Save share' })
+  const save = within(dialog).getByRole('button', { name: 'Replace window' })
   expect(save).toBeDisabled()
   await user.click(save)
   expect(api.put).not.toHaveBeenCalled()
@@ -331,6 +343,74 @@ test('Root must confirm a pool-wide window replacement before it is written expl
   )
 })
 
+test('replacement review distinguishes the current descriptor from the target sample and states the same-account boundary', async () => {
+  const currentPool = {
+    ...activePool,
+    channel_id: 9,
+    channel_name: 'Current connection',
+    window_source: 'codex_wham_usage_primary',
+  }
+  const targetPool = {
+    ...replacementPool,
+    channel_id: 12,
+    channel_name: 'Target sample connection',
+    window_source: 'codex_wham_usage_primary',
+  }
+  vi.mocked(api.get).mockResolvedValue(response([targetPool, currentPool]))
+  const user = userEvent.setup()
+  renderDialog()
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Subscription shares',
+  })
+
+  await user.click(
+    await within(dialog).findByRole('radio', {
+      name: 'Target sample connection',
+    })
+  )
+
+  const review = within(dialog).getByRole('region', {
+    name: 'Window replacement review',
+  })
+  expect(within(review).getByText('Current managed window')).toBeVisible()
+  expect(within(review).getByText('Target observed window')).toBeVisible()
+  const currentWindow = within(review).getByRole('article', {
+    name: 'Current managed window',
+  })
+  expect(within(currentWindow).getByText('Channel')).toBeVisible()
+  expect(
+    within(currentWindow).getByText('Current connection · #9')
+  ).toBeVisible()
+  const targetWindow = within(review).getByRole('article', {
+    name: 'Target observed window',
+  })
+  expect(within(targetWindow).getByText('Sample connection')).toBeVisible()
+  expect(
+    within(targetWindow).getByText('Target sample connection · #12')
+  ).toBeVisible()
+  expect(within(review).getAllByText('#7')).toHaveLength(2)
+  expect(within(review).getAllByText('Revision')).toHaveLength(2)
+  expect(within(review).getAllByText('Snapshot')).toHaveLength(2)
+  expect(within(review).getAllByText('Sample age')).toHaveLength(2)
+  expect(within(review).getAllByText('Observed at')).toHaveLength(2)
+  expect(review).toHaveTextContent(
+    'plus · Primary window · Weekly window · 7 days'
+  )
+  expect(
+    within(review).getByText(
+      'Replacement is allowed only when the server verifies the same subscription account and native window slot. Channel names and IDs identify sample connections; they do not permit a cross-account move.'
+    )
+  ).toBeVisible()
+  expect(
+    within(review).getByText(
+      'Replacement starts a new tracking generation. Existing Key shares and prior window history stay with the pool. Current estimated usage does not carry into the new generation, and requests wait for a fresh baseline.'
+    )
+  ).toBeVisible()
+  expect(
+    within(dialog).getAllByRole('button', { name: 'Close pool' })
+  ).toHaveLength(1)
+})
+
 test('changing the selected window clears both replacement confirmations', async () => {
   const user = userEvent.setup()
   vi.mocked(api.get).mockResolvedValue(
@@ -351,8 +431,7 @@ test('changing the selected window clears both replacement confirmations', async
   )
   await user.click(
     within(dialog).getByRole('checkbox', {
-      name:
-        'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+      name: 'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
     })
   )
   await user.click(
@@ -369,11 +448,12 @@ test('changing the selected window clears both replacement confirmations', async
   ).not.toBeChecked()
   expect(
     within(dialog).getByRole('checkbox', {
-      name:
-        'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+      name: 'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
     })
   ).not.toBeChecked()
-  expect(within(dialog).getByRole('button', { name: 'Save share' })).toBeDisabled()
+  expect(
+    within(dialog).getByRole('button', { name: 'Replace window' })
+  ).toBeDisabled()
   expect(api.put).not.toHaveBeenCalled()
 })
 
@@ -399,6 +479,27 @@ test('Root must confirm recovery from a fresh baseline without clearing estimate
       'Existing estimated usage is kept. Requests that could not be attributed remain uncertain, and observation resumes from a new fresh sample.'
     )
   ).toBeVisible()
+  const review = within(dialog).getByRole('region', {
+    name: 'Observation recovery review',
+  })
+  const currentWindow = within(review).getByRole('article', {
+    name: 'Current managed window',
+  })
+  const currentSnapshot = within(currentWindow).getByText('Snapshot')
+  expect(currentSnapshot.nextElementSibling).toHaveTextContent('Unknown')
+  const recoverySample = within(review).getByRole('article', {
+    name: 'Recovery sample',
+  })
+  const recoveryConnection =
+    within(recoverySample).getByText('Sample connection')
+  expect(recoveryConnection.nextElementSibling).toHaveTextContent('Unknown')
+  const recoverySnapshot = within(recoverySample).getByText('Snapshot')
+  expect(recoverySnapshot.nextElementSibling).toHaveTextContent('#73')
+  expect(
+    within(review).getByText(
+      'Recovery keeps the current window descriptor, tracking generation, and estimated usage. Unresolved requests remain uncertain while observation resumes from this fresh sample.'
+    )
+  ).toBeVisible()
   expect(within(dialog).getByLabelText('Share percentage')).toBeDisabled()
   expect(within(dialog).getByLabelText('Share percentage')).toHaveValue('10')
   expect(
@@ -408,11 +509,12 @@ test('Root must confirm recovery from a fresh baseline without clearing estimate
   ).toBeVisible()
   await user.click(
     within(dialog).getByRole('checkbox', {
-      name:
-        'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+      name: 'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
     })
   )
-  const save = within(dialog).getByRole('button', { name: 'Save share' })
+  const save = within(dialog).getByRole('button', {
+    name: 'Resume observation',
+  })
   expect(save).toBeDisabled()
   expect(api.put).not.toHaveBeenCalled()
 
@@ -446,8 +548,16 @@ test('Root explicitly confirms closing an existing pool and refreshes the view',
     name: 'Subscription shares',
   })
 
+  const closeSection = within(dialog).getByRole('region', {
+    name: 'Close managed pool',
+  })
+  expect(
+    within(closeSection).getByText(
+      'Closing is separate from changing a Key share. It affects every Key in the pool and keeps the pool history.'
+    )
+  ).toBeVisible()
   await user.click(
-    await within(dialog).findByRole('button', { name: 'Close pool' })
+    within(closeSection).getByRole('button', { name: 'Close pool' })
   )
   const confirmation = await screen.findByRole('alertdialog', {
     name: 'Close this subscription pool?',
@@ -519,7 +629,9 @@ test('Root sees closed pool history without edit, close, or Key-pause controls',
       'A successful zero-growth sample releases unsampled request slots, but it does not prove those requests used no subscription capacity; attribution remains pending.'
     )
   ).not.toBeInTheDocument()
-  expect(within(dialog).queryByLabelText('Share percentage')).not.toBeInTheDocument()
+  expect(
+    within(dialog).queryByLabelText('Share percentage')
+  ).not.toBeInTheDocument()
 })
 
 test('an owner sees only their configured share and no pool allocation controls', async () => {
@@ -540,11 +652,18 @@ test('an owner sees only their configured share and no pool allocation controls'
     )
   ).toBeVisible()
   expect(within(region).queryByText('Fresh candidate')).not.toBeInTheDocument()
-  expect(within(region).queryByText('Replacement window')).not.toBeInTheDocument()
-  expect(within(region).queryByText('Recovery baseline')).not.toBeInTheDocument()
+  expect(
+    within(region).queryByText('Replacement window')
+  ).not.toBeInTheDocument()
+  expect(
+    within(region).queryByText('Recovery baseline')
+  ).not.toBeInTheDocument()
   expect(within(region).queryByText('Total allocated')).not.toBeInTheDocument()
+  expect(within(region).getByText('Read-only')).toBeVisible()
   expect(screen.queryByLabelText('Share percentage')).not.toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: 'Save share' })).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('button', { name: 'Save share' })
+  ).not.toBeInTheDocument()
 })
 
 test('an owner can inspect a zero-percent paused share without editing it', async () => {
@@ -553,7 +672,9 @@ test('an owner can inspect a zero-percent paused share without editing it', asyn
     response([{ ...activePool, channel_name: '', share_bps: 0 }])
   )
   renderDialog()
-  const dialog = await screen.findByRole('dialog', { name: 'Subscription shares' })
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Subscription shares',
+  })
   expect(await within(dialog).findByText('Native window 7')).toBeVisible()
   expect(
     within(dialog).getByText('0% share — later requests are paused')
@@ -563,7 +684,9 @@ test('an owner can inspect a zero-percent paused share without editing it', asyn
       'Estimated share exhausted — later requests are paused'
     )
   ).not.toBeInTheDocument()
-  expect(within(dialog).queryByRole('button', { name: 'Save share' })).not.toBeInTheDocument()
+  expect(
+    within(dialog).queryByRole('button', { name: 'Save share' })
+  ).not.toBeInTheDocument()
 })
 
 test('an owner still sees a stopped allocated pool that Root can rebaseline', async () => {
@@ -580,10 +703,14 @@ test('an owner still sees a stopped allocated pool that Root can rebaseline', as
     ])
   )
   renderDialog()
-  const region = await screen.findByRole('region', { name: 'Your subscription share' })
+  const region = await screen.findByRole('region', {
+    name: 'Your subscription share',
+  })
   expect(await within(region).findByText('Native window 7')).toBeVisible()
   expect(within(region).getByText('10%')).toBeVisible()
-  expect(screen.queryByRole('button', { name: 'Save share' })).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('button', { name: 'Save share' })
+  ).not.toBeInTheDocument()
 })
 
 test('an owner retains redacted closed pool history without close controls', async () => {
@@ -625,21 +752,68 @@ test('an unknown save result stays locked until a manual reload and is never rep
   )
   await user.click(
     within(dialog).getByRole('checkbox', {
-      name:
-        'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+      name: 'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
     })
   )
   await user.click(within(dialog).getByRole('button', { name: 'Save share' }))
 
   expect(
-    await within(dialog).findByText('The save result is unknown or out of date')
+    await within(dialog).findByText(
+      'The change result is unknown or out of date'
+    )
   ).toBeVisible()
+  expect(
+    within(dialog).getByRole('alert', {
+      name: 'The change result is unknown or out of date',
+    })
+  ).toHaveFocus()
   expect(api.put).toHaveBeenCalledTimes(1)
-  expect(within(dialog).getByRole('button', { name: 'Save share' })).toBeDisabled()
-  await user.click(within(dialog).getByRole('button', { name: 'Reload current state' }))
+  expect(
+    within(dialog).getByRole('button', { name: 'Save share' })
+  ).toBeDisabled()
+  await user.click(
+    within(dialog).getByRole('button', { name: 'Reload current state' })
+  )
   await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2))
   expect(api.put).toHaveBeenCalledTimes(1)
-  expect(within(dialog).getByRole('button', { name: 'Save share' })).toBeDisabled()
+  expect(
+    within(dialog).getByText(
+      'Current server state reloaded. Review the window and confirmations before taking another action.'
+    )
+  ).toBeVisible()
+  expect(
+    within(dialog).getByRole('button', { name: 'Save share' })
+  ).toBeDisabled()
+})
+
+test('a successful write that returns after unmount cannot close the next screen', async () => {
+  let finishSave!: (value: ReturnType<typeof response>) => void
+  vi.mocked(api.put).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishSave = resolve
+      })
+  )
+  const user = userEvent.setup()
+  const onClose = renderDialog()
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Subscription shares',
+  })
+  await user.click(
+    await within(dialog).findByRole('radio', { name: 'Personal Codex' })
+  )
+  await user.click(
+    within(dialog).getByRole('checkbox', {
+      name: 'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+    })
+  )
+  await user.click(within(dialog).getByRole('button', { name: 'Save share' }))
+  await waitFor(() => expect(api.put).toHaveBeenCalledTimes(1))
+
+  cleanup()
+  await act(async () => finishSave(response()))
+
+  expect(onClose).not.toHaveBeenCalled()
 })
 
 test('a failed initial read hides controls and a manual retry loads current data', async () => {
@@ -650,10 +824,14 @@ test('a failed initial read hides controls and a manual retry loads current data
   renderDialog()
   const failure = await screen.findByText('Could not load subscription shares.')
   const alert = failure.closest('[role="alert"]') as HTMLElement
-  expect(within(alert).getByText('Could not load subscription shares.')).toBeVisible()
+  expect(
+    within(alert).getByText('Could not load subscription shares.')
+  ).toBeVisible()
   expect(screen.queryByLabelText('Share percentage')).not.toBeInTheDocument()
   await user.click(within(alert).getByRole('button', { name: 'Retry' }))
-  expect(await screen.findByText('Personal Codex')).toBeVisible()
+  expect(
+    await screen.findByRole('radio', { name: 'Personal Codex' })
+  ).toBeVisible()
   expect(api.get).toHaveBeenCalledTimes(2)
 })
 
@@ -699,7 +877,9 @@ test('stale and baseline states explain pauses and distinct pending counters', a
       'A fresh sample after enabling is required before this managed pool can accept requests.'
     )
   ).toBeVisible()
-  expect(within(dialog).getAllByText('Attempts awaiting attribution')).toHaveLength(3)
+  expect(
+    within(dialog).getAllByText('Attempts awaiting attribution')
+  ).toHaveLength(3)
   expect(within(dialog).getAllByText('Unsampled attempts')).toHaveLength(3)
   expect(
     within(dialog).getAllByText(
@@ -744,8 +924,7 @@ test('a session change clears a selected replacement and its confirmations', asy
   )
   await user.click(
     within(dialog).getByRole('checkbox', {
-      name:
-        'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+      name: 'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
     })
   )
 
@@ -764,7 +943,10 @@ test('a session change clears a selected replacement and its confirmations', asy
 })
 
 test('critical approximation copy remains accessible in a 320px viewport with long translations', async () => {
-  Object.defineProperty(window, 'innerWidth', { configurable: true, value: 320 })
+  Object.defineProperty(window, 'innerWidth', {
+    configurable: true,
+    value: 320,
+  })
   i18next.addResourceBundle(
     'fr',
     'translation',
@@ -786,5 +968,7 @@ test('critical approximation copy remains accessible in a 320px viewport with lo
   expect(
     within(dialog).getByText(/Aucune limite numérique vérifiée/)
   ).toBeVisible()
-  expect(await within(dialog).findByText('Personal Codex')).toBeVisible()
+  expect(
+    await within(dialog).findByRole('radio', { name: 'Personal Codex' })
+  ).toBeVisible()
 })

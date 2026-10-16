@@ -62,7 +62,7 @@ for (const candidate of [
   { isolated: false }, { baseUrl: 'https://example.invalid' },
   { baseUrl: 'http://127.0.0.1:18080/other' }, { baseUrl: 'http://user:secret@127.0.0.1:18080' },
   { baseUrl: 'http://localhost:18080' }, { edition: 'unknown' }, { sha: 'main' },
-  { writer: 'bridge' }, { username: '' }, { password: '' },
+  { writer: 'bridge' }, { username: '' }, { password: '' }, { advancedModelScope: 'yes' },
 ]) {
   test(`fails before browser or API work for invalid scope ${JSON.stringify(candidate)}`, async () => {
     let calls = 0

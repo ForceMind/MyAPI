@@ -28,6 +28,7 @@ import { Label } from '@/components/ui/label'
 import { useCountdown } from '@/hooks/use-countdown'
 
 import { sendEmailVerification, bindEmail } from '../../api'
+import { useSecurityRequestScope } from '../../hooks'
 
 // ============================================================================
 // Email Bind Dialog Component
@@ -38,6 +39,7 @@ interface EmailBindDialogProps {
   onOpenChange: (open: boolean) => void
   currentEmail?: string
   onSuccess: () => void
+  securityScopeKey: string
 }
 
 export function EmailBindDialog({
@@ -45,12 +47,15 @@ export function EmailBindDialog({
   onOpenChange,
   currentEmail,
   onSuccess,
+  securityScopeKey,
 }: EmailBindDialogProps) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [sendingCode, setSendingCode] = useState(false)
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
+  const sendScope = useSecurityRequestScope(securityScopeKey)
+  const bindScope = useSecurityRequestScope(securityScopeKey)
   const {
     secondsLeft,
     isActive,
@@ -66,9 +71,15 @@ export function EmailBindDialog({
       return
     }
 
+    let requestCurrent = true
     try {
       setSendingCode(true)
-      const response = await sendEmailVerification(email)
+      const result = await sendScope.run((signal) =>
+        sendEmailVerification(email, undefined, signal)
+      )
+      requestCurrent = result.current
+      if (!result.current) return
+      const response = result.value
 
       if (response.success) {
         toast.success(t('Verification code sent! Please check your email.'))
@@ -79,7 +90,7 @@ export function EmailBindDialog({
     } catch {
       toast.error(t('Failed to send verification code'))
     } finally {
-      setSendingCode(false)
+      if (requestCurrent) setSendingCode(false)
     }
   }
 
@@ -89,9 +100,15 @@ export function EmailBindDialog({
       return
     }
 
+    let requestCurrent = true
     try {
       setLoading(true)
-      const response = await bindEmail(email, code)
+      const result = await bindScope.run((signal) =>
+        bindEmail(email, code, signal)
+      )
+      requestCurrent = result.current
+      if (!result.current) return
+      const response = result.value
 
       if (response.success) {
         toast.success(t('Email bound successfully!'))
@@ -105,22 +122,29 @@ export function EmailBindDialog({
         toast.error(response.message || t('Failed to bind email'))
       }
     } catch {
-      toast.error(t('Failed to bind email'))
+      toast.error(
+        t(
+          'The result could not be confirmed. Verify the current account state before trying again.'
+        )
+      )
+      onSuccess()
     } finally {
-      setLoading(false)
+      if (requestCurrent) setLoading(false)
     }
   }
 
   const handleOpenChange = (open: boolean) => {
-    if (!loading) {
-      onOpenChange(open)
-      if (!open) {
-        // Reset form when closing
-        setEmail('')
-        setCode('')
-        resetCountdown()
-      }
+    if (!open && loading) return
+    if (!open) {
+      sendScope.cancel()
+      bindScope.cancel()
+      setLoading(false)
+      setSendingCode(false)
+      setEmail('')
+      setCode('')
+      resetCountdown()
     }
+    onOpenChange(open)
   }
 
   return (
@@ -137,6 +161,7 @@ export function EmailBindDialog({
       }
       contentClassName='sm:max-w-md'
       contentHeight='auto'
+      showCloseButton={!loading}
       bodyClassName='space-y-4'
       footer={
         <>

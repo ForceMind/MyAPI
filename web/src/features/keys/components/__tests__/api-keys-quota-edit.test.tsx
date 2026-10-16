@@ -42,10 +42,9 @@ function makeKey(overrides: Partial<ApiKey> = {}): ApiKey {
 
 function installReadFixtures(
   keys: ApiKey[],
-  readKey: (
-    key: ApiKey,
-    readCount: number
-  ) => ApiKey | Promise<ApiKey> = (key) => key
+  readKey: (key: ApiKey, readCount: number) => ApiKey | Promise<ApiKey> = (
+    key
+  ) => key
 ) {
   let detailReadCount = 0
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
@@ -81,19 +80,12 @@ async function waitForDrawerReady(currentRow: ApiKey) {
       'aria-busy',
       'false'
     )
-    expect(document.getElementById('api-key-form')).not.toHaveAttribute(
-      'inert'
-    )
-    expect(
-      screen.getByRole('button', { name: 'Save changes' })
-    ).toBeEnabled()
+    expect(document.getElementById('api-key-form')).not.toHaveAttribute('inert')
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled()
   })
 }
 
-async function renderDrawer(
-  currentRow: ApiKey,
-  onOpenChange = vi.fn()
-) {
+async function renderDrawer(currentRow: ApiKey, onOpenChange = vi.fn()) {
   useSystemConfigStore.getState().setConfig({
     currency: { ...DEFAULT_CURRENCY_CONFIG, quotaDisplayType: 'TOKENS' },
   })
@@ -212,6 +204,97 @@ it.each([false, true])(
   }
 )
 
+it('omits model scope from ordinary metadata edits so deny-all cannot be disabled', async () => {
+  const key = makeKey({
+    model_limits_enabled: true,
+    model_limits: '',
+    unlimited_quota: true,
+  })
+  installReadFixtures([key])
+  const update = vi
+    .spyOn(api, 'put')
+    .mockResolvedValue({ data: { success: true } })
+  await renderDrawer(key)
+  fireEvent.change(screen.getByDisplayValue('Accounting key'), {
+    target: { value: 'Renamed deny-all key' },
+  })
+  await submit()
+  await waitFor(() => expect(update).toHaveBeenCalledOnce())
+  const payload = update.mock.calls[0][1]
+  expect(payload).toMatchObject({ id: 7, name: 'Renamed deny-all key' })
+  expect(payload).not.toHaveProperty('model_limits_enabled')
+  expect(payload).not.toHaveProperty('model_limits')
+})
+
+it('preserves the opened raw deny-all scope in a quota CAS payload', async () => {
+  const key = makeKey({
+    model_limits_enabled: true,
+    model_limits: '',
+  })
+  installReadFixtures([key])
+  const update = vi
+    .spyOn(api, 'put')
+    .mockResolvedValue({ data: { success: true } })
+  await renderDrawer(key)
+  await changeQuota('120')
+  await submit()
+  await waitFor(() => expect(update).toHaveBeenCalledOnce())
+  expect(update.mock.calls[0][1]).toMatchObject({
+    id: 7,
+    remain_quota: 120,
+    model_limits_enabled: true,
+    model_limits: '',
+    metadata_fingerprint: 'a'.repeat(64),
+  })
+})
+
+it.each([
+  {
+    name: 'unlimited',
+    scope: { model_limits_enabled: false, model_limits: '' },
+    expectedMode: 'No additional model limit',
+    expectedModels: null,
+  },
+  {
+    name: 'deny all',
+    scope: { model_limits_enabled: true, model_limits: '' },
+    expectedMode: 'Block all models',
+    expectedModels: null,
+  },
+  {
+    name: 'selected models',
+    scope: {
+      model_limits_enabled: true,
+      model_limits: 'retired/very-long-model,retired/very-long-model',
+    },
+    expectedMode: 'Only selected models',
+    expectedModels: 'retired/very-long-model,retired/very-long-model',
+  },
+])(
+  'shows the complete $name model scope as read-only in the generic editor',
+  async ({ scope, expectedMode, expectedModels }) => {
+    const key = makeKey(scope)
+    installReadFixtures([key])
+    await renderDrawer(key)
+
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: /Advanced Settings/ }))
+
+    expect(screen.getByText(expectedMode)).toBeVisible()
+    expect(
+      screen.getByText(
+        'Close this editor, then use Model scope from the Key actions to change this setting.'
+      )
+    ).toBeVisible()
+    if (expectedModels) {
+      expect(screen.getByText(expectedModels)).toBeVisible()
+    } else {
+      expect(screen.queryByText('Stored model IDs')).not.toBeInTheDocument()
+    }
+  }
+)
+
 it.each(['response', 'network'] as const)(
   'reuses one request ID and the complete payload after a %s failure',
   async (failure) => {
@@ -232,9 +315,7 @@ it.each(['response', 'network'] as const)(
     await submit()
     await waitFor(() => expect(update).toHaveBeenCalledTimes(1))
     await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'Save changes' })
-      ).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled()
     )
     await submit()
     await waitFor(() => expect(update).toHaveBeenCalledTimes(2))
@@ -257,9 +338,7 @@ it('mints a new quota request ID after a metadata-only submission interrupts a f
   await submit()
   await waitFor(() => expect(update).toHaveBeenCalledTimes(1))
   await waitFor(() =>
-    expect(
-      screen.getByRole('button', { name: 'Save changes' })
-    ).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled()
   )
 
   await changeQuota('100')
@@ -269,9 +348,7 @@ it('mints a new quota request ID after a metadata-only submission interrupts a f
   await submit()
   await waitFor(() => expect(update).toHaveBeenCalledTimes(2))
   await waitFor(() =>
-    expect(
-      screen.getByRole('button', { name: 'Save changes' })
-    ).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled()
   )
 
   const metadataPayload = update.mock.calls[1][1]
@@ -307,9 +384,7 @@ it.each(['name', 'quota'] as const)(
     await submit()
     await waitFor(() => expect(update).toHaveBeenCalledTimes(1))
     await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'Save changes' })
-      ).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled()
     )
 
     if (changedField === 'name') {
@@ -352,9 +427,7 @@ it('clears the failed attempt when the drawer closes and reopens', async () => {
   await submit()
   await waitFor(() => expect(update).toHaveBeenCalledTimes(1))
   await waitFor(() =>
-    expect(
-      screen.getByRole('button', { name: 'Save changes' })
-    ).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled()
   )
 
   await drawer.rerender(false, key)
@@ -366,9 +439,7 @@ it('clears the failed attempt when the drawer closes and reopens', async () => {
       'true'
     )
     expect(document.getElementById('api-key-form')).toHaveAttribute('inert')
-    expect(
-      screen.getByRole('button', { name: 'Save changes' })
-    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
   })
 
   await act(async () => {
@@ -388,7 +459,9 @@ it('clears the failed attempt when the drawer closes and reopens', async () => {
   const firstPayload = update.mock.calls[0][1]
   const secondPayload = update.mock.calls[1][1]
   if (!firstPayload || typeof firstPayload !== 'object') {
-    throw new TypeError('Expected the first quota update payload to be an object')
+    throw new TypeError(
+      'Expected the first quota update payload to be an object'
+    )
   }
   const firstRequestId = getRequestId(update.mock.calls[0])
   const secondRequestId = getRequestId(update.mock.calls[1])
@@ -428,9 +501,7 @@ it('clears the failed attempt and captures a fresh snapshot when switching keys'
   await submit()
   await waitFor(() => expect(update).toHaveBeenCalledTimes(1))
   await waitFor(() =>
-    expect(
-      screen.getByRole('button', { name: 'Save changes' })
-    ).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled()
   )
 
   await drawer.rerender(true, second)
@@ -462,9 +533,7 @@ it('clears the attempt after success before another identical submission', async
   await submit()
   await waitFor(() => expect(update).toHaveBeenCalledTimes(1))
   await waitFor(() =>
-    expect(
-      screen.getByRole('button', { name: 'Save changes' })
-    ).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled()
   )
   await submit()
   await waitFor(() => expect(update).toHaveBeenCalledTimes(2))

@@ -16,7 +16,8 @@ const stages = new Set(['launch', 'setup', 'setup-session', 'setup-open', 'setup
   'key-selection-model', 'playground-response', 'playground-complete', 'playground-rejection',
   'usage-open', 'usage-filter', 'usage-list', 'usage-list-visible', 'usage-details-open', 'usage-details-request', 'usage-details-key',
   'policy-user-filter', 'strict-key-filter',
-  'strict-budget', 'reload-check', 'build-visible', 'screenshot', 'browser-close'])
+  'strict-budget', 'reload-check', 'model-scope-boundary', 'model-scope-open', 'model-scope-restrict',
+  'model-scope-restore', 'build-visible', 'screenshot', 'browser-close'])
 const codes = new Set(['SCOPE_REJECTED', 'AUTH_UNAVAILABLE', 'BROWSER_FAILED', 'BROWSER_CLOSE_FAILED', 'SETUP_FAILED',
   'HTTP_FAILED', 'LOGIN_FAILED', 'RUNTIME_ERROR', 'BUILD_MISMATCH', 'API_FAILED', 'STATE_MISMATCH',
   'KEY_MISMATCH', 'POLICY_MISMATCH', 'REQUEST_MISMATCH', 'RELAY_MISMATCH', 'LOG_MISMATCH',
@@ -93,6 +94,7 @@ function validateOptions(options, withUpstream) {
   if (withUpstream) requireThat(upstream.origin === 'http://127.0.0.1:19090' && !upstream.username &&
     !upstream.password && upstream.pathname === '/' && !upstream.search && !upstream.hash, 'SCOPE_REJECTED')
   requireThat(typeof username === 'string' && username.length > 0 && typeof password === 'string' && password.length >= 8, 'AUTH_UNAVAILABLE')
+  requireThat(options.advancedModelScope === undefined || typeof options.advancedModelScope === 'boolean', 'SCOPE_REJECTED')
   if (artifactDir !== undefined) {
     try {
       requireThat(path.isAbsolute(artifactDir) && lstatSync(artifactDir).isDirectory() &&
@@ -200,7 +202,8 @@ async function newSession(browser, origin, language = 'en', width = 1280, scope 
   const page = await bounded(scope, () => context.newPage())
   page.setDefaultTimeout(20_000)
   const translations = JSON.parse(readFileSync(new URL(`../../web/src/i18n/locales/${language}.json`, import.meta.url), 'utf8')).translation
-  const session = { context, page, scope, language, width, origin, errors: 0, requests: 0, reveals: 0, secrets: [],
+  const session = { context, page, scope, language, width, origin, errors: 0, requests: 0, reveals: 0,
+    modelScopeWrites: 0, secrets: [],
     label: (key) => translations[key] || key }
   const diagnostics = new Set()
   let diagnosticLimit = false
@@ -244,6 +247,7 @@ async function newSession(browser, origin, language = 'en', width = 1280, scope 
     const pathname = url.pathname
     if (pathname === '/pg/chat/completions' && request.method() === 'POST') session.requests += 1
     if (/^\/api\/token\/\d+\/key$/.test(pathname)) session.reveals += 1
+    if (/^\/api\/token\/\d+\/model-limits$/.test(pathname) && request.method() === 'PUT') session.modelScopeWrites += 1
   })
   page.on('requestfailed', request => {
     try {
@@ -642,6 +646,102 @@ async function snapshot(api, session, key) {
   return { user, token }
 }
 
+function modelScopeInvariant(snapshot) {
+  const userFields = ['id', 'role', 'quota', 'used_quota', 'request_count', 'self_use_no_balance']
+  const tokenFields = ['id', 'user_id', 'status', 'name', 'created_time', 'accessed_time', 'expired_time',
+    'remain_quota', 'quota_version', 'unlimited_quota', 'allow_ips', 'used_quota', 'group', 'access_profile_id',
+    'cross_group_retry', 'auto_groups']
+  return {
+    user: userFields.map(field => [field, snapshot.user?.[field]]),
+    token: tokenFields.map(field => [field, snapshot.token?.[field]]),
+  }
+}
+
+function sameInvariant(left, right) {
+  return JSON.stringify(modelScopeInvariant(left)) === JSON.stringify(modelScopeInvariant(right))
+}
+
+async function exerciseAdvancedModelScope(api, root, owner, key, before, options, screenshots, control) {
+  const endpoint = `/api/token/${key.id}/model-limits`
+  owner.scope.stage = 'model-scope-boundary'
+  const initial = await api(owner, endpoint)
+  requireThat(initial?.token_id === key.id && initial.token_name === key.name &&
+    initial.model_limits_enabled === false && Array.isArray(initial.models) && initial.models.length === 0 &&
+    typeof initial.revision === 'string' && /^[a-f0-9]{64}$/.test(initial.revision), 'KEY_MISMATCH')
+  const rootRead = await api(root, endpoint, 'GET', undefined, true)
+  const rootWrite = await api(root, endpoint, 'PUT', {
+    expected_revision: initial.revision, model_limits_enabled: true, models: [model],
+  }, true)
+  requireThat(rootRead.status === 404 && rootRead.payload?.success === false &&
+    rootWrite.status === 404 && rootWrite.payload?.success === false, 'KEY_MISMATCH')
+
+  const openDialog = async () => {
+    owner.scope.stage = 'model-scope-open'
+    await open(owner, `/keys?filter=${encodeURIComponent(key.name)}`, { forceLoad: true })
+    const card = owner.page.locator('[data-slot="card"]').filter({
+      has: owner.page.getByText(key.name, { exact: true }),
+    })
+    await card.waitFor({ state: 'visible' })
+    requireThat(await card.count() === 1, 'KEY_MISMATCH')
+    const read = responseFor(owner, endpoint, 'GET')
+    await card.getByRole('button', { name: owner.label('Model scope'), exact: true }).click()
+    const dialog = owner.page.getByRole('dialog', { name: owner.label('Model scope'), exact: true })
+    await dialog.waitFor({ state: 'visible' })
+    const scope = await responseSuccess(owner, await read, 'KEY_MISMATCH')
+    return { dialog, scope }
+  }
+  const save = async (dialog, expected) => {
+    const written = responseFor(owner, endpoint, 'PUT')
+    const readback = responseFor(owner, endpoint, 'GET')
+    await dialog.getByRole('button', { name: owner.label('Save model scope'), exact: true }).click()
+    const writeResponse = await written
+    const command = writeResponse.request().postDataJSON()
+    requireThat(Object.keys(command || {}).sort().join(',') === 'expected_revision,model_limits_enabled,models' &&
+      typeof command.expected_revision === 'string' && /^[a-f0-9]{64}$/.test(command.expected_revision) &&
+      command.model_limits_enabled === expected.enabled && Array.isArray(command.models) &&
+      JSON.stringify(command.models) === JSON.stringify(expected.models), 'KEY_MISMATCH')
+    const writeView = await responseSuccess(owner, writeResponse, 'KEY_MISMATCH')
+    const readView = await responseSuccess(owner, await readback, 'KEY_MISMATCH')
+    for (const view of [writeView, readView]) {
+      requireThat(view?.token_id === key.id && view.token_name === key.name &&
+        view.model_limits_enabled === expected.enabled && Array.isArray(view.models) &&
+        JSON.stringify(view.models) === JSON.stringify(expected.models) &&
+        typeof view.revision === 'string' && /^[a-f0-9]{64}$/.test(view.revision), 'KEY_MISMATCH')
+    }
+    await dialog.waitFor({ state: 'hidden' })
+    return readView
+  }
+
+  const upstreamBefore = await control()
+  const writesBefore = owner.modelScopeWrites
+  const first = await openDialog()
+  requireThat(first.scope.model_limits_enabled === false && first.scope.models.length === 0, 'KEY_MISMATCH')
+  owner.scope.stage = 'model-scope-restrict'
+  await first.dialog.locator('#model-scope-restricted').click()
+  await first.dialog.getByPlaceholder(owner.label('Search current model catalog')).fill(model)
+  await first.dialog.getByRole('button', { name: model, exact: true }).click()
+  await save(first.dialog, { enabled: true, models: [model] })
+
+  const second = await openDialog()
+  requireThat(second.scope.model_limits_enabled === true && JSON.stringify(second.scope.models) === JSON.stringify([model]), 'KEY_MISMATCH')
+  await capture(owner, options, 'model-scope-restricted', screenshots, second.dialog)
+  owner.scope.stage = 'model-scope-restore'
+  await second.dialog.locator('#model-scope-unlimited').click()
+  await second.dialog.getByRole('button', { name: owner.label('Clear retained model list'), exact: true }).click()
+  await save(second.dialog, { enabled: false, models: [] })
+
+  const restored = await api(owner, endpoint)
+  requireThat(restored?.token_id === key.id && restored.token_name === key.name &&
+    restored.model_limits_enabled === false && Array.isArray(restored.models) && restored.models.length === 0,
+  'KEY_MISMATCH')
+  const after = await snapshot(api, owner, key)
+  const writes = owner.modelScopeWrites - writesBefore
+  requireThat(writes === 2 && sameInvariant(before, after) && await control() === upstreamBefore, 'STATE_MISMATCH')
+  // Catalog selection proves the stored policy only. No relay request is sent
+  // here, so the report makes no claim that the selected model is available.
+  return { writes, ownerBoundary404: true, metadataPreserved: true, additionalUpstreamRequests: 0 }
+}
+
 async function verifyUsage(api, session, key, before, requestId, consumed) {
   session.scope.stage = 'ledger-check'
   let logs
@@ -991,6 +1091,11 @@ export async function probePersonalBrowserJourney(options = {}) {
     const persisted = await snapshot(api, owner, ownerKey)
     requireThat(persisted.token.remain_quota === quota - usage && persisted.token.used_quota === usage &&
       persisted.user.quota === 0 && persisted.user.role === 1 && persisted.user.used_quota === usage && persisted.user.request_count === 1, 'USAGE_MISMATCH')
+    if (options.advancedModelScope === true) {
+      const result = await exerciseAdvancedModelScope(api, root, owner, ownerKey, persisted, options, screenshots, control)
+      checks.push({ name: 'real owner model scope narrows and restores without changing Key metadata or relay usage',
+        ok: true, ...result })
+    }
     const finalWriter = await api(root, '/api/quota-writer/status')
     requireThat(finalWriter.state?.mode === writer, 'WRITER_MISMATCH')
     requireThat(root.errors === 0 && owner.errors === 0 && root.reveals === 0 && owner.reveals === 0 &&

@@ -35,6 +35,7 @@ const pool = {
   snapshot_id: 9,
   revision: 0,
   channel_name: 'Candidate',
+  window_source: 'codex_wham_usage_primary',
   plan_type: 'plus',
   window_slot: 'primary',
   window_type: 'weekly',
@@ -73,6 +74,7 @@ test('GET validates token identity and forwards cancellation without request ded
     disableDuplicate: true,
     skipBusinessError: true,
     skipErrorHandler: true,
+    skipAuthRefresh: true,
   })
 
   vi.mocked(api.get).mockResolvedValueOnce({
@@ -102,7 +104,11 @@ test('PUT preserves the integer basis-point CAS command and validates approximat
   expect(api.put).toHaveBeenCalledWith(
     '/api/token/21/subscription-share',
     command,
-    { skipBusinessError: true, skipErrorHandler: true }
+    {
+      skipBusinessError: true,
+      skipErrorHandler: true,
+      skipAuthRefresh: true,
+    }
   )
 
   vi.mocked(api.put).mockResolvedValueOnce({
@@ -151,7 +157,11 @@ test('replacement candidates and explicit replacement writes preserve their flag
   expect(api.put).toHaveBeenCalledWith(
     '/api/token/21/subscription-share',
     command,
-    { skipBusinessError: true, skipErrorHandler: true }
+    {
+      skipBusinessError: true,
+      skipErrorHandler: true,
+      skipAuthRefresh: true,
+    }
   )
 })
 
@@ -187,7 +197,11 @@ test('POST closes a pool with an idempotent revision command and validates succe
   expect(api.post).toHaveBeenCalledWith(
     '/api/subscription-share/pools/7/close',
     command,
-    { skipBusinessError: true, skipErrorHandler: true }
+    {
+      skipBusinessError: true,
+      skipErrorHandler: true,
+      skipAuthRefresh: true,
+    }
   )
 
   vi.mocked(api.post).mockResolvedValueOnce({ data: { success: false } })

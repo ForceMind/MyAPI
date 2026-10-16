@@ -742,4 +742,5 @@ test('personal browser fixed stages survive the top-level safe report boundary',
   const runtime = readFileSync(new URL('./docker-smoke.mjs', import.meta.url), 'utf8')
   const values = (source, name) => [...source.match(new RegExp(`const ${name} = new Set\\(\\[([\\s\\S]*?)\\]\\)`))[1].matchAll(/'([^']+)'/g)].map(match => match[1]).sort()
   assert.deepEqual(values(runtime, 'safeStages'), values(driver, 'stages'))
+  assert.match(runtime, /personalOptions = personalEnabled \? \{[\s\S]*?advancedModelScope: true,[\s\S]*?\} : null/)
 })

@@ -50,22 +50,32 @@ import {
   revokeLoginSession,
   revokeOtherLoginSessions,
 } from '../api'
+import { useSecurityRequestScope } from '../hooks'
 import { LoginSessionDialogs } from './login-session-dialogs'
 import { LoginSessionItem } from './login-session-item'
 
-const sessionQueryKey = ['profile', 'login-sessions'] as const
+interface LoginSessionsCardProps {
+  securityScopeKey: string
+}
 
-export function LoginSessionsCard() {
+export function LoginSessionsCard(props: LoginSessionsCardProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [revokeTarget, setRevokeTarget] = useState<LoginSession | null>(null)
   const [confirmOthers, setConfirmOthers] = useState(false)
+  const revokeScope = useSecurityRequestScope(props.securityScopeKey)
+  const revokeOthersScope = useSecurityRequestScope(props.securityScopeKey)
+  const sessionQueryKey = [
+    'profile',
+    'login-sessions',
+    props.securityScopeKey,
+  ] as const
 
   const sessionsQuery = useQuery({
     queryKey: sessionQueryKey,
-    queryFn: async () => {
-      const response = await getLoginSessions()
+    queryFn: async ({ signal }) => {
+      const response = await getLoginSessions(signal)
       if (!response.success) {
         throw new Error(response.message || t('Failed to load login sessions'))
       }
@@ -75,13 +85,18 @@ export function LoginSessionsCard() {
 
   const revokeMutation = useMutation({
     mutationFn: async (sid: string) => {
-      const response = await revokeLoginSession(sid)
+      const result = await revokeScope.run((signal) =>
+        revokeLoginSession(sid, signal)
+      )
+      if (!result.current) return null
+      const response = result.value
       if (!response.success) {
         throw new Error(response.message || t('Failed to sign out session'))
       }
       return sid
     },
     onSuccess: async (sid) => {
+      if (!sid) return
       const revokedCurrent = sessionsQuery.data?.some(
         (session) => session.sid === sid && session.current
       )
@@ -99,14 +114,20 @@ export function LoginSessionsCard() {
 
   const revokeOthersMutation = useMutation({
     mutationFn: async () => {
-      const response = await revokeOtherLoginSessions()
+      const result = await revokeOthersScope.run((signal) =>
+        revokeOtherLoginSessions(signal)
+      )
+      if (!result.current) return false
+      const response = result.value
       if (!response.success) {
         throw new Error(
           response.message || t('Failed to sign out other sessions')
         )
       }
+      return true
     },
-    onSuccess: async () => {
+    onSuccess: async (current) => {
+      if (!current) return
       setConfirmOthers(false)
       toast.success(t('Other sessions signed out'))
       await queryClient.invalidateQueries({ queryKey: sessionQueryKey })
@@ -202,8 +223,14 @@ export function LoginSessionsCard() {
         confirmOthers={confirmOthers}
         revoking={revokeMutation.isPending}
         revokingOthers={revokeOthersMutation.isPending}
-        onRevokeTargetChange={setRevokeTarget}
-        onConfirmOthersChange={setConfirmOthers}
+        onRevokeTargetChange={(session) => {
+          if (!session) revokeScope.cancel()
+          setRevokeTarget(session)
+        }}
+        onConfirmOthersChange={(open) => {
+          if (!open) revokeOthersScope.cancel()
+          setConfirmOthers(open)
+        }}
         onRevoke={() => {
           if (revokeTarget) revokeMutation.mutate(revokeTarget.sid)
         }}

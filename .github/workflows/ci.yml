@@ -373,6 +373,7 @@ jobs:
           MYAPI_B2_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=b2-fixture-password dbname=myapi_b2_test sslmode=disable
         run: |
           go test -p 1 ./model -run '^TestSubscriptionShareConfiguredDatabases$' -count=1 -timeout=180s -v
+          go test -p 1 ./model -run '^TestTokenModelLimitsConfiguredDatabases$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^Test(ChannelQuotaIdentity|OfficialPriceVersion|R1UsageReview|PricePublication|TokenBudget|PlaygroundToken|RelayAccountHold|OpenAIPriceCheck|ChannelQuotaAlert)ConfiguredDatabases$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestAccountQuotaConfiguredSchema(MySQLAndPostgres|SQLite)$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestChannelModel(Discovery|Route)ConfiguredDatabases$' -count=1 -timeout=180s -v
@@ -690,6 +691,41 @@ jobs:
           path: |
             ${{ runner.temp }}/myapi-personal-console-artifacts/*.png
             ${{ runner.temp }}/myapi-personal-console-artifacts/*.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Qualify advanced personal maintenance in Chromium
+        if: ${{ !cancelled() && steps.browser-dependencies.outcome == 'success' }}
+        working-directory: .
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-browser/node_modules/playwright/index.mjs
+          MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-advanced-maintenance-artifacts
+          NODE_OPTIONS: '--max-old-space-size=768'
+        run: |
+          scripts=(window-maintenance model-scope security-maintenance)
+          pids=()
+          for name in "${scripts[@]}"; do
+            node "tools/ui/$name-browser.mjs" > "$RUNNER_TEMP/advanced-$name.log" 2>&1 &
+            pids+=("$!")
+          done
+          failed=0
+          for index in "${!scripts[@]}"; do
+            if ! wait "${pids[$index]}"; then
+              echo "::error file=tools/ui/${scripts[$index]}-browser.mjs::Advanced maintenance qualification failed"
+              failed=1
+            fi
+            cat "$RUNNER_TEMP/advanced-${scripts[$index]}.log"
+          done
+          exit "$failed"
+
+      - name: Upload advanced maintenance screenshots and reports
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-advanced-maintenance-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/myapi-advanced-maintenance-artifacts/*.png
+            ${{ runner.temp }}/myapi-advanced-maintenance-artifacts/*.json
           if-no-files-found: ignore
           retention-days: 7
 

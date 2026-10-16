@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useAuthStore } from '@/stores/auth-store'
 
 import type { UserProfile } from '../types'
 import { LanguagePreferencesCard } from './language-preferences-card'
@@ -36,7 +37,13 @@ type PersonalProfileProps = {
 
 export function PersonalProfile(props: PersonalProfileProps) {
   const { t } = useTranslation()
-  const [securityOpen, setSecurityOpen] = useState(false)
+  const authUserId = useAuthStore((state) => state.auth.user?.id)
+  const sessionSid = useAuthStore((state) => state.auth.session?.sid)
+  const securityScopeKey = `${authUserId ?? props.profile?.id ?? 'anonymous'}:${sessionSid ?? 'no-session'}`
+  const [openSecurityScope, setOpenSecurityScope] = useState<string | null>(
+    null
+  )
+  const securityOpen = openSecurityScope === securityScopeKey
   const name = props.profile?.display_name || props.profile?.username || ''
 
   return (
@@ -193,7 +200,11 @@ export function PersonalProfile(props: PersonalProfileProps) {
                     type='button'
                     aria-expanded={securityOpen}
                     aria-controls='personal-security-settings'
-                    onClick={() => setSecurityOpen(!securityOpen)}
+                    onClick={() =>
+                      setOpenSecurityScope(
+                        securityOpen ? null : securityScopeKey
+                      )
+                    }
                     className='focus-visible:outline-primary flex w-full items-center gap-4 rounded-md pt-5 text-left focus-visible:outline-2 focus-visible:outline-offset-4'
                   >
                     <ShieldCheck
@@ -218,22 +229,34 @@ export function PersonalProfile(props: PersonalProfileProps) {
                 </CardContent>
               </Card>
               {securityOpen && (
-                <div id='personal-security-settings' className='space-y-5'>
+                <div
+                  key={securityScopeKey}
+                  id='personal-security-settings'
+                  className='space-y-5'
+                >
                   <ProfileSettingsCard
                     showBalanceThreshold={false}
                     profile={props.profile}
                     loading={false}
                     onProfileUpdate={props.onRefresh}
+                    securityScopeKey={securityScopeKey}
                   />
                   <ProfileSecurityCard
                     profile={props.profile}
                     loading={false}
+                    securityScopeKey={securityScopeKey}
                   />
                   <div className='grid items-start gap-5 lg:grid-cols-2'>
-                    <PasskeyCard loading={false} />
-                    <TwoFACard loading={false} />
+                    <PasskeyCard
+                      loading={false}
+                      securityScopeKey={securityScopeKey}
+                    />
+                    <TwoFACard
+                      loading={false}
+                      securityScopeKey={securityScopeKey}
+                    />
                   </div>
-                  <LoginSessionsCard />
+                  <LoginSessionsCard securityScopeKey={securityScopeKey} />
                 </div>
               )}
             </>

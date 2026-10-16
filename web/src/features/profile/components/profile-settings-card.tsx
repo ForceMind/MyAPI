@@ -38,6 +38,7 @@ interface ProfileSettingsCardProps {
   loading: boolean
   onProfileUpdate: () => void
   showBalanceThreshold?: boolean
+  securityScopeKey?: string
 }
 
 export function ProfileSettingsCard({
@@ -45,6 +46,7 @@ export function ProfileSettingsCard({
   loading,
   onProfileUpdate,
   showBalanceThreshold = true,
+  securityScopeKey = 'profile-security',
 }: ProfileSettingsCardProps) {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('bindings')
@@ -97,7 +99,11 @@ export function ProfileSettingsCard({
         </TabsList>
 
         <TabsContent value='bindings' className='mt-4 sm:mt-6'>
-          <AccountBindingsTab profile={profile} onUpdate={onProfileUpdate} />
+          <AccountBindingsTab
+            profile={profile}
+            onUpdate={onProfileUpdate}
+            securityScopeKey={securityScopeKey}
+          />
         </TabsContent>
 
         <TabsContent value='settings' className='mt-4 sm:mt-6'>

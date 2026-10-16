@@ -396,14 +396,32 @@ func (token *Token) Insert() error {
 
 // Update Make sure your token's fields is completed, because this will update non-zero values
 func (token *Token) Update() (err error) {
+	return token.UpdateMetadata(true, true)
+}
+
+// UpdateMetadata preserves model-limit columns omitted by metadata clients,
+// including a newer scope committed after they read the token.
+func (token *Token) UpdateMetadata(modelLimitsEnabledPresent, modelLimitsPresent bool) error {
 	// Legacy callers may omit the additive identity; explicit profile IDs must
 	// survive updates so the domain field is not silently overwritten by group.
 	if strings.TrimSpace(token.AccessProfileID) == "" {
 		token.AccessProfileID = EffectiveAccessProfileID(token.Group)
 	}
+	fields := []string{"name", "status", "expired_time", "unlimited_quota", "allow_ips", "group", "access_profile_id", "cross_group_retry", "auto_groups"}
+	if modelLimitsEnabledPresent {
+		fields = append(fields, "model_limits_enabled")
+	}
+	if modelLimitsPresent {
+		fields = append(fields, "model_limits")
+	}
 	return mutateTokenMetadataWithCacheFence(token.Key, func(tx *gorm.DB) error {
-		return tx.Model(token).Select("name", "status", "expired_time", "unlimited_quota",
-			"model_limits_enabled", "model_limits", "allow_ips", "group", "access_profile_id", "cross_group_retry", "auto_groups").Updates(token).Error
+		return tx.Model(token).Select(fields).Updates(token).Error
+	})
+}
+
+func (token *Token) UpdateStatus() error {
+	return mutateTokenMetadataWithCacheFence(token.Key, func(tx *gorm.DB) error {
+		return tx.Model(token).Update("status", token.Status).Error
 	})
 }
 

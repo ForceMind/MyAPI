@@ -16,6 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type {
+  PasskeyOptionsPayload,
+  PasskeyStatus,
+} from '@/features/auth/passkey'
 import { api } from '@/lib/api'
 import type { CustomOAuthBinding } from '@/lib/oauth'
 import type { LoginSession } from '@/stores/auth-store'
@@ -76,10 +80,15 @@ export async function getUserProfile(
  * Update user profile
  */
 export async function updateUserProfile(
-  data: UpdateUserRequest
+  data: UpdateUserRequest,
+  signal?: AbortSignal
 ): Promise<ApiResponse> {
   const res = await api.put('/api/user/self', data, {
     acceptAuthRotation: Boolean(data.password),
+    skipAuthRefresh: Boolean(data.password),
+    skipErrorHandler: Boolean(data.password),
+    skipBusinessError: Boolean(data.password),
+    signal,
   })
   return res.data
 }
@@ -108,17 +117,32 @@ export async function updateUserLanguage(
  * Delete user account
  */
 export async function deleteUserAccount(
-  data?: DeleteAccountRequest
+  data?: DeleteAccountRequest,
+  signal?: AbortSignal
 ): Promise<ApiResponse> {
-  const res = await api.delete('/api/user/self', { data })
+  const res = await api.delete('/api/user/self', {
+    data,
+    signal,
+    skipAuthRefresh: true,
+    skipErrorHandler: true,
+    skipBusinessError: true,
+  })
   return res.data
 }
 
 /**
  * Generate/regenerate system access token
  */
-export async function generateAccessToken(): Promise<ApiResponse<string>> {
-  const res = await api.get('/api/user/token')
+export async function generateAccessToken(
+  signal?: AbortSignal
+): Promise<ApiResponse<string>> {
+  const res = await api.get('/api/user/token', {
+    signal,
+    disableDuplicate: true,
+    skipAuthRefresh: true,
+    skipErrorHandler: true,
+    skipBusinessError: true,
+  })
   return res.data
 }
 
@@ -131,13 +155,20 @@ export async function generateAccessToken(): Promise<ApiResponse<string>> {
  */
 export async function sendEmailVerification(
   email: string,
-  turnstileToken?: string
+  turnstileToken?: string,
+  signal?: AbortSignal
 ): Promise<ApiResponse> {
   const params = new URLSearchParams({ email })
   if (turnstileToken) {
     params.append('turnstile', turnstileToken)
   }
-  const res = await api.get(`/api/verification?${params}`)
+  const res = await api.get(`/api/verification?${params}`, {
+    signal,
+    disableDuplicate: true,
+    skipAuthRefresh: true,
+    skipErrorHandler: true,
+    skipBusinessError: true,
+  })
   return res.data
 }
 
@@ -146,23 +177,38 @@ export async function sendEmailVerification(
  */
 export async function bindEmail(
   email: string,
-  code: string
+  code: string,
+  signal?: AbortSignal
 ): Promise<ApiResponse> {
-  const res = await api.post('/api/oauth/email/bind', {
-    email,
-    code,
-  })
+  const res = await api.post(
+    '/api/oauth/email/bind',
+    { email, code },
+    {
+      signal,
+      skipAuthRefresh: true,
+      skipErrorHandler: true,
+      skipBusinessError: true,
+    }
+  )
   return res.data
 }
 
 /**
  * Bind WeChat account
  */
-export async function bindWeChat(code: string): Promise<ApiResponse> {
+export async function bindWeChat(
+  code: string,
+  signal?: AbortSignal
+): Promise<ApiResponse> {
   const res = await api.post(
     '/api/oauth/wechat/bind',
     { code },
-    { skipBusinessError: true, skipErrorHandler: true }
+    {
+      signal,
+      skipAuthRefresh: true,
+      skipBusinessError: true,
+      skipErrorHandler: true,
+    }
   )
   return res.data
 }
@@ -173,10 +219,53 @@ export interface TelegramBindFlow {
   expires_at: number
 }
 
-export async function startTelegramBind(): Promise<
-  ApiResponse<TelegramBindFlow>
-> {
-  const res = await api.post('/api/oauth/telegram/bind/start')
+export async function startTelegramBind(
+  signal?: AbortSignal
+): Promise<ApiResponse<TelegramBindFlow>> {
+  const res = await api.post('/api/oauth/telegram/bind/start', undefined, {
+    signal,
+    skipAuthRefresh: true,
+    skipErrorHandler: true,
+    skipBusinessError: true,
+  })
+  return res.data
+}
+
+export async function startOAuthBindFlow(
+  provider: string,
+  signal?: AbortSignal
+): Promise<string> {
+  const res = await api.post(
+    '/api/oauth/state',
+    { provider, intent: 'bind' },
+    {
+      signal,
+      skipAuthRefresh: true,
+      skipErrorHandler: true,
+      skipBusinessError: true,
+    }
+  )
+  const value = res.data?.data
+  if (res.data?.success && typeof value === 'string') return value
+  if (res.data?.success && typeof value?.flow_token === 'string') {
+    return value.flow_token
+  }
+  throw new Error(res.data?.message || 'Failed to initialize OAuth')
+}
+
+export async function completeOAuthBindFlow(
+  provider: string,
+  params: Record<string, string>,
+  signal?: AbortSignal
+): Promise<ApiResponse> {
+  const res = await api.get(`/api/oauth/${provider}`, {
+    params,
+    signal,
+    disableDuplicate: true,
+    skipAuthRefresh: true,
+    skipErrorHandler: true,
+    skipBusinessError: true,
+  })
   return res.data
 }
 
@@ -184,18 +273,246 @@ export async function startTelegramBind(): Promise<
 // Login Session APIs
 // ============================================================================
 
-export async function getLoginSessions(): Promise<ApiResponse<LoginSession[]>> {
-  const res = await api.get('/api/user/sessions')
+export async function getLoginSessions(
+  signal?: AbortSignal
+): Promise<ApiResponse<LoginSession[]>> {
+  const res = await api.get('/api/user/sessions', {
+    signal,
+    disableDuplicate: true,
+    skipAuthRefresh: true,
+    skipErrorHandler: true,
+    skipBusinessError: true,
+  })
   return res.data
 }
 
-export async function revokeLoginSession(sid: string): Promise<ApiResponse> {
-  const res = await api.delete(`/api/user/sessions/${encodeURIComponent(sid)}`)
+export async function revokeLoginSession(
+  sid: string,
+  signal?: AbortSignal
+): Promise<ApiResponse> {
+  const res = await api.delete(
+    `/api/user/sessions/${encodeURIComponent(sid)}`,
+    {
+      signal,
+      skipAuthRefresh: true,
+      skipErrorHandler: true,
+      skipBusinessError: true,
+    }
+  )
   return res.data
 }
 
-export async function revokeOtherLoginSessions(): Promise<ApiResponse> {
-  const res = await api.post('/api/user/sessions/revoke-others')
+export async function revokeOtherLoginSessions(
+  signal?: AbortSignal
+): Promise<ApiResponse> {
+  const res = await api.post('/api/user/sessions/revoke-others', undefined, {
+    signal,
+    skipAuthRefresh: true,
+    skipErrorHandler: true,
+    skipBusinessError: true,
+  })
+  return res.data
+}
+
+// ============================================================================
+// Two-factor authentication APIs
+// ============================================================================
+
+export async function getTwoFAStatus(
+  signal?: AbortSignal
+): Promise<ApiResponse> {
+  if (signal?.aborted) throw new Error('2FA status request cancelled')
+
+  const controller = new AbortController()
+  const cancel = () => controller.abort()
+  const cancelled = new Promise<never>((_, reject) => {
+    controller.signal.addEventListener(
+      'abort',
+      () => reject(new Error('2FA status request cancelled')),
+      { once: true }
+    )
+  })
+  signal?.addEventListener('abort', cancel, { once: true })
+  const deadline = globalThis.setTimeout(cancel, 15000)
+  try {
+    const res = await Promise.race([
+      api.get('/api/user/2fa/status', {
+        signal: controller.signal,
+        timeout: 15000,
+        disableDuplicate: true,
+        skipAuthRefresh: true,
+        skipErrorHandler: true,
+        skipBusinessError: true,
+      }),
+      cancelled,
+    ])
+    return res.data
+  } finally {
+    globalThis.clearTimeout(deadline)
+    signal?.removeEventListener('abort', cancel)
+  }
+}
+
+export async function setupTwoFA(signal?: AbortSignal): Promise<ApiResponse> {
+  const res = await api.post('/api/user/2fa/setup', undefined, {
+    signal,
+    skipAuthRefresh: true,
+    skipErrorHandler: true,
+    skipBusinessError: true,
+  })
+  return res.data
+}
+
+export async function enableTwoFA(
+  code: string,
+  signal?: AbortSignal
+): Promise<ApiResponse> {
+  const res = await api.post(
+    '/api/user/2fa/enable',
+    { code },
+    {
+      signal,
+      acceptAuthRotation: true,
+      skipAuthRefresh: true,
+      skipErrorHandler: true,
+      skipBusinessError: true,
+    }
+  )
+  return res.data
+}
+
+export async function disableTwoFA(
+  code: string,
+  signal?: AbortSignal
+): Promise<ApiResponse> {
+  const res = await api.post(
+    '/api/user/2fa/disable',
+    { code },
+    {
+      signal,
+      acceptAuthRotation: true,
+      skipAuthRefresh: true,
+      skipErrorHandler: true,
+      skipBusinessError: true,
+    }
+  )
+  return res.data
+}
+
+export async function regenerateTwoFABackupCodes(
+  code: string,
+  signal?: AbortSignal
+): Promise<ApiResponse<{ backup_codes: string[] }>> {
+  const res = await api.post(
+    '/api/user/2fa/backup_codes',
+    { code },
+    {
+      signal,
+      acceptAuthRotation: true,
+      skipAuthRefresh: true,
+      skipErrorHandler: true,
+      skipBusinessError: true,
+    }
+  )
+  return res.data
+}
+
+// ============================================================================
+// Passkey APIs
+// ============================================================================
+
+function securityProofHeaders(
+  proofToken?: string
+): Record<string, string> | undefined {
+  return proofToken ? { 'X-Security-Proof': proofToken } : undefined
+}
+
+export async function getProfilePasskeyStatus(
+  signal?: AbortSignal
+): Promise<ApiResponse<PasskeyStatus>> {
+  if (signal?.aborted) throw new Error('Passkey status request cancelled')
+
+  const controller = new AbortController()
+  const cancel = () => controller.abort()
+  const cancelled = new Promise<never>((_, reject) => {
+    controller.signal.addEventListener(
+      'abort',
+      () => reject(new Error('Passkey status request cancelled')),
+      { once: true }
+    )
+  })
+  signal?.addEventListener('abort', cancel, { once: true })
+  const deadline = globalThis.setTimeout(cancel, 15000)
+  try {
+    const res = await Promise.race([
+      api.get<ApiResponse<PasskeyStatus>>('/api/user/passkey', {
+        signal: controller.signal,
+        timeout: 15000,
+        disableDuplicate: true,
+        skipAuthRefresh: true,
+        skipErrorHandler: true,
+        skipBusinessError: true,
+      }),
+      cancelled,
+    ])
+    return res.data
+  } finally {
+    globalThis.clearTimeout(deadline)
+    signal?.removeEventListener('abort', cancel)
+  }
+}
+
+export async function beginProfilePasskeyRegistration(
+  proofToken?: string,
+  signal?: AbortSignal
+): Promise<ApiResponse<PasskeyOptionsPayload>> {
+  const res = await api.post<ApiResponse<PasskeyOptionsPayload>>(
+    '/api/user/passkey/register/begin',
+    undefined,
+    {
+      headers: securityProofHeaders(proofToken),
+      signal,
+      skipAuthRefresh: true,
+      skipErrorHandler: true,
+      skipBusinessError: true,
+    }
+  )
+  return res.data
+}
+
+export async function finishProfilePasskeyRegistration(
+  flowToken: string,
+  payload: Record<string, unknown>,
+  proofToken?: string,
+  signal?: AbortSignal
+): Promise<ApiResponse> {
+  const res = await api.post<ApiResponse>(
+    '/api/user/passkey/register/finish',
+    { flow_token: flowToken, credential: payload },
+    {
+      headers: securityProofHeaders(proofToken),
+      signal,
+      acceptAuthRotation: true,
+      skipAuthRefresh: true,
+      skipErrorHandler: true,
+      skipBusinessError: true,
+    }
+  )
+  return res.data
+}
+
+export async function deleteProfilePasskey(
+  proofToken?: string,
+  signal?: AbortSignal
+): Promise<ApiResponse> {
+  const res = await api.delete<ApiResponse>('/api/user/passkey', {
+    headers: securityProofHeaders(proofToken),
+    signal,
+    acceptAuthRotation: true,
+    skipAuthRefresh: true,
+    skipErrorHandler: true,
+    skipBusinessError: true,
+  })
   return res.data
 }
 
@@ -206,10 +523,16 @@ export async function revokeOtherLoginSessions(): Promise<ApiResponse> {
 /**
  * Get current user's custom OAuth bindings
  */
-export async function getSelfOAuthBindings(): Promise<
-  ApiResponse<CustomOAuthBinding[]>
-> {
-  const res = await api.get('/api/user/oauth/bindings')
+export async function getSelfOAuthBindings(
+  signal?: AbortSignal
+): Promise<ApiResponse<CustomOAuthBinding[]>> {
+  const res = await api.get('/api/user/oauth/bindings', {
+    signal,
+    disableDuplicate: true,
+    skipAuthRefresh: true,
+    skipErrorHandler: true,
+    skipBusinessError: true,
+  })
   return res.data
 }
 
@@ -217,9 +540,15 @@ export async function getSelfOAuthBindings(): Promise<
  * Unbind a custom OAuth provider for current user
  */
 export async function unbindCustomOAuth(
-  providerId: number
+  providerId: number,
+  signal?: AbortSignal
 ): Promise<ApiResponse> {
-  const res = await api.delete(`/api/user/oauth/bindings/${providerId}`)
+  const res = await api.delete(`/api/user/oauth/bindings/${providerId}`, {
+    signal,
+    skipAuthRefresh: true,
+    skipErrorHandler: true,
+    skipBusinessError: true,
+  })
   return res.data
 }
 

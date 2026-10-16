@@ -74,6 +74,7 @@ const (
 	MsgTokenQuotaNegative        = "token.quota_negative"
 	MsgTokenQuotaExceedMax       = "token.quota_exceed_max"
 	MsgTokenQuotaConflict        = "token.quota_conflict"
+	MsgTokenModelLimitsConflict  = "token.model_limits_conflict"
 	MsgTokenGenerateFailed       = "token.generate_failed"
 	MsgTokenGetInfoFailed        = "token.get_info_failed"
 	MsgTokenExpiredCannotEnable  = "token.expired_cannot_enable"

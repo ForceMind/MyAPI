@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -70,7 +70,10 @@ import {
 } from '../subscription-share-api'
 import type { ApiKey } from '../types'
 import { PersonalSubscriptionShareForm } from './personal-subscription-share-form'
-import { SubscriptionSharePoolCard } from './subscription-share-pool-card'
+import {
+  SubscriptionSharePoolCard,
+  SubscriptionShareWindowChangeReview,
+} from './subscription-share-pool-card'
 
 const ROOT_ROLE = 100
 
@@ -94,6 +97,22 @@ function parseBasisPoints(value: string): number | null {
   const [whole, fraction = ''] = normalized.split('.')
   const basisPoints = Number(whole) * 100 + Number(fraction.padEnd(2, '0'))
   return basisPoints >= 0 && basisPoints <= 10000 ? basisPoints : null
+}
+
+function currentManagedPool(
+  pools: SubscriptionSharePool[],
+  selectedPool: SubscriptionSharePool | undefined
+): SubscriptionSharePool | undefined {
+  if (!selectedPool) return undefined
+  if (selectedPool.rebaseline_required) return selectedPool
+  if (!selectedPool.replacement_required) return undefined
+  return pools.find(
+    (pool) =>
+      pool.pool_id === selectedPool.pool_id &&
+      pool.snapshot_id !== selectedPool.snapshot_id &&
+      pool.state !== 'candidate' &&
+      !pool.replacement_required
+  )
 }
 
 export function SubscriptionShareDialog(props: {
@@ -146,9 +165,23 @@ function SubscriptionShareSession(props: {
   )
   const [closeConfirmed, setCloseConfirmed] = useState(false)
   const [mustReload, setMustReload] = useState(false)
+  const [reloadedAfterUnknown, setReloadedAfterUnknown] = useState(false)
+  const mounted = useRef(true)
+  const reloadNotice = useRef<HTMLDivElement>(null)
   const sending = useRef(false)
   const closeSending = useRef(false)
   const operation = useRef<SubscriptionShareCommand | null>(null)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+  useEffect(() => {
+    if (!mustReload) return
+    reloadNotice.current?.scrollIntoView({ block: 'center', behavior: 'auto' })
+    reloadNotice.current?.focus({ preventScroll: true })
+  }, [mustReload])
   const query = useQuery({
     queryKey,
     queryFn: ({ signal }) => getSubscriptionShare(props.tokenId, signal),
@@ -160,6 +193,7 @@ function SubscriptionShareSession(props: {
   const selectedPool = view?.pools.find(
     (pool) => pool.state !== 'closed' && poolSelectionValue(pool) === selection
   )
+  const previousPool = currentManagedPool(view?.pools ?? [], selectedPool)
   const requiresWindowChangeConfirmation = Boolean(
     selectedPool?.replacement_required || selectedPool?.rebaseline_required
   )
@@ -183,6 +217,7 @@ function SubscriptionShareSession(props: {
   }
 
   const sameSession = () => {
+    if (!mounted.current) return false
     const auth = useAuthStore.getState().auth
     return (
       auth.user?.id === props.userId &&
@@ -234,6 +269,7 @@ function SubscriptionShareSession(props: {
       setWindowChangeConfirmed(false)
       setPoolToClose(null)
       setCloseConfirmed(false)
+      setReloadedAfterUnknown(false)
       closeSending.current = false
       toast.success(t('Subscription pool closed'))
       await client.invalidateQueries({ queryKey, exact: true })
@@ -271,11 +307,13 @@ function SubscriptionShareSession(props: {
         ? { replace_window: true as const }
         : {}),
     }
+    setReloadedAfterUnknown(false)
     sending.current = true
     mutation.mutate(operation.current)
   }
 
   const reload = async () => {
+    const wasUnknown = mustReload
     const result = await query.refetch()
     if (!result.isSuccess || !sameSession()) return
     operation.current = null
@@ -288,6 +326,7 @@ function SubscriptionShareSession(props: {
     setPercentage('')
     setConfirmed(false)
     setWindowChangeConfirmed(false)
+    setReloadedAfterUnknown(wasUnknown)
   }
 
   const closePool = () => {
@@ -301,6 +340,7 @@ function SubscriptionShareSession(props: {
     ) {
       return
     }
+    setReloadedAfterUnknown(false)
     closeSending.current = true
     closeMutation.mutate({
       poolId: poolToClose.pool_id,
@@ -318,7 +358,21 @@ function SubscriptionShareSession(props: {
     : (view?.pools ?? []).filter(
         (pool) => pool.pool_id > 0 && pool.state !== 'candidate'
       )
+  const closablePools = visiblePools.filter(
+    (pool) =>
+      pool.pool_id > 0 && pool.state !== 'candidate' && pool.state !== 'closed'
+  )
   const busy = query.isFetching || mutation.isPending || closeMutation.isPending
+  let saveLabel = t('Save share')
+  if (selectedPool?.replacement_required) saveLabel = t('Replace window')
+  if (selectedPool?.rebaseline_required) saveLabel = t('Resume observation')
+  const dismissDialog = () => {
+    if (props.personalKey && root) {
+      setAdvancedPersonal(false)
+      return
+    }
+    props.onClose()
+  }
 
   if (props.personalKey && root && !advancedPersonal) {
     return (
@@ -326,6 +380,7 @@ function SubscriptionShareSession(props: {
         apiKey={props.personalKey}
         pools={visiblePools}
         selectedPool={selectedPool}
+        currentPool={previousPool}
         selection={selection}
         percentage={percentage}
         shareBasisPoints={shareBasisPoints}
@@ -337,6 +392,7 @@ function SubscriptionShareSession(props: {
         loading={!query.data && !query.isError}
         loadError={query.isError}
         mustReload={mustReload}
+        reloadedAfterUnknown={reloadedAfterUnknown}
         saveDisabled={
           busy ||
           mustReload ||
@@ -355,6 +411,7 @@ function SubscriptionShareSession(props: {
           setPercentage(pool ? basisPointsInput(pool.share_bps) : '')
           setConfirmed(false)
           setWindowChangeConfirmed(false)
+          setReloadedAfterUnknown(false)
         }}
         onPercentageChange={setPercentage}
         onConfirmedChange={setConfirmed}
@@ -372,7 +429,7 @@ function SubscriptionShareSession(props: {
       open
       onOpenChange={(open) => {
         if (!open && !mutation.isPending && !closeMutation.isPending) {
-          props.onClose()
+          dismissDialog()
         }
       }}
     >
@@ -465,6 +522,7 @@ function SubscriptionShareSession(props: {
                   setPercentage(pool ? basisPointsInput(pool.share_bps) : '')
                   setConfirmed(false)
                   setWindowChangeConfirmed(false)
+                  setReloadedAfterUnknown(false)
                 }}
               >
                 {visiblePools.map((pool) => (
@@ -473,19 +531,62 @@ function SubscriptionShareSession(props: {
                     pool={pool}
                     selectable={pool.state !== 'closed'}
                     showAdminDetails
-                    closeDisabled={busy || mustReload}
-                    onClosePool={
-                      pool.pool_id > 0 && pool.state !== 'closed'
-                        ? () => {
-                            setPoolToClose(pool)
-                            setCloseConfirmed(false)
-                          }
-                        : undefined
-                    }
                   />
                 ))}
               </RadioGroup>
             </FieldSet>
+
+            {closablePools.length > 0 && (
+              <section
+                className='space-y-3 rounded-xl border p-4'
+                aria-labelledby='subscription-share-close-pool-title'
+              >
+                <div className='space-y-1'>
+                  <h3
+                    id='subscription-share-close-pool-title'
+                    className='font-semibold'
+                  >
+                    {t('Close managed pool')}
+                  </h3>
+                  <p className='text-muted-foreground text-sm'>
+                    {t(
+                      'Closing is separate from changing a Key share. It affects every Key in the pool and keeps the pool history.'
+                    )}
+                  </p>
+                </div>
+                <div className='space-y-2'>
+                  {closablePools.map((pool) => (
+                    <div
+                      key={`close-${pool.pool_id}`}
+                      className='flex min-w-0 flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between'
+                    >
+                      <div className='min-w-0'>
+                        <p className='font-medium break-words'>
+                          {pool.channel_name}
+                        </p>
+                        <p className='text-muted-foreground text-xs'>
+                          {t('Managed pool')} #{pool.pool_id} · {t('Revision')}{' '}
+                          {pool.revision}
+                        </p>
+                      </div>
+                      <Button
+                        type='button'
+                        variant='destructive'
+                        size='sm'
+                        className='min-h-10 w-full shrink-0 sm:w-auto'
+                        disabled={busy || mustReload}
+                        onClick={() => {
+                          setPoolToClose(pool)
+                          setCloseConfirmed(false)
+                        }}
+                      >
+                        {t('Close pool')}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {selectedPool && (
               <>
@@ -501,6 +602,11 @@ function SubscriptionShareSession(props: {
                 )}
                 {selectedPool.replacement_required && (
                   <>
+                    <SubscriptionShareWindowChangeReview
+                      currentPool={previousPool}
+                      targetPool={selectedPool}
+                      mode='replacement'
+                    />
                     <Alert variant='destructive'>
                       <AlertTitle>
                         {t(
@@ -535,6 +641,11 @@ function SubscriptionShareSession(props: {
                 )}
                 {selectedPool.rebaseline_required && (
                   <>
+                    <SubscriptionShareWindowChangeReview
+                      currentPool={previousPool}
+                      targetPool={selectedPool}
+                      mode='rebaseline'
+                    />
                     <Alert variant='destructive'>
                       <AlertTitle>
                         {t('Resume observation from a fresh baseline')}
@@ -630,20 +741,26 @@ function SubscriptionShareSession(props: {
                 pool={pool}
                 selectable={false}
                 showAdminDetails={false}
+                readOnly
               />
             ))}
           </section>
         )}
 
         {mustReload && (
-          <Alert variant='destructive'>
-            <AlertTitle>
-              {t('The save result is unknown or out of date')}
+          <Alert
+            variant='destructive'
+            ref={reloadNotice}
+            tabIndex={-1}
+            aria-labelledby='subscription-share-change-state-title'
+          >
+            <AlertTitle id='subscription-share-change-state-title'>
+              {t('The change result is unknown or out of date')}
             </AlertTitle>
             <AlertDescription className='space-y-2'>
               <p>
                 {t(
-                  'Reload the current server state before trying again. The save will not be repeated automatically.'
+                  'Reload the current server state before taking another action. The request will not be repeated automatically.'
                 )}
               </p>
               <Button
@@ -657,16 +774,29 @@ function SubscriptionShareSession(props: {
           </Alert>
         )}
 
-        <DialogFooter>
+        {reloadedAfterUnknown && (
+          <Alert>
+            <AlertTitle>{t('Current server state reloaded')}</AlertTitle>
+            <AlertDescription>
+              {t(
+                'Current server state reloaded. Review the window and confirmations before taking another action.'
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <DialogFooter className='bg-background sticky bottom-0 z-10 sm:static'>
           <Button
+            className='min-h-11 w-full sm:w-auto'
             variant='outline'
             disabled={mutation.isPending || closeMutation.isPending}
-            onClick={props.onClose}
+            onClick={dismissDialog}
           >
-            {t('Close')}
+            {props.personalKey && root ? t('Back to share editor') : t('Close')}
           </Button>
           {root && view && visiblePools.length > 0 && (
             <Button
+              className='min-h-11 w-full sm:w-auto'
               disabled={
                 busy ||
                 mustReload ||
@@ -680,7 +810,7 @@ function SubscriptionShareSession(props: {
               onClick={submit}
             >
               {mutation.isPending && <Spinner data-icon='inline-start' />}
-              {mutation.isPending ? t('Saving...') : t('Save share')}
+              {mutation.isPending ? t('Saving...') : saveLabel}
             </Button>
           )}
         </DialogFooter>

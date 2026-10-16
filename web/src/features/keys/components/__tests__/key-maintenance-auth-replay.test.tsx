@@ -43,6 +43,7 @@ const { useSystemConfigStore } = await import('@/stores/system-config-store')
 const { fetchTokenKey } = await import('../../api')
 const { apiKeySchema } = await import('../../types')
 const { ApiKeysMutateDrawer } = await import('../api-keys-mutate-drawer')
+const { ModelScopeDialog } = await import('../model-scope-dialog')
 const { ApiKeysProvider, useApiKeys } = await import('../api-keys-provider')
 const { DataTableRowActions } = await import('../data-table-row-actions')
 const { toast } = await import('sonner')
@@ -179,6 +180,17 @@ beforeEach(() => {
       data = { success: true, data: { groups: ['default'], max_count: 5 } }
     } else if (config.url === '/api/token/21') {
       data = { success: true, data: key }
+    } else if (config.url === '/api/token/21/model-limits') {
+      data = {
+        success: true,
+        data: {
+          token_id: 21,
+          token_name: 'Synthetic Key',
+          model_limits_enabled: false,
+          models: [],
+          revision: 'a'.repeat(64),
+        },
+      }
     } else {
       throw new Error(`Unexpected request ${config.method} ${config.url}`)
     }
@@ -199,7 +211,14 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-test.each(['create', 'update', 'status', 'reveal', 'batch reveal'] as const)(
+test.each([
+  'create',
+  'update',
+  'status',
+  'reveal',
+  'batch reveal',
+  'model scope',
+] as const)(
   'a pending %s returning 401 after identity changes never refreshes or replays under the new session',
   async (action) => {
     const user = userEvent.setup()
@@ -208,6 +227,7 @@ test.each(['create', 'update', 'status', 'reveal', 'batch reveal'] as const)(
     if (action === 'status') target = '/api/token/?status_only=true'
     if (action === 'reveal') target = '/api/token/21/key'
     if (action === 'batch reveal') target = '/api/token/batch/keys'
+    if (action === 'model scope') target = '/api/token/21/model-limits'
     render(
       <QueryClientProvider client={client}>
         <TooltipProvider>
@@ -223,6 +243,9 @@ test.each(['create', 'update', 'status', 'reveal', 'batch reveal'] as const)(
               <DataTableRowActions apiKey={key} />
             )}
             {action === 'batch reveal' && <BatchReveal />}
+            {action === 'model scope' && (
+              <ModelScopeDialog apiKey={key} onClose={onOpenChange} />
+            )}
           </ApiKeysProvider>
         </TooltipProvider>
       </QueryClientProvider>
@@ -244,6 +267,16 @@ test.each(['create', 'update', 'status', 'reveal', 'batch reveal'] as const)(
       await user.click(screen.getByRole('button', { name: 'Disable' }))
     } else if (action === 'reveal') {
       await user.click(screen.getByRole('button', { name: 'Open menu' }))
+    } else if (action === 'model scope') {
+      await user.click(
+        await screen.findByRole('radio', { name: /Block all models/ })
+      )
+      await user.click(
+        screen.getByRole('checkbox', {
+          name: /I understand that this Key will be unable/,
+        })
+      )
+      await user.click(screen.getByRole('button', { name: 'Save model scope' }))
     } else {
       await user.click(
         screen.getByRole('button', { name: 'Reveal selected Keys' })
@@ -251,7 +284,9 @@ test.each(['create', 'update', 'status', 'reveal', 'batch reveal'] as const)(
     }
     await waitFor(() => expect(writes).toHaveLength(1))
     const method =
-      action === 'update' || action === 'status' ? api.put : api.post
+      action === 'update' || action === 'status' || action === 'model scope'
+        ? api.put
+        : api.post
     const pending = vi.mocked(method).mock.results[0]
       .value as Promise<AxiosResponse>
     expect(writes[0].headers.get('Authorization')).toBe(

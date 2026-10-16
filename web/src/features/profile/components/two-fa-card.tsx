@@ -44,11 +44,15 @@ import { TwoFASetupDialog } from './dialogs/two-fa-setup-dialog'
 
 interface TwoFACardProps {
   loading: boolean
+  securityScopeKey: string
 }
 
 type DialogKey = 'setup' | 'disable' | 'backup'
 
-export function TwoFACard({ loading: pageLoading }: TwoFACardProps) {
+export function TwoFACard({
+  loading: pageLoading,
+  securityScopeKey,
+}: TwoFACardProps) {
   const { t } = useTranslation()
   const { status, loading, error, refetch } = useTwoFA(!pageLoading)
   const dialogs = useDialogs<DialogKey>()
@@ -191,6 +195,7 @@ export function TwoFACard({ loading: pageLoading }: TwoFACardProps) {
           open ? dialogs.open('setup') : dialogs.close('setup')
         }
         onSuccess={refetch}
+        securityScopeKey={securityScopeKey}
       />
 
       <TwoFADisableDialog
@@ -199,6 +204,7 @@ export function TwoFACard({ loading: pageLoading }: TwoFACardProps) {
           open ? dialogs.open('disable') : dialogs.close('disable')
         }
         onSuccess={refetch}
+        securityScopeKey={securityScopeKey}
       />
 
       <TwoFABackupDialog
@@ -207,6 +213,7 @@ export function TwoFACard({ loading: pageLoading }: TwoFACardProps) {
           open ? dialogs.open('backup') : dialogs.close('backup')
         }
         onSuccess={refetch}
+        securityScopeKey={securityScopeKey}
       />
     </>
   )

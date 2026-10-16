@@ -689,6 +689,7 @@ async function main() {
     const personalOptions = personalEnabled ? {
       playwrightModule: process.env.MYAPI_PLAYWRIGHT_MODULE,
       artifactDir: process.env.MYAPI_PERSONAL_ARTIFACT_DIR,
+      advancedModelScope: true,
     } : null
     const personalDriver = personalEnabled ? await import('./personal-browser.mjs') : null
     const report = await probeFreshSQLite({ baseUrl, sha, edition, isolated: true, relayFixture: true,
@@ -747,7 +748,7 @@ async function main() {
     const safeStages = new Set(['launch', 'browser-close', 'build-visible', 'setup',
       'setup-session', 'setup-open', 'setup-database', 'setup-credentials', 'setup-mode', 'setup-review', 'setup-submit', 'setup-response', 'login', 'login-open', 'login-response', 'login-keys', 'document-backoff', 'writer-check', 'fixture-config', 'fixture-config-refresh', 'policy-view', 'policy-refresh', 'key-create',
       'key-create-open', 'key-create-ready', 'key-create-profile', 'key-create-cap', 'key-create-quota',
-      'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'key-selection-model', 'workbench-open', 'workbench-key-selection', 'workbench-playground-open', 'key-handoff-readback', 'playground-send', 'ledger-check', 'usage-view', 'usage-open', 'usage-filter', 'usage-list', 'usage-list-visible', 'usage-details-open', 'usage-details-request', 'usage-details-key', 'policy-user-filter', 'policy-confirm', 'playground-response', 'playground-complete', 'playground-rejection', 'strict-key-filter', 'strict-budget', 'reload-check', 'screenshot'])
+      'key-create-submit', 'key-create-payload', 'key-create-response', 'key-create-readback', 'key-selection', 'key-selection-model', 'workbench-open', 'workbench-key-selection', 'workbench-playground-open', 'key-handoff-readback', 'playground-send', 'ledger-check', 'usage-view', 'usage-open', 'usage-filter', 'usage-list', 'usage-list-visible', 'usage-details-open', 'usage-details-request', 'usage-details-key', 'policy-user-filter', 'policy-confirm', 'playground-response', 'playground-complete', 'playground-rejection', 'strict-key-filter', 'strict-budget', 'reload-check', 'model-scope-boundary', 'model-scope-open', 'model-scope-restrict', 'model-scope-restore', 'screenshot'])
     const diagnostics = safeFrontendDiagnostics(error?.diagnostics)
     console.error(JSON.stringify({ command: 'docker:smoke', passed: false,
       code: safeCodes.has(error?.message) ? error.message : 'SMOKE_UNEXPECTED_FAILURE',

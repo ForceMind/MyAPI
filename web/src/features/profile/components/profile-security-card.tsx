@@ -19,11 +19,13 @@ For commercial licensing, please contact support@quantumnous.com
 import { Shield, Key, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TitledCard } from '@/components/ui/titled-card'
 import { useDialogs } from '@/hooks/use-dialog'
+import { cn } from '@/lib/utils'
 
 import type { UserProfile } from '../types'
 import { AccessTokenDialog } from './dialogs/access-token-dialog'
@@ -37,6 +39,7 @@ import { DeleteAccountDialog } from './dialogs/delete-account-dialog'
 interface ProfileSecurityCardProps {
   profile: UserProfile | null
   loading: boolean
+  securityScopeKey: string
 }
 
 type DialogKey = 'password' | 'token' | 'delete'
@@ -44,6 +47,7 @@ type DialogKey = 'password' | 'token' | 'delete'
 export function ProfileSecurityCard({
   profile,
   loading,
+  securityScopeKey,
 }: ProfileSecurityCardProps) {
   const { t } = useTranslation()
   const dialogs = useDialogs<DialogKey>()
@@ -66,26 +70,35 @@ export function ProfileSecurityCard({
 
   if (!profile) return null
 
+  const isRoot = profile.role === 100
+
   const securityActions = [
     {
       icon: Shield,
       title: t('Change Password'),
       description: t('Update your password to keep your account secure'),
       action: () => dialogs.open('password'),
+      available: true,
       variant: 'default' as const,
     },
     {
       icon: Key,
       title: t('Access Token'),
-      description: t('Generate and manage your API access token'),
+      description: t(
+        'Regenerate the console access token only when you intend to replace it'
+      ),
       action: () => dialogs.open('token'),
+      available: true,
       variant: 'default' as const,
     },
     {
       icon: Trash2,
       title: t('Delete Account'),
-      description: t('Permanently delete your account and all data'),
+      description: isRoot
+        ? t('Root accounts cannot be deleted')
+        : t('Permanently delete your account and all data'),
       action: () => dialogs.open('delete'),
+      available: !isRoot,
       variant: 'destructive' as const,
     },
   ]
@@ -93,31 +106,39 @@ export function ProfileSecurityCard({
   return (
     <>
       <TitledCard
-        title={t('Security')}
-        description={t('Manage your security settings and account access')}
+        title={t('Password and account access')}
+        description={t(
+          'Review each capability before changing access to this account.'
+        )}
         icon={<Shield className='h-4 w-4' />}
         iconTone='success'
         disableHoverEffect
       >
-        <div className='grid grid-cols-1 gap-2.5 sm:gap-3 md:grid-cols-3'>
+        <div className='grid grid-cols-1 gap-3'>
           {securityActions.map((item) => (
             <button
               key={item.title}
               type='button'
               onClick={item.action}
-              className={`flex items-center gap-3 rounded-lg border p-3 text-left md:flex-col md:gap-2 md:p-4 md:text-center ${
-                item.variant === 'destructive' ? 'border-destructive/30' : ''
-              }`}
+              disabled={!item.available}
+              className={cn(
+                'flex min-h-20 items-center gap-3 rounded-lg border p-3 text-left sm:p-4',
+                item.variant === 'destructive' && 'border-destructive/30',
+                !item.available && 'cursor-not-allowed opacity-70'
+              )}
             >
               <IconBadge tone='neutral' size='sm'>
                 <item.icon />
               </IconBadge>
-              <div className='min-w-0 md:contents'>
+              <div className='min-w-0 flex-1'>
                 <p className='text-sm font-medium'>{item.title}</p>
-                <p className='text-muted-foreground line-clamp-1 text-xs md:line-clamp-none'>
+                <p className='text-muted-foreground mt-1 text-xs leading-5'>
                   {item.description}
                 </p>
               </div>
+              <Badge variant='secondary' className='shrink-0'>
+                {item.available ? t('Available') : t('Unavailable')}
+              </Badge>
             </button>
           ))}
         </div>
@@ -130,6 +151,7 @@ export function ProfileSecurityCard({
           open ? dialogs.open('password') : dialogs.close('password')
         }
         username={profile.username}
+        securityScopeKey={securityScopeKey}
       />
 
       <AccessTokenDialog
@@ -137,6 +159,7 @@ export function ProfileSecurityCard({
         onOpenChange={(open) =>
           open ? dialogs.open('token') : dialogs.close('token')
         }
+        securityScopeKey={securityScopeKey}
       />
 
       <DeleteAccountDialog
@@ -145,6 +168,7 @@ export function ProfileSecurityCard({
           open ? dialogs.open('delete') : dialogs.close('delete')
         }
         username={profile.username}
+        securityScopeKey={securityScopeKey}
       />
     </>
   )

@@ -156,6 +156,20 @@ beforeEach(() => {
     if (url === '/api/token/21') {
       return { data: { success: true, data: existingKey } }
     }
+    if (url === '/api/token/21/model-limits') {
+      return {
+        data: {
+          success: true,
+          data: {
+            token_id: 21,
+            token_name: 'Desktop application',
+            model_limits_enabled: false,
+            models: [],
+            revision: 'a'.repeat(64),
+          },
+        },
+      }
+    }
     throw new Error(`Unexpected GET ${url}`)
   })
   vi.spyOn(api, 'post').mockImplementation(async (url, body) => {
@@ -229,6 +243,19 @@ test('advanced edit uses the existing Key drawer and Escape cancels without writ
   expect(screen.getByText('Desktop application')).toBeVisible()
   expect(api.put).not.toHaveBeenCalled()
   expect(api.delete).not.toHaveBeenCalled()
+})
+
+test('the personal Key card opens model scope without entering the full metadata editor', async () => {
+  const user = userEvent.setup()
+  renderKeys()
+  await user.click(await screen.findByRole('button', { name: 'Model scope' }))
+  expect(
+    await screen.findByRole('dialog', { name: 'Model scope' })
+  ).toBeVisible()
+  expect(
+    screen.getByRole('radio', { name: /No additional model limit/ })
+  ).toBeChecked()
+  expect(api.put).not.toHaveBeenCalled()
 })
 
 test('advanced options retain assigned access, budgets, client export and deletion controls', async () => {

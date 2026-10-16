@@ -324,6 +324,93 @@ test('advanced controls retain the existing pool closing and recovery interface'
   ).toBeVisible()
 })
 
+test('leaving advanced controls returns to the share editor without writing', async () => {
+  const user = userEvent.setup()
+  renderEditor()
+  await selectWindow(user)
+  await user.click(
+    screen.getByRole('button', { name: 'Advanced window controls' })
+  )
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Subscription shares',
+  })
+
+  await user.click(
+    within(dialog).getByRole('button', { name: 'Back to share editor' })
+  )
+
+  expect(
+    await screen.findByRole('heading', { name: 'Adjust window share' })
+  ).toBeVisible()
+  expect(api.put).not.toHaveBeenCalled()
+  expect(api.post).not.toHaveBeenCalled()
+})
+
+test('personal replacement compares the current and target descriptors before the mobile action', async () => {
+  const currentPool = {
+    ...pool,
+    window_source: 'codex_wham_usage_primary',
+  }
+  const targetPool = {
+    ...pool,
+    snapshot_id: 71,
+    channel_id: 11,
+    channel_name: 'Replacement sample connection',
+    window_source: 'codex_wham_usage_primary',
+    window_type: 'weekly',
+    window_seconds: 604800,
+    state: 'candidate',
+    replacement_required: true,
+  }
+  vi.mocked(api.get).mockResolvedValue({
+    data: {
+      success: true,
+      data: { token_id: 21, pools: [targetPool, currentPool] },
+    },
+  })
+  const user = userEvent.setup()
+  renderEditor()
+
+  await user.selectOptions(
+    await screen.findByLabelText('Subscription account'),
+    '11'
+  )
+  await user.selectOptions(
+    screen.getByLabelText('Choose one subscription window'),
+    '7:71'
+  )
+
+  const review = screen.getByRole('region', {
+    name: 'Window replacement review',
+  })
+  expect(within(review).getByText('Current managed window')).toBeVisible()
+  expect(within(review).getByText('Target observed window')).toBeVisible()
+  expect(within(review).getByText('Subscription account A · #9')).toBeVisible()
+  expect(
+    within(review).getByText('Replacement sample connection · #11')
+  ).toBeVisible()
+  expect(
+    screen.getByRole('checkbox', {
+      name: 'I understand this replacement affects every Key in the pool.',
+    })
+  ).not.toBeChecked()
+  expect(
+    screen.getByRole('checkbox', {
+      name: 'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.',
+    })
+  ).not.toBeChecked()
+  const action = screen.getByRole('button', { name: 'Replace window' })
+  expect(action).toBeDisabled()
+  const preview = screen.getByRole('complementary', {
+    name: 'Allocation preview',
+  })
+  expect(
+    Boolean(
+      preview.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING
+    )
+  ).toBe(true)
+})
+
 test('mobile selection exposes the complete long account identity and a readable native window label', async () => {
   const account =
     'Subscription_account_for_international_research_with_distinguishing_suffix_A'
@@ -379,6 +466,9 @@ test('Enter while a mobile share save is pending never submits a second write', 
     expect(save).toBeDisabled()
   })
   expect(screen.getByLabelText('Share of total window')).toBeDisabled()
+  expect(
+    screen.getByRole('button', { name: /API Keys \/ Desktop application/ })
+  ).toBeDisabled()
   expect(api.put).toHaveBeenCalledOnce()
   await user.keyboard('{Enter}{Enter}')
   expect(api.put).toHaveBeenCalledOnce()

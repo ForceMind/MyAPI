@@ -48,6 +48,7 @@ payment.manual_complete_quota_unit_unresolved: "订单缺少有效的额度单�
 payment.pricing_unavailable: "计价暂不可用，未创建支付请求。请在配置恢复后重试。"
 
 # Token messages
+token.model_limits_conflict: "此 Key 的设置已变化，请重新读取当前模型范围后再保存。"
 token.name_too_long: "令牌名称过长"
 token.quota_negative: "额度值不能为负数"
 token.quota_exceed_max: "额度值超出有效范围，最大值为 {{.Max}}"

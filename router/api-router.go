@@ -296,6 +296,8 @@ func SetApiRouter(router *gin.Engine) {
 			tokenRoute.GET("/search", middleware.SearchRateLimit(), controller.SearchTokens)
 			tokenRoute.GET("/auto-groups", controller.GetTokenAutoGroups)
 			tokenRoute.GET("/:id", controller.GetToken)
+			tokenRoute.GET("/:id/model-limits", middleware.DisableCache(), controller.GetTokenModelLimits)
+			tokenRoute.PUT("/:id/model-limits", middleware.DisableCache(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), controller.UpdateTokenModelLimits)
 			tokenRoute.GET("/:id/budget", middleware.DisableCache(), controller.GetTokenBudget)
 			tokenRoute.GET("/:id/subscription-share", middleware.DisableCache(), controller.GetSubscriptionShares)
 			tokenRoute.PUT("/:id/subscription-share", middleware.RootAuth(), middleware.DashboardSessionOriginGuard(), middleware.CriticalRateLimit(), middleware.DisableCache(), controller.UpdateSubscriptionShare)
