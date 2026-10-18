@@ -219,9 +219,9 @@ try {
                   success: true,
                   data: {
                     token_id: 21,
-                    assigned: false,
+                    assigned: policy.assigned,
                     user_revision: 0,
-                    token_revision: 0,
+                    token_revision: policy.revision,
                     models: [],
                   },
                 },
@@ -388,6 +388,12 @@ try {
           }
         )
         await dialog.waitFor({ state: 'visible' })
+        if (action !== 'delete') {
+          await dialog
+            .getByRole('heading', { name: t(actionSpec.title), exact: true })
+            .scrollIntoViewIfNeeded()
+          await capture('header')
+        }
         let submit
         if (action === 'budget') {
           await dialog
@@ -487,9 +493,19 @@ try {
               .getByText(t('No API keys found'), { exact: true })
               .waitFor()
           } else if (action === 'policy') {
+            const assigned = dialog.getByText(
+              t('Administrator assignment is present.'),
+              { exact: true }
+            )
+            await assigned.nth(1).waitFor()
+            assert.equal(
+              await assigned.count(),
+              2,
+              'Owner and administrator views reflect the saved assignment'
+            )
             await dialog
               .getByText(t('Assignment saved.'), { exact: true })
-              .waitFor()
+              .scrollIntoViewIfNeeded()
           } else {
             assert.equal(budget.policy.revision, 1)
             await dialog

@@ -37,3 +37,11 @@
 状态：待准确源码验证。尚未取得本片 Actions/浏览器结果，不以 beta.19 的绿灯代替。
 
 本地集成检查：11个变更 TS/TSX/driver 的缓存格式与 lint、Node语法、YAML/内嵌 Python/shell 和 diff 通过。安装/版本合同首次直接 Node 执行 7/8，通过中唯一失败指出根 `docker-compose.yml` 仍引用 beta.17；已与根 VERSION/package、deploy compose/env 同步 beta.20，重验8/8通过。未启动任何 compose/部署脚本。`node --test` 的首个沙箱命令只返回文件级失败，改为直接运行同一 node:test 文件才取得具体断言，不把首次失败隐藏。
+
+## 第一轮动态结果与证据修正
+
+候选 `71ae535716b173e65b0322cafaa55a71a8f72f40`，CI `39148275311`，实际 checkout `40380ac288c2f4d45d8a5c067462d879320c43a5`；二者 tree 同为 `ed4e632abb871be55783d90501b9938eb16dae8a`。十个新增旧源码实红、候选243文件/1562单元、类型/lint/build、三库/Redis和新12浏览器旅程及原迁移/轮换真实Go浏览器已通过；完整Go/race及旧浏览器当时仍运行，不提前声称整个CI成功。
+
+本地4177已服务该次准确前端：HTML逐字等于下载产物、HTTP200/no-store，budget与Key策略GET均200，仅临时内存合成API，不连接真实DB/provider/凭据。部署未执行。
+
+非实现者实际逐张查看本次30张PNG及12旅程JSON，主代理另看4张代表原图。独审确认整体视觉延续、无产品P1/横向溢出/秘密；发现一个资格证据P2：policy PUT更新合成policy，但owner GET仍硬编码未分配。真实后端 `GetTokenAssignedAccess` 返回当前 `state.Assigned()`，故属于夹具矛盾，不是产品保存缺陷。现将owner读取连接到同一policy/revision，并断言保存后owner/admin两处同时显示已分配；预算/策略另补动作区滚动前标题原图。原30图保留在/tmp原下载目录，不编辑或当最终证据；后继准确CI重新验证，产品代码保持与71ae535一致。
