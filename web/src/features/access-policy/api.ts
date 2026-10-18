@@ -26,6 +26,14 @@ export class AccessPolicyError extends Error {
 
 const config = { skipErrorHandler: true, skipBusinessError: true }
 
+function targetConfig(target: PolicyTarget, signal?: AbortSignal) {
+  return {
+    ...config,
+    signal,
+    ...(target.subject === 'token' ? { skipAuthRefresh: true } : {}),
+  }
+}
+
 function responseData(payload: unknown): unknown {
   const envelope = z
     .object({
@@ -83,8 +91,7 @@ export async function getAssignedPolicy(
   const response = await api.get(
     `/api/access-policy/${target.subject}/${target.id}`,
     {
-      ...config,
-      signal,
+      ...targetConfig(target, signal),
       disableDuplicate: true,
     }
   )
@@ -102,7 +109,7 @@ export async function saveAssignedPolicy(
   const response = await api.put(
     `/api/access-policy/${target.subject}/${target.id}`,
     body,
-    { ...config, signal }
+    targetConfig(target, signal)
   )
   return verifyTarget(
     assignedPolicySchema.parse(responseData(response.data)),
@@ -118,8 +125,7 @@ export async function removeAssignedPolicy(
   const response = await api.delete(
     `/api/access-policy/${target.subject}/${target.id}`,
     {
-      ...config,
-      signal,
+      ...targetConfig(target, signal),
       data: { expected_revision: revision },
     }
   )
@@ -137,7 +143,7 @@ export async function previewAssignedPolicy(
   const response = await api.post(
     `/api/access-policy/${target.subject}/${target.id}/preview`,
     body,
-    { ...config, signal }
+    targetConfig(target, signal)
   )
   const preview = z
     .object({
@@ -157,6 +163,7 @@ export async function getOwnerAccess(
     ...config,
     signal,
     disableDuplicate: true,
+    skipAuthRefresh: true,
   })
   const result = ownerAccessSchema.parse(responseData(response.data))
   if (result.token_id !== tokenId) {

@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -33,19 +33,28 @@ import {
 
 import { deleteApiKey } from '../api'
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
+import { useKeyMaintenanceSession } from '../hooks/use-key-maintenance-session'
 import { useApiKeys } from './api-keys-provider'
 
 export function ApiKeysDeleteDialog() {
   const { t } = useTranslation()
+  const isCurrentSession = useKeyMaintenanceSession()
   const { open, setOpen, currentRow, triggerRefresh } = useApiKeys()
   const [isDeleting, setIsDeleting] = useState(false)
+  const sending = useRef(false)
 
   const handleDelete = async () => {
-    if (!currentRow) return
+    if (!currentRow || sending.current || !isCurrentSession()) return
 
+    sending.current = true
     setIsDeleting(true)
     try {
-      const result = await deleteApiKey(currentRow.id)
+      const result = await deleteApiKey(currentRow.id, {
+        skipAuthRefresh: true,
+        skipBusinessError: true,
+        skipErrorHandler: true,
+      })
+      if (!isCurrentSession()) return
       if (result.success) {
         toast.success(t(SUCCESS_MESSAGES.API_KEY_DELETED))
         setOpen(null)
@@ -54,16 +63,19 @@ export function ApiKeysDeleteDialog() {
         toast.error(result.message || t(ERROR_MESSAGES.DELETE_FAILED))
       }
     } catch {
-      toast.error(t(ERROR_MESSAGES.UNEXPECTED))
+      if (isCurrentSession()) toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     } finally {
-      setIsDeleting(false)
+      sending.current = false
+      if (isCurrentSession()) setIsDeleting(false)
     }
   }
 
   return (
     <AlertDialog
       open={open === 'delete'}
-      onOpenChange={(open) => !open && setOpen(null)}
+      onOpenChange={(open) => {
+        if (!open && !sending.current) setOpen(null)
+      }}
     >
       <AlertDialogContent>
         <AlertDialogHeader>

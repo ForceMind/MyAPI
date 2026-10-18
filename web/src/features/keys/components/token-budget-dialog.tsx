@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,7 @@ import { UsageSettlementStatus } from '@/features/usage-logs/components/usage-se
 import { canReconcileUsageReview } from '@/features/usage-logs/usage-review-api'
 import { useAuthStore } from '@/stores/auth-store'
 
+import { useKeyMaintenanceSession } from '../hooks/use-key-maintenance-session'
 import { percentageToBasisPoints } from '../lib/token-budget-schema'
 import {
   createTokenBudgetOperationId,
@@ -34,13 +35,15 @@ export function TokenBudgetDialog(props: {
 }) {
   const userId = useAuthStore((state) => state.auth.user?.id)
   const role = useAuthStore((state) => state.auth.user?.role)
-  if (!userId) return null
+  const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
+  if (!userId || role === undefined) return null
   return (
     <TokenBudgetSession
-      key={`${userId}:${role}:${props.tokenId}`}
+      key={`${userId}:${role}:${sessionId}:${props.tokenId}`}
       tokenId={props.tokenId}
       userId={userId}
       role={role}
+      sessionId={sessionId}
       onClose={props.onClose}
     />
   )
@@ -49,18 +52,41 @@ export function TokenBudgetDialog(props: {
 function TokenBudgetSession(props: {
   tokenId: number
   userId: number
-  role?: number
+  role: number
+  sessionId: string | null
   onClose: () => void
 }) {
   const { t } = useTranslation()
   const client = useQueryClient()
-  const queryKey = ['token-budget', props.userId, props.role, props.tokenId]
+  const isCurrentSession = useKeyMaintenanceSession()
+  const queryKey = [
+    'token-budget',
+    props.userId,
+    props.role,
+    props.sessionId,
+    props.tokenId,
+  ] as const
   const sending = useRef(false)
   const operation = useRef<TokenBudgetCommand | null>(null)
+  const writeRequest = useRef<AbortController | null>(null)
   const [locked, setLocked] = useState(false)
+  useEffect(
+    () => () => {
+      writeRequest.current?.abort()
+      writeRequest.current = null
+    },
+    []
+  )
   const query = useQuery({
     queryKey,
-    queryFn: ({ signal }) => getTokenBudget(props.tokenId, signal),
+    queryFn: async ({ signal }) => {
+      if (!isCurrentSession()) throw new Error('Session changed')
+      const view = await getTokenBudget(props.tokenId, signal)
+      if (!isCurrentSession() || signal.aborted) {
+        throw new Error('Session changed')
+      }
+      return view
+    },
     enabled: !locked,
     retry: false,
     refetchOnWindowFocus: false,
@@ -69,9 +95,9 @@ function TokenBudgetSession(props: {
       !locked && state.state.data?.pending ? 5000 : false,
   })
   const mutation = useMutation({
-    mutationFn: (command: TokenBudgetCommand) => {
+    mutationFn: async (command: TokenBudgetCommand) => {
       const user = useAuthStore.getState().auth.user
-      if (user?.id !== props.userId || user.role !== props.role) {
+      if (!isCurrentSession() || user?.role !== 100) {
         throw new Error('Session changed')
       }
       if (command.kind === 'recover') {
@@ -94,22 +120,38 @@ function TokenBudgetSession(props: {
           throw new Error('Usage review is not available')
         }
       }
-      return writeTokenBudget(props.tokenId, command)
+      const controller = new AbortController()
+      writeRequest.current = controller
+      try {
+        const view = await writeTokenBudget(
+          props.tokenId,
+          command,
+          controller.signal
+        )
+        if (!isCurrentSession() || controller.signal.aborted) {
+          throw new Error('Session changed')
+        }
+        return view
+      } finally {
+        if (writeRequest.current === controller) writeRequest.current = null
+      }
     },
     retry: false,
+    // Budget errors are rendered inline and must not outlive this session.
+    onError: () => undefined,
     onSuccess: (data) => {
-      const user = useAuthStore.getState().auth.user
-      if (user?.id !== props.userId || user.role !== props.role) return
+      if (!isCurrentSession()) return
       client.setQueryData(queryKey, data)
       operation.current = null
       setLocked(false)
     },
     onSettled: () => {
+      if (!isCurrentSession()) return
       sending.current = false
     },
   })
   const submit = (command: TokenBudgetCommand) => {
-    if (sending.current) return
+    if (sending.current || !isCurrentSession()) return
     if (!operation.current) operation.current = command
     sending.current = true
     setLocked(true)
@@ -125,7 +167,7 @@ function TokenBudgetSession(props: {
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open && !sending.current) props.onClose()
+        if (!open && !sending.current && isCurrentSession()) props.onClose()
       }}
     >
       <DialogContent
@@ -431,6 +473,7 @@ function TokenBudgetSession(props: {
             variant='outline'
             disabled={busy || locked}
             onClick={() => {
+              if (!isCurrentSession()) return
               void query.refetch()
             }}
           >
@@ -440,7 +483,7 @@ function TokenBudgetSession(props: {
             variant='outline'
             disabled={mutation.isPending}
             onClick={() => {
-              if (!sending.current) props.onClose()
+              if (!sending.current && isCurrentSession()) props.onClose()
             }}
           >
             {t('Close')}

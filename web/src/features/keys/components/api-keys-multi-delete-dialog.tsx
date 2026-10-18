@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { Table } from '@tanstack/react-table'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -25,6 +25,7 @@ import { ConfirmDialog } from '@/components/confirm-dialog'
 
 import { batchDeleteApiKeys } from '../api'
 import { ERROR_MESSAGES } from '../constants'
+import { useKeyMaintenanceSession } from '../hooks/use-key-maintenance-session'
 import type { ApiKey } from '../types'
 import { useApiKeys } from './api-keys-provider'
 
@@ -40,15 +41,24 @@ export function ApiKeysMultiDeleteDialog<TData>({
   table,
 }: ApiKeysMultiDeleteDialogProps<TData>) {
   const { t } = useTranslation()
+  const isCurrentSession = useKeyMaintenanceSession()
   const { triggerRefresh } = useApiKeys()
   const [isDeleting, setIsDeleting] = useState(false)
+  const sending = useRef(false)
   const selectedRows = table.getFilteredSelectedRowModel().rows
 
   const handleConfirm = async () => {
+    if (sending.current || !isCurrentSession()) return
+    sending.current = true
     setIsDeleting(true)
     try {
       const ids = selectedRows.map((row) => (row.original as ApiKey).id)
-      const result = await batchDeleteApiKeys(ids)
+      const result = await batchDeleteApiKeys(ids, {
+        skipAuthRefresh: true,
+        skipBusinessError: true,
+        skipErrorHandler: true,
+      })
+      if (!isCurrentSession()) return
 
       if (result.success) {
         const count = result.data || ids.length
@@ -60,9 +70,10 @@ export function ApiKeysMultiDeleteDialog<TData>({
         toast.error(result.message || t(ERROR_MESSAGES.BATCH_DELETE_FAILED))
       }
     } catch {
-      toast.error(t(ERROR_MESSAGES.UNEXPECTED))
+      if (isCurrentSession()) toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     } finally {
-      setIsDeleting(false)
+      sending.current = false
+      if (isCurrentSession()) setIsDeleting(false)
     }
   }
 
@@ -70,7 +81,9 @@ export function ApiKeysMultiDeleteDialog<TData>({
     <ConfirmDialog
       destructive
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(nextOpen) => {
+        if (nextOpen || !sending.current) onOpenChange(nextOpen)
+      }}
       handleConfirm={handleConfirm}
       isLoading={isDeleting}
       className='max-w-md'

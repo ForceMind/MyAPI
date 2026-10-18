@@ -106,16 +106,24 @@ export async function updateApiKey(
 }
 
 // Delete a single API key
-export async function deleteApiKey(id: number): Promise<ApiResponse> {
-  const res = await api.delete(`/api/token/${id}/`)
+export async function deleteApiKey(
+  id: number,
+  config?: ApiRequestConfig
+): Promise<ApiResponse> {
+  const res = config
+    ? await api.delete(`/api/token/${id}/`, config)
+    : await api.delete(`/api/token/${id}/`)
   return res.data
 }
 
 // Batch delete multiple API keys
 export async function batchDeleteApiKeys(
-  ids: number[]
+  ids: number[],
+  config?: ApiRequestConfig
 ): Promise<ApiResponse<number>> {
-  const res = await api.post('/api/token/batch', { ids })
+  const res = config
+    ? await api.post('/api/token/batch', { ids }, config)
+    : await api.post('/api/token/batch', { ids })
   return res.data
 }
 

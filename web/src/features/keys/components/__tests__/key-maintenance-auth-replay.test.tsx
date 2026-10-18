@@ -40,7 +40,8 @@ const { api } = await import('@/lib/api')
 const { TooltipProvider } = await import('@/components/ui/tooltip')
 const { useAuthStore } = await import('@/stores/auth-store')
 const { useSystemConfigStore } = await import('@/stores/system-config-store')
-const { fetchTokenKey } = await import('../../api')
+const { fetchTokenKey, deleteApiKey, batchDeleteApiKeys } =
+  await import('../../api')
 const { apiKeySchema } = await import('../../types')
 const { ApiKeysMutateDrawer } = await import('../api-keys-mutate-drawer')
 const { ModelScopeDialog } = await import('../model-scope-dialog')
@@ -302,6 +303,41 @@ test.each([
     expect(useAuthStore.getState().auth.session?.sid).toBe('replacement')
     expect(useAuthStore.getState().auth.user?.id).toBe(2)
     expect(onOpenChange).not.toHaveBeenCalled()
+    expect(toast.error).not.toHaveBeenCalled()
+    expect(toast.success).not.toHaveBeenCalled()
+  }
+)
+
+test.each(['delete', 'batch delete'] as const)(
+  'a scoped %s returning 401 after a same-user SID change never refreshes or replays',
+  async (action) => {
+    target = action === 'delete' ? '/api/token/21/' : '/api/token/batch'
+    const config = {
+      skipAuthRefresh: true,
+      skipBusinessError: true,
+      skipErrorHandler: true,
+    }
+    const pending =
+      action === 'delete'
+        ? deleteApiKey(21, config)
+        : batchDeleteApiKeys([21], config)
+    // Attach the rejection observer before releasing the controlled transport.
+    const result = expect(pending).rejects.toThrow(
+      'Synthetic expired authentication'
+    )
+    await waitFor(() => expect(writes).toHaveLength(1))
+    expect(writes[0].headers.get('Authorization')).toBe(
+      'Bearer synthetic-access-original'
+    )
+    const replacement = bundle('replacement')
+    replacement.user.id = 1
+    useAuthStore.getState().auth.setBundle(replacement)
+    rejectUnauthorized()
+    await result
+    expect(refreshes).toHaveLength(0)
+    expect(writes).toHaveLength(1)
+    expect(useAuthStore.getState().auth.session?.sid).toBe('replacement')
+    expect(useAuthStore.getState().auth.user?.id).toBe(1)
     expect(toast.error).not.toHaveBeenCalled()
     expect(toast.success).not.toHaveBeenCalled()
   }

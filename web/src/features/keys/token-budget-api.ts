@@ -116,22 +116,32 @@ export async function getTokenBudget(
 ): Promise<TokenBudgetView> {
   const response = await api.get(`/api/token/${tokenId}/budget`, {
     signal,
+    disableDuplicate: true,
     skipErrorHandler: true,
+    skipBusinessError: true,
+    skipAuthRefresh: true,
   })
   return parseBudget(response.data, tokenId)
 }
 
 export async function writeTokenBudget(
   tokenId: number,
-  command: TokenBudgetCommand
+  command: TokenBudgetCommand,
+  signal?: AbortSignal
 ): Promise<TokenBudgetView> {
   const response =
     command.kind === 'policy'
       ? await api.put(`/api/token/${tokenId}/budget`, command.body, {
+          signal,
           skipErrorHandler: true,
+          skipBusinessError: true,
+          skipAuthRefresh: true,
         })
       : await api.post(`/api/token/${tokenId}/budget/recover`, command.body, {
+          signal,
           skipErrorHandler: true,
+          skipBusinessError: true,
+          skipAuthRefresh: true,
         })
   return parseBudget(response.data, tokenId)
 }

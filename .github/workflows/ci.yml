@@ -618,6 +618,60 @@ jobs:
           restore_candidate
           git diff --exit-code -- "${targets[@]}"
 
+      - name: Prove remaining maintenance authentication regressions on the pre-fix source
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'codex/subscription-key-share-20261014'
+        run: |
+          set -euo pipefail
+          baseline=6ca9cce1b12e6b2061b429ab64c793d6cb8b343d
+          saved="$RUNNER_TEMP/remaining-maintenance-candidate"
+          report="$RUNNER_TEMP/myapi-ui-browser-artifacts/remaining-maintenance-baseline-red.json"
+          mkdir -p "$saved" "$(dirname "$report")"
+          targets=(src/features/keys/api.ts src/features/keys/token-budget-api.ts src/features/keys/components/token-budget-dialog.tsx src/features/access-policy/api.ts)
+          for target in "${targets[@]}"; do
+            mkdir -p "$saved/$(dirname "$target")"
+            cp "$target" "$saved/$target"
+          done
+          restore_remaining_candidate() {
+            for target in "${targets[@]}"; do cp "$saved/$target" "$target"; done
+          }
+          trap restore_remaining_candidate EXIT
+          git fetch --no-tags --depth=1 origin "$baseline"
+          for target in "${targets[@]}"; do git show "$baseline:web/$target" > "$target"; done
+          set +e
+          bun run test src/features/keys/components/__tests__/key-maintenance-auth-replay.test.tsx \
+            src/features/keys/components/__tests__/budget-session-boundary.test.tsx \
+            src/features/access-policy/__tests__/session-api.test.ts \
+            -t 'a scoped .* returning 401|a budget (policy|recover) write returning 401|a token policy .* returning 401|a delayed old-SID budget read ending in success' \
+            --reporter=json --outputFile="$report"
+          result=$?
+          set -e
+          [[ "$result" -ne 0 ]]
+          python3 - "$report" <<'PY'
+          import json
+          import sys
+          report = json.load(open(sys.argv[1]))
+          cases = [case for suite in report['testResults'] for case in suite['assertionResults']]
+          failures = [case for case in cases if case['status'] == 'failed']
+          expected = {
+              'a scoped delete returning 401 after a same-user SID change never refreshes or replays',
+              'a scoped batch delete returning 401 after a same-user SID change never refreshes or replays',
+              'a budget policy write returning 401 never refreshes or replays',
+              'a budget recover write returning 401 never refreshes or replays',
+              'a delayed old-SID budget read ending in success never enters either session cache',
+              *[f'a token policy {action} returning 401 never refreshes or replays' for action in ('read', 'save', 'remove', 'preview', 'owner')],
+          }
+          assert len(failures) == 10 and {case['title'] for case in failures} == expected, 'Require all ten intended authentication and SID regressions'
+          for case in failures:
+              message = '\n'.join(case.get('failureMessages', []))
+              if case['title'].startswith('a delayed old-SID'):
+                  assert '200' in message and 'Unable to find' in message, 'Require the missing fresh SID panel assertion'
+              else:
+                  assert ('length' in message or 'resolved' in message), 'Require a replay count or unexpectedly resolved write assertion'
+          assert not report.get('unhandledErrors'), 'Import or initialization failures are not regression evidence'
+          PY
+          restore_remaining_candidate
+          git diff --exit-code -- "${targets[@]}"
+
       - name: Retain runnable personal console build
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
@@ -935,6 +989,12 @@ jobs:
           MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-credential-browser/node_modules/playwright/index.mjs
           MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-credential-rotation-artifacts
         run: node tools/ui/credential-rotation-browser.mjs
+      - name: Verify remaining Key maintenance session boundaries in Chromium
+        if: ${{ !cancelled() }}
+        env:
+          MYAPI_PLAYWRIGHT_MODULE: ${{ runner.temp }}/myapi-credential-browser/node_modules/playwright/index.mjs
+          MYAPI_BROWSER_ARTIFACTS: ${{ runner.temp }}/myapi-session-browser-artifacts
+        run: node tools/ui/maintenance-session-browser.mjs
       - name: Verify real Go migration and proof routes on disposable SQLite
         if: ${{ !cancelled() }}
         env:
@@ -963,5 +1023,7 @@ jobs:
             ${{ runner.temp }}/myapi-credential-runtime-artifacts/**/*.json
             ${{ runner.temp }}/myapi-rotation-runtime-artifacts/**/*.png
             ${{ runner.temp }}/myapi-rotation-runtime-artifacts/**/*.json
+            ${{ runner.temp }}/myapi-session-browser-artifacts/*.png
+            ${{ runner.temp }}/myapi-session-browser-artifacts/*.json
           if-no-files-found: error
           retention-days: 7
