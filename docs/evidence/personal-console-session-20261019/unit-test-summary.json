@@ -1,0 +1,16 @@
+{
+  "run": 39148878978,
+  "source_head": "1dc806ee369753ebf9776e2e57eb019c4b88b488",
+  "build_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+  "files_passed": 243,
+  "tests_passed": 1562,
+  "new_tests": 22,
+  "source_artifact": "myapi-frontend-tests-109907180d4ed124c8d081c15f88a508ba98772b",
+  "selected_results": [
+    "✓ src/features/keys/components/__tests__/budget-session-boundary.test.tsx (8 tests) 983ms",
+    "✓ src/features/keys/components/__tests__/key-maintenance-auth-replay.test.tsx (9 tests) 1220ms",
+    "✓ src/features/keys/components/__tests__/api-keys-delete-session.test.tsx (6 tests) 490ms",
+    "✓ src/features/access-policy/__tests__/session-api.test.ts (6 tests) 287ms"
+  ],
+  "location": "GitHub Actions; no local Vitest installation"
+}

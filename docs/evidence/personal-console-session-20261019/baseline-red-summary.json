@@ -1,0 +1,56 @@
+{
+  "run": 39148878978,
+  "test_source": "1dc806ee369753ebf9776e2e57eb019c4b88b488",
+  "baseline_source": "6ca9cce1b12e6b2061b429ab64c793d6cb8b343d",
+  "result": "expected regressions reproduced",
+  "failed_cases_expected": 10,
+  "failed_cases_observed": 10,
+  "unhandled_errors": [],
+  "source_artifact": "myapi-ui-browser-109907180d4ed124c8d081c15f88a508ba98772b",
+  "source_path": "remaining-maintenance-baseline-red.json",
+  "source_report_sha256": "4b8f04d8ed486927f2ee3b37d3524c58bdfaf9ddf242b2689c47418e0346b102",
+  "raw_report_archived_here": false,
+  "reason": "Locally generated summary; complete original report retained in the Actions artifact, not presented as a local original",
+  "cases": [
+    {
+      "name": "a token policy read returning 401 never refreshes or replays",
+      "status": "failed"
+    },
+    {
+      "name": "a token policy save returning 401 never refreshes or replays",
+      "status": "failed"
+    },
+    {
+      "name": "a token policy remove returning 401 never refreshes or replays",
+      "status": "failed"
+    },
+    {
+      "name": "a token policy preview returning 401 never refreshes or replays",
+      "status": "failed"
+    },
+    {
+      "name": "a token policy owner returning 401 never refreshes or replays",
+      "status": "failed"
+    },
+    {
+      "name": "a budget policy write returning 401 never refreshes or replays",
+      "status": "failed"
+    },
+    {
+      "name": "a budget recover write returning 401 never refreshes or replays",
+      "status": "failed"
+    },
+    {
+      "name": "a delayed old-SID budget read ending in success never enters either session cache",
+      "status": "failed"
+    },
+    {
+      "name": "a scoped delete returning 401 after a same-user SID change never refreshes or replays",
+      "status": "failed"
+    },
+    {
+      "name": "a scoped batch delete returning 401 after a same-user SID change never refreshes or replays",
+      "status": "failed"
+    }
+  ]
+}

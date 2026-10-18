@@ -1,0 +1,429 @@
+{
+  "source_head": "1dc806ee369753ebf9776e2e57eb019c4b88b488",
+  "build_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+  "tree": "6a65752cdb868f902c1e8c22e7a0200a93a777b3",
+  "run": 39148878978,
+  "all_original_bytes_preserved": true,
+  "files": [
+    {
+      "file": "final/maintenance-budget-navigate-away-en-1440-header.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-budget-navigate-away-en-1440-header.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "5a53100996f120c21349a2bf22b28182cad1c06a6f723c8072b3020d8e118a74",
+      "bytes": 222259
+    },
+    {
+      "file": "final/maintenance-budget-navigate-away-en-1440-navigated.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-budget-navigate-away-en-1440-navigated.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "b91c1668f55f556fc87ebcfc1532902e72e5330ae9a0bbb92565a1b810002d12",
+      "bytes": 76024
+    },
+    {
+      "file": "final/maintenance-budget-navigate-away-en-1440-review.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-budget-navigate-away-en-1440-review.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "a587316e86097abf30d75823508a3863e0b0bf1f9dbdb8eed22edbb7050890db",
+      "bytes": 181397
+    },
+    {
+      "file": "final/maintenance-budget-navigate-away-en-1440-settled.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-budget-navigate-away-en-1440-settled.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "0bec1ceceb046e192593db48ddd492de0c601d92bbee4a5867d1e2e1837d798d",
+      "bytes": 75434
+    },
+    {
+      "file": "final/maintenance-budget-navigate-away-zh-390-header.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-budget-navigate-away-zh-390-header.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "1ae15462b51b754496a8cc712f89de74bbc0690efcaf8c07ac5bccf07c5f7a32",
+      "bytes": 126711
+    },
+    {
+      "file": "final/maintenance-budget-navigate-away-zh-390-navigated.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-budget-navigate-away-zh-390-navigated.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "a3077c09a29349c937438cfd76c93e1c846601fa1e2e02d62b584d8415358fba",
+      "bytes": 52190
+    },
+    {
+      "file": "final/maintenance-budget-navigate-away-zh-390-review.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-budget-navigate-away-zh-390-review.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "b6b58344446a206328f8919f876427b425277a761039db00ef23377cbb597adb",
+      "bytes": 94587
+    },
+    {
+      "file": "final/maintenance-budget-navigate-away-zh-390-settled.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-budget-navigate-away-zh-390-settled.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "a3077c09a29349c937438cfd76c93e1c846601fa1e2e02d62b584d8415358fba",
+      "bytes": 52190
+    },
+    {
+      "file": "final/maintenance-budget-success-en-1440-header.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-budget-success-en-1440-header.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "5a53100996f120c21349a2bf22b28182cad1c06a6f723c8072b3020d8e118a74",
+      "bytes": 222259
+    },
+    {
+      "file": "final/maintenance-budget-success-en-1440-review.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-budget-success-en-1440-review.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "a587316e86097abf30d75823508a3863e0b0bf1f9dbdb8eed22edbb7050890db",
+      "bytes": 181397
+    },
+    {
+      "file": "final/maintenance-budget-success-en-1440-success.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-budget-success-en-1440-success.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "4b75944bdca43a3e8504b3ee3e5d0f88db73cc140467e06d03457cd6667cc736",
+      "bytes": 181095
+    },
+    {
+      "file": "final/maintenance-budget-success-zh-390-header.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-budget-success-zh-390-header.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "1ae15462b51b754496a8cc712f89de74bbc0690efcaf8c07ac5bccf07c5f7a32",
+      "bytes": 126711
+    },
+    {
+      "file": "final/maintenance-budget-success-zh-390-review.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-budget-success-zh-390-review.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "b6b58344446a206328f8919f876427b425277a761039db00ef23377cbb597adb",
+      "bytes": 94587
+    },
+    {
+      "file": "final/maintenance-budget-success-zh-390-success.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-budget-success-zh-390-success.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "08f0c49657e1141c245a97e76bf80d4261a1a1579f087fc1cb420bc696e9c6e0",
+      "bytes": 94326
+    },
+    {
+      "file": "final/maintenance-delete-navigate-away-en-1440-navigated.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-delete-navigate-away-en-1440-navigated.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "b91c1668f55f556fc87ebcfc1532902e72e5330ae9a0bbb92565a1b810002d12",
+      "bytes": 76024
+    },
+    {
+      "file": "final/maintenance-delete-navigate-away-en-1440-review.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-delete-navigate-away-en-1440-review.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "afd24264f37ce224528e682e3b8390de41022e2ea5245a4860072b90746c6677",
+      "bytes": 143288
+    },
+    {
+      "file": "final/maintenance-delete-navigate-away-en-1440-settled.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-delete-navigate-away-en-1440-settled.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "b91c1668f55f556fc87ebcfc1532902e72e5330ae9a0bbb92565a1b810002d12",
+      "bytes": 76024
+    },
+    {
+      "file": "final/maintenance-delete-navigate-away-zh-390-navigated.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-delete-navigate-away-zh-390-navigated.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "a3077c09a29349c937438cfd76c93e1c846601fa1e2e02d62b584d8415358fba",
+      "bytes": 52190
+    },
+    {
+      "file": "final/maintenance-delete-navigate-away-zh-390-review.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-delete-navigate-away-zh-390-review.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "5bef1799710e24ca9040f5010d58541c467ad5fcf0b8717b899c23bc3e4d2034",
+      "bytes": 83943
+    },
+    {
+      "file": "final/maintenance-delete-navigate-away-zh-390-settled.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-delete-navigate-away-zh-390-settled.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "c1cffebe635909272a7d55852592e45f6a0ae450e98c72033ea0185fe3763c76",
+      "bytes": 51950
+    },
+    {
+      "file": "final/maintenance-delete-success-en-1440-review.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-delete-success-en-1440-review.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "afd24264f37ce224528e682e3b8390de41022e2ea5245a4860072b90746c6677",
+      "bytes": 143288
+    },
+    {
+      "file": "final/maintenance-delete-success-en-1440-success.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-delete-success-en-1440-success.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "95aea23ddd83deadd30231d420df6962e715d18357f237cbdc2433ce316c3ab9",
+      "bytes": 69229
+    },
+    {
+      "file": "final/maintenance-delete-success-zh-390-review.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-delete-success-zh-390-review.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "98359c5342ee9cdfc0e0ef9bba461b7a18894162f429712b2c279ed3e8d6ad02",
+      "bytes": 83933
+    },
+    {
+      "file": "final/maintenance-delete-success-zh-390-success.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-delete-success-zh-390-success.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "53af8eca8098e317782f6797bb0ccbeb3d8e4c027451236afa946116ec4f3641",
+      "bytes": 49515
+    },
+    {
+      "file": "final/maintenance-policy-navigate-away-en-1440-header.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-policy-navigate-away-en-1440-header.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "2bc69a112bc3fa5c55a047a9f3ac89fc2bc701ee84077967c767a608ac1f5746",
+      "bytes": 185042
+    },
+    {
+      "file": "final/maintenance-policy-navigate-away-en-1440-navigated.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-policy-navigate-away-en-1440-navigated.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "b91c1668f55f556fc87ebcfc1532902e72e5330ae9a0bbb92565a1b810002d12",
+      "bytes": 76024
+    },
+    {
+      "file": "final/maintenance-policy-navigate-away-en-1440-review.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-policy-navigate-away-en-1440-review.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "82c59614132f334fdaa6bea758e118dca71423bce819b5a94f657d5ff24c0b29",
+      "bytes": 186006
+    },
+    {
+      "file": "final/maintenance-policy-navigate-away-en-1440-settled.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-policy-navigate-away-en-1440-settled.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "b91c1668f55f556fc87ebcfc1532902e72e5330ae9a0bbb92565a1b810002d12",
+      "bytes": 76024
+    },
+    {
+      "file": "final/maintenance-policy-navigate-away-zh-390-header.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-policy-navigate-away-zh-390-header.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "7134dbd26bd5544842beade24d2b0549cab6dbb288efb1d5c9d6f0bf8504e525",
+      "bytes": 106799
+    },
+    {
+      "file": "final/maintenance-policy-navigate-away-zh-390-navigated.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-policy-navigate-away-zh-390-navigated.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "c1cffebe635909272a7d55852592e45f6a0ae450e98c72033ea0185fe3763c76",
+      "bytes": 51950
+    },
+    {
+      "file": "final/maintenance-policy-navigate-away-zh-390-review.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-policy-navigate-away-zh-390-review.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "e642c37e852dce8453822c42bfc5e402fd856943b538b1136453116f25dfd6cb",
+      "bytes": 84262
+    },
+    {
+      "file": "final/maintenance-policy-navigate-away-zh-390-settled.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-policy-navigate-away-zh-390-settled.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "c1cffebe635909272a7d55852592e45f6a0ae450e98c72033ea0185fe3763c76",
+      "bytes": 51950
+    },
+    {
+      "file": "final/maintenance-policy-success-en-1440-header.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-policy-success-en-1440-header.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "2bc69a112bc3fa5c55a047a9f3ac89fc2bc701ee84077967c767a608ac1f5746",
+      "bytes": 185042
+    },
+    {
+      "file": "final/maintenance-policy-success-en-1440-review.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-policy-success-en-1440-review.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "82c59614132f334fdaa6bea758e118dca71423bce819b5a94f657d5ff24c0b29",
+      "bytes": 186006
+    },
+    {
+      "file": "final/maintenance-policy-success-en-1440-success.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-policy-success-en-1440-success.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "15a1bec6c1a3324a7b9eb2ecce92847f001d6c8ff953658de0e5a18723c7ca4a",
+      "bytes": 168106
+    },
+    {
+      "file": "final/maintenance-policy-success-zh-390-header.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-policy-success-zh-390-header.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "7134dbd26bd5544842beade24d2b0549cab6dbb288efb1d5c9d6f0bf8504e525",
+      "bytes": 106799
+    },
+    {
+      "file": "final/maintenance-policy-success-zh-390-review.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-policy-success-zh-390-review.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "e642c37e852dce8453822c42bfc5e402fd856943b538b1136453116f25dfd6cb",
+      "bytes": 84262
+    },
+    {
+      "file": "final/maintenance-policy-success-zh-390-success.png",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-policy-success-zh-390-success.png",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "872f9ef0c31065b9ba9227b0086de425848bc0cf72eb7452b76bd4e3bb255589",
+      "bytes": 89736
+    },
+    {
+      "file": "final/maintenance-session-qualification.json",
+      "source_artifact": "myapi-credential-maintenance-109907180d4ed124c8d081c15f88a508ba98772b",
+      "source_path": "myapi-session-browser-artifacts/maintenance-session-qualification.json",
+      "source_run": 39148878978,
+      "source_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+      "role": "final_acceptance",
+      "sha256": "41fb9cfb9a479ea0d56beaa0fe59d1cdab902d2a14a4f852bceb342196de061f",
+      "bytes": 8294
+    },
+    {
+      "file": "intermediate-71ae535/maintenance-policy-success-en-1440-success.png",
+      "source_artifact": "myapi-credential-maintenance-40380ac288c2f4d45d8a5c067462d879320c43a5",
+      "source_path": "myapi-session-browser-artifacts/maintenance-policy-success-en-1440-success.png",
+      "source_run": 39148275311,
+      "source_checkout": "40380ac288c2f4d45d8a5c067462d879320c43a5",
+      "role": "intermediate_fixture_P2_not_acceptance",
+      "sha256": "20fb651802c3d701c0edbea864de14be4b9a272b66993d534c9d8d0954dd5c8e",
+      "bytes": 180139
+    },
+    {
+      "file": "intermediate-71ae535/maintenance-policy-success-zh-390-success.png",
+      "source_artifact": "myapi-credential-maintenance-40380ac288c2f4d45d8a5c067462d879320c43a5",
+      "source_path": "myapi-session-browser-artifacts/maintenance-policy-success-zh-390-success.png",
+      "source_run": 39148275311,
+      "source_checkout": "40380ac288c2f4d45d8a5c067462d879320c43a5",
+      "role": "intermediate_fixture_P2_not_acceptance",
+      "sha256": "0894c542a20fa432a67c7e619b144ddee5f3af0792868583daf8546c8b79f02a",
+      "bytes": 95791
+    },
+    {
+      "file": "intermediate-71ae535/maintenance-session-qualification.json",
+      "source_artifact": "myapi-credential-maintenance-40380ac288c2f4d45d8a5c067462d879320c43a5",
+      "source_path": "myapi-session-browser-artifacts/maintenance-session-qualification.json",
+      "source_run": 39148275311,
+      "source_checkout": "40380ac288c2f4d45d8a5c067462d879320c43a5",
+      "role": "intermediate_fixture_P2_not_acceptance",
+      "sha256": "3015984c40a226d7daef6ff29e0ac5045664a7ad909c7410ad5776e8c66697da",
+      "bytes": 7818
+    }
+  ]
+}

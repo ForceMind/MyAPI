@@ -1,0 +1,232 @@
+{
+  "head": "40380ac288c2f4d45d8a5c067462d879320c43a5",
+  "version": "0.2.0-beta.20",
+  "workflowHead": "40380ac288c2f4d45d8a5c067462d879320c43a5",
+  "scope": "Actual production frontend with synthetic APIs; single deletion, budget policy and Key assigned access. No real credentials, database, providers, financial recovery or deployment.",
+  "passed": true,
+  "journeys": [
+    {
+      "name": "maintenance-delete-success-en-1440",
+      "language": "en",
+      "width": 1440,
+      "action": "delete",
+      "outcome": "success",
+      "revision": "rv.0.2.0-beta.20.40380ac288c2f4d45d8a5c067462d879320c43a5.2k6e8r7p",
+      "writes": 1,
+      "initialRefreshes": 1,
+      "finalRefreshes": 1,
+      "writeDisposition": "200-delivered",
+      "menuTriggeredSecretReads": 1,
+      "screenshots": [
+        "maintenance-delete-success-en-1440-review.png",
+        "maintenance-delete-success-en-1440-success.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "maintenance-delete-navigate-away-en-1440",
+      "language": "en",
+      "width": 1440,
+      "action": "delete",
+      "outcome": "navigate-away",
+      "revision": "rv.0.2.0-beta.20.40380ac288c2f4d45d8a5c067462d879320c43a5.2k6e8r7p",
+      "writes": 1,
+      "initialRefreshes": 1,
+      "finalRefreshes": 1,
+      "writeDisposition": "401-delivered",
+      "menuTriggeredSecretReads": 1,
+      "screenshots": [
+        "maintenance-delete-navigate-away-en-1440-review.png",
+        "maintenance-delete-navigate-away-en-1440-navigated.png",
+        "maintenance-delete-navigate-away-en-1440-settled.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "maintenance-budget-success-en-1440",
+      "language": "en",
+      "width": 1440,
+      "action": "budget",
+      "outcome": "success",
+      "revision": "rv.0.2.0-beta.20.40380ac288c2f4d45d8a5c067462d879320c43a5.2k6e8r7p",
+      "writes": 1,
+      "initialRefreshes": 1,
+      "finalRefreshes": 1,
+      "writeDisposition": "200-delivered",
+      "menuTriggeredSecretReads": 0,
+      "screenshots": [
+        "maintenance-budget-success-en-1440-review.png",
+        "maintenance-budget-success-en-1440-success.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "maintenance-budget-navigate-away-en-1440",
+      "language": "en",
+      "width": 1440,
+      "action": "budget",
+      "outcome": "navigate-away",
+      "revision": "rv.0.2.0-beta.20.40380ac288c2f4d45d8a5c067462d879320c43a5.2k6e8r7p",
+      "writes": 1,
+      "initialRefreshes": 1,
+      "finalRefreshes": 1,
+      "writeDisposition": "navigation-aborted",
+      "menuTriggeredSecretReads": 0,
+      "screenshots": [
+        "maintenance-budget-navigate-away-en-1440-review.png",
+        "maintenance-budget-navigate-away-en-1440-navigated.png",
+        "maintenance-budget-navigate-away-en-1440-settled.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "maintenance-policy-success-en-1440",
+      "language": "en",
+      "width": 1440,
+      "action": "policy",
+      "outcome": "success",
+      "revision": "rv.0.2.0-beta.20.40380ac288c2f4d45d8a5c067462d879320c43a5.2k6e8r7p",
+      "writes": 1,
+      "initialRefreshes": 1,
+      "finalRefreshes": 1,
+      "writeDisposition": "200-delivered",
+      "menuTriggeredSecretReads": 1,
+      "screenshots": [
+        "maintenance-policy-success-en-1440-review.png",
+        "maintenance-policy-success-en-1440-success.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "maintenance-policy-navigate-away-en-1440",
+      "language": "en",
+      "width": 1440,
+      "action": "policy",
+      "outcome": "navigate-away",
+      "revision": "rv.0.2.0-beta.20.40380ac288c2f4d45d8a5c067462d879320c43a5.2k6e8r7p",
+      "writes": 1,
+      "initialRefreshes": 1,
+      "finalRefreshes": 1,
+      "writeDisposition": "navigation-aborted",
+      "menuTriggeredSecretReads": 1,
+      "screenshots": [
+        "maintenance-policy-navigate-away-en-1440-review.png",
+        "maintenance-policy-navigate-away-en-1440-navigated.png",
+        "maintenance-policy-navigate-away-en-1440-settled.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "maintenance-delete-success-zh-390",
+      "language": "zh",
+      "width": 390,
+      "action": "delete",
+      "outcome": "success",
+      "revision": "rv.0.2.0-beta.20.40380ac288c2f4d45d8a5c067462d879320c43a5.2k6e8r7p",
+      "writes": 1,
+      "initialRefreshes": 1,
+      "finalRefreshes": 1,
+      "writeDisposition": "200-delivered",
+      "menuTriggeredSecretReads": 1,
+      "screenshots": [
+        "maintenance-delete-success-zh-390-review.png",
+        "maintenance-delete-success-zh-390-success.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "maintenance-delete-navigate-away-zh-390",
+      "language": "zh",
+      "width": 390,
+      "action": "delete",
+      "outcome": "navigate-away",
+      "revision": "rv.0.2.0-beta.20.40380ac288c2f4d45d8a5c067462d879320c43a5.2k6e8r7p",
+      "writes": 1,
+      "initialRefreshes": 1,
+      "finalRefreshes": 1,
+      "writeDisposition": "401-delivered",
+      "menuTriggeredSecretReads": 1,
+      "screenshots": [
+        "maintenance-delete-navigate-away-zh-390-review.png",
+        "maintenance-delete-navigate-away-zh-390-navigated.png",
+        "maintenance-delete-navigate-away-zh-390-settled.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "maintenance-budget-success-zh-390",
+      "language": "zh",
+      "width": 390,
+      "action": "budget",
+      "outcome": "success",
+      "revision": "rv.0.2.0-beta.20.40380ac288c2f4d45d8a5c067462d879320c43a5.2k6e8r7p",
+      "writes": 1,
+      "initialRefreshes": 1,
+      "finalRefreshes": 1,
+      "writeDisposition": "200-delivered",
+      "menuTriggeredSecretReads": 0,
+      "screenshots": [
+        "maintenance-budget-success-zh-390-review.png",
+        "maintenance-budget-success-zh-390-success.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "maintenance-budget-navigate-away-zh-390",
+      "language": "zh",
+      "width": 390,
+      "action": "budget",
+      "outcome": "navigate-away",
+      "revision": "rv.0.2.0-beta.20.40380ac288c2f4d45d8a5c067462d879320c43a5.2k6e8r7p",
+      "writes": 1,
+      "initialRefreshes": 1,
+      "finalRefreshes": 1,
+      "writeDisposition": "navigation-aborted",
+      "menuTriggeredSecretReads": 0,
+      "screenshots": [
+        "maintenance-budget-navigate-away-zh-390-review.png",
+        "maintenance-budget-navigate-away-zh-390-navigated.png",
+        "maintenance-budget-navigate-away-zh-390-settled.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "maintenance-policy-success-zh-390",
+      "language": "zh",
+      "width": 390,
+      "action": "policy",
+      "outcome": "success",
+      "revision": "rv.0.2.0-beta.20.40380ac288c2f4d45d8a5c067462d879320c43a5.2k6e8r7p",
+      "writes": 1,
+      "initialRefreshes": 1,
+      "finalRefreshes": 1,
+      "writeDisposition": "200-delivered",
+      "menuTriggeredSecretReads": 1,
+      "screenshots": [
+        "maintenance-policy-success-zh-390-review.png",
+        "maintenance-policy-success-zh-390-success.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "maintenance-policy-navigate-away-zh-390",
+      "language": "zh",
+      "width": 390,
+      "action": "policy",
+      "outcome": "navigate-away",
+      "revision": "rv.0.2.0-beta.20.40380ac288c2f4d45d8a5c067462d879320c43a5.2k6e8r7p",
+      "writes": 1,
+      "initialRefreshes": 1,
+      "finalRefreshes": 1,
+      "writeDisposition": "navigation-aborted",
+      "menuTriggeredSecretReads": 1,
+      "screenshots": [
+        "maintenance-policy-navigate-away-zh-390-review.png",
+        "maintenance-policy-navigate-away-zh-390-navigated.png",
+        "maintenance-policy-navigate-away-zh-390-settled.png"
+      ],
+      "passed": true
+    }
+  ],
+  "errors": []
+}

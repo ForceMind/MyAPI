@@ -1,0 +1,17 @@
+{
+  "synthetic": true,
+  "real_database": false,
+  "real_provider": false,
+  "real_credentials": false,
+  "version": "0.2.0-beta.20",
+  "sourceHead": "1dc806ee369753ebf9776e2e57eb019c4b88b488",
+  "buildHead": "109907180d4ed124c8d081c15f88a508ba98772b",
+  "ci": "https://github.com/ForceMind/MyAPI/actions/runs/39148878978",
+  "mutation_scope": "ephemeral synthetic Key deletion, budget policy and assigned access only",
+  "page": "/keys",
+  "page_status": 200,
+  "cache_control": "no-store",
+  "index_sha256": "a7b1a14a2ef22f3e0e5d9b4bafa8d22ab9459011198cbee9ce6fc195ea454bfb",
+  "exact_ci_html_bytes": true,
+  "browser_location": "Chromium in Actions, local preview verified by HTTP only"
+}

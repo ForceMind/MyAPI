@@ -1,0 +1,690 @@
+{
+  "source_head": "1dc806ee369753ebf9776e2e57eb019c4b88b488",
+  "build_checkout": "109907180d4ed124c8d081c15f88a508ba98772b",
+  "source_tree": "6a65752cdb868f902c1e8c22e7a0200a93a777b3",
+  "build_tree": "6a65752cdb868f902c1e8c22e7a0200a93a777b3",
+  "source_and_build_trees_equal": true,
+  "source_commit_api": {
+    "sha": "1dc806ee369753ebf9776e2e57eb019c4b88b488",
+    "tree": "6a65752cdb868f902c1e8c22e7a0200a93a777b3"
+  },
+  "checkout_commit_api": {
+    "sha": "109907180d4ed124c8d081c15f88a508ba98772b",
+    "tree": "6a65752cdb868f902c1e8c22e7a0200a93a777b3"
+  },
+  "version": "0.2.0-beta.20",
+  "ci_url": "https://github.com/ForceMind/MyAPI/actions/runs/39148878978",
+  "ci_run": 39148878978,
+  "status": "completed",
+  "conclusion": "success",
+  "completed_successful_jobs": 11,
+  "jobs": [
+    {
+      "name": "Desktop cross-platform contract",
+      "database_id": 117738528757,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate macOS and Windows desktop contract",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run Electron runtime tests",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Distribution and release contracts",
+      "database_id": 117738528904,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate CLI and distribution contracts",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify Docker smoke fixture and restore contracts",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "S2-C09 Redis limiter lifecycle regression",
+      "database_id": 117738528910,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify limiter lifecycle on disposable Redis",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "B2 durable submission database regression",
+      "database_id": 117738528920,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify durable submissions on disposable databases",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify quota identity migration and account projection on disposable databases",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "S2-C quota script Redis regression",
+      "database_id": 117738528933,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify quota scripts on disposable Redis",
+          "conclusion": "success"
+        },
+        {
+          "name": "Prove credential rotation cache fences on disposable Redis",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "S2-A payment and subscription database regression",
+      "database_id": 117738528940,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify payment transactions on disposable databases",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "S1 identity and options database regression",
+      "database_id": 117738528942,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify identity migration and option persistence on disposable databases",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Backend vet, build, and test",
+      "database_id": 117738529000,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Create frontend embed placeholder",
+          "conclusion": "success"
+        },
+        {
+          "name": "Vet root module",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify approximate subscription share boundaries",
+          "conclusion": "success"
+        },
+        {
+          "name": "Vet relaykit independently",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build root module",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build root module for linux/386",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify historical amount behavior on linux/386",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify root JSON wrapper policy",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build relaykit independently",
+          "conclusion": "success"
+        },
+        {
+          "name": "Prove credential rotation and outbound generation compatibility",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test root and relaykit modules",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test historical accounting audit tools",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify configuration publication ordering under race detector",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify settings, rate-limit, and request snapshots under race detector",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify model discovery and route identity under race detector",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify native Chat budgets and funding admission boundaries under race detector",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify assigned access and in-app account events under race detector",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify credential migration and sampling proofs under race detector",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify io.net and cache codec boundaries under race detector",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify task billing and logging boundaries under race detector",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify durable submission model under race detector",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "B2 ClickHouse log migration regression",
+      "database_id": 117738529036,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify ClickHouse logs migration on a disposable database",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Frontend typecheck and test",
+      "database_id": 117738529038,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Bun",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install dependencies",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify pre-fix personal Key handoff regression",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Build real quota UI for browser regression",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify pre-fix Key maintenance session regressions",
+          "conclusion": "success"
+        },
+        {
+          "name": "Prove remaining maintenance authentication regressions on the pre-fix source",
+          "conclusion": "success"
+        },
+        {
+          "name": "Retain runnable personal console build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Typecheck",
+          "conclusion": "success"
+        },
+        {
+          "name": "Lint",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Retain frontend test results before browser qualification",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install isolated browser test dependencies",
+          "conclusion": "success"
+        },
+        {
+          "name": "Qualify advanced personal maintenance in Chromium",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload advanced maintenance screenshots and reports",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify real quota charts and responsive interactions",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify model discovery and routing workflow in real Chromium",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify assigned access and account events in real Chromium",
+          "conclusion": "success"
+        },
+        {
+          "name": "Qualify personal console pages and native-window shares in Chromium",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload personal console screenshots and qualification reports",
+          "conclusion": "success"
+        },
+        {
+          "name": "Qualify shared UI, roles, settings and responsive pages in Chromium",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload full UI screenshots and qualification report",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload assigned access browser screenshots",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload routing browser screenshots",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload quota browser screenshots",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Bun",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Isolated credential maintenance browser and real API",
+      "database_id": 117738529086,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout qualified source",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Node",
+          "conclusion": "success"
+        },
+        {
+          "name": "Wait for this run's exact production build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Download this run's exact production build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install isolated browser tools",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify credential maintenance states on the production build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Qualify credential rotation on the production build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify remaining Key maintenance session boundaries in Chromium",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify real Go migration and proof routes on disposable SQLite",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify real Go rotation, proof and old/new authentication on disposable SQLite",
+          "conclusion": "success"
+        },
+        {
+          "name": "Retain original credential screenshots and reports",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Node",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Go",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout qualified source",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "frontend": {
+    "files_passed": 243,
+    "tests_passed": 1562,
+    "new_tests": 22,
+    "baseline_expected_failures_reproduced": 10
+  },
+  "related_browser": {
+    "journeys": 12,
+    "original_pngs": 38,
+    "independent_final_pngs_actually_viewed": 38,
+    "remaining_P1_P2": []
+  },
+  "runtime_boundary": "Actual compiled frontend with synthetic APIs; real Go migration/rotation on disposable SQLite and synthetic Root/2FA, no real provider/credential/production data",
+  "archive_boundary": "Subsequent archive is docs only, qualified source and archive HEAD are distinct",
+  "generated_locally": true
+}

@@ -45,3 +45,19 @@
 本地4177已服务该次准确前端：HTML逐字等于下载产物、HTTP200/no-store，budget与Key策略GET均200，仅临时内存合成API，不连接真实DB/provider/凭据。部署未执行。
 
 非实现者实际逐张查看本次30张PNG及12旅程JSON，主代理另看4张代表原图。独审确认整体视觉延续、无产品P1/横向溢出/秘密；发现一个资格证据P2：policy PUT更新合成policy，但owner GET仍硬编码未分配。真实后端 `GetTokenAssignedAccess` 返回当前 `state.Assigned()`，故属于夹具矛盾，不是产品保存缺陷。现将owner读取连接到同一policy/revision，并断言保存后owner/admin两处同时显示已分配；预算/策略另补动作区滚动前标题原图。原30图保留在/tmp原下载目录，不编辑或当最终证据；后继准确CI重新验证，产品代码保持与71ae535一致。
+
+## 第二轮准确分项与原图复验
+
+修订源码 `1dc806ee369753ebf9776e2e57eb019c4b88b488`，CI `39148878978`，checkout `109907180d4ed124c8d081c15f88a508ba98772b`；二者tree同为 `6a65752cdb868f902c1e8c22e7a0200a93a777b3`。十项旧源码实红、候选243文件/1562单元、type/lint/build、新12浏览器旅程及三库/Redis、真实Go迁移/轮换已通过；首次运行已按原concurrency自动取消，准确保留其已通过分项而非整体通过。
+
+本次38原PNG（delete10/budget14/policy14）与12旅程原JSON已取得。非实现者console_remaining_audit逐张以original查看38/38并读全部旅程，原fixture P2关闭、无剩余P1/P2。主代理确实另看本次4张：预算en/zh header、策略zh header和zh success，不把旧4张计为最终查看。8张header证明标题/说明；policy关闭控件在底部动作区，budget另有右上X。保存后owner/admin一致、单次写及无重放由同次driver断言证明，静态图不代替运行合同。
+
+准确前端已替换4177合成预览，并回读HTML逐字一致/200/no-store。最终38PNG+1原JSON、中间两张问题图+1原JSON，共42个原始文件按字节复制并验证SHA256；另有主代理生成manifest/审查/单元/预览摘要，不能称为原始运行报告。没有真实DB/provider/凭据连接。本机只核验HTTP，浏览器在Actions执行。
+
+此检查点仍为9/11作业success：完整后端在轮换/发送race，前端在既有shared UI/roles/settings矩阵；不提前宣称全部完成。最终CI终态、证据索引和现有分支同步仍待收口。
+
+## 最终验收与收口
+
+CI39148878978最终11/11作业全部success，head仍为1dc806ee369753ebf9776e2e57eb019c4b88b488。完整Go/独立relaykit、386、全部race、三库/Redis、前端243文件/1562单元、type/lint/build、新12旅程和全部旧浏览器矩阵均实际通过。最终38原图与12旅程独审通过，无剩余P1/P2；首轮fixture矛盾原图和取消结果继续保留，不冒充通过来源。
+
+42个原始文件、十项旧源码实红摘要、单元/审查/预览/CI来源索引已归档；生成索引与原始报告明确区分。后继提交只包含docs，相对准确候选的非docs差异为空，已有Draft PR #17/base不变。仅本轮合成预览4177运行，未安装本地重型依赖、未操作真实凭据、历史数据或生产服务，未合并、标签、发布或部署。
