@@ -783,6 +783,9 @@ scanLoop:
 			if channel == nil {
 				continue
 			}
+			if service.UpstreamAcceptanceModeEnabled() && channel.Type == constant.ChannelTypeCodex {
+				continue
+			}
 			if ctx != nil && ctx.Err() != nil {
 				break scanLoop
 			}

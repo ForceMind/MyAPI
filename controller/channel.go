@@ -425,7 +425,12 @@ func FetchUpstreamModels(c *gin.Context) {
 		return
 	}
 
-	ids, err := fetchChannelUpstreamModelIDs(channel)
+	var ids []string
+	if service.UpstreamAcceptanceModeEnabled() && channel.Type == constant.ChannelTypeCodex {
+		ids, err = service.FetchCodexChannelModelsContext(c.Request.Context(), channel)
+	} else {
+		ids, err = fetchChannelUpstreamModelIDs(channel)
+	}
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,

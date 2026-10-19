@@ -2382,6 +2382,9 @@ func runChannelQuotaSnapshotSyncOnce(ctx context.Context, maxChannels int, repor
 }
 
 func AutomaticallyUpdateChannels(frequency int) {
+	if service.UpstreamAcceptanceModeEnabled() {
+		return
+	}
 	for {
 		time.Sleep(time.Duration(frequency) * time.Minute)
 		common.SysLog("updating all channels")

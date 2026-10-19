@@ -405,6 +405,15 @@ func fetchCodexChannelWhamData(
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "codex channel: account_id is required"})
 		return
 	}
+	if service.UpstreamAcceptanceModeEnabled() {
+		opCtx, finish, opErr := service.BeginUpstreamAcceptanceOperation(c.Request.Context(), ch.Id, accountID)
+		if opErr != nil {
+			writeUpstreamAcceptanceDenied(c, http.StatusForbidden, i18n.MsgInvalidParams)
+			return
+		}
+		defer finish()
+		c.Request = c.Request.WithContext(opCtx)
+	}
 
 	client, err := service.GetHttpClientWithProxy(ch.GetSetting().Proxy)
 	if err != nil {
@@ -440,7 +449,12 @@ func fetchCodexChannelWhamData(
 				return
 			}
 		} else {
-			ctx2, cancel2 := context.WithTimeout(c.Request.Context(), 15*time.Second)
+			retryParent := c.Request.Context()
+			if service.UpstreamAcceptanceModeEnabled() {
+				// Acceptance retries retain the original request deadline and run.
+				retryParent = ctx
+			}
+			ctx2, cancel2 := context.WithTimeout(retryParent, 15*time.Second)
 			defer cancel2()
 			accountID = strings.TrimSpace(refreshedKey.AccountID)
 			encodedKey, encodeErr := common.Marshal(refreshedKey)
@@ -759,6 +773,14 @@ func sampleCodexCredentialUsage(ctx context.Context, ch *model.Channel, credenti
 	if accessToken == "" || accountID == "" {
 		persistErr := persist(credentialIdentity, 0, nil)
 		return newChannelQuotaSamplingError(fmt.Errorf("Codex OAuth key is missing access_token or account_id"), persistErr)
+	}
+	if service.UpstreamAcceptanceModeEnabled() {
+		opCtx, finish, opErr := service.BeginUpstreamAcceptanceOperation(ctx, ch.Id, accountID)
+		if opErr != nil {
+			return opErr
+		}
+		defer finish()
+		ctx = opCtx
 	}
 	client, err := service.GetHttpClientWithProxy(ch.GetSetting().Proxy)
 	if err != nil {

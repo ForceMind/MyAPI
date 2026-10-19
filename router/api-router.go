@@ -224,6 +224,12 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.POST("/option/diagnostics/remediate/apply", middleware.DisableCache(), middleware.RootAuth(), controller.OptionRemediateApply)
 		apiRouter.GET("/option/diagnostics/remediations", middleware.DisableCache(), middleware.RootAuth(), controller.GetOptionRemediations)
 
+		acceptanceRoute := apiRouter.Group("/upstream-acceptance/runs")
+		acceptanceRoute.Use(middleware.DisableCache(), middleware.RootAuth(), middleware.TokenMaintenanceSessionAuth())
+		acceptanceRoute.POST("", middleware.CriticalRateLimit(), middleware.DashboardSessionOriginGuard(), controller.StartUpstreamAcceptanceRun)
+		acceptanceRoute.GET("/:id", controller.GetUpstreamAcceptanceRunStatus)
+		acceptanceRoute.POST("/:id/stop", middleware.CriticalRateLimit(), middleware.DashboardSessionOriginGuard(), controller.StopUpstreamAcceptanceRun)
+
 		optionRoute := apiRouter.Group("/option")
 		optionRoute.Use(middleware.RootAuth())
 		{

@@ -78,6 +78,7 @@ func geminiRelayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewA
 }
 
 func Relay(c *gin.Context, relayFormat types.RelayFormat) {
+	defer service.FinishUpstreamAcceptanceRelayOperation(c)
 
 	requestId := c.GetString(common.RequestIdKey)
 	failover := service.BeginRelayFailover(c)
@@ -424,6 +425,9 @@ func isTextUsageDispatchGuardError(err *types.NewAPIError) bool {
 }
 
 func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) bool {
+	if service.UpstreamAcceptanceModeEnabled() && c != nil && c.GetInt("channel_type") == constant.ChannelTypeCodex {
+		return false
+	}
 	if openaiErr == nil {
 		return false
 	}

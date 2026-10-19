@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/model"
 	"github.com/google/uuid"
 )
 
@@ -67,7 +68,7 @@ func FetchCodexWhamUsage(
 
 	safeClient := *client
 	safeClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	resp, err := safeClient.Do(req)
+	resp, err := DoUpstreamAcceptanceHTTP(&safeClient, req, model.UpstreamAcceptanceDispatchSample)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -109,7 +110,7 @@ func FetchCodexWhamRateLimitResetCredits(
 	}
 	setCodexWhamRequestHeaders(req, at, aid)
 
-	resp, err := client.Do(req)
+	resp, err := DoUpstreamAcceptanceHTTP(client, req, model.UpstreamAcceptanceDispatchSample)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -164,7 +165,7 @@ func ConsumeCodexWhamRateLimitResetCredit(
 	setCodexWhamRequestHeaders(req, at, aid)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := client.Do(req)
+	resp, err := DoUpstreamAcceptanceHTTP(client, req, model.UpstreamAcceptanceDispatchSample)
 	if err != nil {
 		return 0, nil, err
 	}

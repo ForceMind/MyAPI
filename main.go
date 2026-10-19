@@ -119,7 +119,9 @@ func main() {
 	// balances. Prefer the bounded system-task sampler when it is enabled so an
 	// installation that keeps the legacy variable during migration does not
 	// duplicate upstream requests and snapshots.
-	if os.Getenv("CHANNEL_UPDATE_FREQUENCY") != "" &&
+	if service.UpstreamAcceptanceModeEnabled() {
+		common.SysLog("upstream acceptance mode pauses the legacy channel updater")
+	} else if os.Getenv("CHANNEL_UPDATE_FREQUENCY") != "" &&
 		!strings.EqualFold(strings.TrimSpace(os.Getenv("CHANNEL_QUOTA_SYNC_ENABLED")), "true") {
 		frequency, err := strconv.Atoi(os.Getenv("CHANNEL_UPDATE_FREQUENCY"))
 		if err != nil {

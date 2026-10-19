@@ -56,6 +56,9 @@ func (channelQuotaSnapshotSyncHandler) Type() string {
 func (channelQuotaSnapshotSyncHandler) ScheduleFromStart() bool { return true }
 
 func (channelQuotaSnapshotSyncHandler) Enabled() bool {
+	if service.UpstreamAcceptanceModeEnabled() {
+		return false
+	}
 	if value, ok := os.LookupEnv("CHANNEL_QUOTA_SYNC_ENABLED"); ok && strings.TrimSpace(value) != "" {
 		return strings.EqualFold(strings.TrimSpace(value), "true")
 	}
@@ -164,6 +167,10 @@ func parseChannelQuotaSyncMaxChannels(value string) int {
 }
 
 func (handler channelQuotaSnapshotSyncHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
+	if service.UpstreamAcceptanceModeEnabled() {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, nil, model.ErrUpstreamAcceptanceDenied)
+		return
+	}
 	payload := struct {
 		MaxChannels int `json:"max_channels"`
 	}{}

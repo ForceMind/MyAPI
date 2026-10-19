@@ -281,8 +281,13 @@ func RefreshCodexChannelCredentialElement(ctx context.Context, channelID int, ex
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	ctx, finish, err := BeginUpstreamAcceptanceChannelOperation(ctx, channelID)
+	if err != nil {
+		return nil, err
+	}
+	defer finish()
 	var refreshed *CodexOAuthKey
-	err := model.WithChannelCredentialUpdateGate(ctx, channelID, func(gateCtx context.Context) error {
+	err = model.WithChannelCredentialUpdateGate(ctx, channelID, func(gateCtx context.Context) error {
 		lease, err := acquireCodexCredentialRefreshLease(gateCtx, channelID)
 		if err != nil {
 			return err
@@ -436,7 +441,7 @@ func refreshCodexOAuthToken(
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := client.Do(req)
+	resp, err := DoUpstreamAcceptanceHTTP(client, req, model.UpstreamAcceptanceDispatchRefresh)
 	if err != nil {
 		return nil, err
 	}
@@ -498,7 +503,7 @@ func exchangeCodexAuthorizationCode(
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := client.Do(req)
+	resp, err := DoUpstreamAcceptanceHTTP(client, req, model.UpstreamAcceptanceDispatchAuth)
 	if err != nil {
 		return nil, err
 	}

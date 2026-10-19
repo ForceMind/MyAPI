@@ -12,8 +12,10 @@ import (
 	"time"
 
 	common2 "github.com/ForceMind/MyAPI/common"
+	rootconstant "github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/logger"
+	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/relay/common"
 	"github.com/ForceMind/MyAPI/relay/constant"
 	"github.com/ForceMind/MyAPI/relay/helper"
@@ -374,6 +376,9 @@ func DoFormRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBod
 }
 
 func DoWssRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody io.Reader) (*websocket.Conn, error) {
+	if service.UpstreamAcceptanceModeEnabled() && info.ChannelType == rootconstant.ChannelTypeCodex {
+		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgInvalidParams)), types.ErrorCode("upstream_acceptance_denied"), http.StatusForbidden, types.ErrOptionWithSkipRetry())
+	}
 	if c == nil || c.Request == nil {
 		return nil, errors.New("invalid websocket request context")
 	}
@@ -501,6 +506,15 @@ func keepUpstreamRedirectResponse(_ *http.Request, _ []*http.Request) error {
 }
 
 func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http.Response, error) {
+	acceptance := service.UpstreamAcceptanceModeEnabled() && info.ChannelType == rootconstant.ChannelTypeCodex
+	if acceptance {
+		var key service.CodexOAuthKey
+		if info.IsChannelTest || common2.UnmarshalJsonStr(info.ApiKey, &key) != nil || len(info.HeadersOverride) != 0 || len(info.ParamOverride) != 0 ||
+			service.BindUpstreamAcceptanceRelayOperation(c, info.ChannelId, key.AccountID) != nil ||
+			service.CheckUpstreamAcceptanceDispatch(c.Request.Context(), model.UpstreamAcceptanceDispatchGeneration) != nil {
+			return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgInvalidParams)), types.ErrorCode("upstream_acceptance_denied"), http.StatusForbidden, types.ErrOptionWithSkipRetry())
+		}
+	}
 	if err := service.ValidateAssignedAccessDispatch(c, req, info); err != nil {
 		return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgDistributorPolicyDenied, map[string]any{"Group": info.UsingGroup})), types.ErrorCodeAccessDenied, http.StatusForbidden, types.ErrOptionWithSkipRetry())
 	}
@@ -581,19 +595,34 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	if err := service.CommitTokenBudgetDispatch(c, info); err != nil {
 		return nil, service.TokenBudgetRelayError(c, err)
 	}
-	if _, err := service.PrepareSubscriptionShareDispatch(c.Request.Context(), &relayClient, req, info); err != nil {
+	shareAttemptID, shareErr := service.PrepareSubscriptionShareDispatch(c.Request.Context(), &relayClient, req, info)
+	if shareErr != nil {
 		// The share gate is the last fallible local step. No transport has
 		// been called, so do not leave the ordinary usage journal claiming a
 		// possibly-sent generation just because this new gate refused it.
 		if cancelErr := service.CancelTextUsageDispatchBeforeSend(info); cancelErr != nil {
 			logger.LogWarn(c, "unsent subscription share refusal could not clear dispatch evidence")
 		}
-		return nil, service.SubscriptionShareRelayError(c, err)
+		return nil, service.SubscriptionShareRelayError(c, shareErr)
 	}
 	if state := service.RelayFailoverFromContext(c.Request.Context()); state != nil {
 		state.DispatchPossible = true
 	}
-	resp, err := relayClient.Do(req)
+	var resp *http.Response
+	if acceptance {
+		resp, err = service.DoUpstreamAcceptanceHTTP(&relayClient, req, model.UpstreamAcceptanceDispatchGeneration)
+		if errors.Is(err, service.ErrUpstreamAcceptanceUnsent) {
+			if cancelErr := service.CancelTextUsageDispatchBeforeSend(info); cancelErr != nil {
+				logger.LogWarn(c, "unsent acceptance refusal could not clear text dispatch evidence")
+			}
+			if cancelErr := service.CancelSubscriptionShareUnsent(c.Request.Context(), shareAttemptID); cancelErr != nil {
+				logger.LogWarn(c, "unsent acceptance refusal could not clear share dispatch evidence")
+			}
+			return nil, types.NewErrorWithStatusCode(errors.New(common2.TranslateMessage(c, i18n.MsgInvalidParams)), types.ErrorCode("upstream_acceptance_denied"), http.StatusForbidden, types.ErrOptionWithSkipRetry())
+		}
+	} else {
+		resp, err = relayClient.Do(req)
+	}
 	service.ObserveRelayTransientFailure(c, resp, err)
 	if err != nil {
 		logger.LogError(c, "do request failed: "+err.Error())

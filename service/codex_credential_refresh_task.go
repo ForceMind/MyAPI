@@ -33,6 +33,9 @@ func shouldAutoRefreshCodexChannelStatus(status int) bool {
 }
 
 func StartCodexCredentialAutoRefreshTask() {
+	if UpstreamAcceptanceModeEnabled() {
+		return
+	}
 	codexCredentialRefreshOnce.Do(func() {
 		if !common.IsMasterNode {
 			return
@@ -53,6 +56,9 @@ func StartCodexCredentialAutoRefreshTask() {
 }
 
 func runCodexCredentialAutoRefreshOnce() {
+	if UpstreamAcceptanceModeEnabled() {
+		return
+	}
 	if !codexCredentialRefreshRunning.CompareAndSwap(false, true) {
 		return
 	}

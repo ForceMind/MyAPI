@@ -289,6 +289,9 @@ func runSystemTaskClaimPass(runnerID string) {
 	}
 	for _, handler := range handlers {
 		task := pendingTasks[handler.Type()]
+		if handler.Type() == model.SystemTaskTypeChannelQuotaSnapshotSync && UpstreamAcceptanceModeEnabled() {
+			continue
+		}
 		if task == nil {
 			continue
 		}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/model"
 )
 
 const (
@@ -66,7 +67,7 @@ func fetchLatestCodexClientVersion(ctx context.Context, client *http.Client, rel
 	// user-visible product name remains MyAPI.
 	req.Header.Set("User-Agent", "my-api")
 
-	resp, err := client.Do(req)
+	resp, err := DoUpstreamAcceptanceHTTP(client, req, model.UpstreamAcceptanceDispatchModels)
 	if err != nil {
 		return "", err
 	}
@@ -142,7 +143,7 @@ func FetchCodexModels(
 	req.Header.Set("User-Agent", "codex-cli/"+clientVersion)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := client.Do(req)
+	resp, err := DoUpstreamAcceptanceHTTP(client, req, model.UpstreamAcceptanceDispatchModels)
 	if err != nil {
 		return 0, nil, err
 	}

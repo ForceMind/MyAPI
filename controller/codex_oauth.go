@@ -89,6 +89,19 @@ func startCodexOAuthWithChannelID(c *gin.Context, channelID int) {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "dashboard session required"})
 		return
 	}
+	if service.UpstreamAcceptanceModeEnabled() {
+		if channelID <= 0 {
+			writeUpstreamAcceptanceDenied(c, http.StatusForbidden, i18n.MsgInvalidParams)
+			return
+		}
+		ctx, finish, err := service.BeginUpstreamAcceptanceChannelOperation(c.Request.Context(), channelID)
+		if err != nil {
+			writeUpstreamAcceptanceDenied(c, http.StatusForbidden, i18n.MsgInvalidParams)
+			return
+		}
+		defer finish()
+		c.Request = c.Request.WithContext(ctx)
+	}
 	targetCredentialDigest := ""
 	if channelID > 0 {
 		ch, err := getCodexOAuthChannel(channelID)
@@ -160,6 +173,19 @@ func completeCodexOAuthWithChannelID(c *gin.Context, channelID int) {
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "dashboard session required"})
 		return
+	}
+	if service.UpstreamAcceptanceModeEnabled() {
+		if channelID <= 0 {
+			writeUpstreamAcceptanceDenied(c, http.StatusForbidden, i18n.MsgInvalidParams)
+			return
+		}
+		ctx, finish, err := service.BeginUpstreamAcceptanceChannelOperation(c.Request.Context(), channelID)
+		if err != nil {
+			writeUpstreamAcceptanceDenied(c, http.StatusForbidden, i18n.MsgInvalidParams)
+			return
+		}
+		defer finish()
+		c.Request = c.Request.WithContext(ctx)
 	}
 	var req codexOAuthCompleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -276,8 +302,14 @@ func completeCodexOAuthWithChannelID(c *gin.Context, channelID int) {
 		"last_refresh": key.LastRefresh,
 	}
 	if channelID > 0 {
+		persistCtx := c.Request.Context()
+		if service.UpstreamAcceptanceModeEnabled() {
+			var cancelPersist context.CancelFunc
+			persistCtx, cancelPersist = context.WithTimeout(context.WithoutCancel(persistCtx), 5*time.Second)
+			defer cancelPersist()
+		}
 		updated, updateErr := service.ReplaceCodexChannelCredentialFromOAuth(
-			c.Request.Context(),
+			persistCtx,
 			channelID,
 			targetChannel.Key,
 			&key,

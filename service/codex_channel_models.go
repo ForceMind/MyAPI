@@ -12,18 +12,33 @@ import (
 )
 
 func FetchCodexChannelModels(channel *model.Channel) ([]string, error) {
+	if UpstreamAcceptanceModeEnabled() {
+		return nil, ErrUpstreamAcceptanceDenied
+	}
+	return FetchCodexChannelModelsContext(context.Background(), channel)
+}
+
+func FetchCodexChannelModelsContext(ctx context.Context, channel *model.Channel) ([]string, error) {
 	if channel == nil || channel.Type != constant.ChannelTypeCodex {
 		return nil, fmt.Errorf("channel type is not Codex")
 	}
 	if channel.ChannelInfo.IsMultiKey {
 		return nil, fmt.Errorf("codex channel does not support multi-key model discovery")
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, finish, err := BeginUpstreamAcceptanceChannelOperation(ctx, channel.Id)
+	if err != nil {
+		return nil, err
+	}
+	defer finish()
 
 	client, err := NewProxyHttpClient(channel.GetSetting().Proxy)
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 
 	clientVersion, err := GetLatestCodexClientVersion(ctx, client)

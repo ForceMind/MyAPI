@@ -207,6 +207,9 @@ jobs:
       - name: Verify credential migration and sampling proofs under race detector
         run: go test -race -p 1 ./model ./service ./controller ./router -run '^Test(TokenMaintenance|TokenAccountMigration|NormalizeTokenAccountMigration|SamplingTargetProof|EnsureSamplingTargetUpgradesLegacyProofState|ValidateTrustedCodexCredentialContinuity)' -count=1 -timeout=180s
 
+      - name: Verify isolated upstream acceptance controls under race detector
+        run: go test -race -p 1 ./model ./service ./controller ./relay/channel ./router -run '^TestUpstreamAcceptance' -count=1 -timeout=180s
+
       - name: Verify io.net and cache codec boundaries under race detector
         env:
           GOMAXPROCS: '1'
@@ -371,7 +374,7 @@ jobs:
         env:
           MYAPI_B2_MYSQL_DSN: root:b2-fixture-password@tcp(127.0.0.1:${{ job.services.mysql.ports[3306] }})/myapi_b2_test?charset=utf8mb4&parseTime=true
           MYAPI_B2_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=b2-fixture-password dbname=myapi_b2_test sslmode=disable
-        run: go test -p 1 ./model -run '^TestB2SubmissionConfiguredDatabases$' -count=1 -timeout=180s -v
+        run: go test -p 1 ./model -run '^(TestB2SubmissionConfiguredDatabases|TestUpstreamAcceptanceRunConfiguredDatabases)$' -count=1 -timeout=180s -v
 
       - name: Verify quota identity migration and account projection on disposable databases
         env:
@@ -925,6 +928,7 @@ jobs:
           node --test tools/runtime/docker-smoke.test.mjs
           tools/runtime/sqlite-restore-smoke.test.mjs
           tools/runtime/handoff-upgrade-smoke.test.mjs
+          tools/runtime/upstream-acceptance.test.mjs
 
   credential-maintenance:
     name: Isolated credential maintenance browser and real API

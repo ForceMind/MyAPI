@@ -86,9 +86,14 @@ func RefreshCodexChannelCredential(ctx context.Context, channelID int, opts Code
 	if channelID <= 0 {
 		return nil, nil, errors.New("invalid Codex channel id")
 	}
+	ctx, finish, err := BeginUpstreamAcceptanceChannelOperation(ctx, channelID)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer finish()
 	var oauthKey *CodexOAuthKey
 	var channel *model.Channel
-	err := model.WithChannelCredentialUpdateGate(ctx, channelID, func(gateCtx context.Context) error {
+	err = model.WithChannelCredentialUpdateGate(ctx, channelID, func(gateCtx context.Context) error {
 		lease, err := acquireCodexCredentialRefreshLease(gateCtx, channelID)
 		if err != nil {
 			return err
