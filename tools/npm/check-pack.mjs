@@ -65,6 +65,7 @@ const forbidden = paths.filter((file) => {
     /(^|\/)(?:node_modules|dist|coverage)(?:\/|$)/.test(file) ||
     /^(?:data|logs|backups|cache)(?:\/|$)/.test(file) ||
     /^deploy\/(?:data|logs|backups|cache)(?:\/|$)/.test(file) ||
+    /^docs\/evidence(?:\/|$)/.test(file) ||
     /\.(?:db(?:-.*)?|sqlite3?|log|tgz)$/i.test(file)
   )
 })

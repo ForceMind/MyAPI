@@ -1,0 +1,3 @@
+# Raw acceptance logs, screenshots and artifact manifests are repository evidence.
+# They are not runtime or source-distribution inputs.
+*
