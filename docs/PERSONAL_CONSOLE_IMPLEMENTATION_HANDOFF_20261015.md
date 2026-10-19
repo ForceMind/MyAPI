@@ -1,5 +1,7 @@
 # 已批准个人控制台：开发交接
 
+> 最新续接（beta.20第二阶段前置核查，2026-10-19）：无需真实账号的OAuth/刷新/采样/计数/停止核查及隔离验证完成，准确来源3b5f5b2，最终68顶层/118叶子测试通过；旧Codex与新SIWC合同分开，统一总HTTP预算和停止尚缺。具体文件/影响及beta.21控制机制、后续独立SIWC候选范围见[核查与适配方案](PERSONAL_CONSOLE_OAUTH_PREFLIGHT_20261019.md)及[原始证据](evidence/personal-console-oauth-preflight-20261019/README.md)。本轮只核查和归档，应用仍beta.20；不代表已批准代码适配或真实账号接入。真实凭据、生产数据及历史账务继续冻结，不合并main、不发布、不部署。
+
 > 最新续接（beta.20第一阶段，2026-10-19）：Full/LAN未发布测试制品及隔离运行验收完成，准确源码cdeef8b、Docker39203596121六项及CI39203586608十一项全部success；新增15项恢复篡改合同，76原件/44原PNG独审通过。实际合成页面4180、制品摘要/过期与完整结果见[制品交付](PERSONAL_CONSOLE_ARTIFACT_DELIVERY_20261019.md)及[证据索引](evidence/personal-console-artifact-20261019/README.md)，[部署与回滚方案](PERSONAL_CONSOLE_BETA20_DEPLOYMENT_ROLLBACK_PLAN.md)仅为方案、未执行。归档仅docs不改变验收来源；真实凭据、生产数据/Redis/备份和历史账务仍冻结，不扩轮换资格，不合并main、不发布、不部署。
 
 > 最新续接（beta.20，2026-10-19）：已收口beta.16遗留的删除、预算与Key访问策略会话边界，旧401不再自动认证重放；预算按SID隔离，迟到反馈/缓存与重复提交受保护。分额已有保护保持。准确源码1dc806e、CI39148878978的11项作业、243文件/1562单元、新12旅程、最终38原图独审及4177隔离合成运行页面见[本批交付](PERSONAL_CONSOLE_SESSION_DELIVERY_20261019.md)和[证据索引](evidence/personal-console-session-20261019/README.md)。本片无剩余实现/验收项，正常功能分支同步继续；不扩轮换资格，不操作真实凭据/生产/历史账务，不合并main、不发布、不部署。以下各批保留其当时状态，不从旧main重置。

@@ -1,0 +1,40 @@
+=== RUN   TestAuthFlowIsBoundAndConsumedOnce
+
+2026/10/19 14:28:23 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/auth_flow.go:197 [35;1mrecord not found
+[0m[33m[0.071ms] [34;1m[rows:0][0m SELECT * FROM `auth_flows` WHERE (token_hash = "31af30b888ba1d98edc0f35b32097fb2877f8626cc9d01d209b11384795816b6" AND purpose = "oauth") AND provider = "github" AND intent = "bind" AND user_id = 99 AND session_id = "session-a" ORDER BY `auth_flows`.`id` LIMIT 1
+--- PASS: TestAuthFlowIsBoundAndConsumedOnce (0.00s)
+=== RUN   TestAuthFlowExpiryIsEnforced
+--- PASS: TestAuthFlowExpiryIsEnforced (0.00s)
+=== RUN   TestExternalAuthAssertionCanOnlyBeClaimedOnce
+--- PASS: TestExternalAuthAssertionCanOnlyBeClaimedOnce (0.00s)
+=== RUN   TestConsumeAuthFlowWithActionRollsBackTogether
+--- PASS: TestConsumeAuthFlowWithActionRollsBackTogether (0.00s)
+=== RUN   TestUpdateChannelCredentialIfUnchanged
+--- PASS: TestUpdateChannelCredentialIfUnchanged (0.00s)
+=== RUN   TestLookupTrustedChannelCredentialSubjectUsesHistoricalProviderEvidence
+--- PASS: TestLookupTrustedChannelCredentialSubjectUsesHistoricalProviderEvidence (0.01s)
+=== RUN   TestUpdateChannelCredentialElementIfUnchangedPreservesOtherKeys
+--- PASS: TestUpdateChannelCredentialElementIfUnchangedPreservesOtherKeys (0.00s)
+=== RUN   TestUpdateChannelCredentialIfUnchangedConfirmsIdempotentZeroRows
+--- PASS: TestUpdateChannelCredentialIfUnchangedConfirmsIdempotentZeroRows (0.00s)
+=== RUN   TestUpdateChannelCredentialIfUnchangedSameTargetDetectsConcurrentK0ToK1
+--- PASS: TestUpdateChannelCredentialIfUnchangedSameTargetDetectsConcurrentK0ToK1 (0.00s)
+=== RUN   TestChannelCredentialGateWaitHonorsDeadline
+--- PASS: TestChannelCredentialGateWaitHonorsDeadline (0.00s)
+=== RUN   TestUpdateChannelCredentialIfUnchangedRejectsMissingDatabase
+--- PASS: TestUpdateChannelCredentialIfUnchangedRejectsMissingDatabase (0.00s)
+=== RUN   TestUpdateChannelCredentialIfUnchangedKeepsCacheConsistentAfterRequestCancellation
+--- PASS: TestUpdateChannelCredentialIfUnchangedKeepsCacheConsistentAfterRequestCancellation (0.00s)
+=== RUN   TestInitChannelCacheRetriesSnapshotAfterCredentialGenerationChanges
+[SYS] 2026/10/19 - 14:28:23 | channels synced from database 
+--- PASS: TestInitChannelCacheRetriesSnapshotAfterCredentialGenerationChanges (0.00s)
+=== RUN   TestInsertChannelWithAbilitiesIsAtomic
+=== RUN   TestInsertChannelWithAbilitiesIsAtomic/creates_channel_and_abilities
+=== RUN   TestInsertChannelWithAbilitiesIsAtomic/rolls_back_channel_when_abilities_fail
+--- PASS: TestInsertChannelWithAbilitiesIsAtomic (0.00s)
+    --- PASS: TestInsertChannelWithAbilitiesIsAtomic/creates_channel_and_abilities (0.00s)
+    --- PASS: TestInsertChannelWithAbilitiesIsAtomic/rolls_back_channel_when_abilities_fail (0.00s)
+=== RUN   TestNamedSystemTaskLockLeaseLifecycle
+--- PASS: TestNamedSystemTaskLockLeaseLifecycle (0.00s)
+PASS
+ok  	github.com/ForceMind/MyAPI/model	0.093s

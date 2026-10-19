@@ -1,0 +1,112 @@
+{
+  "source_sha": "3b5f5b26431a51b018252a2b61b51dbd8f5fe90d",
+  "description": "Original execution logs/exit/probes plus generated indexes; excludes this manifest itself. No real credentials.",
+  "file_count": 21,
+  "files": [
+    {
+      "path": ".gitattributes",
+      "bytes": 96,
+      "sha256": "e4af499fa4e4dd30e0c1d09e8d5ab51b13b91ab7cceb11b7b24cf3359c6a3084"
+    },
+    {
+      "path": "README.md",
+      "bytes": 5562,
+      "sha256": "a36e27c717948743eab08587ab5bdfbfe5d894dd29c06e96383a42327d11f538"
+    },
+    {
+      "path": "commands.json",
+      "bytes": 10706,
+      "sha256": "6d5ea68958c251520915271f5daa4985699a0e9b81ac0184d75bc95a172ef043"
+    },
+    {
+      "path": "execution-results.json",
+      "bytes": 558,
+      "sha256": "6ca729c28bc9968dac41c33f057f87537c8d7885b51bb651d143d0a76eea0f91"
+    },
+    {
+      "path": "independent-review.md",
+      "bytes": 2785,
+      "sha256": "a21ca79ce4f60c541f6b9533a15e8732e18f988b3df0d608f983150096616afc"
+    },
+    {
+      "path": "logs/controller-final.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "logs/controller-final.stdout",
+      "bytes": 101777,
+      "sha256": "1c4aac3c7c6418e268e547698f1c0357f0b8d5a1da2b622f4fd761da5e5fc49c"
+    },
+    {
+      "path": "logs/controller-initial-loopback.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "logs/controller-initial-loopback.stdout",
+      "bytes": 14192,
+      "sha256": "92910543a571a127144dc4e90a5a7c255c91a94be117e6538d135629c9c2a807"
+    },
+    {
+      "path": "logs/controller-initial-sandbox.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "logs/controller-initial-sandbox.stdout",
+      "bytes": 1407,
+      "sha256": "8183b32d086574a0197c43659146127b8b534e9bcf498eaa23fe6337877047f9"
+    },
+    {
+      "path": "logs/model-final.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "logs/model-final.stdout",
+      "bytes": 2904,
+      "sha256": "5e36e630e1468265657a0c1664ca162599ca26f7d7c6b0fc26234a76a7b4244a"
+    },
+    {
+      "path": "logs/service-final.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "logs/service-final.stdout",
+      "bytes": 21220,
+      "sha256": "3c028cace8d7e6c0db4a22e7b485fb46aff80e322f85b0e5de98a9bae38c60a1"
+    },
+    {
+      "path": "probes/codex_credential_refresh_task_probe_test.go.txt",
+      "bytes": 3532,
+      "sha256": "612d98a769ebc34aee0570ada2c5f9859e4ff55b1fe15fff590aece98faf0b94"
+    },
+    {
+      "path": "probes/codex_oauth_isolation_probe_test.go.txt",
+      "bytes": 9641,
+      "sha256": "c4e9cde1f39f21a85cbe6ae1d9b42c587cece7991d10bc9ab4135a5d6631baba"
+    },
+    {
+      "path": "run-tests.py",
+      "bytes": 1299,
+      "sha256": "530336680f9b8fbd404106455b87fb03841246e7becd6cad112b5faa69988225"
+    },
+    {
+      "path": "source-baseline.json",
+      "bytes": 1095,
+      "sha256": "c4123c2ba6c5bbd04bed74c93a5cc178684e7527ba2c75d0da3a5d54d5758fab"
+    },
+    {
+      "path": "source-integrity.json",
+      "bytes": 278,
+      "sha256": "5f0a513e76a9a1a80a8cd891cc7494c2eadfcb45209dcd519dd46c44b00bcba7"
+    },
+    {
+      "path": "test-summary.json",
+      "bytes": 15344,
+      "sha256": "66de65557376f99cdb4e0eda183b5d85f468c4e46ac129ef33c7c1b20df184f4"
+    }
+  ]
+}

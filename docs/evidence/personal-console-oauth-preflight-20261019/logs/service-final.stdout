@@ -1,0 +1,173 @@
+=== RUN   TestProbeAutoRefreshTreatsValidOneHourCredentialAsDue
+[INFO] 2026/10/19 - 14:28:07 | SYSTEM | codex credential auto-refresh: channel_id=1 name=one-hour-refresh-probe refreshed, expires_at=2026-10-19T15:28:07+08:00 
+[INFO] 2026/10/19 - 14:28:07 | SYSTEM | codex credential auto-refresh: channel_id=1 name=one-hour-refresh-probe refreshed, expires_at=2026-10-19T15:28:07+08:00 
+    codex_credential_refresh_task_probe_test.go:79: 25h credential dispatched=0; 1h credential dispatched=2 across two explicit passes (no ticker or sleep)
+--- PASS: TestProbeAutoRefreshTreatsValidOneHourCredentialAsDue (0.03s)
+=== RUN   TestRefreshCodexChannelCredentialSerializesConcurrentRotationAndBlocksUnprovenStaleCaller
+--- PASS: TestRefreshCodexChannelCredentialSerializesConcurrentRotationAndBlocksUnprovenStaleCaller (0.01s)
+=== RUN   TestValidateTrustedCodexCredentialContinuityRequiresSameSubject
+--- PASS: TestValidateTrustedCodexCredentialContinuityRequiresSameSubject (0.01s)
+=== RUN   TestRefreshCodexChannelCredentialPersistsRotatedTokenAfterRequestCancellation
+--- PASS: TestRefreshCodexChannelCredentialPersistsRotatedTokenAfterRequestCancellation (0.01s)
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/refresh/missing
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/refresh/0
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/refresh/-1
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/refresh/null
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/refresh/9223372037
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/refresh/9223372036854775807
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/refresh/1
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/refresh/3600
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/refresh/9223372036
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/authorization-code/missing
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/authorization-code/0
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/authorization-code/-1
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/authorization-code/null
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/authorization-code/9223372037
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/authorization-code/9223372036854775807
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/authorization-code/1
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/authorization-code/3600
+=== RUN   TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/authorization-code/9223372036
+--- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds (0.00s)
+    --- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/refresh/missing (0.00s)
+    --- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/refresh/0 (0.00s)
+    --- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/refresh/-1 (0.00s)
+    --- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/refresh/null (0.00s)
+    --- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/refresh/9223372037 (0.00s)
+    --- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/refresh/9223372036854775807 (0.00s)
+    --- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/refresh/1 (0.00s)
+    --- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/refresh/3600 (0.00s)
+    --- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/refresh/9223372036 (0.00s)
+    --- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/authorization-code/missing (0.00s)
+    --- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/authorization-code/0 (0.00s)
+    --- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/authorization-code/-1 (0.00s)
+    --- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/authorization-code/null (0.00s)
+    --- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/authorization-code/9223372037 (0.00s)
+    --- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/authorization-code/9223372036854775807 (0.00s)
+    --- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/authorization-code/1 (0.00s)
+    --- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/authorization-code/3600 (0.00s)
+    --- PASS: TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds/authorization-code/9223372036 (0.00s)
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/301/https://unrelated.invalid/receive
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/301//other-token-endpoint
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/302/https://unrelated.invalid/receive
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/302//other-token-endpoint
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/303/https://unrelated.invalid/receive
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/303//other-token-endpoint
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/307/https://unrelated.invalid/receive
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/307//other-token-endpoint
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/308/https://unrelated.invalid/receive
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/308//other-token-endpoint
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/301/https://unrelated.invalid/receive
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/301//other-token-endpoint
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/302/https://unrelated.invalid/receive
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/302//other-token-endpoint
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/303/https://unrelated.invalid/receive
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/303//other-token-endpoint
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/307/https://unrelated.invalid/receive
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/307//other-token-endpoint
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/308/https://unrelated.invalid/receive
+=== RUN   TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/308//other-token-endpoint
+--- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/301/https://unrelated.invalid/receive (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/301//other-token-endpoint (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/302/https://unrelated.invalid/receive (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/302//other-token-endpoint (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/303/https://unrelated.invalid/receive (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/303//other-token-endpoint (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/307/https://unrelated.invalid/receive (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/307//other-token-endpoint (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/308/https://unrelated.invalid/receive (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/refresh/308//other-token-endpoint (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/301/https://unrelated.invalid/receive (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/301//other-token-endpoint (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/302/https://unrelated.invalid/receive (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/302//other-token-endpoint (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/303/https://unrelated.invalid/receive (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/303//other-token-endpoint (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/307/https://unrelated.invalid/receive (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/307//other-token-endpoint (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/308/https://unrelated.invalid/receive (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangeDoesNotFollowRedirects/authorization-code/308//other-token-endpoint (0.00s)
+=== RUN   TestCodexOAuthTokenExchangePreservesNormalResponseAndSharedClient
+=== RUN   TestCodexOAuthTokenExchangePreservesNormalResponseAndSharedClient/refresh
+=== RUN   TestCodexOAuthTokenExchangePreservesNormalResponseAndSharedClient/authorization-code
+--- PASS: TestCodexOAuthTokenExchangePreservesNormalResponseAndSharedClient (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangePreservesNormalResponseAndSharedClient/refresh (0.00s)
+    --- PASS: TestCodexOAuthTokenExchangePreservesNormalResponseAndSharedClient/authorization-code (0.00s)
+=== RUN   TestCreateCodexOAuthAuthorizationFlowUsesPKCE
+--- PASS: TestCreateCodexOAuthAuthorizationFlowUsesPKCE (0.00s)
+=== RUN   TestBuildCodexOAuthAuthorizeURLUsesCallerState
+--- PASS: TestBuildCodexOAuthAuthorizeURLUsesCallerState (0.00s)
+=== RUN   TestExchangeCodexAuthorizationCode
+--- PASS: TestExchangeCodexAuthorizationCode (0.00s)
+=== RUN   TestCodexUsageLimitMarkerRequiresExactUpstream429AndHoldsUntilReset
+=== RUN   TestCodexUsageLimitMarkerRequiresExactUpstream429AndHoldsUntilReset/account_usage_limit
+=== RUN   TestCodexUsageLimitMarkerRequiresExactUpstream429AndHoldsUntilReset/generic_burst_throttle
+=== RUN   TestCodexUsageLimitMarkerRequiresExactUpstream429AndHoldsUntilReset/same_words_but_not_429
+
+2026/10/19 14:28:07 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_snapshot.go:786 [35;1mrecord not found
+[0m[33m[0.187ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE (channel_id = 3301 AND observed_at = 1792391287 AND metric_type = "codex_rate_limit" AND window_type = "five_hour" AND source = "codex_wham_usage_primary" AND plan_type = "" AND unit = "percent" AND currency = "" AND window_seconds = 0 AND reset_at = 1792391347) AND ((subject_ref = "" OR subject_ref IS NULL) AND (identity_quality = "" OR identity_quality IS NULL) AND account_ref = "25ec2d14d4f49a1a476f078ac88f97862ad031abdad7556a3f205e04e113d2ac") AND sample_id = "sample-3301-account-a-0" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+
+2026/10/19 14:28:07 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_routing.go:96 [35;1mrecord not found
+[0m[33m[0.135ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE ((subject_ref = "" OR subject_ref IS NULL) AND (identity_quality = "" OR identity_quality IS NULL) AND account_ref = "25ec2d14d4f49a1a476f078ac88f97862ad031abdad7556a3f205e04e113d2ac") AND (metric_type = "codex_rate_limit" AND source = "codex_wham_usage_secondary" AND status = "success") ORDER BY observed_at DESC, id DESC LIMIT 1
+
+2026/10/19 14:28:07 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_routing.go:96 [35;1mrecord not found
+[0m[33m[0.210ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE ((subject_ref = "" OR subject_ref IS NULL) AND (identity_quality = "" OR identity_quality IS NULL) AND account_ref = "25ec2d14d4f49a1a476f078ac88f97862ad031abdad7556a3f205e04e113d2ac") AND (metric_type = "codex_rate_limit" AND source = "codex_wham_usage_primary" AND status = "unsupported") AND error_code = "window_absent" ORDER BY observed_at DESC, id DESC LIMIT 1
+
+2026/10/19 14:28:07 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_snapshot.go:786 [35;1mrecord not found
+[0m[33m[0.207ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE (channel_id = 3301 AND observed_at = 1792391287 AND metric_type = "codex_rate_limit" AND window_type = "none" AND source = "codex_relay_usage_limit" AND plan_type = "" AND unit = "percent" AND currency = "" AND window_seconds = 0 AND reset_at = 1792391347) AND ((subject_ref = "" OR subject_ref IS NULL) AND (identity_quality = "" OR identity_quality IS NULL) AND account_ref = "25ec2d14d4f49a1a476f078ac88f97862ad031abdad7556a3f205e04e113d2ac") AND sample_id = "a13f03ab-4102-4a05-85df-fb693f0e12b1" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+
+2026/10/19 14:28:07 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_routing.go:96 [35;1mrecord not found
+[0m[33m[0.107ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE ((subject_ref = "" OR subject_ref IS NULL) AND (identity_quality = "" OR identity_quality IS NULL) AND account_ref = "25ec2d14d4f49a1a476f078ac88f97862ad031abdad7556a3f205e04e113d2ac") AND (metric_type = "codex_rate_limit" AND source = "codex_wham_usage_secondary" AND status = "success") ORDER BY observed_at DESC, id DESC LIMIT 1
+
+2026/10/19 14:28:07 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_routing.go:96 [35;1mrecord not found
+[0m[33m[0.151ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE ((subject_ref = "" OR subject_ref IS NULL) AND (identity_quality = "" OR identity_quality IS NULL) AND account_ref = "25ec2d14d4f49a1a476f078ac88f97862ad031abdad7556a3f205e04e113d2ac") AND (metric_type = "codex_rate_limit" AND source = "codex_wham_usage_primary" AND status = "unsupported") AND error_code = "window_absent" ORDER BY observed_at DESC, id DESC LIMIT 1
+--- PASS: TestCodexUsageLimitMarkerRequiresExactUpstream429AndHoldsUntilReset (0.01s)
+    --- PASS: TestCodexUsageLimitMarkerRequiresExactUpstream429AndHoldsUntilReset/account_usage_limit (0.00s)
+    --- PASS: TestCodexUsageLimitMarkerRequiresExactUpstream429AndHoldsUntilReset/generic_burst_throttle (0.00s)
+    --- PASS: TestCodexUsageLimitMarkerRequiresExactUpstream429AndHoldsUntilReset/same_words_but_not_429 (0.00s)
+=== RUN   TestCodexUsageLimitWithoutKnownResetNeedsFreshProviderRecovery
+
+2026/10/19 14:28:07 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_routing.go:96 [35;1mrecord not found
+[0m[33m[0.178ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE ((subject_ref = "" OR subject_ref IS NULL) AND (identity_quality = "" OR identity_quality IS NULL) AND account_ref = "cc26353a5955701a921215a8096e47876f6a3819e91f9450d3d0afef3dd48a28") AND (metric_type = "codex_rate_limit" AND source = "codex_wham_usage_primary" AND status = "success") ORDER BY observed_at DESC, id DESC LIMIT 1
+
+2026/10/19 14:28:07 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_routing.go:96 [35;1mrecord not found
+[0m[33m[0.174ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE ((subject_ref = "" OR subject_ref IS NULL) AND (identity_quality = "" OR identity_quality IS NULL) AND account_ref = "cc26353a5955701a921215a8096e47876f6a3819e91f9450d3d0afef3dd48a28") AND (metric_type = "codex_rate_limit" AND source = "codex_wham_usage_secondary" AND status = "success") ORDER BY observed_at DESC, id DESC LIMIT 1
+
+2026/10/19 14:28:07 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_routing.go:96 [35;1mrecord not found
+[0m[33m[0.182ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE ((subject_ref = "" OR subject_ref IS NULL) AND (identity_quality = "" OR identity_quality IS NULL) AND account_ref = "cc26353a5955701a921215a8096e47876f6a3819e91f9450d3d0afef3dd48a28") AND (metric_type = "codex_rate_limit" AND source = "codex_relay_usage_limit" AND status = "error") AND error_code = "usage_limit_reached" ORDER BY observed_at DESC, id DESC LIMIT 1
+
+2026/10/19 14:28:07 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_snapshot.go:786 [35;1mrecord not found
+[0m[33m[0.202ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE (channel_id = 3302 AND observed_at = 1792391287 AND metric_type = "codex_rate_limit" AND window_type = "none" AND source = "codex_relay_usage_limit" AND plan_type = "" AND unit = "percent" AND currency = "" AND window_seconds = 0 AND reset_at = 0) AND ((subject_ref = "" OR subject_ref IS NULL) AND (identity_quality = "" OR identity_quality IS NULL) AND account_ref = "cc26353a5955701a921215a8096e47876f6a3819e91f9450d3d0afef3dd48a28") AND sample_id = "860b6e06-b6b4-4197-9506-108a1be72231" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+
+2026/10/19 14:28:07 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_routing.go:96 [35;1mrecord not found
+[0m[33m[0.112ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE ((subject_ref = "" OR subject_ref IS NULL) AND (identity_quality = "" OR identity_quality IS NULL) AND account_ref = "cc26353a5955701a921215a8096e47876f6a3819e91f9450d3d0afef3dd48a28") AND (metric_type = "codex_rate_limit" AND source = "codex_wham_usage_primary" AND status = "success") ORDER BY observed_at DESC, id DESC LIMIT 1
+
+2026/10/19 14:28:07 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_routing.go:96 [35;1mrecord not found
+[0m[33m[0.110ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE ((subject_ref = "" OR subject_ref IS NULL) AND (identity_quality = "" OR identity_quality IS NULL) AND account_ref = "cc26353a5955701a921215a8096e47876f6a3819e91f9450d3d0afef3dd48a28") AND (metric_type = "codex_rate_limit" AND source = "codex_wham_usage_secondary" AND status = "success") ORDER BY observed_at DESC, id DESC LIMIT 1
+
+2026/10/19 14:28:07 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_snapshot.go:786 [35;1mrecord not found
+[0m[33m[0.149ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE (channel_id = 3302 AND observed_at = 1792391288 AND metric_type = "codex_rate_limit" AND window_type = "five_hour" AND source = "codex_wham_usage_primary" AND plan_type = "" AND unit = "percent" AND currency = "" AND window_seconds = 0 AND reset_at = 1792398487) AND ((subject_ref = "" OR subject_ref IS NULL) AND (identity_quality = "" OR identity_quality IS NULL) AND account_ref = "cc26353a5955701a921215a8096e47876f6a3819e91f9450d3d0afef3dd48a28") AND sample_id = "confirmed-recovery" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+
+2026/10/19 14:28:07 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_routing.go:96 [35;1mrecord not found
+[0m[33m[0.160ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE ((subject_ref = "" OR subject_ref IS NULL) AND (identity_quality = "" OR identity_quality IS NULL) AND account_ref = "cc26353a5955701a921215a8096e47876f6a3819e91f9450d3d0afef3dd48a28") AND (metric_type = "codex_rate_limit" AND source = "codex_wham_usage_secondary" AND status = "success") ORDER BY observed_at DESC, id DESC LIMIT 1
+--- PASS: TestCodexUsageLimitWithoutKnownResetNeedsFreshProviderRecovery (0.01s)
+=== RUN   TestQuotaTaskProgressAndLeaseRespectRunDeadlineWhenPoolIsFull
+=== RUN   TestQuotaTaskProgressAndLeaseRespectRunDeadlineWhenPoolIsFull/initial_progress
+=== RUN   TestQuotaTaskProgressAndLeaseRespectRunDeadlineWhenPoolIsFull/lease_heartbeat
+=== RUN   TestQuotaTaskProgressAndLeaseRespectRunDeadlineWhenPoolIsFull/price_check_lease_canceled
+--- PASS: TestQuotaTaskProgressAndLeaseRespectRunDeadlineWhenPoolIsFull (0.05s)
+    --- PASS: TestQuotaTaskProgressAndLeaseRespectRunDeadlineWhenPoolIsFull/initial_progress (0.03s)
+    --- PASS: TestQuotaTaskProgressAndLeaseRespectRunDeadlineWhenPoolIsFull/lease_heartbeat (0.03s)
+    --- PASS: TestQuotaTaskProgressAndLeaseRespectRunDeadlineWhenPoolIsFull/price_check_lease_canceled (0.00s)
+=== RUN   TestQuotaTaskWritesHaveFiniteBudgetsWithoutChangingLegacyRenewal
+--- PASS: TestQuotaTaskWritesHaveFiniteBudgetsWithoutChangingLegacyRenewal (0.00s)
+=== RUN   TestQuotaTaskCompletionCancelsLeaseContext
+=== RUN   TestQuotaTaskCompletionCancelsLeaseContext/channel_quota_snapshot_sync
+=== RUN   TestQuotaTaskCompletionCancelsLeaseContext/openai_official_price_check
+--- PASS: TestQuotaTaskCompletionCancelsLeaseContext (0.00s)
+    --- PASS: TestQuotaTaskCompletionCancelsLeaseContext/channel_quota_snapshot_sync (0.00s)
+    --- PASS: TestQuotaTaskCompletionCancelsLeaseContext/openai_official_price_check (0.00s)
+PASS
+ok  	github.com/ForceMind/MyAPI/service	0.204s

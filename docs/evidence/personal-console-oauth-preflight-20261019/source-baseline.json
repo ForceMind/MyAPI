@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-19",
+  "version": "0.2.0-beta.20",
+  "branch": "codex/subscription-key-share-20261014",
+  "source_sha": "3b5f5b26431a51b018252a2b61b51dbd8f5fe90d",
+  "source_tree": "a4268033b5abe8cc0eeccdefaba865e14a44795e",
+  "prior_built_product_sha": "cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+  "source_directory": "/tmp/myapi-oauth-preflight-1WJhBO",
+  "source_creation": "git archive HEAD | tar -x (at source_sha)",
+  "product_code_changes": false,
+  "overlay_only": [
+    "service/codex_credential_refresh_task_probe_test.go",
+    "controller/codex_oauth_isolation_probe_test.go"
+  ],
+  "environment": "Cached Go1.25.1, serial -p1, synthetic fake RoundTripper / loopback httptest, newly created temporary SQLite. No provider account, credentials, production data, or main process startup.",
+  "protected_user_file_sha256": {
+    "docs/MYAPI_MASTER_PLAN.md": "e058e179a828c752b5b389cde5a88d05c5999c61029948a88e270aad7131b243",
+    "docs/NEXT_SESSION_HANDOFF.md": "4e21c1e847db911b9143f580778ca63650337d7a330b658f8556aa1f499f1c39"
+  },
+  "prior_built_product_diff_outside_docs": []
+}

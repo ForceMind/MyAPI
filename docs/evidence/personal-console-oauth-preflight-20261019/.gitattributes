@@ -1,0 +1,2 @@
+# Preserve exact stdout bytes, including original CRLF and trailing spaces.
+logs/*.stdout -text

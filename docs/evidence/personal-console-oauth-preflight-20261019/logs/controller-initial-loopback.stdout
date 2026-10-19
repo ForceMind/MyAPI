@@ -1,0 +1,120 @@
+=== RUN   TestChannelQuotaSamplerIsolatesMultiKeyFailureAndSurvivesReorder
+
+2026/10/19 14:23:23 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.037ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "ed455e05169720303942053bf6bd3166ed48c65bf45955923600668e1a26f0ba" LIMIT 1
+
+2026/10/19 14:23:23 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.025ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "94c69cef4de0d22c3a7cada5574d2d6dde6d304b9da0e428d05ce0fad7959ad7" LIMIT 1
+
+2026/10/19 14:23:23 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_snapshot.go:786 [35;1mrecord not found
+[0m[33m[0.265ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE (channel_id = 1 AND observed_at = 1792391003 AND metric_type = "balance" AND window_type = "none" AND source = "channel_type_8" AND plan_type = "" AND unit = "usd" AND currency = "" AND window_seconds = 0 AND reset_at = 0) AND (subject_ref = "6nhPig83hZycWttcFf_hJXpx1fsYbrrxbpRqOKoBuKw" AND identity_quality = "credential_scoped") AND sample_id = "c9578c99-34b7-4e42-8b03-4bd6554ef7b0" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+
+2026/10/19 14:23:23 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_snapshot.go:786 [35;1mrecord not found
+[0m[33m[0.203ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE (channel_id = 1 AND observed_at = 1792391003 AND metric_type = "balance" AND window_type = "none" AND source = "channel_type_8" AND plan_type = "" AND unit = "usd" AND currency = "" AND window_seconds = 0 AND reset_at = 0) AND (subject_ref = "CPGi2VkTvQy6TkxzZ8LSsq7b-4GjjkVlgCdo_YzSz7k" AND identity_quality = "credential_scoped") AND sample_id = "e5ca6c19-d437-4f71-b815-b1d3b3cc1451" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+
+2026/10/19 14:23:23 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_snapshot.go:786 [35;1mrecord not found
+[0m[33m[0.270ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE (channel_id = 1 AND observed_at = 1792391003 AND metric_type = "balance" AND window_type = "none" AND source = "channel_type_8" AND plan_type = "" AND unit = "usd" AND currency = "" AND window_seconds = 0 AND reset_at = 0) AND (subject_ref = "6nhPig83hZycWttcFf_hJXpx1fsYbrrxbpRqOKoBuKw" AND identity_quality = "credential_scoped") AND sample_id = "f937e80e-40be-4010-bccd-4815bc159448" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+
+2026/10/19 14:23:23 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_snapshot.go:786 [35;1mrecord not found
+[0m[33m[0.268ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE (channel_id = 1 AND observed_at = 1792391003 AND metric_type = "balance" AND window_type = "none" AND source = "channel_type_8" AND plan_type = "" AND unit = "usd" AND currency = "" AND window_seconds = 0 AND reset_at = 0) AND (subject_ref = "CPGi2VkTvQy6TkxzZ8LSsq7b-4GjjkVlgCdo_YzSz7k" AND identity_quality = "credential_scoped") AND sample_id = "b523f70f-01d7-41e5-921a-e47edc5e0319" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+--- PASS: TestChannelQuotaSamplerIsolatesMultiKeyFailureAndSurvivesReorder (0.03s)
+=== RUN   TestChannelQuotaSamplerReportsProviderBudgetDeferredKeys
+
+2026/10/19 14:23:23 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.026ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "ed455e05169720303942053bf6bd3166ed48c65bf45955923600668e1a26f0ba" LIMIT 1
+
+2026/10/19 14:23:23 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.023ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "94c69cef4de0d22c3a7cada5574d2d6dde6d304b9da0e428d05ce0fad7959ad7" LIMIT 1
+
+2026/10/19 14:23:23 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_snapshot.go:786 [35;1mrecord not found
+[0m[33m[0.182ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE (channel_id = 1 AND observed_at = 1792391003 AND metric_type = "balance" AND window_type = "none" AND source = "channel_type_8" AND plan_type = "" AND unit = "usd" AND currency = "" AND window_seconds = 0 AND reset_at = 0) AND (subject_ref = "J6zNi7R-5iyuV13dHAV4lmOm1Krv9MYmxOeZjwX_gjI" AND identity_quality = "credential_scoped") AND sample_id = "3fd17ee3-622e-48d3-8f19-36b52a2f2d36" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+--- PASS: TestChannelQuotaSamplerReportsProviderBudgetDeferredKeys (0.01s)
+=== RUN   TestQuotaSnapshotSyncStopsAfterCanceledAttemptAndPersistsFailure
+
+2026/10/19 14:23:23 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.030ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "c93e98de8583b43280680ebeb7bef6d5c7d836bf7463566f3e700d41e57f5549" LIMIT 1
+
+2026/10/19 14:23:23 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_snapshot.go:786 [35;1mrecord not found
+[0m[33m[0.163ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE (channel_id = 10 AND observed_at = 1792391003 AND metric_type = "balance" AND window_type = "none" AND source = "channel_type_8" AND plan_type = "" AND unit = "usd" AND currency = "" AND window_seconds = 0 AND reset_at = 0) AND (subject_ref = "ft0MC1tlapcaBjl-5o_6W_0_cu2v3V2RvQ5bc3A8nLA" AND identity_quality = "credential_scoped") AND sample_id = "607ed46c-14ec-4045-83be-82a197c2e928" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+--- PASS: TestQuotaSnapshotSyncStopsAfterCanceledAttemptAndPersistsFailure (0.01s)
+=== RUN   TestQuotaSamplingRunBudgetUsesConfiguredCadenceWithHardMaximum
+--- PASS: TestQuotaSamplingRunBudgetUsesConfiguredCadenceWithHardMaximum (0.00s)
+=== RUN   TestCodexSamplingSharesOneDeadlineAcrossUsageRefreshAndRetry
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.031ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "b66f82a9758b88d7fdea5abb98c0be8eda0746c43b919cdcd339c53e7931d690" LIMIT 1
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.040ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "3d8004316db2f5d92d9ae62c64c896ca43ad78f0c1c53a2bfc3e426bece2a0bc" LIMIT 1
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.028ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "db37a7d412f4ea5874be14412024342fe48b424d7b0de892673420f1251e7ead" LIMIT 1
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_credential.go:288 [35;1mrecord not found
+[0m[33m[0.041ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_sampling_targets` WHERE channel_id = 42 AND subject_ref = "DP64PUDXHoC-ScX1SfYzDBkl8ztE63osfcxF8gtXPHE" LIMIT 1
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_snapshot.go:661 [35;1mrecord not found
+[0m[33m[0.077ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE dedupe_key = "978ce2ecde9b0309a2676237d7b0eb7c8e266fbffcb180dbf4a9dc319ca1efee" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+--- PASS: TestCodexSamplingSharesOneDeadlineAcrossUsageRefreshAndRetry (0.04s)
+=== RUN   TestCodexSamplingHonorsShorterCallerDeadlineAndRecordsTimeout
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.027ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "e6ed60a449b9750653a3195aca4d65fee18cc08715ea80fce207c9c3b45703f2" LIMIT 1
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.024ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "3d8004316db2f5d92d9ae62c64c896ca43ad78f0c1c53a2bfc3e426bece2a0bc" LIMIT 1
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_snapshot.go:661 [35;1mrecord not found
+[0m[33m[0.115ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE dedupe_key = "97fd60283a32eaa3c52e436ce9d0f9f393867c614bd61c85fd3d2a186d69c2ec" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+--- PASS: TestCodexSamplingHonorsShorterCallerDeadlineAndRecordsTimeout (0.02s)
+=== RUN   TestCodexSamplingRefreshWriteFailureIsReportedAndSafelyRecorded
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.030ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "b66f82a9758b88d7fdea5abb98c0be8eda0746c43b919cdcd339c53e7931d690" LIMIT 1
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.021ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "3d8004316db2f5d92d9ae62c64c896ca43ad78f0c1c53a2bfc3e426bece2a0bc" LIMIT 1
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.019ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "525016db414339b72867e7adf85304b4931f790fc164cfb378c67e3743919b18" LIMIT 1
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_credential.go:288 [35;1mrecord not found
+[0m[33m[0.036ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_sampling_targets` WHERE channel_id = 44 AND subject_ref = "AXqQthYWjFKX0LUZuBio4ph2I5fOSpu67Nq_siVHF0M" LIMIT 1
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_snapshot.go:661 [35;1mrecord not found
+[0m[33m[0.222ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE dedupe_key = "64dfcc8188effa906a32f362b8b117dcf796e3f8777dbbc87dbf4273ba05b321" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+--- PASS: TestCodexSamplingRefreshWriteFailureIsReportedAndSafelyRecorded (0.03s)
+=== RUN   TestManualCodexUsageFailsAndRecordsCredentialPersistenceError
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.031ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "b66f82a9758b88d7fdea5abb98c0be8eda0746c43b919cdcd339c53e7931d690" LIMIT 1
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.021ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "3d8004316db2f5d92d9ae62c64c896ca43ad78f0c1c53a2bfc3e426bece2a0bc" LIMIT 1
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.021ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "060f15a66b6a0ebc42923287473217e22dd3c5ce3c7faf94f21368f45b715e77" LIMIT 1
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_credential.go:288 [35;1mrecord not found
+[0m[33m[0.036ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_sampling_targets` WHERE channel_id = 46 AND subject_ref = "OjpK6-f8Mb1rAar1EZcQV0-BKr_IwxCbgir5DXpEHEU" LIMIT 1
+[SYS] 2026/10/19 - 14:23:24 | Codex credential refresh persistence failed 
+--- PASS: TestManualCodexUsageFailsAndRecordsCredentialPersistenceError (0.02s)
+=== RUN   TestCodexSamplingSavesRotatedCredentialsAfterRequestCancellation
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.035ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "b66f82a9758b88d7fdea5abb98c0be8eda0746c43b919cdcd339c53e7931d690" LIMIT 1
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.028ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "3d8004316db2f5d92d9ae62c64c896ca43ad78f0c1c53a2bfc3e426bece2a0bc" LIMIT 1
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.028ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "525016db414339b72867e7adf85304b4931f790fc164cfb378c67e3743919b18" LIMIT 1
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_credential.go:288 [35;1mrecord not found
+[0m[33m[0.038ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_sampling_targets` WHERE channel_id = 45 AND subject_ref = "26gPz1Qq2hwBKJWyOlGs0ujlFbok8Fw2dEEhuj0GQGk" LIMIT 1
+
+2026/10/19 14:23:24 [31;1m/tmp/myapi-oauth-preflight-1WJhBO/model/channel_quota_snapshot.go:661 [35;1mrecord not found
+[0m[33m[0.074ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE dedupe_key = "17fe592aa674c124d0d06b33edc1828b790f597c67e319e4833ed4bf55529f5c" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+--- PASS: TestCodexSamplingSavesRotatedCredentialsAfterRequestCancellation (0.02s)
+PASS
+ok  	github.com/ForceMind/MyAPI/controller	0.194s

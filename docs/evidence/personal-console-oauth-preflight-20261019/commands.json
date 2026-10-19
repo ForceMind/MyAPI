@@ -1,0 +1,163 @@
+[
+  {
+    "group": "service-final",
+    "cwd": "/tmp/myapi-oauth-preflight-1WJhBO",
+    "env": {
+      "GOCACHE": "/tmp/myapi-go-cache",
+      "GOMAXPROCS": "2",
+      "GOMEMLIMIT": "768MiB",
+      "GOPROXY": "off"
+    },
+    "argv": [
+      "go",
+      "test",
+      "-p",
+      "1",
+      "./service",
+      "-run",
+      "^(TestRefreshCodexChannelCredentialSerializesConcurrentRotationAndBlocksUnprovenStaleCaller|TestValidateTrustedCodexCredentialContinuityRequiresSameSubject|TestRefreshCodexChannelCredentialPersistsRotatedTokenAfterRequestCancellation|TestCreateCodexOAuthAuthorizationFlowUsesPKCE|TestBuildCodexOAuthAuthorizeURLUsesCallerState|TestExchangeCodexAuthorizationCode|TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds|TestCodexOAuthTokenExchangeDoesNotFollowRedirects|TestCodexOAuthTokenExchangePreservesNormalResponseAndSharedClient|TestQuotaTaskProgressAndLeaseRespectRunDeadlineWhenPoolIsFull|TestQuotaTaskWritesHaveFiniteBudgetsWithoutChangingLegacyRenewal|TestQuotaTaskCompletionCancelsLeaseContext|TestProbeAutoRefreshTreatsValidOneHourCredentialAsDue|TestCodexUsageLimitMarkerRequiresExactUpstream429AndHoldsUntilReset|TestCodexUsageLimitWithoutKnownResetNeedsFreshProviderRecovery)$",
+      "-count=1",
+      "-v"
+    ],
+    "selected_top_level": [
+      "TestRefreshCodexChannelCredentialSerializesConcurrentRotationAndBlocksUnprovenStaleCaller",
+      "TestValidateTrustedCodexCredentialContinuityRequiresSameSubject",
+      "TestRefreshCodexChannelCredentialPersistsRotatedTokenAfterRequestCancellation",
+      "TestCreateCodexOAuthAuthorizationFlowUsesPKCE",
+      "TestBuildCodexOAuthAuthorizeURLUsesCallerState",
+      "TestExchangeCodexAuthorizationCode",
+      "TestCodexOAuthTokenExpiryRequiresRepresentablePositiveSeconds",
+      "TestCodexOAuthTokenExchangeDoesNotFollowRedirects",
+      "TestCodexOAuthTokenExchangePreservesNormalResponseAndSharedClient",
+      "TestQuotaTaskProgressAndLeaseRespectRunDeadlineWhenPoolIsFull",
+      "TestQuotaTaskWritesHaveFiniteBudgetsWithoutChangingLegacyRenewal",
+      "TestQuotaTaskCompletionCancelsLeaseContext",
+      "TestProbeAutoRefreshTreatsValidOneHourCredentialAsDue",
+      "TestCodexUsageLimitMarkerRequiresExactUpstream429AndHoldsUntilReset",
+      "TestCodexUsageLimitWithoutKnownResetNeedsFreshProviderRecovery"
+    ],
+    "source_files": [
+      "service/codex_credential_refresh_test.go",
+      "service/codex_oauth_test.go",
+      "service/codex_oauth_expiry_test.go",
+      "service/codex_oauth_redirect_test.go",
+      "service/system_task_quota_context_test.go",
+      "service/codex_credential_refresh_task_probe_test.go",
+      "service/codex_quota_routing_test.go"
+    ]
+  },
+  {
+    "group": "controller-final",
+    "cwd": "/tmp/myapi-oauth-preflight-1WJhBO",
+    "env": {
+      "GOCACHE": "/tmp/myapi-go-cache",
+      "GOMAXPROCS": "2",
+      "GOMEMLIMIT": "768MiB",
+      "GOPROXY": "off"
+    },
+    "argv": [
+      "go",
+      "test",
+      "-p",
+      "1",
+      "./controller",
+      "-run",
+      "^(TestParseCodexAuthorizationInput|TestParseCodexAuthorizationInputRejectsEmpty|TestStartCodexOAuthBindsStateToDashboardSession|TestStartCodexOAuthRequiresDashboardSession|TestCompleteCodexOAuthNewChannelSavesCredentialWithoutReturningIt|TestCompleteCodexOAuthInvalidCreatePreservesAuthorizationCode|TestCompleteCodexOAuthForChannelRejectsDifferentAccount|TestUpdateChannelRequiresSecureFlowForCodexCredentialChanges|TestUpdateChannelAllowsCodexMetadataWithoutCredentialChange|TestCodexSamplingSharesOneDeadlineAcrossUsageRefreshAndRetry|TestCodexSamplingHonorsShorterCallerDeadlineAndRecordsTimeout|TestCodexSamplingRefreshWriteFailureIsReportedAndSafelyRecorded|TestManualCodexUsageFailsAndRecordsCredentialPersistenceError|TestCodexSamplingSavesRotatedCredentialsAfterRequestCancellation|TestQuotaBalanceResponseIsBoundedAndOversizeErrorIsSafe|TestQuotaBalanceDatabaseFailureRemainsPersistenceFailure|TestAdvancedQuotaSamplingPreservesTimeoutWithoutLeakingRequestURL|TestQuotaBalanceSamplingSharesCallerDeadlineAndClosesRejectedResponse|TestQuotaSnapshotSyncStopsAfterCanceledAttemptAndPersistsFailure|TestQuotaSamplingRunBudgetUsesConfiguredCadenceWithHardMaximum|TestQuotaSamplingDefaultAndLargeMinuteValuesRemainBounded|TestChannelQuotaSamplerIsolatesMultiKeyFailureAndSurvivesReorder|TestChannelQuotaSamplerMissingIdentityKeyDoesNotSendCredentials|TestChannelQuotaSamplerEventuallyRequestsEveryKeyBeyondExpansionWindow|TestChannelQuotaSamplerFoldsDuplicateConfirmedProviderAccount|TestChannelQuotaSamplerReportsProviderBudgetDeferredKeys|TestChannelQuotaSamplerReportsPerChannelBudgetExhaustion|TestChannelQuotaSamplingCandidatesCapIdentityWorkAndReportExcessKeys|TestChannelQuotaSamplingCandidatesDoNotCountPreservedStaleTargetsTwice|TestCodexDuplicateFoldLetsLaterUsableCredentialWin|TestCodexInvalid2xxDoesNotConfirmSamplingTarget|TestScheduledCodexSampleBindsTargetToConcreteNativeSnapshot|TestCodexDuplicateSampleDoesNotProduceProofID|TestScheduledCodexRotationRequiresNewLifecycleSampleForProof|TestQuotaTaskFinishUsesBoundedIndependentWriteContext|TestProbeManualCodexAuthFailureRefreshesAndRetriesExactlyOnce|TestProbeCanceledCodexRefreshPersistsCredentialAndStopsBeforeNextChannel|TestProbeDisabledQuotaScheduleDoesNotStopDirectBatchExecution)$",
+      "-count=1",
+      "-v"
+    ],
+    "selected_top_level": [
+      "TestParseCodexAuthorizationInput",
+      "TestParseCodexAuthorizationInputRejectsEmpty",
+      "TestStartCodexOAuthBindsStateToDashboardSession",
+      "TestStartCodexOAuthRequiresDashboardSession",
+      "TestCompleteCodexOAuthNewChannelSavesCredentialWithoutReturningIt",
+      "TestCompleteCodexOAuthInvalidCreatePreservesAuthorizationCode",
+      "TestCompleteCodexOAuthForChannelRejectsDifferentAccount",
+      "TestUpdateChannelRequiresSecureFlowForCodexCredentialChanges",
+      "TestUpdateChannelAllowsCodexMetadataWithoutCredentialChange",
+      "TestCodexSamplingSharesOneDeadlineAcrossUsageRefreshAndRetry",
+      "TestCodexSamplingHonorsShorterCallerDeadlineAndRecordsTimeout",
+      "TestCodexSamplingRefreshWriteFailureIsReportedAndSafelyRecorded",
+      "TestManualCodexUsageFailsAndRecordsCredentialPersistenceError",
+      "TestCodexSamplingSavesRotatedCredentialsAfterRequestCancellation",
+      "TestQuotaBalanceResponseIsBoundedAndOversizeErrorIsSafe",
+      "TestQuotaBalanceDatabaseFailureRemainsPersistenceFailure",
+      "TestAdvancedQuotaSamplingPreservesTimeoutWithoutLeakingRequestURL",
+      "TestQuotaBalanceSamplingSharesCallerDeadlineAndClosesRejectedResponse",
+      "TestQuotaSnapshotSyncStopsAfterCanceledAttemptAndPersistsFailure",
+      "TestQuotaSamplingRunBudgetUsesConfiguredCadenceWithHardMaximum",
+      "TestQuotaSamplingDefaultAndLargeMinuteValuesRemainBounded",
+      "TestChannelQuotaSamplerIsolatesMultiKeyFailureAndSurvivesReorder",
+      "TestChannelQuotaSamplerMissingIdentityKeyDoesNotSendCredentials",
+      "TestChannelQuotaSamplerEventuallyRequestsEveryKeyBeyondExpansionWindow",
+      "TestChannelQuotaSamplerFoldsDuplicateConfirmedProviderAccount",
+      "TestChannelQuotaSamplerReportsProviderBudgetDeferredKeys",
+      "TestChannelQuotaSamplerReportsPerChannelBudgetExhaustion",
+      "TestChannelQuotaSamplingCandidatesCapIdentityWorkAndReportExcessKeys",
+      "TestChannelQuotaSamplingCandidatesDoNotCountPreservedStaleTargetsTwice",
+      "TestCodexDuplicateFoldLetsLaterUsableCredentialWin",
+      "TestCodexInvalid2xxDoesNotConfirmSamplingTarget",
+      "TestScheduledCodexSampleBindsTargetToConcreteNativeSnapshot",
+      "TestCodexDuplicateSampleDoesNotProduceProofID",
+      "TestScheduledCodexRotationRequiresNewLifecycleSampleForProof",
+      "TestQuotaTaskFinishUsesBoundedIndependentWriteContext",
+      "TestProbeManualCodexAuthFailureRefreshesAndRetriesExactlyOnce",
+      "TestProbeCanceledCodexRefreshPersistsCredentialAndStopsBeforeNextChannel",
+      "TestProbeDisabledQuotaScheduleDoesNotStopDirectBatchExecution"
+    ],
+    "source_files": [
+      "controller/codex_oauth_test.go",
+      "controller/channel_codex_credential_guard_test.go",
+      "controller/codex_usage_sampling_timeout_test.go",
+      "controller/channel_quota_sampling_budget_test.go",
+      "controller/channel_quota_multikey_sampling_test.go",
+      "controller/channel_quota_sampling_proof_test.go",
+      "controller/system_task_quota_finish_context_test.go",
+      "controller/codex_oauth_isolation_probe_test.go"
+    ]
+  },
+  {
+    "group": "model-final",
+    "cwd": "/tmp/myapi-oauth-preflight-1WJhBO",
+    "env": {
+      "GOCACHE": "/tmp/myapi-go-cache",
+      "GOMAXPROCS": "2",
+      "GOMEMLIMIT": "768MiB",
+      "GOPROXY": "off"
+    },
+    "argv": [
+      "go",
+      "test",
+      "-p",
+      "1",
+      "./model",
+      "-run",
+      "^(TestUpdateChannelCredentialIfUnchanged|TestLookupTrustedChannelCredentialSubjectUsesHistoricalProviderEvidence|TestUpdateChannelCredentialElementIfUnchangedPreservesOtherKeys|TestUpdateChannelCredentialIfUnchangedConfirmsIdempotentZeroRows|TestUpdateChannelCredentialIfUnchangedSameTargetDetectsConcurrentK0ToK1|TestChannelCredentialGateWaitHonorsDeadline|TestUpdateChannelCredentialIfUnchangedRejectsMissingDatabase|TestUpdateChannelCredentialIfUnchangedKeepsCacheConsistentAfterRequestCancellation|TestInitChannelCacheRetriesSnapshotAfterCredentialGenerationChanges|TestInsertChannelWithAbilitiesIsAtomic|TestAuthFlowIsBoundAndConsumedOnce|TestAuthFlowExpiryIsEnforced|TestExternalAuthAssertionCanOnlyBeClaimedOnce|TestConsumeAuthFlowWithActionRollsBackTogether|TestNamedSystemTaskLockLeaseLifecycle)$",
+      "-count=1",
+      "-v"
+    ],
+    "selected_top_level": [
+      "TestUpdateChannelCredentialIfUnchanged",
+      "TestLookupTrustedChannelCredentialSubjectUsesHistoricalProviderEvidence",
+      "TestUpdateChannelCredentialElementIfUnchangedPreservesOtherKeys",
+      "TestUpdateChannelCredentialIfUnchangedConfirmsIdempotentZeroRows",
+      "TestUpdateChannelCredentialIfUnchangedSameTargetDetectsConcurrentK0ToK1",
+      "TestChannelCredentialGateWaitHonorsDeadline",
+      "TestUpdateChannelCredentialIfUnchangedRejectsMissingDatabase",
+      "TestUpdateChannelCredentialIfUnchangedKeepsCacheConsistentAfterRequestCancellation",
+      "TestInitChannelCacheRetriesSnapshotAfterCredentialGenerationChanges",
+      "TestInsertChannelWithAbilitiesIsAtomic",
+      "TestAuthFlowIsBoundAndConsumedOnce",
+      "TestAuthFlowExpiryIsEnforced",
+      "TestExternalAuthAssertionCanOnlyBeClaimedOnce",
+      "TestConsumeAuthFlowWithActionRollsBackTogether",
+      "TestNamedSystemTaskLockLeaseLifecycle"
+    ],
+    "source_files": [
+      "model/channel_credential_test.go",
+      "model/auth_flow_test.go",
+      "model/system_task_test.go"
+    ]
+  }
+]

@@ -1,0 +1,206 @@
+package controller
+
+import (
+	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/model"
+	"github.com/ForceMind/MyAPI/relay/channel/codex"
+	"github.com/ForceMind/MyAPI/service"
+	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+)
+
+func TestProbeManualCodexAuthFailureRefreshesAndRetriesExactlyOnce(t *testing.T) {
+	for _, initialStatus := range []int{http.StatusUnauthorized, http.StatusForbidden} {
+		t.Run(http.StatusText(initialStatus), func(t *testing.T) {
+			previousDB, previousMemoryCache := model.DB, common.MemoryCacheEnabled
+			db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+			require.NoError(t, err)
+			require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}, &model.SystemTaskLock{}))
+			setupChannelQuotaIdentityFixture(t, db)
+			model.DB, common.MemoryCacheEnabled = db, false
+			t.Cleanup(func() { model.DB, common.MemoryCacheEnabled = previousDB, previousMemoryCache })
+
+			baseURL := "https://manual-quota-probe.invalid"
+			channel := &model.Channel{
+				Type: constant.ChannelTypeCodex, Status: common.ChannelStatusEnabled, BaseURL: &baseURL,
+				Key: `{"access_token":"old-access","refresh_token":"old-refresh","account_id":"fixture-account"}`,
+			}
+			require.NoError(t, db.Create(channel).Error)
+			establishCodexControllerCredentialEvidence(t, channel.Id, channel.Key, "fixture-account")
+
+			client, err := service.GetHttpClientWithProxy("")
+			require.NoError(t, err)
+			previousTransport := client.Transport
+			t.Cleanup(func() { client.Transport = previousTransport })
+			tokenRequests, usageRequests := 0, 0
+			var requestPaths []string
+			var usageDeadlines []time.Time
+			client.Transport = quotaSamplingRoundTripper(func(request *http.Request) (*http.Response, error) {
+				requestPaths = append(requestPaths, request.URL.Path)
+				status, body := http.StatusOK, `{"ok":true}`
+				if request.URL.Path == "/oauth/token" {
+					require.Equal(t, "auth.openai.com", request.URL.Host)
+					tokenRequests++
+					body = `{"access_token":"` + codexControllerAccountJWT(t, "fixture-account") + `","refresh_token":"rotated-refresh","expires_in":3600}`
+				} else {
+					require.Equal(t, "manual-quota-probe.invalid", request.URL.Host)
+					require.Equal(t, "/backend-api/wham/usage", request.URL.Path)
+					usageRequests++
+					deadline, present := request.Context().Deadline()
+					require.True(t, present)
+					usageDeadlines = append(usageDeadlines, deadline)
+					if usageRequests == 1 {
+						require.Equal(t, "Bearer old-access", request.Header.Get("Authorization"))
+						status, body = initialStatus, `{}`
+					} else {
+						require.Equal(t, "Bearer "+codexControllerAccountJWT(t, "fixture-account"), request.Header.Get("Authorization"))
+					}
+				}
+				return &http.Response{StatusCode: status, Header: make(http.Header), Request: request, Body: io.NopCloser(strings.NewReader(body))}, nil
+			})
+
+			gin.SetMode(gin.TestMode)
+			recorder := httptest.NewRecorder()
+			ginContext, _ := gin.CreateTestContext(recorder)
+			ginContext.Request = httptest.NewRequest(http.MethodGet, "/api/channel/codex/usage", nil)
+			ginContext.Params = gin.Params{{Key: "id", Value: "1"}}
+			fetchCodexChannelWhamData(ginContext, service.FetchCodexWhamUsage, "probe usage", "safe message", false)
+
+			require.Equal(t, http.StatusOK, recorder.Code)
+			require.Contains(t, recorder.Body.String(), `"success":true`)
+			require.Equal(t, 2, usageRequests)
+			require.Equal(t, 1, tokenRequests)
+			require.Equal(t, 3, usageRequests+tokenRequests)
+			require.Equal(t, []string{"/backend-api/wham/usage", "/oauth/token", "/backend-api/wham/usage"}, requestPaths)
+			require.Len(t, usageDeadlines, 2)
+			require.True(t, usageDeadlines[1].After(usageDeadlines[0]), "manual retry creates a fresh timeout instead of preserving the original deadline")
+			t.Logf("physical dispatches: usage=%d refresh=%d total=%d; manual retry deadline renewed=%t", usageRequests, tokenRequests, len(requestPaths), usageDeadlines[1].After(usageDeadlines[0]))
+			var stored model.Channel
+			require.NoError(t, db.First(&stored, channel.Id).Error)
+			storedKey, err := codex.ParseOAuthKey(stored.Key)
+			require.NoError(t, err)
+			require.Equal(t, "rotated-refresh", storedKey.RefreshToken)
+		})
+	}
+}
+
+func TestProbeCanceledCodexRefreshPersistsCredentialAndStopsBeforeNextChannel(t *testing.T) {
+	previousDB, previousMemoryCache, previousInterval := model.DB, common.MemoryCacheEnabled, common.RequestInterval
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}, &model.SystemTaskLock{}))
+	setupChannelQuotaIdentityFixture(t, db)
+	model.DB, common.MemoryCacheEnabled, common.RequestInterval = db, false, 0
+	t.Cleanup(func() {
+		model.DB, common.MemoryCacheEnabled, common.RequestInterval = previousDB, previousMemoryCache, previousInterval
+	})
+
+	firstBaseURL := "https://first-codex-probe.invalid"
+	secondBaseURL := "https://second-codex-probe.invalid"
+	channels := []model.Channel{
+		{Id: 1, Type: constant.ChannelTypeCodex, Status: common.ChannelStatusEnabled, BaseURL: &firstBaseURL,
+			Key: `{"access_token":"first-access","refresh_token":"first-refresh","account_id":"first-account"}`},
+		{Id: 2, Type: constant.ChannelTypeCodex, Status: common.ChannelStatusEnabled, BaseURL: &secondBaseURL,
+			Key: `{"access_token":"second-access","account_id":"second-account"}`},
+	}
+	require.NoError(t, db.Create(&channels).Error)
+	establishCodexControllerCredentialEvidence(t, channels[0].Id, channels[0].Key, "first-account")
+
+	client, err := service.GetHttpClientWithProxy("")
+	require.NoError(t, err)
+	previousTransport := client.Transport
+	t.Cleanup(func() { client.Transport = previousTransport })
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var firstUsageRequests atomic.Int32
+	var secondUsageRequests atomic.Int32
+	var tokenRequests atomic.Int32
+	client.Transport = quotaSamplingRoundTripper(func(request *http.Request) (*http.Response, error) {
+		if request.URL.Path == "/oauth/token" {
+			tokenRequests.Add(1)
+			cancel()
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body: io.NopCloser(strings.NewReader(`{"access_token":"` + codexControllerAccountJWT(t, "first-account") +
+					`","refresh_token":"first-rotated","expires_in":3600}`)),
+				Request: request,
+			}, nil
+		}
+		switch request.Header.Get("Authorization") {
+		case "Bearer first-access":
+			firstUsageRequests.Add(1)
+			return &http.Response{StatusCode: http.StatusUnauthorized, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{}`)), Request: request}, nil
+		case "Bearer second-access":
+			secondUsageRequests.Add(1)
+		}
+		return nil, request.Context().Err()
+	})
+
+	summary, runErr := runChannelQuotaSnapshotSyncOnce(ctx, 2, nil)
+
+	require.ErrorIs(t, runErr, context.Canceled)
+	require.Equal(t, int32(1), firstUsageRequests.Load())
+	require.Equal(t, int32(1), tokenRequests.Load())
+	require.Zero(t, secondUsageRequests.Load())
+	require.Equal(t, 1, summary.Failed)
+	require.Equal(t, 1, summary.Deferred)
+	var stored model.Channel
+	require.NoError(t, db.First(&stored, channels[0].Id).Error)
+	storedKey, err := codex.ParseOAuthKey(stored.Key)
+	require.NoError(t, err)
+	require.Equal(t, "first-rotated", storedKey.RefreshToken)
+	t.Logf("first usage=%d refresh=%d; next channel usage=%d; failed=%d deferred=%d; rotated credential persisted", firstUsageRequests.Load(), tokenRequests.Load(), secondUsageRequests.Load(), summary.Failed, summary.Deferred)
+}
+
+func TestProbeDisabledQuotaScheduleDoesNotStopDirectBatchExecution(t *testing.T) {
+	t.Setenv("CHANNEL_QUOTA_SYNC_ENABLED", "false")
+	handler := channelQuotaSnapshotSyncHandler{}
+	require.False(t, handler.Enabled())
+
+	previousDB, previousInterval := model.DB, common.RequestInterval
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.ChannelQuotaSnapshot{}))
+	setupChannelQuotaIdentityFixture(t, db)
+	model.DB, common.RequestInterval = db, 0
+	t.Cleanup(func() { model.DB, common.RequestInterval = previousDB, previousInterval })
+
+	baseURL := "https://disabled-schedule-probe.invalid"
+	channel := &model.Channel{Type: constant.ChannelTypeSiliconFlow, Status: common.ChannelStatusEnabled, BaseURL: &baseURL, Key: "fixture-key"}
+	require.NoError(t, db.Create(channel).Error)
+	client, err := service.GetHttpClientWithProxy("")
+	require.NoError(t, err)
+	previousTransport := client.Transport
+	t.Cleanup(func() { client.Transport = previousTransport })
+	requests := 0
+	client.Transport = quotaSamplingRoundTripper(func(request *http.Request) (*http.Response, error) {
+		requests++
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader(`{"code":20000,"message":"ok","data":{"id":"account","totalBalance":"10"}}`)),
+			Request:    request,
+		}, nil
+	})
+
+	summary, runErr := runChannelQuotaSnapshotSyncOnce(context.Background(), 1, nil)
+
+	require.NoError(t, runErr)
+	require.Equal(t, 1, requests)
+	require.Equal(t, 1, summary.Sampled)
+	t.Logf("schedule enabled=%t; direct batch dispatched=%d sampled=%d", handler.Enabled(), requests, summary.Sampled)
+}

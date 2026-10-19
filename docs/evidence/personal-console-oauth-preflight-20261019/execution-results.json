@@ -1,0 +1,23 @@
+[
+  {
+    "group": "service-final",
+    "exit_code": 0,
+    "duration_seconds": 12.65,
+    "stdout": "/tmp/myapi-oauth-preflight-service-final.stdout",
+    "selected_top_level": 15
+  },
+  {
+    "group": "controller-final",
+    "exit_code": 0,
+    "duration_seconds": 11.718,
+    "stdout": "/tmp/myapi-oauth-preflight-controller-final.stdout",
+    "selected_top_level": 38
+  },
+  {
+    "group": "model-final",
+    "exit_code": 0,
+    "duration_seconds": 4.133,
+    "stdout": "/tmp/myapi-oauth-preflight-model-final.stdout",
+    "selected_top_level": 15
+  }
+]

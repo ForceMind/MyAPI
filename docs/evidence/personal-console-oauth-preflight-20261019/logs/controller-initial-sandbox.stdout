@@ -1,0 +1,25 @@
+=== RUN   TestChannelQuotaSamplerIsolatesMultiKeyFailureAndSurvivesReorder
+--- FAIL: TestChannelQuotaSamplerIsolatesMultiKeyFailureAndSurvivesReorder (0.01s)
+panic: httptest: failed to listen on a port: listen tcp6 [::1]:0: socket: operation not permitted [recovered, repanicked]
+
+goroutine 18 [running]:
+testing.tRunner.func1.2({0x1eb0d00, 0xc000371e50})
+	/root/.local/opt/go1.25.1/src/testing/testing.go:1872 +0x237
+testing.tRunner.func1()
+	/root/.local/opt/go1.25.1/src/testing/testing.go:1875 +0x35b
+panic({0x1eb0d00?, 0xc000371e50?})
+	/root/.local/opt/go1.25.1/src/runtime/panic.go:783 +0x132
+net/http/httptest.newLocalListener()
+	/root/.local/opt/go1.25.1/src/net/http/httptest/server.go:71 +0xda
+net/http/httptest.NewUnstartedServer(...)
+	/root/.local/opt/go1.25.1/src/net/http/httptest/server.go:119
+net/http/httptest.NewServer({0x288b060, 0xc000371e10})
+	/root/.local/opt/go1.25.1/src/net/http/httptest/server.go:106 +0x25
+github.com/ForceMind/MyAPI/controller.TestChannelQuotaSamplerIsolatesMultiKeyFailureAndSurvivesReorder(0xc0005781c0)
+	/tmp/myapi-oauth-preflight-1WJhBO/controller/channel_quota_multikey_sampling_test.go:40 +0x319
+testing.tRunner(0xc0005781c0, 0x25e4aa0)
+	/root/.local/opt/go1.25.1/src/testing/testing.go:1934 +0xea
+created by testing.(*T).Run in goroutine 1
+	/root/.local/opt/go1.25.1/src/testing/testing.go:1997 +0x465
+FAIL	github.com/ForceMind/MyAPI/controller	0.034s
+FAIL
