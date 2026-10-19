@@ -1,0 +1,8 @@
+{
+  "source": "clean archive ac3aa6c plus exactly docs/evidence/.npmignore and tools/npm/check-pack.mjs fixes; temporary fixture git commit",
+  "package_file_count": 3230,
+  "evidence_file_count": 0,
+  "synthetic_archive_canary_exists": true,
+  "runtime_and_tests_present": true,
+  "publication": false
+}

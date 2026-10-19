@@ -1,0 +1,1178 @@
+﻿2026-10-19T08:09:59.6127516Z Current runner version: '2.337.0'
+2026-10-19T08:09:59.6153845Z ##[group]Runner Image Provisioner
+2026-10-19T08:09:59.6155620Z Hosted Compute Agent
+2026-10-19T08:09:59.6156531Z Version: 20261012.601
+2026-10-19T08:09:59.6157449Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+2026-10-19T08:09:59.6158225Z Build Date: 2026-10-12T17:48:21Z
+2026-10-19T08:09:59.6158925Z Worker ID: {8532c28d-ac2a-4fb3-8ea6-693a67a3c3e2}
+2026-10-19T08:09:59.6159917Z Region: eastus2
+2026-10-19T08:09:59.6160489Z Cloud: Azure
+2026-10-19T08:09:59.6161039Z ##[endgroup]
+2026-10-19T08:09:59.6162860Z ##[group]Operating System
+2026-10-19T08:09:59.6163529Z Ubuntu
+2026-10-19T08:09:59.6164152Z 24.04.5
+2026-10-19T08:09:59.6164707Z LTS
+2026-10-19T08:09:59.6165218Z ##[endgroup]
+2026-10-19T08:09:59.6165842Z ##[group]Runner Image
+2026-10-19T08:09:59.6166461Z Image: ubuntu-24.04
+2026-10-19T08:09:59.6167057Z Version: 20261012.334.1
+2026-10-19T08:09:59.6168489Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-19T08:09:59.6170668Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-19T08:09:59.6171690Z ##[endgroup]
+2026-10-19T08:09:59.6172931Z ##[group]GITHUB_TOKEN Permissions
+2026-10-19T08:09:59.6175182Z Contents: read
+2026-10-19T08:09:59.6175874Z Metadata: read
+2026-10-19T08:09:59.6176467Z ##[endgroup]
+2026-10-19T08:09:59.6178608Z Secret source: Actions
+2026-10-19T08:09:59.6180081Z Cache mode: write
+2026-10-19T08:09:59.6181064Z Prepare workflow directory
+2026-10-19T08:09:59.6581164Z Prepare all required actions
+2026-10-19T08:09:59.6631731Z Getting action download info
+2026-10-19T08:09:59.8800611Z Download action repository 'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0' (SHA:9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0)
+2026-10-19T08:10:00.0422062Z Download action repository 'actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16' (SHA:924ae3a1cded613372ab5595356fb5720e22ba16)
+2026-10-19T08:10:00.3627451Z Complete job name: Backend vet, build, and test
+2026-10-19T08:10:00.4587085Z ##[group]Run actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+2026-10-19T08:10:00.4588182Z with:
+2026-10-19T08:10:00.4588631Z   repository: ForceMind/MyAPI
+2026-10-19T08:10:00.4589183Z   persist-credentials: false
+2026-10-19T08:10:00.4590004Z   ref: refs/pull/17/merge
+2026-10-19T08:10:00.4593718Z   token: ***
+2026-10-19T08:10:00.4594157Z   ssh-strict: true
+2026-10-19T08:10:00.4594601Z   ssh-user: git
+2026-10-19T08:10:00.4595020Z   clean: true
+2026-10-19T08:10:00.4595466Z   sparse-checkout-cone-mode: true
+2026-10-19T08:10:00.4595995Z   fetch-depth: 1
+2026-10-19T08:10:00.4596430Z   fetch-tags: false
+2026-10-19T08:10:00.4596878Z   show-progress: true
+2026-10-19T08:10:00.4597336Z   lfs: false
+2026-10-19T08:10:00.4597754Z   submodules: false
+2026-10-19T08:10:00.4598211Z   set-safe-directory: true
+2026-10-19T08:10:00.4598720Z   allow-unsafe-pr-checkout: false
+2026-10-19T08:10:00.4599685Z env:
+2026-10-19T08:10:00.4600117Z   GOWORK: off
+2026-10-19T08:10:00.4600590Z   GOMAXPROCS: 1
+2026-10-19T08:10:00.4601042Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:10:00.4601494Z ##[endgroup]
+2026-10-19T08:10:00.5624021Z Syncing repository: ForceMind/MyAPI
+2026-10-19T08:10:00.5626877Z ##[group]Getting Git version info
+2026-10-19T08:10:00.5627902Z Working directory is '/home/runner/work/MyAPI/MyAPI'
+2026-10-19T08:10:00.5629264Z [command]/usr/bin/git version
+2026-10-19T08:10:00.5741183Z git version 2.55.0
+2026-10-19T08:10:00.5768349Z ##[endgroup]
+2026-10-19T08:10:00.5801347Z Temporarily overriding HOME='/home/runner/work/_temp/5b49619f-b93c-44de-a229-0bb504cd4dd9' before making global git config changes
+2026-10-19T08:10:00.5804464Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-19T08:10:00.5808780Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MyAPI/MyAPI
+2026-10-19T08:10:00.5919525Z Deleting the contents of '/home/runner/work/MyAPI/MyAPI'
+2026-10-19T08:10:00.5921751Z ##[group]Determining repository object format
+2026-10-19T08:10:00.7674969Z ##[endgroup]
+2026-10-19T08:10:00.7676200Z ##[group]Initializing the repository
+2026-10-19T08:10:00.7685779Z [command]/usr/bin/git init /home/runner/work/MyAPI/MyAPI
+2026-10-19T08:10:00.7817543Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-19T08:10:00.7819847Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-19T08:10:00.7821947Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-19T08:10:00.7823455Z hint: call:
+2026-10-19T08:10:00.7824330Z hint:
+2026-10-19T08:10:00.7825039Z hint: 	git config --global init.defaultBranch <name>
+2026-10-19T08:10:00.7825830Z hint:
+2026-10-19T08:10:00.7826584Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-19T08:10:00.7827664Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-19T08:10:00.7828545Z hint:
+2026-10-19T08:10:00.7829126Z hint: 	git branch -m <name>
+2026-10-19T08:10:00.7830153Z hint:
+2026-10-19T08:10:00.7830963Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-19T08:10:00.7832758Z Initialized empty Git repository in /home/runner/work/MyAPI/MyAPI/.git/
+2026-10-19T08:10:00.7835203Z [command]/usr/bin/git remote add origin https://github.com/ForceMind/MyAPI
+2026-10-19T08:10:00.7906189Z ##[endgroup]
+2026-10-19T08:10:00.7907501Z ##[group]Disabling automatic garbage collection
+2026-10-19T08:10:00.7920795Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-19T08:10:00.7952358Z ##[endgroup]
+2026-10-19T08:10:00.7953296Z ##[group]Setting up auth
+2026-10-19T08:10:00.7954181Z Removing SSH command configuration
+2026-10-19T08:10:00.7960488Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-19T08:10:00.8020730Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-19T08:10:00.8413225Z Removing HTTP extra header
+2026-10-19T08:10:00.8419743Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-19T08:10:00.8472275Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-19T08:10:00.8747603Z Removing includeIf entries pointing to credentials config files
+2026-10-19T08:10:00.8752786Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-19T08:10:00.8791636Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-19T08:10:00.9022341Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-01b56659-ed72-4603-9569-818265e9df78.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-19T08:10:00.9066516Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path /home/runner/work/_temp/git-credentials-01b56659-ed72-4603-9569-818265e9df78.config
+2026-10-19T08:10:00.9102515Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-01b56659-ed72-4603-9569-818265e9df78.config
+2026-10-19T08:10:00.9143249Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-01b56659-ed72-4603-9569-818265e9df78.config
+2026-10-19T08:10:00.9182733Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-01b56659-ed72-4603-9569-818265e9df78.config
+2026-10-19T08:10:00.9216385Z ##[endgroup]
+2026-10-19T08:10:00.9217206Z ##[group]Fetching the repository
+2026-10-19T08:10:00.9224264Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +refs/pull/17/merge:refs/remotes/pull/17/merge
+2026-10-19T08:10:03.9128941Z From https://github.com/ForceMind/MyAPI
+2026-10-19T08:10:03.9130378Z  * [new ref]         refs/pull/17/merge -> pull/17/merge
+2026-10-19T08:10:03.9133591Z ##[endgroup]
+2026-10-19T08:10:03.9134646Z ##[group]Determining the checkout info
+2026-10-19T08:10:03.9135952Z ##[endgroup]
+2026-10-19T08:10:03.9141486Z [command]/usr/bin/git sparse-checkout disable
+2026-10-19T08:10:03.9201628Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-19T08:10:03.9236216Z ##[group]Checking out the ref
+2026-10-19T08:10:03.9239714Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/17/merge
+2026-10-19T08:10:04.3782699Z Note: switching to 'refs/remotes/pull/17/merge'.
+2026-10-19T08:10:04.3783362Z 
+2026-10-19T08:10:04.3783829Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-19T08:10:04.3784929Z changes and commit them, and you can discard any commits you make in this
+2026-10-19T08:10:04.3785991Z state without impacting any branches by switching back to a branch.
+2026-10-19T08:10:04.3786576Z 
+2026-10-19T08:10:04.3786990Z If you want to create a new branch to retain commits you create, you may
+2026-10-19T08:10:04.3787910Z do so (now or later) by using -c with the switch command. Example:
+2026-10-19T08:10:04.3788437Z 
+2026-10-19T08:10:04.3788666Z   git switch -c <new-branch-name>
+2026-10-19T08:10:04.3789059Z 
+2026-10-19T08:10:04.3789566Z Or undo this operation with:
+2026-10-19T08:10:04.3789938Z 
+2026-10-19T08:10:04.3790132Z   git switch -
+2026-10-19T08:10:04.3790467Z 
+2026-10-19T08:10:04.3790898Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-19T08:10:04.3791502Z 
+2026-10-19T08:10:04.3792199Z HEAD is now at 0eadc1a Merge c5e44f6140eccf83679d65ed94b9337319cfdf5b into c1beb07520f43c106b4406ba8a0b1227bc1cf67e
+2026-10-19T08:10:04.3806808Z ##[endgroup]
+2026-10-19T08:10:04.3858986Z [command]/usr/bin/git log -1 --format=%H
+2026-10-19T08:10:04.3890913Z 0eadc1ac332031145cd425111cc0800dc2026526
+2026-10-19T08:10:04.3901512Z ##[group]Removing auth
+2026-10-19T08:10:04.3902138Z Removing SSH command configuration
+2026-10-19T08:10:04.3906353Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-19T08:10:04.3944169Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-19T08:10:04.4175128Z Removing HTTP extra header
+2026-10-19T08:10:04.4180876Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-19T08:10:04.4225142Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-19T08:10:04.4458559Z Removing includeIf entries pointing to credentials config files
+2026-10-19T08:10:04.4462924Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-19T08:10:04.4496487Z includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path
+2026-10-19T08:10:04.4497591Z includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path
+2026-10-19T08:10:04.4498567Z includeif.gitdir:/github/workspace/.git.path
+2026-10-19T08:10:04.4499639Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-19T08:10:04.4506131Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path
+2026-10-19T08:10:04.4534588Z /home/runner/work/_temp/git-credentials-01b56659-ed72-4603-9569-818265e9df78.config
+2026-10-19T08:10:04.4547805Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path /home/runner/work/_temp/git-credentials-01b56659-ed72-4603-9569-818265e9df78.config
+2026-10-19T08:10:04.4587655Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path
+2026-10-19T08:10:04.4615541Z /home/runner/work/_temp/git-credentials-01b56659-ed72-4603-9569-818265e9df78.config
+2026-10-19T08:10:04.4624531Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-01b56659-ed72-4603-9569-818265e9df78.config
+2026-10-19T08:10:04.4664109Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-19T08:10:04.4699539Z /github/runner_temp/git-credentials-01b56659-ed72-4603-9569-818265e9df78.config
+2026-10-19T08:10:04.4710833Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-01b56659-ed72-4603-9569-818265e9df78.config
+2026-10-19T08:10:04.4749162Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-19T08:10:04.4777099Z /github/runner_temp/git-credentials-01b56659-ed72-4603-9569-818265e9df78.config
+2026-10-19T08:10:04.4784347Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-01b56659-ed72-4603-9569-818265e9df78.config
+2026-10-19T08:10:04.4823256Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-19T08:10:04.5046712Z Removing credentials config '/home/runner/work/_temp/git-credentials-01b56659-ed72-4603-9569-818265e9df78.config'
+2026-10-19T08:10:04.5056183Z ##[endgroup]
+2026-10-19T08:10:04.5288184Z ##[group]Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+2026-10-19T08:10:04.5288662Z with:
+2026-10-19T08:10:04.5288918Z   go-version-file: go.mod
+2026-10-19T08:10:04.5289261Z   cache-dependency-path: go.sum
+relaykit/go.sum
+
+2026-10-19T08:10:04.5289827Z   check-latest: false
+2026-10-19T08:10:04.5292531Z   token: ***
+2026-10-19T08:10:04.5292783Z   cache: true
+2026-10-19T08:10:04.5293103Z env:
+2026-10-19T08:10:04.5293328Z   GOWORK: off
+2026-10-19T08:10:04.5293567Z   GOMAXPROCS: 1
+2026-10-19T08:10:04.5293819Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:10:04.5294088Z ##[endgroup]
+2026-10-19T08:10:04.6545965Z Setup go version spec 1.25.1
+2026-10-19T08:10:04.6559224Z Attempting to download 1.25.1...
+2026-10-19T08:10:05.1923258Z matching 1.25.1...
+2026-10-19T08:10:05.1986790Z Acquiring 1.25.1 from https://github.com/actions/go-versions/releases/download/1.25.1-17451174567/go-1.25.1-linux-x64.tar.gz
+2026-10-19T08:10:05.6537466Z Extracting Go...
+2026-10-19T08:10:05.6646045Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/0848e03c-0c67-4d0a-aad1-033c89e838f1 -f /home/runner/work/_temp/692965eb-4e13-4167-a568-f8317248100d
+2026-10-19T08:10:07.1682113Z Successfully extracted go to /home/runner/work/_temp/0848e03c-0c67-4d0a-aad1-033c89e838f1
+2026-10-19T08:10:07.1682677Z Adding to the cache ...
+2026-10-19T08:10:12.7675768Z Successfully cached go to /opt/hostedtoolcache/go/1.25.1/x64
+2026-10-19T08:10:12.7678236Z Added go to the path
+2026-10-19T08:10:12.7680939Z Successfully set up Go version 1.25.1
+2026-10-19T08:10:12.7894731Z [command]/opt/hostedtoolcache/go/1.25.1/x64/bin/go env GOMODCACHE
+2026-10-19T08:10:12.7931295Z [command]/opt/hostedtoolcache/go/1.25.1/x64/bin/go env GOCACHE
+2026-10-19T08:10:12.7965524Z /home/runner/go/pkg/mod
+2026-10-19T08:10:12.7981467Z /home/runner/.cache/go-build
+2026-10-19T08:10:12.8779643Z Cache hit for: setup-go-Linux-x64-ubuntu24-go-1.25.1-6d5e7a422ac7cc4529fbd9df01ec0b200929303e0fa2bb12bc04294bfe908406
+2026-10-19T08:10:13.1275224Z Received 33295291 of 33295291 (100.0%), 151.9 MBs/sec
+2026-10-19T08:10:13.1276060Z Cache Size: ~32 MB (33295291 B)
+2026-10-19T08:10:13.1308327Z [command]/usr/bin/tar -xf /home/runner/work/_temp/74f053cb-5945-471c-afa0-084ff55cc992/cache.tzst -P -C /home/runner/work/MyAPI/MyAPI --use-compress-program unzstd
+2026-10-19T08:10:13.4228198Z Cache restored successfully
+2026-10-19T08:10:13.4250314Z Cache restored from key: setup-go-Linux-x64-ubuntu24-go-1.25.1-6d5e7a422ac7cc4529fbd9df01ec0b200929303e0fa2bb12bc04294bfe908406
+2026-10-19T08:10:13.4272942Z go version go1.25.1 linux/amd64
+2026-10-19T08:10:13.4273163Z 
+2026-10-19T08:10:13.4273461Z ##[group]go env
+2026-10-19T08:10:13.4412459Z AR='ar'
+2026-10-19T08:10:13.4412852Z CC='gcc'
+2026-10-19T08:10:13.4413266Z CGO_CFLAGS='-O2 -g'
+2026-10-19T08:10:13.4413674Z CGO_CPPFLAGS=''
+2026-10-19T08:10:13.4414058Z CGO_CXXFLAGS='-O2 -g'
+2026-10-19T08:10:13.4414452Z CGO_ENABLED='1'
+2026-10-19T08:10:13.4414820Z CGO_FFLAGS='-O2 -g'
+2026-10-19T08:10:13.4415274Z CGO_LDFLAGS='-O2 -g'
+2026-10-19T08:10:13.4415665Z CXX='g++'
+2026-10-19T08:10:13.4416039Z GCCGO='gccgo'
+2026-10-19T08:10:13.4416391Z GO111MODULE=''
+2026-10-19T08:10:13.4416739Z GOAMD64='v1'
+2026-10-19T08:10:13.4417084Z GOARCH='amd64'
+2026-10-19T08:10:13.4417432Z GOAUTH='netrc'
+2026-10-19T08:10:13.4417766Z GOBIN=''
+2026-10-19T08:10:13.4418152Z GOCACHE='/home/runner/.cache/go-build'
+2026-10-19T08:10:13.4418644Z GOCACHEPROG=''
+2026-10-19T08:10:13.4418904Z GODEBUG=''
+2026-10-19T08:10:13.4419124Z GOENV='/home/runner/.config/go/env'
+2026-10-19T08:10:13.4419646Z GOEXE=''
+2026-10-19T08:10:13.4419986Z GOEXPERIMENT=''
+2026-10-19T08:10:13.4420198Z GOFIPS140='off'
+2026-10-19T08:10:13.4420398Z GOFLAGS=''
+2026-10-19T08:10:13.4421123Z GOGCCFLAGS='-fPIC -m64 -pthread -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=/tmp/go-build3122909178=/tmp/go-build -gno-record-gcc-switches'
+2026-10-19T08:10:13.4421809Z GOHOSTARCH='amd64'
+2026-10-19T08:10:13.4422027Z GOHOSTOS='linux'
+2026-10-19T08:10:13.4422232Z GOINSECURE=''
+2026-10-19T08:10:13.4422756Z GOMOD='/home/runner/work/MyAPI/MyAPI/go.mod'
+2026-10-19T08:10:13.4423092Z GOMODCACHE='/home/runner/go/pkg/mod'
+2026-10-19T08:10:13.4423449Z GONOPROXY=''
+2026-10-19T08:10:13.4423699Z GONOSUMDB=''
+2026-10-19T08:10:13.4423890Z GOOS='linux'
+2026-10-19T08:10:13.4424112Z GOPATH='/home/runner/go'
+2026-10-19T08:10:13.4424343Z GOPRIVATE=''
+2026-10-19T08:10:13.4425115Z GOPROXY='https://proxy.golang.org,direct'
+2026-10-19T08:10:13.4425592Z GOROOT='/opt/hostedtoolcache/go/1.25.1/x64'
+2026-10-19T08:10:13.4425918Z GOSUMDB='sum.golang.org'
+2026-10-19T08:10:13.4426172Z GOTELEMETRY='local'
+2026-10-19T08:10:13.4426453Z GOTELEMETRYDIR='/home/runner/.config/go/telemetry'
+2026-10-19T08:10:13.4426772Z GOTMPDIR=''
+2026-10-19T08:10:13.4426985Z GOTOOLCHAIN='local'
+2026-10-19T08:10:13.4427316Z GOTOOLDIR='/opt/hostedtoolcache/go/1.25.1/x64/pkg/tool/linux_amd64'
+2026-10-19T08:10:13.4427678Z GOVCS=''
+2026-10-19T08:10:13.4427878Z GOVERSION='go1.25.1'
+2026-10-19T08:10:13.4428162Z GOWORK='off'
+2026-10-19T08:10:13.4428439Z PKG_CONFIG='pkg-config'
+2026-10-19T08:10:13.4428588Z 
+2026-10-19T08:10:13.4428866Z ##[endgroup]
+2026-10-19T08:10:13.4625410Z ##[group]Run mkdir -p web/dist
+2026-10-19T08:10:13.4625810Z [36;1mmkdir -p web/dist[0m
+2026-10-19T08:10:13.4626088Z [36;1mtouch web/dist/index.html[0m
+2026-10-19T08:10:13.4912161Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:10:13.4912455Z env:
+2026-10-19T08:10:13.4912651Z   GOWORK: off
+2026-10-19T08:10:13.4912879Z   GOMAXPROCS: 1
+2026-10-19T08:10:13.4913094Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:10:13.4913327Z   GOTOOLCHAIN: local
+2026-10-19T08:10:13.4913536Z ##[endgroup]
+2026-10-19T08:10:13.5132083Z ##[group]Run go vet ./...
+2026-10-19T08:10:13.5132393Z [36;1mgo vet ./...[0m
+2026-10-19T08:10:13.5192103Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:10:13.5192382Z env:
+2026-10-19T08:10:13.5192592Z   GOWORK: off
+2026-10-19T08:10:13.5192857Z   GOMAXPROCS: 1
+2026-10-19T08:10:13.5193068Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:10:13.5193296Z   GOTOOLCHAIN: local
+2026-10-19T08:10:13.5193506Z ##[endgroup]
+2026-10-19T08:10:13.7194096Z go: downloading github.com/bytedance/gopkg v0.1.3
+2026-10-19T08:10:13.8237921Z go: downloading github.com/gin-gonic/gin v1.9.1
+2026-10-19T08:10:13.8687005Z go: downloading github.com/joho/godotenv v1.5.1
+2026-10-19T08:10:13.9357660Z go: downloading github.com/Azure/go-ntlmssp v0.1.1
+2026-10-19T08:10:13.9571598Z go: downloading github.com/abema/go-mp4 v1.4.1
+2026-10-19T08:10:13.9965909Z go: downloading github.com/gin-contrib/static v0.0.1
+2026-10-19T08:10:14.0133818Z go: downloading github.com/go-audio/aiff v1.1.0
+2026-10-19T08:10:14.3185856Z go: downloading github.com/go-audio/wav v1.1.0
+2026-10-19T08:10:14.4550495Z go: downloading github.com/go-playground/validator/v10 v10.20.0
+2026-10-19T08:10:14.4956894Z go: downloading github.com/google/uuid v1.6.0
+2026-10-19T08:10:14.5145621Z go: downloading github.com/grafana/pyroscope-go v1.2.7
+2026-10-19T08:10:14.5346147Z go: downloading github.com/jfreymuth/oggvorbis v1.0.5
+2026-10-19T08:10:14.5573020Z go: downloading github.com/jinzhu/copier v0.4.0
+2026-10-19T08:10:14.5743672Z go: downloading github.com/mewkiz/flac v1.0.13
+2026-10-19T08:10:14.6470410Z go: downloading github.com/pkg/errors v0.9.1
+2026-10-19T08:10:14.6645164Z go: downloading github.com/pquerna/otp v1.5.0
+2026-10-19T08:10:14.6829789Z go: downloading github.com/samber/lo v1.53.0
+2026-10-19T08:10:14.7120440Z go: downloading github.com/shirou/gopsutil v3.21.11+incompatible
+2026-10-19T08:10:14.7629094Z go: downloading github.com/shopspring/decimal v1.4.0
+2026-10-19T08:10:14.7893838Z go: downloading github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
+2026-10-19T08:10:14.8074709Z go: downloading github.com/yapingcat/gomedia v0.0.0-20240906162731-17feea57090c
+2026-10-19T08:10:14.8842800Z go: downloading golang.org/x/crypto v0.52.0
+2026-10-19T08:10:15.0200796Z go: downloading golang.org/x/sys v0.45.0
+2026-10-19T08:10:15.1826500Z go: downloading gorm.io/gorm v1.25.5
+2026-10-19T08:10:15.2646670Z go: downloading github.com/Calcium-Ion/go-epay v0.0.4
+2026-10-19T08:10:15.2822449Z go: downloading github.com/go-webauthn/webauthn v0.14.0
+2026-10-19T08:10:15.3223480Z go: downloading github.com/gorilla/websocket v1.5.0
+2026-10-19T08:10:15.3457104Z go: downloading github.com/stripe/stripe-go/v81 v81.4.0
+2026-10-19T08:10:15.4745448Z go: downloading github.com/thanhpk/randstr v1.0.6
+2026-10-19T08:10:15.4917147Z go: downloading github.com/tidwall/gjson v1.19.0
+2026-10-19T08:10:15.5116242Z go: downloading github.com/waffo-com/waffo-go v1.3.2
+2026-10-19T08:10:15.5417956Z go: downloading golang.org/x/sync v0.20.0
+2026-10-19T08:10:15.5606936Z go: downloading github.com/glebarez/sqlite v1.9.0
+2026-10-19T08:10:15.6003666Z go: downloading gorm.io/driver/mysql v1.4.3
+2026-10-19T08:10:15.6160691Z go: downloading gorm.io/driver/postgres v1.5.4
+2026-10-19T08:10:15.6324202Z go: downloading github.com/nicksnyder/go-i18n/v2 v2.6.1
+2026-10-19T08:10:15.6561089Z go: downloading golang.org/x/text v0.37.0
+2026-10-19T08:10:16.0367545Z go: downloading github.com/andybalholm/brotli v1.1.1
+2026-10-19T08:10:16.0969278Z go: downloading github.com/gin-contrib/cors v1.7.2
+2026-10-19T08:10:16.1137102Z go: downloading github.com/klauspost/compress v1.18.0
+2026-10-19T08:10:16.8681392Z go: downloading github.com/golang-jwt/jwt/v5 v5.3.0
+2026-10-19T08:10:16.8935890Z go: downloading github.com/ClickHouse/clickhouse-go/v2 v2.32.0
+2026-10-19T08:10:16.9975665Z go: downloading github.com/glebarez/go-sqlite v1.21.2
+2026-10-19T08:10:17.0180657Z go: downloading github.com/go-sql-driver/mysql v1.7.0
+2026-10-19T08:10:17.0465915Z go: downloading github.com/jackc/pgx/v5 v5.9.2
+2026-10-19T08:10:17.1217339Z go: downloading github.com/samber/hot v0.11.0
+2026-10-19T08:10:17.2056654Z go: downloading gorm.io/driver/clickhouse v0.6.0
+2026-10-19T08:10:17.2271677Z go: downloading github.com/DATA-DOG/go-sqlmock v1.5.2
+2026-10-19T08:10:17.2516970Z go: downloading github.com/expr-lang/expr v1.17.8
+2026-10-19T08:10:17.3700617Z go: downloading golang.org/x/net v0.55.0
+2026-10-19T08:10:17.5434162Z go: downloading github.com/aws/aws-sdk-go-v2 v1.41.5
+2026-10-19T08:10:17.6141760Z go: downloading github.com/aws/aws-sdk-go-v2/credentials v1.19.10
+2026-10-19T08:10:17.6388068Z go: downloading github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.50.4
+2026-10-19T08:10:17.6711566Z go: downloading github.com/aws/smithy-go v1.24.2
+2026-10-19T08:10:17.7225884Z go: downloading github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.8
+2026-10-19T08:10:17.7438990Z go: downloading github.com/tidwall/sjson v1.2.5
+2026-10-19T08:10:17.7630889Z go: downloading github.com/gin-contrib/gzip v0.0.6
+2026-10-19T08:10:17.7801028Z go: downloading github.com/anknown/ahocorasick v0.0.0-20190904063843-d75dbd5169c0
+2026-10-19T08:10:17.9254082Z go: downloading github.com/tiktoken-go/tokenizer v0.6.2
+2026-10-19T08:10:18.0987889Z go: downloading github.com/waffo-com/waffo-pancake-sdk-go v0.3.1
+2026-10-19T08:10:18.1779699Z go: downloading golang.org/x/image v0.41.0
+2026-10-19T08:10:18.3871828Z go: downloading github.com/casbin/casbin/v2 v2.135.0
+2026-10-19T08:10:18.4391611Z go: downloading github.com/gin-contrib/sse v0.1.0
+2026-10-19T08:10:18.4553844Z go: downloading github.com/mattn/go-isatty v0.0.20
+2026-10-19T08:10:18.5013948Z go: downloading github.com/go-audio/audio v1.0.0
+2026-10-19T08:10:18.5189606Z go: downloading github.com/go-audio/riff v1.0.0
+2026-10-19T08:10:18.5458677Z go: downloading github.com/gabriel-vasile/mimetype v1.4.3
+2026-10-19T08:10:19.1892555Z go: downloading github.com/go-playground/universal-translator v0.18.1
+2026-10-19T08:10:19.2097780Z go: downloading github.com/leodido/go-urn v1.4.0
+2026-10-19T08:10:19.2794672Z go: downloading github.com/grafana/pyroscope-go/godeltaprof v0.1.9
+2026-10-19T08:10:19.3006260Z go: downloading github.com/jfreymuth/vorbis v1.0.2
+2026-10-19T08:10:19.3216403Z go: downloading github.com/icza/bitio v1.1.0
+2026-10-19T08:10:19.3383012Z go: downloading github.com/mewkiz/pkg v0.0.0-20250417130911-3f050ff8c56d
+2026-10-19T08:10:19.3589428Z go: downloading github.com/boombuler/barcode v1.1.0
+2026-10-19T08:10:19.3890880Z go: downloading github.com/tklauser/go-sysconf v0.3.12
+2026-10-19T08:10:19.4150796Z go: downloading github.com/jinzhu/now v1.1.5
+2026-10-19T08:10:19.4490226Z go: downloading github.com/mitchellh/mapstructure v1.5.0
+2026-10-19T08:10:19.4672156Z go: downloading github.com/google/go-tpm v0.9.5
+2026-10-19T08:10:19.5209830Z go: downloading github.com/tidwall/match v1.1.1
+2026-10-19T08:10:19.5385941Z go: downloading github.com/tidwall/pretty v1.2.0
+2026-10-19T08:10:19.5567968Z go: downloading modernc.org/sqlite v1.40.1
+2026-10-19T08:10:21.6075284Z go: downloading github.com/ClickHouse/ch-go v0.65.0
+2026-10-19T08:10:21.7013526Z go: downloading go.opentelemetry.io/otel/trace v1.34.0
+2026-10-19T08:10:21.7140776Z go: downloading go.opentelemetry.io/otel v1.34.0
+2026-10-19T08:10:21.8343333Z go: downloading modernc.org/libc v1.66.10
+2026-10-19T08:10:23.1624182Z go: downloading github.com/jackc/pgpassfile v1.0.0
+2026-10-19T08:10:23.1777353Z go: downloading github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761
+2026-10-19T08:10:23.1954534Z go: downloading github.com/prometheus/client_golang v1.22.0
+2026-10-19T08:10:23.2503894Z go: downloading github.com/samber/go-singleflightx v0.3.2
+2026-10-19T08:10:23.2672013Z go: downloading github.com/hashicorp/go-version v1.7.0
+2026-10-19T08:10:23.2858071Z go: downloading github.com/jinzhu/inflection v1.0.0
+2026-10-19T08:10:23.3039946Z go: downloading github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.21
+2026-10-19T08:10:23.3212679Z go: downloading github.com/anknown/darts v0.0.0-20151216065714-83ff685239e6
+2026-10-19T08:10:23.3365684Z go: downloading github.com/dlclark/regexp2 v1.11.5
+2026-10-19T08:10:23.5106265Z go: downloading github.com/casbin/govaluate v1.10.0
+2026-10-19T08:10:23.5322469Z go: downloading github.com/pelletier/go-toml/v2 v2.2.1
+2026-10-19T08:10:23.5717229Z go: downloading github.com/ugorji/go/codec v1.2.12
+2026-10-19T08:10:23.6109111Z go: downloading google.golang.org/protobuf v1.36.5
+2026-10-19T08:10:23.8501044Z go: downloading github.com/go-playground/locales v0.14.1
+2026-10-19T08:10:24.3439455Z go: downloading github.com/mewpkg/term v0.0.0-20241026122259-37a80af23985
+2026-10-19T08:10:24.3588804Z go: downloading github.com/tklauser/numcpus v0.6.1
+2026-10-19T08:10:24.3767400Z go: downloading github.com/go-webauthn/x v0.1.25
+2026-10-19T08:10:24.3935193Z go: downloading github.com/fxamacker/cbor/v2 v2.9.0
+2026-10-19T08:10:24.4264846Z go: downloading github.com/go-faster/errors v0.7.1
+2026-10-19T08:10:24.4466156Z go: downloading github.com/segmentio/asm v1.2.0
+2026-10-19T08:10:24.4840093Z go: downloading github.com/paulmach/orb v0.11.1
+2026-10-19T08:10:24.6096514Z go: downloading github.com/dustin/go-humanize v1.0.1
+2026-10-19T08:10:24.6292588Z go: downloading golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b
+2026-10-19T08:10:24.7232693Z go: downloading modernc.org/mathutil v1.7.1
+2026-10-19T08:10:24.7474956Z go: downloading modernc.org/memory v1.11.0
+2026-10-19T08:10:24.7676140Z go: downloading github.com/jackc/puddle/v2 v2.2.2
+2026-10-19T08:10:24.7864120Z go: downloading github.com/beorn7/perks v1.0.1
+2026-10-19T08:10:24.8026619Z go: downloading github.com/prometheus/client_model v0.6.1
+2026-10-19T08:10:24.8196677Z go: downloading github.com/prometheus/common v0.62.0
+2026-10-19T08:10:24.8607590Z go: downloading github.com/prometheus/procfs v0.15.1
+2026-10-19T08:10:24.9163959Z go: downloading github.com/DmitriyVTitov/size v1.5.0
+2026-10-19T08:10:24.9337851Z go: downloading github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.21
+2026-10-19T08:10:24.9506559Z go: downloading github.com/bmatcuk/doublestar/v4 v4.6.1
+2026-10-19T08:10:24.9715386Z go: downloading github.com/x448/float16 v0.8.4
+2026-10-19T08:10:24.9876464Z go: downloading github.com/go-faster/city v1.0.1
+2026-10-19T08:10:25.0197776Z go: downloading github.com/pierrec/lz4/v4 v4.1.22
+2026-10-19T08:10:26.1755877Z go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+2026-10-19T08:10:26.1923497Z go: downloading github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
+2026-10-19T08:13:06.7810483Z ##[group]Run go test -p 1 ./model ./service ./middleware ./controller ./relay/channel -run '^TestSubscriptionShare' -count=1 -timeout=180s
+2026-10-19T08:13:06.7811512Z [36;1mgo test -p 1 ./model ./service ./middleware ./controller ./relay/channel -run '^TestSubscriptionShare' -count=1 -timeout=180s[0m
+2026-10-19T08:13:06.7876868Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:13:06.7877119Z env:
+2026-10-19T08:13:06.7877315Z   GOWORK: off
+2026-10-19T08:13:06.7877520Z   GOMAXPROCS: 1
+2026-10-19T08:13:06.7877750Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:13:06.7877971Z   GOTOOLCHAIN: local
+2026-10-19T08:13:06.7878181Z ##[endgroup]
+2026-10-19T08:13:46.4725067Z ok  	github.com/ForceMind/MyAPI/model	3.881s
+2026-10-19T08:14:01.8926544Z ok  	github.com/ForceMind/MyAPI/service	0.662s
+2026-10-19T08:14:05.4263989Z ok  	github.com/ForceMind/MyAPI/middleware	0.140s
+2026-10-19T08:14:25.4400091Z ok  	github.com/ForceMind/MyAPI/controller	0.478s
+2026-10-19T08:14:28.7767749Z ok  	github.com/ForceMind/MyAPI/relay/channel	1.458s
+2026-10-19T08:14:28.9196188Z ##[group]Run go vet ./...
+2026-10-19T08:14:28.9196483Z [36;1mgo vet ./...[0m
+2026-10-19T08:14:28.9260270Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:14:28.9260525Z env:
+2026-10-19T08:14:28.9260711Z   GOWORK: off
+2026-10-19T08:14:28.9260913Z   GOMAXPROCS: 1
+2026-10-19T08:14:28.9261130Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:14:28.9261352Z   GOTOOLCHAIN: local
+2026-10-19T08:14:28.9261568Z ##[endgroup]
+2026-10-19T08:14:28.9583918Z go: downloading golang.org/x/text v0.35.0
+2026-10-19T08:14:32.0567834Z ##[group]Run go build ./...
+2026-10-19T08:14:32.0568134Z [36;1mgo build ./...[0m
+2026-10-19T08:14:32.0629095Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:14:32.0629603Z env:
+2026-10-19T08:14:32.0629857Z   GOWORK: off
+2026-10-19T08:14:32.0630073Z   GOMAXPROCS: 1
+2026-10-19T08:14:32.0630285Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:14:32.0630534Z   GOTOOLCHAIN: local
+2026-10-19T08:14:32.0630750Z ##[endgroup]
+2026-10-19T08:14:36.1588549Z ##[group]Run go build ./...
+2026-10-19T08:14:36.1588846Z [36;1mgo build ./...[0m
+2026-10-19T08:14:36.1651065Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:14:36.1651316Z env:
+2026-10-19T08:14:36.1651505Z   GOWORK: off
+2026-10-19T08:14:36.1651704Z   GOMAXPROCS: 1
+2026-10-19T08:14:36.1651914Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:14:36.1652136Z   GOTOOLCHAIN: local
+2026-10-19T08:14:36.1652339Z   GOOS: linux
+2026-10-19T08:14:36.1652536Z   GOARCH: 386
+2026-10-19T08:14:36.1652729Z   CGO_ENABLED: 0
+2026-10-19T08:14:36.1653107Z ##[endgroup]
+2026-10-19T08:17:04.3441285Z ##[group]Run set -euo pipefail
+2026-10-19T08:17:04.3441678Z [36;1mset -euo pipefail[0m
+2026-10-19T08:17:04.3441961Z [36;1mgo env GOOS GOARCH CGO_ENABLED GOWORK[0m
+2026-10-19T08:17:04.3442379Z [36;1mdirected_log="$RUNNER_TEMP/myapi-historical-amount-386.jsonl"[0m
+2026-10-19T08:17:04.3442903Z [36;1mgo test -json -p 1 ./common ./relay/common ./model ./controller ./service \[0m
+2026-10-19T08:17:04.3447610Z [36;1m  -run '^(TestCheckedQuotaBalance|TestCheckedQuotaUsed|TestRelayPreservesStoredUserQuota|TestWideAccountQuotaReserveRefundAndAtomicRollback|TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget|TestQuotaStateBoundaryFailuresWriteNothingAndRequestLimitStaysInt32|TestHistoricalAmountV3RowsRemainByteAndStateStableDuringInitialization|TestHistoricalAmountV3FingerprintExecutesWithoutIdentityRewrite|TestHistoricalAmountV4WideAggregateReplaysOnce|TestHistoricalAmountCacheOrdersAdjacentQuotaAndAuthVersionsAboveDoublePrecision|TestHistoricalAmountCacheSchemasReplaceOnlyTheTouchedKey|TestTokenQuotaAdjustmentResultPreservesWideAmountsAndExactVersions|TestTokenMetadataPreservesWideQuota|TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing|TestSubscriptionQuotaNotificationPreservesWideRemaining|TestCalculateImageTokensPatchUsesFloatAreaForLargeDimensions|TestCalculateImageTokensRejectsTileQuotaOverflow|TestOfficialTextCostUsesExplicitLongProfileAndTokenBounds)$' -count=1 -timeout=240s | tee "$directed_log"[0m
+2026-10-19T08:17:04.3452834Z [36;1mpython3 - "$directed_log" <<'PY'[0m
+2026-10-19T08:17:04.3453128Z [36;1mimport collections[0m
+2026-10-19T08:17:04.3453376Z [36;1mimport json[0m
+2026-10-19T08:17:04.3453588Z [36;1mimport sys[0m
+2026-10-19T08:17:04.3453822Z [36;1mfrom pathlib import Path[0m
+2026-10-19T08:17:04.3454068Z [36;1m[0m
+2026-10-19T08:17:04.3454255Z [36;1mexpected = {[0m
+2026-10-19T08:17:04.3454511Z [36;1m    "github.com/ForceMind/MyAPI/common": [[0m
+2026-10-19T08:17:04.3454845Z [36;1m        "TestCheckedQuotaBalance",[0m
+2026-10-19T08:17:04.3455158Z [36;1m        "TestCheckedQuotaUsed"[0m
+2026-10-19T08:17:04.3455419Z [36;1m    ],[0m
+2026-10-19T08:17:04.3455673Z [36;1m    "github.com/ForceMind/MyAPI/relay/common": [[0m
+2026-10-19T08:17:04.3456049Z [36;1m        "TestRelayPreservesStoredUserQuota"[0m
+2026-10-19T08:17:04.3456344Z [36;1m    ],[0m
+2026-10-19T08:17:04.3456574Z [36;1m    "github.com/ForceMind/MyAPI/model": [[0m
+2026-10-19T08:17:04.3456980Z [36;1m        "TestWideAccountQuotaReserveRefundAndAtomicRollback",[0m
+2026-10-19T08:17:04.3457550Z [36;1m        "TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget",[0m
+2026-10-19T08:17:04.3458212Z [36;1m        "TestQuotaStateBoundaryFailuresWriteNothingAndRequestLimitStaysInt32",[0m
+2026-10-19T08:17:04.3458891Z [36;1m        "TestHistoricalAmountV3RowsRemainByteAndStateStableDuringInitialization",[0m
+2026-10-19T08:17:04.3459776Z [36;1m        "TestHistoricalAmountV3FingerprintExecutesWithoutIdentityRewrite",[0m
+2026-10-19T08:17:04.3460320Z [36;1m        "TestHistoricalAmountV4WideAggregateReplaysOnce",[0m
+2026-10-19T08:17:04.3460940Z [36;1m        "TestHistoricalAmountCacheOrdersAdjacentQuotaAndAuthVersionsAboveDoublePrecision",[0m
+2026-10-19T08:17:04.3461614Z [36;1m        "TestHistoricalAmountCacheSchemasReplaceOnlyTheTouchedKey",[0m
+2026-10-19T08:17:04.3462232Z [36;1m        "TestTokenQuotaAdjustmentResultPreservesWideAmountsAndExactVersions"[0m
+2026-10-19T08:17:04.3462679Z [36;1m    ],[0m
+2026-10-19T08:17:04.3462929Z [36;1m    "github.com/ForceMind/MyAPI/controller": [[0m
+2026-10-19T08:17:04.3463289Z [36;1m        "TestTokenMetadataPreservesWideQuota",[0m
+2026-10-19T08:17:04.3463717Z [36;1m        "TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing"[0m
+2026-10-19T08:17:04.3464095Z [36;1m    ],[0m
+2026-10-19T08:17:04.3464326Z [36;1m    "github.com/ForceMind/MyAPI/service": [[0m
+2026-10-19T08:17:04.3464758Z [36;1m        "TestSubscriptionQuotaNotificationPreservesWideRemaining",[0m
+2026-10-19T08:17:04.3465672Z [36;1m        "TestCalculateImageTokensPatchUsesFloatAreaForLargeDimensions",[0m
+2026-10-19T08:17:04.3466210Z [36;1m        "TestCalculateImageTokensRejectsTileQuotaOverflow",[0m
+2026-10-19T08:17:04.3466712Z [36;1m        "TestOfficialTextCostUsesExplicitLongProfileAndTokenBounds"[0m
+2026-10-19T08:17:04.3467112Z [36;1m    ][0m
+2026-10-19T08:17:04.3467299Z [36;1m}[0m
+2026-10-19T08:17:04.3467504Z [36;1mruns = collections.Counter()[0m
+2026-10-19T08:17:04.3467790Z [36;1mpasses = collections.Counter()[0m
+2026-10-19T08:17:04.3468103Z [36;1mpackage_passes = collections.Counter()[0m
+2026-10-19T08:17:04.3468477Z [36;1mfor line in Path(sys.argv[1]).read_text().splitlines():[0m
+2026-10-19T08:17:04.3468825Z [36;1m    event = json.loads(line)[0m
+2026-10-19T08:17:04.3469109Z [36;1m    package = event.get("Package")[0m
+2026-10-19T08:17:04.3469702Z [36;1m    if package not in expected:[0m
+2026-10-19T08:17:04.3470076Z [36;1m        raise SystemExit("unexpected package in directed 386 run")[0m
+2026-10-19T08:17:04.3470464Z [36;1m    action = event.get("Action")[0m
+2026-10-19T08:17:04.3470749Z [36;1m    test = event.get("Test")[0m
+2026-10-19T08:17:04.3471025Z [36;1m    if action in {"skip", "fail"}:[0m
+2026-10-19T08:17:04.3471406Z [36;1m        raise SystemExit("directed 386 test or package skipped/failed")[0m
+2026-10-19T08:17:04.3471794Z [36;1m    if test:[0m
+2026-10-19T08:17:04.3472037Z [36;1m        top = test.split("/", 1)[0][0m
+2026-10-19T08:17:04.3472354Z [36;1m        if top not in expected[package]:[0m
+2026-10-19T08:17:04.3472731Z [36;1m            raise SystemExit("unexpected test in directed 386 run")[0m
+2026-10-19T08:17:04.3473115Z [36;1m        if test == top and action == "run":[0m
+2026-10-19T08:17:04.3473428Z [36;1m            runs[(package, top)] += 1[0m
+2026-10-19T08:17:04.3473749Z [36;1m        if test == top and action == "pass":[0m
+2026-10-19T08:17:04.3474070Z [36;1m            passes[(package, top)] += 1[0m
+2026-10-19T08:17:04.3474383Z [36;1m    elif action == "pass":[0m
+2026-10-19T08:17:04.3474680Z [36;1m        package_passes[package] += 1[0m
+2026-10-19T08:17:04.3475136Z [36;1mrequired = {(package, name) for package, names in expected.items() for name in names}[0m
+2026-10-19T08:17:04.3475639Z [36;1mif set(runs) != required or set(passes) != required:[0m
+2026-10-19T08:17:04.3476104Z [36;1m    raise SystemExit("directed 386 run is missing required top-level tests")[0m
+2026-10-19T08:17:04.3476703Z [36;1mif any(count != 1 for count in runs.values()) or any(count != 1 for count in passes.values()):[0m
+2026-10-19T08:17:04.3477306Z [36;1m    raise SystemExit("directed 386 top-level test did not run/pass exactly once")[0m
+2026-10-19T08:17:04.3477831Z [36;1mif dict(package_passes) != {package: 1 for package in expected}:[0m
+2026-10-19T08:17:04.3478372Z [36;1m    raise SystemExit("directed 386 package terminal result is missing or duplicated")[0m
+2026-10-19T08:17:04.3478900Z [36;1mprint("HISTORICAL_AMOUNT_386_CONTRACT_PASS " + json.dumps({[0m
+2026-10-19T08:17:04.3479610Z [36;1m    "top_level_pass": len(required), "packages_pass": len(expected),[0m
+2026-10-19T08:17:04.3480085Z [36;1m    "skip": 0, "fail": 0, "tests": sorted(name for _, name in required),[0m
+2026-10-19T08:17:04.3480460Z [36;1m}, sort_keys=True))[0m
+2026-10-19T08:17:04.3480689Z [36;1mPY[0m
+2026-10-19T08:17:04.3541826Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:17:04.3542081Z env:
+2026-10-19T08:17:04.3542289Z   GOWORK: off
+2026-10-19T08:17:04.3542492Z   GOMAXPROCS: 1
+2026-10-19T08:17:04.3542699Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:17:04.3542917Z   GOTOOLCHAIN: local
+2026-10-19T08:17:04.3543121Z   GOOS: linux
+2026-10-19T08:17:04.3543313Z   GOARCH: 386
+2026-10-19T08:17:04.3543494Z   CGO_ENABLED: 0
+2026-10-19T08:17:04.3543688Z ##[endgroup]
+2026-10-19T08:17:04.3644963Z linux
+2026-10-19T08:17:04.3645433Z 386
+2026-10-19T08:17:04.3645807Z 0
+2026-10-19T08:17:04.3646142Z off
+2026-10-19T08:17:18.3760306Z {"Time":"2026-10-19T08:17:18.37573115Z","Action":"start","Package":"github.com/ForceMind/MyAPI/common"}
+2026-10-19T08:17:18.3835700Z {"Time":"2026-10-19T08:17:18.383379401Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance"}
+2026-10-19T08:17:18.3837793Z {"Time":"2026-10-19T08:17:18.38339535Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance","Output":"=== RUN   TestCheckedQuotaBalance\n"}
+2026-10-19T08:17:18.3840083Z {"Time":"2026-10-19T08:17:18.383449201Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/zero"}
+2026-10-19T08:17:18.3842037Z {"Time":"2026-10-19T08:17:18.383454471Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/zero","Output":"=== RUN   TestCheckedQuotaBalance/zero\n"}
+2026-10-19T08:17:18.3843443Z {"Time":"2026-10-19T08:17:18.383462706Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/zero","Output":"--- PASS: TestCheckedQuotaBalance/zero (0.00s)\n"}
+2026-10-19T08:17:18.3844680Z {"Time":"2026-10-19T08:17:18.383469088Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/zero","Elapsed":0}
+2026-10-19T08:17:18.3846499Z {"Time":"2026-10-19T08:17:18.383477503Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/crosses_positive_int32"}
+2026-10-19T08:17:18.3848452Z {"Time":"2026-10-19T08:17:18.38348086Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/crosses_positive_int32","Output":"=== RUN   TestCheckedQuotaBalance/crosses_positive_int32\n"}
+2026-10-19T08:17:18.3851778Z {"Time":"2026-10-19T08:17:18.383501438Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/crosses_positive_int32","Output":"--- PASS: TestCheckedQuotaBalance/crosses_positive_int32 (0.00s)\n"}
+2026-10-19T08:17:18.3854253Z {"Time":"2026-10-19T08:17:18.383506968Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/crosses_positive_int32","Elapsed":0}
+2026-10-19T08:17:18.3856220Z {"Time":"2026-10-19T08:17:18.383537415Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/crosses_negative_int32"}
+2026-10-19T08:17:18.3858589Z {"Time":"2026-10-19T08:17:18.383554186Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/crosses_negative_int32","Output":"=== RUN   TestCheckedQuotaBalance/crosses_negative_int32\n"}
+2026-10-19T08:17:18.3861708Z {"Time":"2026-10-19T08:17:18.383573452Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/crosses_negative_int32","Output":"--- PASS: TestCheckedQuotaBalance/crosses_negative_int32 (0.00s)\n"}
+2026-10-19T08:17:18.3864240Z {"Time":"2026-10-19T08:17:18.3835883Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/crosses_negative_int32","Elapsed":0}
+2026-10-19T08:17:18.3866161Z {"Time":"2026-10-19T08:17:18.383601895Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/positive_boundary"}
+2026-10-19T08:17:18.3868299Z {"Time":"2026-10-19T08:17:18.383614849Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/positive_boundary","Output":"=== RUN   TestCheckedQuotaBalance/positive_boundary\n"}
+2026-10-19T08:17:18.3871372Z {"Time":"2026-10-19T08:17:18.383632492Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/positive_boundary","Output":"--- PASS: TestCheckedQuotaBalance/positive_boundary (0.00s)\n"}
+2026-10-19T08:17:18.3873796Z {"Time":"2026-10-19T08:17:18.383646087Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/positive_boundary","Elapsed":0}
+2026-10-19T08:17:18.3875764Z {"Time":"2026-10-19T08:17:18.383659703Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/negative_boundary"}
+2026-10-19T08:17:18.3878539Z {"Time":"2026-10-19T08:17:18.383673058Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/negative_boundary","Output":"=== RUN   TestCheckedQuotaBalance/negative_boundary\n"}
+2026-10-19T08:17:18.3881720Z {"Time":"2026-10-19T08:17:18.383687073Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/negative_boundary","Output":"--- PASS: TestCheckedQuotaBalance/negative_boundary (0.00s)\n"}
+2026-10-19T08:17:18.3884207Z {"Time":"2026-10-19T08:17:18.383707001Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/negative_boundary","Elapsed":0}
+2026-10-19T08:17:18.3886178Z {"Time":"2026-10-19T08:17:18.38371214Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/wide_transition_delta"}
+2026-10-19T08:17:18.3888579Z {"Time":"2026-10-19T08:17:18.383715306Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/wide_transition_delta","Output":"=== RUN   TestCheckedQuotaBalance/wide_transition_delta\n"}
+2026-10-19T08:17:18.3891807Z {"Time":"2026-10-19T08:17:18.383720065Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/wide_transition_delta","Output":"--- PASS: TestCheckedQuotaBalance/wide_transition_delta (0.00s)\n"}
+2026-10-19T08:17:18.3894339Z {"Time":"2026-10-19T08:17:18.383724143Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/wide_transition_delta","Elapsed":0}
+2026-10-19T08:17:18.3896355Z {"Time":"2026-10-19T08:17:18.38372782Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/positive_overflow"}
+2026-10-19T08:17:18.3898736Z {"Time":"2026-10-19T08:17:18.383730945Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/positive_overflow","Output":"=== RUN   TestCheckedQuotaBalance/positive_overflow\n"}
+2026-10-19T08:17:18.3901810Z {"Time":"2026-10-19T08:17:18.383737648Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/positive_overflow","Output":"--- PASS: TestCheckedQuotaBalance/positive_overflow (0.00s)\n"}
+2026-10-19T08:17:18.3904257Z {"Time":"2026-10-19T08:17:18.383741475Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/positive_overflow","Elapsed":0}
+2026-10-19T08:17:18.3906219Z {"Time":"2026-10-19T08:17:18.383748388Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/negative_overflow"}
+2026-10-19T08:17:18.3908555Z {"Time":"2026-10-19T08:17:18.383751594Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/negative_overflow","Output":"=== RUN   TestCheckedQuotaBalance/negative_overflow\n"}
+2026-10-19T08:17:18.3911622Z {"Time":"2026-10-19T08:17:18.383760029Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/negative_overflow","Output":"--- PASS: TestCheckedQuotaBalance/negative_overflow (0.00s)\n"}
+2026-10-19T08:17:18.3914131Z {"Time":"2026-10-19T08:17:18.383765249Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/negative_overflow","Elapsed":0}
+2026-10-19T08:17:18.3916148Z {"Time":"2026-10-19T08:17:18.383805965Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/invalid_positive_current"}
+2026-10-19T08:17:18.3918626Z {"Time":"2026-10-19T08:17:18.38383532Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/invalid_positive_current","Output":"=== RUN   TestCheckedQuotaBalance/invalid_positive_current\n"}
+2026-10-19T08:17:18.3922108Z {"Time":"2026-10-19T08:17:18.383859294Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/invalid_positive_current","Output":"--- PASS: TestCheckedQuotaBalance/invalid_positive_current (0.00s)\n"}
+2026-10-19T08:17:18.3925003Z {"Time":"2026-10-19T08:17:18.38388369Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/invalid_positive_current","Elapsed":0}
+2026-10-19T08:17:18.3927107Z {"Time":"2026-10-19T08:17:18.383907744Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/invalid_negative_current"}
+2026-10-19T08:17:18.3929864Z {"Time":"2026-10-19T08:17:18.383926089Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/invalid_negative_current","Output":"=== RUN   TestCheckedQuotaBalance/invalid_negative_current\n"}
+2026-10-19T08:17:18.3932916Z {"Time":"2026-10-19T08:17:18.383954542Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/invalid_negative_current","Output":"--- PASS: TestCheckedQuotaBalance/invalid_negative_current (0.00s)\n"}
+2026-10-19T08:17:18.3935571Z {"Time":"2026-10-19T08:17:18.383958799Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/invalid_negative_current","Elapsed":0}
+2026-10-19T08:17:18.3937675Z {"Time":"2026-10-19T08:17:18.383962647Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/invalid_current_cannot_be_repaired"}
+2026-10-19T08:17:18.3940623Z {"Time":"2026-10-19T08:17:18.383966143Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/invalid_current_cannot_be_repaired","Output":"=== RUN   TestCheckedQuotaBalance/invalid_current_cannot_be_repaired\n"}
+2026-10-19T08:17:18.3943952Z {"Time":"2026-10-19T08:17:18.383972615Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/invalid_current_cannot_be_repaired","Output":"--- PASS: TestCheckedQuotaBalance/invalid_current_cannot_be_repaired (0.00s)\n"}
+2026-10-19T08:17:18.3946737Z {"Time":"2026-10-19T08:17:18.383977785Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/invalid_current_cannot_be_repaired","Elapsed":0}
+2026-10-19T08:17:18.3948779Z {"Time":"2026-10-19T08:17:18.383981782Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/max_int_delta"}
+2026-10-19T08:17:18.3951291Z {"Time":"2026-10-19T08:17:18.383984928Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/max_int_delta","Output":"=== RUN   TestCheckedQuotaBalance/max_int_delta\n"}
+2026-10-19T08:17:18.3953335Z {"Time":"2026-10-19T08:17:18.383989427Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/max_int_delta","Output":"--- PASS: TestCheckedQuotaBalance/max_int_delta (0.00s)\n"}
+2026-10-19T08:17:18.3954628Z {"Time":"2026-10-19T08:17:18.383993424Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/max_int_delta","Elapsed":0}
+2026-10-19T08:17:18.3955656Z {"Time":"2026-10-19T08:17:18.383997071Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/min_int_delta"}
+2026-10-19T08:17:18.3956883Z {"Time":"2026-10-19T08:17:18.384000237Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/min_int_delta","Output":"=== RUN   TestCheckedQuotaBalance/min_int_delta\n"}
+2026-10-19T08:17:18.3958332Z {"Time":"2026-10-19T08:17:18.384006338Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/min_int_delta","Output":"--- PASS: TestCheckedQuotaBalance/min_int_delta (0.00s)\n"}
+2026-10-19T08:17:18.3959866Z {"Time":"2026-10-19T08:17:18.384010556Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/min_int_delta","Elapsed":0}
+2026-10-19T08:17:18.3960960Z {"Time":"2026-10-19T08:17:18.384014153Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/min_int_delta_from_boundary"}
+2026-10-19T08:17:18.3965143Z {"Time":"2026-10-19T08:17:18.384017339Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/min_int_delta_from_boundary","Output":"=== RUN   TestCheckedQuotaBalance/min_int_delta_from_boundary\n"}
+2026-10-19T08:17:18.3967144Z {"Time":"2026-10-19T08:17:18.384025444Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/min_int_delta_from_boundary","Output":"--- PASS: TestCheckedQuotaBalance/min_int_delta_from_boundary (0.00s)\n"}
+2026-10-19T08:17:18.3968587Z {"Time":"2026-10-19T08:17:18.384029201Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance/min_int_delta_from_boundary","Elapsed":0}
+2026-10-19T08:17:18.3970306Z {"Time":"2026-10-19T08:17:18.384035382Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance","Output":"--- PASS: TestCheckedQuotaBalance (0.00s)\n"}
+2026-10-19T08:17:18.3971634Z {"Time":"2026-10-19T08:17:18.384040281Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaBalance","Elapsed":0}
+2026-10-19T08:17:18.3972722Z {"Time":"2026-10-19T08:17:18.384051342Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed"}
+2026-10-19T08:17:18.3973916Z {"Time":"2026-10-19T08:17:18.384054388Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed","Output":"=== RUN   TestCheckedQuotaUsed\n"}
+2026-10-19T08:17:18.3975111Z {"Time":"2026-10-19T08:17:18.384094973Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/zero"}
+2026-10-19T08:17:18.3976328Z {"Time":"2026-10-19T08:17:18.384110071Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/zero","Output":"=== RUN   TestCheckedQuotaUsed/zero\n"}
+2026-10-19T08:17:18.3977745Z {"Time":"2026-10-19T08:17:18.38412031Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/zero","Output":"--- PASS: TestCheckedQuotaUsed/zero (0.00s)\n"}
+2026-10-19T08:17:18.3979043Z {"Time":"2026-10-19T08:17:18.384124949Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/zero","Elapsed":0}
+2026-10-19T08:17:18.3980406Z {"Time":"2026-10-19T08:17:18.384130008Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/crosses_int32"}
+2026-10-19T08:17:18.3981795Z {"Time":"2026-10-19T08:17:18.384133275Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/crosses_int32","Output":"=== RUN   TestCheckedQuotaUsed/crosses_int32\n"}
+2026-10-19T08:17:18.3983381Z {"Time":"2026-10-19T08:17:18.384506078Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/crosses_int32","Output":"--- PASS: TestCheckedQuotaUsed/crosses_int32 (0.00s)\n"}
+2026-10-19T08:17:18.3984757Z {"Time":"2026-10-19T08:17:18.384520425Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/crosses_int32","Elapsed":0}
+2026-10-19T08:17:18.3985875Z {"Time":"2026-10-19T08:17:18.384525324Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/maximum"}
+2026-10-19T08:17:18.3987129Z {"Time":"2026-10-19T08:17:18.384529632Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/maximum","Output":"=== RUN   TestCheckedQuotaUsed/maximum\n"}
+2026-10-19T08:17:18.3988806Z {"Time":"2026-10-19T08:17:18.384535072Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/maximum","Output":"--- PASS: TestCheckedQuotaUsed/maximum (0.00s)\n"}
+2026-10-19T08:17:18.3990272Z {"Time":"2026-10-19T08:17:18.384544069Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/maximum","Elapsed":0}
+2026-10-19T08:17:18.3991799Z {"Time":"2026-10-19T08:17:18.384548578Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/refund_to_zero"}
+2026-10-19T08:17:18.3993975Z {"Time":"2026-10-19T08:17:18.384551924Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/refund_to_zero","Output":"=== RUN   TestCheckedQuotaUsed/refund_to_zero\n"}
+2026-10-19T08:17:18.3996012Z {"Time":"2026-10-19T08:17:18.384556693Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/refund_to_zero","Output":"--- PASS: TestCheckedQuotaUsed/refund_to_zero (0.00s)\n"}
+2026-10-19T08:17:18.3997251Z {"Time":"2026-10-19T08:17:18.384561181Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/refund_to_zero","Elapsed":0}
+2026-10-19T08:17:18.3998253Z {"Time":"2026-10-19T08:17:18.384565389Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/negative_current"}
+2026-10-19T08:17:18.3999762Z {"Time":"2026-10-19T08:17:18.384568925Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/negative_current","Output":"=== RUN   TestCheckedQuotaUsed/negative_current\n"}
+2026-10-19T08:17:18.4001369Z {"Time":"2026-10-19T08:17:18.384574085Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/negative_current","Output":"--- PASS: TestCheckedQuotaUsed/negative_current (0.00s)\n"}
+2026-10-19T08:17:18.4002814Z {"Time":"2026-10-19T08:17:18.384580146Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/negative_current","Elapsed":0}
+2026-10-19T08:17:18.4004115Z {"Time":"2026-10-19T08:17:18.384583893Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/negative_current_cannot_be_repaired"}
+2026-10-19T08:17:18.4005699Z {"Time":"2026-10-19T08:17:18.3845873Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/negative_current_cannot_be_repaired","Output":"=== RUN   TestCheckedQuotaUsed/negative_current_cannot_be_repaired\n"}
+2026-10-19T08:17:18.4007687Z {"Time":"2026-10-19T08:17:18.384591858Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/negative_current_cannot_be_repaired","Output":"--- PASS: TestCheckedQuotaUsed/negative_current_cannot_be_repaired (0.00s)\n"}
+2026-10-19T08:17:18.4009396Z {"Time":"2026-10-19T08:17:18.384596166Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/negative_current_cannot_be_repaired","Elapsed":0}
+2026-10-19T08:17:18.4010669Z {"Time":"2026-10-19T08:17:18.384600224Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/current_above_maximum"}
+2026-10-19T08:17:18.4012072Z {"Time":"2026-10-19T08:17:18.38460351Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/current_above_maximum","Output":"=== RUN   TestCheckedQuotaUsed/current_above_maximum\n"}
+2026-10-19T08:17:18.4013867Z {"Time":"2026-10-19T08:17:18.384608129Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/current_above_maximum","Output":"--- PASS: TestCheckedQuotaUsed/current_above_maximum (0.00s)\n"}
+2026-10-19T08:17:18.4015325Z {"Time":"2026-10-19T08:17:18.384613188Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/current_above_maximum","Elapsed":0}
+2026-10-19T08:17:18.4016473Z {"Time":"2026-10-19T08:17:18.384617917Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/underflow"}
+2026-10-19T08:17:18.4017749Z {"Time":"2026-10-19T08:17:18.384621994Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/underflow","Output":"=== RUN   TestCheckedQuotaUsed/underflow\n"}
+2026-10-19T08:17:18.4019450Z {"Time":"2026-10-19T08:17:18.384627294Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/underflow","Output":"--- PASS: TestCheckedQuotaUsed/underflow (0.00s)\n"}
+2026-10-19T08:17:18.4021242Z {"Time":"2026-10-19T08:17:18.384631943Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/underflow","Elapsed":0}
+2026-10-19T08:17:18.4022380Z {"Time":"2026-10-19T08:17:18.38463589Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/overflow"}
+2026-10-19T08:17:18.4023678Z {"Time":"2026-10-19T08:17:18.384639066Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/overflow","Output":"=== RUN   TestCheckedQuotaUsed/overflow\n"}
+2026-10-19T08:17:18.4025290Z {"Time":"2026-10-19T08:17:18.384643835Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/overflow","Output":"--- PASS: TestCheckedQuotaUsed/overflow (0.00s)\n"}
+2026-10-19T08:17:18.4026617Z {"Time":"2026-10-19T08:17:18.384647772Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/overflow","Elapsed":0}
+2026-10-19T08:17:18.4027774Z {"Time":"2026-10-19T08:17:18.384651549Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/max_int_delta"}
+2026-10-19T08:17:18.4029106Z {"Time":"2026-10-19T08:17:18.384654936Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/max_int_delta","Output":"=== RUN   TestCheckedQuotaUsed/max_int_delta\n"}
+2026-10-19T08:17:18.4030917Z {"Time":"2026-10-19T08:17:18.384659544Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/max_int_delta","Output":"--- PASS: TestCheckedQuotaUsed/max_int_delta (0.00s)\n"}
+2026-10-19T08:17:18.4032351Z {"Time":"2026-10-19T08:17:18.384663772Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/max_int_delta","Elapsed":0}
+2026-10-19T08:17:18.4033517Z {"Time":"2026-10-19T08:17:18.384667349Z","Action":"run","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/min_int_delta"}
+2026-10-19T08:17:18.4034895Z {"Time":"2026-10-19T08:17:18.384670675Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/min_int_delta","Output":"=== RUN   TestCheckedQuotaUsed/min_int_delta\n"}
+2026-10-19T08:17:18.4036455Z {"Time":"2026-10-19T08:17:18.384675043Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/min_int_delta","Output":"--- PASS: TestCheckedQuotaUsed/min_int_delta (0.00s)\n"}
+2026-10-19T08:17:18.4037949Z {"Time":"2026-10-19T08:17:18.38467899Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed/min_int_delta","Elapsed":0}
+2026-10-19T08:17:18.4039230Z {"Time":"2026-10-19T08:17:18.384683349Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed","Output":"--- PASS: TestCheckedQuotaUsed (0.00s)\n"}
+2026-10-19T08:17:18.4040677Z {"Time":"2026-10-19T08:17:18.384687927Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Test":"TestCheckedQuotaUsed","Elapsed":0}
+2026-10-19T08:17:18.4041771Z {"Time":"2026-10-19T08:17:18.384691774Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Output":"PASS\n"}
+2026-10-19T08:17:18.4042889Z {"Time":"2026-10-19T08:17:18.384857403Z","Action":"output","Package":"github.com/ForceMind/MyAPI/common","Output":"ok  \tgithub.com/ForceMind/MyAPI/common\t0.009s\n"}
+2026-10-19T08:17:18.4043963Z {"Time":"2026-10-19T08:17:18.384874154Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/common","Elapsed":0.009}
+2026-10-19T08:17:20.2369084Z {"Time":"2026-10-19T08:17:20.236637268Z","Action":"start","Package":"github.com/ForceMind/MyAPI/relay/common"}
+2026-10-19T08:17:20.2457935Z {"Time":"2026-10-19T08:17:20.245585532Z","Action":"run","Package":"github.com/ForceMind/MyAPI/relay/common","Test":"TestRelayPreservesStoredUserQuota"}
+2026-10-19T08:17:20.2460117Z {"Time":"2026-10-19T08:17:20.245604738Z","Action":"output","Package":"github.com/ForceMind/MyAPI/relay/common","Test":"TestRelayPreservesStoredUserQuota","Output":"=== RUN   TestRelayPreservesStoredUserQuota\n"}
+2026-10-19T08:17:20.2463563Z {"Time":"2026-10-19T08:17:20.245637338Z","Action":"output","Package":"github.com/ForceMind/MyAPI/relay/common","Test":"TestRelayPreservesStoredUserQuota","Output":"[GIN-debug] [WARNING] Running in \"debug\" mode. Switch to \"release\" mode in production.\n"}
+2026-10-19T08:17:20.2465975Z {"Time":"2026-10-19T08:17:20.24564368Z","Action":"output","Package":"github.com/ForceMind/MyAPI/relay/common","Test":"TestRelayPreservesStoredUserQuota","Output":" - using env:\texport GIN_MODE=release\n"}
+2026-10-19T08:17:20.2468151Z {"Time":"2026-10-19T08:17:20.245648259Z","Action":"output","Package":"github.com/ForceMind/MyAPI/relay/common","Test":"TestRelayPreservesStoredUserQuota","Output":" - using code:\tgin.SetMode(gin.ReleaseMode)\n"}
+2026-10-19T08:17:20.2470455Z {"Time":"2026-10-19T08:17:20.245652076Z","Action":"output","Package":"github.com/ForceMind/MyAPI/relay/common","Test":"TestRelayPreservesStoredUserQuota","Output":"\n"}
+2026-10-19T08:17:20.2473074Z {"Time":"2026-10-19T08:17:20.245663006Z","Action":"output","Package":"github.com/ForceMind/MyAPI/relay/common","Test":"TestRelayPreservesStoredUserQuota","Output":"[GIN-debug] [WARNING] Running in \"debug\" mode. Switch to \"release\" mode in production.\n"}
+2026-10-19T08:17:20.2475800Z {"Time":"2026-10-19T08:17:20.245667524Z","Action":"output","Package":"github.com/ForceMind/MyAPI/relay/common","Test":"TestRelayPreservesStoredUserQuota","Output":" - using env:\texport GIN_MODE=release\n"}
+2026-10-19T08:17:20.2477234Z {"Time":"2026-10-19T08:17:20.245671532Z","Action":"output","Package":"github.com/ForceMind/MyAPI/relay/common","Test":"TestRelayPreservesStoredUserQuota","Output":" - using code:\tgin.SetMode(gin.ReleaseMode)\n"}
+2026-10-19T08:17:20.2478717Z {"Time":"2026-10-19T08:17:20.245675699Z","Action":"output","Package":"github.com/ForceMind/MyAPI/relay/common","Test":"TestRelayPreservesStoredUserQuota","Output":"\n"}
+2026-10-19T08:17:20.2480264Z {"Time":"2026-10-19T08:17:20.245685889Z","Action":"output","Package":"github.com/ForceMind/MyAPI/relay/common","Test":"TestRelayPreservesStoredUserQuota","Output":"--- PASS: TestRelayPreservesStoredUserQuota (0.00s)\n"}
+2026-10-19T08:17:20.2481565Z {"Time":"2026-10-19T08:17:20.245691128Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/relay/common","Test":"TestRelayPreservesStoredUserQuota","Elapsed":0}
+2026-10-19T08:17:20.2482546Z {"Time":"2026-10-19T08:17:20.245744678Z","Action":"output","Package":"github.com/ForceMind/MyAPI/relay/common","Output":"PASS\n"}
+2026-10-19T08:17:20.2483582Z {"Time":"2026-10-19T08:17:20.246325538Z","Action":"output","Package":"github.com/ForceMind/MyAPI/relay/common","Output":"ok  \tgithub.com/ForceMind/MyAPI/relay/common\t0.010s\n"}
+2026-10-19T08:17:20.2484601Z {"Time":"2026-10-19T08:17:20.246345034Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/relay/common","Elapsed":0.01}
+2026-10-19T08:17:47.3903478Z {"Time":"2026-10-19T08:17:47.390128256Z","Action":"start","Package":"github.com/ForceMind/MyAPI/model"}
+2026-10-19T08:17:47.4654446Z {"Time":"2026-10-19T08:17:47.46520597Z","Action":"run","Package":"github.com/ForceMind/MyAPI/model","Test":"TestWideAccountQuotaReserveRefundAndAtomicRollback"}
+2026-10-19T08:17:47.4655995Z {"Time":"2026-10-19T08:17:47.465239543Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestWideAccountQuotaReserveRefundAndAtomicRollback","Output":"=== RUN   TestWideAccountQuotaReserveRefundAndAtomicRollback\n"}
+2026-10-19T08:17:47.4657703Z {"Time":"2026-10-19T08:17:47.46527056Z","Action":"run","Package":"github.com/ForceMind/MyAPI/model","Test":"TestWideAccountQuotaReserveRefundAndAtomicRollback/small_reserve_and_refund_preserve_wide_state"}
+2026-10-19T08:17:47.4660291Z {"Time":"2026-10-19T08:17:47.465275049Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestWideAccountQuotaReserveRefundAndAtomicRollback/small_reserve_and_refund_preserve_wide_state","Output":"=== RUN   TestWideAccountQuotaReserveRefundAndAtomicRollback/small_reserve_and_refund_preserve_wide_state\n"}
+2026-10-19T08:17:47.5656256Z {"Time":"2026-10-19T08:17:47.565107462Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestWideAccountQuotaReserveRefundAndAtomicRollback/small_reserve_and_refund_preserve_wide_state","Output":"[WARN] 2026/10/19 - 08:17:47 | SYSTEM | quota projection failed: request_id=wide-round-trip event=request:wide-round-trip:reserve:v1 receipt=account/1 obligation=1 error=redis projection unavailable \n"}
+2026-10-19T08:17:47.5744805Z {"Time":"2026-10-19T08:17:47.574192918Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestWideAccountQuotaReserveRefundAndAtomicRollback/small_reserve_and_refund_preserve_wide_state","Output":"[WARN] 2026/10/19 - 08:17:47 | SYSTEM | quota projection failed: request_id=wide-round-trip event=request:wide-round-trip:refund:v1 receipt=account/2 obligation=2 error=redis projection unavailable \n"}
+2026-10-19T08:17:47.5789198Z {"Time":"2026-10-19T08:17:47.578570309Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestWideAccountQuotaReserveRefundAndAtomicRollback/small_reserve_and_refund_preserve_wide_state","Output":"--- PASS: TestWideAccountQuotaReserveRefundAndAtomicRollback/small_reserve_and_refund_preserve_wide_state (0.11s)\n"}
+2026-10-19T08:17:47.5793662Z {"Time":"2026-10-19T08:17:47.578585707Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/model","Test":"TestWideAccountQuotaReserveRefundAndAtomicRollback/small_reserve_and_refund_preserve_wide_state","Elapsed":0.11}
+2026-10-19T08:17:47.5796043Z {"Time":"2026-10-19T08:17:47.5785981Z","Action":"run","Package":"github.com/ForceMind/MyAPI/model","Test":"TestWideAccountQuotaReserveRefundAndAtomicRollback/second_balance_leg_failure_rolls_back_the_first"}
+2026-10-19T08:17:47.5798932Z {"Time":"2026-10-19T08:17:47.578604983Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestWideAccountQuotaReserveRefundAndAtomicRollback/second_balance_leg_failure_rolls_back_the_first","Output":"=== RUN   TestWideAccountQuotaReserveRefundAndAtomicRollback/second_balance_leg_failure_rolls_back_the_first\n"}
+2026-10-19T08:17:47.6737962Z {"Time":"2026-10-19T08:17:47.673463685Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestWideAccountQuotaReserveRefundAndAtomicRollback/second_balance_leg_failure_rolls_back_the_first","Output":"--- PASS: TestWideAccountQuotaReserveRefundAndAtomicRollback/second_balance_leg_failure_rolls_back_the_first (0.09s)\n"}
+2026-10-19T08:17:47.6741046Z {"Time":"2026-10-19T08:17:47.673486427Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/model","Test":"TestWideAccountQuotaReserveRefundAndAtomicRollback/second_balance_leg_failure_rolls_back_the_first","Elapsed":0.09}
+2026-10-19T08:17:47.6743052Z {"Time":"2026-10-19T08:17:47.673492799Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestWideAccountQuotaReserveRefundAndAtomicRollback","Output":"--- PASS: TestWideAccountQuotaReserveRefundAndAtomicRollback (0.21s)\n"}
+2026-10-19T08:17:47.6745068Z {"Time":"2026-10-19T08:17:47.673497728Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/model","Test":"TestWideAccountQuotaReserveRefundAndAtomicRollback","Elapsed":0.21}
+2026-10-19T08:17:47.6746562Z {"Time":"2026-10-19T08:17:47.67350914Z","Action":"run","Package":"github.com/ForceMind/MyAPI/model","Test":"TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget"}
+2026-10-19T08:17:47.6748691Z {"Time":"2026-10-19T08:17:47.673517405Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget","Output":"=== RUN   TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget\n"}
+2026-10-19T08:17:47.6750939Z {"Time":"2026-10-19T08:17:47.673525761Z","Action":"run","Package":"github.com/ForceMind/MyAPI/model","Test":"TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget/legacy"}
+2026-10-19T08:17:47.6753278Z {"Time":"2026-10-19T08:17:47.673533966Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget/legacy","Output":"=== RUN   TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget/legacy\n"}
+2026-10-19T08:17:47.6940785Z {"Time":"2026-10-19T08:17:47.693762009Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget/legacy","Output":"--- PASS: TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget/legacy (0.02s)\n"}
+2026-10-19T08:17:47.6944073Z {"Time":"2026-10-19T08:17:47.693780424Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/model","Test":"TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget/legacy","Elapsed":0.02}
+2026-10-19T08:17:47.6946554Z {"Time":"2026-10-19T08:17:47.693788639Z","Action":"run","Package":"github.com/ForceMind/MyAPI/model","Test":"TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget/authoritative"}
+2026-10-19T08:17:47.6948566Z {"Time":"2026-10-19T08:17:47.693793488Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget/authoritative","Output":"=== RUN   TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget/authoritative\n"}
+2026-10-19T08:17:47.7127713Z {"Time":"2026-10-19T08:17:47.712438564Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget/authoritative","Output":"[WARN] 2026/10/19 - 08:17:47 | SYSTEM | quota projection failed: correlation_key=admin-adjust:1:wide-admin-add event=admin-adjust:1:wide-admin-add receipt=user/1 obligation=1 error=redis projection unavailable \n"}
+2026-10-19T08:17:47.7147273Z {"Time":"2026-10-19T08:17:47.714448927Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget/authoritative","Output":"--- PASS: TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget/authoritative (0.02s)\n"}
+2026-10-19T08:17:47.7154126Z {"Time":"2026-10-19T08:17:47.715167635Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/model","Test":"TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget/authoritative","Elapsed":0.02}
+2026-10-19T08:17:47.7156235Z {"Time":"2026-10-19T08:17:47.715183936Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget","Output":"--- PASS: TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget (0.04s)\n"}
+2026-10-19T08:17:47.7158054Z {"Time":"2026-10-19T08:17:47.715190749Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/model","Test":"TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget","Elapsed":0.04}
+2026-10-19T08:17:47.7159642Z {"Time":"2026-10-19T08:17:47.715198293Z","Action":"run","Package":"github.com/ForceMind/MyAPI/model","Test":"TestQuotaStateBoundaryFailuresWriteNothingAndRequestLimitStaysInt32"}
+2026-10-19T08:17:47.7161837Z {"Time":"2026-10-19T08:17:47.715202931Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestQuotaStateBoundaryFailuresWriteNothingAndRequestLimitStaysInt32","Output":"=== RUN   TestQuotaStateBoundaryFailuresWriteNothingAndRequestLimitStaysInt32\n"}
+2026-10-19T08:17:47.8134920Z {"Time":"2026-10-19T08:17:47.81311485Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestQuotaStateBoundaryFailuresWriteNothingAndRequestLimitStaysInt32","Output":"--- PASS: TestQuotaStateBoundaryFailuresWriteNothingAndRequestLimitStaysInt32 (0.10s)\n"}
+2026-10-19T08:17:47.8138238Z {"Time":"2026-10-19T08:17:47.813142882Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/model","Test":"TestQuotaStateBoundaryFailuresWriteNothingAndRequestLimitStaysInt32","Elapsed":0.1}
+2026-10-19T08:17:47.8141046Z {"Time":"2026-10-19T08:17:47.813641719Z","Action":"run","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountCacheOrdersAdjacentQuotaAndAuthVersionsAboveDoublePrecision"}
+2026-10-19T08:17:47.8145236Z {"Time":"2026-10-19T08:17:47.813654583Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountCacheOrdersAdjacentQuotaAndAuthVersionsAboveDoublePrecision","Output":"=== RUN   TestHistoricalAmountCacheOrdersAdjacentQuotaAndAuthVersionsAboveDoublePrecision\n"}
+2026-10-19T08:17:47.8178133Z {"Time":"2026-10-19T08:17:47.817473393Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountCacheOrdersAdjacentQuotaAndAuthVersionsAboveDoublePrecision","Output":"--- PASS: TestHistoricalAmountCacheOrdersAdjacentQuotaAndAuthVersionsAboveDoublePrecision (0.00s)\n"}
+2026-10-19T08:17:47.8182740Z {"Time":"2026-10-19T08:17:47.81748756Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountCacheOrdersAdjacentQuotaAndAuthVersionsAboveDoublePrecision","Elapsed":0}
+2026-10-19T08:17:47.8185492Z {"Time":"2026-10-19T08:17:47.817495274Z","Action":"run","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountV3RowsRemainByteAndStateStableDuringInitialization"}
+2026-10-19T08:17:47.8188088Z {"Time":"2026-10-19T08:17:47.817499813Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountV3RowsRemainByteAndStateStableDuringInitialization","Output":"=== RUN   TestHistoricalAmountV3RowsRemainByteAndStateStableDuringInitialization\n"}
+2026-10-19T08:17:47.9699716Z {"Time":"2026-10-19T08:17:47.969660137Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountV3RowsRemainByteAndStateStableDuringInitialization","Output":"--- PASS: TestHistoricalAmountV3RowsRemainByteAndStateStableDuringInitialization (0.15s)\n"}
+2026-10-19T08:17:47.9702186Z {"Time":"2026-10-19T08:17:47.969691695Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountV3RowsRemainByteAndStateStableDuringInitialization","Elapsed":0.15}
+2026-10-19T08:17:47.9703843Z {"Time":"2026-10-19T08:17:47.969703468Z","Action":"run","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountV3FingerprintExecutesWithoutIdentityRewrite"}
+2026-10-19T08:17:47.9706064Z {"Time":"2026-10-19T08:17:47.969707785Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountV3FingerprintExecutesWithoutIdentityRewrite","Output":"=== RUN   TestHistoricalAmountV3FingerprintExecutesWithoutIdentityRewrite\n"}
+2026-10-19T08:17:48.0824237Z {"Time":"2026-10-19T08:17:48.082013323Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountV3FingerprintExecutesWithoutIdentityRewrite","Output":"--- PASS: TestHistoricalAmountV3FingerprintExecutesWithoutIdentityRewrite (0.11s)\n"}
+2026-10-19T08:17:48.0827767Z {"Time":"2026-10-19T08:17:48.082042627Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountV3FingerprintExecutesWithoutIdentityRewrite","Elapsed":0.11}
+2026-10-19T08:17:48.0830175Z {"Time":"2026-10-19T08:17:48.082069587Z","Action":"run","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountV4WideAggregateReplaysOnce"}
+2026-10-19T08:17:48.0832377Z {"Time":"2026-10-19T08:17:48.082075118Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountV4WideAggregateReplaysOnce","Output":"=== RUN   TestHistoricalAmountV4WideAggregateReplaysOnce\n"}
+2026-10-19T08:17:48.1972451Z {"Time":"2026-10-19T08:17:48.196833163Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountV4WideAggregateReplaysOnce","Output":"--- PASS: TestHistoricalAmountV4WideAggregateReplaysOnce (0.11s)\n"}
+2026-10-19T08:17:48.1975467Z {"Time":"2026-10-19T08:17:48.196854433Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountV4WideAggregateReplaysOnce","Elapsed":0.11}
+2026-10-19T08:17:48.1977558Z {"Time":"2026-10-19T08:17:48.196861636Z","Action":"run","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountCacheSchemasReplaceOnlyTheTouchedKey"}
+2026-10-19T08:17:48.1980306Z {"Time":"2026-10-19T08:17:48.196867196Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountCacheSchemasReplaceOnlyTheTouchedKey","Output":"=== RUN   TestHistoricalAmountCacheSchemasReplaceOnlyTheTouchedKey\n"}
+2026-10-19T08:17:48.3075114Z {"Time":"2026-10-19T08:17:48.307235797Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountCacheSchemasReplaceOnlyTheTouchedKey","Output":"--- PASS: TestHistoricalAmountCacheSchemasReplaceOnlyTheTouchedKey (0.11s)\n"}
+2026-10-19T08:17:48.3077203Z {"Time":"2026-10-19T08:17:48.307265652Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/model","Test":"TestHistoricalAmountCacheSchemasReplaceOnlyTheTouchedKey","Elapsed":0.11}
+2026-10-19T08:17:48.3079250Z {"Time":"2026-10-19T08:17:48.307667491Z","Action":"run","Package":"github.com/ForceMind/MyAPI/model","Test":"TestTokenQuotaAdjustmentResultPreservesWideAmountsAndExactVersions"}
+2026-10-19T08:17:48.3082307Z {"Time":"2026-10-19T08:17:48.307682088Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestTokenQuotaAdjustmentResultPreservesWideAmountsAndExactVersions","Output":"=== RUN   TestTokenQuotaAdjustmentResultPreservesWideAmountsAndExactVersions\n"}
+2026-10-19T08:17:48.3084483Z {"Time":"2026-10-19T08:17:48.307762267Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Test":"TestTokenQuotaAdjustmentResultPreservesWideAmountsAndExactVersions","Output":"--- PASS: TestTokenQuotaAdjustmentResultPreservesWideAmountsAndExactVersions (0.00s)\n"}
+2026-10-19T08:17:48.3086209Z {"Time":"2026-10-19T08:17:48.307773829Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/model","Test":"TestTokenQuotaAdjustmentResultPreservesWideAmountsAndExactVersions","Elapsed":0}
+2026-10-19T08:17:48.3087335Z {"Time":"2026-10-19T08:17:48.307941411Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Output":"PASS\n"}
+2026-10-19T08:17:48.3097987Z {"Time":"2026-10-19T08:17:48.30961793Z","Action":"output","Package":"github.com/ForceMind/MyAPI/model","Output":"ok  \tgithub.com/ForceMind/MyAPI/model\t0.919s\n"}
+2026-10-19T08:17:48.3100293Z {"Time":"2026-10-19T08:17:48.309637086Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/model","Elapsed":0.92}
+2026-10-19T08:18:10.7647814Z {"Time":"2026-10-19T08:18:10.764575185Z","Action":"start","Package":"github.com/ForceMind/MyAPI/controller"}
+2026-10-19T08:18:10.7785918Z {"Time":"2026-10-19T08:18:10.778418396Z","Action":"run","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenMetadataPreservesWideQuota"}
+2026-10-19T08:18:10.7788579Z {"Time":"2026-10-19T08:18:10.77843682Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenMetadataPreservesWideQuota","Output":"=== RUN   TestTokenMetadataPreservesWideQuota\n"}
+2026-10-19T08:18:10.7831293Z {"Time":"2026-10-19T08:18:10.782892248Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenMetadataPreservesWideQuota","Output":"--- PASS: TestTokenMetadataPreservesWideQuota (0.00s)\n"}
+2026-10-19T08:18:10.7832740Z {"Time":"2026-10-19T08:18:10.782907075Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenMetadataPreservesWideQuota","Elapsed":0}
+2026-10-19T08:18:10.7834110Z {"Time":"2026-10-19T08:18:10.782916363Z","Action":"run","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing"}
+2026-10-19T08:18:10.7835689Z {"Time":"2026-10-19T08:18:10.782920661Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing","Output":"=== RUN   TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing\n"}
+2026-10-19T08:18:10.7860623Z {"Time":"2026-10-19T08:18:10.785868841Z","Action":"run","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/missing_version"}
+2026-10-19T08:18:10.7863908Z {"Time":"2026-10-19T08:18:10.785881655Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/missing_version","Output":"=== RUN   TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/missing_version\n"}
+2026-10-19T08:18:10.7868039Z {"Time":"2026-10-19T08:18:10.786297419Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/missing_version","Output":"--- PASS: TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/missing_version (0.00s)\n"}
+2026-10-19T08:18:10.7871554Z {"Time":"2026-10-19T08:18:10.78631418Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/missing_version","Elapsed":0}
+2026-10-19T08:18:10.7874102Z {"Time":"2026-10-19T08:18:10.786322255Z","Action":"run","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/missing_fingerprint"}
+2026-10-19T08:18:10.7875904Z {"Time":"2026-10-19T08:18:10.786326804Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/missing_fingerprint","Output":"=== RUN   TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/missing_fingerprint\n"}
+2026-10-19T08:18:10.7878736Z {"Time":"2026-10-19T08:18:10.786982712Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/missing_fingerprint","Output":"--- PASS: TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/missing_fingerprint (0.00s)\n"}
+2026-10-19T08:18:10.7881237Z {"Time":"2026-10-19T08:18:10.786996187Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/missing_fingerprint","Elapsed":0}
+2026-10-19T08:18:10.7882614Z {"Time":"2026-10-19T08:18:10.787001387Z","Action":"run","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/stale_version"}
+2026-10-19T08:18:10.7884317Z {"Time":"2026-10-19T08:18:10.787005414Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/stale_version","Output":"=== RUN   TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/stale_version\n"}
+2026-10-19T08:18:10.7886659Z {"Time":"2026-10-19T08:18:10.787767868Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/stale_version","Output":"\r\n"}
+2026-10-19T08:18:10.7889684Z {"Time":"2026-10-19T08:18:10.787795038Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/stale_version","Output":"2026/10/19 08:18:10 \u001b[31;1m/home/runner/work/MyAPI/MyAPI/model/quota_writer_epoch.go:98 \u001b[35;1mSQL logic error: no such table: quota_writer_epochs (1)\n"}
+2026-10-19T08:18:10.7892330Z {"Time":"2026-10-19T08:18:10.787811459Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/stale_version","Output":"\u001b[0m\u001b[33m[0.110ms] \u001b[34;1m[rows:0]\u001b[0m SELECT * FROM `quota_writer_epochs` ORDER BY id LIMIT 2\n"}
+2026-10-19T08:18:10.7894897Z {"Time":"2026-10-19T08:18:10.788569841Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/stale_version","Output":"--- PASS: TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/stale_version (0.00s)\n"}
+2026-10-19T08:18:10.7897157Z {"Time":"2026-10-19T08:18:10.788597032Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/stale_version","Elapsed":0}
+2026-10-19T08:18:10.7898521Z {"Time":"2026-10-19T08:18:10.788615566Z","Action":"run","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/exact_version"}
+2026-10-19T08:18:10.7900794Z {"Time":"2026-10-19T08:18:10.788650431Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/exact_version","Output":"=== RUN   TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/exact_version\n"}
+2026-10-19T08:18:10.7902582Z {"Time":"2026-10-19T08:18:10.789447067Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/exact_version","Output":"\r\n"}
+2026-10-19T08:18:10.7904657Z {"Time":"2026-10-19T08:18:10.789480048Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/exact_version","Output":"2026/10/19 08:18:10 \u001b[31;1m/home/runner/work/MyAPI/MyAPI/model/quota_writer_epoch.go:98 \u001b[35;1mSQL logic error: no such table: quota_writer_epochs (1)\n"}
+2026-10-19T08:18:10.7907055Z {"Time":"2026-10-19T08:18:10.7894974Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/exact_version","Output":"\u001b[0m\u001b[33m[0.051ms] \u001b[34;1m[rows:0]\u001b[0m SELECT * FROM `quota_writer_epochs` ORDER BY id LIMIT 2\n"}
+2026-10-19T08:18:10.7910839Z {"Time":"2026-10-19T08:18:10.790775832Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/exact_version","Output":"--- PASS: TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/exact_version (0.00s)\n"}
+2026-10-19T08:18:10.7913294Z {"Time":"2026-10-19T08:18:10.79080705Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing/exact_version","Elapsed":0}
+2026-10-19T08:18:10.7914970Z {"Time":"2026-10-19T08:18:10.790979671Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing","Output":"--- PASS: TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing (0.01s)\n"}
+2026-10-19T08:18:10.7916597Z {"Time":"2026-10-19T08:18:10.791023713Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/controller","Test":"TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing","Elapsed":0.01}
+2026-10-19T08:18:10.7917679Z {"Time":"2026-10-19T08:18:10.791152142Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Output":"PASS\n"}
+2026-10-19T08:18:10.7925376Z {"Time":"2026-10-19T08:18:10.792387791Z","Action":"output","Package":"github.com/ForceMind/MyAPI/controller","Output":"ok  \tgithub.com/ForceMind/MyAPI/controller\t0.028s\n"}
+2026-10-19T08:18:10.7926575Z {"Time":"2026-10-19T08:18:10.792407007Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/controller","Elapsed":0.028}
+2026-10-19T08:18:22.1033857Z {"Time":"2026-10-19T08:18:22.10315038Z","Action":"start","Package":"github.com/ForceMind/MyAPI/service"}
+2026-10-19T08:18:22.1475241Z {"Time":"2026-10-19T08:18:22.147198544Z","Action":"run","Package":"github.com/ForceMind/MyAPI/service","Test":"TestOfficialTextCostUsesExplicitLongProfileAndTokenBounds"}
+2026-10-19T08:18:22.1478411Z {"Time":"2026-10-19T08:18:22.147222038Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Test":"TestOfficialTextCostUsesExplicitLongProfileAndTokenBounds","Output":"=== RUN   TestOfficialTextCostUsesExplicitLongProfileAndTokenBounds\n"}
+2026-10-19T08:18:22.1482269Z {"Time":"2026-10-19T08:18:22.147321203Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Test":"TestOfficialTextCostUsesExplicitLongProfileAndTokenBounds","Output":"--- PASS: TestOfficialTextCostUsesExplicitLongProfileAndTokenBounds (0.00s)\n"}
+2026-10-19T08:18:22.1485358Z {"Time":"2026-10-19T08:18:22.14733578Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/service","Test":"TestOfficialTextCostUsesExplicitLongProfileAndTokenBounds","Elapsed":0}
+2026-10-19T08:18:22.1487527Z {"Time":"2026-10-19T08:18:22.148355692Z","Action":"run","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining"}
+2026-10-19T08:18:22.1489618Z {"Time":"2026-10-19T08:18:22.148368345Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining","Output":"=== RUN   TestSubscriptionQuotaNotificationPreservesWideRemaining\n"}
+2026-10-19T08:18:22.1491447Z {"Time":"2026-10-19T08:18:22.148374337Z","Action":"run","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining/bark"}
+2026-10-19T08:18:22.1493925Z {"Time":"2026-10-19T08:18:22.148378484Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining/bark","Output":"=== RUN   TestSubscriptionQuotaNotificationPreservesWideRemaining/bark\n"}
+2026-10-19T08:18:22.1495949Z {"Time":"2026-10-19T08:18:22.148384175Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining/bark","Output":"--- PASS: TestSubscriptionQuotaNotificationPreservesWideRemaining/bark (0.00s)\n"}
+2026-10-19T08:18:22.1497674Z {"Time":"2026-10-19T08:18:22.148390226Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining/bark","Elapsed":0}
+2026-10-19T08:18:22.1498942Z {"Time":"2026-10-19T08:18:22.148394785Z","Action":"run","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining/gotify"}
+2026-10-19T08:18:22.1500729Z {"Time":"2026-10-19T08:18:22.148402449Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining/gotify","Output":"=== RUN   TestSubscriptionQuotaNotificationPreservesWideRemaining/gotify\n"}
+2026-10-19T08:18:22.1502699Z {"Time":"2026-10-19T08:18:22.148407368Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining/gotify","Output":"--- PASS: TestSubscriptionQuotaNotificationPreservesWideRemaining/gotify (0.00s)\n"}
+2026-10-19T08:18:22.1504348Z {"Time":"2026-10-19T08:18:22.148411506Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining/gotify","Elapsed":0}
+2026-10-19T08:18:22.1505622Z {"Time":"2026-10-19T08:18:22.148415564Z","Action":"run","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining/default"}
+2026-10-19T08:18:22.1507214Z {"Time":"2026-10-19T08:18:22.148419691Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining/default","Output":"=== RUN   TestSubscriptionQuotaNotificationPreservesWideRemaining/default\n"}
+2026-10-19T08:18:22.1509199Z {"Time":"2026-10-19T08:18:22.148425001Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining/default","Output":"--- PASS: TestSubscriptionQuotaNotificationPreservesWideRemaining/default (0.00s)\n"}
+2026-10-19T08:18:22.1511070Z {"Time":"2026-10-19T08:18:22.1484296Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining/default","Elapsed":0}
+2026-10-19T08:18:22.1512355Z {"Time":"2026-10-19T08:18:22.148434178Z","Action":"run","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining/webhook"}
+2026-10-19T08:18:22.1513949Z {"Time":"2026-10-19T08:18:22.148437514Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining/webhook","Output":"=== RUN   TestSubscriptionQuotaNotificationPreservesWideRemaining/webhook\n"}
+2026-10-19T08:18:22.1516096Z {"Time":"2026-10-19T08:18:22.148443586Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining/webhook","Output":"--- PASS: TestSubscriptionQuotaNotificationPreservesWideRemaining/webhook (0.00s)\n"}
+2026-10-19T08:18:22.1517868Z {"Time":"2026-10-19T08:18:22.148449937Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining/webhook","Elapsed":0}
+2026-10-19T08:18:22.1519708Z {"Time":"2026-10-19T08:18:22.148454536Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining","Output":"--- PASS: TestSubscriptionQuotaNotificationPreservesWideRemaining (0.00s)\n"}
+2026-10-19T08:18:22.1521281Z {"Time":"2026-10-19T08:18:22.148458573Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/service","Test":"TestSubscriptionQuotaNotificationPreservesWideRemaining","Elapsed":0}
+2026-10-19T08:18:22.1522521Z {"Time":"2026-10-19T08:18:22.14846228Z","Action":"run","Package":"github.com/ForceMind/MyAPI/service","Test":"TestCalculateImageTokensPatchUsesFloatAreaForLargeDimensions"}
+2026-10-19T08:18:22.1524113Z {"Time":"2026-10-19T08:18:22.148465557Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Test":"TestCalculateImageTokensPatchUsesFloatAreaForLargeDimensions","Output":"=== RUN   TestCalculateImageTokensPatchUsesFloatAreaForLargeDimensions\n"}
+2026-10-19T08:18:22.1526058Z {"Time":"2026-10-19T08:18:22.148471778Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Test":"TestCalculateImageTokensPatchUsesFloatAreaForLargeDimensions","Output":"--- PASS: TestCalculateImageTokensPatchUsesFloatAreaForLargeDimensions (0.00s)\n"}
+2026-10-19T08:18:22.1527711Z {"Time":"2026-10-19T08:18:22.148502165Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/service","Test":"TestCalculateImageTokensPatchUsesFloatAreaForLargeDimensions","Elapsed":0}
+2026-10-19T08:18:22.1528924Z {"Time":"2026-10-19T08:18:22.148522893Z","Action":"run","Package":"github.com/ForceMind/MyAPI/service","Test":"TestCalculateImageTokensRejectsTileQuotaOverflow"}
+2026-10-19T08:18:22.1530701Z {"Time":"2026-10-19T08:18:22.148542961Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Test":"TestCalculateImageTokensRejectsTileQuotaOverflow","Output":"=== RUN   TestCalculateImageTokensRejectsTileQuotaOverflow\n"}
+2026-10-19T08:18:22.1532546Z {"Time":"2026-10-19T08:18:22.148563098Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Test":"TestCalculateImageTokensRejectsTileQuotaOverflow","Output":"[SYS] 2026/10/19 - 08:18:22 | quota conversion (QuotaRound) overflow: original=8.589934673e+09, clamped=2147483647 \n"}
+2026-10-19T08:18:22.1534396Z {"Time":"2026-10-19T08:18:22.148583165Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Test":"TestCalculateImageTokensRejectsTileQuotaOverflow","Output":"--- PASS: TestCalculateImageTokensRejectsTileQuotaOverflow (0.00s)\n"}
+2026-10-19T08:18:22.1535855Z {"Time":"2026-10-19T08:18:22.14860182Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/service","Test":"TestCalculateImageTokensRejectsTileQuotaOverflow","Elapsed":0}
+2026-10-19T08:18:22.1536857Z {"Time":"2026-10-19T08:18:22.148619824Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Output":"PASS\n"}
+2026-10-19T08:18:22.1537820Z {"Time":"2026-10-19T08:18:22.149158066Z","Action":"output","Package":"github.com/ForceMind/MyAPI/service","Output":"ok  \tgithub.com/ForceMind/MyAPI/service\t0.046s\n"}
+2026-10-19T08:18:22.1538734Z {"Time":"2026-10-19T08:18:22.149173385Z","Action":"pass","Package":"github.com/ForceMind/MyAPI/service","Elapsed":0.046}
+2026-10-19T08:18:22.3318225Z HISTORICAL_AMOUNT_386_CONTRACT_PASS {"fail": 0, "packages_pass": 5, "skip": 0, "tests": ["TestAdminAdjustmentPreservesWideBalanceAndRejectsOutOfRangeTarget", "TestCalculateImageTokensPatchUsesFloatAreaForLargeDimensions", "TestCalculateImageTokensRejectsTileQuotaOverflow", "TestCheckedQuotaBalance", "TestCheckedQuotaUsed", "TestHistoricalAmountCacheOrdersAdjacentQuotaAndAuthVersionsAboveDoublePrecision", "TestHistoricalAmountCacheSchemasReplaceOnlyTheTouchedKey", "TestHistoricalAmountV3FingerprintExecutesWithoutIdentityRewrite", "TestHistoricalAmountV3RowsRemainByteAndStateStableDuringInitialization", "TestHistoricalAmountV4WideAggregateReplaysOnce", "TestOfficialTextCostUsesExplicitLongProfileAndTokenBounds", "TestQuotaStateBoundaryFailuresWriteNothingAndRequestLimitStaysInt32", "TestRelayPreservesStoredUserQuota", "TestSubscriptionQuotaNotificationPreservesWideRemaining", "TestTokenMetadataPreservesWideQuota", "TestTokenQuotaAdjustmentResultPreservesWideAmountsAndExactVersions", "TestTokenQuotaVersionIsExactAndStaleEditsWriteNothing", "TestWideAccountQuotaReserveRefundAndAtomicRollback"], "top_level_pass": 18}
+2026-10-19T08:18:22.3391791Z ##[group]Run if git grep -n -E 'json\.(Marshal|Unmarshal|NewDecoder|NewEncoder)' -- '*.go' ':(exclude)**/*_test.go' ':(exclude)common/json.go' ':(exclude)common/canonical_json.go' ':(exclude)relaykit/**'; then
+2026-10-19T08:18:22.3393775Z [36;1mif git grep -n -E 'json\.(Marshal|Unmarshal|NewDecoder|NewEncoder)' -- '*.go' ':(exclude)**/*_test.go' ':(exclude)common/json.go' ':(exclude)common/canonical_json.go' ':(exclude)relaykit/**'; then[0m
+2026-10-19T08:18:22.3395371Z [36;1m  echo 'root production JSON calls must use common/json.go wrappers' >&2[0m
+2026-10-19T08:18:22.3396054Z [36;1m  exit 1[0m
+2026-10-19T08:18:22.3396384Z [36;1mfi[0m
+2026-10-19T08:18:22.3476109Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:18:22.3476381Z env:
+2026-10-19T08:18:22.3476582Z   GOWORK: off
+2026-10-19T08:18:22.3476868Z   GOMAXPROCS: 1
+2026-10-19T08:18:22.3477227Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:18:22.3477586Z   GOTOOLCHAIN: local
+2026-10-19T08:18:22.3477933Z ##[endgroup]
+2026-10-19T08:18:22.3763736Z ##[group]Run go build ./...
+2026-10-19T08:18:22.3764081Z [36;1mgo build ./...[0m
+2026-10-19T08:18:22.3853044Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:18:22.3853302Z env:
+2026-10-19T08:18:22.3853499Z   GOWORK: off
+2026-10-19T08:18:22.3853704Z   GOMAXPROCS: 1
+2026-10-19T08:18:22.3853920Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:18:22.3854146Z   GOTOOLCHAIN: local
+2026-10-19T08:18:22.3854373Z ##[endgroup]
+2026-10-19T08:18:22.5457153Z ##[group]Run go test -race -p 1 ./model ./service ./middleware ./relay ./relay/channel ./relay/channel/openai ./controller ./router -run '^Test(TokenCredential|ValidateTokenCredential|BeginTokenCredentialDispatchAdmission|CompleteTokenCredentialDispatchAdmission|ShouldRetryTaskRelayStopsAfterCredentialDispatchAdmission|MidjourneyCredential|MidjourneyAuthoritativeAdmission|PreWssConsumeQuotaAuthoritativeSession|RealtimeCredentialRotation|WebSocketCredentialGeneration|AssignedAccessHTTPDispatchWithoutFailover|VideoProxyPrivateResponses|RelayTask_GateOn_SuccessAcceptedAndReplay)' -count=1 -timeout=180s
+2026-10-19T08:18:22.5462188Z [36;1mgo test -race -p 1 ./model ./service ./middleware ./relay ./relay/channel ./relay/channel/openai ./controller ./router -run '^Test(TokenCredential|ValidateTokenCredential|BeginTokenCredentialDispatchAdmission|CompleteTokenCredentialDispatchAdmission|ShouldRetryTaskRelayStopsAfterCredentialDispatchAdmission|MidjourneyCredential|MidjourneyAuthoritativeAdmission|PreWssConsumeQuotaAuthoritativeSession|RealtimeCredentialRotation|WebSocketCredentialGeneration|AssignedAccessHTTPDispatchWithoutFailover|VideoProxyPrivateResponses|RelayTask_GateOn_SuccessAcceptedAndReplay)' -count=1 -timeout=180s[0m
+2026-10-19T08:18:22.5526177Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:18:22.5526430Z env:
+2026-10-19T08:18:22.5526628Z   GOWORK: off
+2026-10-19T08:18:22.5526830Z   GOMAXPROCS: 1
+2026-10-19T08:18:22.5527035Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:18:22.5527253Z   GOTOOLCHAIN: local
+2026-10-19T08:18:22.5527465Z ##[endgroup]
+2026-10-19T08:21:50.4078295Z ok  	github.com/ForceMind/MyAPI/model	25.411s
+2026-10-19T08:22:28.2742698Z ok  	github.com/ForceMind/MyAPI/service	4.290s
+2026-10-19T08:22:37.7502164Z ok  	github.com/ForceMind/MyAPI/middleware	1.050s [no tests to run]
+2026-10-19T08:22:54.3211441Z ok  	github.com/ForceMind/MyAPI/relay	1.054s [no tests to run]
+2026-10-19T08:22:58.0808590Z ok  	github.com/ForceMind/MyAPI/relay/channel	1.229s
+2026-10-19T08:23:02.2180081Z ok  	github.com/ForceMind/MyAPI/relay/channel/openai	1.078s
+2026-10-19T08:23:37.8362525Z ok  	github.com/ForceMind/MyAPI/controller	2.117s
+2026-10-19T08:23:44.6356163Z ok  	github.com/ForceMind/MyAPI/router	1.728s
+2026-10-19T08:23:45.0965633Z ##[group]Run make test
+2026-10-19T08:23:45.0965935Z [36;1mmake test[0m
+2026-10-19T08:23:45.1028143Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:23:45.1028398Z env:
+2026-10-19T08:23:45.1028588Z   GOWORK: off
+2026-10-19T08:23:45.1028788Z   GOMAXPROCS: 1
+2026-10-19T08:23:45.1028993Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:23:45.1029215Z   GOTOOLCHAIN: local
+2026-10-19T08:23:45.1029751Z ##[endgroup]
+2026-10-19T08:23:45.1148702Z Testing root Go module...
+2026-10-19T08:23:48.7749500Z ok  	github.com/ForceMind/MyAPI/common	0.814s
+2026-10-19T08:23:49.1959997Z ok  	github.com/ForceMind/MyAPI/common/limiter	0.011s
+2026-10-19T08:23:49.1960766Z ?   	github.com/ForceMind/MyAPI/constant	[no test files]
+2026-10-19T08:24:27.1033379Z ok  	github.com/ForceMind/MyAPI/controller	27.990s
+2026-10-19T08:24:27.1034096Z ?   	github.com/ForceMind/MyAPI/dto	[no test files]
+2026-10-19T08:24:27.1034480Z ?   	github.com/ForceMind/MyAPI/i18n	[no test files]
+2026-10-19T08:24:27.5669810Z ok  	github.com/ForceMind/MyAPI/logger	0.012s
+2026-10-19T08:24:30.0760236Z ok  	github.com/ForceMind/MyAPI/middleware	1.153s
+2026-10-19T08:25:59.7790269Z ok  	github.com/ForceMind/MyAPI/model	87.273s
+2026-10-19T08:26:01.1126524Z ok  	github.com/ForceMind/MyAPI/oauth	0.013s
+2026-10-19T08:26:01.6626820Z ok  	github.com/ForceMind/MyAPI/pkg/billingexpr	0.019s
+2026-10-19T08:26:02.1385302Z ok  	github.com/ForceMind/MyAPI/pkg/cachex	0.010s
+2026-10-19T08:26:02.8038023Z ok  	github.com/ForceMind/MyAPI/pkg/ionet	0.014s
+2026-10-19T08:26:02.8040092Z ?   	github.com/ForceMind/MyAPI/pkg/perf_metrics	[no test files]
+2026-10-19T08:26:03.0991448Z ok  	github.com/ForceMind/MyAPI/pkg/personalusage	0.071s
+2026-10-19T08:26:06.9444663Z ok  	github.com/ForceMind/MyAPI/relay	1.520s
+2026-10-19T08:26:11.5430351Z ok  	github.com/ForceMind/MyAPI/relay/channel	3.375s
+2026-10-19T08:26:13.0689678Z ok  	github.com/ForceMind/MyAPI/relay/channel/advancedcustom	0.016s
+2026-10-19T08:26:13.0690385Z ?   	github.com/ForceMind/MyAPI/relay/channel/ai360	[no test files]
+2026-10-19T08:26:14.3302211Z ok  	github.com/ForceMind/MyAPI/relay/channel/ali	0.014s
+2026-10-19T08:26:15.6910675Z ok  	github.com/ForceMind/MyAPI/relay/channel/aws	0.016s
+2026-10-19T08:26:16.9832476Z ok  	github.com/ForceMind/MyAPI/relay/channel/baidu	0.014s
+2026-10-19T08:26:16.9833391Z ?   	github.com/ForceMind/MyAPI/relay/channel/baidu_v2	[no test files]
+2026-10-19T08:26:18.2568042Z ok  	github.com/ForceMind/MyAPI/relay/channel/claude	0.015s
+2026-10-19T08:26:19.4375752Z ok  	github.com/ForceMind/MyAPI/relay/channel/cloudflare	0.014s
+2026-10-19T08:26:20.5984047Z ok  	github.com/ForceMind/MyAPI/relay/channel/codex	0.013s
+2026-10-19T08:26:20.5984953Z ?   	github.com/ForceMind/MyAPI/relay/channel/cohere	[no test files]
+2026-10-19T08:26:21.7829871Z ok  	github.com/ForceMind/MyAPI/relay/channel/coze	0.013s
+2026-10-19T08:26:21.7830772Z ?   	github.com/ForceMind/MyAPI/relay/channel/deepseek	[no test files]
+2026-10-19T08:26:23.0191984Z ok  	github.com/ForceMind/MyAPI/relay/channel/dify	0.016s
+2026-10-19T08:26:24.5831578Z ok  	github.com/ForceMind/MyAPI/relay/channel/gemini	0.076s
+2026-10-19T08:26:25.7679069Z ok  	github.com/ForceMind/MyAPI/relay/channel/jimeng	0.013s
+2026-10-19T08:26:25.7680161Z ?   	github.com/ForceMind/MyAPI/relay/channel/jina	[no test files]
+2026-10-19T08:26:25.7680951Z ?   	github.com/ForceMind/MyAPI/relay/channel/lingyiwanwu	[no test files]
+2026-10-19T08:26:27.2386673Z ok  	github.com/ForceMind/MyAPI/relay/channel/minimax	0.014s
+2026-10-19T08:26:27.2387341Z ?   	github.com/ForceMind/MyAPI/relay/channel/mistral	[no test files]
+2026-10-19T08:26:28.4295318Z ok  	github.com/ForceMind/MyAPI/relay/channel/mokaai	0.014s
+2026-10-19T08:26:29.5997185Z ok  	github.com/ForceMind/MyAPI/relay/channel/moonshot	0.013s
+2026-10-19T08:26:29.5997875Z ?   	github.com/ForceMind/MyAPI/relay/channel/newapi	[no test files]
+2026-10-19T08:26:30.9008443Z ok  	github.com/ForceMind/MyAPI/relay/channel/ollama	0.014s
+2026-10-19T08:26:33.3126771Z ok  	github.com/ForceMind/MyAPI/relay/channel/openai	0.074s
+2026-10-19T08:26:33.3127640Z ?   	github.com/ForceMind/MyAPI/relay/channel/openrouter	[no test files]
+2026-10-19T08:26:34.4939942Z ok  	github.com/ForceMind/MyAPI/relay/channel/palm	0.014s
+2026-10-19T08:26:34.4940878Z ?   	github.com/ForceMind/MyAPI/relay/channel/perplexity	[no test files]
+2026-10-19T08:26:35.6964421Z ok  	github.com/ForceMind/MyAPI/relay/channel/replicate	0.014s
+2026-10-19T08:26:36.8846497Z ok  	github.com/ForceMind/MyAPI/relay/channel/siliconflow	0.013s
+2026-10-19T08:26:38.0062515Z ok  	github.com/ForceMind/MyAPI/relay/channel/sub2api	0.013s
+2026-10-19T08:26:38.0063098Z ?   	github.com/ForceMind/MyAPI/relay/channel/submodel	[no test files]
+2026-10-19T08:26:39.3277636Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/ali	0.019s
+2026-10-19T08:26:40.5756466Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/doubao	0.016s
+2026-10-19T08:26:41.8014360Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/gemini	0.015s
+2026-10-19T08:26:43.0414168Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/hailuo	0.015s
+2026-10-19T08:26:44.3145068Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/jimeng	0.016s
+2026-10-19T08:26:45.8953361Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/kling	0.104s
+2026-10-19T08:26:47.1589904Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/sora	0.016s
+2026-10-19T08:26:48.3572225Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/suno	0.015s
+2026-10-19T08:26:49.3397573Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/taskcommon	0.012s
+2026-10-19T08:26:50.5827225Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/vertex	0.019s
+2026-10-19T08:26:51.8388535Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/vidu	0.019s
+2026-10-19T08:26:53.2661940Z ok  	github.com/ForceMind/MyAPI/relay/channel/tencent	0.014s
+2026-10-19T08:26:53.7438546Z ok  	github.com/ForceMind/MyAPI/relay/channel/tokenhub	0.011s
+2026-10-19T08:26:55.0825748Z ok  	github.com/ForceMind/MyAPI/relay/channel/vertex	0.018s
+2026-10-19T08:26:56.3419766Z ok  	github.com/ForceMind/MyAPI/relay/channel/volcengine	0.014s
+2026-10-19T08:26:56.3420568Z ?   	github.com/ForceMind/MyAPI/relay/channel/xai	[no test files]
+2026-10-19T08:26:56.3421108Z ?   	github.com/ForceMind/MyAPI/relay/channel/xinference	[no test files]
+2026-10-19T08:26:57.5490553Z ok  	github.com/ForceMind/MyAPI/relay/channel/xunfei	0.014s
+2026-10-19T08:26:58.9065303Z ok  	github.com/ForceMind/MyAPI/relay/channel/zhipu	0.016s
+2026-10-19T08:26:58.9066191Z ?   	github.com/ForceMind/MyAPI/relay/channel/zhipu_4v	[no test files]
+2026-10-19T08:27:00.2615563Z ok  	github.com/ForceMind/MyAPI/relay/common	0.017s
+2026-10-19T08:27:00.2616397Z ?   	github.com/ForceMind/MyAPI/relay/common_handler	[no test files]
+2026-10-19T08:27:00.4869202Z ok  	github.com/ForceMind/MyAPI/relay/constant	0.003s
+2026-10-19T08:27:04.6259966Z ok  	github.com/ForceMind/MyAPI/relay/helper	2.629s
+2026-10-19T08:27:27.3892902Z ok  	github.com/ForceMind/MyAPI/router	18.867s
+2026-10-19T08:28:08.8893636Z ok  	github.com/ForceMind/MyAPI/service	39.534s
+2026-10-19T08:28:10.0240388Z ok  	github.com/ForceMind/MyAPI/service/accesspolicy	0.015s
+2026-10-19T08:28:11.2380895Z ok  	github.com/ForceMind/MyAPI/service/authz	0.033s
+2026-10-19T08:28:12.3481257Z ok  	github.com/ForceMind/MyAPI/service/passkey	0.012s
+2026-10-19T08:28:13.7323118Z ok  	github.com/ForceMind/MyAPI/service/promptlearning	0.029s
+2026-10-19T08:28:14.6295732Z ok  	github.com/ForceMind/MyAPI/setting	0.011s
+2026-10-19T08:28:15.1189031Z ok  	github.com/ForceMind/MyAPI/setting/billing_setting	0.012s
+2026-10-19T08:28:15.5942904Z ok  	github.com/ForceMind/MyAPI/setting/config	0.010s
+2026-10-19T08:28:16.0269900Z ok  	github.com/ForceMind/MyAPI/setting/console_setting	0.010s
+2026-10-19T08:28:16.6280639Z ok  	github.com/ForceMind/MyAPI/setting/model_setting	0.017s
+2026-10-19T08:28:17.3721777Z ok  	github.com/ForceMind/MyAPI/setting/operation_setting	0.020s
+2026-10-19T08:28:17.7555569Z ok  	github.com/ForceMind/MyAPI/setting/perf_metrics_setting	0.010s
+2026-10-19T08:28:18.1611909Z ok  	github.com/ForceMind/MyAPI/setting/performance_setting	0.010s
+2026-10-19T08:28:18.8450157Z ok  	github.com/ForceMind/MyAPI/setting/ratio_setting	0.011s
+2026-10-19T08:28:18.8450811Z ?   	github.com/ForceMind/MyAPI/setting/reasoning	[no test files]
+2026-10-19T08:28:19.3576287Z ok  	github.com/ForceMind/MyAPI/setting/system_setting	0.011s
+2026-10-19T08:28:19.7798381Z ok  	github.com/ForceMind/MyAPI/types	0.010s
+2026-10-19T08:28:19.8592320Z Testing relaykit Go module...
+2026-10-19T08:28:21.1283364Z ok  	github.com/ForceMind/MyAPI/relaykit/dto	0.006s
+2026-10-19T08:28:21.1330318Z ?   	github.com/ForceMind/MyAPI/relaykit/reasonmap	[no test files]
+2026-10-19T08:28:22.0130093Z ok  	github.com/ForceMind/MyAPI/relaykit/relayconvert	0.017s
+2026-10-19T08:28:22.2515326Z ok  	github.com/ForceMind/MyAPI/relaykit/relayconvert/convmeta	0.003s
+2026-10-19T08:28:22.2516525Z ?   	github.com/ForceMind/MyAPI/relaykit/relayconvert/internal/claude_messages	[no test files]
+2026-10-19T08:28:22.2517801Z ?   	github.com/ForceMind/MyAPI/relaykit/relayconvert/internal/gemini_chat	[no test files]
+2026-10-19T08:28:22.2518833Z ?   	github.com/ForceMind/MyAPI/relaykit/relayconvert/internal/jsonutil	[no test files]
+2026-10-19T08:28:22.2520210Z ?   	github.com/ForceMind/MyAPI/relaykit/relayconvert/internal/media	[no test files]
+2026-10-19T08:28:22.8533453Z ok  	github.com/ForceMind/MyAPI/relaykit/relayconvert/internal/oai_chat	0.004s
+2026-10-19T08:28:23.4348971Z ok  	github.com/ForceMind/MyAPI/relaykit/relayconvert/internal/oai_responses	0.004s
+2026-10-19T08:28:23.4350130Z ?   	github.com/ForceMind/MyAPI/relaykit/relayconvert/internal/shared/claude	[no test files]
+2026-10-19T08:28:23.4350980Z ?   	github.com/ForceMind/MyAPI/relaykit/relayconvert/internal/shared/gemini	[no test files]
+2026-10-19T08:28:23.6752445Z ok  	github.com/ForceMind/MyAPI/relaykit/relayconvert/kitutil	0.003s
+2026-10-19T08:28:23.6753812Z ?   	github.com/ForceMind/MyAPI/relaykit/relayconvert/reasoning	[no test files]
+2026-10-19T08:28:23.6755058Z ?   	github.com/ForceMind/MyAPI/relaykit/types	[no test files]
+2026-10-19T08:28:23.6921707Z ##[group]Run python3 -m unittest discover -v
+2026-10-19T08:28:23.6922102Z [36;1mpython3 -m unittest discover -v[0m
+2026-10-19T08:28:23.6984697Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:28:23.6984952Z env:
+2026-10-19T08:28:23.6985177Z   GOWORK: off
+2026-10-19T08:28:23.6985384Z   GOMAXPROCS: 1
+2026-10-19T08:28:23.6985594Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:28:23.6985817Z   GOTOOLCHAIN: local
+2026-10-19T08:28:23.6986049Z   PYTHONDONTWRITEBYTECODE: 1
+2026-10-19T08:28:23.6986303Z ##[endgroup]
+2026-10-19T08:28:23.8083053Z test_all_applied_before_state_finalization_is_not_a_new_obligation (test_audit.AccountingAuditTests.test_all_applied_before_state_finalization_is_not_a_new_obligation) ... ok
+2026-10-19T08:28:23.8085050Z test_apply_token_false_is_not_partial (test_audit.AccountingAuditTests.test_apply_token_false_is_not_partial) ... ok
+2026-10-19T08:28:23.8087454Z test_authoritative_links_require_subscription_and_billing_identity (test_audit.AccountingAuditTests.test_authoritative_links_require_subscription_and_billing_identity) ... ok
+2026-10-19T08:28:23.8089929Z test_authoritative_settlement_requires_terminal_closure (test_audit.AccountingAuditTests.test_authoritative_settlement_requires_terminal_closure) ... ok
+2026-10-19T08:28:24.0422782Z test_cli_reads_sealed_sqlite_and_protects_inputs_and_output (test_audit.AccountingAuditTests.test_cli_reads_sealed_sqlite_and_protects_inputs_and_output) ... ok
+2026-10-19T08:28:24.0426550Z test_cross_request_event_and_fact_id_conflict_is_counted_once_as_unknown (test_audit.AccountingAuditTests.test_cross_request_event_and_fact_id_conflict_is_counted_once_as_unknown) ... ok
+2026-10-19T08:28:24.0428773Z test_cross_request_refund_event_is_identity_conflict (test_audit.AccountingAuditTests.test_cross_request_refund_event_is_identity_conflict) ... ok
+2026-10-19T08:28:24.0431556Z test_duplicate_receipt_id_marks_related_request_conflict (test_audit.AccountingAuditTests.test_duplicate_receipt_id_marks_related_request_conflict) ... ok
+2026-10-19T08:28:24.0433628Z test_duplicate_request_journals_fail_closed (test_audit.AccountingAuditTests.test_duplicate_request_journals_fail_closed) ... ok
+2026-10-19T08:28:24.0436804Z test_each_partial_side_is_reported (test_audit.AccountingAuditTests.test_each_partial_side_is_reported) ... ok
+2026-10-19T08:28:24.0440163Z test_exact_delta_with_zero_and_nonzero_reservations (test_audit.AccountingAuditTests.test_exact_delta_with_zero_and_nonzero_reservations) ... ok
+2026-10-19T08:28:24.0441839Z test_generation_without_request_identity_is_never_allocated (test_audit.AccountingAuditTests.test_generation_without_request_identity_is_never_allocated) ... ok
+2026-10-19T08:28:24.0444372Z test_intent_and_fact_are_one_delta_record (test_audit.AccountingAuditTests.test_intent_and_fact_are_one_delta_record) ... ok
+2026-10-19T08:28:24.0447987Z test_invalid_normalized_settlement_identity_cannot_supply_its_own_fingerprint (test_audit.AccountingAuditTests.test_invalid_normalized_settlement_identity_cannot_supply_its_own_fingerprint) ... ok
+2026-10-19T08:28:24.0449796Z test_invalid_sqlite_boolean_is_unknown (test_audit.AccountingAuditTests.test_invalid_sqlite_boolean_is_unknown) ... ok
+2026-10-19T08:28:24.0451562Z test_large_integer_subject_is_exact_and_real_is_inexact (test_audit.AccountingAuditTests.test_large_integer_subject_is_exact_and_real_is_inexact) ... ok
+2026-10-19T08:28:24.0455098Z test_legacy_delta_uses_symmetric_max_quota_bound (test_audit.AccountingAuditTests.test_legacy_delta_uses_symmetric_max_quota_bound) ... ok
+2026-10-19T08:28:24.0457266Z test_legacy_subject_and_source_mismatch_blocks_delta_consistency (test_audit.AccountingAuditTests.test_legacy_subject_and_source_mismatch_blocks_delta_consistency) ... ok
+2026-10-19T08:28:24.0459092Z test_legacy_without_journal_keeps_actual_unknown (test_audit.AccountingAuditTests.test_legacy_without_journal_keeps_actual_unknown) ... ok
+2026-10-19T08:28:24.0463272Z test_manual_and_unknown_fact_states_fail_closed (test_audit.AccountingAuditTests.test_manual_and_unknown_fact_states_fail_closed) ... ok
+2026-10-19T08:28:24.0465034Z test_missing_schema_is_not_treated_as_empty (test_audit.AccountingAuditTests.test_missing_schema_is_not_treated_as_empty) ... ok
+2026-10-19T08:28:24.0467411Z test_multiple_settlement_events_for_one_request_are_one_unknown_identity (test_audit.AccountingAuditTests.test_multiple_settlement_events_for_one_request_are_one_unknown_identity) ... ok
+2026-10-19T08:28:24.0469952Z test_null_actual_is_not_zero (test_audit.AccountingAuditTests.test_null_actual_is_not_zero) ... ok
+2026-10-19T08:28:24.0473137Z test_paired_identity_conflict_is_not_two_charges (test_audit.AccountingAuditTests.test_paired_identity_conflict_is_not_two_charges) ... ok
+2026-10-19T08:28:24.0475692Z test_pending_refund_is_not_subtracted_from_settlement (test_audit.AccountingAuditTests.test_pending_refund_is_not_subtracted_from_settlement) ... ok
+2026-10-19T08:28:24.0478115Z test_refund_fingerprint_rejects_untrimmed_or_invalid_subject_identity (test_audit.AccountingAuditTests.test_refund_fingerprint_rejects_untrimmed_or_invalid_subject_identity) ... ok
+2026-10-19T08:28:24.0947542Z test_ambiguous_or_invalid_writer_is_unknown (test_preflight.ConfigurationProbeTests.test_ambiguous_or_invalid_writer_is_unknown) ... ok
+2026-10-19T08:28:24.0988203Z test_authoritative_without_redis_is_not_misblocked (test_preflight.ConfigurationProbeTests.test_authoritative_without_redis_is_not_misblocked) ... ok
+2026-10-19T08:28:24.1605296Z test_cli_outputs_matching_snapshot_evidence_and_rule_exit_status (test_preflight.ConfigurationProbeTests.test_cli_outputs_matching_snapshot_evidence_and_rule_exit_status) ... ok
+2026-10-19T08:28:24.1666670Z test_declared_redis_is_not_verified_or_permission_to_start (test_preflight.ConfigurationProbeTests.test_declared_redis_is_not_verified_or_permission_to_start) ... ok
+2026-10-19T08:28:24.1756024Z test_invalid_configuration_is_rejected (test_preflight.ConfigurationProbeTests.test_invalid_configuration_is_rejected) ... ok
+2026-10-19T08:28:24.1834093Z test_legacy_and_bridge_without_redis_are_blocked (test_preflight.ConfigurationProbeTests.test_legacy_and_bridge_without_redis_are_blocked) ... ok
+2026-10-19T08:28:24.1892035Z test_missing_schema_is_unknown_and_does_not_create_writer (test_preflight.ConfigurationProbeTests.test_missing_schema_is_unknown_and_does_not_create_writer) ... ok
+2026-10-19T08:28:24.1927937Z test_unset_or_false_is_not_a_recommendation_to_disable_batch (test_preflight.ConfigurationProbeTests.test_unset_or_false_is_not_a_recommendation_to_disable_batch) ... ok
+2026-10-19T08:28:24.1970019Z test_bad_hash_is_rejected (test_readonly.SnapshotReaderTest.test_bad_hash_is_rejected) ... ok
+2026-10-19T08:28:24.2022581Z test_exact_large_integer_null_zero_schema_and_no_side_effect (test_readonly.SnapshotReaderTest.test_exact_large_integer_null_zero_schema_and_no_side_effect) ... ok
+2026-10-19T08:28:24.2061546Z test_explicit_snapshot_must_match_manifest (test_readonly.SnapshotReaderTest.test_explicit_snapshot_must_match_manifest) ... ok
+2026-10-19T08:28:24.2099763Z test_manifest_requires_safe_source_description (test_readonly.SnapshotReaderTest.test_manifest_requires_safe_source_description) ... ok
+2026-10-19T08:28:24.2156980Z test_real_storage_is_rejected (test_readonly.SnapshotReaderTest.test_real_storage_is_rejected) ... ok
+2026-10-19T08:28:24.2206490Z test_secret_column_is_rejected_without_reading_it (test_readonly.SnapshotReaderTest.test_secret_column_is_rejected_without_reading_it) ... ok
+2026-10-19T08:28:24.2253565Z test_source_change_during_transaction_is_rejected (test_readonly.SnapshotReaderTest.test_source_change_during_transaction_is_rejected) ... ok
+2026-10-19T08:28:24.2295609Z test_wal_header_without_sidecar_is_rejected_without_creating_files (test_readonly.SnapshotReaderTest.test_wal_header_without_sidecar_is_rejected_without_creating_files) ... ok
+2026-10-19T08:28:24.2337960Z test_wal_or_shm_sidecar_is_rejected (test_readonly.SnapshotReaderTest.test_wal_or_shm_sidecar_is_rejected) ... ok
+2026-10-19T08:28:24.2384549Z test_write_is_denied (test_readonly.SnapshotReaderTest.test_write_is_denied) ... ok
+2026-10-19T08:28:24.2546523Z test_concurrent_replay_changes_each_leg_once (test_rehearsal.CopyRehearsalTest.test_concurrent_replay_changes_each_leg_once) ... ok
+2026-10-19T08:28:24.2613123Z test_conflicting_fact_identity_is_rejected_before_mutation (test_rehearsal.CopyRehearsalTest.test_conflicting_fact_identity_is_rejected_before_mutation) ... ok
+2026-10-19T08:28:24.2665191Z test_duplicate_fact_id_is_rejected (test_rehearsal.CopyRehearsalTest.test_duplicate_fact_id_is_rejected) ... ok
+2026-10-19T08:28:24.2727376Z test_duplicate_log_is_frozen_and_raw_payload_never_exposed (test_rehearsal.CopyRehearsalTest.test_duplicate_log_is_frozen_and_raw_payload_never_exposed) ... ok
+2026-10-19T08:28:24.2810255Z test_existing_destination_and_sealed_directory_are_rejected (test_rehearsal.CopyRehearsalTest.test_existing_destination_and_sealed_directory_are_rejected) ... ok
+2026-10-19T08:28:24.2881750Z test_foreign_key_cascade_is_rejected_before_copy (test_rehearsal.CopyRehearsalTest.test_foreign_key_cascade_is_rejected_before_copy) ... ok
+2026-10-19T08:28:24.3011842Z test_prepared_journal_with_actual_evidence_freezes_candidate (test_rehearsal.CopyRehearsalTest.test_prepared_journal_with_actual_evidence_freezes_candidate) ... ok
+2026-10-19T08:28:24.3155401Z test_qualification_is_field_specific_and_versions_preflighted (test_rehearsal.CopyRehearsalTest.test_qualification_is_field_specific_and_versions_preflighted) ... ok
+2026-10-19T08:28:24.3213753Z test_real_amount_storage_is_rejected_before_copy (test_rehearsal.CopyRehearsalTest.test_real_amount_storage_is_rejected_before_copy) ... ok
+2026-10-19T08:28:24.3310378Z test_restart_after_funding_commit_only_finishes_missing_leg (test_rehearsal.CopyRehearsalTest.test_restart_after_funding_commit_only_finishes_missing_leg) ... ok
+2026-10-19T08:28:24.3373219Z test_same_event_in_another_request_log_freezes_candidate (test_rehearsal.CopyRehearsalTest.test_same_event_in_another_request_log_freezes_candidate) ... ok
+2026-10-19T08:28:24.3494490Z test_simulated_deficits_are_reported_and_never_clamped (test_rehearsal.CopyRehearsalTest.test_simulated_deficits_are_reported_and_never_clamped) ... ok
+2026-10-19T08:28:24.3618010Z test_source_unchanged_exact_difference_and_frozen_fact (test_rehearsal.CopyRehearsalTest.test_source_unchanged_exact_difference_and_frozen_fact) ... ok
+2026-10-19T08:28:24.3825794Z test_source_wide_qualification_survives_crossing_int32_region (test_rehearsal.CopyRehearsalTest.test_source_wide_qualification_survives_crossing_int32_region) ... ok
+2026-10-19T08:28:24.3885787Z test_transaction_failure_rolls_back_balance_and_flag_together (test_rehearsal.CopyRehearsalTest.test_transaction_failure_rolls_back_balance_and_flag_together) ... ok
+2026-10-19T08:28:24.3940577Z test_trigger_is_rejected_before_copy (test_rehearsal.CopyRehearsalTest.test_trigger_is_rejected_before_copy) ... ok
+2026-10-19T08:28:24.4001620Z test_view_in_place_of_subject_table_is_rejected (test_rehearsal.CopyRehearsalTest.test_view_in_place_of_subject_table_is_rejected) ... ok
+2026-10-19T08:28:24.4032487Z test_wide_targets_are_exact_and_normal_limits_preserved (test_rehearsal.CopyRehearsalTest.test_wide_targets_are_exact_and_normal_limits_preserved) ... ok
+2026-10-19T08:28:24.4090577Z test_writable_source_is_rejected_before_creating_output (test_rehearsal.CopyRehearsalTest.test_writable_source_is_rejected_before_creating_output) ... ok
+2026-10-19T08:28:24.4091807Z 
+2026-10-19T08:28:24.4092095Z ----------------------------------------------------------------------
+2026-10-19T08:28:24.4092694Z Ran 63 tests in 0.601s
+2026-10-19T08:28:24.4092907Z 
+2026-10-19T08:28:24.4093049Z OK
+2026-10-19T08:28:24.4244273Z ##[group]Run go test -race -p 1 ./model -run '^TestOption(WritesPublishInCommitOrder|ReloadCannotOverwriteNewerWrite|SaveFailureDoesNotPublishOrHoldSequence|ReloadFailureDoesNotPublishOrHoldSequence)$' -count=1 -timeout=120s
+2026-10-19T08:28:24.4246075Z [36;1mgo test -race -p 1 ./model -run '^TestOption(WritesPublishInCommitOrder|ReloadCannotOverwriteNewerWrite|SaveFailureDoesNotPublishOrHoldSequence|ReloadFailureDoesNotPublishOrHoldSequence)$' -count=1 -timeout=120s[0m
+2026-10-19T08:28:24.4308282Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:28:24.4308549Z env:
+2026-10-19T08:28:24.4308743Z   GOWORK: off
+2026-10-19T08:28:24.4308946Z   GOMAXPROCS: 1
+2026-10-19T08:28:24.4309154Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:28:24.4309558Z   GOTOOLCHAIN: local
+2026-10-19T08:28:24.4309940Z ##[endgroup]
+2026-10-19T08:28:54.5950891Z ok  	github.com/ForceMind/MyAPI/model	1.889s
+2026-10-19T08:28:54.6355774Z ##[group]Run go test -race -p 1 ./common ./common/limiter ./types ./setting/config ./setting/model_setting ./setting/operation_setting ./setting/ratio_setting ./setting ./model ./middleware ./controller ./service ./relay/common -run '^Test(InMemoryRateLimiter|NewUsesProvidedRedisClient|Allow(RecoversAfterRedisScriptFlush|SetsAndRenewsBucketTTL|RejectsInvalidConfigWithoutWritingBucket|LuaValidationAndInvalidBucketStateDoNotWrite)|UpdateTopupGroupRatio|ValidateTopupGroupRatio|RWMap|LoadFromJsonString|Chats|UserUsableGroups|UpdateAutoGroups|UpdatePayMethods|UpdateConfigFromMap|ValidateConfigFromMap|ConfigManager|ToolPrice|GetClaudeSettings|ClaudeManagedConfig|RelayInfoKeepsCapturedClaudeSettingsDuringConcurrentPublish|ManagedMonitorSetting|GetMonitorSetting|MonitorSetting_|ValidateGeminiThinking|ValidateRatioMapJSON|ValidateNestedRatioMapJSON|RatioJSON|GroupRatio|ManagedGroupRatio|ValidateGroupSpecialUsableGroup|GetGroupSpecialUsableGroup|GetUserUsableGroups|GetUserModelsExpandsAutoGroups|LoadGroupRatio|LoadInvalidGroupRatio|UpdateGroupRatio|InitOptionMapPublishesAlias|GroupSpecialUsableGroupRemains|ExposedData|UpdateModelRequest|ModelRequest|ResolveModelRequest|ValidateModelRequest|EnabledModelRequest|RateLimitTyped|ValidateOptionValue|GenericConfig|ModelSemanticConfig|AuxiliaryOption|NullCollection|MalformedD07|UpdateOptionsBulk|LoadOptionsRejects|RateLimitPersistence|ModelRedisRateLimit|MemoryModelRateLimit|UpdateOptionRatioPersistence|ConfirmPaymentCompliance|S2PaymentComplianceBulkRollbackSQLite).*$' -count=1 -timeout=180s
+2026-10-19T08:28:54.6368283Z [36;1mgo test -race -p 1 ./common ./common/limiter ./types ./setting/config ./setting/model_setting ./setting/operation_setting ./setting/ratio_setting ./setting ./model ./middleware ./controller ./service ./relay/common -run '^Test(InMemoryRateLimiter|NewUsesProvidedRedisClient|Allow(RecoversAfterRedisScriptFlush|SetsAndRenewsBucketTTL|RejectsInvalidConfigWithoutWritingBucket|LuaValidationAndInvalidBucketStateDoNotWrite)|UpdateTopupGroupRatio|ValidateTopupGroupRatio|RWMap|LoadFromJsonString|Chats|UserUsableGroups|UpdateAutoGroups|UpdatePayMethods|UpdateConfigFromMap|ValidateConfigFromMap|ConfigManager|ToolPrice|GetClaudeSettings|ClaudeManagedConfig|RelayInfoKeepsCapturedClaudeSettingsDuringConcurrentPublish|ManagedMonitorSetting|GetMonitorSetting|MonitorSetting_|ValidateGeminiThinking|ValidateRatioMapJSON|ValidateNestedRatioMapJSON|RatioJSON|GroupRatio|ManagedGroupRatio|ValidateGroupSpecialUsableGroup|GetGroupSpecialUsableGroup|GetUserUsableGroups|GetUserModelsExpandsAutoGroups|LoadGroupRatio|LoadInvalidGroupRatio|UpdateGroupRatio|InitOptionMapPublishesAlias|GroupSpecialUsableGroupRemains|ExposedData|UpdateModelRequest|ModelRequest|ResolveModelRequest|ValidateModelRequest|EnabledModelRequest|RateLimitTyped|ValidateOptionValue|GenericConfig|ModelSemanticConfig|AuxiliaryOption|NullCollection|MalformedD07|UpdateOptionsBulk|LoadOptionsRejects|RateLimitPersistence|ModelRedisRateLimit|MemoryModelRateLimit|UpdateOptionRatioPersistence|ConfirmPaymentCompliance|S2PaymentComplianceBulkRollbackSQLite).*$' -count=1 -timeout=180s[0m
+2026-10-19T08:28:54.6436471Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:28:54.6436724Z env:
+2026-10-19T08:28:54.6436915Z   GOWORK: off
+2026-10-19T08:28:54.6437112Z   GOMAXPROCS: 1
+2026-10-19T08:28:54.6437315Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:28:54.6437528Z   GOTOOLCHAIN: local
+2026-10-19T08:28:54.6437741Z ##[endgroup]
+2026-10-19T08:28:58.2897136Z ok  	github.com/ForceMind/MyAPI/common	1.052s
+2026-10-19T08:28:59.8693524Z ok  	github.com/ForceMind/MyAPI/common/limiter	1.034s
+2026-10-19T08:29:01.5257024Z ok  	github.com/ForceMind/MyAPI/types	1.040s
+2026-10-19T08:29:03.2417756Z ok  	github.com/ForceMind/MyAPI/setting/config	1.046s
+2026-10-19T08:29:05.0646088Z ok  	github.com/ForceMind/MyAPI/setting/model_setting	1.043s
+2026-10-19T08:29:07.0929210Z ok  	github.com/ForceMind/MyAPI/setting/operation_setting	1.078s
+2026-10-19T08:29:09.0171446Z ok  	github.com/ForceMind/MyAPI/setting/ratio_setting	1.049s
+2026-10-19T08:29:11.1891319Z ok  	github.com/ForceMind/MyAPI/setting	1.043s
+2026-10-19T08:29:16.3625382Z ok  	github.com/ForceMind/MyAPI/model	2.171s
+2026-10-19T08:29:19.4024135Z ok  	github.com/ForceMind/MyAPI/middleware	1.070s
+2026-10-19T08:29:31.6079636Z ok  	github.com/ForceMind/MyAPI/controller	1.232s
+2026-10-19T08:29:35.6034989Z ok  	github.com/ForceMind/MyAPI/service	1.434s
+2026-10-19T08:29:38.4380716Z ok  	github.com/ForceMind/MyAPI/relay/common	1.047s
+2026-10-19T08:29:38.4910593Z ##[group]Run go test -race -p 1 ./model ./middleware ./controller ./service ./router -run '^Test(ChannelModel|SelectedModelRoute|ModelRoute|ExplicitModelRoutes|RelayFailover|RelayCooldown|RelayAccountHold|RelayHoldConfigDigest|ChannelAccountAffinity|RetrySafety|FixedPriceTextDispatch|TextDispatchSurvivesLossOfLiveSession)' -count=1 -timeout=180s
+2026-10-19T08:29:38.4913210Z [36;1mgo test -race -p 1 ./model ./middleware ./controller ./service ./router -run '^Test(ChannelModel|SelectedModelRoute|ModelRoute|ExplicitModelRoutes|RelayFailover|RelayCooldown|RelayAccountHold|RelayHoldConfigDigest|ChannelAccountAffinity|RetrySafety|FixedPriceTextDispatch|TextDispatchSurvivesLossOfLiveSession)' -count=1 -timeout=180s[0m
+2026-10-19T08:29:38.4976419Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:29:38.4976700Z env:
+2026-10-19T08:29:38.4976920Z   GOWORK: off
+2026-10-19T08:29:38.4977148Z   GOMAXPROCS: 1
+2026-10-19T08:29:38.4977377Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:29:38.4977836Z   GOTOOLCHAIN: local
+2026-10-19T08:29:38.4978076Z ##[endgroup]
+2026-10-19T08:29:44.6219216Z ok  	github.com/ForceMind/MyAPI/model	2.540s
+2026-10-19T08:29:47.7277371Z ok  	github.com/ForceMind/MyAPI/middleware	1.088s
+2026-10-19T08:29:52.1997253Z ok  	github.com/ForceMind/MyAPI/controller	1.432s
+2026-10-19T08:30:00.9022119Z ok  	github.com/ForceMind/MyAPI/service	6.206s
+2026-10-19T08:30:57.9208838Z ok  	github.com/ForceMind/MyAPI/router	54.466s
+2026-10-19T08:30:57.9623652Z ##[group]Run go test -race -p 1 ./model ./service ./controller ./relay/channel/openai ./relay/helper ./router -run '^Test(TokenBudgetChat|StrictChat|StrictTokenBudget|OpenAIPriceCheck|ChatBudget|ChatStreamTerminal|ChatResponseCompletion|OpenaiHandler.*CompletionEvidence|StreamScannerHandler_ExactTerminatorEvidence|TextUsageReviewDisposition|TextUnknownUsagePersistsAcrossBothWriterModes|UsageReview|TokenBudgetRecovery|BillingOperationContext|QuotaBatchStartup|IncidentSynthetic|QuotaTask|SubscriptionTransactionPreConsumeAdmissionErrorIdentity|LegacyBillingSessionSubscription|LegacyBillingSessionWrappedSubscriptionAdmissionErrors|BillingSessionSubscriptionStorageFailureAcrossWriters)' -count=1 -timeout=180s
+2026-10-19T08:30:57.9629587Z [36;1mgo test -race -p 1 ./model ./service ./controller ./relay/channel/openai ./relay/helper ./router -run '^Test(TokenBudgetChat|StrictChat|StrictTokenBudget|OpenAIPriceCheck|ChatBudget|ChatStreamTerminal|ChatResponseCompletion|OpenaiHandler.*CompletionEvidence|StreamScannerHandler_ExactTerminatorEvidence|TextUsageReviewDisposition|TextUnknownUsagePersistsAcrossBothWriterModes|UsageReview|TokenBudgetRecovery|BillingOperationContext|QuotaBatchStartup|IncidentSynthetic|QuotaTask|SubscriptionTransactionPreConsumeAdmissionErrorIdentity|LegacyBillingSessionSubscription|LegacyBillingSessionWrappedSubscriptionAdmissionErrors|BillingSessionSubscriptionStorageFailureAcrossWriters)' -count=1 -timeout=180s[0m
+2026-10-19T08:30:57.9696756Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:30:57.9697024Z env:
+2026-10-19T08:30:57.9697220Z   GOWORK: off
+2026-10-19T08:30:57.9697421Z   GOMAXPROCS: 1
+2026-10-19T08:30:57.9697624Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:30:57.9697843Z   GOTOOLCHAIN: local
+2026-10-19T08:30:57.9698054Z ##[endgroup]
+2026-10-19T08:31:24.3490319Z ok  	github.com/ForceMind/MyAPI/model	22.670s
+2026-10-19T08:32:34.1443106Z ok  	github.com/ForceMind/MyAPI/service	67.240s
+2026-10-19T08:33:25.4479189Z ok  	github.com/ForceMind/MyAPI/controller	48.242s
+2026-10-19T08:33:29.6877076Z ok  	github.com/ForceMind/MyAPI/relay/channel/openai	1.130s
+2026-10-19T08:33:32.8773948Z ok  	github.com/ForceMind/MyAPI/relay/helper	1.052s
+2026-10-19T08:33:46.7591784Z ok  	github.com/ForceMind/MyAPI/router	11.347s
+2026-10-19T08:33:46.8015186Z ##[group]Run go test -race -p 1 ./model ./service/accesspolicy ./service ./middleware ./controller ./router ./relay/channel -run '^Test(AssignedAccess|AssignedPolicy|AssignedModelRoute|NormalizeAssigned|EvaluateAssigned|ChannelQuotaAlert|ChannelQuotaEvents|CodexEventObservation|ListChannelQuotaAlert)' -count=1 -timeout=180s
+2026-10-19T08:33:46.8017576Z [36;1mgo test -race -p 1 ./model ./service/accesspolicy ./service ./middleware ./controller ./router ./relay/channel -run '^Test(AssignedAccess|AssignedPolicy|AssignedModelRoute|NormalizeAssigned|EvaluateAssigned|ChannelQuotaAlert|ChannelQuotaEvents|CodexEventObservation|ListChannelQuotaAlert)' -count=1 -timeout=180s[0m
+2026-10-19T08:33:46.8079794Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:33:46.8080050Z env:
+2026-10-19T08:33:46.8080246Z   GOWORK: off
+2026-10-19T08:33:46.8080445Z   GOMAXPROCS: 1
+2026-10-19T08:33:46.8080650Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:33:46.8080866Z   GOTOOLCHAIN: local
+2026-10-19T08:33:46.8081101Z ##[endgroup]
+2026-10-19T08:33:53.8476787Z ok  	github.com/ForceMind/MyAPI/model	3.347s
+2026-10-19T08:33:56.4888059Z ok  	github.com/ForceMind/MyAPI/service/accesspolicy	1.052s
+2026-10-19T08:34:02.4701051Z ok  	github.com/ForceMind/MyAPI/service	3.494s
+2026-10-19T08:34:05.4802156Z ok  	github.com/ForceMind/MyAPI/middleware	1.051s [no tests to run]
+2026-10-19T08:34:11.6189577Z ok  	github.com/ForceMind/MyAPI/controller	3.090s
+2026-10-19T08:34:22.6236650Z ok  	github.com/ForceMind/MyAPI/router	8.384s
+2026-10-19T08:34:25.7165233Z ok  	github.com/ForceMind/MyAPI/relay/channel	1.271s
+2026-10-19T08:34:25.7568622Z ##[group]Run go test -race -p 1 ./model ./service ./controller ./router -run '^Test(TokenMaintenance|TokenAccountMigration|NormalizeTokenAccountMigration|SamplingTargetProof|EnsureSamplingTargetUpgradesLegacyProofState|ValidateTrustedCodexCredentialContinuity)' -count=1 -timeout=180s
+2026-10-19T08:34:25.7571107Z [36;1mgo test -race -p 1 ./model ./service ./controller ./router -run '^Test(TokenMaintenance|TokenAccountMigration|NormalizeTokenAccountMigration|SamplingTargetProof|EnsureSamplingTargetUpgradesLegacyProofState|ValidateTrustedCodexCredentialContinuity)' -count=1 -timeout=180s[0m
+2026-10-19T08:34:25.7633084Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:34:25.7633334Z env:
+2026-10-19T08:34:25.7633523Z   GOWORK: off
+2026-10-19T08:34:25.7633736Z   GOMAXPROCS: 1
+2026-10-19T08:34:25.7633942Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:34:25.7634157Z   GOTOOLCHAIN: local
+2026-10-19T08:34:25.7634370Z ##[endgroup]
+2026-10-19T08:34:59.9374490Z ok  	github.com/ForceMind/MyAPI/model	30.505s
+2026-10-19T08:35:04.1252116Z ok  	github.com/ForceMind/MyAPI/service	1.673s
+2026-10-19T08:35:08.9833198Z ok  	github.com/ForceMind/MyAPI/controller	1.844s
+2026-10-19T08:35:13.0124999Z ok  	github.com/ForceMind/MyAPI/router	1.462s
+2026-10-19T08:35:13.0534379Z ##[group]Run go test -race -p 1 ./model ./service ./controller ./relay/channel ./router -run '^TestUpstreamAcceptance' -count=1 -timeout=180s
+2026-10-19T08:35:13.0536303Z [36;1mgo test -race -p 1 ./model ./service ./controller ./relay/channel ./router -run '^TestUpstreamAcceptance' -count=1 -timeout=180s[0m
+2026-10-19T08:35:13.0627233Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:35:13.0627670Z env:
+2026-10-19T08:35:13.0627998Z   GOWORK: off
+2026-10-19T08:35:13.0628361Z   GOMAXPROCS: 1
+2026-10-19T08:35:13.0628745Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:35:13.0629132Z   GOTOOLCHAIN: local
+2026-10-19T08:35:13.0629786Z ##[endgroup]
+2026-10-19T08:35:18.7177366Z ok  	github.com/ForceMind/MyAPI/model	2.007s
+2026-10-19T08:35:23.3567094Z ok  	github.com/ForceMind/MyAPI/service	2.121s
+2026-10-19T08:35:27.7404870Z ok  	github.com/ForceMind/MyAPI/controller	1.289s
+2026-10-19T08:35:38.9258258Z ok  	github.com/ForceMind/MyAPI/relay/channel	9.350s
+2026-10-19T08:35:44.1670738Z ok  	github.com/ForceMind/MyAPI/router	2.675s
+2026-10-19T08:35:44.2051448Z ##[group]Run go test -race -p 1 ./pkg/ionet ./pkg/cachex -count=2 -timeout=120s
+2026-10-19T08:35:44.2052032Z [36;1mgo test -race -p 1 ./pkg/ionet ./pkg/cachex -count=2 -timeout=120s[0m
+2026-10-19T08:35:44.2113673Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:35:44.2113925Z env:
+2026-10-19T08:35:44.2114122Z   GOWORK: off
+2026-10-19T08:35:44.2114320Z   GOMAXPROCS: 1
+2026-10-19T08:35:44.2114521Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:35:44.2114737Z   GOTOOLCHAIN: local
+2026-10-19T08:35:44.2114953Z ##[endgroup]
+2026-10-19T08:35:46.4552207Z ok  	github.com/ForceMind/MyAPI/pkg/ionet	1.065s
+2026-10-19T08:35:48.2058639Z ok  	github.com/ForceMind/MyAPI/pkg/cachex	1.041s
+2026-10-19T08:35:48.2270067Z ##[group]Run go test -race -p 1 ./logger ./model ./service ./relay/channel/task/kling -run 'Test(ConcurrentLog|BlockedInfo|ManualSetupLogger|AutomaticRotation|NewTaskBillingContext|TaskBillingSnapshotRoundTrip|TaskJSON|Recalculate|RefundTask|Settle_|SettleTask|TaskToken|TaskFreeSnapshot|TaskBilling|TaskRecalculate|TaskPollingAudits|UpdateVideoTasks|KlingPollingPreservesDeductionSaturationAudit)' -count=1 -timeout=180s
+2026-10-19T08:35:48.2273206Z [36;1mgo test -race -p 1 ./logger ./model ./service ./relay/channel/task/kling -run 'Test(ConcurrentLog|BlockedInfo|ManualSetupLogger|AutomaticRotation|NewTaskBillingContext|TaskBillingSnapshotRoundTrip|TaskJSON|Recalculate|RefundTask|Settle_|SettleTask|TaskToken|TaskFreeSnapshot|TaskBilling|TaskRecalculate|TaskPollingAudits|UpdateVideoTasks|KlingPollingPreservesDeductionSaturationAudit)' -count=1 -timeout=180s[0m
+2026-10-19T08:35:48.2336564Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:35:48.2336816Z env:
+2026-10-19T08:35:48.2337033Z   GOWORK: off
+2026-10-19T08:35:48.2337236Z   GOMAXPROCS: 1
+2026-10-19T08:35:48.2337440Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:35:48.2337658Z   GOTOOLCHAIN: local
+2026-10-19T08:35:48.2337860Z ##[endgroup]
+2026-10-19T08:35:50.4122651Z ok  	github.com/ForceMind/MyAPI/logger	1.039s
+2026-10-19T08:36:01.9366904Z ok  	github.com/ForceMind/MyAPI/model	8.402s
+2026-10-19T08:36:19.5853780Z ok  	github.com/ForceMind/MyAPI/service	15.110s
+2026-10-19T08:36:23.9797360Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/kling	2.382s
+2026-10-19T08:36:24.0092269Z ##[group]Run go test -race -p 1 ./model -run '^Test(B2SubmissionSQLite|TaskQuotaReservation.*|AccountQuotaAndBalanceMigrationsUseBoundedKeysetBatches|AccountQuotaMigrationResumesPartialHeadAfterDatabaseReopen|AccountQuotaMigrationReadsTerminalBeyondFullReceiptPage|QuotaBalanceMigrationRecognizesPaddedLegacyFingerprintWithoutInferringCurrentCacheState)$' -count=1 -timeout=180s
+2026-10-19T08:36:24.0095435Z [36;1mgo test -race -p 1 ./model -run '^Test(B2SubmissionSQLite|TaskQuotaReservation.*|AccountQuotaAndBalanceMigrationsUseBoundedKeysetBatches|AccountQuotaMigrationResumesPartialHeadAfterDatabaseReopen|AccountQuotaMigrationReadsTerminalBeyondFullReceiptPage|QuotaBalanceMigrationRecognizesPaddedLegacyFingerprintWithoutInferringCurrentCacheState)$' -count=1 -timeout=180s[0m
+2026-10-19T08:36:24.0162213Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:36:24.0162482Z env:
+2026-10-19T08:36:24.0162676Z   GOWORK: off
+2026-10-19T08:36:24.0162878Z   GOMAXPROCS: 1
+2026-10-19T08:36:24.0163129Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:36:24.0163348Z   GOTOOLCHAIN: local
+2026-10-19T08:36:24.0163556Z ##[endgroup]
+2026-10-19T08:36:48.8819830Z ok  	github.com/ForceMind/MyAPI/model	21.336s
+2026-10-19T08:36:48.9136584Z Post job cleanup.
+2026-10-19T08:36:49.0398740Z [command]/opt/hostedtoolcache/go/1.25.1/x64/bin/go env GOMODCACHE
+2026-10-19T08:36:49.0457358Z [command]/opt/hostedtoolcache/go/1.25.1/x64/bin/go env GOCACHE
+2026-10-19T08:36:49.0481102Z /home/runner/go/pkg/mod
+2026-10-19T08:36:49.0502888Z /home/runner/.cache/go-build
+2026-10-19T08:36:49.0510462Z Cache hit occurred on the primary key setup-go-Linux-x64-ubuntu24-go-1.25.1-6d5e7a422ac7cc4529fbd9df01ec0b200929303e0fa2bb12bc04294bfe908406, not saving cache.
+2026-10-19T08:36:49.0742124Z Post job cleanup.
+2026-10-19T08:36:49.1585249Z [command]/usr/bin/git version
+2026-10-19T08:36:49.1631071Z git version 2.55.0
+2026-10-19T08:36:49.1670377Z Temporarily overriding HOME='/home/runner/work/_temp/381b24f9-3a6e-426c-b99a-7fce9645f501' before making global git config changes
+2026-10-19T08:36:49.1671824Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-19T08:36:49.1676805Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MyAPI/MyAPI
+2026-10-19T08:36:49.1711499Z Removing SSH command configuration
+2026-10-19T08:36:49.1718404Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-19T08:36:49.1768777Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-19T08:36:49.2019908Z Removing HTTP extra header
+2026-10-19T08:36:49.2025991Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-19T08:36:49.2074800Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-19T08:36:49.2342277Z Removing includeIf entries pointing to credentials config files
+2026-10-19T08:36:49.2349571Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-19T08:36:49.2388546Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-19T08:36:49.2874654Z Cleaning up orphan processes

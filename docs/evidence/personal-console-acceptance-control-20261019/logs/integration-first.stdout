@@ -1,0 +1,248 @@
+=== RUN   TestStartCodexOAuthBindsStateToDashboardSession
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+--- PASS: TestStartCodexOAuthBindsStateToDashboardSession (0.00s)
+=== RUN   TestStartCodexOAuthRequiresDashboardSession
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+--- PASS: TestStartCodexOAuthRequiresDashboardSession (0.00s)
+=== RUN   TestCompleteCodexOAuthNewChannelSavesCredentialWithoutReturningIt
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+--- PASS: TestCompleteCodexOAuthNewChannelSavesCredentialWithoutReturningIt (0.01s)
+=== RUN   TestCompleteCodexOAuthInvalidCreatePreservesAuthorizationCode
+=== RUN   TestCompleteCodexOAuthInvalidCreatePreservesAuthorizationCode/invalid_proxy
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+=== RUN   TestCompleteCodexOAuthInvalidCreatePreservesAuthorizationCode/overlong_model
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+=== RUN   TestCompleteCodexOAuthInvalidCreatePreservesAuthorizationCode/client_credential
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+=== RUN   TestCompleteCodexOAuthInvalidCreatePreservesAuthorizationCode/existing_channel
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+=== RUN   TestCompleteCodexOAuthInvalidCreatePreservesAuthorizationCode/wrong_provider
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+--- PASS: TestCompleteCodexOAuthInvalidCreatePreservesAuthorizationCode (0.00s)
+    --- PASS: TestCompleteCodexOAuthInvalidCreatePreservesAuthorizationCode/invalid_proxy (0.00s)
+    --- PASS: TestCompleteCodexOAuthInvalidCreatePreservesAuthorizationCode/overlong_model (0.00s)
+    --- PASS: TestCompleteCodexOAuthInvalidCreatePreservesAuthorizationCode/client_credential (0.00s)
+    --- PASS: TestCompleteCodexOAuthInvalidCreatePreservesAuthorizationCode/existing_channel (0.00s)
+    --- PASS: TestCompleteCodexOAuthInvalidCreatePreservesAuthorizationCode/wrong_provider (0.00s)
+=== RUN   TestCompleteCodexOAuthForChannelRejectsDifferentAccount
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.044ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "626b8e9a56f85e588ece84b71627ed1c4c6b13448575c33bb4b53bea63a7ac2e" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.025ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "a10bf0cffb095d293038520b0e526ade5968478400925dadfe2407a7eb6204cb" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.033ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "6ad144c118b86e4c48716ac8220e9ef0b7de9601704007fcc059ea1f93a303a7" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.026ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "9340bfe60176ff24a19a4eab9d9b18878ef0d6ae2d84e833c8ff59611ea775bc" LIMIT 1
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+--- PASS: TestCompleteCodexOAuthForChannelRejectsDifferentAccount (0.02s)
+=== RUN   TestManualCodexUsageExhaustionIsVisibleToRouting
+=== RUN   TestManualCodexUsageExhaustionIsVisibleToRouting/legacy_identity
+[SYS] 2026/10/19 - 15:33:01 | channels synced from database 
+=== RUN   TestManualCodexUsageExhaustionIsVisibleToRouting/versioned_identity
+[SYS] 2026/10/19 - 15:33:01 | channels synced from database 
+--- PASS: TestManualCodexUsageExhaustionIsVisibleToRouting (0.03s)
+    --- PASS: TestManualCodexUsageExhaustionIsVisibleToRouting/legacy_identity (0.01s)
+    --- PASS: TestManualCodexUsageExhaustionIsVisibleToRouting/versioned_identity (0.02s)
+=== RUN   TestManualCodexUsageDoesNotClaimSuccessWhenSnapshotWriteFails
+[SYS] 2026/10/19 - 15:33:01 | channels synced from database 
+[SYS] 2026/10/19 - 15:33:01 | failed to record Codex usage snapshot: fixture snapshot write unavailable 
+--- PASS: TestManualCodexUsageDoesNotClaimSuccessWhenSnapshotWriteFails (0.01s)
+=== RUN   TestCodexSamplingCompletionClockDoesNotReleaseFreshExhaustionAfterReset
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.031ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "8f8e2e30f244eedeeef36850e8b2ebd8ba19fcdbf4328f32b34628abb608a7d9" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.024ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "b2698f298be49d0458b33f7c52a3470da8a6cc06c0b9ab0bb3cdebe400832252" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_snapshot.go:358 [35;1mrecord not found
+[0m[33m[0.132ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE channel_id = 1 AND (subject_ref = "XlAY12o_HLYimLtkkP4nVuXgw5rNsjG05qtPBljajjk" AND identity_quality = "provider_confirmed") AND metric_type = "codex_rate_limit" AND source IN ("codex_wham_usage_primary","codex_wham_usage_secondary") AND status IN ("success") ORDER BY observed_at DESC, id DESC,`channel_quota_snapshots`.`id` LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_snapshot.go:661 [35;1mrecord not found
+[0m[33m[0.086ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE dedupe_key = "e480fab3132c2076cf12fc24db6b9538abfdba3148856ecad4409db1409284ca" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_routing.go:96 [35;1mrecord not found
+[0m[33m[0.152ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE (((subject_ref = "XlAY12o_HLYimLtkkP4nVuXgw5rNsjG05qtPBljajjk" AND identity_quality = "provider_confirmed") OR ((subject_ref = "" OR subject_ref IS NULL) AND (identity_quality = "" OR identity_quality IS NULL) AND account_ref = "858e722574d650088265c34aa26d9a7c6a6291a4ad90d19c9f3ac6aa1fbf7829"))) AND (metric_type = "codex_rate_limit" AND source = "codex_wham_usage_secondary" AND status = "success") ORDER BY observed_at DESC, id DESC LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_routing.go:96 [35;1mrecord not found
+[0m[33m[0.194ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE (((subject_ref = "XlAY12o_HLYimLtkkP4nVuXgw5rNsjG05qtPBljajjk" AND identity_quality = "provider_confirmed") OR ((subject_ref = "" OR subject_ref IS NULL) AND (identity_quality = "" OR identity_quality IS NULL) AND account_ref = "858e722574d650088265c34aa26d9a7c6a6291a4ad90d19c9f3ac6aa1fbf7829"))) AND (metric_type = "codex_rate_limit" AND source = "codex_wham_usage_primary" AND status = "unsupported") AND error_code = "window_absent" ORDER BY observed_at DESC, id DESC LIMIT 1
+--- PASS: TestCodexSamplingCompletionClockDoesNotReleaseFreshExhaustionAfterReset (0.01s)
+=== RUN   TestManualCodexUsageSnapshotUsesDatabaseClock
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_snapshot.go:509 [35;1mSQL logic error: no such table: channels (1)
+[0m[33m[0.225ms] [34;1m[rows:0][0m UPDATE `channels` SET `id`=id WHERE id = 996
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_snapshot.go:358 [35;1mrecord not found
+[0m[33m[0.175ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE channel_id = 996 AND ((subject_ref = "" OR subject_ref IS NULL) AND (identity_quality = "" OR identity_quality IS NULL) AND account_ref = "01653c78ce3d65b1a51ccdebc1718ea756d436c9416138e83efcfcf75c0804a0") AND metric_type = "codex_rate_limit" AND source IN ("codex_wham_usage_primary","codex_wham_usage_secondary") AND status IN ("success") ORDER BY observed_at DESC, id DESC,`channel_quota_snapshots`.`id` LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_snapshot.go:661 [35;1mrecord not found
+[0m[33m[0.091ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE dedupe_key = "f8ef0ffe200fb251c8b95f3ecf9a93fcd543b07247d56c310996472642ef052d" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+
+2026/10/19 15:33:01 [34;1m/root/myapi/controller/codex_quota_sampler_test.go:126
+[0m[35m[warn] [0mremoving callback `test:manual-codex-fixed-database-clock` from /root/myapi/controller/codex_quota_sampler_test.go:126
+--- PASS: TestManualCodexUsageSnapshotUsesDatabaseClock (0.00s)
+=== RUN   TestCodexSamplingSharesOneDeadlineAcrossUsageRefreshAndRetry
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.026ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "b66f82a9758b88d7fdea5abb98c0be8eda0746c43b919cdcd339c53e7931d690" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.020ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "3d8004316db2f5d92d9ae62c64c896ca43ad78f0c1c53a2bfc3e426bece2a0bc" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.285ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "67ec4b608acc8cd806fd378f64898af86f1266a07712369e38448fa1f2840ddc" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_credential.go:288 [35;1mrecord not found
+[0m[33m[0.038ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_sampling_targets` WHERE channel_id = 42 AND subject_ref = "kHO-JZYXouTy1vKFjrGvJMHg6kJZIR7w-gumuMeC6TY" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_snapshot.go:661 [35;1mrecord not found
+[0m[33m[0.073ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE dedupe_key = "d5abb4e4dc8b0bcead74061c76ebb4dd62fe05490cfa14eb735fa8a81afdf49e" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+--- PASS: TestCodexSamplingSharesOneDeadlineAcrossUsageRefreshAndRetry (0.02s)
+=== RUN   TestCodexSamplingHonorsShorterCallerDeadlineAndRecordsTimeout
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.036ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "e6ed60a449b9750653a3195aca4d65fee18cc08715ea80fce207c9c3b45703f2" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.022ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "3d8004316db2f5d92d9ae62c64c896ca43ad78f0c1c53a2bfc3e426bece2a0bc" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_snapshot.go:661 [35;1mrecord not found
+[0m[33m[0.108ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE dedupe_key = "9c2106d03f4d2e957439c352ba01f055952b7331d1d65a8013c5a40685162139" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+--- PASS: TestCodexSamplingHonorsShorterCallerDeadlineAndRecordsTimeout (0.02s)
+=== RUN   TestCodexSamplingRefreshWriteFailureIsReportedAndSafelyRecorded
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.043ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "b66f82a9758b88d7fdea5abb98c0be8eda0746c43b919cdcd339c53e7931d690" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.026ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "3d8004316db2f5d92d9ae62c64c896ca43ad78f0c1c53a2bfc3e426bece2a0bc" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.059ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "f7bcb8f86dc5e11518db36a2fa69158c9ca249fac9facb76f3d5ce6e6e195ee2" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_credential.go:288 [35;1mrecord not found
+[0m[33m[0.037ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_sampling_targets` WHERE channel_id = 44 AND subject_ref = "8hWQkGJteAlVLmyTKYP-3PmUl8v9ov0zLm5uIHDO3z4" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_snapshot.go:661 [35;1mrecord not found
+[0m[33m[0.061ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE dedupe_key = "ba26b7165d2faa7da8f5a60cc6c0c4dfcf97f0044e04494c5a2d9b0bbf443ec4" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+--- PASS: TestCodexSamplingRefreshWriteFailureIsReportedAndSafelyRecorded (0.03s)
+=== RUN   TestManualCodexUsageFailsAndRecordsCredentialPersistenceError
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.064ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "b66f82a9758b88d7fdea5abb98c0be8eda0746c43b919cdcd339c53e7931d690" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.068ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "3d8004316db2f5d92d9ae62c64c896ca43ad78f0c1c53a2bfc3e426bece2a0bc" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.027ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "ccead5e603a5b0986e3eede65dedad06784256709172f22d0b6fe8f7f9f1fcfa" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_credential.go:288 [35;1mrecord not found
+[0m[33m[0.036ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_sampling_targets` WHERE channel_id = 46 AND subject_ref = "j4NkAlfmysOceOji6XAMuy-YVEccCpcXMAjN4A8iG7Y" LIMIT 1
+[SYS] 2026/10/19 - 15:33:01 | Codex credential refresh persistence failed 
+--- PASS: TestManualCodexUsageFailsAndRecordsCredentialPersistenceError (0.04s)
+=== RUN   TestCodexSamplingSavesRotatedCredentialsAfterRequestCancellation
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.028ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "b66f82a9758b88d7fdea5abb98c0be8eda0746c43b919cdcd339c53e7931d690" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.026ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "3d8004316db2f5d92d9ae62c64c896ca43ad78f0c1c53a2bfc3e426bece2a0bc" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_identity.go:362 [35;1mrecord not found
+[0m[33m[0.047ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_identity_aliases` WHERE key_version = "v1" AND lookup_hmac = "f7bcb8f86dc5e11518db36a2fa69158c9ca249fac9facb76f3d5ce6e6e195ee2" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_credential.go:288 [35;1mrecord not found
+[0m[33m[0.060ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_sampling_targets` WHERE channel_id = 45 AND subject_ref = "wicAVu9hlO-HBLeSiYCVUydkj7dCS0pJfjq27pvy6fQ" LIMIT 1
+
+2026/10/19 15:33:01 [31;1m/root/myapi/model/channel_quota_snapshot.go:661 [35;1mrecord not found
+[0m[33m[1.607ms] [34;1m[rows:0][0m SELECT * FROM `channel_quota_snapshots` WHERE dedupe_key = "dc2f52a928fc86c08070b5c055c5755d41723f75d0c5aa9bf2fbaa0cd214d331" ORDER BY id ASC,`channel_quota_snapshots`.`id` LIMIT 1
+--- PASS: TestCodexSamplingSavesRotatedCredentialsAfterRequestCancellation (0.05s)
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/missing_session
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/personal_access_token
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/ordinary_user
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/admin_user
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/mode_disabled
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/missing_session
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/personal_access_token
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/ordinary_user
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/admin_user
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/mode_disabled
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/missing_session
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/personal_access_token
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/ordinary_user
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/admin_user
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/mode_disabled
+--- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode (0.00s)
+    --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/missing_session (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/personal_access_token (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/ordinary_user (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/admin_user (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/mode_disabled (0.00s)
+    --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/missing_session (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/personal_access_token (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/ordinary_user (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/admin_user (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/mode_disabled (0.00s)
+    --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/missing_session (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/personal_access_token (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/ordinary_user (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/admin_user (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/mode_disabled (0.00s)
+=== RUN   TestUpstreamAcceptanceControllerRejectsAmbiguousInput
+--- PASS: TestUpstreamAcceptanceControllerRejectsAmbiguousInput (0.00s)
+=== RUN   TestUpstreamAcceptanceControllerLifecycleDoesNotDispatch
+--- PASS: TestUpstreamAcceptanceControllerLifecycleDoesNotDispatch (0.12s)
+=== RUN   TestUpstreamAcceptanceModeRejectsNewChannelOAuth
+--- PASS: TestUpstreamAcceptanceModeRejectsNewChannelOAuth (0.00s)
+=== RUN   TestUpstreamAcceptanceModeRejectsUnscopedUsage
+--- PASS: TestUpstreamAcceptanceModeRejectsUnscopedUsage (0.09s)
+=== RUN   TestUpstreamAcceptanceModePausesQuotaSamplingHandler
+--- PASS: TestUpstreamAcceptanceModePausesQuotaSamplingHandler (0.15s)
+PASS
+ok  	github.com/ForceMind/MyAPI/controller	0.642s
+testing: warning: no tests to run
+PASS
+ok  	github.com/ForceMind/MyAPI/relay/channel	0.019s [no tests to run]

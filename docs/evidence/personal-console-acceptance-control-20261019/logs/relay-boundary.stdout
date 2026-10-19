@@ -1,0 +1,94 @@
+=== RUN   TestUpstreamAcceptanceDispatchUnsentCanRefund
+=== RUN   TestUpstreamAcceptanceDispatchUnsentCanRefund/legacy/transport_policy
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[INFO] 2026/10/19 - 15:47:10 | share-send-acceptance-unsent-legacy-transport_policy | 用户 2 需要预扣费 ＄0.000200 (funding=wallet) 
+=== RUN   TestUpstreamAcceptanceDispatchUnsentCanRefund/legacy/late_budget
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[INFO] 2026/10/19 - 15:47:10 | share-send-acceptance-unsent-legacy-late_budget | 用户 2 需要预扣费 ＄0.000200 (funding=wallet) 
+=== RUN   TestUpstreamAcceptanceDispatchUnsentCanRefund/authoritative/transport_policy
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[WARN] 2026/10/19 - 15:47:11 | SYSTEM | quota projection failed: request_id=share-send-acceptance-unsent-authoritative-transport_policy event=request:share-send-acceptance-unsent-authoritative-transport_policy:reserve:v1 receipt=account/1 obligation=1 error=redis projection unavailable 
+[WARN] 2026/10/19 - 15:47:11 | SYSTEM | quota projection failed: request_id=share-send-acceptance-unsent-authoritative-transport_policy event=request:share-send-acceptance-unsent-authoritative-transport_policy:refund:v1 receipt=account/2 obligation=2 error=redis projection unavailable 
+=== RUN   TestUpstreamAcceptanceDispatchUnsentCanRefund/authoritative/late_budget
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[WARN] 2026/10/19 - 15:47:11 | SYSTEM | quota projection failed: request_id=share-send-acceptance-unsent-authoritative-late_budget event=request:share-send-acceptance-unsent-authoritative-late_budget:reserve:v1 receipt=account/1 obligation=1 error=redis projection unavailable 
+[WARN] 2026/10/19 - 15:47:11 | SYSTEM | quota projection failed: request_id=share-send-acceptance-unsent-authoritative-late_budget event=request:share-send-acceptance-unsent-authoritative-late_budget:refund:v1 receipt=account/2 obligation=2 error=redis projection unavailable 
+--- PASS: TestUpstreamAcceptanceDispatchUnsentCanRefund (1.64s)
+    --- PASS: TestUpstreamAcceptanceDispatchUnsentCanRefund/legacy/transport_policy (0.42s)
+    --- PASS: TestUpstreamAcceptanceDispatchUnsentCanRefund/legacy/late_budget (0.41s)
+    --- PASS: TestUpstreamAcceptanceDispatchUnsentCanRefund/authoritative/transport_policy (0.41s)
+    --- PASS: TestUpstreamAcceptanceDispatchUnsentCanRefund/authoritative/late_budget (0.41s)
+=== RUN   TestUpstreamAcceptanceDispatchSentUnknownCannotRefund
+=== RUN   TestUpstreamAcceptanceDispatchSentUnknownCannotRefund/legacy
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[INFO] 2026/10/19 - 15:47:11 | share-send-acceptance-sent-legacy | 用户 2 需要预扣费 ＄0.000200 (funding=wallet) 
+[ERR] 2026/10/19 - 15:47:12 | share-send-acceptance-sent-legacy | do request failed: Post "https://chatgpt.com/backend-api/codex/responses": EOF 
+[INFO] 2026/10/19 - 15:47:12 | share-send-acceptance-sent-legacy | record error log: userId=2, channelId=701, modelName=gpt-5-codex, tokenName=, content=usage_pending_review 
+=== RUN   TestUpstreamAcceptanceDispatchSentUnknownCannotRefund/authoritative
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[WARN] 2026/10/19 - 15:47:12 | SYSTEM | quota projection failed: request_id=share-send-acceptance-sent-authoritative event=request:share-send-acceptance-sent-authoritative:reserve:v1 receipt=account/1 obligation=1 error=redis projection unavailable 
+[ERR] 2026/10/19 - 15:47:12 | share-send-acceptance-sent-authoritative | do request failed: Post "https://chatgpt.com/backend-api/codex/responses": EOF 
+[INFO] 2026/10/19 - 15:47:12 | share-send-acceptance-sent-authoritative | record error log: userId=2, channelId=701, modelName=gpt-5-codex, tokenName=, content=usage_pending_review 
+--- PASS: TestUpstreamAcceptanceDispatchSentUnknownCannotRefund (1.10s)
+    --- PASS: TestUpstreamAcceptanceDispatchSentUnknownCannotRefund/legacy (0.66s)
+    --- PASS: TestUpstreamAcceptanceDispatchSentUnknownCannotRefund/authoritative (0.44s)
+=== RUN   TestUpstreamAcceptanceDispatchBodyAndHandlerDrain
+=== RUN   TestUpstreamAcceptanceDispatchBodyAndHandlerDrain/legacy
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[INFO] 2026/10/19 - 15:47:12 | share-send-acceptance-drain-legacy | 用户 2 需要预扣费 ＄0.000200 (funding=wallet) 
+[INFO] 2026/10/19 - 15:47:12 | share-send-acceptance-drain-legacy | record error log: userId=2, channelId=701, modelName=gpt-5-codex, tokenName=, content=usage_pending_review 
+=== RUN   TestUpstreamAcceptanceDispatchBodyAndHandlerDrain/authoritative
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[WARN] 2026/10/19 - 15:47:13 | SYSTEM | quota projection failed: request_id=share-send-acceptance-drain-authoritative event=request:share-send-acceptance-drain-authoritative:reserve:v1 receipt=account/1 obligation=1 error=redis projection unavailable 
+[INFO] 2026/10/19 - 15:47:13 | share-send-acceptance-drain-authoritative | record error log: userId=2, channelId=701, modelName=gpt-5-codex, tokenName=, content=usage_pending_review 
+--- PASS: TestUpstreamAcceptanceDispatchBodyAndHandlerDrain (0.82s)
+    --- PASS: TestUpstreamAcceptanceDispatchBodyAndHandlerDrain/legacy (0.41s)
+    --- PASS: TestUpstreamAcceptanceDispatchBodyAndHandlerDrain/authoritative (0.41s)
+PASS
+ok  	github.com/ForceMind/MyAPI/relay/channel	3.589s
+=== RUN   TestUpstreamAcceptanceRelayRetainsOperationThroughControllerReturn
+[INFO] 2026/10/19 - 15:47:18 | acceptance-real-relay-request | 用户 1 需要预扣费 ＄0.001020 (funding=wallet) 
+[INFO] 2026/10/19 - 15:47:18 | acceptance-real-relay-request | 预扣费后返还扣费：＄0.000920（实际消耗：＄0.000100，预扣费：＄0.001020） 
+[INFO] 2026/10/19 - 15:47:18 | acceptance-real-relay-request | record consume log: userId=1, params={"channel_id":1,"prompt_tokens":10,"completion_tokens":5,"model_name":"gpt-5-codex","token_name":"","quota":50,"content":"","token_id":1,"use_time_seconds":0,"is_stream":false,"group":"default","other":{"admin_info":{"billing_settlement":{"actual_quota":50,"event_key":"billing-settlement:acceptance-real-relay-request:v1","fact_id":1,"state":"applied"},"model_route":{"channel_id":1,"config_digest":"66f82c5b0ef35f9344843835be582cd8c6a7bdc3d2eeca99ff927f457f96418d","endpoint":"/v1/chat/completions","priority":0,"reason":"configured_model","requested_model":"gpt-5-codex","selection_policy":"existing_priority_weight_or_affinity","upstream_model":"gpt-5-codex","weight":0},"relay_attempts":[{"channel_id":1,"key_index":0,"upstream_model":"gpt-5-codex","outcome":"completed"}],"usage_billing_path":"billing-usage-openai","use_channel":["1"]},"billing_source":"wallet","cache_ratio":1,"cache_tokens":0,"completion_ratio":8,"frt":-1000,"group_ratio":1,"input_tokens_total":10,"model_price":-1,"model_ratio":1,"request_conversion":["OpenAI Compatible","OpenAI Responses"],"request_path":"/v1/chat/completions","usage_accuracy":"reported","user_group_ratio":-1}} 
+--- PASS: TestUpstreamAcceptanceRelayRetainsOperationThroughControllerReturn (1.02s)
+=== RUN   TestUpstreamAcceptanceRuntimeAPI
+=== RUN   TestUpstreamAcceptanceRuntimeAPI/anonymous
+=== RUN   TestUpstreamAcceptanceRuntimeAPI/admin_session
+=== RUN   TestUpstreamAcceptanceRuntimeAPI/root_PAT
+=== RUN   TestUpstreamAcceptanceRuntimeAPI/wrong_origin
+=== RUN   TestUpstreamAcceptanceRuntimeAPI/missing_origin
+[SYS] 2026/10/19 - 15:47:19 | failed to fetch codex reset credits: upstream acceptance request not sent: upstream acceptance dispatch denied 
+=== NAME  TestUpstreamAcceptanceRuntimeAPI
+    upstream_acceptance_runtime_test.go:195: real HTTP control/session/Origin checks, one ordinary and one controlled loopback sample, budget refusal and stopped-run rejection; Key and financial values preserved
+--- PASS: TestUpstreamAcceptanceRuntimeAPI (0.43s)
+    --- PASS: TestUpstreamAcceptanceRuntimeAPI/anonymous (0.00s)
+    --- PASS: TestUpstreamAcceptanceRuntimeAPI/admin_session (0.00s)
+    --- PASS: TestUpstreamAcceptanceRuntimeAPI/root_PAT (0.00s)
+    --- PASS: TestUpstreamAcceptanceRuntimeAPI/wrong_origin (0.00s)
+    --- PASS: TestUpstreamAcceptanceRuntimeAPI/missing_origin (0.00s)
+PASS
+ok  	github.com/ForceMind/MyAPI/router	1.474s

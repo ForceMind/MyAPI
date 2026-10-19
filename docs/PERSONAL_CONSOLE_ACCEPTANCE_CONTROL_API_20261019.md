@@ -6,7 +6,7 @@
 
 进程环境变量 `MYAPI_UPSTREAM_ACCEPTANCE_ENABLED=true` 显式启用，默认关闭，接口不能启用它。只用于独立测试进程、临时数据库及合成凭据。当前阶段尚未授权真实测试账号。
 
-控制接口要求 Root 维护者的真实会话，拒绝 PAT、普通 API Key 和普通管理员。两个 POST 沿用既有控制台来源校验：匹配服务地址或配置的可信 Origin，缺少 Origin 时允许合法 Referer 回退；两者皆缺失则拒绝。单个 run 只绑定一个既有、单凭据 Codex channel/account；保存不可逆账号引用和随机进程 owner，不保存凭据、邮箱、URL 或响应内容。run 不绑定某个浏览器 SID，其他合格 Root 会话也可查看、停止当前进程的 run。重启后读取旧 run 不会取得其派发资格，也不自动恢复任务。
+控制接口要求 Root 维护者的真实会话，拒绝 PAT、普通 API Key 和普通管理员。两个 POST 沿用既有控制台来源校验：匹配服务地址或配置的可信 Origin，缺少 Origin 时允许合法 Referer 回退；两者皆缺失则拒绝。单个 run 只绑定一个既有、单凭据 Codex channel/account；保存脱敏账号引用和随机进程 owner，不保存凭据、邮箱、URL 或响应内容。run 不绑定某个浏览器 SID，其他合格 Root 会话也可查看、停止当前进程的 run。重启后读取旧 run 不会取得其派发资格，也不自动恢复任务。
 
 ## 接口
 

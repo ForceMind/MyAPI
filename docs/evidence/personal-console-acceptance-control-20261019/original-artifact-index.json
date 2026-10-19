@@ -1,0 +1,370 @@
+{
+  "run": 39220781498,
+  "build_sha": "0eadc1ac332031145cd425111cc0800dc2026526",
+  "source_sha": "c5e44f6140eccf83679d65ed94b9337319cfdf5b",
+  "files": [
+    {
+      "path": "reports/myapi-credential-browser-artifacts/credential-maintenance-qualification.json",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-credential-browser-artifacts/credential-maintenance-qualification.json",
+      "kind": "original report",
+      "bytes": 2449,
+      "sha256": "c350c2a1b87092b9386b8efd0ac132440a279dfac4566768b892ef4669caabdd"
+    },
+    {
+      "path": "reports/myapi-credential-rotation-artifacts/credential-rotation-qualification.json",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-credential-rotation-artifacts/credential-rotation-qualification.json",
+      "kind": "original report",
+      "bytes": 2950,
+      "sha256": "032d38db049ead6c9355363af5d19f59a2628b1aa45bb4169bedc96b4bdce2a0"
+    },
+    {
+      "path": "reports/myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime.json",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime.json",
+      "kind": "original report",
+      "bytes": 2218,
+      "sha256": "51bcf54ff4402897a4afb8ccdecfb5ec5aba582d69bd68619d80793080661643"
+    },
+    {
+      "path": "reports/myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime.json",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime.json",
+      "kind": "original report",
+      "bytes": 2213,
+      "sha256": "a1d925ca416167a59de1beb116e8ac8a2230f9ecbe8106e9343d0fb4dfc12d18"
+    },
+    {
+      "path": "reports/myapi-rotation-runtime-artifacts/en-1440/credential-rotation-runtime-en-1440.json",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-rotation-runtime-artifacts/en-1440/credential-rotation-runtime-en-1440.json",
+      "kind": "original report",
+      "bytes": 2487,
+      "sha256": "2558bab687be1b91fa534ab57a5484c5606881bcd29f5a723987d310019fe584"
+    },
+    {
+      "path": "reports/myapi-rotation-runtime-artifacts/zh-390/credential-rotation-runtime-zh-390.json",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-rotation-runtime-artifacts/zh-390/credential-rotation-runtime-zh-390.json",
+      "kind": "original report",
+      "bytes": 2483,
+      "sha256": "1a4d819ecd052efce0286ae46fd01385c9bd47037307886d86c4eb7e66e8f6d9"
+    },
+    {
+      "path": "reports/myapi-session-browser-artifacts/maintenance-session-qualification.json",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-session-browser-artifacts/maintenance-session-qualification.json",
+      "kind": "original report",
+      "bytes": 8294,
+      "sha256": "af7cfb8e9ecd61d2a5212defa9a1e669f443892135e2dbfdfc3229a4ea50bc93"
+    },
+    {
+      "path": "screenshots/credential-maintenance-runtime-en-1440-committed.png",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime-en-1440-committed.png",
+      "kind": "real Go and Chromium; synthetic credentials/database",
+      "bytes": 173417,
+      "sha256": "12deec7a557a39f24ef98c53cde71d0b67eaa3fc4ee90e650726a99a2f6ec8ac"
+    },
+    {
+      "path": "screenshots/credential-maintenance-runtime-en-1440-confirmed.png",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime-en-1440-confirmed.png",
+      "kind": "real Go and Chromium; synthetic credentials/database",
+      "bytes": 167016,
+      "sha256": "122316489cf88b4e785cfd3b148b2d2d94cf7af45f155ec45a900b1e73ef9309"
+    },
+    {
+      "path": "screenshots/credential-maintenance-runtime-en-1440-loaded.png",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime-en-1440-loaded.png",
+      "kind": "real Go and Chromium; synthetic credentials/database",
+      "bytes": 161795,
+      "sha256": "cf243f2745b76467fe12fd0b5bc26704c2d1fd55735dea6e9b2b39fb101c83a3"
+    },
+    {
+      "path": "screenshots/credential-maintenance-runtime-en-1440-reopened.png",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime-en-1440-reopened.png",
+      "kind": "real Go and Chromium; synthetic credentials/database",
+      "bytes": 160949,
+      "sha256": "724c55095f11a5469e3116f3fe6451bb1f20b885a050dc76afdc7c069624885d"
+    },
+    {
+      "path": "screenshots/credential-maintenance-runtime-zh-390-confirmed.png",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime-zh-390-confirmed.png",
+      "kind": "real Go and Chromium; synthetic credentials/database",
+      "bytes": 76481,
+      "sha256": "f5c76509780bdb4f1a345843437b9170273fb4aebf58e3236500cbaa96600c1f"
+    },
+    {
+      "path": "screenshots/credential-maintenance-runtime-zh-390-loaded.png",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime-zh-390-loaded.png",
+      "kind": "real Go and Chromium; synthetic credentials/database",
+      "bytes": 86082,
+      "sha256": "5c2737481142800cb29e21ca0f13f54e4604332de3fbbf5d57712685babff4f9"
+    },
+    {
+      "path": "screenshots/credential-maintenance-runtime-zh-390-committed.png",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime-zh-390-committed.png",
+      "kind": "real Go and Chromium; synthetic credentials/database",
+      "bytes": 76317,
+      "sha256": "cab471b81629e3e71ead2281290b95be1940747b029c0d03eee2ce9247bc3d91"
+    },
+    {
+      "path": "screenshots/credential-maintenance-runtime-zh-390-reopened.png",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime-zh-390-reopened.png",
+      "kind": "real Go and Chromium; synthetic credentials/database",
+      "bytes": 85818,
+      "sha256": "802a2fbf33c4e73eb8e17cfcffc298f395a5ccdd965864c701b781e1bbc660e7"
+    },
+    {
+      "path": "screenshots/credential-rotation-runtime-en-1440-closed-secret-cleared.png",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-rotation-runtime-artifacts/en-1440/credential-rotation-runtime-en-1440-closed-secret-cleared.png",
+      "kind": "real Go and Chromium; synthetic credentials/database",
+      "bytes": 167404,
+      "sha256": "da6491db6914999eed16bc73ff726badfadceecfd79b1e7f058140030207222c"
+    },
+    {
+      "path": "screenshots/credential-rotation-runtime-en-1440-fresh-secret-masked.png",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-rotation-runtime-artifacts/en-1440/credential-rotation-runtime-en-1440-fresh-secret-masked.png",
+      "kind": "real Go and Chromium; synthetic credentials/database",
+      "bytes": 160810,
+      "sha256": "2ad4231313f829b4f19c7b39849ead8cb26e092ae59fef5d077392eed330a304"
+    },
+    {
+      "path": "screenshots/credential-rotation-runtime-en-1440-review-confirmed.png",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-rotation-runtime-artifacts/en-1440/credential-rotation-runtime-en-1440-review-confirmed.png",
+      "kind": "real Go and Chromium; synthetic credentials/database",
+      "bytes": 172052,
+      "sha256": "481f27ab1cc88ec33eb57f32446cb03b7fdb8db1487bba0382e70611712829ed"
+    },
+    {
+      "path": "screenshots/credential-rotation-runtime-zh-390-closed-secret-cleared.png",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-rotation-runtime-artifacts/zh-390/credential-rotation-runtime-zh-390-closed-secret-cleared.png",
+      "kind": "real Go and Chromium; synthetic credentials/database",
+      "bytes": 87129,
+      "sha256": "44442d89930d9bab164d7798a2ade646e509eddb7ed3c0a400b72f5a0f4a3303"
+    },
+    {
+      "path": "screenshots/credential-rotation-runtime-zh-390-fresh-secret-masked.png",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-rotation-runtime-artifacts/zh-390/credential-rotation-runtime-zh-390-fresh-secret-masked.png",
+      "kind": "real Go and Chromium; synthetic credentials/database",
+      "bytes": 68144,
+      "sha256": "bc88b75a899ef3679461b0e0c38e787cf8fb5752d1387c2fc124b82b0d3c6ffe"
+    },
+    {
+      "path": "screenshots/credential-rotation-runtime-zh-390-review-confirmed.png",
+      "artifact": "myapi-credential-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "myapi-rotation-runtime-artifacts/zh-390/credential-rotation-runtime-zh-390-review-confirmed.png",
+      "kind": "real Go and Chromium; synthetic credentials/database",
+      "bytes": 82508,
+      "sha256": "1effd5239d6a63d94c3b4b01ba45e61d225cae2da110366918562f7a2b5b36cf"
+    },
+    {
+      "path": "reports/advanced-model-scope-qualification.json",
+      "artifact": "myapi-advanced-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "advanced-model-scope-qualification.json",
+      "kind": "original report",
+      "bytes": 18712,
+      "sha256": "74d83587cbfa1fb641e67b672ec9959921b1bf8603f0dad07e5b9065012cc9a3"
+    },
+    {
+      "path": "reports/advanced-security-qualification.json",
+      "artifact": "myapi-advanced-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "advanced-security-qualification.json",
+      "kind": "original report",
+      "bytes": 12497,
+      "sha256": "7e8bbf918f28c7664a28776e565ffaeca5608cecb7e563e21c51d8a53fbfb134"
+    },
+    {
+      "path": "reports/advanced-window-qualification.json",
+      "artifact": "myapi-advanced-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "advanced-window-qualification.json",
+      "kind": "original report",
+      "bytes": 20418,
+      "sha256": "755cf2a1668bd7360869f71a6900b004f1eda12acd6bb48dcdab659b6c9a18c1"
+    },
+    {
+      "path": "screenshots/advanced-model-scope-zh-1440-light-open.png",
+      "artifact": "myapi-advanced-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "advanced-model-scope-zh-1440-light-open.png",
+      "kind": "compiled frontend and synthetic APIs",
+      "bytes": 181225,
+      "sha256": "859c5fe1a19ba25197b70989d90566750082d4909348ca746367c3ac192b504a"
+    },
+    {
+      "path": "screenshots/advanced-model-scope-zh-390-light-open.png",
+      "artifact": "myapi-advanced-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "advanced-model-scope-zh-390-light-open.png",
+      "kind": "compiled frontend and synthetic APIs",
+      "bytes": 104278,
+      "sha256": "b6796dce877ef52b8e762f97e8ea00c357b980c66bf997475ca6717ecfcceb41"
+    },
+    {
+      "path": "screenshots/advanced-window-zh-1440-replacement.png",
+      "artifact": "myapi-advanced-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "advanced-window-zh-1440-replacement.png",
+      "kind": "compiled frontend and synthetic APIs",
+      "bytes": 141654,
+      "sha256": "4424ded673b2de952e2b9f3b110c24ddd6659dc96c9ae3d4a27fc6fb2f9ba70a"
+    },
+    {
+      "path": "screenshots/advanced-window-zh-390-replacement.png",
+      "artifact": "myapi-advanced-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "advanced-window-zh-390-replacement.png",
+      "kind": "compiled frontend and synthetic APIs",
+      "bytes": 59274,
+      "sha256": "8202cea78dc82c4e69369c1a899ae10512553f59b7f5aeffb2ef358ce667f361"
+    },
+    {
+      "path": "screenshots/advanced-security-zh-desktop-1440-panel.png",
+      "artifact": "myapi-advanced-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "advanced-security-zh-desktop-1440-panel.png",
+      "kind": "compiled frontend and synthetic APIs",
+      "bytes": 103820,
+      "sha256": "201e803294ec1ffef568fe1cc5cbd3ecf212e7cbd8e21d605f3ecd8d2b6a3a7c"
+    },
+    {
+      "path": "screenshots/advanced-security-zh-mobile-390-panel.png",
+      "artifact": "myapi-advanced-maintenance-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "advanced-security-zh-mobile-390-panel.png",
+      "kind": "compiled frontend and synthetic APIs",
+      "bytes": 74538,
+      "sha256": "bda9a41ffeae6d8e7d02cba767b0119015a5f5aad924fb0cae986e28524542d1"
+    },
+    {
+      "path": "screenshots/personal-zh-1440-overview.png",
+      "artifact": "myapi-personal-console-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "personal-zh-1440-overview.png",
+      "kind": "compiled frontend and synthetic APIs; original representative screenshot",
+      "bytes": 106087,
+      "sha256": "32af3c842d01575e37a2504ac6d4af49861214eb8807723b6f938c3e1861e573"
+    },
+    {
+      "path": "screenshots/personal-zh-390-overview.png",
+      "artifact": "myapi-personal-console-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "personal-zh-390-overview.png",
+      "kind": "compiled frontend and synthetic APIs; original representative screenshot",
+      "bytes": 65933,
+      "sha256": "827eb4546632bd1d45fb3d317882445299fce516685ed56b5591c0be96084301"
+    },
+    {
+      "path": "screenshots/personal-zh-1440-upstream.png",
+      "artifact": "myapi-personal-console-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "personal-zh-1440-upstream.png",
+      "kind": "compiled frontend and synthetic APIs; original representative screenshot",
+      "bytes": 105360,
+      "sha256": "bff7c271f8382aaed3a17361fcf81cabd87a76104a7bd93fe093fde86c5cfdba"
+    },
+    {
+      "path": "screenshots/personal-zh-390-upstream-stale.png",
+      "artifact": "myapi-personal-console-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "personal-zh-390-upstream-stale.png",
+      "kind": "compiled frontend and synthetic APIs; original representative screenshot",
+      "bytes": 66357,
+      "sha256": "37f2272f4b7a9b63699bb46a386ddd9969495f46ef988f78e401fee07d73668d"
+    },
+    {
+      "path": "screenshots/console-profile-zh-1440.png",
+      "artifact": "myapi-personal-console-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "console-profile-zh-1440.png",
+      "kind": "compiled frontend and synthetic APIs; original representative screenshot",
+      "bytes": 83552,
+      "sha256": "da7c7185e2d97acacce7ec9d4e5339da832a6eda60d8c7afab82ee4c3e37b975"
+    },
+    {
+      "path": "screenshots/console-profile-zh-390.png",
+      "artifact": "myapi-personal-console-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "console-profile-zh-390.png",
+      "kind": "compiled frontend and synthetic APIs; original representative screenshot",
+      "bytes": 55743,
+      "sha256": "7ccd52609b6d8acdec8cedda500d7f25f715e5a6bc07b6c732f753f81746e1b6"
+    },
+    {
+      "path": "screenshots/subscription-share-zh-1280-root-key-list.png",
+      "artifact": "myapi-personal-console-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "subscription-share-zh-1280-root-key-list.png",
+      "kind": "compiled frontend and synthetic APIs; original representative screenshot",
+      "bytes": 95076,
+      "sha256": "baf8888dbdd0cce5e68d59c5b0425b10be5c974226e025d3bc9b1d41b4425fba"
+    },
+    {
+      "path": "screenshots/subscription-share-zh-320-root-key-list.png",
+      "artifact": "myapi-personal-console-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "subscription-share-zh-320-root-key-list.png",
+      "kind": "compiled frontend and synthetic APIs; original representative screenshot",
+      "bytes": 66859,
+      "sha256": "127ae1d44b503a23b854300176e351e235216d70e289a4e9e8e57f19f624d417"
+    },
+    {
+      "path": "screenshots/console-success-unknown-zh-1440.png",
+      "artifact": "myapi-personal-console-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "console-success-unknown-zh-1440.png",
+      "kind": "compiled frontend and synthetic APIs; original representative screenshot",
+      "bytes": 127485,
+      "sha256": "de635739db4bcd1b8492c8be94df4259ffbd07a6d5e03de04c7d781e95f4a9a0"
+    },
+    {
+      "path": "screenshots/console-success-unknown-zh-390.png",
+      "artifact": "myapi-personal-console-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "console-success-unknown-zh-390.png",
+      "kind": "compiled frontend and synthetic APIs; original representative screenshot",
+      "bytes": 59896,
+      "sha256": "9a5f64fcebc007e0eedf929e591b0f481ecb2a7a0b8a2586bf30e3f04cb18a63"
+    },
+    {
+      "path": "screenshots/console-request-failed-zh-1440.png",
+      "artifact": "myapi-personal-console-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "console-request-failed-zh-1440.png",
+      "kind": "compiled frontend and synthetic APIs; original representative screenshot",
+      "bytes": 122357,
+      "sha256": "f8f562bef8ef1bf2c8c9ed6a6e2a67f98b3cca62a8236b1fa3e4588d67e562df"
+    },
+    {
+      "path": "screenshots/console-request-failed-zh-390.png",
+      "artifact": "myapi-personal-console-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "console-request-failed-zh-390.png",
+      "kind": "compiled frontend and synthetic APIs; original representative screenshot",
+      "bytes": 60614,
+      "sha256": "cbcc9f7df78afac3fd1c38f56377e0063df826e5f9f2dae6beef55d18c5adb38"
+    },
+    {
+      "path": "reports/personal-console-qualification.json",
+      "artifact": "myapi-personal-console-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "personal-console-qualification.json",
+      "kind": "original report",
+      "bytes": 11633,
+      "sha256": "4841ffa5e089258a3c54eeb8dcd7e49f12cc30f10acfe4ecb91b7ad0a05f402d"
+    },
+    {
+      "path": "reports/personal-workbench-qualification.json",
+      "artifact": "myapi-personal-console-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "personal-workbench-qualification.json",
+      "kind": "original report",
+      "bytes": 144799,
+      "sha256": "8e71f29e367610c29283cddb3d1165b251018ca503d40deffc876954c19b1799"
+    },
+    {
+      "path": "reports/subscription-share-qualification.json",
+      "artifact": "myapi-personal-console-0eadc1ac332031145cd425111cc0800dc2026526",
+      "source_path": "subscription-share-qualification.json",
+      "kind": "original report",
+      "bytes": 27857,
+      "sha256": "3144c2266c13ff592b9b9306c98ce3a650988c37e88c02ff26112947cc0104ad"
+    }
+  ],
+  "original_bytes_verified": true,
+  "png_count": 32,
+  "report_count": 13
+}

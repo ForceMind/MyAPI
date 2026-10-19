@@ -12,6 +12,8 @@
 2. `acceptance_boundary_review`（gpt-6-astra/high）先只读核查后，只写`service/upstream_acceptance_http.go`及测试：专用局部HTTP1 transport，停用keepalive/透明HTTP重试/重定向，原共享client及来源资格不变，body结束幂等释放。此前Sol capacity已有证据，本批用既定可用Astra高风险组合；不递归。
 3. 主代理写service运行生命周期、controller/路由、出站调用接入、调度保护、生成发送前/未发送收尾、版本/脚本/文档集成。只有主代理串行运行Go。最后安排非实现者独审与必要Actions。
 
+执行中明确追加所有权：model代理承接迁移注册、控制器/路由与调度保护、service运行测试及真实Relay生命周期测试；边界代理承接Codex service接入和发送边界测试；主代理保留运行核心、Relay与其余集成、CLI、版本/工作流及文档。交接后没有同文件并发写入，Go始终仅主代理执行。最终源码/文档/原图独审由未参与实现的`acceptance_final_audit`完成。
+
 每步先核对源码和接口依赖。默认模式关闭，普通实例及其他provider请求处理保持，验收进程整体后台采样暂停；验收模式不是全进程网络防火墙。只允许单个既有Codex channel/account，不支持新建channel=0的OAuth或reset-credit consume；其正常模式功能保持。进程owner栅栏防重启/其他节点自动续跑；不会把此范围冒称跨集群停止。
 
 ## 核心契约与验收
@@ -30,8 +32,12 @@
 
 ## 状态
 
-实现及本地定向验证完成，等待本批提交的Actions。控制接口与操作边界见[接口说明](PERSONAL_CONSOLE_ACCEPTANCE_CONTROL_API_20261019.md)。真实路由测试已证明Root会话/Origin、计数与停止；两writer发送边界8例通过；真实TokenAuth→Distribute→Relay验证HTTP结束后仍等结算与handler返回才完成停止。刷新成功后停止仍安全写入合成旋转凭据；CLI三例通过。
+本批隔离交付完成：准确候选c5e44f6的CI39220781498最终11/11成功，三库/race/完整Go/relaykit/386、前端构建和Chromium全部通过，32原PNG逐张独审通过。控制接口与操作边界见[接口说明](PERSONAL_CONSOLE_ACCEPTANCE_CONTROL_API_20261019.md)。真实路由测试已证明Root会话/Origin、计数与停止；两writer发送边界8例通过；真实TokenAuth→Distribute→Relay验证HTTP结束后仍等结算与handler返回才完成停止。刷新成功后停止仍安全写入合成旋转凭据；CLI三例通过。
 
-`acceptance_final_audit`（gpt-6-astra/high，非实现者）只读复核源码及原始测试输出，未发现阻断交付的P1/P2。剩余条件为当前提交的三库、race与完整CI；本地MySQL/PostgreSQL明确跳过，不能据此认定三库通过。测试中的Redis projection unavailable来自临时fixture，不作为Redis集成通过证据。真实账号/供应商兼容性与部署尚未执行。
+`acceptance_final_audit`（gpt-6-astra/high，非实现者）只读复核源码及原始测试输出，未发现阻断交付的P1/P2。本地MySQL/PostgreSQL明确跳过；最终准确CI已实际补齐三库48叶子和全部race/完整验证。测试中的Redis projection unavailable来自临时fixture，不作为Redis集成通过证据。真实账号/供应商兼容性与部署尚未执行。
 
-首次CI39218472756分发合同发现此前归档的`docs/evidence/**/*.log`被`docs/`打包白名单纳入。新增证据目录的嵌套`.npmignore`排除验收档案，并在pack校验中禁止整个证据目录；未放宽原有安全检查，运行源码/测试保持包含。干净archive副本加合成canary后实际manifest/pack验证通过；本机npm缓存改用`/tmp`以适应写入边界。独审确认修正范围合理，准确修正提交将重新跑既有CI。
+首次CI39218472756分发合同发现此前归档的`docs/evidence/**/*.log`被`docs/`打包白名单纳入。新增证据目录的嵌套`.npmignore`排除验收档案，并在pack校验中禁止整个证据目录；未放宽原有安全检查，运行源码/测试保持包含。干净archive副本加合成canary后实际manifest/pack验证通过；本机npm缓存改用`/tmp`以适应写入边界。独审确认修正范围合理，后续准确提交重新跑既有CI，最终分发/manifest/pack/65工具合同通过。
+
+第二CI的PostgreSQL重开fixture复用了工厂显式注入的Config.Conn池，cleanup误关原DB。c5e44f6只修正测试factory重建，保留所有断言；SQLite本地复验及最终三库通过，生产代码保持。两个先前运行被修正提交替代/取消，其失败日志与最终状态均归档。
+
+[最终交付](PERSONAL_CONSOLE_BETA21_DELIVERY_20261019.md)及[原始证据](evidence/personal-console-acceptance-control-20261019/README.md)保留准确来源；[部署门槛](PERSONAL_CONSOLE_BETA21_DEPLOYMENT_GATE_20261019.md)未执行。现在适合以[续接提示词](PERSONAL_CONSOLE_BETA21_NEXT_SESSION_20261019.md)新开会话，准备真实测试资料与授权。仅文档/证据归档使用skip ci，避免重复同输入重型验证；不把归档HEAD当作被构建源码。

@@ -1,0 +1,276 @@
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/classification_and_attempt_budgets
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/restart_owner
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/other_channel
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/other_account
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/disabled_kind
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/unknown_kind
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/generation_slot_stop_and_drain
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/generation_release_preserves_attempt_count
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/deadline_is_terminal_and_persisted
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/concurrent_last_budget_claim
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/negative_limit
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/unbounded_total
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/class_above_total
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/existing_counter
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/deadline
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/raw_account
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql
+    upstream_acceptance_run_test.go:25: requires explicitly configured disposable loopback B2 database
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres
+    upstream_acceptance_run_test.go:25: requires explicitly configured disposable loopback B2 database
+--- PASS: TestUpstreamAcceptanceRunConfiguredDatabases (0.17s)
+    --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite (0.17s)
+        --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/classification_and_attempt_budgets (0.04s)
+        --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits (0.02s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/restart_owner (0.00s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/other_channel (0.00s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/other_account (0.00s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/disabled_kind (0.00s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/unknown_kind (0.00s)
+        --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/generation_slot_stop_and_drain (0.03s)
+        --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/generation_release_preserves_attempt_count (0.03s)
+        --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/deadline_is_terminal_and_persisted (0.02s)
+        --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/concurrent_last_budget_claim (0.02s)
+        --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage (0.02s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/negative_limit (0.00s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/unbounded_total (0.00s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/class_above_total (0.00s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/existing_counter (0.00s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/deadline (0.00s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/raw_account (0.00s)
+    --- SKIP: TestUpstreamAcceptanceRunConfiguredDatabases/mysql (0.00s)
+    --- SKIP: TestUpstreamAcceptanceRunConfiguredDatabases/postgres (0.00s)
+PASS
+ok  	github.com/ForceMind/MyAPI/model	0.234s
+=== RUN   TestUpstreamAcceptanceServiceDisabledPreservesClientWithoutDatabase
+--- PASS: TestUpstreamAcceptanceServiceDisabledPreservesClientWithoutDatabase (0.00s)
+=== RUN   TestUpstreamAcceptanceServiceScopeAndRestartFence
+--- PASS: TestUpstreamAcceptanceServiceScopeAndRestartFence (0.05s)
+=== RUN   TestUpstreamAcceptanceServiceCountsFailedAttemptsAndSeparateBudgets
+=== RUN   TestUpstreamAcceptanceServiceCountsFailedAttemptsAndSeparateBudgets/auth
+=== RUN   TestUpstreamAcceptanceServiceCountsFailedAttemptsAndSeparateBudgets/refresh
+=== RUN   TestUpstreamAcceptanceServiceCountsFailedAttemptsAndSeparateBudgets/sample
+=== RUN   TestUpstreamAcceptanceServiceCountsFailedAttemptsAndSeparateBudgets/models
+=== RUN   TestUpstreamAcceptanceServiceCountsFailedAttemptsAndSeparateBudgets/generation
+--- PASS: TestUpstreamAcceptanceServiceCountsFailedAttemptsAndSeparateBudgets (0.08s)
+    --- PASS: TestUpstreamAcceptanceServiceCountsFailedAttemptsAndSeparateBudgets/auth (0.00s)
+    --- PASS: TestUpstreamAcceptanceServiceCountsFailedAttemptsAndSeparateBudgets/refresh (0.01s)
+    --- PASS: TestUpstreamAcceptanceServiceCountsFailedAttemptsAndSeparateBudgets/sample (0.00s)
+    --- PASS: TestUpstreamAcceptanceServiceCountsFailedAttemptsAndSeparateBudgets/models (0.01s)
+    --- PASS: TestUpstreamAcceptanceServiceCountsFailedAttemptsAndSeparateBudgets/generation (0.01s)
+=== RUN   TestUpstreamAcceptanceServiceTotalBudgetCannotBorrowAnotherClass
+--- PASS: TestUpstreamAcceptanceServiceTotalBudgetCannotBorrowAnotherClass (0.05s)
+=== RUN   TestUpstreamAcceptanceServiceGenerationBodyOwnsConcurrencySlot
+=== RUN   TestUpstreamAcceptanceServiceGenerationBodyOwnsConcurrencySlot/eof
+=== RUN   TestUpstreamAcceptanceServiceGenerationBodyOwnsConcurrencySlot/close
+--- PASS: TestUpstreamAcceptanceServiceGenerationBodyOwnsConcurrencySlot (0.19s)
+    --- PASS: TestUpstreamAcceptanceServiceGenerationBodyOwnsConcurrencySlot/eof (0.08s)
+    --- PASS: TestUpstreamAcceptanceServiceGenerationBodyOwnsConcurrencySlot/close (0.11s)
+=== RUN   TestUpstreamAcceptanceServiceStopCancelsBodyAndWaitsForLogicalDrain
+--- PASS: TestUpstreamAcceptanceServiceStopCancelsBodyAndWaitsForLogicalDrain (0.11s)
+=== RUN   TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests
+=== RUN   TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/wrong_access
+=== RUN   TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/duplicate_access
+=== RUN   TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/mixed_case_duplicate_access
+=== RUN   TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/wrong_account
+=== RUN   TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/cookie
+=== RUN   TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/noncanonical_cookie
+=== RUN   TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/unknown_path
+=== RUN   TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/escaped_path
+=== RUN   TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/different_host
+=== RUN   TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/extra_query
+=== RUN   TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/duplicate_version
+=== RUN   TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/invalid_query
+=== RUN   TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/wrong_refresh
+=== RUN   TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/duplicate_refresh
+--- PASS: TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests (0.09s)
+    --- PASS: TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/wrong_access (0.00s)
+    --- PASS: TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/duplicate_access (0.00s)
+    --- PASS: TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/mixed_case_duplicate_access (0.00s)
+    --- PASS: TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/wrong_account (0.00s)
+    --- PASS: TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/cookie (0.00s)
+    --- PASS: TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/noncanonical_cookie (0.00s)
+    --- PASS: TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/unknown_path (0.00s)
+    --- PASS: TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/escaped_path (0.00s)
+    --- PASS: TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/different_host (0.00s)
+    --- PASS: TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/extra_query (0.00s)
+    --- PASS: TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/duplicate_version (0.00s)
+    --- PASS: TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/invalid_query (0.00s)
+    --- PASS: TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/wrong_refresh (0.00s)
+    --- PASS: TestUpstreamAcceptanceServiceRejectsChangedCredentialAndMalformedRequests/duplicate_refresh (0.00s)
+=== RUN   TestUpstreamAcceptanceServiceStorageFailureLatchesStop
+--- PASS: TestUpstreamAcceptanceServiceStorageFailureLatchesStop (0.07s)
+=== RUN   TestUpstreamAcceptanceServiceRefreshStopRetainsRotatedCredential
+--- PASS: TestUpstreamAcceptanceServiceRefreshStopRetainsRotatedCredential (0.24s)
+PASS
+ok  	github.com/ForceMind/MyAPI/service	0.929s
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/missing_session
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/personal_access_token
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/ordinary_user
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/admin_user
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/mode_disabled
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/missing_session
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/personal_access_token
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/ordinary_user
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/admin_user
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/mode_disabled
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/missing_session
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/personal_access_token
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/ordinary_user
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/admin_user
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+=== RUN   TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/mode_disabled
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+--- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode (0.00s)
+    --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/missing_session (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/personal_access_token (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/ordinary_user (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/admin_user (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/start/mode_disabled (0.00s)
+    --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/missing_session (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/personal_access_token (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/ordinary_user (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/admin_user (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/status/mode_disabled (0.00s)
+    --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/missing_session (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/personal_access_token (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/ordinary_user (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/admin_user (0.00s)
+        --- PASS: TestUpstreamAcceptanceControllerRequiresRootSessionAndExplicitMode/stop/mode_disabled (0.00s)
+=== RUN   TestUpstreamAcceptanceControllerRejectsAmbiguousInput
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+--- PASS: TestUpstreamAcceptanceControllerRejectsAmbiguousInput (0.00s)
+=== RUN   TestUpstreamAcceptanceControllerLifecycleDoesNotDispatch
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+--- PASS: TestUpstreamAcceptanceControllerLifecycleDoesNotDispatch (0.10s)
+=== RUN   TestUpstreamAcceptanceModeRejectsNewChannelOAuth
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+--- PASS: TestUpstreamAcceptanceModeRejectsNewChannelOAuth (0.00s)
+=== RUN   TestUpstreamAcceptanceModeRejectsUnscopedUsage
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+--- PASS: TestUpstreamAcceptanceModeRejectsUnscopedUsage (0.08s)
+=== RUN   TestUpstreamAcceptanceModePausesQuotaSamplingHandler
+--- PASS: TestUpstreamAcceptanceModePausesQuotaSamplingHandler (0.10s)
+PASS
+ok  	github.com/ForceMind/MyAPI/controller	0.298s

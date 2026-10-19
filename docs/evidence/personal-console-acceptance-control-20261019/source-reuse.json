@@ -1,0 +1,12 @@
+{
+  "local_test_source": "ac3aa6c8a5dca0e227ff7805ce7a4b37533a158c",
+  "ci_candidate": "c5e44f6140eccf83679d65ed94b9337319cfdf5b",
+  "ci_candidate_tree": "db5e63575787de004fbed11f4d9baca5a1c78c90",
+  "compared_tracked_files": 2968,
+  "different_blobs": [
+    "model/upstream_acceptance_run_test.go"
+  ],
+  "production_and_frontend_differences": 0,
+  "test_fix_validation": "new model SQLite run passed; MySQL/PostgreSQL require final CI",
+  "scope": "all tracked Go/module/VERSION/runtime driver/frontend files; packaging guard changes separately validated"
+}

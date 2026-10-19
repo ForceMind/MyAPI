@@ -1,0 +1,1336 @@
+﻿2026-10-19T08:04:08.1696634Z Current runner version: '2.337.0'
+2026-10-19T08:04:08.1731505Z ##[group]Runner Image Provisioner
+2026-10-19T08:04:08.1733041Z Hosted Compute Agent
+2026-10-19T08:04:08.1734175Z Version: 20261012.601
+2026-10-19T08:04:08.1735444Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+2026-10-19T08:04:08.1736801Z Build Date: 2026-10-12T17:48:21Z
+2026-10-19T08:04:08.1738071Z Worker ID: {60fe6819-9a61-450b-b33a-6cabea7c990a}
+2026-10-19T08:04:08.1739907Z Region: eastus2
+2026-10-19T08:04:08.1740924Z Cloud: Azure
+2026-10-19T08:04:08.1742000Z ##[endgroup]
+2026-10-19T08:04:08.1744432Z ##[group]Operating System
+2026-10-19T08:04:08.1745582Z Ubuntu
+2026-10-19T08:04:08.1746699Z 24.04.5
+2026-10-19T08:04:08.1747650Z LTS
+2026-10-19T08:04:08.1748942Z ##[endgroup]
+2026-10-19T08:04:08.1750022Z ##[group]Runner Image
+2026-10-19T08:04:08.1751137Z Image: ubuntu-24.04
+2026-10-19T08:04:08.1752301Z Version: 20261012.334.1
+2026-10-19T08:04:08.1754462Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-19T08:04:08.1757298Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-19T08:04:08.1759292Z ##[endgroup]
+2026-10-19T08:04:08.1761426Z ##[group]GITHUB_TOKEN Permissions
+2026-10-19T08:04:08.1764444Z Contents: read
+2026-10-19T08:04:08.1765603Z Metadata: read
+2026-10-19T08:04:08.1766708Z ##[endgroup]
+2026-10-19T08:04:08.1770163Z Secret source: Actions
+2026-10-19T08:04:08.1771655Z Cache mode: write
+2026-10-19T08:04:08.1773367Z Prepare workflow directory
+2026-10-19T08:04:08.2410883Z Prepare all required actions
+2026-10-19T08:04:08.2481426Z Getting action download info
+2026-10-19T08:04:08.4460439Z Download action repository 'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0' (SHA:9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0)
+2026-10-19T08:04:08.5482889Z Download action repository 'actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16' (SHA:924ae3a1cded613372ab5595356fb5720e22ba16)
+2026-10-19T08:04:08.8714779Z Complete job name: B2 durable submission database regression
+2026-10-19T08:04:08.9224189Z ##[group]Checking docker version
+2026-10-19T08:04:08.9237449Z ##[command]/usr/bin/docker version --format '{{.Server.APIVersion}}'
+2026-10-19T08:04:09.0104527Z '1.48'
+2026-10-19T08:04:09.0116340Z Docker daemon API version: '1.48'
+2026-10-19T08:04:09.0117265Z ##[command]/usr/bin/docker version --format '{{.Client.APIVersion}}'
+2026-10-19T08:04:09.0285439Z '1.48'
+2026-10-19T08:04:09.0301212Z Docker client API version: '1.48'
+2026-10-19T08:04:09.0306980Z ##[endgroup]
+2026-10-19T08:04:09.0310685Z ##[group]Clean up resources from previous jobs
+2026-10-19T08:04:09.0315696Z ##[command]/usr/bin/docker ps --all --quiet --no-trunc --filter "label=ed82d0"
+2026-10-19T08:04:09.0459271Z ##[command]/usr/bin/docker network prune --force --filter "label=ed82d0"
+2026-10-19T08:04:09.0589301Z ##[endgroup]
+2026-10-19T08:04:09.0589847Z ##[group]Create local container network
+2026-10-19T08:04:09.0599792Z ##[command]/usr/bin/docker network create --label ed82d0 github_network_212426f30dac49fbb7dc536282885b61
+2026-10-19T08:04:09.1119230Z 4d4e717cd6accf0529ce3826d4b1c4c2553766cee6c44b6bf8fb5176ee355b93
+2026-10-19T08:04:09.1139206Z ##[endgroup]
+2026-10-19T08:04:09.1164920Z ##[group]Starting mysql service container
+2026-10-19T08:04:09.1186039Z ##[command]/usr/bin/docker pull mysql:5.7
+2026-10-19T08:04:09.4866377Z 5.7: Pulling from library/mysql
+2026-10-19T08:04:09.6086064Z 20e4dcae4c69: Pulling fs layer
+2026-10-19T08:04:09.6088640Z 1c56c3d4ce74: Pulling fs layer
+2026-10-19T08:04:09.6091150Z e9f03a1c24ce: Pulling fs layer
+2026-10-19T08:04:09.6093281Z 68c3898c2015: Pulling fs layer
+2026-10-19T08:04:09.6094713Z 6b95a940e7b6: Pulling fs layer
+2026-10-19T08:04:09.6095847Z 90986bb8de6e: Pulling fs layer
+2026-10-19T08:04:09.6096885Z ae71319cb779: Pulling fs layer
+2026-10-19T08:04:09.6097910Z ffc89e9dfd88: Pulling fs layer
+2026-10-19T08:04:09.6099327Z 43d05e938198: Pulling fs layer
+2026-10-19T08:04:09.6100370Z 064b2d298fba: Pulling fs layer
+2026-10-19T08:04:09.6101388Z df9a4d85569b: Pulling fs layer
+2026-10-19T08:04:09.6102783Z ae71319cb779: Waiting
+2026-10-19T08:04:09.6103744Z ffc89e9dfd88: Waiting
+2026-10-19T08:04:09.6104791Z 43d05e938198: Waiting
+2026-10-19T08:04:09.6105796Z 064b2d298fba: Waiting
+2026-10-19T08:04:09.6106777Z df9a4d85569b: Waiting
+2026-10-19T08:04:09.6107833Z 68c3898c2015: Waiting
+2026-10-19T08:04:09.6109428Z 6b95a940e7b6: Waiting
+2026-10-19T08:04:09.6110254Z 90986bb8de6e: Waiting
+2026-10-19T08:04:09.6730468Z 1c56c3d4ce74: Verifying Checksum
+2026-10-19T08:04:09.6732509Z 1c56c3d4ce74: Download complete
+2026-10-19T08:04:09.7371662Z e9f03a1c24ce: Verifying Checksum
+2026-10-19T08:04:09.7376837Z e9f03a1c24ce: Download complete
+2026-10-19T08:04:09.8006269Z 6b95a940e7b6: Verifying Checksum
+2026-10-19T08:04:09.8008274Z 6b95a940e7b6: Download complete
+2026-10-19T08:04:09.8459388Z 68c3898c2015: Verifying Checksum
+2026-10-19T08:04:09.8462120Z 68c3898c2015: Download complete
+2026-10-19T08:04:09.8673643Z 90986bb8de6e: Verifying Checksum
+2026-10-19T08:04:09.8674968Z 90986bb8de6e: Download complete
+2026-10-19T08:04:09.9296829Z 20e4dcae4c69: Verifying Checksum
+2026-10-19T08:04:09.9298741Z 20e4dcae4c69: Download complete
+2026-10-19T08:04:09.9311039Z ffc89e9dfd88: Verifying Checksum
+2026-10-19T08:04:09.9312312Z ffc89e9dfd88: Download complete
+2026-10-19T08:04:09.9917173Z 064b2d298fba: Verifying Checksum
+2026-10-19T08:04:09.9917864Z 064b2d298fba: Download complete
+2026-10-19T08:04:10.0595547Z df9a4d85569b: Verifying Checksum
+2026-10-19T08:04:10.0596429Z df9a4d85569b: Download complete
+2026-10-19T08:04:10.0975832Z ae71319cb779: Verifying Checksum
+2026-10-19T08:04:10.0976576Z ae71319cb779: Download complete
+2026-10-19T08:04:10.2944096Z 43d05e938198: Verifying Checksum
+2026-10-19T08:04:10.2944798Z 43d05e938198: Download complete
+2026-10-19T08:04:12.2798962Z 20e4dcae4c69: Pull complete
+2026-10-19T08:04:15.3580734Z 1c56c3d4ce74: Pull complete
+2026-10-19T08:04:15.3821241Z e9f03a1c24ce: Pull complete
+2026-10-19T08:04:15.5554061Z 68c3898c2015: Pull complete
+2026-10-19T08:04:15.5654582Z 6b95a940e7b6: Pull complete
+2026-10-19T08:04:15.5751949Z 90986bb8de6e: Pull complete
+2026-10-19T08:04:15.9715432Z ae71319cb779: Pull complete
+2026-10-19T08:04:15.9805595Z ffc89e9dfd88: Pull complete
+2026-10-19T08:04:20.8021750Z 43d05e938198: Pull complete
+2026-10-19T08:04:20.8139287Z 064b2d298fba: Pull complete
+2026-10-19T08:04:20.8217070Z df9a4d85569b: Pull complete
+2026-10-19T08:04:20.8267909Z Digest: sha256:4bc6bc963e6d8443453676cae56536f4b8156d78bae03c0145cbe47c2aad73bb
+2026-10-19T08:04:20.8283476Z Status: Downloaded newer image for mysql:5.7
+2026-10-19T08:04:20.8290084Z docker.io/library/mysql:5.7
+2026-10-19T08:04:20.8350436Z ##[command]/usr/bin/docker create --name 6044c3966f7f4b2b89de857250d333e3_mysql57_221568 --label ed82d0 --network github_network_212426f30dac49fbb7dc536282885b61 --network-alias mysql -p 3306/tcp --health-cmd="mysqladmin ping -h 127.0.0.1 -pb2-fixture-password" --health-interval=10s --health-timeout=5s --health-retries=12 -e "MYSQL_DATABASE=myapi_b2_test" -e "MYSQL_ROOT_PASSWORD=b2-fixture-password" -e "MYSQL_ROOT_HOST=%" -e GITHUB_ACTIONS=true -e CI=true mysql:5.7
+2026-10-19T08:04:20.8596595Z 28ff9d42fa9bb2d79197cc141201fbfaaa6018a2f4ea851fc9d39aacf2be0d6b
+2026-10-19T08:04:20.8621852Z ##[command]/usr/bin/docker start 28ff9d42fa9bb2d79197cc141201fbfaaa6018a2f4ea851fc9d39aacf2be0d6b
+2026-10-19T08:04:21.5923003Z 28ff9d42fa9bb2d79197cc141201fbfaaa6018a2f4ea851fc9d39aacf2be0d6b
+2026-10-19T08:04:21.5942719Z ##[command]/usr/bin/docker ps --all --filter id=28ff9d42fa9bb2d79197cc141201fbfaaa6018a2f4ea851fc9d39aacf2be0d6b --filter status=running --no-trunc --format "{{.ID}} {{.Status}}"
+2026-10-19T08:04:21.6088215Z 28ff9d42fa9bb2d79197cc141201fbfaaa6018a2f4ea851fc9d39aacf2be0d6b Up Less than a second (health: starting)
+2026-10-19T08:04:21.6116205Z ##[command]/usr/bin/docker port 28ff9d42fa9bb2d79197cc141201fbfaaa6018a2f4ea851fc9d39aacf2be0d6b
+2026-10-19T08:04:21.6281637Z 3306/tcp -> 0.0.0.0:32768
+2026-10-19T08:04:21.6282106Z 3306/tcp -> [::]:32768
+2026-10-19T08:04:21.6353235Z ##[endgroup]
+2026-10-19T08:04:21.6355685Z ##[group]Starting postgres service container
+2026-10-19T08:04:21.6357394Z ##[command]/usr/bin/docker pull postgres:9.6
+2026-10-19T08:04:21.8915917Z 9.6: Pulling from library/postgres
+2026-10-19T08:04:21.9809844Z 1cb79db8a9e7: Pulling fs layer
+2026-10-19T08:04:21.9810802Z f6bae7873dd7: Pulling fs layer
+2026-10-19T08:04:21.9812022Z 8f7722dc50a7: Pulling fs layer
+2026-10-19T08:04:21.9812591Z e8622b8cb6f3: Pulling fs layer
+2026-10-19T08:04:21.9813439Z d6d74bba3a57: Pulling fs layer
+2026-10-19T08:04:21.9814089Z 874d4d2a09fd: Pulling fs layer
+2026-10-19T08:04:21.9814694Z 2d87c3a4038c: Pulling fs layer
+2026-10-19T08:04:21.9815317Z f955a6cf127b: Pulling fs layer
+2026-10-19T08:04:21.9815750Z f62dc55c568d: Pulling fs layer
+2026-10-19T08:04:21.9816249Z 4e2c4902efbd: Pulling fs layer
+2026-10-19T08:04:21.9816711Z 01c676df543a: Pulling fs layer
+2026-10-19T08:04:21.9817166Z 1e3d335ef0b7: Pulling fs layer
+2026-10-19T08:04:21.9817668Z 11087f2b0d87: Pulling fs layer
+2026-10-19T08:04:21.9818168Z 4b9a74ac6ea0: Pulling fs layer
+2026-10-19T08:04:21.9818944Z e8622b8cb6f3: Waiting
+2026-10-19T08:04:21.9819341Z d6d74bba3a57: Waiting
+2026-10-19T08:04:21.9819728Z 874d4d2a09fd: Waiting
+2026-10-19T08:04:21.9820105Z 2d87c3a4038c: Waiting
+2026-10-19T08:04:21.9820494Z f62dc55c568d: Waiting
+2026-10-19T08:04:21.9820903Z f955a6cf127b: Waiting
+2026-10-19T08:04:21.9821324Z 4e2c4902efbd: Waiting
+2026-10-19T08:04:21.9821722Z 01c676df543a: Waiting
+2026-10-19T08:04:21.9822135Z 1e3d335ef0b7: Waiting
+2026-10-19T08:04:21.9822554Z 11087f2b0d87: Waiting
+2026-10-19T08:04:21.9822967Z 4b9a74ac6ea0: Waiting
+2026-10-19T08:04:22.0533851Z 8f7722dc50a7: Download complete
+2026-10-19T08:04:22.1562905Z f6bae7873dd7: Verifying Checksum
+2026-10-19T08:04:22.1563654Z f6bae7873dd7: Download complete
+2026-10-19T08:04:22.1925025Z e8622b8cb6f3: Verifying Checksum
+2026-10-19T08:04:22.1926893Z e8622b8cb6f3: Download complete
+2026-10-19T08:04:22.2346657Z 1cb79db8a9e7: Verifying Checksum
+2026-10-19T08:04:22.2347965Z 1cb79db8a9e7: Download complete
+2026-10-19T08:04:22.2944012Z 874d4d2a09fd: Verifying Checksum
+2026-10-19T08:04:22.2949480Z 874d4d2a09fd: Download complete
+2026-10-19T08:04:22.2997480Z 2d87c3a4038c: Verifying Checksum
+2026-10-19T08:04:22.2998910Z 2d87c3a4038c: Download complete
+2026-10-19T08:04:22.3451584Z d6d74bba3a57: Verifying Checksum
+2026-10-19T08:04:22.3454526Z d6d74bba3a57: Download complete
+2026-10-19T08:04:22.3615199Z f955a6cf127b: Verifying Checksum
+2026-10-19T08:04:22.3615850Z f955a6cf127b: Download complete
+2026-10-19T08:04:22.4083708Z 4e2c4902efbd: Verifying Checksum
+2026-10-19T08:04:22.4084552Z 4e2c4902efbd: Download complete
+2026-10-19T08:04:22.4292999Z 01c676df543a: Verifying Checksum
+2026-10-19T08:04:22.4296279Z 01c676df543a: Download complete
+2026-10-19T08:04:22.4715697Z 1e3d335ef0b7: Verifying Checksum
+2026-10-19T08:04:22.4717850Z 1e3d335ef0b7: Download complete
+2026-10-19T08:04:22.4947001Z 11087f2b0d87: Verifying Checksum
+2026-10-19T08:04:22.4947643Z 11087f2b0d87: Download complete
+2026-10-19T08:04:22.5360202Z 4b9a74ac6ea0: Verifying Checksum
+2026-10-19T08:04:22.5363120Z 4b9a74ac6ea0: Download complete
+2026-10-19T08:04:22.6029844Z f62dc55c568d: Verifying Checksum
+2026-10-19T08:04:22.6030982Z f62dc55c568d: Download complete
+2026-10-19T08:04:23.3934546Z 1cb79db8a9e7: Pull complete
+2026-10-19T08:04:23.5918178Z f6bae7873dd7: Pull complete
+2026-10-19T08:04:23.6059153Z 8f7722dc50a7: Pull complete
+2026-10-19T08:04:23.6463977Z e8622b8cb6f3: Pull complete
+2026-10-19T08:04:23.9251085Z d6d74bba3a57: Pull complete
+2026-10-19T08:04:23.9717041Z 874d4d2a09fd: Pull complete
+2026-10-19T08:04:23.9811268Z 2d87c3a4038c: Pull complete
+2026-10-19T08:04:23.9894082Z f955a6cf127b: Pull complete
+2026-10-19T08:04:25.3242554Z f62dc55c568d: Pull complete
+2026-10-19T08:04:25.3382696Z 4e2c4902efbd: Pull complete
+2026-10-19T08:04:25.3503071Z 01c676df543a: Pull complete
+2026-10-19T08:04:25.3605885Z 1e3d335ef0b7: Pull complete
+2026-10-19T08:04:25.3695074Z 11087f2b0d87: Pull complete
+2026-10-19T08:04:25.3780645Z 4b9a74ac6ea0: Pull complete
+2026-10-19T08:04:25.3829195Z Digest: sha256:caddd35b05cdd56c614ab1f674e63be778e0abdf54e71a7507ff3e28d4902698
+2026-10-19T08:04:25.3841583Z Status: Downloaded newer image for postgres:9.6
+2026-10-19T08:04:25.3850950Z docker.io/library/postgres:9.6
+2026-10-19T08:04:25.3874158Z ##[command]/usr/bin/docker create --name b102f9cdf775432cb81e8e20888cecc8_postgres96_c36ec1 --label ed82d0 --network github_network_212426f30dac49fbb7dc536282885b61 --network-alias postgres -p 5432/tcp --health-cmd="pg_isready -U postgres -d myapi_b2_test" --health-interval=10s --health-timeout=5s --health-retries=12 -e "POSTGRES_DB=myapi_b2_test" -e "POSTGRES_PASSWORD=b2-fixture-password" -e GITHUB_ACTIONS=true -e CI=true postgres:9.6
+2026-10-19T08:04:25.4199312Z ef60d1328d145fe1ea4ae5ed187716a38be454fff3bb5d9fa6f7719cbf07041d
+2026-10-19T08:04:25.4215498Z ##[command]/usr/bin/docker start ef60d1328d145fe1ea4ae5ed187716a38be454fff3bb5d9fa6f7719cbf07041d
+2026-10-19T08:04:25.5789149Z ef60d1328d145fe1ea4ae5ed187716a38be454fff3bb5d9fa6f7719cbf07041d
+2026-10-19T08:04:25.5803964Z ##[command]/usr/bin/docker ps --all --filter id=ef60d1328d145fe1ea4ae5ed187716a38be454fff3bb5d9fa6f7719cbf07041d --filter status=running --no-trunc --format "{{.ID}} {{.Status}}"
+2026-10-19T08:04:25.5963555Z ef60d1328d145fe1ea4ae5ed187716a38be454fff3bb5d9fa6f7719cbf07041d Up Less than a second (health: starting)
+2026-10-19T08:04:25.5992368Z ##[command]/usr/bin/docker port ef60d1328d145fe1ea4ae5ed187716a38be454fff3bb5d9fa6f7719cbf07041d
+2026-10-19T08:04:25.6269451Z 5432/tcp -> 0.0.0.0:32769
+2026-10-19T08:04:25.6270056Z 5432/tcp -> [::]:32769
+2026-10-19T08:04:25.6285502Z ##[endgroup]
+2026-10-19T08:04:25.6311268Z ##[group]Waiting for all services to be ready
+2026-10-19T08:04:25.6325148Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 28ff9d42fa9bb2d79197cc141201fbfaaa6018a2f4ea851fc9d39aacf2be0d6b
+2026-10-19T08:04:25.6475970Z starting
+2026-10-19T08:04:25.6496278Z mysql service is starting, waiting 2 seconds before checking again.
+2026-10-19T08:04:27.6490559Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 28ff9d42fa9bb2d79197cc141201fbfaaa6018a2f4ea851fc9d39aacf2be0d6b
+2026-10-19T08:04:27.6616981Z starting
+2026-10-19T08:04:27.6632314Z mysql service is starting, waiting 4 seconds before checking again.
+2026-10-19T08:04:31.7791276Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 28ff9d42fa9bb2d79197cc141201fbfaaa6018a2f4ea851fc9d39aacf2be0d6b
+2026-10-19T08:04:31.7924447Z healthy
+2026-10-19T08:04:31.7942096Z mysql service is healthy.
+2026-10-19T08:04:31.7942947Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" ef60d1328d145fe1ea4ae5ed187716a38be454fff3bb5d9fa6f7719cbf07041d
+2026-10-19T08:04:31.8074912Z starting
+2026-10-19T08:04:31.8087025Z postgres service is starting, waiting 2 seconds before checking again.
+2026-10-19T08:04:33.8087384Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" ef60d1328d145fe1ea4ae5ed187716a38be454fff3bb5d9fa6f7719cbf07041d
+2026-10-19T08:04:33.8215878Z starting
+2026-10-19T08:04:33.8228575Z postgres service is starting, waiting 3 seconds before checking again.
+2026-10-19T08:04:37.4563256Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" ef60d1328d145fe1ea4ae5ed187716a38be454fff3bb5d9fa6f7719cbf07041d
+2026-10-19T08:04:37.4702334Z healthy
+2026-10-19T08:04:37.4714131Z postgres service is healthy.
+2026-10-19T08:04:37.4714712Z ##[endgroup]
+2026-10-19T08:04:37.5011008Z ##[group]Run actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+2026-10-19T08:04:37.5011688Z with:
+2026-10-19T08:04:37.5011910Z   persist-credentials: false
+2026-10-19T08:04:37.5012164Z   repository: ForceMind/MyAPI
+2026-10-19T08:04:37.5014595Z   token: ***
+2026-10-19T08:04:37.5014797Z   ssh-strict: true
+2026-10-19T08:04:37.5014999Z   ssh-user: git
+2026-10-19T08:04:37.5015404Z   clean: true
+2026-10-19T08:04:37.5015615Z   sparse-checkout-cone-mode: true
+2026-10-19T08:04:37.5015875Z   fetch-depth: 1
+2026-10-19T08:04:37.5016070Z   fetch-tags: false
+2026-10-19T08:04:37.5016276Z   show-progress: true
+2026-10-19T08:04:37.5016481Z   lfs: false
+2026-10-19T08:04:37.5016663Z   submodules: false
+2026-10-19T08:04:37.5016872Z   set-safe-directory: true
+2026-10-19T08:04:37.5017115Z   allow-unsafe-pr-checkout: false
+2026-10-19T08:04:37.5017576Z env:
+2026-10-19T08:04:37.5017764Z   GOWORK: off
+2026-10-19T08:04:37.5017957Z   GOMAXPROCS: 1
+2026-10-19T08:04:37.5018150Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:04:37.5018613Z   MYAPI_B2_DATABASE_TESTS: 1
+2026-10-19T08:04:37.5019112Z   TASK_RECOVERY_IDEMPOTENCY_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+2026-10-19T08:04:37.5019588Z ##[endgroup]
+2026-10-19T08:04:37.6055491Z Syncing repository: ForceMind/MyAPI
+2026-10-19T08:04:37.6057291Z ##[group]Getting Git version info
+2026-10-19T08:04:37.6057933Z Working directory is '/home/runner/work/MyAPI/MyAPI'
+2026-10-19T08:04:37.6059174Z [command]/usr/bin/git version
+2026-10-19T08:04:37.6131277Z git version 2.55.0
+2026-10-19T08:04:37.6152005Z ##[endgroup]
+2026-10-19T08:04:37.6165414Z Temporarily overriding HOME='/home/runner/work/_temp/90d786f2-7f24-40bf-8e6e-e774ec4b9c08' before making global git config changes
+2026-10-19T08:04:37.6167038Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-19T08:04:37.6172337Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MyAPI/MyAPI
+2026-10-19T08:04:37.6220222Z Deleting the contents of '/home/runner/work/MyAPI/MyAPI'
+2026-10-19T08:04:37.6224063Z ##[group]Determining repository object format
+2026-10-19T08:04:37.6225518Z ##[endgroup]
+2026-10-19T08:04:37.6226122Z ##[group]Initializing the repository
+2026-10-19T08:04:37.6231489Z [command]/usr/bin/git init /home/runner/work/MyAPI/MyAPI
+2026-10-19T08:04:37.6325532Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-19T08:04:37.6326826Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-19T08:04:37.6327769Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-19T08:04:37.6328591Z hint: call:
+2026-10-19T08:04:37.6328837Z hint:
+2026-10-19T08:04:37.6329214Z hint: 	git config --global init.defaultBranch <name>
+2026-10-19T08:04:37.6329595Z hint:
+2026-10-19T08:04:37.6329962Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-19T08:04:37.6330588Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-19T08:04:37.6331061Z hint:
+2026-10-19T08:04:37.6331292Z hint: 	git branch -m <name>
+2026-10-19T08:04:37.6331562Z hint:
+2026-10-19T08:04:37.6331947Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-19T08:04:37.6336891Z Initialized empty Git repository in /home/runner/work/MyAPI/MyAPI/.git/
+2026-10-19T08:04:37.6346152Z [command]/usr/bin/git remote add origin https://github.com/ForceMind/MyAPI
+2026-10-19T08:04:37.6393107Z ##[endgroup]
+2026-10-19T08:04:37.6393766Z ##[group]Disabling automatic garbage collection
+2026-10-19T08:04:37.6398074Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-19T08:04:37.6432056Z ##[endgroup]
+2026-10-19T08:04:37.6433256Z ##[group]Setting up auth
+2026-10-19T08:04:37.6433718Z Removing SSH command configuration
+2026-10-19T08:04:37.6439649Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-19T08:04:37.6474771Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-19T08:04:37.6844036Z Removing HTTP extra header
+2026-10-19T08:04:37.6851274Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-19T08:04:37.6893292Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-19T08:04:37.7120421Z Removing includeIf entries pointing to credentials config files
+2026-10-19T08:04:37.7125582Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-19T08:04:37.7161386Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-19T08:04:37.7388255Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-092a94c2-0889-43db-b69b-109d03e36dea.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-19T08:04:37.7428040Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path /home/runner/work/_temp/git-credentials-092a94c2-0889-43db-b69b-109d03e36dea.config
+2026-10-19T08:04:37.7462806Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-092a94c2-0889-43db-b69b-109d03e36dea.config
+2026-10-19T08:04:37.7500580Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-092a94c2-0889-43db-b69b-109d03e36dea.config
+2026-10-19T08:04:37.7536214Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-092a94c2-0889-43db-b69b-109d03e36dea.config
+2026-10-19T08:04:37.7567765Z ##[endgroup]
+2026-10-19T08:04:37.7568595Z ##[group]Fetching the repository
+2026-10-19T08:04:37.7574647Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +57273023f518f247ad82995ca0db4ba48e6cefcb:refs/remotes/pull/17/merge
+2026-10-19T08:04:38.7243102Z From https://github.com/ForceMind/MyAPI
+2026-10-19T08:04:38.7244106Z  * [new ref]         57273023f518f247ad82995ca0db4ba48e6cefcb -> pull/17/merge
+2026-10-19T08:04:38.7248765Z ##[endgroup]
+2026-10-19T08:04:38.7249523Z ##[group]Determining the checkout info
+2026-10-19T08:04:38.7250242Z ##[endgroup]
+2026-10-19T08:04:38.7255365Z [command]/usr/bin/git sparse-checkout disable
+2026-10-19T08:04:38.7311398Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-19T08:04:38.7344122Z ##[group]Checking out the ref
+2026-10-19T08:04:38.7348247Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/17/merge
+2026-10-19T08:04:39.1878247Z Note: switching to 'refs/remotes/pull/17/merge'.
+2026-10-19T08:04:39.1878982Z 
+2026-10-19T08:04:39.1879314Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-19T08:04:39.1879916Z changes and commit them, and you can discard any commits you make in this
+2026-10-19T08:04:39.1880489Z state without impacting any branches by switching back to a branch.
+2026-10-19T08:04:39.1880909Z 
+2026-10-19T08:04:39.1881131Z If you want to create a new branch to retain commits you create, you may
+2026-10-19T08:04:39.1881698Z do so (now or later) by using -c with the switch command. Example:
+2026-10-19T08:04:39.1882031Z 
+2026-10-19T08:04:39.1882164Z   git switch -c <new-branch-name>
+2026-10-19T08:04:39.1882371Z 
+2026-10-19T08:04:39.1882491Z Or undo this operation with:
+2026-10-19T08:04:39.1882678Z 
+2026-10-19T08:04:39.1882783Z   git switch -
+2026-10-19T08:04:39.1882975Z 
+2026-10-19T08:04:39.1883239Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-19T08:04:39.1883667Z 
+2026-10-19T08:04:39.1884326Z HEAD is now at 5727302 Merge c6b2ad1f476df5ae9927b6f64a1ac4c0396a81e1 into c1beb07520f43c106b4406ba8a0b1227bc1cf67e
+2026-10-19T08:04:39.1907442Z ##[endgroup]
+2026-10-19T08:04:39.1962139Z [command]/usr/bin/git log -1 --format=%H
+2026-10-19T08:04:39.1992832Z 57273023f518f247ad82995ca0db4ba48e6cefcb
+2026-10-19T08:04:39.2002699Z ##[group]Removing auth
+2026-10-19T08:04:39.2003230Z Removing SSH command configuration
+2026-10-19T08:04:39.2006836Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-19T08:04:39.2043800Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-19T08:04:39.2278540Z Removing HTTP extra header
+2026-10-19T08:04:39.2283033Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-19T08:04:39.2326212Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-19T08:04:39.2556994Z Removing includeIf entries pointing to credentials config files
+2026-10-19T08:04:39.2563496Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-19T08:04:39.2595535Z includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path
+2026-10-19T08:04:39.2596426Z includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path
+2026-10-19T08:04:39.2597475Z includeif.gitdir:/github/workspace/.git.path
+2026-10-19T08:04:39.2598860Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-19T08:04:39.2606901Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path
+2026-10-19T08:04:39.2635794Z /home/runner/work/_temp/git-credentials-092a94c2-0889-43db-b69b-109d03e36dea.config
+2026-10-19T08:04:39.2646251Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path /home/runner/work/_temp/git-credentials-092a94c2-0889-43db-b69b-109d03e36dea.config
+2026-10-19T08:04:39.2683940Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path
+2026-10-19T08:04:39.2715535Z /home/runner/work/_temp/git-credentials-092a94c2-0889-43db-b69b-109d03e36dea.config
+2026-10-19T08:04:39.2730056Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-092a94c2-0889-43db-b69b-109d03e36dea.config
+2026-10-19T08:04:39.2763970Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-19T08:04:39.2793955Z /github/runner_temp/git-credentials-092a94c2-0889-43db-b69b-109d03e36dea.config
+2026-10-19T08:04:39.2801464Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-092a94c2-0889-43db-b69b-109d03e36dea.config
+2026-10-19T08:04:39.2836688Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-19T08:04:39.2863475Z /github/runner_temp/git-credentials-092a94c2-0889-43db-b69b-109d03e36dea.config
+2026-10-19T08:04:39.2878277Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-092a94c2-0889-43db-b69b-109d03e36dea.config
+2026-10-19T08:04:39.2929878Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-19T08:04:39.3178087Z Removing credentials config '/home/runner/work/_temp/git-credentials-092a94c2-0889-43db-b69b-109d03e36dea.config'
+2026-10-19T08:04:39.3187223Z ##[endgroup]
+2026-10-19T08:04:39.3421532Z ##[group]Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+2026-10-19T08:04:39.3421942Z with:
+2026-10-19T08:04:39.3422146Z   go-version-file: go.mod
+2026-10-19T08:04:39.3422436Z   cache-dependency-path: go.sum
+relaykit/go.sum
+
+2026-10-19T08:04:39.3422766Z   check-latest: false
+2026-10-19T08:04:39.3425343Z   token: ***
+2026-10-19T08:04:39.3425545Z   cache: true
+2026-10-19T08:04:39.3425732Z env:
+2026-10-19T08:04:39.3425911Z   GOWORK: off
+2026-10-19T08:04:39.3426104Z   GOMAXPROCS: 1
+2026-10-19T08:04:39.3426310Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:04:39.3426538Z   MYAPI_B2_DATABASE_TESTS: 1
+2026-10-19T08:04:39.3426999Z   TASK_RECOVERY_IDEMPOTENCY_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+2026-10-19T08:04:39.3427672Z ##[endgroup]
+2026-10-19T08:04:39.4692024Z Setup go version spec 1.25.1
+2026-10-19T08:04:39.4705202Z Attempting to download 1.25.1...
+2026-10-19T08:04:39.9739334Z matching 1.25.1...
+2026-10-19T08:04:39.9823092Z Acquiring 1.25.1 from https://github.com/actions/go-versions/releases/download/1.25.1-17451174567/go-1.25.1-linux-x64.tar.gz
+2026-10-19T08:04:40.3933270Z Extracting Go...
+2026-10-19T08:04:40.4016324Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/ede1e63f-bf52-4a29-bbbd-e9d049d20d31 -f /home/runner/work/_temp/fc901906-f8ab-4a40-b921-c186384313fe
+2026-10-19T08:04:41.9374733Z Successfully extracted go to /home/runner/work/_temp/ede1e63f-bf52-4a29-bbbd-e9d049d20d31
+2026-10-19T08:04:41.9375323Z Adding to the cache ...
+2026-10-19T08:04:47.3042717Z Successfully cached go to /opt/hostedtoolcache/go/1.25.1/x64
+2026-10-19T08:04:47.3044492Z Added go to the path
+2026-10-19T08:04:47.3047024Z Successfully set up Go version 1.25.1
+2026-10-19T08:04:47.3270701Z [command]/opt/hostedtoolcache/go/1.25.1/x64/bin/go env GOMODCACHE
+2026-10-19T08:04:47.3313404Z [command]/opt/hostedtoolcache/go/1.25.1/x64/bin/go env GOCACHE
+2026-10-19T08:04:47.3347213Z /home/runner/go/pkg/mod
+2026-10-19T08:04:47.3361426Z /home/runner/.cache/go-build
+2026-10-19T08:04:47.4390202Z Cache hit for: setup-go-Linux-x64-ubuntu24-go-1.25.1-6d5e7a422ac7cc4529fbd9df01ec0b200929303e0fa2bb12bc04294bfe908406
+2026-10-19T08:04:47.6686045Z Received 33295291 of 33295291 (100.0%), 170.7 MBs/sec
+2026-10-19T08:04:47.6687109Z Cache Size: ~32 MB (33295291 B)
+2026-10-19T08:04:47.6720410Z [command]/usr/bin/tar -xf /home/runner/work/_temp/189c3fad-44f3-40b9-a7cd-4d0cde34a9e3/cache.tzst -P -C /home/runner/work/MyAPI/MyAPI --use-compress-program unzstd
+2026-10-19T08:04:47.9812576Z Cache restored successfully
+2026-10-19T08:04:47.9834430Z Cache restored from key: setup-go-Linux-x64-ubuntu24-go-1.25.1-6d5e7a422ac7cc4529fbd9df01ec0b200929303e0fa2bb12bc04294bfe908406
+2026-10-19T08:04:47.9863470Z go version go1.25.1 linux/amd64
+2026-10-19T08:04:47.9863818Z 
+2026-10-19T08:04:47.9864310Z ##[group]go env
+2026-10-19T08:04:47.9975415Z AR='ar'
+2026-10-19T08:04:47.9975874Z CC='gcc'
+2026-10-19T08:04:47.9976309Z CGO_CFLAGS='-O2 -g'
+2026-10-19T08:04:47.9976799Z CGO_CPPFLAGS=''
+2026-10-19T08:04:47.9977270Z CGO_CXXFLAGS='-O2 -g'
+2026-10-19T08:04:47.9977739Z CGO_ENABLED='1'
+2026-10-19T08:04:47.9978199Z CGO_FFLAGS='-O2 -g'
+2026-10-19T08:04:47.9978799Z CGO_LDFLAGS='-O2 -g'
+2026-10-19T08:04:47.9979192Z CXX='g++'
+2026-10-19T08:04:47.9979612Z GCCGO='gccgo'
+2026-10-19T08:04:47.9980029Z GO111MODULE=''
+2026-10-19T08:04:47.9980450Z GOAMD64='v1'
+2026-10-19T08:04:47.9980861Z GOARCH='amd64'
+2026-10-19T08:04:47.9981272Z GOAUTH='netrc'
+2026-10-19T08:04:47.9982167Z GOBIN=''
+2026-10-19T08:04:47.9982605Z GOCACHE='/home/runner/.cache/go-build'
+2026-10-19T08:04:47.9983121Z GOCACHEPROG=''
+2026-10-19T08:04:47.9983481Z GODEBUG=''
+2026-10-19T08:04:47.9983867Z GOENV='/home/runner/.config/go/env'
+2026-10-19T08:04:47.9984359Z GOEXE=''
+2026-10-19T08:04:47.9984710Z GOEXPERIMENT=''
+2026-10-19T08:04:47.9985085Z GOFIPS140='off'
+2026-10-19T08:04:47.9985444Z GOFLAGS=''
+2026-10-19T08:04:47.9986992Z GOGCCFLAGS='-fPIC -m64 -pthread -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=/tmp/go-build4118508997=/tmp/go-build -gno-record-gcc-switches'
+2026-10-19T08:04:47.9988571Z GOHOSTARCH='amd64'
+2026-10-19T08:04:47.9988971Z GOHOSTOS='linux'
+2026-10-19T08:04:47.9989343Z GOINSECURE=''
+2026-10-19T08:04:47.9989773Z GOMOD='/home/runner/work/MyAPI/MyAPI/go.mod'
+2026-10-19T08:04:47.9990350Z GOMODCACHE='/home/runner/go/pkg/mod'
+2026-10-19T08:04:47.9990967Z GONOPROXY=''
+2026-10-19T08:04:47.9991385Z GONOSUMDB=''
+2026-10-19T08:04:47.9991788Z GOOS='linux'
+2026-10-19T08:04:47.9992227Z GOPATH='/home/runner/go'
+2026-10-19T08:04:47.9992701Z GOPRIVATE=''
+2026-10-19T08:04:47.9993198Z GOPROXY='https://proxy.golang.org,direct'
+2026-10-19T08:04:47.9993815Z GOROOT='/opt/hostedtoolcache/go/1.25.1/x64'
+2026-10-19T08:04:47.9994607Z GOSUMDB='sum.golang.org'
+2026-10-19T08:04:47.9995102Z GOTELEMETRY='local'
+2026-10-19T08:04:47.9995622Z GOTELEMETRYDIR='/home/runner/.config/go/telemetry'
+2026-10-19T08:04:47.9996215Z GOTMPDIR=''
+2026-10-19T08:04:47.9996603Z GOTOOLCHAIN='local'
+2026-10-19T08:04:47.9997224Z GOTOOLDIR='/opt/hostedtoolcache/go/1.25.1/x64/pkg/tool/linux_amd64'
+2026-10-19T08:04:47.9997912Z GOVCS=''
+2026-10-19T08:04:47.9998292Z GOVERSION='go1.25.1'
+2026-10-19T08:04:47.9999358Z GOWORK='off'
+2026-10-19T08:04:47.9999872Z PKG_CONFIG='pkg-config'
+2026-10-19T08:04:48.0000122Z 
+2026-10-19T08:04:48.0000551Z ##[endgroup]
+2026-10-19T08:04:48.0244756Z ##[group]Run go test -p 1 ./model -run '^(TestB2SubmissionConfiguredDatabases|TestUpstreamAcceptanceRunConfiguredDatabases)$' -count=1 -timeout=180s -v
+2026-10-19T08:04:48.0246870Z [36;1mgo test -p 1 ./model -run '^(TestB2SubmissionConfiguredDatabases|TestUpstreamAcceptanceRunConfiguredDatabases)$' -count=1 -timeout=180s -v[0m
+2026-10-19T08:04:48.0485693Z shell: /usr/bin/bash -e {0}
+2026-10-19T08:04:48.0485987Z env:
+2026-10-19T08:04:48.0486189Z   GOWORK: off
+2026-10-19T08:04:48.0486393Z   GOMAXPROCS: 1
+2026-10-19T08:04:48.0486600Z   GOMEMLIMIT: 768MiB
+2026-10-19T08:04:48.0486842Z   MYAPI_B2_DATABASE_TESTS: 1
+2026-10-19T08:04:48.0487310Z   TASK_RECOVERY_IDEMPOTENCY_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+2026-10-19T08:04:48.0487809Z   GOTOOLCHAIN: local
+2026-10-19T08:04:48.0488467Z   MYAPI_B2_MYSQL_DSN: root:b2-fixture-password@tcp(127.0.0.1:32768)/myapi_b2_test?charset=utf8mb4&parseTime=true
+2026-10-19T08:04:48.0489440Z   MYAPI_B2_POSTGRES_DSN: host=127.0.0.1 port=32769 user=postgres *** dbname=myapi_b2_test sslmode=disable
+2026-10-19T08:04:48.0489929Z ##[endgroup]
+2026-10-19T08:04:48.0932125Z go: downloading github.com/ClickHouse/clickhouse-go/v2 v2.32.0
+2026-10-19T08:04:48.3417905Z go: downloading github.com/bytedance/gopkg v0.1.3
+2026-10-19T08:04:48.3928128Z go: downloading github.com/gin-gonic/gin v1.9.1
+2026-10-19T08:04:48.4309037Z go: downloading github.com/glebarez/go-sqlite v1.21.2
+2026-10-19T08:04:48.4597321Z go: downloading github.com/glebarez/sqlite v1.9.0
+2026-10-19T08:04:48.4804043Z go: downloading github.com/go-sql-driver/mysql v1.7.0
+2026-10-19T08:04:48.5149178Z go: downloading github.com/go-webauthn/webauthn v0.14.0
+2026-10-19T08:04:48.5636968Z go: downloading github.com/google/uuid v1.6.0
+2026-10-19T08:04:48.5850969Z go: downloading github.com/jackc/pgx/v5 v5.9.2
+2026-10-19T08:04:48.6760937Z go: downloading github.com/samber/hot v0.11.0
+2026-10-19T08:04:48.7037275Z go: downloading github.com/samber/lo v1.53.0
+2026-10-19T08:04:48.7332244Z go: downloading github.com/shopspring/decimal v1.4.0
+2026-10-19T08:04:48.7540714Z go: downloading gorm.io/driver/clickhouse v0.6.0
+2026-10-19T08:04:48.7812102Z go: downloading gorm.io/driver/mysql v1.4.3
+2026-10-19T08:04:48.7991494Z go: downloading gorm.io/driver/postgres v1.5.4
+2026-10-19T08:04:48.8165092Z go: downloading gorm.io/gorm v1.25.5
+2026-10-19T08:04:48.8823841Z go: downloading github.com/DATA-DOG/go-sqlmock v1.5.2
+2026-10-19T08:04:48.9443241Z go: downloading github.com/ClickHouse/ch-go v0.65.0
+2026-10-19T08:04:49.0613004Z go: downloading go.opentelemetry.io/otel/trace v1.34.0
+2026-10-19T08:04:49.0737984Z go: downloading go.opentelemetry.io/otel v1.34.0
+2026-10-19T08:04:49.2055794Z go: downloading github.com/Azure/go-ntlmssp v0.1.1
+2026-10-19T08:04:49.2285621Z go: downloading github.com/abema/go-mp4 v1.4.1
+2026-10-19T08:04:49.2718790Z go: downloading github.com/gin-contrib/static v0.0.1
+2026-10-19T08:04:49.2889261Z go: downloading github.com/go-audio/aiff v1.1.0
+2026-10-19T08:04:49.5820729Z go: downloading github.com/go-audio/wav v1.1.0
+2026-10-19T08:04:49.7143314Z go: downloading github.com/go-playground/validator/v10 v10.20.0
+2026-10-19T08:04:49.7565030Z go: downloading github.com/grafana/pyroscope-go v1.2.7
+2026-10-19T08:04:49.7826563Z go: downloading github.com/jfreymuth/oggvorbis v1.0.5
+2026-10-19T08:04:49.8063061Z go: downloading github.com/jinzhu/copier v0.4.0
+2026-10-19T08:04:49.8241860Z go: downloading github.com/mewkiz/flac v1.0.13
+2026-10-19T08:04:49.8983314Z go: downloading github.com/pkg/errors v0.9.1
+2026-10-19T08:04:49.9154982Z go: downloading github.com/pquerna/otp v1.5.0
+2026-10-19T08:04:49.9329951Z go: downloading github.com/shirou/gopsutil v3.21.11+incompatible
+2026-10-19T08:04:49.9826196Z go: downloading github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
+2026-10-19T08:04:50.0029127Z go: downloading github.com/yapingcat/gomedia v0.0.0-20240906162731-17feea57090c
+2026-10-19T08:04:50.0692374Z go: downloading golang.org/x/crypto v0.52.0
+2026-10-19T08:04:50.2007997Z go: downloading golang.org/x/sys v0.45.0
+2026-10-19T08:04:50.3712339Z go: downloading github.com/expr-lang/expr v1.17.8
+2026-10-19T08:04:50.4872107Z go: downloading github.com/tidwall/gjson v1.19.0
+2026-10-19T08:04:50.5073175Z go: downloading github.com/gorilla/websocket v1.5.0
+2026-10-19T08:04:50.5322342Z go: downloading github.com/tidwall/sjson v1.2.5
+2026-10-19T08:04:50.5504122Z go: downloading github.com/gin-contrib/sse v0.1.0
+2026-10-19T08:04:50.5668015Z go: downloading github.com/mattn/go-isatty v0.0.20
+2026-10-19T08:04:50.5833645Z go: downloading golang.org/x/net v0.55.0
+2026-10-19T08:04:50.7568071Z go: downloading modernc.org/libc v1.66.10
+2026-10-19T08:04:52.0744245Z go: downloading modernc.org/sqlite v1.40.1
+2026-10-19T08:04:54.2656463Z go: downloading github.com/golang-jwt/jwt/v5 v5.3.0
+2026-10-19T08:04:54.2938024Z go: downloading github.com/google/go-tpm v0.9.5
+2026-10-19T08:04:54.3476003Z go: downloading github.com/mitchellh/mapstructure v1.5.0
+2026-10-19T08:04:54.3678604Z go: downloading github.com/jackc/pgpassfile v1.0.0
+2026-10-19T08:04:54.3840638Z go: downloading github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761
+2026-10-19T08:04:54.3999322Z go: downloading golang.org/x/text v0.37.0
+2026-10-19T08:04:54.7739768Z go: downloading github.com/prometheus/client_golang v1.22.0
+2026-10-19T08:04:54.8277572Z go: downloading github.com/samber/go-singleflightx v0.3.2
+2026-10-19T08:04:54.8448394Z go: downloading github.com/hashicorp/go-version v1.7.0
+2026-10-19T08:04:54.8625099Z go: downloading github.com/jinzhu/now v1.1.5
+2026-10-19T08:04:54.8962486Z go: downloading github.com/jinzhu/inflection v1.0.0
+2026-10-19T08:04:54.9239546Z go: downloading github.com/go-faster/errors v0.7.1
+2026-10-19T08:04:54.9443926Z go: downloading github.com/segmentio/asm v1.2.0
+2026-10-19T08:04:54.9818483Z go: downloading github.com/paulmach/orb v0.11.1
+2026-10-19T08:04:55.1118280Z go: downloading github.com/go-audio/audio v1.0.0
+2026-10-19T08:04:55.1311350Z go: downloading github.com/go-audio/riff v1.0.0
+2026-10-19T08:04:55.1579646Z go: downloading github.com/gabriel-vasile/mimetype v1.4.3
+2026-10-19T08:04:55.7571537Z go: downloading github.com/go-playground/universal-translator v0.18.1
+2026-10-19T08:04:55.7775187Z go: downloading github.com/leodido/go-urn v1.4.0
+2026-10-19T08:04:55.8519381Z go: downloading github.com/grafana/pyroscope-go/godeltaprof v0.1.9
+2026-10-19T08:04:55.8721132Z go: downloading github.com/jfreymuth/vorbis v1.0.2
+2026-10-19T08:04:55.8940115Z go: downloading github.com/icza/bitio v1.1.0
+2026-10-19T08:04:55.9111470Z go: downloading github.com/mewkiz/pkg v0.0.0-20250417130911-3f050ff8c56d
+2026-10-19T08:04:55.9357432Z go: downloading github.com/boombuler/barcode v1.1.0
+2026-10-19T08:04:55.9612612Z go: downloading github.com/tklauser/go-sysconf v0.3.12
+2026-10-19T08:04:55.9950268Z go: downloading github.com/tidwall/match v1.1.1
+2026-10-19T08:04:56.0111221Z go: downloading github.com/tidwall/pretty v1.2.0
+2026-10-19T08:04:56.0290265Z go: downloading github.com/pelletier/go-toml/v2 v2.2.1
+2026-10-19T08:04:56.0683109Z go: downloading github.com/ugorji/go/codec v1.2.12
+2026-10-19T08:04:56.1086223Z go: downloading google.golang.org/protobuf v1.36.5
+2026-10-19T08:04:56.3227441Z go: downloading github.com/dustin/go-humanize v1.0.1
+2026-10-19T08:04:56.3432007Z go: downloading golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b
+2026-10-19T08:04:56.4326648Z go: downloading modernc.org/mathutil v1.7.1
+2026-10-19T08:04:56.4595696Z go: downloading modernc.org/memory v1.11.0
+2026-10-19T08:04:56.4822853Z go: downloading github.com/go-webauthn/x v0.1.25
+2026-10-19T08:04:56.5005876Z go: downloading github.com/fxamacker/cbor/v2 v2.9.0
+2026-10-19T08:04:56.5343008Z go: downloading github.com/jackc/puddle/v2 v2.2.2
+2026-10-19T08:04:56.5531938Z go: downloading github.com/beorn7/perks v1.0.1
+2026-10-19T08:04:56.5707029Z go: downloading github.com/prometheus/client_model v0.6.1
+2026-10-19T08:04:56.5905576Z go: downloading github.com/prometheus/common v0.62.0
+2026-10-19T08:04:56.6323206Z go: downloading github.com/prometheus/procfs v0.15.1
+2026-10-19T08:04:56.6869314Z go: downloading github.com/DmitriyVTitov/size v1.5.0
+2026-10-19T08:04:56.7045998Z go: downloading github.com/andybalholm/brotli v1.1.1
+2026-10-19T08:04:56.7711681Z go: downloading github.com/go-faster/city v1.0.1
+2026-10-19T08:04:56.8030786Z go: downloading github.com/klauspost/compress v1.18.0
+2026-10-19T08:04:57.4633091Z go: downloading github.com/pierrec/lz4/v4 v4.1.22
+2026-10-19T08:04:58.5709018Z go: downloading github.com/go-playground/locales v0.14.1
+2026-10-19T08:04:59.0929190Z go: downloading github.com/mewpkg/term v0.0.0-20241026122259-37a80af23985
+2026-10-19T08:04:59.1093422Z go: downloading github.com/tklauser/numcpus v0.6.1
+2026-10-19T08:04:59.1306245Z go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+2026-10-19T08:04:59.1493342Z go: downloading github.com/x448/float16 v0.8.4
+2026-10-19T08:04:59.1659854Z go: downloading golang.org/x/sync v0.20.0
+2026-10-19T08:04:59.1882841Z go: downloading github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
+2026-10-19T08:06:44.4766764Z === RUN   TestB2SubmissionConfiguredDatabases
+2026-10-19T08:06:44.4767659Z === RUN   TestB2SubmissionConfiguredDatabases/mysql
+2026-10-19T08:06:48.7748223Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/historical-amount-schema
+2026-10-19T08:06:48.8685592Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/token-quota-adjustment
+2026-10-19T08:06:49.4071410Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/database-key-binding
+2026-10-19T08:06:49.4167730Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/database-clock-failure-never-falls-back
+2026-10-19T08:06:49.4221179Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/gorm-table-write-guard-protects-durable-records
+2026-10-19T08:06:49.4323038Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/gorm-table-write-guard-protects-durable-records/identity
+2026-10-19T08:06:49.4327192Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/gorm-table-write-guard-protects-durable-records/operation
+2026-10-19T08:06:49.4331490Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/gorm-table-write-guard-protects-durable-records/attempt
+2026-10-19T08:06:49.4334980Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/gorm-table-write-guard-protects-durable-records/event
+2026-10-19T08:06:49.4339152Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/gorm-table-write-guard-protects-durable-records/outbox
+2026-10-19T08:06:49.4461568Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/stable-public-id-and-idempotency-scope
+2026-10-19T08:06:49.4627197Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/create-or-load-replays-immutable-v1-records-without-poisoning-transactions
+2026-10-19T08:06:49.5311969Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/atomic-t0-intent-owns-once-and-replays-the-persisted-route
+2026-10-19T08:06:49.5629752Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/atomic-t0-intent-concurrent-loser-reuses-the-winner
+2026-10-19T08:06:49.5711494Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/atomic-t0-intent-rolls-back-an-operation-when-attempt-creation-fails
+2026-10-19T08:06:49.5766279Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/atomic-t0-intent-does-not-enter-an-outer-transaction-when-savepoint-creation-fails
+2026-10-19T08:06:49.5775942Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/atomic-t0-intent-invalidates-an-outer-transaction-when-savepoint-rollback-fails
+2026-10-19T08:06:49.5818447Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/atomic-t0-intent-rolls-back-before-a-recovered-panic-can-commit
+2026-10-19T08:06:49.5868639Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/operation-cas-and-formal-task-link
+2026-10-19T08:06:49.6355457Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/unknown-states-require-explicit-resolution
+2026-10-19T08:06:49.6471449Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/outcome-unknown-requires-explicit-terminal-resolution
+2026-10-19T08:06:49.6625314Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/attempt-event-and-outbox-uniqueness
+2026-10-19T08:06:49.7258641Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/attempt-event-and-outbox-uniqueness/reject-projection-type
+2026-10-19T08:06:49.7291385Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/attempt-event-and-outbox-uniqueness/reject-projection-user
+2026-10-19T08:06:49.7323242Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/attempt-event-and-outbox-uniqueness/reject-projection-token
+2026-10-19T08:06:49.7355491Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/attempt-event-and-outbox-uniqueness/reject-projection-quota
+2026-10-19T08:06:49.7684916Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/billing-processing-leases-are-owned-due-and-reclaimable
+2026-10-19T08:06:49.8274579Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/billing-event-sign-boundaries-manual-keys-and-free-projection
+2026-10-19T08:06:49.8372064Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/billing-event-sign-boundaries-manual-keys-and-free-projection/reject-projection-overflow-prompt-tokens
+2026-10-19T08:06:49.8374810Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/billing-event-sign-boundaries-manual-keys-and-free-projection/reject-projection-overflow-completion-tokens
+2026-10-19T08:06:49.8377720Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/billing-event-sign-boundaries-manual-keys-and-free-projection/reject-projection-overflow-use-time
+2026-10-19T08:06:49.8380223Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/billing-event-sign-boundaries-manual-keys-and-free-projection/underflow
+2026-10-19T08:06:49.8382637Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/billing-event-sign-boundaries-manual-keys-and-free-projection/overflow
+2026-10-19T08:06:49.8385134Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/billing-event-sign-boundaries-manual-keys-and-free-projection/positive-reserve
+2026-10-19T08:06:49.8387733Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/billing-event-sign-boundaries-manual-keys-and-free-projection/negative-refund
+2026-10-19T08:06:49.8639026Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/transaction-rollback
+2026-10-19T08:06:49.8891803Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation
+2026-10-19T08:06:49.8893862Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/wallet-replay-conflict-and-owner-query
+2026-10-19T08:06:49.9483725Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/replay-after-token-disabled
+2026-10-19T08:06:49.9944916Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/subscription-and-token-atomic-reserve
+2026-10-19T08:06:50.0438087Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/unlimited-token-retains-bounded-accounting
+2026-10-19T08:06:50.0848968Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/negative-reservation
+2026-10-19T08:06:50.0946849Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/oversized-reservation
+2026-10-19T08:06:50.1038905Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/wrong-owner
+2026-10-19T08:06:50.1149569Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/wrong-channel
+2026-10-19T08:06:50.1400819Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/stale-operation-version
+2026-10-19T08:06:50.1649558Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/incomplete-price
+2026-10-19T08:06:50.1741800Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/nonfinite-price
+2026-10-19T08:06:50.1833832Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/invalid-ratio
+2026-10-19T08:06:50.1927198Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/insufficient-token
+2026-10-19T08:06:50.2209562Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/overflow-token-used
+2026-10-19T08:06:50.2498182Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/overflow-version
+2026-10-19T08:06:50.2623112Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/disabled-token
+2026-10-19T08:06:50.2749897Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/expired-token
+2026-10-19T08:06:50.2873377Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/outer-transaction-rollback
+2026-10-19T08:06:50.3612125Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/caught-receipt-error-rolls-back-savepoint
+2026-10-19T08:06:50.3969310Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/receipt-immutability-and-guards
+2026-10-19T08:06:50.4365532Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/zero-quota-reservation-and-overdrawn-accounts
+2026-10-19T08:06:50.5358596Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/amount-and-version-boundaries
+2026-10-19T08:06:50.7190163Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/concurrent-same-operation-replay
+2026-10-19T08:06:50.7670271Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/concurrent-distinct-operations-quota-contention
+2026-10-19T08:06:50.8314662Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/quota-commit-acknowledgement
+2026-10-19T08:06:50.8814547Z === RUN   TestB2SubmissionConfiguredDatabases/mysql/business-credit-receipts
+2026-10-19T08:06:50.9218496Z [WARN] 2026/10/19 - 08:06:50 | SYSTEM | quota projection failed: correlation_key=topup:739f0030f86deb4305503a6f80c697f094b17921dd17c9e533b4ac65adbc28b4 event=topup:739f0030f86deb4305503a6f80c697f094b17921dd17c9e533b4ac65adbc28b4 receipt=user/2 obligation=21 error=redis projection unavailable 
+2026-10-19T08:06:50.9221563Z [SYS] 2026/10/19 - 08:06:50 | 易支付充值成功 trade_no=b2-credit-topup-order user_id=910001 quota_to_add=200 money=2.00 
+2026-10-19T08:06:50.9413786Z [SYS] 2026/10/19 - 08:06:50 | epay topup failed: configured receipt failure 
+2026-10-19T08:06:53.6095214Z [WARN] 2026/10/19 - 08:06:53 | SYSTEM | quota projection failed: correlation_key=redemption:1 event=redemption:1 receipt=user/3 obligation=22 error=redis projection unavailable 
+2026-10-19T08:06:58.3384653Z [SYS] 2026/10/19 - 08:06:58 | redemption failed: user quota mutation conflicts with existing receipt 
+2026-10-19T08:06:58.3616224Z [WARN] 2026/10/19 - 08:06:58 | SYSTEM | quota projection failed: correlation_key=checkin:910005:2026-10-19 event=checkin:910005:2026-10-19 receipt=user/4 obligation=23 error=redis projection unavailable 
+2026-10-19T08:06:58.3735955Z === RUN   TestB2SubmissionConfiguredDatabases/postgres
+2026-10-19T08:07:22.4607577Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/historical-amount-schema
+2026-10-19T08:07:24.8439307Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/token-quota-adjustment
+2026-10-19T08:07:30.5199555Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/database-key-binding
+2026-10-19T08:07:30.5277858Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/database-clock-failure-never-falls-back
+2026-10-19T08:07:30.5314447Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/gorm-table-write-guard-protects-durable-records
+2026-10-19T08:07:30.5405435Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/gorm-table-write-guard-protects-durable-records/identity
+2026-10-19T08:07:30.5410379Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/gorm-table-write-guard-protects-durable-records/operation
+2026-10-19T08:07:30.5414594Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/gorm-table-write-guard-protects-durable-records/attempt
+2026-10-19T08:07:30.5419307Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/gorm-table-write-guard-protects-durable-records/event
+2026-10-19T08:07:30.5423861Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/gorm-table-write-guard-protects-durable-records/outbox
+2026-10-19T08:07:30.5520769Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/stable-public-id-and-idempotency-scope
+2026-10-19T08:07:30.5638128Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/create-or-load-replays-immutable-v1-records-without-poisoning-transactions
+2026-10-19T08:07:30.6147462Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/atomic-t0-intent-owns-once-and-replays-the-persisted-route
+2026-10-19T08:07:30.6376870Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/atomic-t0-intent-concurrent-loser-reuses-the-winner
+2026-10-19T08:07:30.6492569Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/atomic-t0-intent-rolls-back-an-operation-when-attempt-creation-fails
+2026-10-19T08:07:30.6539961Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/atomic-t0-intent-does-not-enter-an-outer-transaction-when-savepoint-creation-fails
+2026-10-19T08:07:30.6546992Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/atomic-t0-intent-invalidates-an-outer-transaction-when-savepoint-rollback-fails
+2026-10-19T08:07:30.6579247Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/atomic-t0-intent-rolls-back-before-a-recovered-panic-can-commit
+2026-10-19T08:07:30.6618791Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/operation-cas-and-formal-task-link
+2026-10-19T08:07:30.7006785Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/unknown-states-require-explicit-resolution
+2026-10-19T08:07:30.7101350Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/outcome-unknown-requires-explicit-terminal-resolution
+2026-10-19T08:07:30.7219462Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/attempt-event-and-outbox-uniqueness
+2026-10-19T08:07:30.7690961Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/attempt-event-and-outbox-uniqueness/reject-projection-quota
+2026-10-19T08:07:30.7712726Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/attempt-event-and-outbox-uniqueness/reject-projection-type
+2026-10-19T08:07:30.7736920Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/attempt-event-and-outbox-uniqueness/reject-projection-user
+2026-10-19T08:07:30.7763569Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/attempt-event-and-outbox-uniqueness/reject-projection-token
+2026-10-19T08:07:30.8023555Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/billing-processing-leases-are-owned-due-and-reclaimable
+2026-10-19T08:07:30.8486178Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/billing-event-sign-boundaries-manual-keys-and-free-projection
+2026-10-19T08:07:30.8560181Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/billing-event-sign-boundaries-manual-keys-and-free-projection/reject-projection-overflow-prompt-tokens
+2026-10-19T08:07:30.8563231Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/billing-event-sign-boundaries-manual-keys-and-free-projection/reject-projection-overflow-completion-tokens
+2026-10-19T08:07:30.8565767Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/billing-event-sign-boundaries-manual-keys-and-free-projection/reject-projection-overflow-use-time
+2026-10-19T08:07:30.8568058Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/billing-event-sign-boundaries-manual-keys-and-free-projection/underflow
+2026-10-19T08:07:30.8570452Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/billing-event-sign-boundaries-manual-keys-and-free-projection/overflow
+2026-10-19T08:07:30.8572520Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/billing-event-sign-boundaries-manual-keys-and-free-projection/positive-reserve
+2026-10-19T08:07:30.8574707Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/billing-event-sign-boundaries-manual-keys-and-free-projection/negative-refund
+2026-10-19T08:07:30.8757572Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/transaction-rollback
+2026-10-19T08:07:30.8943129Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation
+2026-10-19T08:07:30.8945217Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/wallet-replay-conflict-and-owner-query
+2026-10-19T08:07:30.9401933Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/replay-after-token-disabled
+2026-10-19T08:07:30.9727316Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/subscription-and-token-atomic-reserve
+2026-10-19T08:07:31.0076496Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/unlimited-token-retains-bounded-accounting
+2026-10-19T08:07:31.0350229Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/negative-reservation
+2026-10-19T08:07:31.0417617Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/oversized-reservation
+2026-10-19T08:07:31.0484962Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/wrong-owner
+2026-10-19T08:07:31.0562725Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/wrong-channel
+2026-10-19T08:07:31.0739321Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/stale-operation-version
+2026-10-19T08:07:31.0915268Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/incomplete-price
+2026-10-19T08:07:31.0980020Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/nonfinite-price
+2026-10-19T08:07:31.1047741Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/invalid-ratio
+2026-10-19T08:07:31.1113318Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/insufficient-token
+2026-10-19T08:07:31.1317618Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/overflow-token-used
+2026-10-19T08:07:31.1516311Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/overflow-version
+2026-10-19T08:07:31.1610900Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/disabled-token
+2026-10-19T08:07:31.1699335Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/expired-token
+2026-10-19T08:07:31.1795689Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/outer-transaction-rollback
+2026-10-19T08:07:31.2321497Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/caught-receipt-error-rolls-back-savepoint
+2026-10-19T08:07:31.2567176Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/receipt-immutability-and-guards
+2026-10-19T08:07:31.2848835Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/zero-quota-reservation-and-overdrawn-accounts
+2026-10-19T08:07:31.3570065Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/amount-and-version-boundaries
+2026-10-19T08:07:31.4828760Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/concurrent-same-operation-replay
+2026-10-19T08:07:31.5176083Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/concurrent-distinct-operations-quota-contention
+2026-10-19T08:07:31.5660633Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/quota-commit-acknowledgement
+2026-10-19T08:07:31.6026610Z === RUN   TestB2SubmissionConfiguredDatabases/postgres/business-credit-receipts
+2026-10-19T08:07:31.6321101Z [WARN] 2026/10/19 - 08:07:31 | SYSTEM | quota projection failed: correlation_key=topup:739f0030f86deb4305503a6f80c697f094b17921dd17c9e533b4ac65adbc28b4 event=topup:739f0030f86deb4305503a6f80c697f094b17921dd17c9e533b4ac65adbc28b4 receipt=user/2 obligation=21 error=redis projection unavailable 
+2026-10-19T08:07:31.6324248Z [SYS] 2026/10/19 - 08:07:31 | 易支付充值成功 trade_no=b2-credit-topup-order user_id=910001 quota_to_add=200 money=2.00 
+2026-10-19T08:07:31.6447926Z [SYS] 2026/10/19 - 08:07:31 | epay topup failed: configured receipt failure 
+2026-10-19T08:07:32.4930704Z [WARN] 2026/10/19 - 08:07:32 | SYSTEM | quota projection failed: correlation_key=redemption:1 event=redemption:1 receipt=user/3 obligation=22 error=redis projection unavailable 
+2026-10-19T08:07:37.5665260Z [SYS] 2026/10/19 - 08:07:37 | redemption failed: user quota mutation conflicts with existing receipt 
+2026-10-19T08:07:37.5828974Z [WARN] 2026/10/19 - 08:07:37 | SYSTEM | quota projection failed: correlation_key=checkin:910005:2026-10-19 event=checkin:910005:2026-10-19 receipt=user/4 obligation=23 error=redis projection unavailable 
+2026-10-19T08:07:37.5976431Z --- PASS: TestB2SubmissionConfiguredDatabases (53.12s)
+2026-10-19T08:07:37.5977997Z     --- PASS: TestB2SubmissionConfiguredDatabases/mysql (13.90s)
+2026-10-19T08:07:37.5980325Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/historical-amount-schema (0.09s)
+2026-10-19T08:07:37.5982569Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/token-quota-adjustment (0.04s)
+2026-10-19T08:07:37.5984248Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/database-key-binding (0.01s)
+2026-10-19T08:07:37.5986114Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/database-clock-failure-never-falls-back (0.01s)
+2026-10-19T08:07:37.5988189Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/gorm-table-write-guard-protects-durable-records (0.02s)
+2026-10-19T08:07:37.5991865Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/gorm-table-write-guard-protects-durable-records/identity (0.00s)
+2026-10-19T08:07:37.5994916Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/gorm-table-write-guard-protects-durable-records/operation (0.00s)
+2026-10-19T08:07:37.5997246Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/gorm-table-write-guard-protects-durable-records/attempt (0.00s)
+2026-10-19T08:07:37.6000407Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/gorm-table-write-guard-protects-durable-records/event (0.00s)
+2026-10-19T08:07:37.6003141Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/gorm-table-write-guard-protects-durable-records/outbox (0.00s)
+2026-10-19T08:07:37.6005286Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/stable-public-id-and-idempotency-scope (0.02s)
+2026-10-19T08:07:37.6007578Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/create-or-load-replays-immutable-v1-records-without-poisoning-transactions (0.07s)
+2026-10-19T08:07:37.6010056Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/atomic-t0-intent-owns-once-and-replays-the-persisted-route (0.03s)
+2026-10-19T08:07:37.6011422Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/atomic-t0-intent-concurrent-loser-reuses-the-winner (0.01s)
+2026-10-19T08:07:37.6012808Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/atomic-t0-intent-rolls-back-an-operation-when-attempt-creation-fails (0.01s)
+2026-10-19T08:07:37.6014426Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/atomic-t0-intent-does-not-enter-an-outer-transaction-when-savepoint-creation-fails (0.00s)
+2026-10-19T08:07:37.6015895Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/atomic-t0-intent-invalidates-an-outer-transaction-when-savepoint-rollback-fails (0.00s)
+2026-10-19T08:07:37.6017180Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/atomic-t0-intent-rolls-back-before-a-recovered-panic-can-commit (0.01s)
+2026-10-19T08:07:37.6018201Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/operation-cas-and-formal-task-link (0.05s)
+2026-10-19T08:07:37.6019853Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/unknown-states-require-explicit-resolution (0.01s)
+2026-10-19T08:07:37.6021023Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/outcome-unknown-requires-explicit-terminal-resolution (0.02s)
+2026-10-19T08:07:37.6026964Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/attempt-event-and-outbox-uniqueness (0.11s)
+2026-10-19T08:07:37.6029642Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/attempt-event-and-outbox-uniqueness/reject-projection-type (0.00s)
+2026-10-19T08:07:37.6031995Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/attempt-event-and-outbox-uniqueness/reject-projection-user (0.00s)
+2026-10-19T08:07:37.6033951Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/attempt-event-and-outbox-uniqueness/reject-projection-token (0.00s)
+2026-10-19T08:07:37.6035364Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/attempt-event-and-outbox-uniqueness/reject-projection-quota (0.00s)
+2026-10-19T08:07:37.6036700Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/billing-processing-leases-are-owned-due-and-reclaimable (0.06s)
+2026-10-19T08:07:37.6037904Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/billing-event-sign-boundaries-manual-keys-and-free-projection (0.04s)
+2026-10-19T08:07:37.6039856Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/billing-event-sign-boundaries-manual-keys-and-free-projection/reject-projection-overflow-prompt-tokens (0.00s)
+2026-10-19T08:07:37.6042726Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/billing-event-sign-boundaries-manual-keys-and-free-projection/reject-projection-overflow-completion-tokens (0.00s)
+2026-10-19T08:07:37.6045764Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/billing-event-sign-boundaries-manual-keys-and-free-projection/reject-projection-overflow-use-time (0.00s)
+2026-10-19T08:07:37.6049273Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/billing-event-sign-boundaries-manual-keys-and-free-projection/underflow (0.00s)
+2026-10-19T08:07:37.6051878Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/billing-event-sign-boundaries-manual-keys-and-free-projection/overflow (0.00s)
+2026-10-19T08:07:37.6054475Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/billing-event-sign-boundaries-manual-keys-and-free-projection/positive-reserve (0.00s)
+2026-10-19T08:07:37.6056909Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/billing-event-sign-boundaries-manual-keys-and-free-projection/negative-refund (0.00s)
+2026-10-19T08:07:37.6058232Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/transaction-rollback (0.01s)
+2026-10-19T08:07:37.6060041Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation (0.94s)
+2026-10-19T08:07:37.6062214Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/wallet-replay-conflict-and-owner-query (0.06s)
+2026-10-19T08:07:37.6064045Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/replay-after-token-disabled (0.05s)
+2026-10-19T08:07:37.6065881Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/subscription-and-token-atomic-reserve (0.05s)
+2026-10-19T08:07:37.6067893Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/unlimited-token-retains-bounded-accounting (0.04s)
+2026-10-19T08:07:37.6070220Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/negative-reservation (0.01s)
+2026-10-19T08:07:37.6072283Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/oversized-reservation (0.01s)
+2026-10-19T08:07:37.6074204Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/wrong-owner (0.01s)
+2026-10-19T08:07:37.6075185Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/wrong-channel (0.03s)
+2026-10-19T08:07:37.6076678Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/stale-operation-version (0.02s)
+2026-10-19T08:07:37.6078157Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/incomplete-price (0.01s)
+2026-10-19T08:07:37.6079996Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/nonfinite-price (0.01s)
+2026-10-19T08:07:37.6081820Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/invalid-ratio (0.01s)
+2026-10-19T08:07:37.6084076Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/insufficient-token (0.03s)
+2026-10-19T08:07:37.6086051Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/overflow-token-used (0.03s)
+2026-10-19T08:07:37.6087414Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/overflow-version (0.01s)
+2026-10-19T08:07:37.6089426Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/disabled-token (0.01s)
+2026-10-19T08:07:37.6090966Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/expired-token (0.01s)
+2026-10-19T08:07:37.6092360Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/outer-transaction-rollback (0.07s)
+2026-10-19T08:07:37.6094918Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/caught-receipt-error-rolls-back-savepoint (0.04s)
+2026-10-19T08:07:37.6097344Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/receipt-immutability-and-guards (0.04s)
+2026-10-19T08:07:37.6099342Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/zero-quota-reservation-and-overdrawn-accounts (0.10s)
+2026-10-19T08:07:37.6101361Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/amount-and-version-boundaries (0.18s)
+2026-10-19T08:07:37.6103039Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/concurrent-same-operation-replay (0.05s)
+2026-10-19T08:07:37.6105250Z             --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-reservation/concurrent-distinct-operations-quota-contention (0.06s)
+2026-10-19T08:07:37.6107250Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/quota-commit-acknowledgement (0.05s)
+2026-10-19T08:07:37.6109139Z         --- PASS: TestB2SubmissionConfiguredDatabases/mysql/business-credit-receipts (7.49s)
+2026-10-19T08:07:37.6110371Z     --- PASS: TestB2SubmissionConfiguredDatabases/postgres (39.22s)
+2026-10-19T08:07:37.6111552Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/historical-amount-schema (2.38s)
+2026-10-19T08:07:37.6112663Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/token-quota-adjustment (0.03s)
+2026-10-19T08:07:37.6113456Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/database-key-binding (0.01s)
+2026-10-19T08:07:37.6114807Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/database-clock-failure-never-falls-back (0.00s)
+2026-10-19T08:07:37.6116489Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/gorm-table-write-guard-protects-durable-records (0.02s)
+2026-10-19T08:07:37.6119083Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/gorm-table-write-guard-protects-durable-records/identity (0.00s)
+2026-10-19T08:07:37.6121708Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/gorm-table-write-guard-protects-durable-records/operation (0.00s)
+2026-10-19T08:07:37.6123425Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/gorm-table-write-guard-protects-durable-records/attempt (0.00s)
+2026-10-19T08:07:37.6125372Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/gorm-table-write-guard-protects-durable-records/event (0.00s)
+2026-10-19T08:07:37.6127264Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/gorm-table-write-guard-protects-durable-records/outbox (0.00s)
+2026-10-19T08:07:37.6129683Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/stable-public-id-and-idempotency-scope (0.01s)
+2026-10-19T08:07:37.6132118Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/create-or-load-replays-immutable-v1-records-without-poisoning-transactions (0.05s)
+2026-10-19T08:07:37.6134608Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/atomic-t0-intent-owns-once-and-replays-the-persisted-route (0.02s)
+2026-10-19T08:07:37.6139506Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/atomic-t0-intent-concurrent-loser-reuses-the-winner (0.01s)
+2026-10-19T08:07:37.6141882Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/atomic-t0-intent-rolls-back-an-operation-when-attempt-creation-fails (0.00s)
+2026-10-19T08:07:37.6144407Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/atomic-t0-intent-does-not-enter-an-outer-transaction-when-savepoint-creation-fails (0.00s)
+2026-10-19T08:07:37.6146759Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/atomic-t0-intent-invalidates-an-outer-transaction-when-savepoint-rollback-fails (0.00s)
+2026-10-19T08:07:37.6148815Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/atomic-t0-intent-rolls-back-before-a-recovered-panic-can-commit (0.00s)
+2026-10-19T08:07:37.6150669Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/operation-cas-and-formal-task-link (0.04s)
+2026-10-19T08:07:37.6152265Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/unknown-states-require-explicit-resolution (0.01s)
+2026-10-19T08:07:37.6154219Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/outcome-unknown-requires-explicit-terminal-resolution (0.01s)
+2026-10-19T08:07:37.6156521Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/attempt-event-and-outbox-uniqueness (0.08s)
+2026-10-19T08:07:37.6159422Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/attempt-event-and-outbox-uniqueness/reject-projection-quota (0.00s)
+2026-10-19T08:07:37.6161584Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/attempt-event-and-outbox-uniqueness/reject-projection-type (0.00s)
+2026-10-19T08:07:37.6163626Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/attempt-event-and-outbox-uniqueness/reject-projection-user (0.00s)
+2026-10-19T08:07:37.6166019Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/attempt-event-and-outbox-uniqueness/reject-projection-token (0.00s)
+2026-10-19T08:07:37.6169054Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/billing-processing-leases-are-owned-due-and-reclaimable (0.05s)
+2026-10-19T08:07:37.6171490Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/billing-event-sign-boundaries-manual-keys-and-free-projection (0.03s)
+2026-10-19T08:07:37.6173787Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/billing-event-sign-boundaries-manual-keys-and-free-projection/reject-projection-overflow-prompt-tokens (0.00s)
+2026-10-19T08:07:37.6177062Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/billing-event-sign-boundaries-manual-keys-and-free-projection/reject-projection-overflow-completion-tokens (0.00s)
+2026-10-19T08:07:37.6181129Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/billing-event-sign-boundaries-manual-keys-and-free-projection/reject-projection-overflow-use-time (0.00s)
+2026-10-19T08:07:37.6200807Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/billing-event-sign-boundaries-manual-keys-and-free-projection/underflow (0.00s)
+2026-10-19T08:07:37.6203361Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/billing-event-sign-boundaries-manual-keys-and-free-projection/overflow (0.00s)
+2026-10-19T08:07:37.6204938Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/billing-event-sign-boundaries-manual-keys-and-free-projection/positive-reserve (0.00s)
+2026-10-19T08:07:37.6206545Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/billing-event-sign-boundaries-manual-keys-and-free-projection/negative-refund (0.00s)
+2026-10-19T08:07:37.6207637Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/transaction-rollback (0.01s)
+2026-10-19T08:07:37.6208755Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation (0.67s)
+2026-10-19T08:07:37.6210325Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/wallet-replay-conflict-and-owner-query (0.05s)
+2026-10-19T08:07:37.6212272Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/replay-after-token-disabled (0.03s)
+2026-10-19T08:07:37.6214169Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/subscription-and-token-atomic-reserve (0.03s)
+2026-10-19T08:07:37.6216770Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/unlimited-token-retains-bounded-accounting (0.03s)
+2026-10-19T08:07:37.6219566Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/negative-reservation (0.01s)
+2026-10-19T08:07:37.6221709Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/oversized-reservation (0.01s)
+2026-10-19T08:07:37.6223690Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/wrong-owner (0.01s)
+2026-10-19T08:07:37.6225619Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/wrong-channel (0.02s)
+2026-10-19T08:07:37.6227672Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/stale-operation-version (0.02s)
+2026-10-19T08:07:37.6230072Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/incomplete-price (0.01s)
+2026-10-19T08:07:37.6231503Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/nonfinite-price (0.01s)
+2026-10-19T08:07:37.6232700Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/invalid-ratio (0.01s)
+2026-10-19T08:07:37.6234427Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/insufficient-token (0.02s)
+2026-10-19T08:07:37.6235672Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/overflow-token-used (0.02s)
+2026-10-19T08:07:37.6237692Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/overflow-version (0.01s)
+2026-10-19T08:07:37.6239935Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/disabled-token (0.01s)
+2026-10-19T08:07:37.6241904Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/expired-token (0.01s)
+2026-10-19T08:07:37.6243304Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/outer-transaction-rollback (0.05s)
+2026-10-19T08:07:37.6245144Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/caught-receipt-error-rolls-back-savepoint (0.02s)
+2026-10-19T08:07:37.6246690Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/receipt-immutability-and-guards (0.03s)
+2026-10-19T08:07:37.6249065Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/zero-quota-reservation-and-overdrawn-accounts (0.07s)
+2026-10-19T08:07:37.6251530Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/amount-and-version-boundaries (0.13s)
+2026-10-19T08:07:37.6253902Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/concurrent-same-operation-replay (0.03s)
+2026-10-19T08:07:37.6256515Z             --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-reservation/concurrent-distinct-operations-quota-contention (0.05s)
+2026-10-19T08:07:37.6257743Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/quota-commit-acknowledgement (0.04s)
+2026-10-19T08:07:37.6259126Z         --- PASS: TestB2SubmissionConfiguredDatabases/postgres/business-credit-receipts (5.99s)
+2026-10-19T08:07:37.6259701Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases
+2026-10-19T08:07:37.6260422Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite
+2026-10-19T08:07:37.6261313Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/classification_and_attempt_budgets
+2026-10-19T08:07:37.6262011Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits
+2026-10-19T08:07:37.6263407Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/restart_owner
+2026-10-19T08:07:37.6264359Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/other_channel
+2026-10-19T08:07:37.6265773Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/other_account
+2026-10-19T08:07:37.6267227Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/disabled_kind
+2026-10-19T08:07:37.6269053Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/unknown_kind
+2026-10-19T08:07:37.6269870Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/generation_slot_stop_and_drain
+2026-10-19T08:07:37.6270815Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/generation_release_preserves_attempt_count
+2026-10-19T08:07:37.6330387Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/deadline_is_terminal_and_persisted
+2026-10-19T08:07:37.6384844Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/concurrent_last_budget_claim
+2026-10-19T08:07:37.6432241Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage
+2026-10-19T08:07:37.6434465Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/negative_limit
+2026-10-19T08:07:37.6436810Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/unbounded_total
+2026-10-19T08:07:37.6439411Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/class_above_total
+2026-10-19T08:07:37.6441794Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/existing_counter
+2026-10-19T08:07:37.6444083Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/deadline
+2026-10-19T08:07:37.6445982Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/raw_account
+2026-10-19T08:07:37.6467355Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql
+2026-10-19T08:07:37.6514894Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql/classification_and_attempt_budgets
+2026-10-19T08:07:37.6687588Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql/scope_and_per_kind_limits
+2026-10-19T08:07:37.6699865Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql/scope_and_per_kind_limits/restart_owner
+2026-10-19T08:07:37.6713710Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql/scope_and_per_kind_limits/other_channel
+2026-10-19T08:07:37.6727159Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql/scope_and_per_kind_limits/other_account
+2026-10-19T08:07:37.6740385Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql/scope_and_per_kind_limits/disabled_kind
+2026-10-19T08:07:37.6753339Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql/scope_and_per_kind_limits/unknown_kind
+2026-10-19T08:07:37.6811030Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql/generation_slot_stop_and_drain
+2026-10-19T08:07:37.7060366Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql/generation_release_preserves_attempt_count
+2026-10-19T08:07:37.7167966Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql/deadline_is_terminal_and_persisted
+2026-10-19T08:07:37.7294739Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql/concurrent_last_budget_claim
+2026-10-19T08:07:37.7356126Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql/validation_and_fail_closed_storage
+2026-10-19T08:07:37.7357510Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql/validation_and_fail_closed_storage/negative_limit
+2026-10-19T08:07:37.7368829Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql/validation_and_fail_closed_storage/unbounded_total
+2026-10-19T08:07:37.7380300Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql/validation_and_fail_closed_storage/class_above_total
+2026-10-19T08:07:37.7392827Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql/validation_and_fail_closed_storage/existing_counter
+2026-10-19T08:07:37.7407252Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql/validation_and_fail_closed_storage/deadline
+2026-10-19T08:07:37.7418030Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql/validation_and_fail_closed_storage/raw_account
+2026-10-19T08:07:37.7457671Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres
+2026-10-19T08:07:37.8060557Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres/classification_and_attempt_budgets
+2026-10-19T08:07:37.8176842Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres/scope_and_per_kind_limits
+2026-10-19T08:07:37.8185152Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres/scope_and_per_kind_limits/restart_owner
+2026-10-19T08:07:37.8195900Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres/scope_and_per_kind_limits/other_channel
+2026-10-19T08:07:37.8207542Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres/scope_and_per_kind_limits/other_account
+2026-10-19T08:07:37.8218396Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres/scope_and_per_kind_limits/disabled_kind
+2026-10-19T08:07:37.8230603Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres/scope_and_per_kind_limits/unknown_kind
+2026-10-19T08:07:37.8268860Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres/generation_slot_stop_and_drain
+2026-10-19T08:07:37.8450380Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres/generation_release_preserves_attempt_count
+2026-10-19T08:07:37.8529962Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres/deadline_is_terminal_and_persisted
+2026-10-19T08:07:37.9090149Z     upstream_acceptance_run_test.go:52: 
+2026-10-19T08:07:37.9092229Z         	Error Trace:	/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:52
+2026-10-19T08:07:37.9096361Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1308
+2026-10-19T08:07:37.9100028Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1572
+2026-10-19T08:07:37.9102613Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1928
+2026-10-19T08:07:37.9103975Z         	Error:      	Received unexpected error:
+2026-10-19T08:07:37.9105051Z         	            	sql: database is closed
+2026-10-19T08:07:37.9107224Z         	Test:       	TestUpstreamAcceptanceRunConfiguredDatabases/postgres/deadline_is_terminal_and_persisted
+2026-10-19T08:07:37.9109075Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres/concurrent_last_budget_claim
+2026-10-19T08:07:37.9110148Z     upstream_acceptance_run_test.go:205: 
+2026-10-19T08:07:37.9111364Z         	Error Trace:	/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:205
+2026-10-19T08:07:37.9112425Z         	Error:      	Received unexpected error:
+2026-10-19T08:07:37.9113514Z         	            	upstream acceptance storage unavailable
+2026-10-19T08:07:37.9115725Z         	Test:       	TestUpstreamAcceptanceRunConfiguredDatabases/postgres/concurrent_last_budget_claim
+2026-10-19T08:07:37.9116815Z     upstream_acceptance_run_test.go:52: 
+2026-10-19T08:07:37.9118031Z         	Error Trace:	/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:52
+2026-10-19T08:07:37.9120222Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1308
+2026-10-19T08:07:37.9121987Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1572
+2026-10-19T08:07:37.9123793Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1928
+2026-10-19T08:07:37.9125195Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/runtime/panic.go:615
+2026-10-19T08:07:37.9126179Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1013
+2026-10-19T08:07:37.9127454Z         	            				/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:205
+2026-10-19T08:07:37.9127986Z         	Error:      	Received unexpected error:
+2026-10-19T08:07:37.9129020Z         	            	sql: database is closed
+2026-10-19T08:07:37.9130316Z         	Test:       	TestUpstreamAcceptanceRunConfiguredDatabases/postgres/concurrent_last_budget_claim
+2026-10-19T08:07:37.9131599Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage
+2026-10-19T08:07:37.9133243Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/negative_limit
+2026-10-19T08:07:37.9134350Z     upstream_acceptance_run_test.go:250: 
+2026-10-19T08:07:37.9135428Z         	Error Trace:	/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:250
+2026-10-19T08:07:37.9136405Z         	Error:      	Target error should be in err chain:
+2026-10-19T08:07:37.9137459Z         	            	expected: "upstream acceptance run not found"
+2026-10-19T08:07:37.9138882Z         	            	in chain: "upstream acceptance storage unavailable"
+2026-10-19T08:07:37.9140559Z         	Test:       	TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/negative_limit
+2026-10-19T08:07:37.9141716Z     upstream_acceptance_run_test.go:52: 
+2026-10-19T08:07:37.9142777Z         	Error Trace:	/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:52
+2026-10-19T08:07:37.9144545Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1308
+2026-10-19T08:07:37.9146280Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1572
+2026-10-19T08:07:37.9147978Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1928
+2026-10-19T08:07:37.9149213Z         	Error:      	Received unexpected error:
+2026-10-19T08:07:37.9150054Z         	            	sql: database is closed
+2026-10-19T08:07:37.9151538Z         	Test:       	TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/negative_limit
+2026-10-19T08:07:37.9153081Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/unbounded_total
+2026-10-19T08:07:37.9154167Z     upstream_acceptance_run_test.go:250: 
+2026-10-19T08:07:37.9155311Z         	Error Trace:	/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:250
+2026-10-19T08:07:37.9156334Z         	Error:      	Target error should be in err chain:
+2026-10-19T08:07:37.9157476Z         	            	expected: "upstream acceptance run not found"
+2026-10-19T08:07:37.9158951Z         	            	in chain: "upstream acceptance storage unavailable"
+2026-10-19T08:07:37.9160550Z         	Test:       	TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/unbounded_total
+2026-10-19T08:07:37.9161658Z     upstream_acceptance_run_test.go:52: 
+2026-10-19T08:07:37.9162783Z         	Error Trace:	/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:52
+2026-10-19T08:07:37.9164572Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1308
+2026-10-19T08:07:37.9166255Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1572
+2026-10-19T08:07:37.9167926Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1928
+2026-10-19T08:07:37.9168913Z         	Error:      	Received unexpected error:
+2026-10-19T08:07:37.9169667Z         	            	sql: database is closed
+2026-10-19T08:07:37.9171140Z         	Test:       	TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/unbounded_total
+2026-10-19T08:07:37.9172699Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/class_above_total
+2026-10-19T08:07:37.9173813Z     upstream_acceptance_run_test.go:250: 
+2026-10-19T08:07:37.9174972Z         	Error Trace:	/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:250
+2026-10-19T08:07:37.9176237Z         	Error:      	Target error should be in err chain:
+2026-10-19T08:07:37.9177377Z         	            	expected: "upstream acceptance run not found"
+2026-10-19T08:07:37.9178779Z         	            	in chain: "upstream acceptance storage unavailable"
+2026-10-19T08:07:37.9180396Z         	Test:       	TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/class_above_total
+2026-10-19T08:07:37.9181536Z     upstream_acceptance_run_test.go:52: 
+2026-10-19T08:07:37.9182833Z         	Error Trace:	/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:52
+2026-10-19T08:07:37.9184689Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1308
+2026-10-19T08:07:37.9186402Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1572
+2026-10-19T08:07:37.9188088Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1928
+2026-10-19T08:07:37.9189179Z         	Error:      	Received unexpected error:
+2026-10-19T08:07:37.9190010Z         	            	sql: database is closed
+2026-10-19T08:07:37.9191542Z         	Test:       	TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/class_above_total
+2026-10-19T08:07:37.9193081Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/existing_counter
+2026-10-19T08:07:37.9194212Z     upstream_acceptance_run_test.go:250: 
+2026-10-19T08:07:37.9195385Z         	Error Trace:	/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:250
+2026-10-19T08:07:37.9196434Z         	Error:      	Target error should be in err chain:
+2026-10-19T08:07:37.9197580Z         	            	expected: "upstream acceptance run not found"
+2026-10-19T08:07:37.9198969Z         	            	in chain: "upstream acceptance storage unavailable"
+2026-10-19T08:07:37.9200575Z         	Test:       	TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/existing_counter
+2026-10-19T08:07:37.9201718Z     upstream_acceptance_run_test.go:52: 
+2026-10-19T08:07:37.9202845Z         	Error Trace:	/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:52
+2026-10-19T08:07:37.9204800Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1308
+2026-10-19T08:07:37.9206542Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1572
+2026-10-19T08:07:37.9208625Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1928
+2026-10-19T08:07:37.9209681Z         	Error:      	Received unexpected error:
+2026-10-19T08:07:37.9210585Z         	            	sql: database is closed
+2026-10-19T08:07:37.9212305Z         	Test:       	TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/existing_counter
+2026-10-19T08:07:37.9214059Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/deadline
+2026-10-19T08:07:37.9215216Z     upstream_acceptance_run_test.go:250: 
+2026-10-19T08:07:37.9216561Z         	Error Trace:	/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:250
+2026-10-19T08:07:37.9217801Z         	Error:      	Target error should be in err chain:
+2026-10-19T08:07:37.9219523Z         	            	expected: "upstream acceptance run not found"
+2026-10-19T08:07:37.9220857Z         	            	in chain: "upstream acceptance storage unavailable"
+2026-10-19T08:07:37.9222632Z         	Test:       	TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/deadline
+2026-10-19T08:07:37.9223947Z     upstream_acceptance_run_test.go:52: 
+2026-10-19T08:07:37.9225312Z         	Error Trace:	/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:52
+2026-10-19T08:07:37.9227382Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1308
+2026-10-19T08:07:37.9229833Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1572
+2026-10-19T08:07:37.9231817Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1928
+2026-10-19T08:07:37.9232889Z         	Error:      	Received unexpected error:
+2026-10-19T08:07:37.9233739Z         	            	sql: database is closed
+2026-10-19T08:07:37.9235296Z         	Test:       	TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/deadline
+2026-10-19T08:07:37.9237027Z === RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/raw_account
+2026-10-19T08:07:37.9238601Z     upstream_acceptance_run_test.go:250: 
+2026-10-19T08:07:37.9239852Z         	Error Trace:	/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:250
+2026-10-19T08:07:37.9241089Z         	Error:      	Target error should be in err chain:
+2026-10-19T08:07:37.9242416Z         	            	expected: "upstream acceptance run not found"
+2026-10-19T08:07:37.9243898Z         	            	in chain: "upstream acceptance storage unavailable"
+2026-10-19T08:07:37.9245538Z         	Test:       	TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/raw_account
+2026-10-19T08:07:37.9246892Z     upstream_acceptance_run_test.go:52: 
+2026-10-19T08:07:37.9248545Z         	Error Trace:	/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:52
+2026-10-19T08:07:37.9250704Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1308
+2026-10-19T08:07:37.9252485Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1572
+2026-10-19T08:07:37.9253476Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1928
+2026-10-19T08:07:37.9253975Z         	Error:      	Received unexpected error:
+2026-10-19T08:07:37.9254443Z         	            	sql: database is closed
+2026-10-19T08:07:37.9255368Z         	Test:       	TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/raw_account
+2026-10-19T08:07:37.9256261Z === NAME  TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage
+2026-10-19T08:07:37.9256835Z     upstream_acceptance_run_test.go:254: 
+2026-10-19T08:07:37.9257580Z         	Error Trace:	/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:254
+2026-10-19T08:07:37.9258222Z         	Error:      	Received unexpected error:
+2026-10-19T08:07:37.9259166Z         	            	upstream acceptance storage unavailable
+2026-10-19T08:07:37.9260049Z         	Test:       	TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage
+2026-10-19T08:07:37.9260660Z     upstream_acceptance_run_test.go:52: 
+2026-10-19T08:07:37.9261384Z         	Error Trace:	/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:52
+2026-10-19T08:07:37.9262469Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1308
+2026-10-19T08:07:37.9263424Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1572
+2026-10-19T08:07:37.9264448Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1928
+2026-10-19T08:07:37.9265428Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/runtime/panic.go:615
+2026-10-19T08:07:37.9266352Z         	            				/opt/hostedtoolcache/go/1.25.1/x64/src/testing/testing.go:1013
+2026-10-19T08:07:37.9267502Z         	            				/home/runner/work/MyAPI/MyAPI/model/upstream_acceptance_run_test.go:254
+2026-10-19T08:07:37.9268039Z         	Error:      	Received unexpected error:
+2026-10-19T08:07:37.9268720Z         	            	sql: database is closed
+2026-10-19T08:07:37.9269476Z         	Test:       	TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage
+2026-10-19T08:07:37.9270190Z --- FAIL: TestUpstreamAcceptanceRunConfiguredDatabases (0.31s)
+2026-10-19T08:07:37.9270768Z     --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite (0.05s)
+2026-10-19T08:07:37.9271823Z         --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/classification_and_attempt_budgets (0.01s)
+2026-10-19T08:07:37.9272869Z         --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits (0.00s)
+2026-10-19T08:07:37.9274033Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/restart_owner (0.00s)
+2026-10-19T08:07:37.9275377Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/other_channel (0.00s)
+2026-10-19T08:07:37.9276610Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/other_account (0.00s)
+2026-10-19T08:07:37.9277733Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/disabled_kind (0.00s)
+2026-10-19T08:07:37.9279182Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/unknown_kind (0.00s)
+2026-10-19T08:07:37.9280269Z         --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/generation_slot_stop_and_drain (0.01s)
+2026-10-19T08:07:37.9281369Z         --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/generation_release_preserves_attempt_count (0.01s)
+2026-10-19T08:07:37.9282532Z         --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/deadline_is_terminal_and_persisted (0.01s)
+2026-10-19T08:07:37.9283552Z         --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/concurrent_last_budget_claim (0.00s)
+2026-10-19T08:07:37.9284586Z         --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage (0.00s)
+2026-10-19T08:07:37.9286100Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/negative_limit (0.00s)
+2026-10-19T08:07:37.9287617Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/unbounded_total (0.00s)
+2026-10-19T08:07:37.9289510Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/class_above_total (0.00s)
+2026-10-19T08:07:37.9291170Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/existing_counter (0.00s)
+2026-10-19T08:07:37.9292611Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/deadline (0.00s)
+2026-10-19T08:07:37.9294136Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/raw_account (0.00s)
+2026-10-19T08:07:37.9295144Z     --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql (0.10s)
+2026-10-19T08:07:37.9296183Z         --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql/classification_and_attempt_budgets (0.02s)
+2026-10-19T08:07:37.9297196Z         --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql/scope_and_per_kind_limits (0.01s)
+2026-10-19T08:07:37.9298842Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql/scope_and_per_kind_limits/restart_owner (0.00s)
+2026-10-19T08:07:37.9300130Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql/scope_and_per_kind_limits/other_channel (0.00s)
+2026-10-19T08:07:37.9301500Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql/scope_and_per_kind_limits/other_account (0.00s)
+2026-10-19T08:07:37.9302843Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql/scope_and_per_kind_limits/disabled_kind (0.00s)
+2026-10-19T08:07:37.9304200Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql/scope_and_per_kind_limits/unknown_kind (0.00s)
+2026-10-19T08:07:37.9305440Z         --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql/generation_slot_stop_and_drain (0.02s)
+2026-10-19T08:07:37.9306757Z         --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql/generation_release_preserves_attempt_count (0.01s)
+2026-10-19T08:07:37.9308254Z         --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql/deadline_is_terminal_and_persisted (0.01s)
+2026-10-19T08:07:37.9309659Z         --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql/concurrent_last_budget_claim (0.01s)
+2026-10-19T08:07:37.9310921Z         --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql/validation_and_fail_closed_storage (0.01s)
+2026-10-19T08:07:37.9312517Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql/validation_and_fail_closed_storage/negative_limit (0.00s)
+2026-10-19T08:07:37.9314201Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql/validation_and_fail_closed_storage/unbounded_total (0.00s)
+2026-10-19T08:07:37.9315707Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql/validation_and_fail_closed_storage/class_above_total (0.00s)
+2026-10-19T08:07:37.9317285Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql/validation_and_fail_closed_storage/existing_counter (0.00s)
+2026-10-19T08:07:37.9318815Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql/validation_and_fail_closed_storage/deadline (0.00s)
+2026-10-19T08:07:37.9320439Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/mysql/validation_and_fail_closed_storage/raw_account (0.00s)
+2026-10-19T08:07:37.9321314Z     --- FAIL: TestUpstreamAcceptanceRunConfiguredDatabases/postgres (0.17s)
+2026-10-19T08:07:37.9322276Z         --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/postgres/classification_and_attempt_budgets (0.01s)
+2026-10-19T08:07:37.9323308Z         --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/postgres/scope_and_per_kind_limits (0.01s)
+2026-10-19T08:07:37.9324574Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/postgres/scope_and_per_kind_limits/restart_owner (0.00s)
+2026-10-19T08:07:37.9325903Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/postgres/scope_and_per_kind_limits/other_channel (0.00s)
+2026-10-19T08:07:37.9327135Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/postgres/scope_and_per_kind_limits/other_account (0.00s)
+2026-10-19T08:07:37.9328584Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/postgres/scope_and_per_kind_limits/disabled_kind (0.00s)
+2026-10-19T08:07:37.9329871Z             --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/postgres/scope_and_per_kind_limits/unknown_kind (0.00s)
+2026-10-19T08:07:37.9331025Z         --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/postgres/generation_slot_stop_and_drain (0.02s)
+2026-10-19T08:07:37.9332340Z         --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/postgres/generation_release_preserves_attempt_count (0.01s)
+2026-10-19T08:07:37.9333429Z         --- FAIL: TestUpstreamAcceptanceRunConfiguredDatabases/postgres/deadline_is_terminal_and_persisted (0.06s)
+2026-10-19T08:07:37.9334466Z         --- FAIL: TestUpstreamAcceptanceRunConfiguredDatabases/postgres/concurrent_last_budget_claim (0.00s)
+2026-10-19T08:07:37.9335512Z         --- FAIL: TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage (0.00s)
+2026-10-19T08:07:37.9336786Z             --- FAIL: TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/negative_limit (0.00s)
+2026-10-19T08:07:37.9338193Z             --- FAIL: TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/unbounded_total (0.00s)
+2026-10-19T08:07:37.9339780Z             --- FAIL: TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/class_above_total (0.00s)
+2026-10-19T08:07:37.9341606Z             --- FAIL: TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/existing_counter (0.00s)
+2026-10-19T08:07:37.9342963Z             --- FAIL: TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/deadline (0.00s)
+2026-10-19T08:07:37.9344439Z             --- FAIL: TestUpstreamAcceptanceRunConfiguredDatabases/postgres/validation_and_fail_closed_storage/raw_account (0.00s)
+2026-10-19T08:07:37.9345271Z FAIL
+2026-10-19T08:07:37.9345529Z FAIL	github.com/ForceMind/MyAPI/model	53.495s
+2026-10-19T08:07:37.9345886Z FAIL
+2026-10-19T08:07:38.1681864Z ##[error]Process completed with exit code 1.
+2026-10-19T08:07:38.1813094Z Post job cleanup.
+2026-10-19T08:07:38.2708596Z [command]/usr/bin/git version
+2026-10-19T08:07:38.2757264Z git version 2.55.0
+2026-10-19T08:07:38.2797364Z Temporarily overriding HOME='/home/runner/work/_temp/b7697226-80e8-4a6f-8d26-fe8b08f63832' before making global git config changes
+2026-10-19T08:07:38.2799016Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-19T08:07:38.2804081Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MyAPI/MyAPI
+2026-10-19T08:07:38.2837578Z Removing SSH command configuration
+2026-10-19T08:07:38.2844505Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-19T08:07:38.2883362Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-19T08:07:38.3136486Z Removing HTTP extra header
+2026-10-19T08:07:38.3142981Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-19T08:07:38.3183263Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-19T08:07:38.3453252Z Removing includeIf entries pointing to credentials config files
+2026-10-19T08:07:38.3460064Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-19T08:07:38.3497598Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-19T08:07:38.3913407Z Print service container logs: 6044c3966f7f4b2b89de857250d333e3_mysql57_221568
+2026-10-19T08:07:38.3918248Z ##[command]/usr/bin/docker logs --details 28ff9d42fa9bb2d79197cc141201fbfaaa6018a2f4ea851fc9d39aacf2be0d6b
+2026-10-19T08:07:38.4052344Z  2026-10-19 08:04:21+00:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 5.7.44-1.el7 started.
+2026-10-19T08:07:38.4053566Z  2026-10-19 08:04:21+00:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+2026-10-19T08:07:38.4054726Z  2026-10-19 08:04:21+00:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 5.7.44-1.el7 started.
+2026-10-19T08:07:38.4057064Z  2026-10-19T08:04:21.800148Z 0 [Warning] TIMESTAMP with implicit DEFAULT value is deprecated. Please use --explicit_defaults_for_timestamp server option (see documentation for more details).
+2026-10-19T08:07:38.4058520Z  2026-10-19 08:04:21+00:00 [Note] [Entrypoint]: Initializing database files
+2026-10-19T08:07:38.4059530Z  2026-10-19T08:04:21.892359Z 0 [Warning] InnoDB: New log files created, LSN=45790
+2026-10-19T08:07:38.4060626Z  2026-10-19T08:04:21.907189Z 0 [Warning] InnoDB: Creating foreign key constraint system tables.
+2026-10-19T08:07:38.4062713Z  2026-10-19T08:04:21.909504Z 0 [Warning] No existing UUID has been found, so we assume that this is the first time that this server has been started. Generating a new UUID: b13877b6-cb93-11f1-8241-0a94f653cc5e.
+2026-10-19T08:07:38.4064718Z  2026-10-19T08:04:21.909949Z 0 [Warning] Gtid table is not ready to be used. Table 'mysql.gtid_executed' cannot be opened.
+2026-10-19T08:07:38.4066024Z  2026-10-19T08:04:22.067391Z 0 [Warning] A deprecated TLS version TLSv1 is enabled. Please use TLSv1.2 or higher.
+2026-10-19T08:07:38.4067350Z  2026-10-19T08:04:22.067409Z 0 [Warning] A deprecated TLS version TLSv1.1 is enabled. Please use TLSv1.2 or higher.
+2026-10-19T08:07:38.4068625Z  2026-10-19T08:04:22.067971Z 0 [Warning] CA certificate ca.pem is self signed.
+2026-10-19T08:07:38.4070249Z  2026-10-19T08:04:22.093736Z 1 [Warning] root@localhost is created with an empty password ! Please consider switching off the --initialize-insecure option.
+2026-10-19T08:07:38.4072270Z  2026-10-19T08:04:23.906437Z 0 [Warning] TIMESTAMP with implicit DEFAULT value is deprecated. Please use --explicit_defaults_for_timestamp server option (see documentation for more details).
+2026-10-19T08:07:38.4073842Z  2026-10-19T08:04:23.907912Z 0 [Note] mysqld (mysqld 5.7.44) starting as process 125 ...
+2026-10-19T08:07:38.4074768Z  2026-10-19T08:04:23.911040Z 0 [Note] InnoDB: PUNCH HOLE support available
+2026-10-19T08:07:38.4075672Z  2026-10-19T08:04:23.911063Z 0 [Note] InnoDB: Mutexes and rw_locks use GCC atomic builtins
+2026-10-19T08:07:38.4076510Z  2026-10-19T08:04:23.911068Z 0 [Note] InnoDB: Uses event mutexes
+2026-10-19T08:07:38.4077425Z  2026-10-19T08:04:23.911074Z 0 [Note] InnoDB: GCC builtin __atomic_thread_fence() is used for memory barrier
+2026-10-19T08:07:38.4080033Z  2026-10-19T08:04:23.911077Z 0 [Note] InnoDB: Compressed tables use zlib 1.2.13
+2026-10-19T08:07:38.4080539Z  2026-10-19T08:04:23.911081Z 0 [Note] InnoDB: Using Linux native AIO
+2026-10-19T08:07:38.4080965Z  2026-10-19T08:04:23.911493Z 0 [Note] InnoDB: Number of pools: 1
+2026-10-19T08:07:38.4081403Z  2026-10-19T08:04:23.911609Z 0 [Note] InnoDB: Using CPU crc32 instructions
+2026-10-19T08:07:38.4082014Z  2026-10-19T08:04:23.913113Z 0 [Note] InnoDB: Initializing buffer pool, total size = 128M, instances = 1, chunk size = 128M
+2026-10-19T08:07:38.4082670Z  2026-10-19T08:04:23.920400Z 0 [Note] InnoDB: Completed initialization of buffer pool
+2026-10-19T08:07:38.4083498Z  2026-10-19T08:04:23.922865Z 0 [Note] InnoDB: If the mysqld execution user is authorized, page cleaner thread priority can be changed. See the man page of setpriority().
+2026-10-19T08:07:38.4084509Z  2026-10-19T08:04:23.934930Z 0 [Note] InnoDB: Highest supported file format is Barracuda.
+2026-10-19T08:07:38.4085061Z  2026-10-19T08:04:23.940517Z 0 [Note] InnoDB: Creating shared tablespace for temporary tables
+2026-10-19T08:07:38.4086126Z  2026-10-19T08:04:23.940609Z 0 [Note] InnoDB: Setting file './ibtmp1' size to 12 MB. Physically writing the file full; Please wait ...
+2026-10-19T08:07:38.4086832Z  2026-10-19T08:04:23.947601Z 0 [Note] InnoDB: File './ibtmp1' size is now 12 MB.
+2026-10-19T08:07:38.4087448Z  2026-10-19T08:04:23.948167Z 0 [Note] InnoDB: 96 redo rollback segment(s) found. 96 redo rollback segment(s) are active.
+2026-10-19T08:07:38.4088080Z  2026-10-19T08:04:23.948208Z 0 [Note] InnoDB: 32 non-redo rollback segment(s) are active.
+2026-10-19T08:07:38.4089130Z  2026-10-19T08:04:23.948687Z 0 [Note] InnoDB: 5.7.44 started; log sequence number 2768291
+2026-10-19T08:07:38.4089761Z  2026-10-19T08:04:23.948926Z 0 [Note] InnoDB: Loading buffer pool(s) from /var/lib/mysql/ib_buffer_pool
+2026-10-19T08:07:38.4090344Z  2026-10-19T08:04:23.949148Z 0 [Note] Plugin 'FEDERATED' is disabled.
+2026-10-19T08:07:38.4090839Z  2026-10-19T08:04:23.950017Z 0 [Note] InnoDB: Buffer pool(s) load completed at 261019  8:04:23
+2026-10-19T08:07:38.4091605Z  2026-10-19T08:04:23.953512Z 0 [Note] Found ca.pem, server-cert.pem and server-key.pem in data directory. Trying to enable SSL support using them.
+2026-10-19T08:07:38.4092512Z  2026-10-19T08:04:23.953526Z 0 [Note] Skipping generation of SSL certificates as certificate files are present in data directory.
+2026-10-19T08:07:38.4093280Z  2026-10-19T08:04:23.953530Z 0 [Warning] A deprecated TLS version TLSv1 is enabled. Please use TLSv1.2 or higher.
+2026-10-19T08:07:38.4093984Z  2026-10-19T08:04:23.953533Z 0 [Warning] A deprecated TLS version TLSv1.1 is enabled. Please use TLSv1.2 or higher.
+2026-10-19T08:07:38.4094584Z  2026-10-19T08:04:23.954073Z 0 [Warning] CA certificate ca.pem is self signed.
+2026-10-19T08:07:38.4095187Z  2026-10-19T08:04:23.954145Z 0 [Note] Skipping generation of RSA key pair as key files are present in data directory.
+2026-10-19T08:07:38.4096171Z  2026-10-19T08:04:23.955411Z 0 [Warning] Insecure configuration for --pid-file: Location '/var/run/mysqld' in the path is accessible to all OS users. Consider choosing a different directory.
+2026-10-19T08:07:38.4097158Z  2026-10-19T08:04:23.962628Z 0 [Note] Event Scheduler: Loaded 0 events
+2026-10-19T08:07:38.4097582Z  2026-10-19T08:04:23.962861Z 0 [Note] mysqld: ready for connections.
+2026-10-19T08:07:38.4098086Z  Version: '5.7.44'  socket: '/var/run/mysqld/mysqld.sock'  port: 0  MySQL Community Server (GPL)
+2026-10-19T08:07:38.4098831Z  2026-10-19T08:04:24.787731Z 3 [Note] InnoDB: Stopping purge
+2026-10-19T08:07:38.4099198Z  2026-10-19T08:04:24.789879Z 3 [Note] InnoDB: Resuming purge
+2026-10-19T08:07:38.4099573Z  2026-10-19T08:04:24.790596Z 3 [Note] InnoDB: Stopping purge
+2026-10-19T08:07:38.4099928Z  2026-10-19T08:04:24.803123Z 3 [Note] InnoDB: Resuming purge
+2026-10-19T08:07:38.4100293Z  2026-10-19T08:04:24.804216Z 3 [Note] InnoDB: Stopping purge
+2026-10-19T08:07:38.4100647Z  2026-10-19T08:04:24.805163Z 3 [Note] InnoDB: Resuming purge
+2026-10-19T08:07:38.4101008Z  2026-10-19T08:04:24.805950Z 3 [Note] InnoDB: Stopping purge
+2026-10-19T08:07:38.4101355Z  2026-10-19T08:04:24.817278Z 3 [Note] InnoDB: Resuming purge
+2026-10-19T08:07:38.4101818Z  Warning: Unable to load '/usr/share/zoneinfo/iso3166.tab' as time zone. Skipping it.
+2026-10-19T08:07:38.4102371Z  Warning: Unable to load '/usr/share/zoneinfo/leapseconds' as time zone. Skipping it.
+2026-10-19T08:07:38.4102901Z  Warning: Unable to load '/usr/share/zoneinfo/tzdata.zi' as time zone. Skipping it.
+2026-10-19T08:07:38.4103418Z  Warning: Unable to load '/usr/share/zoneinfo/zone.tab' as time zone. Skipping it.
+2026-10-19T08:07:38.4103943Z  Warning: Unable to load '/usr/share/zoneinfo/zone1970.tab' as time zone. Skipping it.
+2026-10-19T08:07:38.4104476Z  2026-10-19T08:04:26.179161Z 0 [Note] Giving 0 client threads a chance to die gracefully
+2026-10-19T08:07:38.4104945Z  2026-10-19T08:04:26.179181Z 0 [Note] Shutting down slave threads
+2026-10-19T08:07:38.4105393Z  2026-10-19T08:04:26.179184Z 0 [Note] Forcefully disconnecting 0 remaining clients
+2026-10-19T08:07:38.4106027Z  2026-10-19T08:04:26.179188Z 0 [Note] Event Scheduler: Purging the queue. 0 events
+2026-10-19T08:07:38.4106433Z  2026-10-19T08:04:26.179247Z 0 [Note] Binlog end
+2026-10-19T08:07:38.4106786Z  2026-10-19T08:04:26.179695Z 0 [Note] Shutting down plugin 'ngram'
+2026-10-19T08:07:38.4107200Z  2026-10-19T08:04:26.179704Z 0 [Note] Shutting down plugin 'partition'
+2026-10-19T08:07:38.4107620Z  2026-10-19T08:04:26.179707Z 0 [Note] Shutting down plugin 'BLACKHOLE'
+2026-10-19T08:07:38.4108033Z  2026-10-19T08:04:26.179710Z 0 [Note] Shutting down plugin 'ARCHIVE'
+2026-10-19T08:07:38.4108727Z  2026-10-19T08:04:26.179712Z 0 [Note] Shutting down plugin 'PERFORMANCE_SCHEMA'
+2026-10-19T08:07:38.4109194Z  2026-10-19T08:04:26.179742Z 0 [Note] Shutting down plugin 'MRG_MYISAM'
+2026-10-19T08:07:38.4109626Z  2026-10-19T08:04:26.179746Z 0 [Note] Shutting down plugin 'MyISAM'
+2026-10-19T08:07:38.4110068Z  2026-10-19T08:04:26.179751Z 0 [Note] Shutting down plugin 'INNODB_SYS_VIRTUAL'
+2026-10-19T08:07:38.4110560Z  2026-10-19T08:04:26.179753Z 0 [Note] Shutting down plugin 'INNODB_SYS_DATAFILES'
+2026-10-19T08:07:38.4111076Z  2026-10-19T08:04:26.179755Z 0 [Note] Shutting down plugin 'INNODB_SYS_TABLESPACES'
+2026-10-19T08:07:38.4111596Z  2026-10-19T08:04:26.179757Z 0 [Note] Shutting down plugin 'INNODB_SYS_FOREIGN_COLS'
+2026-10-19T08:07:38.4112088Z  2026-10-19T08:04:26.179763Z 0 [Note] Shutting down plugin 'INNODB_SYS_FOREIGN'
+2026-10-19T08:07:38.4112570Z  2026-10-19T08:04:26.179766Z 0 [Note] Shutting down plugin 'INNODB_SYS_FIELDS'
+2026-10-19T08:07:38.4113037Z  2026-10-19T08:04:26.179768Z 0 [Note] Shutting down plugin 'INNODB_SYS_COLUMNS'
+2026-10-19T08:07:38.4113502Z  2026-10-19T08:04:26.179771Z 0 [Note] Shutting down plugin 'INNODB_SYS_INDEXES'
+2026-10-19T08:07:38.4114017Z  2026-10-19T08:04:26.179773Z 0 [Note] Shutting down plugin 'INNODB_SYS_TABLESTATS'
+2026-10-19T08:07:38.4114508Z  2026-10-19T08:04:26.179776Z 0 [Note] Shutting down plugin 'INNODB_SYS_TABLES'
+2026-10-19T08:07:38.4115118Z  2026-10-19T08:04:26.179779Z 0 [Note] Shutting down plugin 'INNODB_FT_INDEX_TABLE'
+2026-10-19T08:07:38.4115609Z  2026-10-19T08:04:26.179781Z 0 [Note] Shutting down plugin 'INNODB_FT_INDEX_CACHE'
+2026-10-19T08:07:38.4116083Z  2026-10-19T08:04:26.179784Z 0 [Note] Shutting down plugin 'INNODB_FT_CONFIG'
+2026-10-19T08:07:38.4116566Z  2026-10-19T08:04:26.179785Z 0 [Note] Shutting down plugin 'INNODB_FT_BEING_DELETED'
+2026-10-19T08:07:38.4117052Z  2026-10-19T08:04:26.179787Z 0 [Note] Shutting down plugin 'INNODB_FT_DELETED'
+2026-10-19T08:07:38.4117539Z  2026-10-19T08:04:26.179788Z 0 [Note] Shutting down plugin 'INNODB_FT_DEFAULT_STOPWORD'
+2026-10-19T08:07:38.4118032Z  2026-10-19T08:04:26.179790Z 0 [Note] Shutting down plugin 'INNODB_METRICS'
+2026-10-19T08:07:38.4118794Z  2026-10-19T08:04:26.179791Z 0 [Note] Shutting down plugin 'INNODB_TEMP_TABLE_INFO'
+2026-10-19T08:07:38.4119321Z  2026-10-19T08:04:26.179793Z 0 [Note] Shutting down plugin 'INNODB_BUFFER_POOL_STATS'
+2026-10-19T08:07:38.4119822Z  2026-10-19T08:04:26.179795Z 0 [Note] Shutting down plugin 'INNODB_BUFFER_PAGE_LRU'
+2026-10-19T08:07:38.4120316Z  2026-10-19T08:04:26.179796Z 0 [Note] Shutting down plugin 'INNODB_BUFFER_PAGE'
+2026-10-19T08:07:38.4120807Z  2026-10-19T08:04:26.179798Z 0 [Note] Shutting down plugin 'INNODB_CMP_PER_INDEX_RESET'
+2026-10-19T08:07:38.4121313Z  2026-10-19T08:04:26.179799Z 0 [Note] Shutting down plugin 'INNODB_CMP_PER_INDEX'
+2026-10-19T08:07:38.4121815Z  2026-10-19T08:04:26.179801Z 0 [Note] Shutting down plugin 'INNODB_CMPMEM_RESET'
+2026-10-19T08:07:38.4122287Z  2026-10-19T08:04:26.179802Z 0 [Note] Shutting down plugin 'INNODB_CMPMEM'
+2026-10-19T08:07:38.4122744Z  2026-10-19T08:04:26.179804Z 0 [Note] Shutting down plugin 'INNODB_CMP_RESET'
+2026-10-19T08:07:38.4123198Z  2026-10-19T08:04:26.179805Z 0 [Note] Shutting down plugin 'INNODB_CMP'
+2026-10-19T08:07:38.4123652Z  2026-10-19T08:04:26.179807Z 0 [Note] Shutting down plugin 'INNODB_LOCK_WAITS'
+2026-10-19T08:07:38.4124106Z  2026-10-19T08:04:26.179808Z 0 [Note] Shutting down plugin 'INNODB_LOCKS'
+2026-10-19T08:07:38.4124666Z  2026-10-19T08:04:26.179810Z 0 [Note] Shutting down plugin 'INNODB_TRX'
+2026-10-19T08:07:38.4125100Z  2026-10-19T08:04:26.179811Z 0 [Note] Shutting down plugin 'InnoDB'
+2026-10-19T08:07:38.4125526Z  2026-10-19T08:04:26.180031Z 0 [Note] InnoDB: FTS optimize thread exiting.
+2026-10-19T08:07:38.4125954Z  2026-10-19T08:04:26.180096Z 0 [Note] InnoDB: Starting shutdown...
+2026-10-19T08:07:38.4126464Z  2026-10-19T08:04:26.280241Z 0 [Note] InnoDB: Dumping buffer pool(s) to /var/lib/mysql/ib_buffer_pool
+2026-10-19T08:07:38.4127064Z  2026-10-19T08:04:26.280686Z 0 [Note] InnoDB: Buffer pool(s) dump completed at 261019  8:04:26
+2026-10-19T08:07:38.4127625Z  2026-10-19T08:04:27.785506Z 0 [Note] InnoDB: Shutdown completed; log sequence number 12219253
+2026-10-19T08:07:38.4128189Z  2026-10-19T08:04:27.786350Z 0 [Note] InnoDB: Removed temporary tablespace data file: "ibtmp1"
+2026-10-19T08:07:38.4129561Z  2026-10-19T08:04:27.786372Z 0 [Note] Shutting down plugin 'MEMORY'
+2026-10-19T08:07:38.4130148Z  2026-10-19T08:04:27.786378Z 0 [Note] Shutting down plugin 'CSV'
+2026-10-19T08:07:38.4130669Z  2026-10-19T08:04:27.786383Z 0 [Note] Shutting down plugin 'sha256_password'
+2026-10-19T08:07:38.4131320Z  2026-10-19T08:04:27.786386Z 0 [Note] Shutting down plugin 'mysql_native_password'
+2026-10-19T08:07:38.4143426Z  2026-10-19T08:04:27.786513Z 0 [Note] Shutting down plugin 'binlog'
+2026-10-19T08:07:38.4143901Z  2026-10-19T08:04:27.787165Z 0 [Note] mysqld: Shutdown complete
+2026-10-19T08:07:38.4144233Z  
+2026-10-19T08:07:38.4144925Z  2026-10-19T08:04:28.337706Z 0 [Warning] TIMESTAMP with implicit DEFAULT value is deprecated. Please use --explicit_defaults_for_timestamp server option (see documentation for more details).
+2026-10-19T08:07:38.4145833Z  2026-10-19T08:04:28.339184Z 0 [Note] mysqld (mysqld 5.7.44) starting as process 1 ...
+2026-10-19T08:07:38.4146333Z  2026-10-19T08:04:28.341996Z 0 [Note] InnoDB: PUNCH HOLE support available
+2026-10-19T08:07:38.4146839Z  2026-10-19T08:04:28.342015Z 0 [Note] InnoDB: Mutexes and rw_locks use GCC atomic builtins
+2026-10-19T08:07:38.4147505Z  2026-10-19T08:04:28.342018Z 0 [Note] InnoDB: Uses event mutexes
+2026-10-19T08:07:38.4148028Z  2026-10-19T08:04:28.342020Z 0 [Note] InnoDB: GCC builtin __atomic_thread_fence() is used for memory barrier
+2026-10-19T08:07:38.4148924Z  2026-10-19T08:04:28.342023Z 0 [Note] InnoDB: Compressed tables use zlib 1.2.13
+2026-10-19T08:07:38.4149375Z  2026-10-19T08:04:28.342025Z 0 [Note] InnoDB: Using Linux native AIO
+2026-10-19T08:07:38.4149787Z  2026-10-19T08:04:28.342271Z 0 [Note] InnoDB: Number of pools: 1
+2026-10-19T08:07:38.4150200Z  2026-10-19T08:04:28.342386Z 0 [Note] InnoDB: Using CPU crc32 instructions
+2026-10-19T08:07:38.4150817Z  2026-10-19T08:04:28.343855Z 0 [Note] InnoDB: Initializing buffer pool, total size = 128M, instances = 1, chunk size = 128M
+2026-10-19T08:07:38.4151475Z  2026-10-19T08:04:28.349655Z 0 [Note] InnoDB: Completed initialization of buffer pool
+2026-10-19T08:07:38.4152308Z  2026-10-19T08:04:28.351530Z 0 [Note] InnoDB: If the mysqld execution user is authorized, page cleaner thread priority can be changed. See the man page of setpriority().
+2026-10-19T08:07:38.4153127Z  2026-10-19T08:04:28.363078Z 0 [Note] InnoDB: Highest supported file format is Barracuda.
+2026-10-19T08:07:38.4153687Z  2026-10-19T08:04:28.367962Z 0 [Note] InnoDB: Creating shared tablespace for temporary tables
+2026-10-19T08:07:38.4154396Z  2026-10-19T08:04:28.368022Z 0 [Note] InnoDB: Setting file './ibtmp1' size to 12 MB. Physically writing the file full; Please wait ...
+2026-10-19T08:07:38.4155042Z  2026-10-19T08:04:28.374952Z 0 [Note] InnoDB: File './ibtmp1' size is now 12 MB.
+2026-10-19T08:07:38.4155647Z  2026-10-19T08:04:28.375486Z 0 [Note] InnoDB: 96 redo rollback segment(s) found. 96 redo rollback segment(s) are active.
+2026-10-19T08:07:38.4156275Z  2026-10-19T08:04:28.375500Z 0 [Note] InnoDB: 32 non-redo rollback segment(s) are active.
+2026-10-19T08:07:38.4156794Z  2026-10-19T08:04:28.375912Z 0 [Note] InnoDB: 5.7.44 started; log sequence number 12219253
+2026-10-19T08:07:38.4157506Z  2026-10-19T08:04:28.376085Z 0 [Note] InnoDB: Loading buffer pool(s) from /var/lib/mysql/ib_buffer_pool
+2026-10-19T08:07:38.4158049Z  2026-10-19T08:04:28.376289Z 0 [Note] Plugin 'FEDERATED' is disabled.
+2026-10-19T08:07:38.4158799Z  2026-10-19T08:04:28.377952Z 0 [Note] InnoDB: Buffer pool(s) load completed at 261019  8:04:28
+2026-10-19T08:07:38.4159562Z  2026-10-19T08:04:28.380419Z 0 [Note] Found ca.pem, server-cert.pem and server-key.pem in data directory. Trying to enable SSL support using them.
+2026-10-19T08:07:38.4160448Z  2026-10-19T08:04:28.380429Z 0 [Note] Skipping generation of SSL certificates as certificate files are present in data directory.
+2026-10-19T08:07:38.4161208Z  2026-10-19T08:04:28.380432Z 0 [Warning] A deprecated TLS version TLSv1 is enabled. Please use TLSv1.2 or higher.
+2026-10-19T08:07:38.4161909Z  2026-10-19T08:04:28.380434Z 0 [Warning] A deprecated TLS version TLSv1.1 is enabled. Please use TLSv1.2 or higher.
+2026-10-19T08:07:38.4162511Z  2026-10-19T08:04:28.380967Z 0 [Warning] CA certificate ca.pem is self signed.
+2026-10-19T08:07:38.4163109Z  2026-10-19T08:04:28.381004Z 0 [Note] Skipping generation of RSA key pair as key files are present in data directory.
+2026-10-19T08:07:38.4163719Z  2026-10-19T08:04:28.381307Z 0 [Note] Server hostname (bind-address): '*'; port: 3306
+2026-10-19T08:07:38.4164150Z  2026-10-19T08:04:28.381350Z 0 [Note] IPv6 is available.
+2026-10-19T08:07:38.4164534Z  2026-10-19T08:04:28.381367Z 0 [Note]   - '::' resolves to '::';
+2026-10-19T08:07:38.4164945Z  2026-10-19T08:04:28.381383Z 0 [Note] Server socket created on IP: '::'.
+2026-10-19T08:07:38.4165781Z  2026-10-19T08:04:28.382027Z 0 [Warning] Insecure configuration for --pid-file: Location '/var/run/mysqld' in the path is accessible to all OS users. Consider choosing a different directory.
+2026-10-19T08:07:38.4166596Z  2026-10-19T08:04:28.388358Z 0 [Note] Event Scheduler: Loaded 0 events
+2026-10-19T08:07:38.4167018Z  2026-10-19T08:04:28.388540Z 0 [Note] mysqld: ready for connections.
+2026-10-19T08:07:38.4167660Z  Version: '5.7.44'  socket: '/var/run/mysqld/mysqld.sock'  port: 3306  MySQL Community Server (GPL)
+2026-10-19T08:07:38.4168202Z  2026-10-19 08:04:23+00:00 [Note] [Entrypoint]: Database files initialized
+2026-10-19T08:07:38.4168858Z  2026-10-19 08:04:23+00:00 [Note] [Entrypoint]: Starting temporary server
+2026-10-19T08:07:38.4169281Z  2026-10-19 08:04:23+00:00 [Note] [Entrypoint]: Waiting for server startup
+2026-10-19T08:07:38.4169692Z  2026-10-19 08:04:24+00:00 [Note] [Entrypoint]: Temporary server started.
+2026-10-19T08:07:38.4170105Z  '/var/lib/mysql/mysql.sock' -> '/var/run/mysqld/mysqld.sock'
+2026-10-19T08:07:38.4170528Z  2026-10-19 08:04:26+00:00 [Note] [Entrypoint]: Creating database myapi_b2_test
+2026-10-19T08:07:38.4170880Z  
+2026-10-19T08:07:38.4171136Z  2026-10-19 08:04:26+00:00 [Note] [Entrypoint]: Stopping temporary server
+2026-10-19T08:07:38.4171554Z  2026-10-19 08:04:28+00:00 [Note] [Entrypoint]: Temporary server stopped
+2026-10-19T08:07:38.4171887Z  
+2026-10-19T08:07:38.4172198Z  2026-10-19 08:04:28+00:00 [Note] [Entrypoint]: MySQL init process done. Ready for start up.
+2026-10-19T08:07:38.4172598Z  
+2026-10-19T08:07:38.4177935Z Stop and remove container: 6044c3966f7f4b2b89de857250d333e3_mysql57_221568
+2026-10-19T08:07:38.4183377Z ##[command]/usr/bin/docker rm --force 28ff9d42fa9bb2d79197cc141201fbfaaa6018a2f4ea851fc9d39aacf2be0d6b
+2026-10-19T08:07:38.5597374Z 28ff9d42fa9bb2d79197cc141201fbfaaa6018a2f4ea851fc9d39aacf2be0d6b
+2026-10-19T08:07:38.5620828Z Print service container logs: b102f9cdf775432cb81e8e20888cecc8_postgres96_c36ec1
+2026-10-19T08:07:38.5621863Z ##[command]/usr/bin/docker logs --details ef60d1328d145fe1ea4ae5ed187716a38be454fff3bb5d9fa6f7719cbf07041d
+2026-10-19T08:07:38.5755501Z  The files belonging to this database system will be owned by user "postgres".
+2026-10-19T08:07:38.5756511Z  
+2026-10-19T08:07:38.5756947Z  This user must also own the server process.
+2026-10-19T08:07:38.5757775Z  WARNING: enabling "trust" authentication for local connections
+2026-10-19T08:07:38.5759548Z  You can change this by editing pg_hba.conf or using the option -A, or
+2026-10-19T08:07:38.5760281Z  
+2026-10-19T08:07:38.5760790Z  The database cluster will be initialized with locale "en_US.utf8".
+2026-10-19T08:07:38.5761629Z  The default database encoding has accordingly been set to "UTF8".
+2026-10-19T08:07:38.5762479Z  The default text search configuration will be set to "english".
+2026-10-19T08:07:38.5763091Z  
+2026-10-19T08:07:38.5763409Z  Data page checksums are disabled.
+2026-10-19T08:07:38.5763746Z  
+2026-10-19T08:07:38.5764055Z  fixing permissions on existing directory /var/lib/postgresql/data ... ok
+2026-10-19T08:07:38.5764475Z  creating subdirectories ... ok
+2026-10-19T08:07:38.5764765Z  selecting default max_connections ... 100
+2026-10-19T08:07:38.5765073Z  selecting default shared_buffers ... 128MB
+2026-10-19T08:07:38.5765375Z  selecting default timezone ... Etc/UTC
+2026-10-19T08:07:38.5765719Z  selecting dynamic shared memory implementation ... posix
+2026-10-19T08:07:38.5766076Z  creating configuration files ... ok
+2026-10-19T08:07:38.5766356Z  running bootstrap script ... ok
+2026-10-19T08:07:38.5766658Z  performing post-bootstrap initialization ... ok
+2026-10-19T08:07:38.5766995Z  syncing data to disk ... ok
+2026-10-19T08:07:38.5767224Z  
+2026-10-19T08:07:38.5767458Z  Success. You can now start the database server using:
+2026-10-19T08:07:38.5767768Z  
+2026-10-19T08:07:38.5768002Z      pg_ctl -D /var/lib/postgresql/data -l logfile start
+2026-10-19T08:07:38.5768548Z  
+2026-10-19T08:07:38.5769142Z  waiting for server to start....LOG:  database system was shut down at 2026-10-19 08:04:26 UTC
+2026-10-19T08:07:38.5770046Z  LOG:  MultiXact member wraparound protections are now enabled
+2026-10-19T08:07:38.5770409Z  LOG:  autovacuum launcher started
+2026-10-19T08:07:38.5770716Z  LOG:  database system is ready to accept connections
+2026-10-19T08:07:38.5771018Z   done
+2026-10-19T08:07:38.5771198Z  server started
+2026-10-19T08:07:38.5771397Z  CREATE DATABASE
+2026-10-19T08:07:38.5771794Z  
+2026-10-19T08:07:38.5771959Z  
+2026-10-19T08:07:38.5772286Z  /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+2026-10-19T08:07:38.5772696Z  
+2026-10-19T08:07:38.5772894Z  LOG:  received fast shutdown request
+2026-10-19T08:07:38.5773173Z  LOG:  aborting any active transactions
+2026-10-19T08:07:38.5773549Z  waiting for server to shut down....LOG:  autovacuum launcher shutting down
+2026-10-19T08:07:38.5773931Z  LOG:  shutting down
+2026-10-19T08:07:38.5774155Z  LOG:  database system is shut down
+2026-10-19T08:07:38.5774412Z   done
+2026-10-19T08:07:38.5774589Z  server stopped
+2026-10-19T08:07:38.5774775Z  
+2026-10-19T08:07:38.5775009Z  PostgreSQL init process complete; ready for start up.
+2026-10-19T08:07:38.5775306Z  
+2026-10-19T08:07:38.5775595Z  --auth-local and --auth-host, the next time you run initdb.
+2026-10-19T08:07:38.5776002Z  LOG:  database system was shut down at 2026-10-19 08:04:27 UTC
+2026-10-19T08:07:38.5776401Z  LOG:  MultiXact member wraparound protections are now enabled
+2026-10-19T08:07:38.5776746Z  LOG:  autovacuum launcher started
+2026-10-19T08:07:38.5777045Z  LOG:  database system is ready to accept connections
+2026-10-19T08:07:38.5777521Z  ERROR:  duplicate key value violates unique constraint "idx_token_quota_adjustment_request"
+2026-10-19T08:07:38.5778275Z  DETAIL:  Key (user_id, request_id_hash)=(940001, be20984b3edf0d2cc4df99d9d95f27fc5ccc3cf9c25cf02d47be0aecad17b692) already exists.
+2026-10-19T08:07:38.5790390Z  STATEMENT:  INSERT INTO "token_quota_adjustments" ("user_id","request_id_hash","request_id","token_id","fingerprint_version","request_fingerprint","remain_quota_before","remain_quota_after","used_quota_snapshot","quota_version_before","quota_version_after","created_time") VALUES ( '940001' , 'be20984b3edf0d2cc4df99d9d95f27fc5ccc3cf9c25cf02d47be0aecad17b692' , 'c56a4180-65aa-42ec-a945-5fd21dec0538' , '41004' , '1' , '0b2c9c663c9e7570e237ce3b549e6db9f402e580a3f54f9d5f6adae8e6cedb5f' , '31' , '30' , '0' , '1' , '2' , '1792397244' ) RETURNING "id"
+2026-10-19T08:07:38.5792685Z  ERROR:  duplicate key value violates unique constraint "uidx_task_submission_idempotency"
+2026-10-19T08:07:38.5793649Z  DETAIL:  Key (token_id, http_method, operation_kind, idempotency_key_hash)=(101, POST, video.create, 7929aa1d322e036638bbda6dca81d70050199e7bd3d4e06ea3cdfdf8def49c5f) already exists.
+2026-10-19T08:07:38.5797179Z  STATEMENT:  INSERT INTO "task_submission_operations" ("public_id","user_id","token_id","http_method","operation_kind","idempotency_key_hash","request_fingerprint","request_id","status","billing_preference","billing_source","subscription_id","reserved_quota","estimated_quota","billing_version","free_model","task_id","reason_code","resolution_source","dispatch_started_at","resolved_at","retention_until","lock_version","created_at","updated_at") VALUES ( 'task_rwjstfqiwrm8wou5nieoyvg5wstbvdxi' , '11' , '101' , 'POST' , 'video.create' , '7929aa1d322e036638bbda6dca81d70050199e7bd3d4e06ea3cdfdf8def49c5f' , 'd6afdca069db304ca8d8275279a656878735e03bba0df21805ae8eea0844fc10' , 'taskreq_d6afdca069db304ca8d8275279a656878735e03bba0df218' , 'prepared' , '' , '' , '0' , '0' , '0' , '0' , 'f' , null , '' , '' , null , null , null , '1' , '1700000000' , '1700000000' ) RETURNING "id"
+2026-10-19T08:07:38.5801284Z  ERROR:  duplicate key value violates unique constraint "uidx_task_submission_attempt"
+2026-10-19T08:07:38.5801752Z  DETAIL:  Key (operation_id)=(35) already exists.
+2026-10-19T08:07:38.5803278Z  STATEMENT:  INSERT INTO "task_submission_attempts" ("operation_id","attempt_no","status","channel_id","provider","request_class","provider_operation_id","upstream_request_id","task_platform","task_action","outcome_code","started_at","finished_at","lock_version","created_at","updated_at") VALUES ( '35' , '1' , 'prepared' , '9' , 'fixtureprovider' , 'video' , '' , '' , '' , '' , '' , null , null , '1' , '1700000000' , '1700000000' ) RETURNING "id"
+2026-10-19T08:07:38.5804880Z  ERROR:  duplicate key value violates unique constraint "uidx_task_billing_event_key"
+2026-10-19T08:07:38.5805654Z  DETAIL:  Key (event_key)=(task:task_m0cylkoevkzjzkdf4xlcq4w19nseh8ux:reserve:v1) already exists.
+2026-10-19T08:07:38.5809976Z  STATEMENT:  INSERT INTO "task_billing_events" ("event_id","event_key","operation_id","task_id","event_type","state","user_id","token_id","channel_id","billing_source","subscription_id","quota_delta","request_id","node_name","reason_code","resolution_source","audit_command_id","evidence_id","evidence_hash","evidence_version","statistics_version","statistics_applied","claimed_by","claimed_until","attempt_count","next_attempt_at","last_error_code","last_error_at","applied_at","payload_version","payload","lock_version","created_at","updated_at") VALUES ( 'billing_evt_zw2mebmuwwedfzsnkd0zy9slqftwrjqf' , 'task:task_m0cylkoevkzjzkdf4xlcq4w19nseh8ux:reserve:v1' , '35' , null , 'reserve' , 'pending' , '11' , '301' , '9' , 'wallet' , '0' , '-500' , 'fixture-request' , '' , 'task_reserve' , '' , '' , '' , '' , '0' , '0' , 'f' , '' , '0' , '0' , '0' , '' , '0' , null , '1' , '{"version":1,"billing_event_id":"billing_evt_zw2mebmuwwedfzsnkd0zy9slqftwrjqf","event_key":"task:task_m0cylkoevkzjzkdf4xlcq4w19nseh8ux:reserve:v1","event_type":"reserve","operation_id":35,"user_id":11,"token_id":301,"channel_id":9,"billing_source":"wallet","quota_delta":-500,"request_id":"fixture-request","reason_code":"task_reserve"}' , '1' , '1700000000' , '1700000000' ) RETURNING "id"
+2026-10-19T08:07:38.5814202Z  ERROR:  duplicate key value violates unique constraint "uidx_task_billing_event_id"
+2026-10-19T08:07:38.5814754Z  DETAIL:  Key (event_id)=(billing_evt_ugxqhv4kg9jvyg0uyuo9tcr7phlurpvr) already exists.
+2026-10-19T08:07:38.5819364Z  STATEMENT:  INSERT INTO "task_billing_events" ("event_id","event_key","operation_id","task_id","event_type","state","user_id","token_id","channel_id","billing_source","subscription_id","quota_delta","request_id","node_name","reason_code","resolution_source","audit_command_id","evidence_id","evidence_hash","evidence_version","statistics_version","statistics_applied","claimed_by","claimed_until","attempt_count","next_attempt_at","last_error_code","last_error_at","applied_at","payload_version","payload","lock_version","created_at","updated_at") VALUES ( 'billing_evt_ugxqhv4kg9jvyg0uyuo9tcr7phlurpvr' , 'task:task_m0cylkoevkzjzkdf4xlcq4w19nseh8ux:refund:v1' , '35' , null , 'refund' , 'pending' , '11' , '301' , '9' , 'wallet' , '0' , '1' , 'fixture-request' , '' , 'task_reserve' , '' , '' , '' , '' , '0' , '0' , 'f' , '' , '0' , '0' , '0' , '' , '0' , null , '1' , '{"version":1,"billing_event_id":"billing_evt_ugxqhv4kg9jvyg0uyuo9tcr7phlurpvr","event_key":"task:task_m0cylkoevkzjzkdf4xlcq4w19nseh8ux:refund:v1","event_type":"refund","operation_id":35,"user_id":11,"token_id":301,"channel_id":9,"billing_source":"wallet","quota_delta":1,"request_id":"fixture-request","reason_code":"task_reserve"}' , '1' , '1700000000' , '1700000000' ) RETURNING "id"
+2026-10-19T08:07:38.5823556Z  ERROR:  duplicate key value violates unique constraint "uidx_task_billing_event_key"
+2026-10-19T08:07:38.5824153Z  DETAIL:  Key (event_key)=(task:task_m0cylkoevkzjzkdf4xlcq4w19nseh8ux:reserve:v1) already exists.
+2026-10-19T08:07:38.5828226Z  STATEMENT:  INSERT INTO "task_billing_events" ("event_id","event_key","operation_id","task_id","event_type","state","user_id","token_id","channel_id","billing_source","subscription_id","quota_delta","request_id","node_name","reason_code","resolution_source","audit_command_id","evidence_id","evidence_hash","evidence_version","statistics_version","statistics_applied","claimed_by","claimed_until","attempt_count","next_attempt_at","last_error_code","last_error_at","applied_at","payload_version","payload","lock_version","created_at","updated_at") VALUES ( 'billing_evt_2iuqiy8hmwbtxmnwadaxgzyhiaiwuwyr' , 'task:task_m0cylkoevkzjzkdf4xlcq4w19nseh8ux:reserve:v1' , '35' , '4' , 'reserve' , 'pending' , '11' , '301' , '9' , 'wallet' , '0' , '-500' , 'fixture-request' , '' , 'task_reserve' , '' , '' , '' , '' , '0' , '0' , 'f' , '' , '0' , '0' , '0' , '' , '0' , null , '1' , '{"version":1,"billing_event_id":"billing_evt_2iuqiy8hmwbtxmnwadaxgzyhiaiwuwyr","event_key":"task:task_m0cylkoevkzjzkdf4xlcq4w19nseh8ux:reserve:v1","event_type":"reserve","operation_id":35,"task_id":4,"user_id":11,"token_id":301,"channel_id":9,"billing_source":"wallet","quota_delta":-500,"request_id":"fixture-request","reason_code":"task_reserve"}' , '1' , '1700000000' , '1700000000' ) RETURNING "id"
+2026-10-19T08:07:38.5832910Z  ERROR:  duplicate key value violates unique constraint "uidx_task_billing_outbox_event"
+2026-10-19T08:07:38.5833563Z  DETAIL:  Key (billing_event_id)=(billing_evt_ugxqhv4kg9jvyg0uyuo9tcr7phlurpvr) already exists.
+2026-10-19T08:07:38.5836468Z  STATEMENT:  INSERT INTO "task_billing_log_outboxes" ("billing_event_id","state","claimed_by","claimed_until","attempt_count","next_attempt_at","last_error_code","last_error_at","delivered_at","payload_version","payload","lock_version","created_at","updated_at") VALUES ( 'billing_evt_ugxqhv4kg9jvyg0uyuo9tcr7phlurpvr' , 'pending' , '' , '0' , '0' , '0' , '' , '0' , null , '1' , '{"version":1,"billing_event_id":"billing_evt_ugxqhv4kg9jvyg0uyuo9tcr7phlurpvr","user_id":11,"created_at":1700000000,"type":2,"content":"task billing reserve","username":"","token_name":"","model_name":"fixture-model","quota":500,"prompt_tokens":0,"completion_tokens":0,"use_time":0,"is_stream":false,"channel_id":9,"token_id":301,"group":"default","ip":"","request_id":"fixture-request","upstream_request_id":"","other":""}' , '1' , '1700000000' , '1700000000' ) RETURNING "id"
+2026-10-19T08:07:38.5839554Z  ERROR:  duplicate key value violates unique constraint "uidx_task_billing_event_key"
+2026-10-19T08:07:38.5840261Z  DETAIL:  Key (event_key)=(task:task_jgoofjpamoo4qcfyjjlj0x5ihjgaq8r9:manual_resolution:audit-command-001:v1) already exists.
+2026-10-19T08:07:38.5845523Z  STATEMENT:  INSERT INTO "task_billing_events" ("event_id","event_key","operation_id","task_id","event_type","state","user_id","token_id","channel_id","billing_source","subscription_id","quota_delta","request_id","node_name","reason_code","resolution_source","audit_command_id","evidence_id","evidence_hash","evidence_version","statistics_version","statistics_applied","claimed_by","claimed_until","attempt_count","next_attempt_at","last_error_code","last_error_at","applied_at","payload_version","payload","lock_version","created_at","updated_at") VALUES ( 'billing_evt_d9kuezqri0stytvbuvoznq05f5oqvbb7' , 'task:task_jgoofjpamoo4qcfyjjlj0x5ihjgaq8r9:manual_resolution:audit-command-001:v1' , '39' , null , 'manual_resolution' , 'pending' , '11' , '304' , '11' , 'wallet' , '0' , '0' , 'billing_d5104474e6d7fab03080744c7a4a4ab4efba4e3de2fa77f7' , '' , 'task_manual_resolution' , 'manual_audit' , 'audit-command-001' , '' , '' , '0' , '0' , 'f' , '' , '0' , '0' , '0' , '' , '0' , null , '1' , '{"version":1,"billing_event_id":"billing_evt_d9kuezqri0stytvbuvoznq05f5oqvbb7","event_key":"task:task_jgoofjpamoo4qcfyjjlj0x5ihjgaq8r9:manual_resolution:audit-command-001:v1","event_type":"manual_resolution","operation_id":39,"user_id":11,"token_id":304,"channel_id":11,"billing_source":"wallet","quota_delta":0,"request_id":"billing_d5104474e6d7fab03080744c7a4a4ab4efba4e3de2fa77f7","reason_code":"task_manual_resolution","resolution_source":"manual_audit","audit_command_id":"audit-command-001"}' , '1' , '1700012000' , '1700012000' ) RETURNING "id"
+2026-10-19T08:07:38.5851626Z Stop and remove container: b102f9cdf775432cb81e8e20888cecc8_postgres96_c36ec1
+2026-10-19T08:07:38.5852375Z ##[command]/usr/bin/docker rm --force ef60d1328d145fe1ea4ae5ed187716a38be454fff3bb5d9fa6f7719cbf07041d
+2026-10-19T08:07:38.7003941Z ef60d1328d145fe1ea4ae5ed187716a38be454fff3bb5d9fa6f7719cbf07041d
+2026-10-19T08:07:38.7030154Z Remove container network: github_network_212426f30dac49fbb7dc536282885b61
+2026-10-19T08:07:38.7034506Z ##[command]/usr/bin/docker network rm github_network_212426f30dac49fbb7dc536282885b61
+2026-10-19T08:07:38.8388025Z github_network_212426f30dac49fbb7dc536282885b61
+2026-10-19T08:07:38.8466502Z Cleaning up orphan processes

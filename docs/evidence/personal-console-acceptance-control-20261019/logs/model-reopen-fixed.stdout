@@ -1,0 +1,48 @@
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/classification_and_attempt_budgets
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/restart_owner
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/other_channel
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/other_account
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/disabled_kind
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/unknown_kind
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/generation_slot_stop_and_drain
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/generation_release_preserves_attempt_count
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/deadline_is_terminal_and_persisted
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/concurrent_last_budget_claim
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/negative_limit
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/unbounded_total
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/class_above_total
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/existing_counter
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/deadline
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/raw_account
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/mysql
+    upstream_acceptance_run_test.go:26: requires explicitly configured disposable loopback B2 database
+=== RUN   TestUpstreamAcceptanceRunConfiguredDatabases/postgres
+    upstream_acceptance_run_test.go:26: requires explicitly configured disposable loopback B2 database
+--- PASS: TestUpstreamAcceptanceRunConfiguredDatabases (0.17s)
+    --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite (0.17s)
+        --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/classification_and_attempt_budgets (0.05s)
+        --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits (0.01s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/restart_owner (0.00s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/other_channel (0.00s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/other_account (0.00s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/disabled_kind (0.00s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/scope_and_per_kind_limits/unknown_kind (0.00s)
+        --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/generation_slot_stop_and_drain (0.03s)
+        --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/generation_release_preserves_attempt_count (0.02s)
+        --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/deadline_is_terminal_and_persisted (0.02s)
+        --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/concurrent_last_budget_claim (0.02s)
+        --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage (0.01s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/negative_limit (0.00s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/unbounded_total (0.00s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/class_above_total (0.00s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/existing_counter (0.00s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/deadline (0.00s)
+            --- PASS: TestUpstreamAcceptanceRunConfiguredDatabases/sqlite/validation_and_fail_closed_storage/raw_account (0.00s)
+    --- SKIP: TestUpstreamAcceptanceRunConfiguredDatabases/mysql (0.00s)
+    --- SKIP: TestUpstreamAcceptanceRunConfiguredDatabases/postgres (0.00s)
+PASS
+ok  	github.com/ForceMind/MyAPI/model	0.233s

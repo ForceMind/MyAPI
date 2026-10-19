@@ -1,0 +1,468 @@
+{
+  "head": "0eadc1ac332031145cd425111cc0800dc2026526",
+  "version": "0.2.0-beta.21",
+  "workflowHead": "0eadc1ac332031145cd425111cc0800dc2026526",
+  "scope": "Profile and call-log browser journeys; overview/upstream and Keys are covered by personal-workbench-browser and subscription-share-browser. Compiled personal console with synthetic APIs; excludes live providers, production and historical accounting.",
+  "result": "passed",
+  "journeys": [
+    {
+      "language": "en",
+      "width": 320,
+      "revision": "rv.0.2.0-beta.21.0eadc1ac332031145cd425111cc0800dc2026526.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "language": "en",
+      "width": 1280,
+      "revision": "rv.0.2.0-beta.21.0eadc1ac332031145cd425111cc0800dc2026526.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "language": "zh",
+      "width": 320,
+      "revision": "rv.0.2.0-beta.21.0eadc1ac332031145cd425111cc0800dc2026526.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "language": "zh",
+      "width": 1280,
+      "revision": "rv.0.2.0-beta.21.0eadc1ac332031145cd425111cc0800dc2026526.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "language": "zh-TW",
+      "width": 320,
+      "revision": "rv.0.2.0-beta.21.0eadc1ac332031145cd425111cc0800dc2026526.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "language": "zh-TW",
+      "width": 1280,
+      "revision": "rv.0.2.0-beta.21.0eadc1ac332031145cd425111cc0800dc2026526.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "language": "fr",
+      "width": 320,
+      "revision": "rv.0.2.0-beta.21.0eadc1ac332031145cd425111cc0800dc2026526.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "language": "fr",
+      "width": 1280,
+      "revision": "rv.0.2.0-beta.21.0eadc1ac332031145cd425111cc0800dc2026526.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "language": "ja",
+      "width": 320,
+      "revision": "rv.0.2.0-beta.21.0eadc1ac332031145cd425111cc0800dc2026526.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "language": "ja",
+      "width": 1280,
+      "revision": "rv.0.2.0-beta.21.0eadc1ac332031145cd425111cc0800dc2026526.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "language": "ru",
+      "width": 320,
+      "revision": "rv.0.2.0-beta.21.0eadc1ac332031145cd425111cc0800dc2026526.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "language": "ru",
+      "width": 1280,
+      "revision": "rv.0.2.0-beta.21.0eadc1ac332031145cd425111cc0800dc2026526.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "language": "vi",
+      "width": 320,
+      "revision": "rv.0.2.0-beta.21.0eadc1ac332031145cd425111cc0800dc2026526.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "language": "vi",
+      "width": 1280,
+      "revision": "rv.0.2.0-beta.21.0eadc1ac332031145cd425111cc0800dc2026526.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "language": "zh",
+      "width": 390,
+      "revision": "rv.0.2.0-beta.21.0eadc1ac332031145cd425111cc0800dc2026526.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "language": "zh",
+      "width": 1440,
+      "revision": "rv.0.2.0-beta.21.0eadc1ac332031145cd425111cc0800dc2026526.2k6e8r7p",
+      "result": "passed"
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "console-profile-en-320.png",
+      "language": "en",
+      "width": 320,
+      "state": "profile"
+    },
+    {
+      "file": "console-success-unknown-en-320.png",
+      "language": "en",
+      "width": 320,
+      "state": "success-unknown"
+    },
+    {
+      "file": "console-success-unknown-usage-en-320.png",
+      "language": "en",
+      "width": 320,
+      "state": "success-unknown-usage"
+    },
+    {
+      "file": "console-request-failed-en-320.png",
+      "language": "en",
+      "width": 320,
+      "state": "request-failed"
+    },
+    {
+      "file": "console-profile-en-1280.png",
+      "language": "en",
+      "width": 1280,
+      "state": "profile"
+    },
+    {
+      "file": "console-success-unknown-en-1280.png",
+      "language": "en",
+      "width": 1280,
+      "state": "success-unknown"
+    },
+    {
+      "file": "console-request-failed-en-1280.png",
+      "language": "en",
+      "width": 1280,
+      "state": "request-failed"
+    },
+    {
+      "file": "console-profile-zh-320.png",
+      "language": "zh",
+      "width": 320,
+      "state": "profile"
+    },
+    {
+      "file": "console-success-unknown-zh-320.png",
+      "language": "zh",
+      "width": 320,
+      "state": "success-unknown"
+    },
+    {
+      "file": "console-success-unknown-usage-zh-320.png",
+      "language": "zh",
+      "width": 320,
+      "state": "success-unknown-usage"
+    },
+    {
+      "file": "console-request-failed-zh-320.png",
+      "language": "zh",
+      "width": 320,
+      "state": "request-failed"
+    },
+    {
+      "file": "console-profile-error-zh-320.png",
+      "language": "zh",
+      "width": 320,
+      "state": "profile-error"
+    },
+    {
+      "file": "console-profile-zh-1280.png",
+      "language": "zh",
+      "width": 1280,
+      "state": "profile"
+    },
+    {
+      "file": "console-success-unknown-zh-1280.png",
+      "language": "zh",
+      "width": 1280,
+      "state": "success-unknown"
+    },
+    {
+      "file": "console-request-failed-zh-1280.png",
+      "language": "zh",
+      "width": 1280,
+      "state": "request-failed"
+    },
+    {
+      "file": "console-profile-error-zh-1280.png",
+      "language": "zh",
+      "width": 1280,
+      "state": "profile-error"
+    },
+    {
+      "file": "console-profile-zh-TW-320.png",
+      "language": "zh-TW",
+      "width": 320,
+      "state": "profile"
+    },
+    {
+      "file": "console-success-unknown-zh-TW-320.png",
+      "language": "zh-TW",
+      "width": 320,
+      "state": "success-unknown"
+    },
+    {
+      "file": "console-success-unknown-usage-zh-TW-320.png",
+      "language": "zh-TW",
+      "width": 320,
+      "state": "success-unknown-usage"
+    },
+    {
+      "file": "console-request-failed-zh-TW-320.png",
+      "language": "zh-TW",
+      "width": 320,
+      "state": "request-failed"
+    },
+    {
+      "file": "console-profile-zh-TW-1280.png",
+      "language": "zh-TW",
+      "width": 1280,
+      "state": "profile"
+    },
+    {
+      "file": "console-success-unknown-zh-TW-1280.png",
+      "language": "zh-TW",
+      "width": 1280,
+      "state": "success-unknown"
+    },
+    {
+      "file": "console-request-failed-zh-TW-1280.png",
+      "language": "zh-TW",
+      "width": 1280,
+      "state": "request-failed"
+    },
+    {
+      "file": "console-profile-fr-320.png",
+      "language": "fr",
+      "width": 320,
+      "state": "profile"
+    },
+    {
+      "file": "console-success-unknown-fr-320.png",
+      "language": "fr",
+      "width": 320,
+      "state": "success-unknown"
+    },
+    {
+      "file": "console-success-unknown-usage-fr-320.png",
+      "language": "fr",
+      "width": 320,
+      "state": "success-unknown-usage"
+    },
+    {
+      "file": "console-request-failed-fr-320.png",
+      "language": "fr",
+      "width": 320,
+      "state": "request-failed"
+    },
+    {
+      "file": "console-profile-fr-1280.png",
+      "language": "fr",
+      "width": 1280,
+      "state": "profile"
+    },
+    {
+      "file": "console-success-unknown-fr-1280.png",
+      "language": "fr",
+      "width": 1280,
+      "state": "success-unknown"
+    },
+    {
+      "file": "console-request-failed-fr-1280.png",
+      "language": "fr",
+      "width": 1280,
+      "state": "request-failed"
+    },
+    {
+      "file": "console-profile-ja-320.png",
+      "language": "ja",
+      "width": 320,
+      "state": "profile"
+    },
+    {
+      "file": "console-success-unknown-ja-320.png",
+      "language": "ja",
+      "width": 320,
+      "state": "success-unknown"
+    },
+    {
+      "file": "console-success-unknown-usage-ja-320.png",
+      "language": "ja",
+      "width": 320,
+      "state": "success-unknown-usage"
+    },
+    {
+      "file": "console-request-failed-ja-320.png",
+      "language": "ja",
+      "width": 320,
+      "state": "request-failed"
+    },
+    {
+      "file": "console-profile-ja-1280.png",
+      "language": "ja",
+      "width": 1280,
+      "state": "profile"
+    },
+    {
+      "file": "console-success-unknown-ja-1280.png",
+      "language": "ja",
+      "width": 1280,
+      "state": "success-unknown"
+    },
+    {
+      "file": "console-request-failed-ja-1280.png",
+      "language": "ja",
+      "width": 1280,
+      "state": "request-failed"
+    },
+    {
+      "file": "console-profile-ru-320.png",
+      "language": "ru",
+      "width": 320,
+      "state": "profile"
+    },
+    {
+      "file": "console-success-unknown-ru-320.png",
+      "language": "ru",
+      "width": 320,
+      "state": "success-unknown"
+    },
+    {
+      "file": "console-success-unknown-usage-ru-320.png",
+      "language": "ru",
+      "width": 320,
+      "state": "success-unknown-usage"
+    },
+    {
+      "file": "console-request-failed-ru-320.png",
+      "language": "ru",
+      "width": 320,
+      "state": "request-failed"
+    },
+    {
+      "file": "console-profile-ru-1280.png",
+      "language": "ru",
+      "width": 1280,
+      "state": "profile"
+    },
+    {
+      "file": "console-success-unknown-ru-1280.png",
+      "language": "ru",
+      "width": 1280,
+      "state": "success-unknown"
+    },
+    {
+      "file": "console-request-failed-ru-1280.png",
+      "language": "ru",
+      "width": 1280,
+      "state": "request-failed"
+    },
+    {
+      "file": "console-profile-vi-320.png",
+      "language": "vi",
+      "width": 320,
+      "state": "profile"
+    },
+    {
+      "file": "console-success-unknown-vi-320.png",
+      "language": "vi",
+      "width": 320,
+      "state": "success-unknown"
+    },
+    {
+      "file": "console-success-unknown-usage-vi-320.png",
+      "language": "vi",
+      "width": 320,
+      "state": "success-unknown-usage"
+    },
+    {
+      "file": "console-request-failed-vi-320.png",
+      "language": "vi",
+      "width": 320,
+      "state": "request-failed"
+    },
+    {
+      "file": "console-profile-vi-1280.png",
+      "language": "vi",
+      "width": 1280,
+      "state": "profile"
+    },
+    {
+      "file": "console-success-unknown-vi-1280.png",
+      "language": "vi",
+      "width": 1280,
+      "state": "success-unknown"
+    },
+    {
+      "file": "console-request-failed-vi-1280.png",
+      "language": "vi",
+      "width": 1280,
+      "state": "request-failed"
+    },
+    {
+      "file": "console-profile-zh-390.png",
+      "language": "zh",
+      "width": 390,
+      "state": "profile"
+    },
+    {
+      "file": "console-success-unknown-zh-390.png",
+      "language": "zh",
+      "width": 390,
+      "state": "success-unknown"
+    },
+    {
+      "file": "console-success-unknown-usage-zh-390.png",
+      "language": "zh",
+      "width": 390,
+      "state": "success-unknown-usage"
+    },
+    {
+      "file": "console-request-failed-zh-390.png",
+      "language": "zh",
+      "width": 390,
+      "state": "request-failed"
+    },
+    {
+      "file": "console-profile-error-zh-390.png",
+      "language": "zh",
+      "width": 390,
+      "state": "profile-error"
+    },
+    {
+      "file": "console-profile-zh-1440.png",
+      "language": "zh",
+      "width": 1440,
+      "state": "profile"
+    },
+    {
+      "file": "console-success-unknown-zh-1440.png",
+      "language": "zh",
+      "width": 1440,
+      "state": "success-unknown"
+    },
+    {
+      "file": "console-request-failed-zh-1440.png",
+      "language": "zh",
+      "width": 1440,
+      "state": "request-failed"
+    },
+    {
+      "file": "console-profile-error-zh-1440.png",
+      "language": "zh",
+      "width": 1440,
+      "state": "profile-error"
+    }
+  ],
+  "errors": []
+}

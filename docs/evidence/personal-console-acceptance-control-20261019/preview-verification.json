@@ -1,0 +1,17 @@
+{
+  "url": "http://127.0.0.1:4180/keys",
+  "status": 200,
+  "cache_control": "no-store",
+  "html_sha256": "bd4f5ad61c4e25f8666cc990e83a8e3029e33ba0439ac6ed6ae427d6302a6456",
+  "downloaded_html_byte_identical": true,
+  "synthetic": true,
+  "real_database": false,
+  "real_provider": false,
+  "real_credentials": false,
+  "version": "0.2.0-beta.21",
+  "sourceHead": "c5e44f6140eccf83679d65ed94b9337319cfdf5b",
+  "buildHead": "0eadc1ac332031145cd425111cc0800dc2026526",
+  "ci": "https://github.com/ForceMind/MyAPI/actions/runs/39220781498",
+  "mutation_scope": "ephemeral synthetic Key deletion, budget policy and assigned access only",
+  "scope": "Exact final CI frontend with synthetic in-memory APIs; actual Go control/relay routes proved separately by httptest. Local check is HTTP/source; actual Chromium in Actions."
+}

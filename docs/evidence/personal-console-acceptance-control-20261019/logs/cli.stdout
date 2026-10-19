@@ -1,0 +1,28 @@
+TAP version 13
+# Subtest: rejects remote destinations and ambiguous run IDs before sending the session
+ok 1 - rejects remote destinations and ambiguous run IDs before sending the session
+  ---
+  duration_ms: 1.567755
+  type: 'test'
+  ...
+# Subtest: creates only with explicit budgets and disables redirects
+ok 2 - creates only with explicit budgets and disables redirects
+  ---
+  duration_ms: 2.105284
+  type: 'test'
+  ...
+# Subtest: does not misrepresent stopping as drained or retry unknown writes
+ok 3 - does not misrepresent stopping as drained or retry unknown writes
+  ---
+  duration_ms: 0.513238
+  type: 'test'
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 3
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 12.017097

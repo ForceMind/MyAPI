@@ -1,0 +1,17 @@
+=== RUN   TestUpstreamAcceptanceRuntimeAPI
+=== RUN   TestUpstreamAcceptanceRuntimeAPI/anonymous
+=== RUN   TestUpstreamAcceptanceRuntimeAPI/admin_session
+=== RUN   TestUpstreamAcceptanceRuntimeAPI/root_PAT
+=== RUN   TestUpstreamAcceptanceRuntimeAPI/wrong_origin
+=== RUN   TestUpstreamAcceptanceRuntimeAPI/missing_origin
+[SYS] 2026/10/19 - 15:40:35 | failed to fetch codex reset credits: upstream acceptance request not sent: upstream acceptance dispatch denied 
+=== NAME  TestUpstreamAcceptanceRuntimeAPI
+    upstream_acceptance_runtime_test.go:195: real HTTP control/session/Origin checks, one ordinary and one controlled loopback sample, budget refusal and stopped-run rejection; Key and financial values preserved
+--- PASS: TestUpstreamAcceptanceRuntimeAPI (0.43s)
+    --- PASS: TestUpstreamAcceptanceRuntimeAPI/anonymous (0.00s)
+    --- PASS: TestUpstreamAcceptanceRuntimeAPI/admin_session (0.00s)
+    --- PASS: TestUpstreamAcceptanceRuntimeAPI/root_PAT (0.00s)
+    --- PASS: TestUpstreamAcceptanceRuntimeAPI/wrong_origin (0.00s)
+    --- PASS: TestUpstreamAcceptanceRuntimeAPI/missing_origin (0.00s)
+PASS
+ok  	github.com/ForceMind/MyAPI/router	0.452s
