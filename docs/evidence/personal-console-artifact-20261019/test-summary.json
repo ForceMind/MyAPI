@@ -1,0 +1,67 @@
+{
+  "generated_summary": true,
+  "baseline": {
+    "source_commit": "44f5b52ec9f8fb8c7ec2046b126f7b2cb7cb761a",
+    "file": "tools/runtime/sqlite-restore-smoke.mjs",
+    "sha256": "20daf442c6c3f9f8637f82cc37b8217e5303d8155dce0a0f1d39b123ff86af02",
+    "execution_source": "stage1_runtime_tests agent tool output",
+    "original_stdout_saved": false,
+    "tests": 26,
+    "passed": 11,
+    "failed": 15,
+    "failure": "Missing expected rejection on each of 15 meaningful restore mutations"
+  },
+  "candidate_runtime": {
+    "source_sha": "cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+    "execution_source": "stage1_runtime_tests agent tool output",
+    "original_stdout_saved": false,
+    "tests": 120,
+    "passed": 120,
+    "failed": 0
+  },
+  "exact_ci_distribution": {
+    "run_id": "39203586608",
+    "job_id": "117901519810",
+    "restore_runtime_tests": 62,
+    "passed": 62,
+    "failed": 0,
+    "log": "ci-tests/distribution-ci.log"
+  },
+  "frontend": {
+    "files": 243,
+    "tests": 1562,
+    "passed": 1562,
+    "log": "ci-tests/frontend-tests.log"
+  },
+  "local_cli": {
+    "clean_export_source": "44f5b52ec9f8fb8c7ec2046b126f7b2cb7cb761a",
+    "cli_unchanged_in_candidate": true,
+    "tests": 11,
+    "passed": 11,
+    "initial_workspace_attempt": {
+      "passed": 10,
+      "failed": 1,
+      "reason": "protected workspace path ENOENT during init copy",
+      "original_log_retained": "/tmp/myapi-beta20-stage1-upgrade-tests.log"
+    },
+    "clean_log": "local-tests/upgrade-clean-tests.log"
+  },
+  "local_install_version": {
+    "tests": 8,
+    "passed": 8
+  },
+  "upgrade_structure": {
+    "checks": 19,
+    "passed": 19
+  },
+  "local_http": {
+    "sandbox_attempt": "socket EPERM; retry outside sandbox passed",
+    "result": "exact CI artifact byte equality and HTTP200/no-store",
+    "details": "preview-verification.json"
+  },
+  "final_exact_ci": {
+    "run_id": "39203586608",
+    "jobs": 11,
+    "all_success": true
+  }
+}

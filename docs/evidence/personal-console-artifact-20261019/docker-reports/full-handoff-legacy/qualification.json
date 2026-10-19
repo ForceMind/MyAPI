@@ -1,0 +1,43 @@
+{
+  "command": "handoff:smoke",
+  "source_sha": "71277bf6055ce68b8cd1d11f1d10f1907d7696fd",
+  "target_sha": "cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+  "passed": true,
+  "checks": [
+    {
+      "name": "synthetic ordinary user wallet, key and channel usage",
+      "ok": true
+    },
+    {
+      "name": "single associated consume log hides admin metadata",
+      "ok": true
+    },
+    {
+      "name": "ordinary user full-content log access rejected",
+      "ok": true,
+      "status": 403
+    },
+    {
+      "name": "full-content request/header redaction and fixed response-body contract",
+      "ok": true,
+      "covered": true
+    },
+    {
+      "name": "anonymous relay rejected without upstream request",
+      "ok": true,
+      "status": 401
+    },
+    {
+      "name": "synthetic upstream request contract",
+      "ok": true
+    },
+    {
+      "name": "historical settlement blocks current startup with unchanged database and WAL bytes; an untouched old-image copy preserves exact billed state",
+      "ok": true
+    },
+    {
+      "name": "configured old SQLite without settlement intent/fact history migrates before relay",
+      "ok": true
+    }
+  ]
+}

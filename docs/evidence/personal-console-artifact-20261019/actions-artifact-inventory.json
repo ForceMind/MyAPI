@@ -1,0 +1,87 @@
+{
+  "generated_index": true,
+  "run_id": "39203596121",
+  "artifacts": [
+    {
+      "id": 12165411020,
+      "name": "myapi-smoke-report-full-fresh-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "size_in_bytes": 2811,
+      "created_at": "2026-10-19T05:25:21Z",
+      "expires_at": "2026-11-18T05:25:20Z",
+      "expired": false,
+      "digest": "sha256:67644af5656e7e3127c1fd5b868f60b6be671b51fd5748a551c3dd16f69d1453"
+    },
+    {
+      "id": 12165271772,
+      "name": "myapi-smoke-report-full-handoff-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "size_in_bytes": 1887,
+      "created_at": "2026-10-19T05:26:45Z",
+      "expires_at": "2026-11-18T05:26:44Z",
+      "expired": false,
+      "digest": "sha256:5350725e0516288b52e7549901a2807da09079bf7b0430e204d0e8f767b55a58"
+    },
+    {
+      "id": 12165260593,
+      "name": "myapi-installer-report-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "size_in_bytes": 498,
+      "created_at": "2026-10-19T05:17:36Z",
+      "expires_at": "2026-11-18T05:17:35Z",
+      "expired": false,
+      "digest": "sha256:5924b18ccd6588240f9250a0f731098f4d5d20e29b93ab8342a914315afdb0a9"
+    },
+    {
+      "id": 12165251804,
+      "name": "myapi-personal-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "size_in_bytes": 972434,
+      "created_at": "2026-10-19T05:25:19Z",
+      "expires_at": "2026-11-18T05:25:18Z",
+      "expired": false,
+      "digest": "sha256:d869cdf01534ea03a5a13c5da7370f7aaef4450db6ecc6a622c26fa0f332f552"
+    },
+    {
+      "id": 12165047288,
+      "name": "myapi-smoke-report-full-fresh-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "size_in_bytes": 2804,
+      "created_at": "2026-10-19T05:22:20Z",
+      "expires_at": "2026-11-18T05:22:19Z",
+      "expired": false,
+      "digest": "sha256:a0fa436eab7760ec4f0d5adb3fc0cb28cb8715a6619b0912399d7bb2044fe2a9"
+    },
+    {
+      "id": 12165017762,
+      "name": "myapi-smoke-report-lan-fresh-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "size_in_bytes": 2066,
+      "created_at": "2026-10-19T05:23:23Z",
+      "expires_at": "2026-11-18T05:23:22Z",
+      "expired": false,
+      "digest": "sha256:05f0785d183b1e66c695270863f8d2aaea25a1147416c2fe14152ecccfe6376a"
+    },
+    {
+      "id": 12164907937,
+      "name": "myapi-personal-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "size_in_bytes": 970597,
+      "created_at": "2026-10-19T05:22:19Z",
+      "expires_at": "2026-11-18T05:22:18Z",
+      "expired": false,
+      "digest": "sha256:ca655ece862b25b31b103e2ad43c63b71a7ff471786caaaea1a711af77bc339e"
+    },
+    {
+      "id": 12164527604,
+      "name": "myapi-smoke-images-39203596121-1-cdeef8b52792a09b341d074521d59cb5cc7f62fb-full",
+      "size_in_bytes": 353561601,
+      "created_at": "2026-10-19T05:18:25Z",
+      "expires_at": "2026-11-18T05:18:23Z",
+      "expired": false,
+      "digest": "sha256:7faf3cb92ce38a7d7d6a2dc6b8ec684fb94a55d41d4ae8c9d9e980a5a1512d68"
+    },
+    {
+      "id": 12164509323,
+      "name": "myapi-smoke-images-39203596121-1-cdeef8b52792a09b341d074521d59cb5cc7f62fb-lan",
+      "size_in_bytes": 353168381,
+      "created_at": "2026-10-19T05:20:24Z",
+      "expires_at": "2026-11-18T05:20:22Z",
+      "expired": false,
+      "digest": "sha256:b3caed1778c74455428b4ab4da19af602649fa6f467229e22f1f3c750b0d8960"
+    }
+  ]
+}

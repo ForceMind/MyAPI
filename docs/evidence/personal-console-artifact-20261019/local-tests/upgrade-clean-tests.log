@@ -1,0 +1,107 @@
+TAP version 13
+# MyAPI: --json is only supported with --dry-run
+# MyAPI: upgrade preflight failed: MYAPI_CPU_LIMIT must be a number greater than 0 and no more than 64
+# MyAPI: docker exited with status 42; previous image restored and health-checked
+# MyAPI: docker exited with status 42; target startup was attempted and the database may have changed; automatic image rollback was not attempted. Target configuration was retained. Inspect the deployment and restore a verified pre-upgrade database backup before starting the previous image. No database restore was performed. Original environment backup: /tmp/myapi-cli-vqKIfo/source/backups/myapi-upgrade-2026-10-19T05-13-52-516Z.env
+# MyAPI: upgrade preflight failed: LAN binding is disabled by default; pass --allow-lan to share on a private network
+# MyAPI: deployment preflight failed: BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; no accounting mode was changed
+# MyAPI: upgrade preflight failed: BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; no accounting mode was changed
+# BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; the running instance was not changed.
+# MyAPI: deployment preflight failed: BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; no accounting mode was changed
+# MyAPI: upgrade preflight failed: BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; no accounting mode was changed
+# BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; the running instance was not changed.
+# MyAPI: deployment preflight failed: BATCH_UPDATE_ENABLED=true needs review: this cache-free deployment helper cannot verify the existing writer mode or Redis accounting state; keep the running instance and review its original deployment, do not disable batching to bypass this check
+# MyAPI: upgrade preflight failed: BATCH_UPDATE_ENABLED=true needs review: this cache-free deployment helper cannot verify the existing writer mode or Redis accounting state; keep the running instance and review its original deployment, do not disable batching to bypass this check
+# BATCH_UPDATE_ENABLED=true needs review: this cache-free installer cannot verify the existing writer mode or Redis accounting state. Keep the running instance and review its original deployment; do not disable batching to bypass this check.
+# MyAPI: BATCH_UPDATE_ENABLED is duplicated and needs review; no accounting mode was changed
+# MyAPI: BATCH_UPDATE_ENABLED is duplicated and needs review; no accounting mode was changed
+# BATCH_UPDATE_ENABLED is duplicated and needs review; the running instance was not changed.
+# Pulling MyAPI image from ghcr.io/forcemind/myapi:v0.2.0-beta.20.
+# MyAPI: adopting existing data needs accounting configuration review; preserve the original BATCH_UPDATE_ENABLED and Redis state before changing deployment paths
+# MyAPI: deployment preflight failed: MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1; do not copy the new marker into an old installation without reviewing its effective writer and cache accounting state
+# MyAPI: upgrade preflight failed: MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1; do not copy the new marker into an old installation without reviewing its effective writer and cache accounting state
+# MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1. Do not copy a new marker into an old installation without reviewing its effective writer and cache accounting state; the running instance was not changed.
+# MyAPI: existing deployment configuration is preserved, including with --force; review BATCH_UPDATE_ENABLED and keep the original identities and accounting configuration
+# MyAPI: deployment preflight failed: MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1; do not copy the new marker into an old installation without reviewing its effective writer and cache accounting state
+# MyAPI: upgrade preflight failed: MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1; do not copy the new marker into an old installation without reviewing its effective writer and cache accounting state
+# MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1. Do not copy a new marker into an old installation without reviewing its effective writer and cache accounting state; the running instance was not changed.
+# MyAPI: existing deployment configuration is preserved, including with --force; review BATCH_UPDATE_ENABLED and keep the original identities and accounting configuration
+# MyAPI: MYAPI_ACCOUNTING_CONFIG_VERSION is duplicated and needs review; no accounting mode was changed
+# MyAPI: MYAPI_ACCOUNTING_CONFIG_VERSION is duplicated and needs review; no accounting mode was changed
+# MYAPI_ACCOUNTING_CONFIG_VERSION is duplicated and needs review; the running instance was not changed.
+# MyAPI: existing deployment configuration is preserved, including with --force; review BATCH_UPDATE_ENABLED and keep the original identities and accounting configuration
+# Subtest: upgrade dry-run validates a copy without writing files or invoking Docker
+ok 1 - upgrade dry-run validates a copy without writing files or invoking Docker
+  ---
+  duration_ms: 3637.820488
+  type: 'test'
+  ...
+# Subtest: upgrade dry-run rejects JSON output without dry-run mode
+ok 2 - upgrade dry-run rejects JSON output without dry-run mode
+  ---
+  duration_ms: 969.898037
+  type: 'test'
+  ...
+# Subtest: upgrade dry-run fails closed on invalid runtime configuration
+ok 3 - upgrade dry-run fails closed on invalid runtime configuration
+  ---
+  duration_ms: 915.51392
+  type: 'test'
+  ...
+# Subtest: upgrade restores the environment and reruns the old deployment after a pull failure
+ok 4 - upgrade restores the environment and reruns the old deployment after a pull failure
+  ---
+  duration_ms: 1158.199244
+  type: 'test'
+  ...
+# Subtest: upgrade does not restart the old image after target startup may have migrated the database
+ok 5 - upgrade does not restart the old image after target startup may have migrated the database
+  ---
+  duration_ms: 874.836015
+  type: 'test'
+  ...
+# Subtest: upgrade dry-run rejects a non-loopback bind without explicit LAN opt-in
+ok 6 - upgrade dry-run rejects a non-loopback bind without explicit LAN opt-in
+  ---
+  duration_ms: 825.238233
+  type: 'test'
+  ...
+# Subtest: new Full and LAN configurations explicitly choose cache-free batch=false
+ok 7 - new Full and LAN configurations explicitly choose cache-free batch=false
+  ---
+  duration_ms: 1620.34464
+  type: 'test'
+  ...
+# Subtest: missing ambiguous and cache-backed choices refuse up upgrade and installer before Docker or writes
+ok 8 - missing ambiguous and cache-backed choices refuse up upgrade and installer before Docker or writes
+  ---
+  duration_ms: 1295.175038
+  type: 'test'
+  ...
+# Subtest: reviewed existing false overrides conflicting ambient batch choice in both helpers
+ok 9 - reviewed existing false overrides conflicting ambient batch choice in both helpers
+  ---
+  duration_ms: 1024.696677
+  type: 'test'
+  ...
+# Subtest: adoption of nonempty data cannot inherit the new installation accounting default
+ok 10 - adoption of nonempty data cannot inherit the new installation accounting default
+  ---
+  duration_ms: 910.018099
+  type: 'test'
+  ...
+# Subtest: old missing and unknown accounting contract markers block before any deployment mutation
+ok 11 - old missing and unknown accounting contract markers block before any deployment mutation
+  ---
+  duration_ms: 1401.891299
+  type: 'test'
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 11
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 14806.347097

@@ -1,0 +1,49 @@
+{
+  "source_sha": "cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+  "image_id": "sha256:ea266cc101fe858cb782a98611c81b6116c077d7e50f78541ff8e945483687ff",
+  "command": "docker:smoke",
+  "sha": "cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+  "edition": "lan",
+  "database": "fresh-sqlite",
+  "passed": true,
+  "checks": [
+    {
+      "name": "fresh SQLite initialization",
+      "ok": true
+    },
+    {
+      "name": "anonymous self rejected",
+      "ok": true,
+      "status": 401
+    },
+    {
+      "name": "runtime self-use mode",
+      "ok": true
+    },
+    {
+      "name": "server status",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "name": "password login",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "name": "user self",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "name": "channel quota changes",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "name": "admin logs",
+      "ok": true,
+      "status": 200
+    }
+  ]
+}

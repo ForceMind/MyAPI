@@ -1,0 +1,614 @@
+{
+  "generated_index": true,
+  "source_sha": "cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+  "files": [
+    {
+      "path": "bundles/full-manifest.json",
+      "bytes": 1285,
+      "sha256": "495d88ded4be4c57c2b0830a88f5388c2551e61ad1855cc3ae533e4d2e3dd40d",
+      "origin": "myapi-smoke-images-39203596121-1-cdeef8b52792a09b341d074521d59cb5cc7f62fb-full",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "bundles/lan-manifest.json",
+      "bytes": 1281,
+      "sha256": "0286e589ac4be406404108bd42ba6b38b0e2125c64b9ed5c6c8d93e3f6e774df",
+      "origin": "myapi-smoke-images-39203596121-1-cdeef8b52792a09b341d074521d59cb5cc7f62fb-lan",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "installer/qualification.json",
+      "bytes": 968,
+      "sha256": "1abdee33967695c449298dbb197b4b7c79527c2a0e095bf89880eeeda5b3dc73",
+      "origin": "myapi-installer-report-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/legacy/existing-key-list-zh-320.png",
+      "bytes": 55888,
+      "sha256": "652e08e91c53389a0e25b9c03af27d190bb78379f996b0f01cf448bee7bfa99b",
+      "origin": "myapi-personal-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/legacy/existing-persisted-log-zh-320.png",
+      "bytes": 53489,
+      "sha256": "a1847ff403306291b6f265f5909e50390b2c7788858b86aae12dc3709fee4f55",
+      "origin": "myapi-personal-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/legacy/existing-policy-after-zh-320.png",
+      "bytes": 46535,
+      "sha256": "ff62b22ad987f0b123b7b75a2d4eb753fa7b0499f6a5c9690775b23cce9c4c4e",
+      "origin": "myapi-personal-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/legacy/existing-policy-before-zh-320.png",
+      "bytes": 43170,
+      "sha256": "586e4b06c7e29a993e994022d702a301a0ee7da6e7ab36db7b4633d60641f90a",
+      "origin": "myapi-personal-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/legacy/existing-selected-key-zh-320.png",
+      "bytes": 73632,
+      "sha256": "14ad92b3b24fe5e2a660969455c5615c742082dde50f584c16e765097c4ce9ac",
+      "origin": "myapi-personal-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/legacy/existing-success-zh-320.png",
+      "bytes": 62347,
+      "sha256": "7b9cf559a0df71ea46d12f9c463eae09e61dd98224d4f3fdf5246d76eb71b335",
+      "origin": "myapi-personal-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/legacy/existing-wallet-rejection-zh-320.png",
+      "bytes": 74267,
+      "sha256": "027a7db9c282edf63a2c7ae7d2702b87283a67e6ad8f146d63b5a89ba0ae4321",
+      "origin": "myapi-personal-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/legacy/finite-quota-rejection-zh-320.png",
+      "bytes": 75242,
+      "sha256": "96d584d6747174845896d5cea771832d66e6ab80909ed3ea1f95b657e7221e9a",
+      "origin": "myapi-personal-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/legacy/fresh-key-list-en-1280.png",
+      "bytes": 80401,
+      "sha256": "1c727ec9e17134108e030df523176cb3153ffb40e6451b62472b70e45e8a6789",
+      "origin": "myapi-personal-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/legacy/fresh-persisted-log-en-1280.png",
+      "bytes": 103834,
+      "sha256": "30c30d0601703cdabfc8cd442cc12504eb29e23a9e7adb507b009d4ecaae66a3",
+      "origin": "myapi-personal-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/legacy/fresh-selected-key-en-1280.png",
+      "bytes": 82607,
+      "sha256": "698cbf8d9c73321b27c94432ee4b3dbc7bafa8da4b83982ae20f28e12bfb08a8",
+      "origin": "myapi-personal-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/legacy/fresh-success-en-1280.png",
+      "bytes": 74586,
+      "sha256": "bf19545f10cbc7136257aa03fce1f424f3140efa40819d70bd516b792c289e7f",
+      "origin": "myapi-personal-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/legacy/model-scope-restricted-zh-320.png",
+      "bytes": 64820,
+      "sha256": "8258afa72c780971de68c955617fad1a7d53bbfce2f9974e5302d58c4c3726a7",
+      "origin": "myapi-personal-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/legacy/qualification.json",
+      "bytes": 2423,
+      "sha256": "ed2aaacaeb134a7a5e4d15315cd2b76f02216b8b5dba330d7e0a01146f63b8fa",
+      "origin": "myapi-personal-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/legacy/runtime-build-en-1280.png",
+      "bytes": 17122,
+      "sha256": "aa98426862a06a594bea8e63f6b7bc0352fcae748a2847f112efd44a5f62360a",
+      "origin": "myapi-personal-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/legacy/unqualified-strict-rejection-en-1280.png",
+      "bytes": 98234,
+      "sha256": "b1ba10989dfaae5cc8287db79f92ee097275037dcc83b03a83a23fa31cb2a196",
+      "origin": "myapi-personal-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/authoritative/existing-key-list-zh-320.png",
+      "bytes": 56014,
+      "sha256": "ae4569564dc6cff129c5df2293c84cfdafb97a6fa2adb313800b1ef2b04754c2",
+      "origin": "myapi-personal-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/authoritative/existing-persisted-log-zh-320.png",
+      "bytes": 53982,
+      "sha256": "f1f378f5cc01e6655d65c87d10726cc810b51bde638e7a252b2904a4231410e7",
+      "origin": "myapi-personal-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/authoritative/existing-policy-after-zh-320.png",
+      "bytes": 46762,
+      "sha256": "a5c327097f7fb24a12a26fc23cf1ec32fa242d8bc28224af2ec25ba5d2688268",
+      "origin": "myapi-personal-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/authoritative/existing-policy-before-zh-320.png",
+      "bytes": 43086,
+      "sha256": "042c233374e4f0bbe2e77ec8d999bed66d7c63dcb4ea8747b84651149dccce4a",
+      "origin": "myapi-personal-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/authoritative/existing-selected-key-zh-320.png",
+      "bytes": 73632,
+      "sha256": "14ad92b3b24fe5e2a660969455c5615c742082dde50f584c16e765097c4ce9ac",
+      "origin": "myapi-personal-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/authoritative/existing-success-zh-320.png",
+      "bytes": 62431,
+      "sha256": "2a4dbf1e620936f49260f3ca875ab8bdd5a6473ba829f8e54244d397d4660ceb",
+      "origin": "myapi-personal-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/authoritative/existing-wallet-rejection-zh-320.png",
+      "bytes": 74877,
+      "sha256": "193a8b7c7db81f6ec9181ba7da9fbdbaf6c7f30323a28ef4bcb4bdaf34ffd9e5",
+      "origin": "myapi-personal-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/authoritative/finite-quota-rejection-zh-320.png",
+      "bytes": 75469,
+      "sha256": "3e1ea663d715c83368bab2b99abdb4d80c069c9d4c6370e8313c0b7139070363",
+      "origin": "myapi-personal-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/authoritative/fresh-key-list-en-1280.png",
+      "bytes": 80330,
+      "sha256": "10cfcac62d36294627d9de8453667bc7066f3467a52621657147fc98a56eeb08",
+      "origin": "myapi-personal-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/authoritative/fresh-persisted-log-en-1280.png",
+      "bytes": 104281,
+      "sha256": "f1fae7264268b9209caa3f4b4aa769a3e3aed5825d377414e4096fc5a33804d6",
+      "origin": "myapi-personal-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/authoritative/fresh-selected-key-en-1280.png",
+      "bytes": 82607,
+      "sha256": "698cbf8d9c73321b27c94432ee4b3dbc7bafa8da4b83982ae20f28e12bfb08a8",
+      "origin": "myapi-personal-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/authoritative/fresh-success-en-1280.png",
+      "bytes": 74530,
+      "sha256": "6b01cfd1791e3b1a6c4fc778507b400f13da45e64f1639f52b781fcb3c780945",
+      "origin": "myapi-personal-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/authoritative/model-scope-restricted-zh-320.png",
+      "bytes": 64820,
+      "sha256": "8258afa72c780971de68c955617fad1a7d53bbfce2f9974e5302d58c4c3726a7",
+      "origin": "myapi-personal-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/authoritative/qualification.json",
+      "bytes": 2430,
+      "sha256": "26b0b1d490488b1afa9666712ab424ddf444398b08c1e66a14c53865f28c4a5b",
+      "origin": "myapi-personal-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/authoritative/runtime-build-en-1280.png",
+      "bytes": 17122,
+      "sha256": "aa98426862a06a594bea8e63f6b7bc0352fcae748a2847f112efd44a5f62360a",
+      "origin": "myapi-personal-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-personal/authoritative/unqualified-strict-rejection-en-1280.png",
+      "bytes": 97982,
+      "sha256": "54cb02618d11579332b66d5ae36b8b62df715a251eeafff6a5d3b01a7154b9e3",
+      "origin": "myapi-personal-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-reports/full-fresh-legacy/manifest.json",
+      "bytes": 1285,
+      "sha256": "495d88ded4be4c57c2b0830a88f5388c2551e61ad1855cc3ae533e4d2e3dd40d",
+      "origin": "myapi-smoke-report-full-fresh-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-reports/full-fresh-legacy/manifest.sha256",
+      "bytes": 80,
+      "sha256": "755eccc80ad3c9cc242d4acbadd62335c86ae72c383d288f67b9a2681b9efe54",
+      "origin": "myapi-smoke-report-full-fresh-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-reports/full-fresh-legacy/qualification.json",
+      "bytes": 6311,
+      "sha256": "e188c493dba8145c64ea68271058cc53363c82804076da64ff537cff0d074d23",
+      "origin": "myapi-smoke-report-full-fresh-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-reports/full-fresh-legacy/source.json",
+      "bytes": 316,
+      "sha256": "888a1bfbf6bb7335db335e0ab5881be004495a8fa153ffddf567b91e42833a1a",
+      "origin": "myapi-smoke-report-full-fresh-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-reports/lan-fresh-legacy/manifest.json",
+      "bytes": 1281,
+      "sha256": "0286e589ac4be406404108bd42ba6b38b0e2125c64b9ed5c6c8d93e3f6e774df",
+      "origin": "myapi-smoke-report-lan-fresh-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-reports/lan-fresh-legacy/manifest.sha256",
+      "bytes": 80,
+      "sha256": "6801ff4592f1aea9d9330a934a7f8a0f55b988f67d2d04986120dd220188513e",
+      "origin": "myapi-smoke-report-lan-fresh-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-reports/lan-fresh-legacy/qualification.json",
+      "bytes": 2209,
+      "sha256": "98d1a279edcf88c08f9222c63fb12b0718ab76200cc212880f23b2fb6e2e9300",
+      "origin": "myapi-smoke-report-lan-fresh-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-reports/lan-fresh-legacy/source.json",
+      "bytes": 315,
+      "sha256": "7cbd8284917af01bce507f072b8d5e5eb404fd5ca989868ba37db7ab6e2df83d",
+      "origin": "myapi-smoke-report-lan-fresh-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-reports/full-fresh-authoritative/manifest.json",
+      "bytes": 1285,
+      "sha256": "495d88ded4be4c57c2b0830a88f5388c2551e61ad1855cc3ae533e4d2e3dd40d",
+      "origin": "myapi-smoke-report-full-fresh-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-reports/full-fresh-authoritative/manifest.sha256",
+      "bytes": 80,
+      "sha256": "755eccc80ad3c9cc242d4acbadd62335c86ae72c383d288f67b9a2681b9efe54",
+      "origin": "myapi-smoke-report-full-fresh-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-reports/full-fresh-authoritative/qualification.json",
+      "bytes": 6325,
+      "sha256": "bc04f16ed458bcfaf0c1d41526db72286ad8d6b249959541f104d89dd589d671",
+      "origin": "myapi-smoke-report-full-fresh-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-reports/full-fresh-authoritative/source.json",
+      "bytes": 323,
+      "sha256": "c4e519f562826ee078201dfb52a376e4aa2eb31d18aa2cbefb607ef5a10a1a3d",
+      "origin": "myapi-smoke-report-full-fresh-authoritative-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-reports/full-handoff-legacy/manifest.json",
+      "bytes": 1285,
+      "sha256": "495d88ded4be4c57c2b0830a88f5388c2551e61ad1855cc3ae533e4d2e3dd40d",
+      "origin": "myapi-smoke-report-full-handoff-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-reports/full-handoff-legacy/manifest.sha256",
+      "bytes": 80,
+      "sha256": "755eccc80ad3c9cc242d4acbadd62335c86ae72c383d288f67b9a2681b9efe54",
+      "origin": "myapi-smoke-report-full-handoff-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-reports/full-handoff-legacy/qualification.json",
+      "bytes": 1163,
+      "sha256": "b63440427c6e87db4b98aad2ba1834906958ce947f69ba1be2c1fff98676aedf",
+      "origin": "myapi-smoke-report-full-handoff-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "docker-reports/full-handoff-legacy/source.json",
+      "bytes": 318,
+      "sha256": "afeb759f2bb39e1b6ca605dd68eb068ed32b4dd75333cbeef2b3e66900451f53",
+      "origin": "myapi-smoke-report-full-handoff-legacy-cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "run_id": "39203596121",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-independent-runtime/myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime-en-1440-committed.png",
+      "bytes": 174442,
+      "sha256": "cc9e36533d59cba17ab23e6596411f1052f878d2d9e7683c4f519be59f63527e",
+      "origin": "myapi-credential-maintenance-37a138b65c038302eda6eaf447e329ec529722b9",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-independent-runtime/myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime-en-1440-confirmed.png",
+      "bytes": 168051,
+      "sha256": "f400a91740657f8855f9c945c29ebbd925bb340d81f77acf2280bf851be96b04",
+      "origin": "myapi-credential-maintenance-37a138b65c038302eda6eaf447e329ec529722b9",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-independent-runtime/myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime-en-1440-loaded.png",
+      "bytes": 162022,
+      "sha256": "77b2b505123f0ead1d597c3096f60044c5f8871740f9d2fc58020a2d08d1ecdb",
+      "origin": "myapi-credential-maintenance-37a138b65c038302eda6eaf447e329ec529722b9",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-independent-runtime/myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime-en-1440-reopened.png",
+      "bytes": 161318,
+      "sha256": "42a6012c96a52d3ff3d9647d7ab78ff95cbf1bb6bb5cdb8e0c0eaafefd392ff5",
+      "origin": "myapi-credential-maintenance-37a138b65c038302eda6eaf447e329ec529722b9",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-independent-runtime/myapi-credential-runtime-artifacts/en-1440/credential-maintenance-runtime.json",
+      "bytes": 2218,
+      "sha256": "49b7b5a3efb4bac9fd35baf116b59a9c405a38bc6bc658325f7992a4066337bc",
+      "origin": "myapi-credential-maintenance-37a138b65c038302eda6eaf447e329ec529722b9",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-independent-runtime/myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime-zh-390-committed.png",
+      "bytes": 76653,
+      "sha256": "93979b0ee9c31800d38479761e9f40a293de35e86af9027514f580592196218a",
+      "origin": "myapi-credential-maintenance-37a138b65c038302eda6eaf447e329ec529722b9",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-independent-runtime/myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime-zh-390-confirmed.png",
+      "bytes": 76586,
+      "sha256": "27502d82229837645fb451be461e221d4ab0da68e22112555db9e7b759b5d428",
+      "origin": "myapi-credential-maintenance-37a138b65c038302eda6eaf447e329ec529722b9",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-independent-runtime/myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime-zh-390-loaded.png",
+      "bytes": 86147,
+      "sha256": "64782cc38f8af5d177d958e1504511e7c2f8d45990b7e1454d267680e8181b81",
+      "origin": "myapi-credential-maintenance-37a138b65c038302eda6eaf447e329ec529722b9",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-independent-runtime/myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime-zh-390-reopened.png",
+      "bytes": 85885,
+      "sha256": "f936340dc46886affbbda926761cf014c9b402fefb1c352fccdffdd113c2586d",
+      "origin": "myapi-credential-maintenance-37a138b65c038302eda6eaf447e329ec529722b9",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-independent-runtime/myapi-credential-runtime-artifacts/zh-390/credential-maintenance-runtime.json",
+      "bytes": 2213,
+      "sha256": "2472491bf2f7509a0b52c309a2b6e9bae7045bc5b50953d6121462d2c0f0a94f",
+      "origin": "myapi-credential-maintenance-37a138b65c038302eda6eaf447e329ec529722b9",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-independent-runtime/myapi-rotation-runtime-artifacts/en-1440/credential-rotation-runtime-en-1440-closed-secret-cleared.png",
+      "bytes": 167425,
+      "sha256": "7a06ee51403853a4b1957f17ef2144d5dfceb962c2b57ee6e9e082fe1c9697af",
+      "origin": "myapi-credential-maintenance-37a138b65c038302eda6eaf447e329ec529722b9",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-independent-runtime/myapi-rotation-runtime-artifacts/en-1440/credential-rotation-runtime-en-1440-fresh-secret-masked.png",
+      "bytes": 160751,
+      "sha256": "95e872d870afed26b3bc1aed1e43f13ae4cea2f29baa725f3ca82af4372be5ec",
+      "origin": "myapi-credential-maintenance-37a138b65c038302eda6eaf447e329ec529722b9",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-independent-runtime/myapi-rotation-runtime-artifacts/en-1440/credential-rotation-runtime-en-1440-review-confirmed.png",
+      "bytes": 172135,
+      "sha256": "6a8c20a0205ddcf5edda35b2a14a19330fb9925906a2d29d256970fe4021c45c",
+      "origin": "myapi-credential-maintenance-37a138b65c038302eda6eaf447e329ec529722b9",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-independent-runtime/myapi-rotation-runtime-artifacts/en-1440/credential-rotation-runtime-en-1440.json",
+      "bytes": 2487,
+      "sha256": "b0acff25b1d81d5cb7a8f9e79a13d35e041dbb894fb12bc326ae4e0bece3137b",
+      "origin": "myapi-credential-maintenance-37a138b65c038302eda6eaf447e329ec529722b9",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-independent-runtime/myapi-rotation-runtime-artifacts/zh-390/credential-rotation-runtime-zh-390-closed-secret-cleared.png",
+      "bytes": 87270,
+      "sha256": "355183a81cd157f096f1e321cf835fe5ae701c04aa4fd98a290c97b6f992aba2",
+      "origin": "myapi-credential-maintenance-37a138b65c038302eda6eaf447e329ec529722b9",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-independent-runtime/myapi-rotation-runtime-artifacts/zh-390/credential-rotation-runtime-zh-390-fresh-secret-masked.png",
+      "bytes": 68296,
+      "sha256": "21c21e2dd919b5422e5dd21880da2a8e2bce588b08303d0c752fd9b25b6d6b75",
+      "origin": "myapi-credential-maintenance-37a138b65c038302eda6eaf447e329ec529722b9",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-independent-runtime/myapi-rotation-runtime-artifacts/zh-390/credential-rotation-runtime-zh-390-review-confirmed.png",
+      "bytes": 82555,
+      "sha256": "e978b889adc342a389a077e7ff98557f7c09fc1c2d5cdb151a1d3af5a16a8afc",
+      "origin": "myapi-credential-maintenance-37a138b65c038302eda6eaf447e329ec529722b9",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-independent-runtime/myapi-rotation-runtime-artifacts/zh-390/credential-rotation-runtime-zh-390.json",
+      "bytes": 2483,
+      "sha256": "7527c38b0e5b18ba25ece2f42f1b780af3bf32666c52e6acc315928dfdca29fd",
+      "origin": "myapi-credential-maintenance-37a138b65c038302eda6eaf447e329ec529722b9",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-tests/distribution-ci.log",
+      "bytes": 124552,
+      "sha256": "06e653b9a8ecc39ab4922ad32103af7c01a514b8749883fd59ca0990c67a297b",
+      "origin": "exact CI artifact or completed job log",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-tests/frontend-tests.log",
+      "bytes": 56541,
+      "sha256": "2d173aa48f1d4c1b5dee0b1a122f52258818dcca6d213dd39588d4c4e87cb91a",
+      "origin": "exact CI artifact or completed job log",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "ci-tests/frontend-typecheck.log",
+      "bytes": 10,
+      "sha256": "5b79a0e507fbfe3ee9fe68d86a274c3dec57408303abba3ba342ef01f4551dbe",
+      "origin": "exact CI artifact or completed job log",
+      "run_id": "39203586608",
+      "byte_identical": true
+    },
+    {
+      "path": "local-tests/upgrade-clean-tests.log",
+      "bytes": 7862,
+      "sha256": "53322c5ca786dcdd239b1f89fc8a970244abcff34aa7c1c1bc23a0b70f7f32b5",
+      "origin": "local isolated source/fixture verification",
+      "run_id": null,
+      "byte_identical": true
+    },
+    {
+      "path": "local-tests/installer-tests.log",
+      "bytes": 2010,
+      "sha256": "6d0d0cc53b95e5fc3411f99f6b34a5c4fb05374d7668e311b96ce4642fd326fa",
+      "origin": "local isolated source/fixture verification",
+      "run_id": null,
+      "byte_identical": true
+    },
+    {
+      "path": "local-tests/dry-run.json",
+      "bytes": 655,
+      "sha256": "93ad1126da5d707671d42d644f762906f67caa174e81406c3f1dbba6085215fe",
+      "origin": "local isolated source/fixture verification",
+      "run_id": null,
+      "byte_identical": true
+    },
+    {
+      "path": "local-tests/upgrade-structure.json",
+      "bytes": 2350,
+      "sha256": "6afe9dbd737f672dabf490eeaa84a203468c5c9f7456fd53ce9393d75073905c",
+      "origin": "local isolated source/fixture verification",
+      "run_id": null,
+      "byte_identical": true
+    }
+  ]
+}

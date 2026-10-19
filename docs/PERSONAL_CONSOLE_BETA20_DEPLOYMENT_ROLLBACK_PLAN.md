@@ -22,6 +22,8 @@
 
 当前第一阶段的三库合同只证明合成模型行为；Docker 数据恢复为 SQLite。未宣称完成原生 MySQL/PostgreSQL 容器备份恢复、authoritative Redis 崩溃恢复或真实历史库升级。
 
+Docker personal 验收只证明两种 writer 下既有个人流程与模型范围等实际镜像行为；同准确源码 CI 的独立 Go/Chromium 迁移、轮换使用临时 SQLite、合成签名会话和合成 2FA，不称为镜像执行轮换。真实账号密码登录、真实 2FA、实体 Passkey 及相应安全 proof 均未在本批 Docker 验收，需下一阶段专门验证。
+
 ## 全新安装路径
 
 经后续授权后，在独立目录准备全新数据库、日志和配置，选择 Full 或 LAN，与现有实例使用不同端口和挂载。保留 loopback 默认绑定、CPU/内存限制、同源 URL 与 Cookie 约束；对外暴露范围必须另行明确。已有目录、库或 Redis 不能冒充“全新”。

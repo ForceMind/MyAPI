@@ -1,0 +1,58 @@
+TAP version 13
+# Subtest: candidate metadata and fresh image defaults name the same immutable version
+ok 1 - candidate metadata and fresh image defaults name the same immutable version
+  ---
+  duration_ms: 2.31925
+  type: 'test'
+  ...
+# Subtest: settlement patch keeps bounded Docker acceptance and durable race coverage
+ok 2 - settlement patch keeps bounded Docker acceptance and durable race coverage
+  ---
+  duration_ms: 2.151023
+  type: 'test'
+  ...
+# Subtest: funding admission regressions remain selected by the existing bounded race command
+ok 3 - funding admission regressions remain selected by the existing bounded race command
+  ---
+  duration_ms: 0.470559
+  type: 'test'
+  ...
+# Subtest: source installer smoke exercises the real script without publishing or borrowing an existing instance
+ok 4 - source installer smoke exercises the real script without publishing or borrowing an existing instance
+  ---
+  duration_ms: 0.469579
+  type: 'test'
+  ...
+# Subtest: cache-free and Redis-backed templates declare compatible explicit batch choices
+ok 5 - cache-free and Redis-backed templates declare compatible explicit batch choices
+  ---
+  duration_ms: 1.015608
+  type: 'test'
+  ...
+# Subtest: startup publishes validated batch configuration before business workers and HTTP
+ok 6 - startup publishes validated batch configuration before business workers and HTTP
+  ---
+  duration_ms: 0.901409
+  type: 'test'
+  ...
+# Subtest: personal application smoke stays on an exact trusted branch with two owned writer fixtures
+ok 7 - personal application smoke stays on an exact trusted branch with two owned writer fixtures
+  ---
+  duration_ms: 0.732284
+  type: 'test'
+  ...
+# Subtest: personal candidates keep both writers, historical restore and the source installer
+ok 8 - personal candidates keep both writers, historical restore and the source installer
+  ---
+  duration_ms: 2.607624
+  type: 'test'
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 23.89596

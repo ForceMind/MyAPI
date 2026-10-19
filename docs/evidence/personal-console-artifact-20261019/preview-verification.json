@@ -1,0 +1,20 @@
+{
+  "url": "http://127.0.0.1:4180/keys",
+  "status": 200,
+  "cache_control": "no-store",
+  "html_sha256": "b64e86b119ff8e366df39dcc926e406e6b31e7c5a4e0c296b885e67b62d84aa8",
+  "exact_ci_html": true,
+  "browser_location": "GitHub Actions",
+  "local_check": "HTTP and original artifact byte equality",
+  "info": {
+    "synthetic": true,
+    "real_database": false,
+    "real_provider": false,
+    "real_credentials": false,
+    "version": "0.2.0-beta.20",
+    "sourceHead": "cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+    "buildHead": "37a138b65c038302eda6eaf447e329ec529722b9",
+    "ci": "https://github.com/ForceMind/MyAPI/actions/runs/39203586608",
+    "mutation_scope": "ephemeral synthetic Key deletion, budget policy and assigned access only"
+  }
+}

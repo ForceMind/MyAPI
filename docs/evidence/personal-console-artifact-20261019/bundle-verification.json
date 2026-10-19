@@ -1,0 +1,41 @@
+{
+  "generated_summary": true,
+  "bundles": [
+    {
+      "edition": "full",
+      "source_sha": "cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "tree_sha": "1fdefa9eb6edf291dee57e0e92cb8a9bd49f61fa",
+      "run_id": "39203596121",
+      "producer_attempt": "1",
+      "platform": "linux/amd64",
+      "manifest_sha256": "495d88ded4be4c57c2b0830a88f5388c2551e61ad1855cc3ae533e4d2e3dd40d",
+      "tar_sha256": "b5ea25847104e11961633b129874f440323395aa9944168b14f9df603157862b",
+      "tar_bytes": 353560064,
+      "tar_digest_checked": true,
+      "app_image_id": "sha256:0bef1063e0d4ca43d72131f88fa6bf6e16c766a66d99e021e6ab0f9c04a020d3",
+      "local_directory": "/tmp/myapi-beta20-stage1-full-bundle",
+      "loaded_locally": false,
+      "published": false,
+      "deployed": false,
+      "external_manifest_anchor_check": "matched separately downloaded successful consumer report manifest.sha256"
+    },
+    {
+      "edition": "lan",
+      "source_sha": "cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+      "tree_sha": "1fdefa9eb6edf291dee57e0e92cb8a9bd49f61fa",
+      "run_id": "39203596121",
+      "producer_attempt": "1",
+      "platform": "linux/amd64",
+      "manifest_sha256": "0286e589ac4be406404108bd42ba6b38b0e2125c64b9ed5c6c8d93e3f6e774df",
+      "tar_sha256": "f27eb627f17f6ab0706c853fb76a9730696ee330f412a315cd8527198dfb6ef9",
+      "tar_bytes": 353166848,
+      "tar_digest_checked": true,
+      "app_image_id": "sha256:bebd9a53d4d090da5d648e1db3b3df96584e9b86274c43a4be3c40aa2dfc344c",
+      "local_directory": "/tmp/myapi-beta20-stage1-lan-bundle",
+      "loaded_locally": false,
+      "published": false,
+      "deployed": false,
+      "external_manifest_anchor_check": "matched separately downloaded successful consumer report manifest.sha256"
+    }
+  ]
+}

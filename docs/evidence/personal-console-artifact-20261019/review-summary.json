@@ -1,0 +1,59 @@
+{
+  "generated_summary": true,
+  "reviewer": "stage1_qualification_audit",
+  "model": "gpt-5.6-sol",
+  "reasoning_effort": "ultra",
+  "independent_of_implementation": true,
+  "source_sha": "cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+  "result": "passed",
+  "blocking_findings": [],
+  "visual_review": {
+    "docker_original_png_viewed": 30,
+    "independent_go_chromium_original_png_viewed": 14,
+    "all_original_png_viewed": 44,
+    "desktop_widths": [
+      1280,
+      1440
+    ],
+    "mobile_widths": [
+      320,
+      390
+    ],
+    "originals_edited": false,
+    "root_additional_original_views": 4,
+    "preserved_branding": "original M and approved soft blue",
+    "scope_notes": [
+      "The existing-policy-after image retains a previous 403 toast; policy change is established by API revision and subsequent successful request, not this image alone.",
+      "The model-scope image is a scrollable dialog locator capture; restoration and zero upstream replay are established by same-run assertions.",
+      "Magenta regions are Playwright capture masks, not application colors."
+    ]
+  },
+  "original_integrity": {
+    "files_checked": 76,
+    "png_checked": 44,
+    "all_bytes_and_sha256_match": true,
+    "new_independent_runtime_png_compared_to_downloads": 14,
+    "all_new_png_byte_identical": true
+  },
+  "bundles": {
+    "both_complete_tar_digests_independently_checked": true,
+    "external_consumer_manifest_anchors_match": true,
+    "oci_labels_source_tree_edition_match": true,
+    "no_credentials_in_app_env_or_history": true
+  },
+  "reports": {
+    "docker_final_success_jobs": 6,
+    "legacy_aggregate_checks": 26,
+    "authoritative_aggregate_checks": 26,
+    "lan_restore_checks": 19,
+    "handoff_checks": 8,
+    "source_installer_checks": 8,
+    "handoff_old_source_vs_current_target_semantics_explained": true
+  },
+  "documentation": {
+    "deployment_rollback_boundaries_reviewed": true,
+    "existing_history_writer_credential_gates_preserved": true,
+    "real_password_2fa_passkey_provider_and_production_not_validated": true
+  },
+  "ci_final_status": "completed/success: 11/11 jobs; exact candidate verified by integrator"
+}

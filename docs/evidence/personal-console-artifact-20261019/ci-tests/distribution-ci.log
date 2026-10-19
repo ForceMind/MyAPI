@@ -1,0 +1,1653 @@
+﻿2026-10-19T05:15:23.8100985Z Current runner version: '2.337.0'
+2026-10-19T05:15:23.8118855Z ##[group]Runner Image Provisioner
+2026-10-19T05:15:23.8119505Z Hosted Compute Agent
+2026-10-19T05:15:23.8119907Z Version: 20261012.601
+2026-10-19T05:15:23.8120333Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+2026-10-19T05:15:23.8120829Z Build Date: 2026-10-12T17:48:21Z
+2026-10-19T05:15:23.8121378Z Worker ID: {f1243918-0787-4bdc-ab59-c3cd38658065}
+2026-10-19T05:15:23.8122016Z Region: centralus
+2026-10-19T05:15:23.8122520Z Cloud: Azure
+2026-10-19T05:15:23.8122982Z ##[endgroup]
+2026-10-19T05:15:23.8124700Z ##[group]Operating System
+2026-10-19T05:15:23.8125174Z Ubuntu
+2026-10-19T05:15:23.8125631Z 24.04.5
+2026-10-19T05:15:23.8125989Z LTS
+2026-10-19T05:15:23.8126399Z ##[endgroup]
+2026-10-19T05:15:23.8127037Z ##[group]Runner Image
+2026-10-19T05:15:23.8127504Z Image: ubuntu-24.04
+2026-10-19T05:15:23.8128012Z Version: 20261012.334.1
+2026-10-19T05:15:23.8129148Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-19T05:15:23.8130543Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-19T05:15:23.8131318Z ##[endgroup]
+2026-10-19T05:15:23.8132129Z ##[group]GITHUB_TOKEN Permissions
+2026-10-19T05:15:23.8134403Z Contents: read
+2026-10-19T05:15:23.8134884Z Metadata: read
+2026-10-19T05:15:23.8135328Z ##[endgroup]
+2026-10-19T05:15:23.8137294Z Secret source: Actions
+2026-10-19T05:15:23.8138021Z Cache mode: write
+2026-10-19T05:15:23.8138978Z Prepare workflow directory
+2026-10-19T05:15:23.8362664Z Prepare all required actions
+2026-10-19T05:15:23.8397414Z Getting action download info
+2026-10-19T05:15:24.0432886Z Download action repository 'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0' (SHA:9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0)
+2026-10-19T05:15:24.2174208Z Complete job name: Distribution and release contracts
+2026-10-19T05:15:24.2724690Z ##[group]Run actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+2026-10-19T05:15:24.2725710Z with:
+2026-10-19T05:15:24.2726238Z   repository: ForceMind/MyAPI
+2026-10-19T05:15:24.2726943Z   persist-credentials: false
+2026-10-19T05:15:24.2727387Z   ref: refs/pull/17/merge
+2026-10-19T05:15:24.2730042Z   token: ***
+2026-10-19T05:15:24.2730408Z   ssh-strict: true
+2026-10-19T05:15:24.2730788Z   ssh-user: git
+2026-10-19T05:15:24.2731182Z   clean: true
+2026-10-19T05:15:24.2731557Z   sparse-checkout-cone-mode: true
+2026-10-19T05:15:24.2731994Z   fetch-depth: 1
+2026-10-19T05:15:24.2732351Z   fetch-tags: false
+2026-10-19T05:15:24.2732718Z   show-progress: true
+2026-10-19T05:15:24.2733119Z   lfs: false
+2026-10-19T05:15:24.2733461Z   submodules: false
+2026-10-19T05:15:24.2733939Z   set-safe-directory: true
+2026-10-19T05:15:24.2734408Z   allow-unsafe-pr-checkout: false
+2026-10-19T05:15:24.2735106Z ##[endgroup]
+2026-10-19T05:15:24.3517747Z Syncing repository: ForceMind/MyAPI
+2026-10-19T05:15:24.3519806Z ##[group]Getting Git version info
+2026-10-19T05:15:24.3520568Z Working directory is '/home/runner/work/MyAPI/MyAPI'
+2026-10-19T05:15:24.3521597Z [command]/usr/bin/git version
+2026-10-19T05:15:24.3588354Z git version 2.55.0
+2026-10-19T05:15:24.3604442Z ##[endgroup]
+2026-10-19T05:15:24.3611055Z Temporarily overriding HOME='/home/runner/work/_temp/8ef93cd1-3b62-46ac-95d5-04e1fab22570' before making global git config changes
+2026-10-19T05:15:24.3613170Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-19T05:15:24.3615218Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MyAPI/MyAPI
+2026-10-19T05:15:24.3647412Z Deleting the contents of '/home/runner/work/MyAPI/MyAPI'
+2026-10-19T05:15:24.3650257Z ##[group]Determining repository object format
+2026-10-19T05:15:24.5825227Z ##[endgroup]
+2026-10-19T05:15:24.5826164Z ##[group]Initializing the repository
+2026-10-19T05:15:24.5831060Z [command]/usr/bin/git init /home/runner/work/MyAPI/MyAPI
+2026-10-19T05:15:24.5975985Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-19T05:15:24.5978359Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-19T05:15:24.5980386Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-19T05:15:24.5982057Z hint: call:
+2026-10-19T05:15:24.5982888Z hint:
+2026-10-19T05:15:24.5983998Z hint: 	git config --global init.defaultBranch <name>
+2026-10-19T05:15:24.5985124Z hint:
+2026-10-19T05:15:24.5985908Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-19T05:15:24.5987131Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-19T05:15:24.5987920Z hint:
+2026-10-19T05:15:24.5988384Z hint: 	git branch -m <name>
+2026-10-19T05:15:24.5988971Z hint:
+2026-10-19T05:15:24.5989699Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-19T05:15:24.5990840Z Initialized empty Git repository in /home/runner/work/MyAPI/MyAPI/.git/
+2026-10-19T05:15:24.5992728Z [command]/usr/bin/git remote add origin https://github.com/ForceMind/MyAPI
+2026-10-19T05:15:24.6026135Z ##[endgroup]
+2026-10-19T05:15:24.6027585Z ##[group]Disabling automatic garbage collection
+2026-10-19T05:15:24.6028587Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-19T05:15:24.6062293Z ##[endgroup]
+2026-10-19T05:15:24.6063391Z ##[group]Setting up auth
+2026-10-19T05:15:24.6064218Z Removing SSH command configuration
+2026-10-19T05:15:24.6068817Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-19T05:15:24.6099602Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-19T05:15:24.6354980Z Removing HTTP extra header
+2026-10-19T05:15:24.6358669Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-19T05:15:24.6383313Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-19T05:15:24.6514884Z Removing includeIf entries pointing to credentials config files
+2026-10-19T05:15:24.6517458Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-19T05:15:24.6539771Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-19T05:15:24.6678082Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-f6591c16-6a2a-4247-b10d-f56bbd96dffa.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-19T05:15:24.6753196Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path /home/runner/work/_temp/git-credentials-f6591c16-6a2a-4247-b10d-f56bbd96dffa.config
+2026-10-19T05:15:24.6778230Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-f6591c16-6a2a-4247-b10d-f56bbd96dffa.config
+2026-10-19T05:15:24.6808123Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-f6591c16-6a2a-4247-b10d-f56bbd96dffa.config
+2026-10-19T05:15:24.6831209Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-f6591c16-6a2a-4247-b10d-f56bbd96dffa.config
+2026-10-19T05:15:24.6856181Z ##[endgroup]
+2026-10-19T05:15:24.6857820Z ##[group]Fetching the repository
+2026-10-19T05:15:24.6860451Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +refs/pull/17/merge:refs/remotes/pull/17/merge
+2026-10-19T05:15:27.6827268Z From https://github.com/ForceMind/MyAPI
+2026-10-19T05:15:27.6828335Z  * [new ref]         refs/pull/17/merge -> pull/17/merge
+2026-10-19T05:15:27.6831045Z ##[endgroup]
+2026-10-19T05:15:27.6831508Z ##[group]Determining the checkout info
+2026-10-19T05:15:27.6832172Z ##[endgroup]
+2026-10-19T05:15:27.6836888Z [command]/usr/bin/git sparse-checkout disable
+2026-10-19T05:15:27.6892209Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-19T05:15:27.6916378Z ##[group]Checking out the ref
+2026-10-19T05:15:27.6919578Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/17/merge
+2026-10-19T05:15:28.0074594Z Note: switching to 'refs/remotes/pull/17/merge'.
+2026-10-19T05:15:28.0075298Z 
+2026-10-19T05:15:28.0075565Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-19T05:15:28.0076184Z changes and commit them, and you can discard any commits you make in this
+2026-10-19T05:15:28.0076891Z state without impacting any branches by switching back to a branch.
+2026-10-19T05:15:28.0077209Z 
+2026-10-19T05:15:28.0077542Z If you want to create a new branch to retain commits you create, you may
+2026-10-19T05:15:28.0078102Z do so (now or later) by using -c with the switch command. Example:
+2026-10-19T05:15:28.0078422Z 
+2026-10-19T05:15:28.0078556Z   git switch -c <new-branch-name>
+2026-10-19T05:15:28.0078778Z 
+2026-10-19T05:15:28.0078900Z Or undo this operation with:
+2026-10-19T05:15:28.0079177Z 
+2026-10-19T05:15:28.0079316Z   git switch -
+2026-10-19T05:15:28.0079501Z 
+2026-10-19T05:15:28.0079765Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-19T05:15:28.0080101Z 
+2026-10-19T05:15:28.0080544Z HEAD is now at 37a138b Merge cdeef8b52792a09b341d074521d59cb5cc7f62fb into c1beb07520f43c106b4406ba8a0b1227bc1cf67e
+2026-10-19T05:15:28.0085896Z ##[endgroup]
+2026-10-19T05:15:28.0123456Z [command]/usr/bin/git log -1 --format=%H
+2026-10-19T05:15:28.0137170Z 37a138b65c038302eda6eaf447e329ec529722b9
+2026-10-19T05:15:28.0144266Z ##[group]Removing auth
+2026-10-19T05:15:28.0147348Z Removing SSH command configuration
+2026-10-19T05:15:28.0148343Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-19T05:15:28.0169522Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-19T05:15:28.0312418Z Removing HTTP extra header
+2026-10-19T05:15:28.0314774Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-19T05:15:28.0338306Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-19T05:15:28.0477125Z Removing includeIf entries pointing to credentials config files
+2026-10-19T05:15:28.0479334Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-19T05:15:28.0498306Z includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path
+2026-10-19T05:15:28.0498904Z includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path
+2026-10-19T05:15:28.0499363Z includeif.gitdir:/github/workspace/.git.path
+2026-10-19T05:15:28.0499819Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-19T05:15:28.0504294Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path
+2026-10-19T05:15:28.0520476Z /home/runner/work/_temp/git-credentials-f6591c16-6a2a-4247-b10d-f56bbd96dffa.config
+2026-10-19T05:15:28.0526935Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path /home/runner/work/_temp/git-credentials-f6591c16-6a2a-4247-b10d-f56bbd96dffa.config
+2026-10-19T05:15:28.0555592Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path
+2026-10-19T05:15:28.0572401Z /home/runner/work/_temp/git-credentials-f6591c16-6a2a-4247-b10d-f56bbd96dffa.config
+2026-10-19T05:15:28.0577558Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-f6591c16-6a2a-4247-b10d-f56bbd96dffa.config
+2026-10-19T05:15:28.0603166Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-19T05:15:28.0620737Z /github/runner_temp/git-credentials-f6591c16-6a2a-4247-b10d-f56bbd96dffa.config
+2026-10-19T05:15:28.0627943Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-f6591c16-6a2a-4247-b10d-f56bbd96dffa.config
+2026-10-19T05:15:28.0661306Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-19T05:15:28.0678044Z /github/runner_temp/git-credentials-f6591c16-6a2a-4247-b10d-f56bbd96dffa.config
+2026-10-19T05:15:28.0683415Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-f6591c16-6a2a-4247-b10d-f56bbd96dffa.config
+2026-10-19T05:15:28.0711092Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-19T05:15:28.0852372Z Removing credentials config '/home/runner/work/_temp/git-credentials-f6591c16-6a2a-4247-b10d-f56bbd96dffa.config'
+2026-10-19T05:15:28.0864171Z ##[endgroup]
+2026-10-19T05:15:28.1018690Z ##[group]Run npm test
+2026-10-19T05:15:28.1019024Z [36;1mnpm test[0m
+2026-10-19T05:15:28.1019295Z [36;1mnpm run brand:test[0m
+2026-10-19T05:15:28.1019564Z [36;1mnpm run brand:check[0m
+2026-10-19T05:15:28.1019807Z [36;1mnpm run website:check[0m
+2026-10-19T05:15:28.1020061Z [36;1mnpm run quota:openapi:check[0m
+2026-10-19T05:15:28.1020357Z [36;1mnpm run lan:check -- --skip-docker[0m
+2026-10-19T05:15:28.1020644Z [36;1mnpm run desktop:check[0m
+2026-10-19T05:15:28.1020895Z [36;1mnpm run upgrade:check[0m
+2026-10-19T05:15:28.1021137Z [36;1mnpm run release:workflow:check[0m
+2026-10-19T05:15:28.1021386Z [36;1mnpm run source:manifest[0m
+2026-10-19T05:15:28.1021677Z [36;1mnpm run pack:check[0m
+2026-10-19T05:15:28.1178304Z shell: /usr/bin/bash -e {0}
+2026-10-19T05:15:28.1178611Z ##[endgroup]
+2026-10-19T05:15:28.7429457Z 
+2026-10-19T05:15:28.7429700Z > @forcemind/myapi@0.2.0-beta.20 test
+2026-10-19T05:15:28.7430095Z > node --test cli/test/*.test.mjs
+2026-10-19T05:15:28.7430384Z 
+2026-10-19T05:15:28.7924401Z TAP version 13
+2026-10-19T05:15:28.8339247Z # Subtest: persists and reloads a validated fresh-install journal inside state
+2026-10-19T05:15:28.8369480Z ok 1 - persists and reloads a validated fresh-install journal inside state
+2026-10-19T05:15:28.8372053Z   ---
+2026-10-19T05:15:28.8403215Z   duration_ms: 9.312164
+2026-10-19T05:15:28.8413118Z   type: 'test'
+2026-10-19T05:15:28.8413568Z   ...
+2026-10-19T05:15:28.8414186Z # Subtest: serializes installation ownership and rejects a non-owner release
+2026-10-19T05:15:28.8422127Z ok 2 - serializes installation ownership and rejects a non-owner release
+2026-10-19T05:15:28.8422682Z   ---
+2026-10-19T05:15:28.8423130Z   duration_ms: 5.412185
+2026-10-19T05:15:28.8423518Z   type: 'test'
+2026-10-19T05:15:28.8426507Z   ...
+2026-10-19T05:15:28.8460208Z # Subtest: persists a declared effect before an installer can perform it
+2026-10-19T05:15:28.8460891Z ok 3 - persists a declared effect before an installer can perform it
+2026-10-19T05:15:28.8461567Z   ---
+2026-10-19T05:15:28.8462013Z   duration_ms: 5.907423
+2026-10-19T05:15:28.8462354Z   type: 'test'
+2026-10-19T05:15:28.8462853Z   ...
+2026-10-19T05:15:28.8529935Z # Subtest: completes only the persisted pending effect held by the installation owner
+2026-10-19T05:15:28.8530924Z ok 4 - completes only the persisted pending effect held by the installation owner
+2026-10-19T05:15:28.8531547Z   ---
+2026-10-19T05:15:28.8532255Z   duration_ms: 7.761786
+2026-10-19T05:15:28.8532596Z   type: 'test'
+2026-10-19T05:15:28.8532913Z   ...
+2026-10-19T05:15:28.8651195Z # Subtest: persists a known preflight failure without retrying the declared effect
+2026-10-19T05:15:28.8675917Z ok 5 - persists a known preflight failure without retrying the declared effect
+2026-10-19T05:15:28.8707334Z   ---
+2026-10-19T05:15:28.8707882Z   duration_ms: 9.816558
+2026-10-19T05:15:28.8724361Z   type: 'test'
+2026-10-19T05:15:28.8737568Z   ...
+2026-10-19T05:15:28.8738191Z # Subtest: persists an unknown outcome instead of retrying the declared effect
+2026-10-19T05:15:28.8738969Z ok 6 - persists an unknown outcome instead of retrying the declared effect
+2026-10-19T05:15:28.8739530Z   ---
+2026-10-19T05:15:28.8739916Z   duration_ms: 10.194197
+2026-10-19T05:15:28.8740369Z   type: 'test'
+2026-10-19T05:15:28.8740739Z   ...
+2026-10-19T05:15:28.8782120Z # Subtest: fails closed on a malformed persisted journal without reading outside state
+2026-10-19T05:15:28.8787375Z ok 7 - fails closed on a malformed persisted journal without reading outside state
+2026-10-19T05:15:28.8788099Z   ---
+2026-10-19T05:15:28.8788624Z   duration_ms: 3.858986
+2026-10-19T05:15:28.8788977Z   type: 'test'
+2026-10-19T05:15:28.8789328Z   ...
+2026-10-19T05:15:28.8836136Z # Subtest: stages only a hash-matching local artifact while the journal lock owns a declared stage effect
+2026-10-19T05:15:28.8837700Z ok 8 - stages only a hash-matching local artifact while the journal lock owns a declared stage effect
+2026-10-19T05:15:28.8838324Z   ---
+2026-10-19T05:15:28.8838784Z   duration_ms: 5.107757
+2026-10-19T05:15:28.8839094Z   type: 'test'
+2026-10-19T05:15:28.8839415Z   ...
+2026-10-19T05:15:28.8859944Z # Subtest: rejects a hash mismatch and leaves no staged artifact
+2026-10-19T05:15:28.8860640Z ok 9 - rejects a hash mismatch and leaves no staged artifact
+2026-10-19T05:15:28.8861219Z   ---
+2026-10-19T05:15:28.8861591Z   duration_ms: 3.38624
+2026-10-19T05:15:28.8862097Z   type: 'test'
+2026-10-19T05:15:28.8862468Z   ...
+2026-10-19T05:15:28.8926292Z # Subtest: durably records a completed staging effect only after the verified artifact is copied
+2026-10-19T05:15:28.8932243Z ok 10 - durably records a completed staging effect only after the verified artifact is copied
+2026-10-19T05:15:28.8932911Z   ---
+2026-10-19T05:15:28.8933385Z   duration_ms: 7.33536
+2026-10-19T05:15:28.8933809Z   type: 'test'
+2026-10-19T05:15:28.8934199Z   ...
+2026-10-19T05:15:28.9067566Z # Subtest: rejects proxies and accessors without executing caller code
+2026-10-19T05:15:28.9077867Z ok 11 - rejects proxies and accessors without executing caller code
+2026-10-19T05:15:28.9133263Z   ---
+2026-10-19T05:15:28.9157390Z   duration_ms: 9.069321
+2026-10-19T05:15:28.9177576Z   type: 'test'
+2026-10-19T05:15:28.9178131Z   ...
+2026-10-19T05:15:28.9178602Z # Subtest: rejects custom objects and hostile installation arrays
+2026-10-19T05:15:28.9179211Z ok 12 - rejects custom objects and hostile installation arrays
+2026-10-19T05:15:28.9179722Z   ---
+2026-10-19T05:15:28.9180072Z   duration_ms: 5.444962
+2026-10-19T05:15:28.9180460Z   type: 'test'
+2026-10-19T05:15:28.9180803Z   ...
+2026-10-19T05:15:28.9181310Z # Subtest: release identity validation detaches and deeply freezes bounded input
+2026-10-19T05:15:28.9181983Z ok 13 - release identity validation detaches and deeply freezes bounded input
+2026-10-19T05:15:28.9182496Z   ---
+2026-10-19T05:15:28.9182815Z   duration_ms: 1.406955
+2026-10-19T05:15:28.9183154Z   type: 'test'
+2026-10-19T05:15:28.9183525Z   ...
+2026-10-19T05:15:28.9184049Z # Subtest: release identity accepts only supported Full/Lite/Desktop artifact shapes
+2026-10-19T05:15:28.9184974Z ok 14 - release identity accepts only supported Full/Lite/Desktop artifact shapes
+2026-10-19T05:15:28.9185709Z   ---
+2026-10-19T05:15:28.9186208Z   duration_ms: 0.920886
+2026-10-19T05:15:28.9186951Z   type: 'test'
+2026-10-19T05:15:28.9187405Z   ...
+2026-10-19T05:15:28.9187999Z # Subtest: release identity refuses ambiguous OCI and mutable HTTPS references
+2026-10-19T05:15:28.9188758Z ok 15 - release identity refuses ambiguous OCI and mutable HTTPS references
+2026-10-19T05:15:28.9189310Z   ---
+2026-10-19T05:15:28.9189671Z   duration_ms: 0.731543
+2026-10-19T05:15:28.9190014Z   type: 'test'
+2026-10-19T05:15:28.9190273Z   ...
+2026-10-19T05:15:28.9190663Z # Subtest: release identity rejects prototype objects, unknown fields, malformed values, and bounds
+2026-10-19T05:15:28.9191362Z ok 16 - release identity rejects prototype objects, unknown fields, malformed values, and bounds
+2026-10-19T05:15:28.9191790Z   ---
+2026-10-19T05:15:28.9192067Z   duration_ms: 0.290208
+2026-10-19T05:15:28.9192329Z   type: 'test'
+2026-10-19T05:15:28.9192593Z   ...
+2026-10-19T05:15:28.9192931Z # Subtest: structure-only identity fails closed before artifact_verified
+2026-10-19T05:15:28.9193363Z ok 17 - structure-only identity fails closed before artifact_verified
+2026-10-19T05:15:28.9193724Z   ---
+2026-10-19T05:15:28.9193971Z   duration_ms: 0.404777
+2026-10-19T05:15:28.9194264Z   type: 'test'
+2026-10-19T05:15:28.9194527Z   ...
+2026-10-19T05:15:28.9194889Z # Subtest: fresh-install state advances through the one deterministic legal sequence
+2026-10-19T05:15:28.9195621Z ok 18 - fresh-install state advances through the one deterministic legal sequence
+2026-10-19T05:15:28.9196000Z   ---
+2026-10-19T05:15:28.9196333Z   duration_ms: 1.959552
+2026-10-19T05:15:28.9196715Z   type: 'test'
+2026-10-19T05:15:28.9197091Z   ...
+2026-10-19T05:15:28.9197495Z # Subtest: pending effect identity prevents mismatched completion and replay
+2026-10-19T05:15:28.9198083Z ok 19 - pending effect identity prevents mismatched completion and replay
+2026-10-19T05:15:28.9198435Z   ---
+2026-10-19T05:15:28.9198627Z   duration_ms: 0.7997
+2026-10-19T05:15:28.9198851Z   type: 'test'
+2026-10-19T05:15:28.9199031Z   ...
+2026-10-19T05:15:28.9199271Z # Subtest: known failure and outcome_unknown are fail-safe terminal outcomes
+2026-10-19T05:15:28.9199714Z ok 20 - known failure and outcome_unknown are fail-safe terminal outcomes
+2026-10-19T05:15:28.9200022Z   ---
+2026-10-19T05:15:28.9200203Z   duration_ms: 1.786427
+2026-10-19T05:15:28.9200423Z   type: 'test'
+2026-10-19T05:15:28.9200631Z   ...
+2026-10-19T05:15:28.9200931Z # Subtest: committed record is revision 1, artifact-bound, deeply frozen, and local-only
+2026-10-19T05:15:28.9201359Z ok 21 - committed record is revision 1, artifact-bound, deeply frozen, and local-only
+2026-10-19T05:15:28.9201682Z   ---
+2026-10-19T05:15:28.9201884Z   duration_ms: 1.434035
+2026-10-19T05:15:28.9202090Z   type: 'test'
+2026-10-19T05:15:28.9202282Z   ...
+2026-10-19T05:15:28.9202607Z # Subtest: lexical owned paths reject traversal, absolute forms, controls, and protected roots
+2026-10-19T05:15:28.9203067Z ok 22 - lexical owned paths reject traversal, absolute forms, controls, and protected roots
+2026-10-19T05:15:28.9203399Z   ---
+2026-10-19T05:15:28.9203579Z   duration_ms: 0.379406
+2026-10-19T05:15:28.9203784Z   type: 'test'
+2026-10-19T05:15:28.9203961Z   ...
+2026-10-19T05:15:28.9204247Z # Subtest: cleanup plan rejects case-fold duplicates, non-files, unknown fields, and prototypes
+2026-10-19T05:15:28.9204723Z ok 23 - cleanup plan rejects case-fold duplicates, non-files, unknown fields, and prototypes
+2026-10-19T05:15:28.9205039Z   ---
+2026-10-19T05:15:28.9205242Z   duration_ms: 16.155091
+2026-10-19T05:15:28.9205445Z   type: 'test'
+2026-10-19T05:15:28.9205635Z   ...
+2026-10-19T05:15:28.9205962Z # Subtest: cleanup plan refuses current/protected overlap and returns stable explicit file candidates
+2026-10-19T05:15:28.9206435Z ok 24 - cleanup plan refuses current/protected overlap and returns stable explicit file candidates
+2026-10-19T05:15:28.9207264Z   ---
+2026-10-19T05:15:28.9207528Z   duration_ms: 7.634049
+2026-10-19T05:15:28.9207759Z   type: 'test'
+2026-10-19T05:15:28.9208061Z   ...
+2026-10-19T05:15:28.9208482Z # Subtest: cleanup plan requires post-health commit and matching ownership authority
+2026-10-19T05:15:28.9209042Z ok 25 - cleanup plan requires post-health commit and matching ownership authority
+2026-10-19T05:15:28.9209416Z   ---
+2026-10-19T05:15:28.9209655Z   duration_ms: 13.161992
+2026-10-19T05:15:28.9209922Z   type: 'test'
+2026-10-19T05:15:28.9210127Z   ...
+2026-10-19T05:15:28.9210515Z # Subtest: maps explicit Legacy LAN loopback configuration to Lite local without changing access scope
+2026-10-19T05:15:28.9211198Z ok 26 - maps explicit Legacy LAN loopback configuration to Lite local without changing access scope
+2026-10-19T05:15:28.9211788Z   ---
+2026-10-19T05:15:28.9212034Z   duration_ms: 1.860879
+2026-10-19T05:15:28.9212265Z   type: 'test'
+2026-10-19T05:15:28.9212460Z   ...
+2026-10-19T05:15:28.9212762Z # Subtest: accepts only the Legacy localhost loopback hostname
+2026-10-19T05:15:28.9213179Z ok 27 - accepts only the Legacy localhost loopback hostname
+2026-10-19T05:15:28.9213519Z   ---
+2026-10-19T05:15:28.9213762Z   duration_ms: 0.256368
+2026-10-19T05:15:28.9214019Z   type: 'test'
+2026-10-19T05:15:28.9214275Z   ...
+2026-10-19T05:15:28.9214624Z # Subtest: maps explicit private Legacy LAN configuration to Lite LAN
+2026-10-19T05:15:28.9215125Z ok 28 - maps explicit private Legacy LAN configuration to Lite LAN
+2026-10-19T05:15:28.9215504Z   ---
+2026-10-19T05:15:28.9215733Z   duration_ms: 0.296877
+2026-10-19T05:15:28.9216009Z   type: 'test'
+2026-10-19T05:15:28.9216269Z   ...
+2026-10-19T05:15:28.9216610Z # Subtest: keeps Full as Full while classifying only explicit local access evidence
+2026-10-19T05:15:28.9217388Z ok 29 - keeps Full as Full while classifying only explicit local access evidence
+2026-10-19T05:15:28.9217836Z   ---
+2026-10-19T05:15:28.9218093Z   duration_ms: 3.731693
+2026-10-19T05:15:28.9218530Z   type: 'test'
+2026-10-19T05:15:28.9218765Z   ...
+2026-10-19T05:15:28.9219256Z # Subtest: never infers public access from broad, public, missing, ambiguous, or reverse-proxy inputs
+2026-10-19T05:15:28.9219911Z ok 30 - never infers public access from broad, public, missing, ambiguous, or reverse-proxy inputs
+2026-10-19T05:15:28.9220354Z   ---
+2026-10-19T05:15:28.9220620Z   duration_ms: 1.302282
+2026-10-19T05:15:28.9221034Z   type: 'test'
+2026-10-19T05:15:28.9221284Z   ...
+2026-10-19T05:15:28.9221696Z # Subtest: rejects unknown fields, prototypes, accessors, control characters, invalid values, and wrong types
+2026-10-19T05:15:28.9222422Z ok 31 - rejects unknown fields, prototypes, accessors, control characters, invalid values, and wrong types
+2026-10-19T05:15:28.9222969Z   ---
+2026-10-19T05:15:28.9223218Z   duration_ms: 0.779311
+2026-10-19T05:15:28.9223582Z   type: 'test'
+2026-10-19T05:15:28.9223817Z   ...
+2026-10-19T05:15:28.9224062Z # Subtest: returns a detached deeply frozen profile
+2026-10-19T05:15:28.9224505Z ok 32 - returns a detached deeply frozen profile
+2026-10-19T05:15:28.9224816Z   ---
+2026-10-19T05:15:28.9225050Z   duration_ms: 0.22787
+2026-10-19T05:15:28.9225321Z   type: 'test'
+2026-10-19T05:15:28.9225570Z   ...
+2026-10-19T05:15:33.1058251Z # MyAPI: --project-dir requires a value
+2026-10-19T05:15:33.1296510Z # MyAPI: unknown option --unknown
+2026-10-19T05:15:33.1543760Z # MyAPI: deployment preflight failed: MYAPI_PUBLIC_URL must be an exact non-placeholder HTTPS origin
+2026-10-19T05:15:34.5655284Z # MyAPI: --version must be a semantic version such as v0.2.0
+2026-10-19T05:15:38.6739718Z # MyAPI: --json is only supported with --dry-run
+2026-10-19T05:15:40.0764666Z # MyAPI: upgrade preflight failed: MYAPI_CPU_LIMIT must be a number greater than 0 and no more than 64
+2026-10-19T05:15:41.4713715Z # MyAPI: docker exited with status 42; previous image restored and health-checked
+2026-10-19T05:15:42.8639467Z # MyAPI: docker exited with status 42; target startup was attempted and the database may have changed; automatic image rollback was not attempted. Target configuration was retained. Inspect the deployment and restore a verified pre-upgrade database backup before starting the previous image. No database restore was performed. Original environment backup: /tmp/myapi-cli-YN0ppR/source/backups/myapi-upgrade-2026-10-19T05-15-42-856Z.env
+2026-10-19T05:15:45.7479951Z # MyAPI: pulled image did not expose a valid repository digest; previous image restored and health-checked
+2026-10-19T05:15:47.1579676Z # MyAPI: deployment preflight failed: MYAPI_CPU_LIMIT must be a number greater than 0 and no more than 64; MYAPI_MEMORY_LIMIT must be a positive Docker size such as 512m or 2g
+2026-10-19T05:15:48.5610717Z # MyAPI: deployment preflight failed: LAN binding is disabled by default; pass --allow-lan to share on a private network
+2026-10-19T05:15:49.9496924Z # MyAPI: upgrade preflight failed: LAN binding is disabled by default; pass --allow-lan to share on a private network
+2026-10-19T05:15:51.3375695Z # MyAPI: signature verification requires MYAPI_COSIGN_CERTIFICATE_IDENTITY in deploy/.env
+2026-10-19T05:15:56.4365631Z # MyAPI: LAN binding is disabled by default; pass --allow-lan to share on a private network
+2026-10-19T05:15:59.3410040Z # MyAPI: MYAPI_BIND_ADDRESS must be localhost, loopback, 0.0.0.0, or a private IPv4 address
+2026-10-19T05:15:59.3687034Z # MyAPI: --port must be an integer between 1 and 65535
+2026-10-19T05:15:59.3990466Z # MyAPI: MYAPI_BIND_ADDRESS must be localhost, loopback, 0.0.0.0, or a private IPv4 address
+2026-10-19T05:15:59.4297147Z # MyAPI: MYAPI_BIND_ADDRESS must be localhost, loopback, 0.0.0.0, or a private IPv4 address
+2026-10-19T05:15:59.4579813Z # MyAPI: MYAPI_BIND_ADDRESS must be localhost, loopback, 0.0.0.0, or a private IPv4 address
+2026-10-19T05:15:59.4817318Z # MyAPI: MYAPI_BIND_ADDRESS must be localhost, loopback, 0.0.0.0, or a private IPv4 address
+2026-10-19T05:15:59.5070921Z # MyAPI: MYAPI_BIND_ADDRESS must be localhost, loopback, 0.0.0.0, or a private IPv4 address
+2026-10-19T05:15:59.9826968Z # Pulling MyAPI image from ghcr.io/forcemind/myapi-lan:v0.2.0-beta.20.
+2026-10-19T05:16:01.3998540Z # Pulling MyAPI image from ghcr.io/forcemind/myapi-lan:v0.2.0-beta.20.
+2026-10-19T05:16:02.8178329Z # Pulling MyAPI image from ghcr.io/forcemind/myapi:v0.2.0-beta.20.
+2026-10-19T05:16:04.2372432Z # MyAPI: deployment preflight failed: full edition requires MYAPI_SESSION_COOKIE_SECURE=true
+2026-10-19T05:16:04.2504277Z # full edition requires MYAPI_SESSION_COOKIE_SECURE=true.
+2026-10-19T05:16:09.0454356Z # MyAPI: existing deployment configuration is preserved, including with --force; review BATCH_UPDATE_ENABLED and keep the original identities and accounting configuration
+2026-10-19T05:16:09.0724032Z # MyAPI: existing deployment configuration is preserved, including with --force; review BATCH_UPDATE_ENABLED and keep the original identities and accounting configuration
+2026-10-19T05:16:09.1002700Z # MyAPI: existing deployment configuration is preserved, including with --force; review BATCH_UPDATE_ENABLED and keep the original identities and accounting configuration
+2026-10-19T05:16:10.5260120Z # MyAPI: deployment preflight failed: BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; no accounting mode was changed
+2026-10-19T05:16:10.5577505Z # MyAPI: upgrade preflight failed: BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; no accounting mode was changed
+2026-10-19T05:16:10.5658187Z # BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; the running instance was not changed.
+2026-10-19T05:16:10.5935187Z # MyAPI: deployment preflight failed: BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; no accounting mode was changed
+2026-10-19T05:16:10.6223196Z # MyAPI: upgrade preflight failed: BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; no accounting mode was changed
+2026-10-19T05:16:10.6300413Z # BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; the running instance was not changed.
+2026-10-19T05:16:10.6596142Z # MyAPI: deployment preflight failed: BATCH_UPDATE_ENABLED=true needs review: this cache-free deployment helper cannot verify the existing writer mode or Redis accounting state; keep the running instance and review its original deployment, do not disable batching to bypass this check
+2026-10-19T05:16:10.6893763Z # MyAPI: upgrade preflight failed: BATCH_UPDATE_ENABLED=true needs review: this cache-free deployment helper cannot verify the existing writer mode or Redis accounting state; keep the running instance and review its original deployment, do not disable batching to bypass this check
+2026-10-19T05:16:10.6969063Z # BATCH_UPDATE_ENABLED=true needs review: this cache-free installer cannot verify the existing writer mode or Redis accounting state. Keep the running instance and review its original deployment; do not disable batching to bypass this check.
+2026-10-19T05:16:10.7228918Z # MyAPI: BATCH_UPDATE_ENABLED is duplicated and needs review; no accounting mode was changed
+2026-10-19T05:16:10.7505066Z # MyAPI: BATCH_UPDATE_ENABLED is duplicated and needs review; no accounting mode was changed
+2026-10-19T05:16:10.7549741Z # BATCH_UPDATE_ENABLED is duplicated and needs review; the running instance was not changed.
+2026-10-19T05:16:12.1618732Z # MyAPI: accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart
+2026-10-19T05:16:12.1922235Z # MyAPI: accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart
+2026-10-19T05:16:12.2075091Z # Accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart.
+2026-10-19T05:16:12.2358629Z # MyAPI: accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart
+2026-10-19T05:16:12.2646161Z # MyAPI: accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart
+2026-10-19T05:16:12.2793916Z # Accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart.
+2026-10-19T05:16:12.3074149Z # MyAPI: accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart
+2026-10-19T05:16:12.3363707Z # MyAPI: accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart
+2026-10-19T05:16:12.3513639Z # Accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart.
+2026-10-19T05:16:13.7666217Z # Pulling MyAPI image from ghcr.io/forcemind/myapi:v0.2.0-beta.20.
+2026-10-19T05:16:15.1764503Z # MyAPI: existing data or identity requires review; refusing to generate a fresh BATCH_UPDATE_ENABLED=false configuration
+2026-10-19T05:16:15.1808423Z # Existing data or identity needs review; refusing to generate a fresh BATCH_UPDATE_ENABLED=false configuration.
+2026-10-19T05:16:16.6144050Z # MyAPI: existing data or identity requires review; refusing to generate a fresh BATCH_UPDATE_ENABLED=false configuration
+2026-10-19T05:16:16.6304849Z # Existing data or identity needs review without a verified container; no container or accounting mode was changed.
+2026-10-19T05:16:18.0082703Z # Created /tmp/myapi-cli-M5oae2/project/deploy/.env. Set SESSION_SECRET and MYAPI_PUBLIC_URL, then run this script again.
+2026-10-19T05:16:19.3888414Z # MyAPI: adopting existing data needs accounting configuration review; preserve the original BATCH_UPDATE_ENABLED and Redis state before changing deployment paths
+2026-10-19T05:16:20.7601460Z # MyAPI: deployment preflight failed: MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1; do not copy the new marker into an old installation without reviewing its effective writer and cache accounting state
+2026-10-19T05:16:20.7868319Z # MyAPI: upgrade preflight failed: MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1; do not copy the new marker into an old installation without reviewing its effective writer and cache accounting state
+2026-10-19T05:16:20.7941810Z # MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1. Do not copy a new marker into an old installation without reviewing its effective writer and cache accounting state; the running instance was not changed.
+2026-10-19T05:16:20.8195522Z # MyAPI: existing deployment configuration is preserved, including with --force; review BATCH_UPDATE_ENABLED and keep the original identities and accounting configuration
+2026-10-19T05:16:20.8450865Z # MyAPI: deployment preflight failed: MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1; do not copy the new marker into an old installation without reviewing its effective writer and cache accounting state
+2026-10-19T05:16:20.8712654Z # MyAPI: upgrade preflight failed: MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1; do not copy the new marker into an old installation without reviewing its effective writer and cache accounting state
+2026-10-19T05:16:20.8783893Z # MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1. Do not copy a new marker into an old installation without reviewing its effective writer and cache accounting state; the running instance was not changed.
+2026-10-19T05:16:20.9014132Z # MyAPI: existing deployment configuration is preserved, including with --force; review BATCH_UPDATE_ENABLED and keep the original identities and accounting configuration
+2026-10-19T05:16:20.9263014Z # MyAPI: MYAPI_ACCOUNTING_CONFIG_VERSION is duplicated and needs review; no accounting mode was changed
+2026-10-19T05:16:20.9498432Z # MyAPI: MYAPI_ACCOUNTING_CONFIG_VERSION is duplicated and needs review; no accounting mode was changed
+2026-10-19T05:16:20.9537860Z # MYAPI_ACCOUNTING_CONFIG_VERSION is duplicated and needs review; the running instance was not changed.
+2026-10-19T05:16:20.9773307Z # MyAPI: existing deployment configuration is preserved, including with --force; review BATCH_UPDATE_ENABLED and keep the original identities and accounting configuration
+2026-10-19T05:16:21.9646370Z # Subtest: version exposes the MyAPI distribution identity
+2026-10-19T05:16:21.9657613Z ok 33 - version exposes the MyAPI distribution identity
+2026-10-19T05:16:21.9658115Z   ---
+2026-10-19T05:16:21.9658392Z   duration_ms: 41.341909
+2026-10-19T05:16:21.9658684Z   type: 'test'
+2026-10-19T05:16:21.9658991Z   ...
+2026-10-19T05:16:21.9659357Z # Subtest: generated deployment defaults follow the package release version
+2026-10-19T05:16:21.9659881Z ok 34 - generated deployment defaults follow the package release version
+2026-10-19T05:16:21.9660269Z   ---
+2026-10-19T05:16:21.9660508Z   duration_ms: 2132.247621
+2026-10-19T05:16:21.9660826Z   type: 'test'
+2026-10-19T05:16:21.9661095Z   ...
+2026-10-19T05:16:21.9661489Z # Subtest: init copies source without runtime data and configure protects secrets
+2026-10-19T05:16:21.9662097Z ok 35 - init copies source without runtime data and configure protects secrets
+2026-10-19T05:16:21.9662486Z   ---
+2026-10-19T05:16:21.9662773Z   duration_ms: 1628.342789
+2026-10-19T05:16:21.9663116Z   type: 'test'
+2026-10-19T05:16:21.9663381Z   ...
+2026-10-19T05:16:21.9663769Z # Subtest: argument validation and deployment preflight reject unsafe input
+2026-10-19T05:16:21.9664323Z ok 36 - argument validation and deployment preflight reject unsafe input
+2026-10-19T05:16:21.9664760Z   ---
+2026-10-19T05:16:21.9665045Z   duration_ms: 1423.906477
+2026-10-19T05:16:21.9665377Z   type: 'test'
+2026-10-19T05:16:21.9665647Z   ...
+2026-10-19T05:16:21.9666251Z # Subtest: upgrade validates the release version before touching deployment state
+2026-10-19T05:16:21.9667339Z ok 37 - upgrade validates the release version before touching deployment state
+2026-10-19T05:16:21.9667915Z   ---
+2026-10-19T05:16:21.9668470Z   duration_ms: 1405.857446
+2026-10-19T05:16:21.9669183Z   type: 'test'
+2026-10-19T05:16:21.9669570Z   ...
+2026-10-19T05:16:21.9670065Z # Subtest: build forwards bounded CPU and memory limits to Docker
+2026-10-19T05:16:21.9670674Z ok 38 - build forwards bounded CPU and memory limits to Docker
+2026-10-19T05:16:21.9671175Z   ---
+2026-10-19T05:16:21.9671671Z   duration_ms: 1397.791334
+2026-10-19T05:16:21.9672060Z   type: 'test'
+2026-10-19T05:16:21.9672466Z   ...
+2026-10-19T05:16:21.9688823Z # Subtest: upgrade dry-run validates a copy without writing files or invoking Docker
+2026-10-19T05:16:21.9692614Z ok 39 - upgrade dry-run validates a copy without writing files or invoking Docker
+2026-10-19T05:16:21.9693382Z   ---
+2026-10-19T05:16:21.9693831Z   duration_ms: 1355.699803
+2026-10-19T05:16:21.9694346Z   type: 'test'
+2026-10-19T05:16:21.9694734Z   ...
+2026-10-19T05:16:21.9695675Z # Subtest: upgrade dry-run rejects JSON output without dry-run mode
+2026-10-19T05:16:21.9696363Z ok 40 - upgrade dry-run rejects JSON output without dry-run mode
+2026-10-19T05:16:21.9697115Z   ---
+2026-10-19T05:16:21.9697600Z   duration_ms: 1396.234069
+2026-10-19T05:16:21.9698014Z   type: 'test'
+2026-10-19T05:16:21.9698426Z   ...
+2026-10-19T05:16:21.9699123Z # Subtest: upgrade dry-run fails closed on invalid runtime configuration
+2026-10-19T05:16:21.9699787Z ok 41 - upgrade dry-run fails closed on invalid runtime configuration
+2026-10-19T05:16:21.9700332Z   ---
+2026-10-19T05:16:21.9700701Z   duration_ms: 1387.387215
+2026-10-19T05:16:21.9701104Z   type: 'test'
+2026-10-19T05:16:21.9701496Z   ...
+2026-10-19T05:16:21.9702087Z # Subtest: upgrade restores the environment and reruns the old deployment after a pull failure
+2026-10-19T05:16:21.9704198Z ok 42 - upgrade restores the environment and reruns the old deployment after a pull failure
+2026-10-19T05:16:21.9704758Z   ---
+2026-10-19T05:16:21.9705091Z   duration_ms: 1393.092523
+2026-10-19T05:16:21.9705521Z   type: 'test'
+2026-10-19T05:16:21.9705886Z   ...
+2026-10-19T05:16:21.9706554Z # Subtest: upgrade does not restart the old image after target startup may have migrated the database
+2026-10-19T05:16:21.9707524Z ok 43 - upgrade does not restart the old image after target startup may have migrated the database
+2026-10-19T05:16:21.9726277Z   ---
+2026-10-19T05:16:21.9727158Z   duration_ms: 1412.808101
+2026-10-19T05:16:21.9727619Z   type: 'test'
+2026-10-19T05:16:21.9728045Z   ...
+2026-10-19T05:16:21.9728569Z # Subtest: upgrade can pin the pulled image to its repository digest
+2026-10-19T05:16:21.9729255Z ok 44 - upgrade can pin the pulled image to its repository digest
+2026-10-19T05:16:21.9729917Z   ---
+2026-10-19T05:16:21.9730308Z   duration_ms: 1440.740894
+2026-10-19T05:16:21.9730730Z   type: 'test'
+2026-10-19T05:16:21.9731115Z   ...
+2026-10-19T05:16:21.9731625Z # Subtest: upgrade rejects a missing or malformed pulled image digest and rolls back
+2026-10-19T05:16:21.9732549Z ok 45 - upgrade rejects a missing or malformed pulled image digest and rolls back
+2026-10-19T05:16:21.9740723Z   ---
+2026-10-19T05:16:21.9741286Z   duration_ms: 1425.488483
+2026-10-19T05:16:21.9741759Z   type: 'test'
+2026-10-19T05:16:21.9742135Z   ...
+2026-10-19T05:16:21.9742677Z # Subtest: up rejects unsafe Docker resource limits before invoking Compose
+2026-10-19T05:16:21.9743363Z ok 46 - up rejects unsafe Docker resource limits before invoking Compose
+2026-10-19T05:16:21.9743892Z   ---
+2026-10-19T05:16:21.9744309Z   duration_ms: 1419.628118
+2026-10-19T05:16:21.9744775Z   type: 'test'
+2026-10-19T05:16:21.9745194Z   ...
+2026-10-19T05:16:21.9745679Z # Subtest: up rejects a non-loopback bind without explicit LAN opt-in
+2026-10-19T05:16:21.9746327Z ok 47 - up rejects a non-loopback bind without explicit LAN opt-in
+2026-10-19T05:16:21.9747378Z   ---
+2026-10-19T05:16:21.9754078Z   duration_ms: 1390.294082
+2026-10-19T05:16:21.9754643Z   type: 'test'
+2026-10-19T05:16:21.9755047Z   ...
+2026-10-19T05:16:21.9755587Z # Subtest: upgrade dry-run rejects a non-loopback bind without explicit LAN opt-in
+2026-10-19T05:16:21.9756341Z ok 48 - upgrade dry-run rejects a non-loopback bind without explicit LAN opt-in
+2026-10-19T05:16:21.9779880Z   ---
+2026-10-19T05:16:21.9782081Z   duration_ms: 1373.538365
+2026-10-19T05:16:21.9782431Z   type: 'test'
+2026-10-19T05:16:21.9782707Z   ...
+2026-10-19T05:16:21.9783200Z # Subtest: signature verification fails closed before changing deployment state
+2026-10-19T05:16:21.9783725Z ok 49 - signature verification fails closed before changing deployment state
+2026-10-19T05:16:21.9784195Z   ---
+2026-10-19T05:16:21.9784552Z   duration_ms: 1376.237905
+2026-10-19T05:16:21.9784923Z   type: 'test'
+2026-10-19T05:16:21.9785308Z   ...
+2026-10-19T05:16:21.9785793Z # Subtest: adopt records existing absolute data paths without moving them
+2026-10-19T05:16:21.9786491Z ok 50 - adopt records existing absolute data paths without moving them
+2026-10-19T05:16:21.9787260Z   ---
+2026-10-19T05:16:21.9787622Z   duration_ms: 1378.994265
+2026-10-19T05:16:21.9788031Z   type: 'test'
+2026-10-19T05:16:21.9788418Z   ...
+2026-10-19T05:16:21.9788919Z # Subtest: legacy deployment variables are accepted and can be migrated explicitly
+2026-10-19T05:16:21.9789660Z ok 51 - legacy deployment variables are accepted and can be migrated explicitly
+2026-10-19T05:16:21.9790315Z   ---
+2026-10-19T05:16:21.9790724Z   duration_ms: 1382.284149
+2026-10-19T05:16:21.9791598Z   type: 'test'
+2026-10-19T05:16:21.9792064Z   ...
+2026-10-19T05:16:21.9792580Z # Subtest: lan init creates a loopback-only LAN deployment without exposing credentials
+2026-10-19T05:16:21.9793293Z ok 52 - lan init creates a loopback-only LAN deployment without exposing credentials
+2026-10-19T05:16:21.9793912Z   ---
+2026-10-19T05:16:21.9794239Z   duration_ms: 1361.906768
+2026-10-19T05:16:21.9794555Z   type: 'test'
+2026-10-19T05:16:21.9794846Z   ...
+2026-10-19T05:16:21.9795198Z # Subtest: lan init requires explicit opt-in for a private network address
+2026-10-19T05:16:21.9795673Z ok 53 - lan init requires explicit opt-in for a private network address
+2026-10-19T05:16:21.9796061Z   ---
+2026-10-19T05:16:21.9796381Z   duration_ms: 1550.329083
+2026-10-19T05:16:21.9796914Z   type: 'test'
+2026-10-19T05:16:21.9797307Z   ...
+2026-10-19T05:16:21.9797726Z # Subtest: lan wildcard binding advertises discovered RFC1918 endpoints without a placeholder
+2026-10-19T05:16:21.9798353Z ok 54 - lan wildcard binding advertises discovered RFC1918 endpoints without a placeholder
+2026-10-19T05:16:21.9798812Z   ---
+2026-10-19T05:16:21.9799055Z   duration_ms: 1356.906737
+2026-10-19T05:16:21.9799355Z   type: 'test'
+2026-10-19T05:16:21.9799628Z   ...
+2026-10-19T05:16:21.9799999Z # Subtest: lan init rejects public and invalid listener addresses
+2026-10-19T05:16:21.9800492Z ok 55 - lan init rejects public and invalid listener addresses
+2026-10-19T05:16:21.9800817Z   ---
+2026-10-19T05:16:21.9801102Z   duration_ms: 192.819457
+2026-10-19T05:16:21.9801369Z   type: 'test'
+2026-10-19T05:16:21.9801620Z   ...
+2026-10-19T05:16:21.9801944Z # Subtest: CLI and installer keep LAN HTTP cookie inputs consistent
+2026-10-19T05:16:21.9802377Z ok 56 - CLI and installer keep LAN HTTP cookie inputs consistent
+2026-10-19T05:16:21.9802771Z   ---
+2026-10-19T05:16:21.9802994Z   duration_ms: 1452.864692
+2026-10-19T05:16:21.9803206Z   type: 'test'
+2026-10-19T05:16:21.9803453Z   ...
+2026-10-19T05:16:21.9803712Z # Subtest: CLI and installer keep LAN HTTPS cookie inputs consistent
+2026-10-19T05:16:21.9804090Z ok 57 - CLI and installer keep LAN HTTPS cookie inputs consistent
+2026-10-19T05:16:21.9804359Z   ---
+2026-10-19T05:16:21.9804537Z   duration_ms: 1417.562991
+2026-10-19T05:16:21.9804767Z   type: 'test'
+2026-10-19T05:16:21.9804957Z   ...
+2026-10-19T05:16:21.9805220Z # Subtest: CLI and installer keep Full HTTPS cookie inputs consistent
+2026-10-19T05:16:21.9805575Z ok 58 - CLI and installer keep Full HTTPS cookie inputs consistent
+2026-10-19T05:16:21.9805869Z   ---
+2026-10-19T05:16:21.9806075Z   duration_ms: 1420.313631
+2026-10-19T05:16:21.9806281Z   type: 'test'
+2026-10-19T05:16:21.9806481Z   ...
+2026-10-19T05:16:21.9806928Z # Subtest: Full refuses non-Secure cookies before invoking Docker
+2026-10-19T05:16:21.9807488Z ok 59 - Full refuses non-Secure cookies before invoking Docker
+2026-10-19T05:16:21.9807774Z   ---
+2026-10-19T05:16:21.9807959Z   duration_ms: 1435.209883
+2026-10-19T05:16:21.9808178Z   type: 'test'
+2026-10-19T05:16:21.9808391Z   ...
+2026-10-19T05:16:21.9808698Z # Subtest: new Full and LAN configurations explicitly choose cache-free batch=false
+2026-10-19T05:16:21.9809117Z ok 60 - new Full and LAN configurations explicitly choose cache-free batch=false
+2026-10-19T05:16:21.9809440Z   ---
+2026-10-19T05:16:21.9809616Z   duration_ms: 3278.513988
+2026-10-19T05:16:21.9809844Z   type: 'test'
+2026-10-19T05:16:21.9810034Z   ...
+2026-10-19T05:16:21.9810317Z # Subtest: existing environment is preserved byte-for-byte even with configure --force
+2026-10-19T05:16:21.9810747Z ok 61 - existing environment is preserved byte-for-byte even with configure --force
+2026-10-19T05:16:21.9811086Z   ---
+2026-10-19T05:16:21.9811300Z   duration_ms: 1572.475197
+2026-10-19T05:16:21.9811515Z   type: 'test'
+2026-10-19T05:16:21.9811702Z   ...
+2026-10-19T05:16:21.9812054Z # Subtest: missing ambiguous and cache-backed choices refuse up upgrade and installer before Docker or writes
+2026-10-19T05:16:21.9812632Z ok 62 - missing ambiguous and cache-backed choices refuse up upgrade and installer before Docker or writes
+2026-10-19T05:16:21.9813016Z   ---
+2026-10-19T05:16:21.9813206Z   duration_ms: 1652.114688
+2026-10-19T05:16:21.9813407Z   type: 'test'
+2026-10-19T05:16:21.9813629Z   ...
+2026-10-19T05:16:21.9813896Z # Subtest: saved false cannot silently replace the old hardcoded true container
+2026-10-19T05:16:21.9814313Z ok 63 - saved false cannot silently replace the old hardcoded true container
+2026-10-19T05:16:21.9814607Z   ---
+2026-10-19T05:16:21.9814788Z   duration_ms: 1594.59796
+2026-10-19T05:16:21.9815035Z   type: 'test'
+2026-10-19T05:16:21.9815223Z   ...
+2026-10-19T05:16:21.9815519Z # Subtest: reviewed existing false overrides conflicting ambient batch choice in both helpers
+2026-10-19T05:16:21.9815978Z ok 64 - reviewed existing false overrides conflicting ambient batch choice in both helpers
+2026-10-19T05:16:21.9816314Z   ---
+2026-10-19T05:16:21.9816548Z   duration_ms: 1433.22817
+2026-10-19T05:16:21.9816934Z   type: 'test'
+2026-10-19T05:16:21.9817138Z   ...
+2026-10-19T05:16:21.9817437Z # Subtest: missing environment with existing database cannot be classified as fresh
+2026-10-19T05:16:21.9817846Z ok 65 - missing environment with existing database cannot be classified as fresh
+2026-10-19T05:16:21.9818174Z   ---
+2026-10-19T05:16:21.9818360Z   duration_ms: 1430.971836
+2026-10-19T05:16:21.9818556Z   type: 'test'
+2026-10-19T05:16:21.9818763Z   ...
+2026-10-19T05:16:21.9819033Z # Subtest: existing data without a verified container cannot use a fresh false choice
+2026-10-19T05:16:21.9819486Z ok 66 - existing data without a verified container cannot use a fresh false choice
+2026-10-19T05:16:21.9819791Z   ---
+2026-10-19T05:16:21.9820031Z   duration_ms: 1418.715221
+2026-10-19T05:16:21.9820322Z   type: 'test'
+2026-10-19T05:16:21.9820558Z   ...
+2026-10-19T05:16:21.9821074Z # Subtest: source installer seeds explicit false only when no prior data or environment exists
+2026-10-19T05:16:21.9821746Z ok 67 - source installer seeds explicit false only when no prior data or environment exists
+2026-10-19T05:16:21.9822233Z   ---
+2026-10-19T05:16:21.9822497Z   duration_ms: 1362.009042
+2026-10-19T05:16:21.9822821Z   type: 'test'
+2026-10-19T05:16:21.9823102Z   ...
+2026-10-19T05:16:21.9823511Z # Subtest: adoption of nonempty data cannot inherit the new installation accounting default
+2026-10-19T05:16:21.9824160Z ok 68 - adoption of nonempty data cannot inherit the new installation accounting default
+2026-10-19T05:16:21.9824638Z   ---
+2026-10-19T05:16:21.9824884Z   duration_ms: 1372.545151
+2026-10-19T05:16:21.9825181Z   type: 'test'
+2026-10-19T05:16:21.9825451Z   ...
+2026-10-19T05:16:21.9825898Z # Subtest: old missing and unknown accounting contract markers block before any deployment mutation
+2026-10-19T05:16:21.9826806Z ok 69 - old missing and unknown accounting contract markers block before any deployment mutation
+2026-10-19T05:16:21.9827446Z   ---
+2026-10-19T05:16:21.9827705Z   duration_ms: 1610.741512
+2026-10-19T05:16:21.9828117Z   type: 'test'
+2026-10-19T05:16:21.9828477Z   ...
+2026-10-19T05:16:21.9867425Z # Subtest: captures an offset Uint8Array view as detached, bounded untrusted evidence
+2026-10-19T05:16:21.9868076Z ok 70 - captures an offset Uint8Array view as detached, bounded untrusted evidence
+2026-10-19T05:16:21.9868520Z   ---
+2026-10-19T05:16:21.9868870Z   duration_ms: 2.384249
+2026-10-19T05:16:21.9869159Z   type: 'test'
+2026-10-19T05:16:21.9869474Z   ...
+2026-10-19T05:16:21.9869858Z # Subtest: validates a frozen detached snapshot and materializes a new copy every time
+2026-10-19T05:16:21.9870483Z ok 71 - validates a frozen detached snapshot and materializes a new copy every time
+2026-10-19T05:16:21.9870949Z   ---
+2026-10-19T05:16:21.9871164Z   duration_ms: 0.452674
+2026-10-19T05:16:21.9871417Z   type: 'test'
+2026-10-19T05:16:21.9871691Z   ...
+2026-10-19T05:16:21.9872082Z # Subtest: accepts only non-empty ArrayBuffer-backed Uint8Array bytes within the 4 MiB bound
+2026-10-19T05:16:21.9872632Z ok 72 - accepts only non-empty ArrayBuffer-backed Uint8Array bytes within the 4 MiB bound
+2026-10-19T05:16:21.9873034Z   ---
+2026-10-19T05:16:21.9873430Z   duration_ms: 8.783117
+2026-10-19T05:16:21.9873714Z   type: 'test'
+2026-10-19T05:16:21.9873923Z   ...
+2026-10-19T05:16:21.9874293Z # Subtest: uses genuine TypedArray internal slots instead of own shadow properties
+2026-10-19T05:16:21.9874783Z ok 73 - uses genuine TypedArray internal slots instead of own shadow properties
+2026-10-19T05:16:21.9875181Z   ---
+2026-10-19T05:16:21.9875413Z   duration_ms: 0.533297
+2026-10-19T05:16:21.9875641Z   type: 'test'
+2026-10-19T05:16:21.9875894Z   ...
+2026-10-19T05:16:21.9876232Z # Subtest: rejects SharedArrayBuffer views even when their own buffer field is shadowed
+2026-10-19T05:16:21.9876858Z ok 74 - rejects SharedArrayBuffer views even when their own buffer field is shadowed
+2026-10-19T05:16:21.9877292Z   ---
+2026-10-19T05:16:21.9877587Z   duration_ms: 0.180373
+2026-10-19T05:16:21.9877921Z   type: 'test'
+2026-10-19T05:16:21.9878117Z   ...
+2026-10-19T05:16:21.9878439Z # Subtest: rejects evidence with altered header fields, digest, length, or non-canonical base64
+2026-10-19T05:16:21.9878904Z ok 75 - rejects evidence with altered header fields, digest, length, or non-canonical base64
+2026-10-19T05:16:21.9879295Z   ---
+2026-10-19T05:16:21.9879557Z   duration_ms: 0.5855
+2026-10-19T05:16:21.9879804Z   type: 'test'
+2026-10-19T05:16:21.9880104Z   ...
+2026-10-19T05:16:21.9880407Z # Subtest: rejects extra, missing, inherited, accessor, non-enumerable, and symbol fields
+2026-10-19T05:16:21.9880854Z ok 76 - rejects extra, missing, inherited, accessor, non-enumerable, and symbol fields
+2026-10-19T05:16:21.9881172Z   ---
+2026-10-19T05:16:21.9881356Z   duration_ms: 0.33401
+2026-10-19T05:16:21.9881575Z   type: 'test'
+2026-10-19T05:16:21.9881843Z   ...
+2026-10-19T05:16:21.9882155Z # Subtest: rejects evidence proxies before invoking any proxy trap
+2026-10-19T05:16:21.9882583Z ok 77 - rejects evidence proxies before invoking any proxy trap
+2026-10-19T05:16:21.9882963Z   ---
+2026-10-19T05:16:21.9883202Z   duration_ms: 0.208695
+2026-10-19T05:16:21.9883519Z   type: 'test'
+2026-10-19T05:16:21.9883752Z   ...
+2026-10-19T05:16:21.9884198Z # Subtest: rejects non-plain objects and never treats fixtures as verified trust evidence
+2026-10-19T05:16:21.9884732Z ok 78 - rejects non-plain objects and never treats fixtures as verified trust evidence
+2026-10-19T05:16:21.9885158Z   ---
+2026-10-19T05:16:21.9885435Z   duration_ms: 0.408564
+2026-10-19T05:16:21.9885703Z   type: 'test'
+2026-10-19T05:16:21.9885953Z   ...
+2026-10-19T05:16:21.9886323Z # Subtest: rejects proxies and accessors without executing caller code
+2026-10-19T05:16:21.9886994Z ok 79 - rejects proxies and accessors without executing caller code
+2026-10-19T05:16:21.9887502Z   ---
+2026-10-19T05:16:21.9887726Z   duration_ms: 3.588747
+2026-10-19T05:16:21.9888020Z   type: 'test'
+2026-10-19T05:16:21.9888412Z   ...
+2026-10-19T05:16:21.9888766Z # Subtest: rejects custom objects and hostile data arrays
+2026-10-19T05:16:21.9889181Z ok 80 - rejects custom objects and hostile data arrays
+2026-10-19T05:16:21.9889537Z   ---
+2026-10-19T05:16:21.9889827Z   duration_ms: 0.625238
+2026-10-19T05:16:21.9890125Z   type: 'test'
+2026-10-19T05:16:21.9890320Z   ...
+2026-10-19T05:16:21.9890660Z # Subtest: validates a complete schema-1 manifest and selects its unique artifact
+2026-10-19T05:16:21.9891097Z ok 81 - validates a complete schema-1 manifest and selects its unique artifact
+2026-10-19T05:16:21.9891415Z   ---
+2026-10-19T05:16:21.9891597Z   duration_ms: 1.399323
+2026-10-19T05:16:21.9891811Z   type: 'test'
+2026-10-19T05:16:21.9892021Z   ...
+2026-10-19T05:16:21.9892310Z # Subtest: rejects unsupported schema versions, malformed hashes, and invalid platform fields
+2026-10-19T05:16:21.9892817Z ok 82 - rejects unsupported schema versions, malformed hashes, and invalid platform fields
+2026-10-19T05:16:21.9893146Z   ---
+2026-10-19T05:16:21.9893340Z   duration_ms: 0.348185
+2026-10-19T05:16:21.9893569Z   type: 'test'
+2026-10-19T05:16:21.9893757Z   ...
+2026-10-19T05:16:21.9894115Z # Subtest: rejects malformed portable artifact identities and OCI location/digest mismatches
+2026-10-19T05:16:21.9894561Z ok 83 - rejects malformed portable artifact identities and OCI location/digest mismatches
+2026-10-19T05:16:21.9894911Z   ---
+2026-10-19T05:16:21.9895133Z   duration_ms: 3.112691
+2026-10-19T05:16:21.9895339Z   type: 'test'
+2026-10-19T05:16:21.9895524Z   ...
+2026-10-19T05:16:21.9895771Z # Subtest: bounds schema-1 collection and semantic-version fields
+2026-10-19T05:16:21.9896131Z ok 84 - bounds schema-1 collection and semantic-version fields
+2026-10-19T05:16:21.9896408Z   ---
+2026-10-19T05:16:21.9896590Z   duration_ms: 5.170768
+2026-10-19T05:16:21.9896924Z   type: 'test'
+2026-10-19T05:16:21.9897136Z   ...
+2026-10-19T05:16:21.9897461Z # Subtest: compares arbitrarily large semantic version components without numeric precision loss
+2026-10-19T05:16:21.9897959Z ok 85 - compares arbitrarily large semantic version components without numeric precision loss
+2026-10-19T05:16:21.9898292Z   ---
+2026-10-19T05:16:21.9898466Z   duration_ms: 0.210214
+2026-10-19T05:16:21.9898691Z   type: 'test'
+2026-10-19T05:16:21.9898889Z   ...
+2026-10-19T05:16:21.9899182Z # Subtest: fails closed for every managed operation until a verified transition matrix exists
+2026-10-19T05:16:21.9899619Z ok 86 - fails closed for every managed operation until a verified transition matrix exists
+2026-10-19T05:16:21.9899940Z   ---
+2026-10-19T05:16:21.9900132Z   duration_ms: 0.462886
+2026-10-19T05:16:21.9900381Z   type: 'test'
+2026-10-19T05:16:21.9900564Z   ...
+2026-10-19T05:16:21.9900870Z # Subtest: reports all malformed selection fields as selection errors
+2026-10-19T05:16:21.9901316Z ok 87 - reports all malformed selection fields as selection errors
+2026-10-19T05:16:21.9901695Z   ---
+2026-10-19T05:16:21.9901962Z   duration_ms: 0.917452
+2026-10-19T05:16:21.9902219Z   type: 'test'
+2026-10-19T05:16:21.9902500Z   ...
+2026-10-19T05:16:21.9902854Z # Subtest: rejects a bootstrap version outside the declared compatibility range
+2026-10-19T05:16:21.9903382Z ok 88 - rejects a bootstrap version outside the declared compatibility range
+2026-10-19T05:16:21.9903803Z   ---
+2026-10-19T05:16:21.9904047Z   duration_ms: 0.562451
+2026-10-19T05:16:21.9904352Z   type: 'test'
+2026-10-19T05:16:21.9904603Z   ...
+2026-10-19T05:16:21.9904875Z # Subtest: allows canonical OCI registry port boundaries
+2026-10-19T05:16:21.9905282Z ok 89 - allows canonical OCI registry port boundaries
+2026-10-19T05:16:21.9905590Z   ---
+2026-10-19T05:16:21.9905841Z   duration_ms: 0.359657
+2026-10-19T05:16:21.9906093Z   type: 'test'
+2026-10-19T05:16:21.9906312Z   ...
+2026-10-19T05:16:21.9906598Z # Subtest: bounds an untrusted bootstrap version before semantic comparison
+2026-10-19T05:16:21.9907145Z ok 90 - bounds an untrusted bootstrap version before semantic comparison
+2026-10-19T05:16:21.9907493Z   ---
+2026-10-19T05:16:21.9907753Z   duration_ms: 0.317105
+2026-10-19T05:16:21.9908006Z   type: 'test'
+2026-10-19T05:16:21.9908296Z   ...
+2026-10-19T05:16:21.9908587Z # Subtest: fails closed for no matching or ambiguous artifacts
+2026-10-19T05:16:21.9909167Z ok 91 - fails closed for no matching or ambiguous artifacts
+2026-10-19T05:16:21.9909556Z   ---
+2026-10-19T05:16:21.9909832Z   duration_ms: 0.360214
+2026-10-19T05:16:21.9910157Z   type: 'test'
+2026-10-19T05:16:21.9910346Z   ...
+2026-10-19T05:16:21.9910524Z 1..91
+2026-10-19T05:16:21.9910710Z # tests 91
+2026-10-19T05:16:21.9910915Z # suites 0
+2026-10-19T05:16:21.9911109Z # pass 91
+2026-10-19T05:16:21.9911296Z # fail 0
+2026-10-19T05:16:21.9911471Z # cancelled 0
+2026-10-19T05:16:21.9911683Z # skipped 0
+2026-10-19T05:16:21.9911876Z # todo 0
+2026-10-19T05:16:21.9912114Z # duration_ms 53209.161256
+2026-10-19T05:16:22.0633909Z 
+2026-10-19T05:16:22.0634283Z > @forcemind/myapi@0.2.0-beta.20 brand:test
+2026-10-19T05:16:22.0634664Z > node --test tools/branding/check.test.mjs
+2026-10-19T05:16:22.0634968Z 
+2026-10-19T05:16:22.0929389Z TAP version 13
+2026-10-19T05:16:23.4996936Z # Subtest: brand audit passes and emits machine-readable JSON
+2026-10-19T05:16:23.4997563Z ok 1 - brand audit passes and emits machine-readable JSON
+2026-10-19T05:16:23.4998283Z   ---
+2026-10-19T05:16:23.4998499Z   duration_ms: 692.261017
+2026-10-19T05:16:23.4998760Z   type: 'test'
+2026-10-19T05:16:23.4999010Z   ...
+2026-10-19T05:16:23.5007801Z # Subtest: human output exposes only classification metadata
+2026-10-19T05:16:23.5008887Z ok 2 - human output exposes only classification metadata
+2026-10-19T05:16:23.5029541Z   ---
+2026-10-19T05:16:23.5030187Z   duration_ms: 688.789483
+2026-10-19T05:16:23.5030668Z   type: 'test'
+2026-10-19T05:16:23.5031013Z   ...
+2026-10-19T05:16:23.5064978Z 1..2
+2026-10-19T05:16:23.5065384Z # tests 2
+2026-10-19T05:16:23.5065791Z # suites 0
+2026-10-19T05:16:23.5066024Z # pass 2
+2026-10-19T05:16:23.5066245Z # fail 0
+2026-10-19T05:16:23.5067196Z # cancelled 0
+2026-10-19T05:16:23.5067476Z # skipped 0
+2026-10-19T05:16:23.5067761Z # todo 0
+2026-10-19T05:16:23.5067998Z # duration_ms 1421.724865
+2026-10-19T05:16:23.5764800Z 
+2026-10-19T05:16:23.5765424Z > @forcemind/myapi@0.2.0-beta.20 brand:check
+2026-10-19T05:16:23.5765947Z > node tools/branding/check.mjs
+2026-10-19T05:16:23.5766192Z 
+2026-10-19T05:16:24.2704030Z INFO  manual-review  .agents/skills/i18n-translate/SKILL.md  QuantumNous
+2026-10-19T05:16:24.2704616Z INFO  manual-review  .agents/skills/i18n-translate/SKILL.md  legacy project name
+2026-10-19T05:16:24.2705086Z INFO  manual-review  .gitignore  legacy machine identifier
+2026-10-19T05:16:24.2705437Z INFO  legal  NOTICE  QuantumNous
+2026-10-19T05:16:24.2705734Z INFO  legal  NOTICE  legacy project name
+2026-10-19T05:16:24.2706081Z INFO  legal  NOTICE  legacy repository link
+2026-10-19T05:16:24.2706442Z INFO  legal  NOTICE  legacy machine identifier
+2026-10-19T05:16:24.2706872Z INFO  public  cli/myapi.mjs  legacy machine identifier
+2026-10-19T05:16:24.2707271Z INFO  compatibility  cli/templates/gitignore  legacy machine identifier
+2026-10-19T05:16:24.2707779Z INFO  compatibility  cli/templates/npmignore  legacy machine identifier
+2026-10-19T05:16:24.2708224Z INFO  manual-review  cli/test/myapi.test.mjs  QuantumNous
+2026-10-19T05:16:24.2708620Z INFO  manual-review  cli/test/myapi.test.mjs  legacy project name
+2026-10-19T05:16:24.2709012Z INFO  manual-review  common/disk_cache.go  legacy machine identifier
+2026-10-19T05:16:24.2709524Z INFO  manual-review  controller/channel_test_internal_test.go  legacy machine identifier
+2026-10-19T05:16:24.2710049Z INFO  manual-review  controller/channel_upstream_update_test.go  legacy machine identifier
+2026-10-19T05:16:24.2710575Z INFO  manual-review  controller/model_sync.go  legacy project name
+2026-10-19T05:16:24.2711036Z INFO  manual-review  controller/topup_stripe.go  legacy machine identifier
+2026-10-19T05:16:24.2711487Z INFO  public  deploy/.env.example  legacy machine identifier
+2026-10-19T05:16:24.2711851Z INFO  public  deploy/install.sh  legacy machine identifier
+2026-10-19T05:16:24.2712580Z INFO  manual-review  docs/ANTIGRAVITY_PUBLIC_RELAY_GATE.md  legacy project name
+2026-10-19T05:16:24.2712987Z INFO  audit-document  docs/BRAND_AUDIT.md  QuantumNous
+2026-10-19T05:16:24.2713354Z INFO  audit-document  docs/BRAND_AUDIT.md  legacy project name
+2026-10-19T05:16:24.2713760Z INFO  audit-document  docs/BRAND_AUDIT.md  legacy machine identifier
+2026-10-19T05:16:24.2714134Z INFO  manual-review  docs/CODEX_HANDOFF_PROMPT.md  legacy project name
+2026-10-19T05:16:24.2714516Z INFO  manual-review  docs/COMPLETION_AUDIT.md  legacy machine identifier
+2026-10-19T05:16:24.2714866Z INFO  audit-document  docs/MYAPI_MASTER_PLAN.md  QuantumNous
+2026-10-19T05:16:24.2715196Z INFO  audit-document  docs/MYAPI_MASTER_PLAN.md  legacy project name
+2026-10-19T05:16:24.2715561Z INFO  audit-document  docs/MYAPI_MASTER_PLAN.md  legacy repository link
+2026-10-19T05:16:24.2715918Z INFO  audit-document  docs/MYAPI_MASTER_PLAN.md  legacy machine identifier
+2026-10-19T05:16:24.2716343Z INFO  manual-review  docs/NEXT_SESSION_HANDOFF.md  legacy machine identifier
+2026-10-19T05:16:24.2717063Z INFO  manual-review  docs/PROJECT_COMPLETION_EXECUTION_PLAN.md  legacy machine identifier
+2026-10-19T05:16:24.2717697Z INFO  manual-review  docs/SUB2API_REFERENCE_AUDIT.md  legacy project name
+2026-10-19T05:16:24.2718204Z INFO  manual-review  docs/UPGRADE_REHEARSAL.md  legacy machine identifier
+2026-10-19T05:16:24.2718683Z INFO  compatibility  docs/authentication.md  legacy machine identifier
+2026-10-19T05:16:24.2719166Z INFO  compatibility  docs/openapi/api.json  legacy machine identifier
+2026-10-19T05:16:24.2719664Z INFO  compatibility  docs/openapi/relay.json  legacy machine identifier
+2026-10-19T05:16:24.2720064Z INFO  manual-review  electron/README.md  legacy machine identifier
+2026-10-19T05:16:24.2720484Z INFO  manual-review  electron/main.js  legacy machine identifier
+2026-10-19T05:16:24.2720962Z INFO  manual-review  i18n/locales/en.yaml  legacy machine identifier
+2026-10-19T05:16:24.2721364Z INFO  manual-review  i18n/locales/zh-CN.yaml  legacy machine identifier
+2026-10-19T05:16:24.2721888Z INFO  manual-review  i18n/locales/zh-TW.yaml  legacy machine identifier
+2026-10-19T05:16:24.2722267Z INFO  manual-review  middleware/auth_test.go  legacy machine identifier
+2026-10-19T05:16:24.2722677Z INFO  compatibility  middleware/cors.go  legacy machine identifier
+2026-10-19T05:16:24.2723107Z INFO  manual-review  middleware/playground_auth.go  legacy machine identifier
+2026-10-19T05:16:24.2723556Z INFO  manual-review  middleware/playground_diagnostics_test.go  legacy machine identifier
+2026-10-19T05:16:24.2724066Z INFO  compatibility  model/subscription.go  legacy machine identifier
+2026-10-19T05:16:24.2724535Z INFO  manual-review  my-api.service  legacy machine identifier
+2026-10-19T05:16:24.2725002Z INFO  compatibility  new-api.service  legacy machine identifier
+2026-10-19T05:16:24.2725454Z INFO  public  package.json  legacy machine identifier
+2026-10-19T05:16:24.2725914Z INFO  compatibility  patches/03-full-content-log-explorer.patch  QuantumNous
+2026-10-19T05:16:24.2726499Z INFO  compatibility  patches/03-full-content-log-explorer.patch  legacy repository link
+2026-10-19T05:16:24.2727216Z INFO  compatibility  patches/03-full-content-log-explorer.patch  legacy machine identifier
+2026-10-19T05:16:24.2727826Z INFO  compatibility  patches/04-codex-oauth-minimal-ui.patch  QuantumNous
+2026-10-19T05:16:24.2728410Z INFO  compatibility  patches/04-codex-oauth-minimal-ui.patch  legacy project name
+2026-10-19T05:16:24.2728997Z INFO  compatibility  patches/04-codex-oauth-minimal-ui.patch  legacy repository link
+2026-10-19T05:16:24.2729609Z INFO  compatibility  patches/04-codex-oauth-minimal-ui.patch  legacy machine identifier
+2026-10-19T05:16:24.2730236Z INFO  compatibility  patches/06-playground-codex-parameter-capabilities.patch  QuantumNous
+2026-10-19T05:16:24.2730761Z INFO  compatibility  patches/manifest.json  QuantumNous
+2026-10-19T05:16:24.2731291Z INFO  compatibility  patches/manifest.json  legacy repository link
+2026-10-19T05:16:24.2731865Z INFO  compatibility  patches/manifest.json  legacy machine identifier
+2026-10-19T05:16:24.2732391Z INFO  manual-review  relay/channel/newapi/adaptor.go  legacy project name
+2026-10-19T05:16:24.2732922Z INFO  manual-review  relay/channel/newapi/constants.go  legacy project name
+2026-10-19T05:16:24.2733435Z INFO  manual-review  relay/channel/sub2api/adaptor.go  legacy project name
+2026-10-19T05:16:24.2734009Z INFO  manual-review  relay/channel/task/kling/adaptor.go  legacy project name
+2026-10-19T05:16:24.2734526Z INFO  manual-review  relay/relay_adaptor.go  legacy project name
+2026-10-19T05:16:24.2735056Z INFO  manual-review  relay/relay_task.go  legacy machine identifier
+2026-10-19T05:16:24.2735577Z INFO  manual-review  relaykit/relayconvert/golden_test.go  legacy machine identifier
+2026-10-19T05:16:24.2736097Z INFO  manual-review  relaykit/types/error.go  legacy project name
+2026-10-19T05:16:24.2736712Z INFO  manual-review  service/auth_token.go  legacy machine identifier
+2026-10-19T05:16:24.2737225Z INFO  manual-review  service/channel_account_affinity_test.go  legacy machine identifier
+2026-10-19T05:16:24.2737788Z INFO  manual-review  service/channel_affinity.go  legacy machine identifier
+2026-10-19T05:16:24.2738411Z INFO  manual-review  service/waffo_pancake.go  legacy machine identifier
+2026-10-19T05:16:24.2738908Z INFO  manual-review  service/waffo_pancake_test.go  legacy machine identifier
+2026-10-19T05:16:24.2739422Z INFO  manual-review  setting/ratio_setting/model_ratio.go  legacy project name
+2026-10-19T05:16:24.2739851Z INFO  audit-tool  tools/branding/check.mjs  QuantumNous
+2026-10-19T05:16:24.2740230Z INFO  audit-tool  tools/branding/check.mjs  legacy machine identifier
+2026-10-19T05:16:24.2740631Z INFO  audit-tool  tools/branding/check.test.mjs  QuantumNous
+2026-10-19T05:16:24.2741141Z INFO  audit-tool  tools/website/check-static.mjs  QuantumNous
+2026-10-19T05:16:24.2741737Z INFO  audit-tool  tools/website/check-static.mjs  legacy project name
+2026-10-19T05:16:24.2742238Z INFO  audit-tool  tools/website/check-static.mjs  legacy machine identifier
+2026-10-19T05:16:24.2742698Z INFO  source-header  web/scripts/add-copyright.mjs  QuantumNous
+2026-10-19T05:16:24.2743098Z INFO  source-header  web/scripts/format-with-protected-headers.mjs  QuantumNous
+2026-10-19T05:16:24.2743509Z INFO  source-header  web/scripts/sync-i18n.mjs  legacy machine identifier
+2026-10-19T05:16:24.2743942Z INFO  source-header  web/src/components/ai-elements/reasoning.tsx  legacy machine identifier
+2026-10-19T05:16:24.2744399Z INFO  source-header  web/src/components/ai-elements/response.tsx  legacy machine identifier
+2026-10-19T05:16:24.2744835Z INFO  source-header  web/src/components/data-table/layout/card-grid.tsx  QuantumNous
+2026-10-19T05:16:24.2745293Z INFO  source-header  web/src/components/data-table/layout/data-table-page.tsx  QuantumNous
+2026-10-19T05:16:24.2745788Z INFO  source-header  web/src/components/data-table/layout/mobile-card-list.tsx  QuantumNous
+2026-10-19T05:16:24.2746226Z INFO  source-header  web/src/components/model-group-selector.tsx  QuantumNous
+2026-10-19T05:16:24.2746609Z INFO  source-header  web/src/components/status-badge.tsx  QuantumNous
+2026-10-19T05:16:24.2747203Z INFO  source-header  web/src/features/channels/components/drawers/sections/channel-advanced-section.tsx  QuantumNous
+2026-10-19T05:16:24.2747735Z INFO  source-header  web/src/features/chat/lib/chat-links.ts  legacy machine identifier
+2026-10-19T05:16:24.2748314Z INFO  source-header  web/src/features/chat/lib/send-to-fluent.ts  legacy machine identifier
+2026-10-19T05:16:24.2749028Z INFO  source-header  web/src/features/dashboard/components/overview/account-quota-changes-panel.tsx  QuantumNous
+2026-10-19T05:16:24.2749719Z INFO  source-header  web/src/features/keys/api.ts  legacy project name
+2026-10-19T05:16:24.2750355Z INFO  source-header  web/src/features/keys/components/__tests__/api-key-export-session.test.tsx  legacy machine identifier
+2026-10-19T05:16:24.2751124Z INFO  source-header  web/src/features/keys/components/api-keys-mutate-drawer.tsx  legacy project name
+2026-10-19T05:16:24.2751983Z INFO  source-header  web/src/features/models/components/dialogs/view-details-dialog.tsx  QuantumNous
+2026-10-19T05:16:24.2752724Z INFO  source-header  web/src/features/models/components/dialogs/view-logs-dialog.tsx  QuantumNous
+2026-10-19T05:16:24.2753378Z INFO  source-header  web/src/features/playground/components/message/message-error.tsx  QuantumNous
+2026-10-19T05:16:24.2754104Z INFO  source-header  web/src/features/playground/lib/message/conversation-message-utils.ts  QuantumNous
+2026-10-19T05:16:24.2754904Z INFO  source-header  web/src/features/profile/components/__tests__/login-session-utils.test.ts  QuantumNous
+2026-10-19T05:16:24.2755715Z INFO  source-header  web/src/features/system-settings/models/constants.ts  legacy project name
+2026-10-19T05:16:24.2756464Z INFO  source-header  web/src/features/usage-logs/components/dialogs/details-dialog.tsx  QuantumNous
+2026-10-19T05:16:24.2757143Z INFO  source-header  web/src/i18n/locales/en.json  legacy project name
+2026-10-19T05:16:24.2757540Z INFO  source-header  web/src/i18n/locales/en.json  legacy machine identifier
+2026-10-19T05:16:24.2757970Z INFO  source-header  web/src/i18n/locales/fr.json  legacy project name
+2026-10-19T05:16:24.2758593Z INFO  source-header  web/src/i18n/locales/fr.json  legacy machine identifier
+2026-10-19T05:16:24.2759106Z INFO  source-header  web/src/i18n/locales/ja.json  legacy project name
+2026-10-19T05:16:24.2759586Z INFO  source-header  web/src/i18n/locales/ja.json  legacy machine identifier
+2026-10-19T05:16:24.2760070Z INFO  source-header  web/src/i18n/locales/ru.json  legacy project name
+2026-10-19T05:16:24.2760612Z INFO  source-header  web/src/i18n/locales/ru.json  legacy machine identifier
+2026-10-19T05:16:24.2761121Z INFO  source-header  web/src/i18n/locales/vi.json  legacy project name
+2026-10-19T05:16:24.2761623Z INFO  source-header  web/src/i18n/locales/vi.json  legacy machine identifier
+2026-10-19T05:16:24.2762170Z INFO  source-header  web/src/i18n/locales/zh-TW.json  legacy project name
+2026-10-19T05:16:24.2762711Z INFO  source-header  web/src/i18n/locales/zh-TW.json  legacy machine identifier
+2026-10-19T05:16:24.2763282Z INFO  source-header  web/src/i18n/locales/zh.json  legacy project name
+2026-10-19T05:16:24.2763791Z INFO  source-header  web/src/i18n/locales/zh.json  legacy machine identifier
+2026-10-19T05:16:24.2764322Z INFO  source-header  web/src/lib/__tests__/branding.test.ts  legacy project name
+2026-10-19T05:16:24.2764943Z INFO  source-header  web/src/lib/auth-session-sync.ts  legacy machine identifier
+2026-10-19T05:16:24.2765478Z INFO  source-header  web/src/lib/auth-session.ts  legacy machine identifier
+2026-10-19T05:16:24.2766046Z INFO  source-header  web/src/lib/build-branding.ts  legacy project name
+2026-10-19T05:16:24.2766937Z INFO  source-header  web/src/lib/frontend-cache.ts  legacy project name
+2026-10-19T05:16:24.2767409Z INFO  manual-review  web/vitest.config.ts  QuantumNous
+2026-10-19T05:16:24.2767864Z Brand audit: PASS (124 classified references, 0 blocking)
+2026-10-19T05:16:24.3390615Z 
+2026-10-19T05:16:24.3391439Z > @forcemind/myapi@0.2.0-beta.20 website:check
+2026-10-19T05:16:24.3391765Z > node tools/website/check-static.mjs
+2026-10-19T05:16:24.3391986Z 
+2026-10-19T05:16:24.3647974Z Website static check passed: structure, responsive metadata, assets, and interactions.
+2026-10-19T05:16:24.4288414Z 
+2026-10-19T05:16:24.4288743Z > @forcemind/myapi@0.2.0-beta.20 quota:openapi:check
+2026-10-19T05:16:24.4289118Z > node --test tools/quota/openapi-contract.test.mjs
+2026-10-19T05:16:24.4289280Z 
+2026-10-19T05:16:24.4584931Z TAP version 13
+2026-10-19T05:16:24.4880286Z # Subtest: quota OpenAPI documents authenticated reads and business failure envelopes
+2026-10-19T05:16:24.4883930Z ok 1 - quota OpenAPI documents authenticated reads and business failure envelopes
+2026-10-19T05:16:24.4884604Z   ---
+2026-10-19T05:16:24.4885004Z   duration_ms: 0.97269
+2026-10-19T05:16:24.4885456Z   type: 'test'
+2026-10-19T05:16:24.4885840Z   ...
+2026-10-19T05:16:24.4889161Z # Subtest: quota schemas resolve references without confusing omitted values and null summaries
+2026-10-19T05:16:24.4890119Z ok 2 - quota schemas resolve references without confusing omitted values and null summaries
+2026-10-19T05:16:24.4890758Z   ---
+2026-10-19T05:16:24.4891180Z   duration_ms: 0.412722
+2026-10-19T05:16:24.4891592Z   type: 'test'
+2026-10-19T05:16:24.4891916Z   ...
+2026-10-19T05:16:24.4892505Z # Subtest: quota query contract retains granularities, precision and distinct limit policies
+2026-10-19T05:16:24.4893276Z ok 3 - quota query contract retains granularities, precision and distinct limit policies
+2026-10-19T05:16:24.4893891Z   ---
+2026-10-19T05:16:24.4894257Z   duration_ms: 0.255088
+2026-10-19T05:16:24.4894625Z   type: 'test'
+2026-10-19T05:16:24.4895016Z   ...
+2026-10-19T05:16:24.4895526Z # Subtest: quota analysis exposes three complete rate methods and reset-aware ETA outcomes
+2026-10-19T05:16:24.4896309Z ok 4 - quota analysis exposes three complete rate methods and reset-aware ETA outcomes
+2026-10-19T05:16:24.4897110Z   ---
+2026-10-19T05:16:24.4897367Z   duration_ms: 1.135313
+2026-10-19T05:16:24.4897676Z   type: 'test'
+2026-10-19T05:16:24.4897970Z   ...
+2026-10-19T05:16:24.4930851Z 1..4
+2026-10-19T05:16:24.4931482Z # tests 4
+2026-10-19T05:16:24.4932010Z # suites 0
+2026-10-19T05:16:24.4932390Z # pass 4
+2026-10-19T05:16:24.4932659Z # fail 0
+2026-10-19T05:16:24.4932932Z # cancelled 0
+2026-10-19T05:16:24.4933245Z # skipped 0
+2026-10-19T05:16:24.4933504Z # todo 0
+2026-10-19T05:16:24.4933794Z # duration_ms 42.034618
+2026-10-19T05:16:24.5570228Z 
+2026-10-19T05:16:24.5570825Z > @forcemind/myapi@0.2.0-beta.20 lan:check
+2026-10-19T05:16:24.5571335Z > node tools/lan/check.mjs --skip-docker
+2026-10-19T05:16:24.5571616Z 
+2026-10-19T05:16:27.8181149Z PASS  file: cli/myapi.mjs
+2026-10-19T05:16:27.8182217Z PASS  file: deploy/docker-compose.yml
+2026-10-19T05:16:27.8182647Z PASS  file: deploy/install.sh
+2026-10-19T05:16:27.8183065Z PASS  file: deploy/.env.example
+2026-10-19T05:16:27.8183380Z PASS  file: electron/main.js
+2026-10-19T05:16:27.8183763Z PASS  file: electron/runtime-config.js
+2026-10-19T05:16:27.8184039Z PASS  file: docs/LAN_LITE.md
+2026-10-19T05:16:27.8184391Z PASS  file: .github/workflows/electron-build.yml
+2026-10-19T05:16:27.8184760Z PASS  file: .github/workflows/docker-build.yml
+2026-10-19T05:16:27.8185117Z PASS  docs explain loopback default
+2026-10-19T05:16:27.8185433Z PASS  docs forbid credential-file import
+2026-10-19T05:16:27.8185837Z PASS  docs require explicit LAN opt-in
+2026-10-19T05:16:27.8186193Z PASS  docs describe safe stop/update
+2026-10-19T05:16:27.8186537Z PASS  Electron validates private IPv4
+2026-10-19T05:16:27.8187021Z PASS  Electron relaunches instead of live rebind
+2026-10-19T05:16:27.8187352Z PASS  CI builds macOS and Windows artifacts
+2026-10-19T05:16:27.8187727Z PASS  CI builds the LAN GHCR image
+2026-10-19T05:16:27.8188098Z PASS  manual GHCR publish requires explicit confirmation
+2026-10-19T05:16:27.8188538Z PASS  installer validates bind addresses strictly
+2026-10-19T05:16:27.8188902Z PASS  installer validates LAN origins strictly
+2026-10-19T05:16:27.8189276Z PASS  installer validates full HTTPS origins strictly
+2026-10-19T05:16:27.8189593Z PASS  installer requires a strong session secret
+2026-10-19T05:16:27.8189913Z PASS  installer derives the default image from VERSION
+2026-10-19T05:16:27.8190222Z PASS  installer requires explicit LAN opt-in
+2026-10-19T05:16:27.8190507Z PASS  installer parses env without shell evaluation
+2026-10-19T05:16:27.8190878Z PASS  LAN init creates deploy/.env
+2026-10-19T05:16:27.8191193Z PASS  LAN edition is selected
+2026-10-19T05:16:27.8191482Z PASS  LAN sharing opt-in is explicit
+2026-10-19T05:16:27.8191757Z PASS  LAN image is version-pinned GHCR
+2026-10-19T05:16:27.8192024Z PASS  default listener is loopback
+2026-10-19T05:16:27.8192269Z PASS  default public URL is local HTTP
+2026-10-19T05:16:27.8192550Z PASS  resource guardrails are bounded
+2026-10-19T05:16:27.8192859Z PASS  session secret is generated without exposing it
+2026-10-19T05:16:27.8193480Z PASS  generated environment is private
+2026-10-19T05:16:27.8193849Z PASS  runtime data is not copied into initializer
+2026-10-19T05:16:27.8194372Z PASS  Docker Compose LAN template parses (skipped (Docker Compose unavailable or --skip-docker))
+2026-10-19T05:16:27.8194912Z PASS  LAN init creates deploy/.env
+2026-10-19T05:16:27.8195306Z PASS  LAN edition is selected
+2026-10-19T05:16:27.8195722Z PASS  LAN sharing opt-in is explicit
+2026-10-19T05:16:27.8196063Z PASS  LAN image is version-pinned GHCR
+2026-10-19T05:16:27.8196424Z PASS  listener stays loopback or private IPv4
+2026-10-19T05:16:27.8196913Z PASS  public URL stays local/private HTTP(S)
+2026-10-19T05:16:27.8197289Z PASS  resource guardrails are bounded
+2026-10-19T05:16:27.8197736Z PASS  session secret is generated without exposing it
+2026-10-19T05:16:27.8198209Z PASS  generated environment is private
+2026-10-19T05:16:27.8198582Z PASS  runtime data is not copied into initializer
+2026-10-19T05:16:27.8199112Z PASS  Docker Compose LAN template parses (skipped (Docker Compose unavailable or --skip-docker))
+2026-10-19T05:16:27.8199632Z PASS  private LAN binding requires explicit opt-in (CLI exits before writing the project)
+2026-10-19T05:16:27.8200063Z PASS  rejected LAN bind does not create a project
+2026-10-19T05:16:27.8200596Z PASS  malformed private IPv4 is rejected (10.bad)
+2026-10-19T05:16:27.8200966Z PASS  malformed private IPv4 leaves no project (10.bad)
+2026-10-19T05:16:27.8201371Z PASS  malformed private IPv4 is rejected (192.168.999.1)
+2026-10-19T05:16:27.8201779Z PASS  malformed private IPv4 leaves no project (192.168.999.1)
+2026-10-19T05:16:27.8202192Z PASS  malformed private IPv4 is rejected (172.15.1.1)
+2026-10-19T05:16:27.8202673Z PASS  malformed private IPv4 leaves no project (172.15.1.1)
+2026-10-19T05:16:27.8203090Z PASS  malformed private IPv4 is rejected (172.32.1.1)
+2026-10-19T05:16:27.8203423Z PASS  malformed private IPv4 leaves no project (172.32.1.1)
+2026-10-19T05:16:27.8203800Z PASS  installer env parser smoke test (temporary fake Docker only)
+2026-10-19T05:16:27.8204145Z PASS  installer does not evaluate env shell syntax
+2026-10-19T05:16:27.8204482Z PASS  installer ignores dangerous/unknown env keys
+2026-10-19T05:16:27.8204818Z PASS  dangerous env injection does not execute
+2026-10-19T05:16:27.8205199Z PASS  installer rejects malformed bind addresses
+2026-10-19T05:16:27.8205493Z PASS  installer rejects port 0
+2026-10-19T05:16:27.8205741Z PASS  installer rejects port 65536
+2026-10-19T05:16:27.8206032Z PASS  installer requires LAN opt-in for private binds
+2026-10-19T05:16:27.8206329Z PASS  installer rejects non-private LAN origins
+2026-10-19T05:16:27.8206608Z PASS  installer rejects weak session secrets
+2026-10-19T05:16:27.8208075Z PASS  installer rejects non-HTTPS full origins
+2026-10-19T05:16:27.8208452Z LAN Lite acceptance: PASS (68/68)
+2026-10-19T05:16:27.8902806Z 
+2026-10-19T05:16:27.8903209Z > @forcemind/myapi@0.2.0-beta.20 desktop:check
+2026-10-19T05:16:27.8903590Z > node tools/desktop/check.mjs
+2026-10-19T05:16:27.8903764Z 
+2026-10-19T05:16:27.9145695Z PASS  file: electron/package.json
+2026-10-19T05:16:27.9146947Z PASS  Electron package.json is valid JSON
+2026-10-19T05:16:27.9147554Z PASS  desktop product is MyAPI
+2026-10-19T05:16:27.9147965Z PASS  macOS targets include DMG and ZIP
+2026-10-19T05:16:27.9148493Z PASS  Windows targets include NSIS and portable
+2026-10-19T05:16:27.9148939Z PASS  runtime preflight is packaged
+2026-10-19T05:16:27.9149332Z PASS  platform binaries are explicit
+2026-10-19T05:16:27.9149768Z PASS  license resources are bundled
+2026-10-19T05:16:27.9150192Z PASS  desktop build scripts are present
+2026-10-19T05:16:27.9150662Z PASS  macOS and Windows build commands are defined
+2026-10-19T05:16:27.9151085Z PASS  file: .github/workflows/electron-build.yml
+2026-10-19T05:16:27.9151487Z PASS  file: .github/workflows/ci.yml
+2026-10-19T05:16:27.9151935Z PASS  Electron workflow is tag/manual gated
+2026-10-19T05:16:27.9152350Z PASS  workflow matrix covers macOS and Windows
+2026-10-19T05:16:27.9152947Z PASS  workflow validates exact SemVer tag commit and version files
+2026-10-19T05:16:27.9153812Z PASS  workflow builds frontend and native binary per platform
+2026-10-19T05:16:27.9154391Z PASS  workflow builds platform installers
+2026-10-19T05:16:27.9154931Z PASS  workflow emits SHA256 checksums
+2026-10-19T05:16:27.9155476Z PASS  workflow uploads separate platform artifacts
+2026-10-19T05:16:27.9156094Z PASS  release upload has explicit approval gates
+2026-10-19T05:16:27.9156724Z PASS  workflow runs Electron runtime tests
+2026-10-19T05:16:27.9157170Z PASS  file: electron/main.js
+2026-10-19T05:16:27.9157592Z PASS  file: electron/runtime-config.js
+2026-10-19T05:16:27.9159302Z PASS  packaged UI follows the effective LAN bind host
+2026-10-19T05:16:27.9160029Z PASS  wildcard LAN status exposes discovered endpoints without placeholders
+2026-10-19T05:16:27.9160672Z PASS  production startup probes the backend status endpoint and rejects non-2xx or unsuccessful JSON
+2026-10-19T05:16:27.9161347Z PASS  production logs stay under the writable Electron userData root
+2026-10-19T05:16:27.9161848Z PASS  file: docs/LAN_LITE.md
+2026-10-19T05:16:27.9162289Z PASS  file: docs/MYAPI_MASTER_PLAN.md
+2026-10-19T05:16:27.9162794Z PASS  LAN guide documents platform data locations
+2026-10-19T05:16:27.9163402Z PASS  LAN guide distinguishes parser checks from real-device rehearsal
+2026-10-19T05:16:27.9163873Z PASS  master plan keeps real platform rehearsal as an explicit gate
+2026-10-19T05:16:27.9164332Z Desktop distribution contract: PASS (32/32)
+2026-10-19T05:16:27.9823130Z 
+2026-10-19T05:16:27.9823414Z > @forcemind/myapi@0.2.0-beta.20 upgrade:check
+2026-10-19T05:16:27.9823883Z > node tools/upgrade/check.mjs
+2026-10-19T05:16:27.9824133Z 
+2026-10-19T05:16:28.0046183Z PASS  file: cli/myapi.mjs
+2026-10-19T05:16:28.0047619Z PASS  file: cli/test/myapi.test.mjs
+2026-10-19T05:16:28.0048090Z PASS  file: docs/UPGRADE_REHEARSAL.md
+2026-10-19T05:16:28.0048461Z PASS  file: deploy/install.sh
+2026-10-19T05:16:28.0048861Z PASS  CLI exposes an explicit, read-only dry-run mode
+2026-10-19T05:16:28.0049333Z PASS  dry-run resolves a version-pinned GHCR image by edition
+2026-10-19T05:16:28.0049715Z PASS  upgrade validates runtime resource guardrails before writes
+2026-10-19T05:16:28.0050178Z PASS  upgrade verifies an optional signature before changing deployment state
+2026-10-19T05:16:28.0050693Z PASS  upgrade can pin the pulled image to a validated repository digest
+2026-10-19T05:16:28.0051365Z PASS  upgrade stores a private environment backup
+2026-10-19T05:16:28.0051856Z PASS  upgrade waits for a healthy target before success
+2026-10-19T05:16:28.0052199Z PASS  upgrade restores the previous environment and reports rollback failure
+2026-10-19T05:16:28.0052870Z PASS  upgrade refuses automatic image rollback after target startup was attempted
+2026-10-19T05:16:28.0053338Z PASS  installer validates compose configuration before pull/build
+2026-10-19T05:16:28.0053703Z PASS  local image builds inherit CPU and memory guardrails
+2026-10-19T05:16:28.0054197Z PASS  installer waits for health and does not remove volumes
+2026-10-19T05:16:28.0054686Z PASS  upgrade guide separates dry-run from database restore
+2026-10-19T05:16:28.0055282Z PASS  upgrade guide documents health, backup, rollback and resource checks
+2026-10-19T05:16:28.0055952Z PASS  CLI regression tests cover dry-run, resource rejection and rollback
+2026-10-19T05:16:28.0056442Z Upgrade/recovery contract: PASS (19/19)
+2026-10-19T05:16:28.0716559Z 
+2026-10-19T05:16:28.0717277Z > @forcemind/myapi@0.2.0-beta.20 release:workflow:check
+2026-10-19T05:16:28.0717848Z > node --test tools/release/*.test.mjs && node tools/release/check.mjs
+2026-10-19T05:16:28.0718312Z 
+2026-10-19T05:16:28.1065888Z TAP version 13
+2026-10-19T05:16:28.1607444Z # Subtest: release workflow protects prerelease publication channels
+2026-10-19T05:16:28.1608213Z ok 1 - release workflow protects prerelease publication channels
+2026-10-19T05:16:28.1608669Z   ---
+2026-10-19T05:16:28.1609218Z   duration_ms: 30.394479
+2026-10-19T05:16:28.1637554Z   type: 'test'
+2026-10-19T05:16:28.1657378Z   ...
+2026-10-19T05:16:28.1658111Z # Subtest: accepts OCI provenance and SBOM attestations while mapping real platform children
+2026-10-19T05:16:28.1658818Z ok 2 - accepts OCI provenance and SBOM attestations while mapping real platform children
+2026-10-19T05:16:28.1659378Z   ---
+2026-10-19T05:16:28.1659799Z   duration_ms: 1.518294
+2026-10-19T05:16:28.1660079Z   type: 'test'
+2026-10-19T05:16:28.1660417Z   ...
+2026-10-19T05:16:28.1660775Z # Subtest: rejects an attestation that references an unrelated platform digest
+2026-10-19T05:16:28.1661269Z ok 3 - rejects an attestation that references an unrelated platform digest
+2026-10-19T05:16:28.1661654Z   ---
+2026-10-19T05:16:28.1661850Z   duration_ms: 0.362689
+2026-10-19T05:16:28.1662083Z   type: 'test'
+2026-10-19T05:16:28.1662277Z   ...
+2026-10-19T05:16:28.1662557Z # Subtest: rejects a version platform child that differs from its immutable source
+2026-10-19T05:16:28.1662974Z ok 4 - rejects a version platform child that differs from its immutable source
+2026-10-19T05:16:28.1663309Z   ---
+2026-10-19T05:16:28.1663520Z   duration_ms: 1.221963
+2026-10-19T05:16:28.1663750Z   type: 'test'
+2026-10-19T05:16:28.1663943Z   ...
+2026-10-19T05:16:28.1664392Z # Subtest: rejects undeclared platform children in the version index and source index
+2026-10-19T05:16:28.1664821Z ok 5 - rejects undeclared platform children in the version index and source index
+2026-10-19T05:16:28.1665141Z   ---
+2026-10-19T05:16:28.1665345Z   duration_ms: 0.313896
+2026-10-19T05:16:28.1665551Z   type: 'test'
+2026-10-19T05:16:28.1665770Z   ...
+2026-10-19T05:16:28.2268734Z # Subtest: strict SemVer accepts beta.1 and rejects leading zero components
+2026-10-19T05:16:28.2270131Z ok 6 - strict SemVer accepts beta.1 and rejects leading zero components
+2026-10-19T05:16:28.2270660Z   ---
+2026-10-19T05:16:28.2270927Z   duration_ms: 1.507204
+2026-10-19T05:16:28.2271289Z   type: 'test'
+2026-10-19T05:16:28.2271583Z   ...
+2026-10-19T05:16:28.2275552Z # Subtest: stable latest only advances to a newer stable version
+2026-10-19T05:16:28.2276161Z ok 7 - stable latest only advances to a newer stable version
+2026-10-19T05:16:28.2276796Z   ---
+2026-10-19T05:16:28.2279698Z   duration_ms: 0.513657
+2026-10-19T05:16:28.2280005Z   type: 'test'
+2026-10-19T05:16:28.2280261Z   ...
+2026-10-19T05:16:28.2280700Z # Subtest: workflow CLI validates tags and latest advancement with the same rules
+2026-10-19T05:16:28.2281214Z ok 8 - workflow CLI validates tags and latest advancement with the same rules
+2026-10-19T05:16:28.2281609Z   ---
+2026-10-19T05:16:28.2281858Z   duration_ms: 79.974714
+2026-10-19T05:16:28.2282123Z   type: 'test'
+2026-10-19T05:16:28.2282391Z   ...
+2026-10-19T05:16:28.2319565Z # Subtest: workflow structure rejects extra publishers and missing gates
+2026-10-19T05:16:28.2320165Z ok 9 - workflow structure rejects extra publishers and missing gates
+2026-10-19T05:16:28.2320579Z   ---
+2026-10-19T05:16:28.2320846Z   duration_ms: 2.80406
+2026-10-19T05:16:28.2321186Z   type: 'test'
+2026-10-19T05:16:28.2321458Z   ...
+2026-10-19T05:16:28.2321943Z # Subtest: workflow structure handles a multiline gate and rejects its commented replacement
+2026-10-19T05:16:28.2322731Z ok 10 - workflow structure handles a multiline gate and rejects its commented replacement
+2026-10-19T05:16:28.2323203Z   ---
+2026-10-19T05:16:28.2323542Z   duration_ms: 0.197525
+2026-10-19T05:16:28.2323838Z   type: 'test'
+2026-10-19T05:16:28.2324080Z   ...
+2026-10-19T05:16:28.2324343Z 1..10
+2026-10-19T05:16:28.2324567Z # tests 10
+2026-10-19T05:16:28.2324828Z # suites 0
+2026-10-19T05:16:28.2325068Z # pass 10
+2026-10-19T05:16:28.2325322Z # fail 0
+2026-10-19T05:16:28.2325561Z # cancelled 0
+2026-10-19T05:16:28.2325819Z # skipped 0
+2026-10-19T05:16:28.2326101Z # todo 0
+2026-10-19T05:16:28.2326381Z # duration_ms 137.799838
+2026-10-19T05:16:28.2599469Z PASS  release workflow exists
+2026-10-19T05:16:28.2600828Z PASS  Docker workflow exists
+2026-10-19T05:16:28.2601179Z PASS  release workflow requires explicit publish gates
+2026-10-19T05:16:28.2601587Z PASS  release workflow protects existing legacy tags
+2026-10-19T05:16:28.2602203Z PASS  Docker workflow protects existing legacy tags
+2026-10-19T05:16:28.2602548Z PASS  NPM workflow protects existing legacy tags
+2026-10-19T05:16:28.2602886Z PASS  GitHub prereleases are marked prerelease and never made latest
+2026-10-19T05:16:28.2603267Z PASS  NPM prereleases use beta and stable releases use latest
+2026-10-19T05:16:28.2603579Z PASS  GHCR prereleases do not update stable rolling tags
+2026-10-19T05:16:28.2604073Z PASS  strict SemVer accepts beta.1 and rejects leading zero identifiers
+2026-10-19T05:16:28.2604594Z PASS  one GitHub Release publisher finalizes all platform artifacts
+2026-10-19T05:16:28.2605174Z PASS  npm publisher has explicit environment and release gate
+2026-10-19T05:16:28.2605631Z PASS  GHCR publisher has explicit environment and release gate
+2026-10-19T05:16:28.2606022Z PASS  prerelease never updates stable latest unconditionally
+2026-10-19T05:16:28.2606369Z PASS  all publisher jobs have explicit environment and publish gate
+2026-10-19T05:16:28.2606872Z PASS  workflow parser rejects anchors and unclassified package writers
+2026-10-19T05:16:28.2607247Z PASS  GHCR workflow publishes both Full and LAN repositories
+2026-10-19T05:16:28.2607532Z PASS  GHCR release tags reject overwrite
+2026-10-19T05:16:28.2607901Z PASS  CLI and installer pull versioned GHCR images by default
+2026-10-19T05:16:28.2608342Z PASS  release workflow requires VERSION without a v prefix
+2026-10-19T05:16:28.2608917Z PASS  release-state validation accepts SemVer prereleases and requires exact tag/version/SHA
+2026-10-19T05:16:28.2609477Z PASS  Docker workflow writes VERSION without the tag v prefix
+2026-10-19T05:16:28.2609951Z PASS  Docker smoke workflow builds locally without registry publishing
+2026-10-19T05:16:28.2610406Z PASS  prepare and platform jobs have bounded timeouts
+2026-10-19T05:16:28.2610889Z PASS  all release Go builds use bounded parallelism
+2026-10-19T05:16:28.2611268Z PASS  GHCR manifests are assembled from validated immutable digests
+2026-10-19T05:16:28.2611758Z PASS  manual branch GHCR manifests are assembled from validated immutable digests
+2026-10-19T05:16:28.2612268Z PASS  release finalization is single-writer after all platform artifacts succeed
+2026-10-19T05:16:28.2612885Z PASS  stable latest updates are globally serialized and monotonic
+2026-10-19T05:16:28.2613451Z PASS  GHCR stable latest compares the current container version before publication
+2026-10-19T05:16:28.2613848Z PASS  GHCR promotes rolling tags once after every manifest succeeds
+2026-10-19T05:16:28.2614190Z PASS  GHCR build identity uses the verified tag commit
+2026-10-19T05:16:28.2614484Z Release workflow contract: PASS (32/32)
+2026-10-19T05:16:28.3255616Z 
+2026-10-19T05:16:28.3256139Z > @forcemind/myapi@0.2.0-beta.20 source:manifest
+2026-10-19T05:16:28.3256531Z > node tools/npm/generate-source-manifest.mjs
+2026-10-19T05:16:28.3256890Z 
+2026-10-19T05:16:33.1963150Z Wrote SOURCE_MANIFEST.json with 3301 files.
+2026-10-19T05:16:33.2651156Z 
+2026-10-19T05:16:33.2651809Z > @forcemind/myapi@0.2.0-beta.20 pack:check
+2026-10-19T05:16:33.2652161Z > node tools/npm/check-pack.mjs
+2026-10-19T05:16:33.2652403Z 
+2026-10-19T05:16:37.0580012Z Package check passed: 3302 files, 33738635 unpacked bytes.
+2026-10-19T05:16:37.0742595Z ##[group]Run node --test tools/runtime/docker-smoke.test.mjs tools/runtime/sqlite-restore-smoke.test.mjs tools/runtime/handoff-upgrade-smoke.test.mjs
+2026-10-19T05:16:37.0743394Z [36;1mnode --test tools/runtime/docker-smoke.test.mjs tools/runtime/sqlite-restore-smoke.test.mjs tools/runtime/handoff-upgrade-smoke.test.mjs[0m
+2026-10-19T05:16:37.0778743Z shell: /usr/bin/bash -e {0}
+2026-10-19T05:16:37.0779070Z ##[endgroup]
+2026-10-19T05:16:37.1168072Z TAP version 13
+2026-10-19T05:16:37.2277684Z # Subtest: isolated personal cold-cache journey has a bounded Web request budget
+2026-10-19T05:16:37.2317621Z ok 1 - isolated personal cold-cache journey has a bounded Web request budget
+2026-10-19T05:16:37.2318566Z   ---
+2026-10-19T05:16:37.2327575Z   duration_ms: 1.11942
+2026-10-19T05:16:37.2328373Z   type: 'test'
+2026-10-19T05:16:37.2328909Z   ...
+2026-10-19T05:16:37.2329752Z # Subtest: personal Web budget rejects non-personal, non-isolated, LAN and external targets
+2026-10-19T05:16:37.2330571Z ok 2 - personal Web budget rejects non-personal, non-isolated, LAN and external targets
+2026-10-19T05:16:37.2331019Z   ---
+2026-10-19T05:16:37.2331288Z   duration_ms: 0.63998
+2026-10-19T05:16:37.2331548Z   type: 'test'
+2026-10-19T05:16:37.2331807Z   ...
+2026-10-19T05:16:37.2332247Z # Subtest: personal frontend evidence is exact, public and replaces the redundant cold browser probe
+2026-10-19T05:16:37.2332888Z ok 3 - personal frontend evidence is exact, public and replaces the redundant cold browser probe
+2026-10-19T05:16:37.2333332Z   ---
+2026-10-19T05:16:37.2333608Z   duration_ms: 0.96664
+2026-10-19T05:16:37.2333904Z   type: 'test'
+2026-10-19T05:16:37.2334191Z   ...
+2026-10-19T05:16:37.2334611Z # Subtest: personal frontend evidence rejects every missing or mismatched proof with one fixed code
+2026-10-19T05:16:37.2335284Z ok 4 - personal frontend evidence rejects every missing or mismatched proof with one fixed code
+2026-10-19T05:16:37.2335959Z   ---
+2026-10-19T05:16:37.2336201Z   duration_ms: 0.60831
+2026-10-19T05:16:37.2336467Z   type: 'test'
+2026-10-19T05:16:37.2336930Z   ...
+2026-10-19T05:16:37.2337334Z # Subtest: standalone frontend probe reports bounded same-origin diagnostics with a fixed form timeout
+2026-10-19T05:16:37.2338058Z ok 5 - standalone frontend probe reports bounded same-origin diagnostics with a fixed form timeout
+2026-10-19T05:16:37.2338574Z   ---
+2026-10-19T05:16:37.2338818Z   duration_ms: 1.446462
+2026-10-19T05:16:37.2339054Z   type: 'test'
+2026-10-19T05:16:37.2339235Z   ...
+2026-10-19T05:16:37.2339551Z # Subtest: standalone frontend probe retains its real form and build contract for non-personal runs
+2026-10-19T05:16:37.2340035Z ok 6 - standalone frontend probe retains its real form and build contract for non-personal runs
+2026-10-19T05:16:37.2340352Z   ---
+2026-10-19T05:16:37.2340570Z   duration_ms: 0.370687
+2026-10-19T05:16:37.2340797Z   type: 'test'
+2026-10-19T05:16:37.2340992Z   ...
+2026-10-19T05:16:37.2341254Z # Subtest: relay fixture remains an explicit isolated smoke capability
+2026-10-19T05:16:37.2341590Z ok 7 - relay fixture remains an explicit isolated smoke capability
+2026-10-19T05:16:37.2341873Z   ---
+2026-10-19T05:16:37.2342046Z   duration_ms: 3.739455
+2026-10-19T05:16:37.2342242Z   type: 'test'
+2026-10-19T05:16:37.2342448Z   ...
+2026-10-19T05:16:37.2757935Z # Subtest: synthetic OpenAI only exposes a non-sensitive request summary
+2026-10-19T05:16:37.2787653Z ok 8 - synthetic OpenAI only exposes a non-sensitive request summary
+2026-10-19T05:16:37.2815245Z   ---
+2026-10-19T05:16:37.2815875Z   duration_ms: 69.95454
+2026-10-19T05:16:37.2847775Z   type: 'test'
+2026-10-19T05:16:37.2857405Z   ...
+2026-10-19T05:16:37.2877674Z # Subtest: synthetic OpenAI accepts the real Playground streaming contract with complete usage
+2026-10-19T05:16:37.2906007Z ok 9 - synthetic OpenAI accepts the real Playground streaming contract with complete usage
+2026-10-19T05:16:37.2947280Z   ---
+2026-10-19T05:16:37.2947914Z   duration_ms: 13.953897
+2026-10-19T05:16:37.2957138Z   type: 'test'
+2026-10-19T05:16:37.2982162Z   ...
+2026-10-19T05:16:37.3087540Z # Subtest: streaming fixture refuses missing usage opt-in and malformed stream values
+2026-10-19T05:16:37.3088223Z ok 10 - streaming fixture refuses missing usage opt-in and malformed stream values
+2026-10-19T05:16:37.3088650Z   ---
+2026-10-19T05:16:37.3088907Z   duration_ms: 11.492039
+2026-10-19T05:16:37.3089356Z   type: 'test'
+2026-10-19T05:16:37.3089569Z   ...
+2026-10-19T05:16:37.3089891Z # Subtest: synthetic OpenAI listener only allows explicit loopback or Docker namespace hosts
+2026-10-19T05:16:37.3090399Z ok 11 - synthetic OpenAI listener only allows explicit loopback or Docker namespace hosts
+2026-10-19T05:16:37.3090738Z   ---
+2026-10-19T05:16:37.3090943Z   duration_ms: 0.280954
+2026-10-19T05:16:37.3091164Z   type: 'test'
+2026-10-19T05:16:37.3091574Z   ...
+2026-10-19T05:16:37.4167542Z # Subtest: relay fixture verifies exact wallet, key, usage, log and redaction contracts without reporting credentials
+2026-10-19T05:16:37.4168451Z ok 12 - relay fixture verifies exact wallet, key, usage, log and redaction contracts without reporting credentials
+2026-10-19T05:16:37.4169087Z   ---
+2026-10-19T05:16:37.4169487Z   duration_ms: 109.235526
+2026-10-19T05:16:37.4169820Z   type: 'test'
+2026-10-19T05:16:37.4170075Z   ...
+2026-10-19T05:16:37.4170486Z # Subtest: applied settlement proof requires a fact and validates any present intent
+2026-10-19T05:16:37.4171055Z ok 13 - applied settlement proof requires a fact and validates any present intent
+2026-10-19T05:16:37.4171441Z   ---
+2026-10-19T05:16:37.4171757Z   duration_ms: 0.135723
+2026-10-19T05:16:37.4172023Z   type: 'test'
+2026-10-19T05:16:37.4172278Z   ...
+2026-10-19T05:16:37.4172640Z # Subtest: before-relay verification failure stops before any relay request
+2026-10-19T05:16:37.4173174Z ok 14 - before-relay verification failure stops before any relay request
+2026-10-19T05:16:37.4173648Z   ---
+2026-10-19T05:16:37.4173916Z   duration_ms: 2.844
+2026-10-19T05:16:37.4174232Z   type: 'test'
+2026-10-19T05:16:37.4174513Z   ...
+2026-10-19T05:16:37.4174960Z # Subtest: smoke initialization requires explicit opt-in and a literal loopback target
+2026-10-19T05:16:37.4175607Z ok 15 - smoke initialization requires explicit opt-in and a literal loopback target
+2026-10-19T05:16:37.4176075Z   ---
+2026-10-19T05:16:37.4176357Z   duration_ms: 0.320476
+2026-10-19T05:16:37.4176864Z   type: 'test'
+2026-10-19T05:16:37.4177135Z   ...
+2026-10-19T05:16:37.4177845Z # Subtest: existing or non-SQLite instances are rejected without writes
+2026-10-19T05:16:37.4178496Z ok 16 - existing or non-SQLite instances are rejected without writes
+2026-10-19T05:16:37.4187451Z   ---
+2026-10-19T05:16:37.4187700Z   duration_ms: 0.803269
+2026-10-19T05:16:37.4187949Z   type: 'test'
+2026-10-19T05:16:37.4188236Z   ...
+2026-10-19T05:16:37.4188591Z # Subtest: full fresh fixture initializes, authenticates and reports no credentials
+2026-10-19T05:16:37.4189130Z ok 17 - full fresh fixture initializes, authenticates and reports no credentials
+2026-10-19T05:16:37.4189472Z   ---
+2026-10-19T05:16:37.4189675Z   duration_ms: 1.315135
+2026-10-19T05:16:37.4190038Z   type: 'test'
+2026-10-19T05:16:37.4190291Z   ...
+2026-10-19T05:16:37.4190636Z # Subtest: lan fresh fixture initializes, authenticates and reports no credentials
+2026-10-19T05:16:37.4191081Z ok 18 - lan fresh fixture initializes, authenticates and reports no credentials
+2026-10-19T05:16:37.4191412Z   ---
+2026-10-19T05:16:37.4191615Z   duration_ms: 0.92814
+2026-10-19T05:16:37.4191866Z   type: 'test'
+2026-10-19T05:16:37.4192050Z   ...
+2026-10-19T05:16:37.4192326Z # Subtest: fresh fixture rejects setup failure without reporting success
+2026-10-19T05:16:37.4192690Z ok 19 - fresh fixture rejects setup failure without reporting success
+2026-10-19T05:16:37.4193168Z   ---
+2026-10-19T05:16:37.4193395Z   duration_ms: 0.392107
+2026-10-19T05:16:37.4193612Z   type: 'test'
+2026-10-19T05:16:37.4193818Z   ...
+2026-10-19T05:16:37.4194099Z # Subtest: fresh fixture rejects anonymous failure without reporting success
+2026-10-19T05:16:37.4194650Z ok 20 - fresh fixture rejects anonymous failure without reporting success
+2026-10-19T05:16:37.4194949Z   ---
+2026-10-19T05:16:37.4195441Z   duration_ms: 0.267956
+2026-10-19T05:16:37.4195692Z   type: 'test'
+2026-10-19T05:16:37.4195916Z   ...
+2026-10-19T05:16:37.4196290Z # Subtest: fresh fixture rejects mode failure without reporting success
+2026-10-19T05:16:37.4196796Z ok 21 - fresh fixture rejects mode failure without reporting success
+2026-10-19T05:16:37.4197083Z   ---
+2026-10-19T05:16:37.4197310Z   duration_ms: 0.251621
+2026-10-19T05:16:37.4197539Z   type: 'test'
+2026-10-19T05:16:37.4197740Z   ...
+2026-10-19T05:16:37.4198005Z # Subtest: fresh fixture rejects login failure without reporting success
+2026-10-19T05:16:37.4198365Z ok 22 - fresh fixture rejects login failure without reporting success
+2026-10-19T05:16:37.4198786Z   ---
+2026-10-19T05:16:37.4198977Z   duration_ms: 0.469916
+2026-10-19T05:16:37.4199189Z   type: 'test'
+2026-10-19T05:16:37.4199393Z   ...
+2026-10-19T05:16:37.5231086Z # Subtest: zero-wallet fixture verifies finite Key accounting and a self-use log without exposing credentials
+2026-10-19T05:16:37.5231917Z ok 23 - zero-wallet fixture verifies finite Key accounting and a self-use log without exposing credentials
+2026-10-19T05:16:37.5232604Z   ---
+2026-10-19T05:16:37.5232887Z   duration_ms: 102.058986
+2026-10-19T05:16:37.5233181Z   type: 'test'
+2026-10-19T05:16:37.5233483Z   ...
+2026-10-19T05:16:37.5233932Z # Subtest: zero-wallet fixture refuses non-isolated targets and a Root that was granted a wallet
+2026-10-19T05:16:37.5234735Z ok 24 - zero-wallet fixture refuses non-isolated targets and a Root that was granted a wallet
+2026-10-19T05:16:37.5235200Z   ---
+2026-10-19T05:16:37.5235431Z   duration_ms: 0.646239
+2026-10-19T05:16:37.5235735Z   type: 'test'
+2026-10-19T05:16:37.5235969Z   ...
+2026-10-19T05:16:37.5236447Z # Subtest: personal writer fixture uses real transition endpoints in order and returns no authentication
+2026-10-19T05:16:37.5237353Z ok 25 - personal writer fixture uses real transition endpoints in order and returns no authentication
+2026-10-19T05:16:37.5237872Z   ---
+2026-10-19T05:16:37.5238155Z   duration_ms: 1.448831
+2026-10-19T05:16:37.5238457Z   type: 'test'
+2026-10-19T05:16:37.5238742Z   ...
+2026-10-19T05:16:37.5239219Z # Subtest: personal writer fixture rejects unsupported targets and active or nonfresh instances before apply
+2026-10-19T05:16:37.5242373Z ok 26 - personal writer fixture rejects unsupported targets and active or nonfresh instances before apply
+2026-10-19T05:16:37.5243200Z   ---
+2026-10-19T05:16:37.5243636Z   duration_ms: 1.037646
+2026-10-19T05:16:37.5243995Z   type: 'test'
+2026-10-19T05:16:37.5244481Z   ...
+2026-10-19T05:16:37.5251193Z # Subtest: browser setup callback replaces setup POST and requires real application readback
+2026-10-19T05:16:37.5252125Z ok 27 - browser setup callback replaces setup POST and requires real application readback
+2026-10-19T05:16:37.5252730Z   ---
+2026-10-19T05:16:37.5253139Z   duration_ms: 1.212382
+2026-10-19T05:16:37.5253531Z   type: 'test'
+2026-10-19T05:16:37.5253881Z   ...
+2026-10-19T05:16:37.5254416Z # Subtest: browser setup cannot report success without initialized application state
+2026-10-19T05:16:37.5255075Z ok 28 - browser setup cannot report success without initialized application state
+2026-10-19T05:16:37.5255504Z   ---
+2026-10-19T05:16:37.5255804Z   duration_ms: 0.698475
+2026-10-19T05:16:37.5256175Z   type: 'test'
+2026-10-19T05:16:37.5256488Z   ...
+2026-10-19T05:16:37.5257085Z # Subtest: personal browser fixed stages survive the top-level safe report boundary
+2026-10-19T05:16:37.5257879Z ok 29 - personal browser fixed stages survive the top-level safe report boundary
+2026-10-19T05:16:37.5258366Z   ---
+2026-10-19T05:16:37.5258678Z   duration_ms: 0.581804
+2026-10-19T05:16:37.5259088Z   type: 'test'
+2026-10-19T05:16:37.5259405Z   ...
+2026-10-19T05:16:37.5306075Z # Subtest: old configured SQLite without settlement intent/fact history migrates before the first relay
+2026-10-19T05:16:37.5307143Z ok 30 - old configured SQLite without settlement intent/fact history migrates before the first relay
+2026-10-19T05:16:37.5307593Z   ---
+2026-10-19T05:16:37.5307878Z   duration_ms: 53.024856
+2026-10-19T05:16:37.5308128Z   type: 'test'
+2026-10-19T05:16:37.5308346Z   ...
+2026-10-19T05:16:37.5308722Z # Subtest: upgraded old users never gain zero-wallet policy or invented policy revision
+2026-10-19T05:16:37.5309253Z ok 31 - upgraded old users never gain zero-wallet policy or invented policy revision
+2026-10-19T05:16:37.5309647Z   ---
+2026-10-19T05:16:37.5309935Z   duration_ms: 8.74746
+2026-10-19T05:16:37.5310174Z   type: 'test'
+2026-10-19T05:16:37.5310433Z   ...
+2026-10-19T05:16:37.5310809Z # Subtest: historical settlement rejection is followed by exact old-image recovery without replay
+2026-10-19T05:16:37.5311386Z ok 32 - historical settlement rejection is followed by exact old-image recovery without replay
+2026-10-19T05:16:37.5311902Z   ---
+2026-10-19T05:16:37.5312122Z   duration_ms: 4.659805
+2026-10-19T05:16:37.5312381Z   type: 'test'
+2026-10-19T05:16:37.5312625Z   ...
+2026-10-19T05:16:37.5313133Z # Subtest: positive intent identity is accepted only when it remains identical after old-image recovery
+2026-10-19T05:16:37.5313739Z ok 33 - positive intent identity is accepted only when it remains identical after old-image recovery
+2026-10-19T05:16:37.5314167Z   ---
+2026-10-19T05:16:37.5314456Z   duration_ms: 14.168632
+2026-10-19T05:16:37.5314695Z   type: 'test'
+2026-10-19T05:16:37.5314954Z   ...
+2026-10-19T05:16:37.5315252Z # Subtest: restored old image retains finite limits, exact usage, key, log and settlement proof
+2026-10-19T05:16:37.5315698Z ok 34 - restored old image retains finite limits, exact usage, key, log and settlement proof
+2026-10-19T05:16:37.5316052Z   ---
+2026-10-19T05:16:37.5316236Z   duration_ms: 14.811419
+2026-10-19T05:16:37.5316464Z   type: 'test'
+2026-10-19T05:16:37.5316771Z   ...
+2026-10-19T05:16:37.5317119Z # Subtest: rehearsal refuses missing, reordered or foreign restoration phases
+2026-10-19T05:16:37.5317589Z ok 35 - rehearsal refuses missing, reordered or foreign restoration phases
+2026-10-19T05:16:37.5317877Z   ---
+2026-10-19T05:16:37.5318064Z   duration_ms: 5.374135
+2026-10-19T05:16:37.5318284Z   type: 'test'
+2026-10-19T05:16:37.5318484Z   ...
+2026-10-19T05:16:37.5318843Z # Subtest: workflow pins the handoff baseline without publishing and keeps fresh install checks separate
+2026-10-19T05:16:37.5319315Z ok 36 - workflow pins the handoff baseline without publishing and keeps fresh install checks separate
+2026-10-19T05:16:37.5319673Z   ---
+2026-10-19T05:16:37.5319881Z   duration_ms: 4.076572
+2026-10-19T05:16:37.5320085Z   type: 'test'
+2026-10-19T05:16:37.5320276Z   ...
+2026-10-19T05:16:37.5320589Z # Subtest: smoke resolves runner-local storage inside a run step, not unavailable job env context
+2026-10-19T05:16:37.5321074Z ok 37 - smoke resolves runner-local storage inside a run step, not unavailable job env context
+2026-10-19T05:16:37.5327532Z   ---
+2026-10-19T05:16:37.5327785Z   duration_ms: 1.167725
+2026-10-19T05:16:37.5328079Z   type: 'test'
+2026-10-19T05:16:37.5328305Z   ...
+2026-10-19T05:16:37.5328760Z # Subtest: SQLite restore pauses only the owned fixture and copies DB plus WAL into a separate same-image instance
+2026-10-19T05:16:37.5329463Z ok 38 - SQLite restore pauses only the owned fixture and copies DB plus WAL into a separate same-image instance
+2026-10-19T05:16:37.5329909Z   ---
+2026-10-19T05:16:37.5330176Z   duration_ms: 4.903742
+2026-10-19T05:16:37.5330445Z   type: 'test'
+2026-10-19T05:16:37.5330687Z   ...
+2026-10-19T05:16:37.5331070Z # Subtest: SQLite restore rejects foreign ownership, existing target and missing opt-in before mutation
+2026-10-19T05:16:37.5331653Z ok 39 - SQLite restore rejects foreign ownership, existing target and missing opt-in before mutation
+2026-10-19T05:16:37.5332094Z   ---
+2026-10-19T05:16:37.5332311Z   duration_ms: 1.557083
+2026-10-19T05:16:37.5332572Z   type: 'test'
+2026-10-19T05:16:37.5332796Z   ...
+2026-10-19T05:16:37.5333282Z # Subtest: copy failure unpauses source without starting a restore; failed verification removes only the clone
+2026-10-19T05:16:37.5333961Z ok 40 - copy failure unpauses source without starting a restore; failed verification removes only the clone
+2026-10-19T05:16:37.5334418Z   ---
+2026-10-19T05:16:37.5334640Z   duration_ms: 2.808618
+2026-10-19T05:16:37.5334876Z   type: 'test'
+2026-10-19T05:16:37.5335088Z   ...
+2026-10-19T05:16:37.5335465Z # Subtest: uncertain clone removal retains its private directory instead of unlinking a live mount
+2026-10-19T05:16:37.5336067Z ok 41 - uncertain clone removal retains its private directory instead of unlinking a live mount
+2026-10-19T05:16:37.5336481Z   ---
+2026-10-19T05:16:37.5337202Z   duration_ms: 1.450333
+2026-10-19T05:16:37.5337448Z   type: 'test'
+2026-10-19T05:16:37.5337683Z   ...
+2026-10-19T05:16:37.5338116Z # Subtest: restored snapshot requires same login, policy, Key secret, exact usage and log identities without exposing them
+2026-10-19T05:16:37.5338707Z ok 42 - restored snapshot requires same login, policy, Key secret, exact usage and log identities without exposing them
+2026-10-19T05:16:37.5339098Z   ---
+2026-10-19T05:16:37.5339343Z   duration_ms: 27.972579
+2026-10-19T05:16:37.5339598Z   type: 'test'
+2026-10-19T05:16:37.5339798Z   ...
+2026-10-19T05:16:37.5340085Z # Subtest: restore refuses changed quota, Key or log identity and never resends a billable request
+2026-10-19T05:16:37.5340552Z ok 43 - restore refuses changed quota, Key or log identity and never resends a billable request
+2026-10-19T05:16:37.5340870Z   ---
+2026-10-19T05:16:37.5341043Z   duration_ms: 7.564983
+2026-10-19T05:16:37.5341286Z   type: 'test'
+2026-10-19T05:16:37.5341457Z   ...
+2026-10-19T05:16:37.5341684Z # Subtest: restore refuses changed root-status contract
+2026-10-19T05:16:37.5341977Z ok 44 - restore refuses changed root-status contract
+2026-10-19T05:16:37.5342232Z   ---
+2026-10-19T05:16:37.5342431Z   duration_ms: 2.072796
+2026-10-19T05:16:37.5342625Z   type: 'test'
+2026-10-19T05:16:37.5342812Z   ...
+2026-10-19T05:16:37.5343038Z # Subtest: restore refuses changed ordinary-status contract
+2026-10-19T05:16:37.5343421Z ok 45 - restore refuses changed ordinary-status contract
+2026-10-19T05:16:37.5343811Z   ---
+2026-10-19T05:16:37.5344053Z   duration_ms: 1.556736
+2026-10-19T05:16:37.5344299Z   type: 'test'
+2026-10-19T05:16:37.5344516Z   ...
+2026-10-19T05:16:37.5344755Z # Subtest: restore refuses changed key-status contract
+2026-10-19T05:16:37.5345156Z ok 46 - restore refuses changed key-status contract
+2026-10-19T05:16:37.5345458Z   ---
+2026-10-19T05:16:37.5345683Z   duration_ms: 6.602144
+2026-10-19T05:16:37.5345944Z   type: 'test'
+2026-10-19T05:16:37.5346189Z   ...
+2026-10-19T05:16:37.5346585Z # Subtest: restore refuses changed key-unlimited contract
+2026-10-19T05:16:37.5347187Z ok 47 - restore refuses changed key-unlimited contract
+2026-10-19T05:16:37.5347530Z   ---
+2026-10-19T05:16:37.5347785Z   duration_ms: 2.866114
+2026-10-19T05:16:37.5348054Z   type: 'test'
+2026-10-19T05:16:37.5348344Z   ...
+2026-10-19T05:16:37.5348652Z # Subtest: restore refuses changed key-model-enabled contract
+2026-10-19T05:16:37.5349056Z ok 48 - restore refuses changed key-model-enabled contract
+2026-10-19T05:16:37.5349440Z   ---
+2026-10-19T05:16:37.5349735Z   duration_ms: 4.028542
+2026-10-19T05:16:37.5350065Z   type: 'test'
+2026-10-19T05:16:37.5350331Z   ...
+2026-10-19T05:16:37.5350539Z # Subtest: restore refuses changed key-models contract
+2026-10-19T05:16:37.5350844Z ok 49 - restore refuses changed key-models contract
+2026-10-19T05:16:37.5351145Z   ---
+2026-10-19T05:16:37.5351373Z   duration_ms: 1.378447
+2026-10-19T05:16:37.5351609Z   type: 'test'
+2026-10-19T05:16:37.5351796Z   ...
+2026-10-19T05:16:37.5352056Z # Subtest: restore refuses changed key-group contract
+2026-10-19T05:16:37.5352753Z ok 50 - restore refuses changed key-group contract
+2026-10-19T05:16:37.5353190Z   ---
+2026-10-19T05:16:37.5353439Z   duration_ms: 3.558122
+2026-10-19T05:16:37.5353747Z   type: 'test'
+2026-10-19T05:16:37.5354049Z   ...
+2026-10-19T05:16:37.5354366Z # Subtest: restore refuses changed key-expiry contract
+2026-10-19T05:16:37.5354859Z ok 51 - restore refuses changed key-expiry contract
+2026-10-19T05:16:37.5355209Z   ---
+2026-10-19T05:16:37.5355426Z   duration_ms: 1.937719
+2026-10-19T05:16:37.5355672Z   type: 'test'
+2026-10-19T05:16:37.5355930Z   ...
+2026-10-19T05:16:37.5356241Z # Subtest: restore refuses changed channel-status contract
+2026-10-19T05:16:37.5356776Z ok 52 - restore refuses changed channel-status contract
+2026-10-19T05:16:37.5357130Z   ---
+2026-10-19T05:16:37.5357362Z   duration_ms: 0.937916
+2026-10-19T05:16:37.5357628Z   type: 'test'
+2026-10-19T05:16:37.5357863Z   ...
+2026-10-19T05:16:37.5358129Z # Subtest: restore refuses changed channel-base contract
+2026-10-19T05:16:37.5358487Z ok 53 - restore refuses changed channel-base contract
+2026-10-19T05:16:37.5358781Z   ---
+2026-10-19T05:16:37.5359144Z   duration_ms: 1.802729
+2026-10-19T05:16:37.5359378Z   type: 'test'
+2026-10-19T05:16:37.5359597Z   ...
+2026-10-19T05:16:37.5359852Z # Subtest: restore refuses changed channel-models contract
+2026-10-19T05:16:37.5360201Z ok 54 - restore refuses changed channel-models contract
+2026-10-19T05:16:37.5360553Z   ---
+2026-10-19T05:16:37.5360771Z   duration_ms: 0.707909
+2026-10-19T05:16:37.5361007Z   type: 'test'
+2026-10-19T05:16:37.5361235Z   ...
+2026-10-19T05:16:37.5361494Z # Subtest: restore refuses changed channel-group contract
+2026-10-19T05:16:37.5361913Z ok 55 - restore refuses changed channel-group contract
+2026-10-19T05:16:37.5362234Z   ---
+2026-10-19T05:16:37.5362452Z   duration_ms: 0.749441
+2026-10-19T05:16:37.5362705Z   type: 'test'
+2026-10-19T05:16:37.5362933Z   ...
+2026-10-19T05:16:37.5363261Z # Subtest: restore refuses changed settlement-state contract
+2026-10-19T05:16:37.5363671Z ok 56 - restore refuses changed settlement-state contract
+2026-10-19T05:16:37.5363991Z   ---
+2026-10-19T05:16:37.5364240Z   duration_ms: 1.084063
+2026-10-19T05:16:37.5364488Z   type: 'test'
+2026-10-19T05:16:37.5364766Z   ...
+2026-10-19T05:16:37.5365047Z # Subtest: restore refuses changed settlement-fact contract
+2026-10-19T05:16:37.5365443Z ok 57 - restore refuses changed settlement-fact contract
+2026-10-19T05:16:37.5365797Z   ---
+2026-10-19T05:16:37.5366018Z   duration_ms: 1.014077
+2026-10-19T05:16:37.5366289Z   type: 'test'
+2026-10-19T05:16:37.5366526Z   ...
+2026-10-19T05:16:37.5366964Z # Subtest: restore refuses changed settlement-intent contract
+2026-10-19T05:16:37.5367401Z ok 58 - restore refuses changed settlement-intent contract
+2026-10-19T05:16:37.5367781Z   ---
+2026-10-19T05:16:37.5368049Z   duration_ms: 1.326433
+2026-10-19T05:16:37.5368304Z   type: 'test'
+2026-10-19T05:16:37.5368537Z   ...
+2026-10-19T05:16:37.5368973Z # Subtest: handoff upgrade and old-image recovery each start from the untouched pre-upgrade snapshot
+2026-10-19T05:16:37.5369645Z ok 59 - handoff upgrade and old-image recovery each start from the untouched pre-upgrade snapshot
+2026-10-19T05:16:37.5370199Z   ---
+2026-10-19T05:16:37.5370454Z   duration_ms: 2.557804
+2026-10-19T05:16:37.5370712Z   type: 'test'
+2026-10-19T05:16:37.5370974Z   ...
+2026-10-19T05:16:37.5371436Z # Subtest: handoff recovery requires separate opt-in and does not start old image after failed upgrade verification
+2026-10-19T05:16:37.5372073Z ok 60 - handoff recovery requires separate opt-in and does not start old image after failed upgrade verification
+2026-10-19T05:16:37.5372548Z   ---
+2026-10-19T05:16:37.5372754Z   duration_ms: 1.898869
+2026-10-19T05:16:37.5373021Z   type: 'test'
+2026-10-19T05:16:37.5373259Z   ...
+2026-10-19T05:16:37.5373686Z # Subtest: expected execution-preflight rejection is proved before old-image recovery from an independent copy
+2026-10-19T05:16:37.5374412Z ok 61 - expected execution-preflight rejection is proved before old-image recovery from an independent copy
+2026-10-19T05:16:37.5374900Z   ---
+2026-10-19T05:16:37.5375135Z   duration_ms: 1.985833
+2026-10-19T05:16:37.5375385Z   type: 'test'
+2026-10-19T05:16:37.5375619Z   ...
+2026-10-19T05:16:37.5376111Z # Subtest: expected rejection refuses ready, wrong-reason, wrong-exit, OOM and DB or WAL mutation outcomes
+2026-10-19T05:16:37.5377308Z ok 62 - expected rejection refuses ready, wrong-reason, wrong-exit, OOM and DB or WAL mutation outcomes
+2026-10-19T05:16:37.5377841Z   ---
+2026-10-19T05:16:37.5378135Z   duration_ms: 6.053474
+2026-10-19T05:16:37.5378453Z   type: 'test'
+2026-10-19T05:16:37.5378725Z   ...
+2026-10-19T05:16:37.5378949Z 1..62
+2026-10-19T05:16:37.5379187Z # tests 62
+2026-10-19T05:16:37.5379456Z # suites 0
+2026-10-19T05:16:37.5379709Z # pass 62
+2026-10-19T05:16:37.5379910Z # fail 0
+2026-10-19T05:16:37.5380086Z # cancelled 0
+2026-10-19T05:16:37.5380306Z # skipped 0
+2026-10-19T05:16:37.5380507Z # todo 0
+2026-10-19T05:16:37.5380737Z # duration_ms 426.541318
+2026-10-19T05:16:37.5478043Z Post job cleanup.
+2026-10-19T05:16:37.6082006Z [command]/usr/bin/git version
+2026-10-19T05:16:37.6112844Z git version 2.55.0
+2026-10-19T05:16:37.6140810Z Temporarily overriding HOME='/home/runner/work/_temp/82fcd051-951b-4feb-9aef-3de4228be938' before making global git config changes
+2026-10-19T05:16:37.6141617Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-19T05:16:37.6145397Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MyAPI/MyAPI
+2026-10-19T05:16:37.6167890Z Removing SSH command configuration
+2026-10-19T05:16:37.6173021Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-19T05:16:37.6199955Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-19T05:16:37.6354766Z Removing HTTP extra header
+2026-10-19T05:16:37.6359106Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-19T05:16:37.6381616Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-19T05:16:37.6541605Z Removing includeIf entries pointing to credentials config files
+2026-10-19T05:16:37.6546930Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-19T05:16:37.6570463Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-19T05:16:37.6829365Z Cleaning up orphan processes

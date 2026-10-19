@@ -1,0 +1,2425 @@
+{
+  "generated_summary": true,
+  "source_sha": "cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+  "tree_sha": "1fdefa9eb6edf291dee57e0e92cb8a9bd49f61fa",
+  "ci_checkout_sha": "37a138b65c038302eda6eaf447e329ec529722b9",
+  "same_tree": true,
+  "docker": {
+    "conclusion": "success",
+    "headSha": "cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+    "jobs": [
+      {
+        "completedAt": "2026-10-19T05:20:54Z",
+        "conclusion": "success",
+        "databaseId": 117901549247,
+        "name": "Prepare immutable smoke image bundles",
+        "startedAt": "2026-10-19T05:15:29Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-19T05:15:33Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-19T05:15:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:38Z",
+            "conclusion": "success",
+            "name": "Check out",
+            "number": 2,
+            "startedAt": "2026-10-19T05:15:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:38Z",
+            "conclusion": "success",
+            "name": "Set up Node",
+            "number": 3,
+            "startedAt": "2026-10-19T05:15:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:38Z",
+            "conclusion": "success",
+            "name": "Bind exact source and producer attempt",
+            "number": 4,
+            "startedAt": "2026-10-19T05:15:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:51Z",
+            "conclusion": "success",
+            "name": "Set up Docker Buildx",
+            "number": 5,
+            "startedAt": "2026-10-19T05:15:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:57Z",
+            "conclusion": "success",
+            "name": "Fetch pinned runtime fixtures once",
+            "number": 6,
+            "startedAt": "2026-10-19T05:15:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:18:19Z",
+            "conclusion": "success",
+            "name": "Build full smoke image",
+            "number": 7,
+            "startedAt": "2026-10-19T05:15:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:18:23Z",
+            "conclusion": "success",
+            "name": "Export full immutable bundle",
+            "number": 8,
+            "startedAt": "2026-10-19T05:18:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:18:25Z",
+            "conclusion": "success",
+            "name": "Preserve full immutable bundle",
+            "number": 9,
+            "startedAt": "2026-10-19T05:18:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:20:18Z",
+            "conclusion": "success",
+            "name": "Build lan smoke image",
+            "number": 10,
+            "startedAt": "2026-10-19T05:18:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:20:22Z",
+            "conclusion": "success",
+            "name": "Export lan immutable bundle",
+            "number": 11,
+            "startedAt": "2026-10-19T05:20:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:20:25Z",
+            "conclusion": "success",
+            "name": "Preserve lan immutable bundle",
+            "number": 12,
+            "startedAt": "2026-10-19T05:20:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:20:25Z",
+            "conclusion": "success",
+            "name": "Publish only successfully uploaded edition identities",
+            "number": 13,
+            "startedAt": "2026-10-19T05:20:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:20:25Z",
+            "conclusion": "success",
+            "name": "Require every requested edition bundle",
+            "number": 14,
+            "startedAt": "2026-10-19T05:20:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:20:26Z",
+            "conclusion": "success",
+            "name": "Post Build lan smoke image",
+            "number": 24,
+            "startedAt": "2026-10-19T05:20:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:20:28Z",
+            "conclusion": "success",
+            "name": "Post Build full smoke image",
+            "number": 25,
+            "startedAt": "2026-10-19T05:20:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:20:51Z",
+            "conclusion": "success",
+            "name": "Post Set up Docker Buildx",
+            "number": 26,
+            "startedAt": "2026-10-19T05:20:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:20:51Z",
+            "conclusion": "success",
+            "name": "Post Set up Node",
+            "number": 27,
+            "startedAt": "2026-10-19T05:20:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:20:52Z",
+            "conclusion": "success",
+            "name": "Post Check out",
+            "number": 28,
+            "startedAt": "2026-10-19T05:20:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:20:52Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 29,
+            "startedAt": "2026-10-19T05:20:52Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203596121/job/117901549247"
+      },
+      {
+        "completedAt": "2026-10-19T05:17:39Z",
+        "conclusion": "success",
+        "databaseId": 117901549510,
+        "name": "LAN source installer and fresh SQLite",
+        "startedAt": "2026-10-19T05:15:30Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-19T05:15:31Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-19T05:15:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:36Z",
+            "conclusion": "success",
+            "name": "Check out",
+            "number": 2,
+            "startedAt": "2026-10-19T05:15:31Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:37Z",
+            "conclusion": "success",
+            "name": "Set up Node",
+            "number": 3,
+            "startedAt": "2026-10-19T05:15:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:37Z",
+            "conclusion": "success",
+            "name": "Prepare isolated installer configuration",
+            "number": 4,
+            "startedAt": "2026-10-19T05:15:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:34Z",
+            "conclusion": "success",
+            "name": "Run the source installer",
+            "number": 5,
+            "startedAt": "2026-10-19T05:15:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:35Z",
+            "conclusion": "success",
+            "name": "Verify installed image, isolation and fresh setup",
+            "number": 6,
+            "startedAt": "2026-10-19T05:17:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:36Z",
+            "conclusion": "success",
+            "name": "Preserve safe source installer report",
+            "number": 7,
+            "startedAt": "2026-10-19T05:17:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:36Z",
+            "conclusion": "skipped",
+            "name": "Safe installer diagnostics",
+            "number": 8,
+            "startedAt": "2026-10-19T05:17:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:36Z",
+            "conclusion": "success",
+            "name": "Remove only this installer instance",
+            "number": 9,
+            "startedAt": "2026-10-19T05:17:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:36Z",
+            "conclusion": "success",
+            "name": "Post Set up Node",
+            "number": 17,
+            "startedAt": "2026-10-19T05:17:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:36Z",
+            "conclusion": "success",
+            "name": "Post Check out",
+            "number": 18,
+            "startedAt": "2026-10-19T05:17:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:36Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 19,
+            "startedAt": "2026-10-19T05:17:36Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203596121/job/117901549510"
+      },
+      {
+        "completedAt": "2026-10-19T05:25:25Z",
+        "conclusion": "success",
+        "databaseId": 117902995840,
+        "name": "full fresh authoritative image and SQLite smoke",
+        "startedAt": "2026-10-19T05:23:28Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-19T05:23:32Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-19T05:23:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:35Z",
+            "conclusion": "success",
+            "name": "Check out",
+            "number": 2,
+            "startedAt": "2026-10-19T05:23:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:35Z",
+            "conclusion": "skipped",
+            "name": "Set up Docker Buildx",
+            "number": 3,
+            "startedAt": "2026-10-19T05:23:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:39Z",
+            "conclusion": "success",
+            "name": "Set up Node",
+            "number": 4,
+            "startedAt": "2026-10-19T05:23:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:57Z",
+            "conclusion": "success",
+            "name": "Download exact producer edition bundle",
+            "number": 5,
+            "startedAt": "2026-10-19T05:23:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:24:02Z",
+            "conclusion": "success",
+            "name": "Verify and load immutable images without registry fallback",
+            "number": 6,
+            "startedAt": "2026-10-19T05:23:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:24:02Z",
+            "conclusion": "skipped",
+            "name": "Check out fixed handoff source",
+            "number": 7,
+            "startedAt": "2026-10-19T05:24:02Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:24:02Z",
+            "conclusion": "skipped",
+            "name": "Build fixed handoff source image",
+            "number": 8,
+            "startedAt": "2026-10-19T05:24:02Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:24:03Z",
+            "conclusion": "success",
+            "name": "Prepare owned personal test network and Redis",
+            "number": 9,
+            "startedAt": "2026-10-19T05:24:02Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:24:03Z",
+            "conclusion": "success",
+            "name": "Start isolated SQLite container",
+            "number": 10,
+            "startedAt": "2026-10-19T05:24:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:24:09Z",
+            "conclusion": "success",
+            "name": "Wait for health and verify status",
+            "number": 11,
+            "startedAt": "2026-10-19T05:24:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:24:10Z",
+            "conclusion": "success",
+            "name": "Start isolated fake upstream",
+            "number": 12,
+            "startedAt": "2026-10-19T05:24:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:24:11Z",
+            "conclusion": "success",
+            "name": "Wait for fake upstream fixture",
+            "number": 13,
+            "startedAt": "2026-10-19T05:24:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:24:43Z",
+            "conclusion": "success",
+            "name": "Install isolated browser test runtime",
+            "number": 14,
+            "startedAt": "2026-10-19T05:24:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:25:18Z",
+            "conclusion": "success",
+            "name": "Verify fresh setup, authentication and real frontend",
+            "number": 15,
+            "startedAt": "2026-10-19T05:24:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:25:20Z",
+            "conclusion": "success",
+            "name": "Preserve safe personal browser evidence",
+            "number": 16,
+            "startedAt": "2026-10-19T05:25:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:25:20Z",
+            "conclusion": "skipped",
+            "name": "Verify empty-history migration, historical startup refusal, and original-backup recovery",
+            "number": 17,
+            "startedAt": "2026-10-19T05:25:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:25:21Z",
+            "conclusion": "success",
+            "name": "Preserve verified identity and safe qualification report",
+            "number": 18,
+            "startedAt": "2026-10-19T05:25:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:25:21Z",
+            "conclusion": "success",
+            "name": "Record safe image identity",
+            "number": 19,
+            "startedAt": "2026-10-19T05:25:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:25:21Z",
+            "conclusion": "skipped",
+            "name": "Safe container diagnostics",
+            "number": 20,
+            "startedAt": "2026-10-19T05:25:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:25:21Z",
+            "conclusion": "success",
+            "name": "Remove smoke containers",
+            "number": 21,
+            "startedAt": "2026-10-19T05:25:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:25:21Z",
+            "conclusion": "success",
+            "name": "Remove only owned personal Redis and network",
+            "number": 22,
+            "startedAt": "2026-10-19T05:25:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:25:21Z",
+            "conclusion": "success",
+            "name": "Post Set up Node",
+            "number": 43,
+            "startedAt": "2026-10-19T05:25:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:25:22Z",
+            "conclusion": "success",
+            "name": "Post Check out",
+            "number": 44,
+            "startedAt": "2026-10-19T05:25:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:25:22Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 45,
+            "startedAt": "2026-10-19T05:25:22Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203596121/job/117902995840"
+      },
+      {
+        "completedAt": "2026-10-19T05:22:23Z",
+        "conclusion": "success",
+        "databaseId": 117902995860,
+        "name": "full fresh legacy image and SQLite smoke",
+        "startedAt": "2026-10-19T05:20:56Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-19T05:21:00Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-19T05:20:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:21:03Z",
+            "conclusion": "success",
+            "name": "Check out",
+            "number": 2,
+            "startedAt": "2026-10-19T05:21:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:21:03Z",
+            "conclusion": "skipped",
+            "name": "Set up Docker Buildx",
+            "number": 3,
+            "startedAt": "2026-10-19T05:21:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:21:04Z",
+            "conclusion": "success",
+            "name": "Set up Node",
+            "number": 4,
+            "startedAt": "2026-10-19T05:21:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:21:10Z",
+            "conclusion": "success",
+            "name": "Download exact producer edition bundle",
+            "number": 5,
+            "startedAt": "2026-10-19T05:21:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:21:16Z",
+            "conclusion": "success",
+            "name": "Verify and load immutable images without registry fallback",
+            "number": 6,
+            "startedAt": "2026-10-19T05:21:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:21:16Z",
+            "conclusion": "skipped",
+            "name": "Check out fixed handoff source",
+            "number": 7,
+            "startedAt": "2026-10-19T05:21:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:21:16Z",
+            "conclusion": "skipped",
+            "name": "Build fixed handoff source image",
+            "number": 8,
+            "startedAt": "2026-10-19T05:21:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:21:16Z",
+            "conclusion": "success",
+            "name": "Prepare owned personal test network and Redis",
+            "number": 9,
+            "startedAt": "2026-10-19T05:21:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:21:16Z",
+            "conclusion": "success",
+            "name": "Start isolated SQLite container",
+            "number": 10,
+            "startedAt": "2026-10-19T05:21:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:21:22Z",
+            "conclusion": "success",
+            "name": "Wait for health and verify status",
+            "number": 11,
+            "startedAt": "2026-10-19T05:21:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:21:22Z",
+            "conclusion": "success",
+            "name": "Start isolated fake upstream",
+            "number": 12,
+            "startedAt": "2026-10-19T05:21:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:21:23Z",
+            "conclusion": "success",
+            "name": "Wait for fake upstream fixture",
+            "number": 13,
+            "startedAt": "2026-10-19T05:21:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:21:45Z",
+            "conclusion": "success",
+            "name": "Install isolated browser test runtime",
+            "number": 14,
+            "startedAt": "2026-10-19T05:21:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:18Z",
+            "conclusion": "success",
+            "name": "Verify fresh setup, authentication and real frontend",
+            "number": 15,
+            "startedAt": "2026-10-19T05:21:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:19Z",
+            "conclusion": "success",
+            "name": "Preserve safe personal browser evidence",
+            "number": 16,
+            "startedAt": "2026-10-19T05:22:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:19Z",
+            "conclusion": "skipped",
+            "name": "Verify empty-history migration, historical startup refusal, and original-backup recovery",
+            "number": 17,
+            "startedAt": "2026-10-19T05:22:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:20Z",
+            "conclusion": "success",
+            "name": "Preserve verified identity and safe qualification report",
+            "number": 18,
+            "startedAt": "2026-10-19T05:22:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:20Z",
+            "conclusion": "success",
+            "name": "Record safe image identity",
+            "number": 19,
+            "startedAt": "2026-10-19T05:22:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:20Z",
+            "conclusion": "skipped",
+            "name": "Safe container diagnostics",
+            "number": 20,
+            "startedAt": "2026-10-19T05:22:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:21Z",
+            "conclusion": "success",
+            "name": "Remove smoke containers",
+            "number": 21,
+            "startedAt": "2026-10-19T05:22:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:21Z",
+            "conclusion": "success",
+            "name": "Remove only owned personal Redis and network",
+            "number": 22,
+            "startedAt": "2026-10-19T05:22:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:21Z",
+            "conclusion": "success",
+            "name": "Post Set up Node",
+            "number": 43,
+            "startedAt": "2026-10-19T05:22:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:22Z",
+            "conclusion": "success",
+            "name": "Post Check out",
+            "number": 44,
+            "startedAt": "2026-10-19T05:22:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:22Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 45,
+            "startedAt": "2026-10-19T05:22:22Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203596121/job/117902995860"
+      },
+      {
+        "completedAt": "2026-10-19T05:23:26Z",
+        "conclusion": "success",
+        "databaseId": 117902995921,
+        "name": "lan fresh legacy image and SQLite smoke",
+        "startedAt": "2026-10-19T05:22:25Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-19T05:22:28Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-19T05:22:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:32Z",
+            "conclusion": "success",
+            "name": "Check out",
+            "number": 2,
+            "startedAt": "2026-10-19T05:22:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:32Z",
+            "conclusion": "skipped",
+            "name": "Set up Docker Buildx",
+            "number": 3,
+            "startedAt": "2026-10-19T05:22:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:33Z",
+            "conclusion": "success",
+            "name": "Set up Node",
+            "number": 4,
+            "startedAt": "2026-10-19T05:22:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:40Z",
+            "conclusion": "success",
+            "name": "Download exact producer edition bundle",
+            "number": 5,
+            "startedAt": "2026-10-19T05:22:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:46Z",
+            "conclusion": "success",
+            "name": "Verify and load immutable images without registry fallback",
+            "number": 6,
+            "startedAt": "2026-10-19T05:22:40Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:46Z",
+            "conclusion": "skipped",
+            "name": "Check out fixed handoff source",
+            "number": 7,
+            "startedAt": "2026-10-19T05:22:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:46Z",
+            "conclusion": "skipped",
+            "name": "Build fixed handoff source image",
+            "number": 8,
+            "startedAt": "2026-10-19T05:22:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:46Z",
+            "conclusion": "skipped",
+            "name": "Prepare owned personal test network and Redis",
+            "number": 9,
+            "startedAt": "2026-10-19T05:22:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:46Z",
+            "conclusion": "success",
+            "name": "Start isolated SQLite container",
+            "number": 10,
+            "startedAt": "2026-10-19T05:22:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:52Z",
+            "conclusion": "success",
+            "name": "Wait for health and verify status",
+            "number": 11,
+            "startedAt": "2026-10-19T05:22:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:52Z",
+            "conclusion": "success",
+            "name": "Start isolated fake upstream",
+            "number": 12,
+            "startedAt": "2026-10-19T05:22:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:53Z",
+            "conclusion": "success",
+            "name": "Wait for fake upstream fixture",
+            "number": 13,
+            "startedAt": "2026-10-19T05:22:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:15Z",
+            "conclusion": "success",
+            "name": "Install isolated browser test runtime",
+            "number": 14,
+            "startedAt": "2026-10-19T05:22:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:22Z",
+            "conclusion": "success",
+            "name": "Verify fresh setup, authentication and real frontend",
+            "number": 15,
+            "startedAt": "2026-10-19T05:23:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:22Z",
+            "conclusion": "skipped",
+            "name": "Preserve safe personal browser evidence",
+            "number": 16,
+            "startedAt": "2026-10-19T05:23:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:22Z",
+            "conclusion": "skipped",
+            "name": "Verify empty-history migration, historical startup refusal, and original-backup recovery",
+            "number": 17,
+            "startedAt": "2026-10-19T05:23:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:23Z",
+            "conclusion": "success",
+            "name": "Preserve verified identity and safe qualification report",
+            "number": 18,
+            "startedAt": "2026-10-19T05:23:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:23Z",
+            "conclusion": "success",
+            "name": "Record safe image identity",
+            "number": 19,
+            "startedAt": "2026-10-19T05:23:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:23Z",
+            "conclusion": "skipped",
+            "name": "Safe container diagnostics",
+            "number": 20,
+            "startedAt": "2026-10-19T05:23:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:23Z",
+            "conclusion": "success",
+            "name": "Remove smoke containers",
+            "number": 21,
+            "startedAt": "2026-10-19T05:23:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:23Z",
+            "conclusion": "skipped",
+            "name": "Remove only owned personal Redis and network",
+            "number": 22,
+            "startedAt": "2026-10-19T05:23:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:24Z",
+            "conclusion": "success",
+            "name": "Post Set up Node",
+            "number": 43,
+            "startedAt": "2026-10-19T05:23:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:24Z",
+            "conclusion": "success",
+            "name": "Post Check out",
+            "number": 44,
+            "startedAt": "2026-10-19T05:23:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:24Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 45,
+            "startedAt": "2026-10-19T05:23:24Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203596121/job/117902995921"
+      },
+      {
+        "completedAt": "2026-10-19T05:26:52Z",
+        "conclusion": "success",
+        "databaseId": 117902995934,
+        "name": "full handoff legacy image and SQLite smoke",
+        "startedAt": "2026-10-19T05:25:27Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-19T05:25:32Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-19T05:25:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:25:37Z",
+            "conclusion": "success",
+            "name": "Check out",
+            "number": 2,
+            "startedAt": "2026-10-19T05:25:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:25:49Z",
+            "conclusion": "success",
+            "name": "Set up Docker Buildx",
+            "number": 3,
+            "startedAt": "2026-10-19T05:25:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:25:50Z",
+            "conclusion": "success",
+            "name": "Set up Node",
+            "number": 4,
+            "startedAt": "2026-10-19T05:25:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:00Z",
+            "conclusion": "success",
+            "name": "Download exact producer edition bundle",
+            "number": 5,
+            "startedAt": "2026-10-19T05:25:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:09Z",
+            "conclusion": "success",
+            "name": "Verify and load immutable images without registry fallback",
+            "number": 6,
+            "startedAt": "2026-10-19T05:26:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:12Z",
+            "conclusion": "success",
+            "name": "Check out fixed handoff source",
+            "number": 7,
+            "startedAt": "2026-10-19T05:26:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:21Z",
+            "conclusion": "success",
+            "name": "Build fixed handoff source image",
+            "number": 8,
+            "startedAt": "2026-10-19T05:26:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:21Z",
+            "conclusion": "skipped",
+            "name": "Prepare owned personal test network and Redis",
+            "number": 9,
+            "startedAt": "2026-10-19T05:26:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:21Z",
+            "conclusion": "success",
+            "name": "Start isolated SQLite container",
+            "number": 10,
+            "startedAt": "2026-10-19T05:26:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:27Z",
+            "conclusion": "success",
+            "name": "Wait for health and verify status",
+            "number": 11,
+            "startedAt": "2026-10-19T05:26:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:28Z",
+            "conclusion": "success",
+            "name": "Start isolated fake upstream",
+            "number": 12,
+            "startedAt": "2026-10-19T05:26:27Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:29Z",
+            "conclusion": "success",
+            "name": "Wait for fake upstream fixture",
+            "number": 13,
+            "startedAt": "2026-10-19T05:26:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:29Z",
+            "conclusion": "skipped",
+            "name": "Install isolated browser test runtime",
+            "number": 14,
+            "startedAt": "2026-10-19T05:26:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:29Z",
+            "conclusion": "skipped",
+            "name": "Verify fresh setup, authentication and real frontend",
+            "number": 15,
+            "startedAt": "2026-10-19T05:26:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:29Z",
+            "conclusion": "skipped",
+            "name": "Preserve safe personal browser evidence",
+            "number": 16,
+            "startedAt": "2026-10-19T05:26:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:44Z",
+            "conclusion": "success",
+            "name": "Verify empty-history migration, historical startup refusal, and original-backup recovery",
+            "number": 17,
+            "startedAt": "2026-10-19T05:26:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:45Z",
+            "conclusion": "success",
+            "name": "Preserve verified identity and safe qualification report",
+            "number": 18,
+            "startedAt": "2026-10-19T05:26:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:45Z",
+            "conclusion": "success",
+            "name": "Record safe image identity",
+            "number": 19,
+            "startedAt": "2026-10-19T05:26:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:45Z",
+            "conclusion": "skipped",
+            "name": "Safe container diagnostics",
+            "number": 20,
+            "startedAt": "2026-10-19T05:26:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:46Z",
+            "conclusion": "success",
+            "name": "Remove smoke containers",
+            "number": 21,
+            "startedAt": "2026-10-19T05:26:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:46Z",
+            "conclusion": "skipped",
+            "name": "Remove only owned personal Redis and network",
+            "number": 22,
+            "startedAt": "2026-10-19T05:26:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:47Z",
+            "conclusion": "success",
+            "name": "Post Build fixed handoff source image",
+            "number": 40,
+            "startedAt": "2026-10-19T05:26:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:47Z",
+            "conclusion": "success",
+            "name": "Post Check out fixed handoff source",
+            "number": 41,
+            "startedAt": "2026-10-19T05:26:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:48Z",
+            "conclusion": "success",
+            "name": "Post Set up Node",
+            "number": 42,
+            "startedAt": "2026-10-19T05:26:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:48Z",
+            "conclusion": "success",
+            "name": "Post Set up Docker Buildx",
+            "number": 43,
+            "startedAt": "2026-10-19T05:26:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:49Z",
+            "conclusion": "success",
+            "name": "Post Check out",
+            "number": 44,
+            "startedAt": "2026-10-19T05:26:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:26:49Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 45,
+            "startedAt": "2026-10-19T05:26:49Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203596121/job/117902995934"
+      }
+    ],
+    "status": "completed",
+    "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203596121"
+  },
+  "ci": {
+    "conclusion": "success",
+    "headSha": "cdeef8b52792a09b341d074521d59cb5cc7f62fb",
+    "jobs": [
+      {
+        "completedAt": "2026-10-19T05:18:13Z",
+        "conclusion": "success",
+        "databaseId": 117901519527,
+        "name": "S2-A payment and subscription database regression",
+        "startedAt": "2026-10-19T05:15:23Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-19T05:15:25Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-19T05:15:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:51Z",
+            "conclusion": "success",
+            "name": "Initialize containers",
+            "number": 2,
+            "startedAt": "2026-10-19T05:15:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:53Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 3,
+            "startedAt": "2026-10-19T05:15:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:16:03Z",
+            "conclusion": "success",
+            "name": "Set up Go",
+            "number": 4,
+            "startedAt": "2026-10-19T05:15:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:18:09Z",
+            "conclusion": "success",
+            "name": "Verify payment transactions on disposable databases",
+            "number": 5,
+            "startedAt": "2026-10-19T05:16:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:18:10Z",
+            "conclusion": "success",
+            "name": "Post Set up Go",
+            "number": 8,
+            "startedAt": "2026-10-19T05:18:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:18:10Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 9,
+            "startedAt": "2026-10-19T05:18:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:18:10Z",
+            "conclusion": "success",
+            "name": "Stop containers",
+            "number": 10,
+            "startedAt": "2026-10-19T05:18:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:18:10Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-19T05:18:10Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203586608/job/117901519527"
+      },
+      {
+        "completedAt": "2026-10-19T05:19:39Z",
+        "conclusion": "success",
+        "databaseId": 117901519668,
+        "name": "B2 durable submission database regression",
+        "startedAt": "2026-10-19T05:15:23Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-19T05:15:24Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-19T05:15:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:51Z",
+            "conclusion": "success",
+            "name": "Initialize containers",
+            "number": 2,
+            "startedAt": "2026-10-19T05:15:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:53Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 3,
+            "startedAt": "2026-10-19T05:15:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:16:02Z",
+            "conclusion": "success",
+            "name": "Set up Go",
+            "number": 4,
+            "startedAt": "2026-10-19T05:15:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:18:45Z",
+            "conclusion": "success",
+            "name": "Verify durable submissions on disposable databases",
+            "number": 5,
+            "startedAt": "2026-10-19T05:16:02Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:19:37Z",
+            "conclusion": "success",
+            "name": "Verify quota identity migration and account projection on disposable databases",
+            "number": 6,
+            "startedAt": "2026-10-19T05:18:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:19:37Z",
+            "conclusion": "success",
+            "name": "Post Set up Go",
+            "number": 10,
+            "startedAt": "2026-10-19T05:19:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:19:37Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 11,
+            "startedAt": "2026-10-19T05:19:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:19:38Z",
+            "conclusion": "success",
+            "name": "Stop containers",
+            "number": 12,
+            "startedAt": "2026-10-19T05:19:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:19:38Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 13,
+            "startedAt": "2026-10-19T05:19:38Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203586608/job/117901519668"
+      },
+      {
+        "completedAt": "2026-10-19T05:18:14Z",
+        "conclusion": "success",
+        "databaseId": 117901519671,
+        "name": "S1 identity and options database regression",
+        "startedAt": "2026-10-19T05:15:23Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-19T05:15:25Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-19T05:15:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:55Z",
+            "conclusion": "success",
+            "name": "Initialize containers",
+            "number": 2,
+            "startedAt": "2026-10-19T05:15:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:57Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 3,
+            "startedAt": "2026-10-19T05:15:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:16:07Z",
+            "conclusion": "success",
+            "name": "Set up Go",
+            "number": 4,
+            "startedAt": "2026-10-19T05:15:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:18:10Z",
+            "conclusion": "success",
+            "name": "Verify identity migration and option persistence on disposable databases",
+            "number": 5,
+            "startedAt": "2026-10-19T05:16:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:18:10Z",
+            "conclusion": "success",
+            "name": "Post Set up Go",
+            "number": 8,
+            "startedAt": "2026-10-19T05:18:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:18:11Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 9,
+            "startedAt": "2026-10-19T05:18:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:18:11Z",
+            "conclusion": "success",
+            "name": "Stop containers",
+            "number": 10,
+            "startedAt": "2026-10-19T05:18:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:18:11Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-19T05:18:11Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203586608/job/117901519671"
+      },
+      {
+        "completedAt": "2026-10-19T05:41:46Z",
+        "conclusion": "success",
+        "databaseId": 117901519677,
+        "name": "Backend vet, build, and test",
+        "startedAt": "2026-10-19T05:15:23Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-19T05:15:24Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-19T05:15:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:28Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-10-19T05:15:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:37Z",
+            "conclusion": "success",
+            "name": "Set up Go",
+            "number": 3,
+            "startedAt": "2026-10-19T05:15:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:38Z",
+            "conclusion": "success",
+            "name": "Create frontend embed placeholder",
+            "number": 4,
+            "startedAt": "2026-10-19T05:15:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:18:39Z",
+            "conclusion": "success",
+            "name": "Vet root module",
+            "number": 5,
+            "startedAt": "2026-10-19T05:15:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:20:00Z",
+            "conclusion": "success",
+            "name": "Verify approximate subscription share boundaries",
+            "number": 6,
+            "startedAt": "2026-10-19T05:18:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:20:03Z",
+            "conclusion": "success",
+            "name": "Vet relaykit independently",
+            "number": 7,
+            "startedAt": "2026-10-19T05:20:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:20:07Z",
+            "conclusion": "success",
+            "name": "Build root module",
+            "number": 8,
+            "startedAt": "2026-10-19T05:20:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:22:36Z",
+            "conclusion": "success",
+            "name": "Build root module for linux/386",
+            "number": 9,
+            "startedAt": "2026-10-19T05:20:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:54Z",
+            "conclusion": "success",
+            "name": "Verify historical amount behavior on linux/386",
+            "number": 10,
+            "startedAt": "2026-10-19T05:22:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:54Z",
+            "conclusion": "success",
+            "name": "Verify root JSON wrapper policy",
+            "number": 11,
+            "startedAt": "2026-10-19T05:23:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:23:54Z",
+            "conclusion": "success",
+            "name": "Build relaykit independently",
+            "number": 12,
+            "startedAt": "2026-10-19T05:23:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:29:10Z",
+            "conclusion": "success",
+            "name": "Prove credential rotation and outbound generation compatibility",
+            "number": 13,
+            "startedAt": "2026-10-19T05:23:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:33:49Z",
+            "conclusion": "success",
+            "name": "Test root and relaykit modules",
+            "number": 14,
+            "startedAt": "2026-10-19T05:29:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:33:49Z",
+            "conclusion": "success",
+            "name": "Test historical accounting audit tools",
+            "number": 15,
+            "startedAt": "2026-10-19T05:33:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:34:19Z",
+            "conclusion": "success",
+            "name": "Verify configuration publication ordering under race detector",
+            "number": 16,
+            "startedAt": "2026-10-19T05:33:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:35:03Z",
+            "conclusion": "success",
+            "name": "Verify settings, rate-limit, and request snapshots under race detector",
+            "number": 17,
+            "startedAt": "2026-10-19T05:34:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:36:22Z",
+            "conclusion": "success",
+            "name": "Verify model discovery and route identity under race detector",
+            "number": 18,
+            "startedAt": "2026-10-19T05:35:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:39:13Z",
+            "conclusion": "success",
+            "name": "Verify native Chat budgets and funding admission boundaries under race detector",
+            "number": 19,
+            "startedAt": "2026-10-19T05:36:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:39:51Z",
+            "conclusion": "success",
+            "name": "Verify assigned access and in-app account events under race detector",
+            "number": 20,
+            "startedAt": "2026-10-19T05:39:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:40:39Z",
+            "conclusion": "success",
+            "name": "Verify credential migration and sampling proofs under race detector",
+            "number": 21,
+            "startedAt": "2026-10-19T05:39:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:40:43Z",
+            "conclusion": "success",
+            "name": "Verify io.net and cache codec boundaries under race detector",
+            "number": 22,
+            "startedAt": "2026-10-19T05:40:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:41:18Z",
+            "conclusion": "success",
+            "name": "Verify task billing and logging boundaries under race detector",
+            "number": 23,
+            "startedAt": "2026-10-19T05:40:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:41:43Z",
+            "conclusion": "success",
+            "name": "Verify durable submission model under race detector",
+            "number": 24,
+            "startedAt": "2026-10-19T05:41:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:41:43Z",
+            "conclusion": "success",
+            "name": "Post Set up Go",
+            "number": 47,
+            "startedAt": "2026-10-19T05:41:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:41:44Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 48,
+            "startedAt": "2026-10-19T05:41:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:41:44Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 49,
+            "startedAt": "2026-10-19T05:41:44Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203586608/job/117901519677"
+      },
+      {
+        "completedAt": "2026-10-19T05:35:10Z",
+        "conclusion": "success",
+        "databaseId": 117901519686,
+        "name": "Frontend typecheck and test",
+        "startedAt": "2026-10-19T05:15:23Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-19T05:15:26Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-19T05:15:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:29Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-10-19T05:15:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:30Z",
+            "conclusion": "success",
+            "name": "Set up Bun",
+            "number": 3,
+            "startedAt": "2026-10-19T05:15:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:33Z",
+            "conclusion": "success",
+            "name": "Install dependencies",
+            "number": 4,
+            "startedAt": "2026-10-19T05:15:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:33Z",
+            "conclusion": "skipped",
+            "name": "Verify pre-fix personal Key handoff regression",
+            "number": 5,
+            "startedAt": "2026-10-19T05:15:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:39Z",
+            "conclusion": "success",
+            "name": "Build real quota UI for browser regression",
+            "number": 6,
+            "startedAt": "2026-10-19T05:15:33Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:44Z",
+            "conclusion": "success",
+            "name": "Verify pre-fix Key maintenance session regressions",
+            "number": 7,
+            "startedAt": "2026-10-19T05:15:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:49Z",
+            "conclusion": "success",
+            "name": "Prove remaining maintenance authentication regressions on the pre-fix source",
+            "number": 8,
+            "startedAt": "2026-10-19T05:15:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:50Z",
+            "conclusion": "success",
+            "name": "Retain runnable personal console build",
+            "number": 9,
+            "startedAt": "2026-10-19T05:15:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:55Z",
+            "conclusion": "success",
+            "name": "Typecheck",
+            "number": 10,
+            "startedAt": "2026-10-19T05:15:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:55Z",
+            "conclusion": "success",
+            "name": "Lint",
+            "number": 11,
+            "startedAt": "2026-10-19T05:15:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:18:47Z",
+            "conclusion": "success",
+            "name": "Test",
+            "number": 12,
+            "startedAt": "2026-10-19T05:15:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:18:48Z",
+            "conclusion": "success",
+            "name": "Retain frontend test results before browser qualification",
+            "number": 13,
+            "startedAt": "2026-10-19T05:18:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:19:09Z",
+            "conclusion": "success",
+            "name": "Install isolated browser test dependencies",
+            "number": 14,
+            "startedAt": "2026-10-19T05:18:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:19:59Z",
+            "conclusion": "success",
+            "name": "Qualify advanced personal maintenance in Chromium",
+            "number": 15,
+            "startedAt": "2026-10-19T05:19:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:20:01Z",
+            "conclusion": "success",
+            "name": "Upload advanced maintenance screenshots and reports",
+            "number": 16,
+            "startedAt": "2026-10-19T05:19:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:20:50Z",
+            "conclusion": "success",
+            "name": "Verify real quota charts and responsive interactions",
+            "number": 17,
+            "startedAt": "2026-10-19T05:20:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:21:01Z",
+            "conclusion": "success",
+            "name": "Verify model discovery and routing workflow in real Chromium",
+            "number": 18,
+            "startedAt": "2026-10-19T05:20:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:21:11Z",
+            "conclusion": "success",
+            "name": "Verify assigned access and account events in real Chromium",
+            "number": 19,
+            "startedAt": "2026-10-19T05:21:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:24:36Z",
+            "conclusion": "success",
+            "name": "Qualify personal console pages and native-window shares in Chromium",
+            "number": 20,
+            "startedAt": "2026-10-19T05:21:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:24:38Z",
+            "conclusion": "success",
+            "name": "Upload personal console screenshots and qualification reports",
+            "number": 21,
+            "startedAt": "2026-10-19T05:24:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:35:03Z",
+            "conclusion": "success",
+            "name": "Qualify shared UI, roles, settings and responsive pages in Chromium",
+            "number": 22,
+            "startedAt": "2026-10-19T05:24:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:35:05Z",
+            "conclusion": "success",
+            "name": "Upload full UI screenshots and qualification report",
+            "number": 23,
+            "startedAt": "2026-10-19T05:35:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:35:06Z",
+            "conclusion": "success",
+            "name": "Upload assigned access browser screenshots",
+            "number": 24,
+            "startedAt": "2026-10-19T05:35:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:35:07Z",
+            "conclusion": "success",
+            "name": "Upload routing browser screenshots",
+            "number": 25,
+            "startedAt": "2026-10-19T05:35:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:35:08Z",
+            "conclusion": "success",
+            "name": "Upload quota browser screenshots",
+            "number": 26,
+            "startedAt": "2026-10-19T05:35:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:35:08Z",
+            "conclusion": "success",
+            "name": "Post Set up Bun",
+            "number": 51,
+            "startedAt": "2026-10-19T05:35:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:35:08Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 52,
+            "startedAt": "2026-10-19T05:35:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:35:08Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 53,
+            "startedAt": "2026-10-19T05:35:08Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203586608/job/117901519686"
+      },
+      {
+        "completedAt": "2026-10-19T05:17:51Z",
+        "conclusion": "success",
+        "databaseId": 117901519688,
+        "name": "S2-C quota script Redis regression",
+        "startedAt": "2026-10-19T05:15:23Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-19T05:15:24Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-19T05:15:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:35Z",
+            "conclusion": "success",
+            "name": "Initialize containers",
+            "number": 2,
+            "startedAt": "2026-10-19T05:15:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:39Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 3,
+            "startedAt": "2026-10-19T05:15:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:48Z",
+            "conclusion": "success",
+            "name": "Set up Go",
+            "number": 4,
+            "startedAt": "2026-10-19T05:15:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:45Z",
+            "conclusion": "success",
+            "name": "Verify quota scripts on disposable Redis",
+            "number": 5,
+            "startedAt": "2026-10-19T05:15:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:48Z",
+            "conclusion": "success",
+            "name": "Prove credential rotation cache fences on disposable Redis",
+            "number": 6,
+            "startedAt": "2026-10-19T05:17:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:48Z",
+            "conclusion": "success",
+            "name": "Post Set up Go",
+            "number": 10,
+            "startedAt": "2026-10-19T05:17:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:49Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 11,
+            "startedAt": "2026-10-19T05:17:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:49Z",
+            "conclusion": "success",
+            "name": "Stop containers",
+            "number": 12,
+            "startedAt": "2026-10-19T05:17:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:49Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 13,
+            "startedAt": "2026-10-19T05:17:49Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203586608/job/117901519688"
+      },
+      {
+        "completedAt": "2026-10-19T05:15:48Z",
+        "conclusion": "success",
+        "databaseId": 117901519745,
+        "name": "S2-C09 Redis limiter lifecycle regression",
+        "startedAt": "2026-10-19T05:15:23Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-19T05:15:24Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-19T05:15:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:34Z",
+            "conclusion": "success",
+            "name": "Initialize containers",
+            "number": 2,
+            "startedAt": "2026-10-19T05:15:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:36Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 3,
+            "startedAt": "2026-10-19T05:15:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:45Z",
+            "conclusion": "success",
+            "name": "Set up Go",
+            "number": 4,
+            "startedAt": "2026-10-19T05:15:36Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:45Z",
+            "conclusion": "success",
+            "name": "Verify limiter lifecycle on disposable Redis",
+            "number": 5,
+            "startedAt": "2026-10-19T05:15:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:46Z",
+            "conclusion": "success",
+            "name": "Post Set up Go",
+            "number": 8,
+            "startedAt": "2026-10-19T05:15:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:46Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 9,
+            "startedAt": "2026-10-19T05:15:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:46Z",
+            "conclusion": "success",
+            "name": "Stop containers",
+            "number": 10,
+            "startedAt": "2026-10-19T05:15:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:46Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-19T05:15:46Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203586608/job/117901519745"
+      },
+      {
+        "completedAt": "2026-10-19T05:15:34Z",
+        "conclusion": "success",
+        "databaseId": 117901519790,
+        "name": "Desktop cross-platform contract",
+        "startedAt": "2026-10-19T05:15:23Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-19T05:15:25Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-19T05:15:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:29Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-10-19T05:15:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:29Z",
+            "conclusion": "success",
+            "name": "Validate macOS and Windows desktop contract",
+            "number": 3,
+            "startedAt": "2026-10-19T05:15:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:31Z",
+            "conclusion": "success",
+            "name": "Run Electron runtime tests",
+            "number": 4,
+            "startedAt": "2026-10-19T05:15:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:32Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 8,
+            "startedAt": "2026-10-19T05:15:31Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:32Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 9,
+            "startedAt": "2026-10-19T05:15:32Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203586608/job/117901519790"
+      },
+      {
+        "completedAt": "2026-10-19T05:16:39Z",
+        "conclusion": "success",
+        "databaseId": 117901519810,
+        "name": "Distribution and release contracts",
+        "startedAt": "2026-10-19T05:15:23Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-19T05:15:24Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-19T05:15:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:28Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "startedAt": "2026-10-19T05:15:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:16:37Z",
+            "conclusion": "success",
+            "name": "Validate CLI and distribution contracts",
+            "number": 3,
+            "startedAt": "2026-10-19T05:15:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:16:37Z",
+            "conclusion": "success",
+            "name": "Verify Docker smoke fixture and restore contracts",
+            "number": 4,
+            "startedAt": "2026-10-19T05:16:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:16:37Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 8,
+            "startedAt": "2026-10-19T05:16:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:16:37Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 9,
+            "startedAt": "2026-10-19T05:16:37Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203586608/job/117901519810"
+      },
+      {
+        "completedAt": "2026-10-19T05:17:58Z",
+        "conclusion": "success",
+        "databaseId": 117901519882,
+        "name": "B2 ClickHouse log migration regression",
+        "startedAt": "2026-10-19T05:15:24Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-19T05:15:27Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-19T05:15:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:16:00Z",
+            "conclusion": "success",
+            "name": "Initialize containers",
+            "number": 2,
+            "startedAt": "2026-10-19T05:15:27Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:16:02Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 3,
+            "startedAt": "2026-10-19T05:16:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:16:11Z",
+            "conclusion": "success",
+            "name": "Set up Go",
+            "number": 4,
+            "startedAt": "2026-10-19T05:16:02Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:53Z",
+            "conclusion": "success",
+            "name": "Verify ClickHouse logs migration on a disposable database",
+            "number": 5,
+            "startedAt": "2026-10-19T05:16:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:53Z",
+            "conclusion": "success",
+            "name": "Post Set up Go",
+            "number": 8,
+            "startedAt": "2026-10-19T05:17:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:53Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 9,
+            "startedAt": "2026-10-19T05:17:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:54Z",
+            "conclusion": "success",
+            "name": "Stop containers",
+            "number": 10,
+            "startedAt": "2026-10-19T05:17:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:54Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "startedAt": "2026-10-19T05:17:54Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203586608/job/117901519882"
+      },
+      {
+        "completedAt": "2026-10-19T05:19:32Z",
+        "conclusion": "success",
+        "databaseId": 117901520224,
+        "name": "Isolated credential maintenance browser and real API",
+        "startedAt": "2026-10-19T05:15:23Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-19T05:15:24Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-19T05:15:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:28Z",
+            "conclusion": "success",
+            "name": "Checkout qualified source",
+            "number": 2,
+            "startedAt": "2026-10-19T05:15:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:37Z",
+            "conclusion": "success",
+            "name": "Set up Go",
+            "number": 3,
+            "startedAt": "2026-10-19T05:15:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:37Z",
+            "conclusion": "success",
+            "name": "Set up Node",
+            "number": 4,
+            "startedAt": "2026-10-19T05:15:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:53Z",
+            "conclusion": "success",
+            "name": "Wait for this run's exact production build",
+            "number": 5,
+            "startedAt": "2026-10-19T05:15:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:15:54Z",
+            "conclusion": "success",
+            "name": "Download this run's exact production build",
+            "number": 6,
+            "startedAt": "2026-10-19T05:15:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:16:17Z",
+            "conclusion": "success",
+            "name": "Install isolated browser tools",
+            "number": 7,
+            "startedAt": "2026-10-19T05:15:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:16:30Z",
+            "conclusion": "success",
+            "name": "Verify credential maintenance states on the production build",
+            "number": 8,
+            "startedAt": "2026-10-19T05:16:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:16:43Z",
+            "conclusion": "success",
+            "name": "Qualify credential rotation on the production build",
+            "number": 9,
+            "startedAt": "2026-10-19T05:16:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:17:11Z",
+            "conclusion": "success",
+            "name": "Verify remaining Key maintenance session boundaries in Chromium",
+            "number": 10,
+            "startedAt": "2026-10-19T05:16:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:19:18Z",
+            "conclusion": "success",
+            "name": "Verify real Go migration and proof routes on disposable SQLite",
+            "number": 11,
+            "startedAt": "2026-10-19T05:17:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:19:28Z",
+            "conclusion": "success",
+            "name": "Verify real Go rotation, proof and old/new authentication on disposable SQLite",
+            "number": 12,
+            "startedAt": "2026-10-19T05:19:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:19:29Z",
+            "conclusion": "success",
+            "name": "Retain original credential screenshots and reports",
+            "number": 13,
+            "startedAt": "2026-10-19T05:19:28Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:19:29Z",
+            "conclusion": "success",
+            "name": "Post Set up Node",
+            "number": 24,
+            "startedAt": "2026-10-19T05:19:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:19:29Z",
+            "conclusion": "success",
+            "name": "Post Set up Go",
+            "number": 25,
+            "startedAt": "2026-10-19T05:19:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:19:30Z",
+            "conclusion": "success",
+            "name": "Post Checkout qualified source",
+            "number": 26,
+            "startedAt": "2026-10-19T05:19:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-19T05:19:30Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 27,
+            "startedAt": "2026-10-19T05:19:30Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203586608/job/117901520224"
+      }
+    ],
+    "status": "completed",
+    "url": "https://github.com/ForceMind/MyAPI/actions/runs/39203586608"
+  },
+  "published": false,
+  "deployed": false,
+  "production_or_real_credentials_accessed": false,
+  "historical_accounting_frozen": true,
+  "stage1_result": "passed",
+  "original_files": 76,
+  "original_png": 44
+}

@@ -1,0 +1,101 @@
+{
+  "command": "upgrade:check",
+  "passed": true,
+  "checks": [
+    {
+      "name": "file: cli/myapi.mjs",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "file: cli/test/myapi.test.mjs",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "file: docs/UPGRADE_REHEARSAL.md",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "file: deploy/install.sh",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "CLI exposes an explicit, read-only dry-run mode",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dry-run resolves a version-pinned GHCR image by edition",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "upgrade validates runtime resource guardrails before writes",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "upgrade verifies an optional signature before changing deployment state",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "upgrade can pin the pulled image to a validated repository digest",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "upgrade stores a private environment backup",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "upgrade waits for a healthy target before success",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "upgrade restores the previous environment and reports rollback failure",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "upgrade refuses automatic image rollback after target startup was attempted",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "installer validates compose configuration before pull/build",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "local image builds inherit CPU and memory guardrails",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "installer waits for health and does not remove volumes",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "upgrade guide separates dry-run from database restore",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "upgrade guide documents health, backup, rollback and resource checks",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "CLI regression tests cover dry-run, resource rejection and rollback",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

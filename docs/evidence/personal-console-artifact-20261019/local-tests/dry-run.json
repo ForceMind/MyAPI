@@ -1,0 +1,21 @@
+{
+  "mode": "dry-run",
+  "projectDir": "/tmp/myapi-beta20-stage1-clean",
+  "edition": "full",
+  "currentImage": "ghcr.io/forcemind/myapi:v0.2.0-beta.20",
+  "targetImage": "ghcr.io/forcemind/myapi:v0.2.0-beta.20",
+  "version": "v0.2.0-beta.20",
+  "imageSource": "ghcr-pull",
+  "signatureVerification": "not-requested",
+  "imagePinning": "not-requested",
+  "imageResolution": "tag",
+  "rollbackPolicy": "manual-database-verification-after-target-start",
+  "checks": [
+    "deployment-files",
+    "environment",
+    "runtime-configuration"
+  ],
+  "existingAccountingConfiguration": "must-be-verified-before-apply",
+  "writes": [],
+  "dockerOperations": []
+}
