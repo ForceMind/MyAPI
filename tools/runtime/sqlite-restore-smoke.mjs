@@ -26,6 +26,17 @@ function databaseDigest(directory) {
   })
 }
 
+function settlementIdentity(value) {
+  let other
+  try { other = JSON.parse(value || '{}') } catch { throw new Error('SMOKE_RESTORE_SETTLEMENT_PROOF_MISMATCH') }
+  const settlement = other?.admin_info?.billing_settlement
+  if (settlement?.state !== 'applied' || !Number.isInteger(settlement.fact_id) || settlement.fact_id <= 0 ||
+      Object.hasOwn(settlement, 'intent_id') && (!Number.isInteger(settlement.intent_id) || settlement.intent_id <= 0)) {
+    throw new Error('SMOKE_RESTORE_SETTLEMENT_PROOF_MISMATCH')
+  }
+  return { factId: settlement.fact_id, intentId: Object.hasOwn(settlement, 'intent_id') ? settlement.intent_id : null }
+}
+
 // Pause all writers while copying the whole /data directory, including WAL.
 // This is a crash-consistent snapshot, not a graceful shutdown or an upgrade.
 export async function withRestoredSQLite({
@@ -158,14 +169,36 @@ export async function verifySQLiteRestore({ baseUrl, username, password, fetchIm
     if (ordinary?.length !== 1 || selectedChannels?.length !== 1) throw new Error('SMOKE_RESTORE_STATE_MISMATCH')
     const channel = await json(`/api/channel/${selectedChannels[0].id}`, { headers })
     const logs = await json('/api/log/?type=2&p=1&page_size=100', { headers })
-    if (self?.quota !== 0 || self?.self_use_no_balance !== true || self?.used_quota !== 15 || self?.request_count !== 1 ||
-        key?.remain_quota !== 985 || key?.used_quota !== 15 || ordinary[0].quota !== 999985 ||
-        ordinary[0].used_quota !== 15 || ordinary[0].request_count !== 1 || channel?.used_quota !== 30 ||
+    if (self?.role !== 100 || self?.status !== 1 || self?.quota !== 0 || self?.self_use_no_balance !== true ||
+        self?.usage_policy_revision !== 1 || self?.used_quota !== 15 || self?.request_count !== 1 ||
+        key?.status !== 1 || key?.remain_quota !== 985 || key?.used_quota !== 15 || key?.unlimited_quota !== false ||
+        key?.model_limits_enabled !== true || key?.model_limits !== 'smoke-model' || key?.group !== 'default' || key?.expired_time !== -1 ||
+        ordinary[0].role !== 1 || ordinary[0].status !== 1 || ordinary[0].quota !== 999985 ||
+        ordinary[0].used_quota !== 15 || ordinary[0].request_count !== 1 ||
+        channel?.status !== 1 || channel?.used_quota !== 30 || channel?.base_url !== 'http://127.0.0.1:19090' ||
+        channel?.models !== 'smoke-model' || channel?.group !== 'default' ||
         logs?.total !== 2 || !Array.isArray(logs.items) || logs.items.length !== 2) throw new Error('SMOKE_RESTORE_STATE_MISMATCH')
-    return { userId: self.id, policy: self.self_use_no_balance, policyRevision: self.usage_policy_revision,
-      keyId: key.id, keyHash: createHash('sha256').update(secret.key).digest('hex'),
-      ordinaryUserId: ordinary[0].id, channelId: channel.id,
-      logs: logs.items.map((row) => ({ id: row.id, request_id: row.request_id, user_id: row.user_id, token_id: row.token_id, quota: row.quota })).sort((a, b) => a.id - b.id) }
+    const ordinaryLog = logs.items.find((row) => row?.user_id === ordinary[0].id)
+    const selfUseLog = logs.items.find((row) => row?.user_id === self.id)
+    if (!ordinaryLog || !selfUseLog || ordinaryLog === selfUseLog || !Number.isInteger(ordinaryLog.token_id) || ordinaryLog.token_id <= 0 ||
+        ordinaryLog.channel !== channel.id || ordinaryLog.quota !== 15 || ordinaryLog.prompt_tokens !== 10 || ordinaryLog.completion_tokens !== 5 ||
+        typeof ordinaryLog.request_id !== 'string' || !ordinaryLog.request_id || selfUseLog.token_id !== key.id ||
+        selfUseLog.channel !== channel.id || selfUseLog.quota !== 15 || selfUseLog.prompt_tokens !== 10 || selfUseLog.completion_tokens !== 5 ||
+        typeof selfUseLog.request_id !== 'string' || !selfUseLog.request_id) throw new Error('SMOKE_RESTORE_STATE_MISMATCH')
+    return {
+      root: { id: self.id, role: self.role, status: self.status, quota: self.quota, policy: self.self_use_no_balance,
+        policyRevision: self.usage_policy_revision, usedQuota: self.used_quota, requestCount: self.request_count },
+      key: { id: key.id, hash: createHash('sha256').update(secret.key).digest('hex'), status: key.status,
+        remainQuota: key.remain_quota, usedQuota: key.used_quota, unlimited: key.unlimited_quota,
+        modelLimitsEnabled: key.model_limits_enabled, modelLimits: key.model_limits, group: key.group, expiry: key.expired_time },
+      ordinaryUser: { id: ordinary[0].id, role: ordinary[0].role, status: ordinary[0].status,
+        quota: ordinary[0].quota, usedQuota: ordinary[0].used_quota, requestCount: ordinary[0].request_count },
+      channel: { id: channel.id, status: channel.status, usedQuota: channel.used_quota,
+        baseUrl: channel.base_url, models: channel.models, group: channel.group },
+      logs: logs.items.map((row) => ({ id: row.id, requestId: row.request_id, userId: row.user_id,
+        tokenId: row.token_id, channelId: row.channel, quota: row.quota, promptTokens: row.prompt_tokens,
+        completionTokens: row.completion_tokens, settlement: settlementIdentity(row.other) })).sort((a, b) => a.id - b.id),
+    }
   }
   const before = await getState(baseUrl)
   await restore(async (origin) => {
@@ -184,5 +217,5 @@ export async function verifySQLiteRestore({ baseUrl, username, password, fetchIm
     const after = await getState(origin)
     if (JSON.stringify(before) !== JSON.stringify(after)) throw new Error('SMOKE_RESTORE_STATE_MISMATCH')
   })
-  return { name: 'paused SQLite and WAL snapshot restores login, Key identity, exact usage and logs in a separate same-image container', ok: true }
+  return { name: 'paused SQLite and WAL snapshot restores identities, finite limits, status, settlement proofs and exact usage in a separate same-image container', ok: true }
 }

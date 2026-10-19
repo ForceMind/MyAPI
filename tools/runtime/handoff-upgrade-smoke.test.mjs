@@ -122,7 +122,7 @@ test('workflow pins the handoff baseline without publishing and keeps fresh inst
   assert.match(include, /contains\(fromJSON\('\["codex\/personal-app-journey-20261009","codex\/docker-smoke-image-reuse-20261010"\]'/)
   assert.match(include, /\|\| '\[\{"edition":"full","scenario":"handoff","writer":"legacy"\}\]'/)
   assert.match(workflow, /scenario: \[fresh\]/)
-  assert.match(workflow, /run: node tools\/runtime\/handoff-upgrade-smoke.mjs/)
+  assert.match(workflow, /set -euo pipefail[\s\S]*?node tools\/runtime\/handoff-upgrade-smoke\.mjs \| tee "\$MYAPI_SMOKE_REPORT_DIR\/qualification\.json"/)
   assert.match(workflow, /MYAPI_SMOKE_HANDOFF_UPGRADE: '1'/)
   assert.doesNotMatch(workflow, /push: true|packages: write|docker login/)
 })

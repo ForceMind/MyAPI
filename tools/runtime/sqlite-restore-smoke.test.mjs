@@ -136,16 +136,35 @@ function apiFixture(tamper = '') {
       case '/api/user/login':
         assert.deepEqual(JSON.parse(options.body), { username: 'smokeadmin', password: 'synthetic-password' })
         return json({ access_token: 'synthetic-session' })
-      case '/api/user/self': return json({ id: 1, quota: 0, self_use_no_balance: true, usage_policy_revision: 1, used_quota: 15, request_count: 1 })
+      case '/api/user/self': return json({ id: 1, role: 100, status: restored && tamper === 'root-status' ? 2 : 1,
+        quota: 0, self_use_no_balance: true, usage_policy_revision: 1, used_quota: 15, request_count: 1 })
       case '/api/token/search': return json({ items: [{ id: 22, name: 'smoke-self-use-key' }] })
-      case '/api/token/22': return json({ id: 22, remain_quota: restored && tamper === 'quota' ? 984 : 985, used_quota: 15 })
+      case '/api/token/22': return json({ id: 22, status: restored && tamper === 'key-status' ? 2 : 1,
+        remain_quota: restored && tamper === 'quota' ? 984 : 985, used_quota: 15,
+        unlimited_quota: restored && tamper === 'key-unlimited',
+        model_limits_enabled: restored && tamper === 'key-model-enabled' ? false : true,
+        model_limits: restored && tamper === 'key-models' ? 'changed-model' : 'smoke-model',
+        group: restored && tamper === 'key-group' ? 'changed' : 'default',
+        expired_time: restored && tamper === 'key-expiry' ? 0 : -1 })
       case '/api/token/22/key': return json({ key: restored && tamper === 'key' ? 'different-synthetic-key' : 'synthetic-key' })
-      case '/api/user/search': return json({ items: [{ id: 11, username: 'smokeuser', quota: 999985, used_quota: 15, request_count: 1 }] })
+      case '/api/user/search': return json({ items: [{ id: 11, username: 'smokeuser', role: 1,
+        status: restored && tamper === 'ordinary-status' ? 2 : 1, quota: 999985, used_quota: 15, request_count: 1 }] })
       case '/api/channel/search': return json({ items: [{ id: 13, name: 'smoke-openai-channel' }] })
-      case '/api/channel/13': return json({ id: 13, used_quota: 30 })
+      case '/api/channel/13': return json({ id: 13, status: restored && tamper === 'channel-status' ? 2 : 1,
+        used_quota: 30, base_url: restored && tamper === 'channel-base' ? 'http://127.0.0.1:19091' : 'http://127.0.0.1:19090',
+        models: restored && tamper === 'channel-models' ? 'changed-model' : 'smoke-model',
+        group: restored && tamper === 'channel-group' ? 'changed' : 'default' })
       case '/api/log/': return json({ total: 2, items: [
-        { id: 1, request_id: 'ordinary-request', user_id: 11, token_id: 12, quota: 15 },
-        { id: 2, request_id: restored && tamper === 'log' ? 'different-request' : 'self-use-request', user_id: 1, token_id: 22, quota: 15 },
+        { id: 1, request_id: 'ordinary-request', user_id: 11, token_id: 12, channel: 13, quota: 15,
+          prompt_tokens: 10, completion_tokens: 5,
+          other: JSON.stringify({ admin_info: { billing_settlement: { state: 'applied', fact_id: 31 } } }) },
+        { id: 2, request_id: restored && tamper === 'log' ? 'different-request' : 'self-use-request',
+          user_id: 1, token_id: 22, channel: 13, quota: 15, prompt_tokens: 10, completion_tokens: 5,
+          other: JSON.stringify({ admin_info: { billing_settlement: {
+            state: restored && tamper === 'settlement-state' ? 'pending' : 'applied',
+            fact_id: restored && tamper === 'settlement-fact' ? 0 : 32,
+            intent_id: restored && tamper === 'settlement-intent' ? 99 : 42,
+          } } }) },
       ] })
       default: assert.fail('unexpected fixture API')
     }
@@ -170,6 +189,17 @@ test('restore refuses changed quota, Key or log identity and never resends a bil
     assert.equal(f.countRelays(), 0)
   }
 })
+
+for (const tamper of ['root-status', 'ordinary-status', 'key-status', 'key-unlimited', 'key-model-enabled',
+  'key-models', 'key-group', 'key-expiry', 'channel-status', 'channel-base', 'channel-models', 'channel-group',
+  'settlement-state', 'settlement-fact', 'settlement-intent']) {
+  test(`restore refuses changed ${tamper} contract`, async () => {
+    const f = apiFixture(tamper)
+    await assert.rejects(verifySQLiteRestore({ baseUrl: 'http://127.0.0.1:18080', username: 'smokeadmin', password: 'synthetic-password', ...f,
+      restore: (verify) => verify('http://127.0.0.1:18081') }), /SMOKE_RESTORE_(STATE|SETTLEMENT_PROOF)_MISMATCH/)
+    assert.equal(f.countRelays(), 0)
+  })
+}
 
 // This path must never reuse the migrated directory for the older binary.
 test('handoff upgrade and old-image recovery each start from the untouched pre-upgrade snapshot', async (t) => {

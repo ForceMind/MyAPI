@@ -127,7 +127,7 @@ jobs:
             ${{ runner.temp }}/smoke-bundle-full/manifest.json
             ${{ runner.temp }}/smoke-bundle-full/images.tar
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
           compression-level: 0
 
       - name: Build lan smoke image
@@ -180,7 +180,7 @@ jobs:
             ${{ runner.temp }}/smoke-bundle-lan/manifest.json
             ${{ runner.temp }}/smoke-bundle-lan/images.tar
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
           compression-level: 0
 
       - name: Publish only successfully uploaded edition identities
@@ -256,6 +256,7 @@ jobs:
           export MYAPI_INSTALLER_ROOT="$RUNNER_TEMP/myapi-install-${GITHUB_SHA}"
           mkdir -m 700 "$MYAPI_INSTALLER_ROOT"
           echo "MYAPI_INSTALLER_ROOT=$MYAPI_INSTALLER_ROOT" >> "$GITHUB_ENV"
+          mkdir -m 700 "$RUNNER_TEMP/myapi-installer-report"
           {
             printf 'MYAPI_IMAGE=local/myapi:install-%s\n' "$GITHUB_SHA"
             printf 'MYAPI_EDITION=lan\nMYAPI_BUILD_LOCAL=true\nBATCH_UPDATE_ENABLED=false\nMYAPI_ACCOUNTING_CONFIG_VERSION=1\n'
@@ -273,13 +274,14 @@ jobs:
       - name: Verify installed image, isolation and fresh setup
         run: |
           set -euo pipefail
+          umask 077
           [[ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' my-api)" == "$COMPOSE_PROJECT_NAME" ]]
           [[ "$(docker inspect --format '{{.Image}}' my-api)" == "$(docker image inspect --format '{{.Id}}' "local/myapi:install-$GITHUB_SHA")" ]]
           [[ "$(docker inspect --format '{{.State.Health.Status}}' my-api)" == 'healthy' ]]
           [[ "$(docker inspect --format '{{(index (index .NetworkSettings.Ports "3000/tcp") 0).HostIp}}' my-api)" == '127.0.0.1' ]]
           [[ "$(docker inspect --format '{{.HostConfig.Memory}}' my-api)" == '2147483648' ]]
           [[ "$(docker inspect --format '{{.HostConfig.NanoCpus}}' my-api)" == '2000000000' ]]
-          node --input-type=module <<'JS'
+          node --input-type=module <<'JS' | tee "$RUNNER_TEMP/myapi-installer-report/qualification.json"
           import { execFileSync } from 'node:child_process'
           import { readFileSync } from 'node:fs'
           import { probeFreshSQLite } from './tools/runtime/docker-smoke.mjs'
@@ -288,13 +290,24 @@ jobs:
             const installed = JSON.parse(execFileSync('docker', ['inspect', '--format', '{{json .Config.Env}}', 'my-api'], { encoding: 'utf8' }))
             if (!expected || !installed.includes(expected)) throw new Error('INSTALLER_IDENTITY_KEY_NOT_FORWARDED')
             const report = await probeFreshSQLite({ baseUrl: 'http://127.0.0.1:18082', edition: 'lan', sha: process.env.GITHUB_SHA, isolated: true })
-            console.log(JSON.stringify(report, null, 2))
+            console.log(JSON.stringify({ source_sha: process.env.GITHUB_SHA,
+              image_id: execFileSync('docker', ['image', 'inspect', '--format', '{{.Id}}', `local/myapi:install-${process.env.GITHUB_SHA}`], { encoding: 'utf8' }).trim(),
+              ...report }, null, 2))
             if (!report.passed) process.exitCode = 1
           } catch {
             console.error('INSTALLER_FRESH_SETUP_PROBE_FAILED')
             process.exitCode = 1
           }
           JS
+
+      - name: Preserve safe source installer report
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-installer-report-${{ github.sha }}
+          path: ${{ runner.temp }}/myapi-installer-report/*.json
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Safe installer diagnostics
         if: failure()
@@ -377,6 +390,7 @@ jobs:
           LAN_MANIFEST_SHA: ${{ needs.prepare-smoke-images.outputs.lan-manifest }}
         run: |
           set -euo pipefail
+          umask 077
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
           if [[ "$MYAPI_SMOKE_EDITION" == 'full' ]]; then BUNDLE_MANIFEST_SHA="$FULL_MANIFEST_SHA"; else BUNDLE_MANIFEST_SHA="$LAN_MANIFEST_SHA"; fi
           node tools/runtime/smoke-image-bundle.mjs verify-load \
@@ -385,6 +399,19 @@ jobs:
             --tree-sha "$(git rev-parse 'HEAD^{tree}')" --run-id "$GITHUB_RUN_ID" \
             --producer-attempt "${{ needs.prepare-smoke-images.outputs.attempt }}" \
             --manifest-sha256 "$BUNDLE_MANIFEST_SHA" --github-env "$GITHUB_ENV"
+          export MYAPI_SMOKE_REPORT_DIR="$RUNNER_TEMP/myapi-smoke-report"
+          mkdir -m 700 "$MYAPI_SMOKE_REPORT_DIR"
+          echo "MYAPI_SMOKE_REPORT_DIR=$MYAPI_SMOKE_REPORT_DIR" >> "$GITHUB_ENV"
+          cp "$RUNNER_TEMP/smoke-image-bundle/manifest.json" "$MYAPI_SMOKE_REPORT_DIR/manifest.json"
+          printf '%s  manifest.json\n' "$BUNDLE_MANIFEST_SHA" > "$MYAPI_SMOKE_REPORT_DIR/manifest.sha256"
+          export SMOKE_TREE_SHA="$(git rev-parse 'HEAD^{tree}')"
+          node --input-type=module <<'JS' > "$MYAPI_SMOKE_REPORT_DIR/source.json"
+          console.log(JSON.stringify({ source_sha: process.env.GITHUB_SHA, tree_sha: process.env.SMOKE_TREE_SHA,
+            run_id: process.env.GITHUB_RUN_ID, attempt: process.env.GITHUB_RUN_ATTEMPT,
+            edition: process.env.MYAPI_SMOKE_EDITION, writer: process.env.MYAPI_SMOKE_WRITER,
+            scenario: '${{ matrix.scenario }}', isolated: true, synthetic: true,
+            published: false, deployed: false }, null, 2))
+          JS
 
       # Historical source never enters the current-source producer build context.
       - name: Check out fixed handoff source
@@ -577,8 +604,10 @@ jobs:
           MYAPI_SMOKE_RESTORE: ${{ env.MYAPI_SMOKE_PERSONAL == '1' && '0' || '1' }}
           MYAPI_PERSONAL_ARTIFACT_DIR: ${{ runner.temp }}/myapi-personal-artifacts
         run: |
+          set -euo pipefail
+          umask 077
           mkdir -m 700 "$MYAPI_PERSONAL_ARTIFACT_DIR"
-          node tools/runtime/docker-smoke.mjs
+          node tools/runtime/docker-smoke.mjs | tee "$MYAPI_SMOKE_REPORT_DIR/qualification.json"
 
       - name: Preserve safe personal browser evidence
         if: always() && env.MYAPI_SMOKE_PERSONAL == '1'
@@ -587,14 +616,26 @@ jobs:
           name: myapi-personal-${{ matrix.writer }}-${{ github.sha }}
           path: ${{ runner.temp }}/myapi-personal-artifacts
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 30
 
       - name: Verify empty-history migration, historical startup refusal, and original-backup recovery
         if: matrix.scenario == 'handoff'
         env:
           MYAPI_SMOKE_HANDOFF_UPGRADE: '1'
           MYAPI_SMOKE_RESTORE: '1'
-        run: node tools/runtime/handoff-upgrade-smoke.mjs
+        run: |
+          set -euo pipefail
+          umask 077
+          node tools/runtime/handoff-upgrade-smoke.mjs | tee "$MYAPI_SMOKE_REPORT_DIR/qualification.json"
+
+      - name: Preserve verified identity and safe qualification report
+        if: always() && env.MYAPI_SMOKE_REPORT_DIR != ''
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-smoke-report-${{ matrix.edition }}-${{ matrix.scenario }}-${{ matrix.writer }}-${{ github.sha }}
+          path: ${{ runner.temp }}/myapi-smoke-report/
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Record safe image identity
         run: |

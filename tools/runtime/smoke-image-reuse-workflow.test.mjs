@@ -49,7 +49,7 @@ test('consumer uses exact original producer identity across failed-job reruns an
   assert.doesNotMatch(consumer.split('      # Historical source')[0], /pattern:|merge-multiple:|github-token:|run-id:|overwrite:/)
   assert.match(producer, /full-manifest: \$\{\{ steps.publish.outputs.full_manifest_sha256 \}\}/)
   assert.match(producer, /lan-manifest: \$\{\{ steps.publish.outputs.lan_manifest_sha256 \}\}/)
-  assert.equal((producer.match(/retention-days: 7/g) || []).length, 2)
+  assert.equal((producer.match(/retention-days: 30/g) || []).length, 2)
   assert.equal((producer.match(/if-no-files-found: error/g) || []).length, 2)
   for (const edition of ['full', 'lan']) {
     assert.match(producer, new RegExp(`smoke-bundle-${edition}/manifest\\.json`))
