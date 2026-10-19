@@ -19,7 +19,8 @@ import (
 func TestUpstreamAcceptanceRunConfiguredDatabases(t *testing.T) {
 	for _, engine := range []struct{ name, env string }{{"sqlite", ""}, {"mysql", "MYAPI_B2_MYSQL_DSN"}, {"postgres", "MYAPI_B2_POSTGRES_DSN"}} {
 		t.Run(engine.name, func(t *testing.T) {
-			var dialector gorm.Dialector = sqlite.Open(t.TempDir() + "/acceptance.db")
+			databasePath := t.TempDir() + "/acceptance.db"
+			var dialector gorm.Dialector = sqlite.Open(databasePath)
 			if engine.env != "" {
 				if os.Getenv("MYAPI_B2_DATABASE_TESTS") != "1" {
 					t.Skip("requires explicitly configured disposable loopback B2 database")
@@ -179,7 +180,16 @@ func TestUpstreamAcceptanceRunConfiguredDatabases(t *testing.T) {
 				_, err = ClaimUpstreamAcceptanceDispatch(ctx, run.ID, run.OwnerID, run.ChannelID, run.AccountRef, "sample", 200)
 				assert.ErrorIs(t, err, ErrUpstreamAcceptanceDenied)
 				// Reopening and rerunning migration do not reset state or counters.
-				reopened, err := gorm.Open(dialector, &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+				// The PostgreSQL fixture injects a pool through Config.Conn.
+				// Reusing its dialector would share that pool and close the
+				// original database while this fixture tests a restart.
+				var reopenedDialector gorm.Dialector = sqlite.Open(databasePath)
+				if engine.env != "" {
+					var err error
+					reopenedDialector, err = b2SubmissionDatabaseDialector(engine.name, strings.TrimSpace(os.Getenv(engine.env)))
+					require.NoError(t, err)
+				}
+				reopened, err := gorm.Open(reopenedDialector, &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 				require.NoError(t, err)
 				reopenedPool, err := reopened.DB()
 				require.NoError(t, err)
