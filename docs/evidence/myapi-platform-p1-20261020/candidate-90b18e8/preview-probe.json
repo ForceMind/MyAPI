@@ -1,0 +1,11 @@
+{
+  "time": "2026-10-20T08:14:57.449Z",
+  "origin": "http://127.0.0.1:4181",
+  "http": 200,
+  "syntheticBanner": true,
+  "candidate": "90b18e83850e07f23d632d21ab98fd6da17a1f11",
+  "checkout": "20e0bba9d46becf95c184ee55b7d83dce786e63d",
+  "mainBundleSha256": "a96cf11afc444b5802a32ea5d5e66d0769f0f5e76eb7a5ec2e5e2fe953bf2603",
+  "bundleMatchesManifest": true,
+  "htmlSha256": "0ffb79508c71f8bee70be6ab5d5a55a33dd16fcd277af5e5c57be44674422a07"
+}

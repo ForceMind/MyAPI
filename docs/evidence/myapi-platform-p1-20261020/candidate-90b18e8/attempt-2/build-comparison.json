@@ -1,0 +1,12 @@
+{
+  "candidate": "90b18e83850e07f23d632d21ab98fd6da17a1f11",
+  "checkout": "20e0bba9d46becf95c184ee55b7d83dce786e63d",
+  "ci": 39391245687,
+  "attempt": 2,
+  "firstBuildArtifactId": 12249467469,
+  "retryBuildArtifactId": 12251770553,
+  "advancedArtifactId": 12251995054,
+  "testsArtifactId": 12250809439,
+  "sameBuildFiles": 200,
+  "changedFiles": []
+}

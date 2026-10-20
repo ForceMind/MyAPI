@@ -1,0 +1,59 @@
+{
+  "synthetic": true,
+  "version": "0.2.0-beta.22",
+  "sourceHead": "20e0bba9d46becf95c184ee55b7d83dce786e63d",
+  "workflowHead": "20e0bba9d46becf95c184ee55b7d83dce786e63d",
+  "fixtureTime": "2026-10-07T06:00:00.000Z",
+  "source": "Actual web/dist from this checkout, served locally with createUIFixture and model-scope endpoint overrides.",
+  "scope": "Key model-scope UI and narrow API behavior. Excludes real Key secrets, providers, account migration, credential rotation, quota and billing writes.",
+  "journeys": [
+    {
+      "name": "advanced-model-scope-en-320-light",
+      "language": "en",
+      "languageCode": "en",
+      "width": 320,
+      "theme": "light",
+      "initial": "restricted",
+      "catalog": "empty",
+      "action": "cancel",
+      "buildRevision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "scopeReads": 1,
+      "catalogReads": 1,
+      "writes": 0,
+      "keySecretReads": 0,
+      "exactNarrowWrites": true,
+      "geometry": {
+        "left": 16,
+        "right": 304,
+        "viewport": 320,
+        "clientWidth": 288,
+        "scrollWidth": 288,
+        "pageScrollWidth": 320
+      },
+      "actionGeometry": [
+        {
+          "x": 32,
+          "y": 827.75,
+          "width": 256,
+          "height": 36
+        },
+        {
+          "x": 32,
+          "y": 783.75,
+          "width": 256,
+          "height": 36
+        }
+      ],
+      "computedDialogColors": null,
+      "screenshots": [
+        "advanced-model-scope-en-320-light-open.png",
+        "advanced-model-scope-en-320-light-mobile-preserved-model.png",
+        "advanced-model-scope-en-320-light-mobile-actions.png"
+      ],
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "result": "failed",
+  "failure": "locator.waitFor: Timeout 15000ms exceeded.\nCall log:\n  - waiting for getByRole('dialog', { name: 'Model scope', exact: true }) to be hidden\n    34 × locator resolved to visible <div id=\"_r_20_\" data-open=\"\" role=\"dialog\" tabindex=\"-1\" data-base-ui-focusable=\"\" data-slot=\"dialog-content\" aria-labelledby=\"base-ui-_r_22_\" aria-describedby=\"base-ui-_r_23_\" class=\"bg-popover text-popover-foreground ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl p-4 text-sm ring…>…</div>\n\n    at /home/runner/work/MyAPI/MyAPI/tools/ui/model-scope-browser.mjs:707:22"
+}

@@ -1,0 +1,438 @@
+{
+  "schema": 1,
+  "evidence": "Production-build Chromium with isolated synthetic security APIs and an optional Chromium virtual authenticator.",
+  "scope": "Profile password, bindings presentation, Passkey, 2FA, backup codes, login sessions, Root deletion restriction, and one-time console Access Token presentation. Excludes production, live accounts, real credentials, real hardware authenticators, credential migration, and rotation policy changes.",
+  "mutationPolicy": "Only the explicit synthetic actions listed per journey are accepted; every other mutation is a qualification failure.",
+  "webauthnBoundary": "Chromium CDP virtual authenticator only. It exercises navigator.credentials and browser WebAuthn serialization but is not real hardware or biometric evidence.",
+  "version": "0.2.0-beta.22",
+  "head": "20e0bba9d46becf95c184ee55b7d83dce786e63d",
+  "buildHead": "20e0bba9d46becf95c184ee55b7d83dce786e63d",
+  "workflowHead": "20e0bba9d46becf95c184ee55b7d83dce786e63d",
+  "fixtureTime": "2026-10-07T06:00:00.000Z",
+  "result": "passed",
+  "journeys": [
+    {
+      "name": "en-desktop-1280",
+      "language": "en",
+      "width": 1280,
+      "theme": "light",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "name": "en-mobile-320",
+      "language": "en",
+      "width": 320,
+      "theme": "light",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "name": "zh-desktop-1280",
+      "language": "zh",
+      "width": 1280,
+      "theme": "light",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "name": "zh-mobile-320",
+      "language": "zh",
+      "width": 320,
+      "theme": "light",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "name": "zh-TW-desktop-1280",
+      "language": "zh-TW",
+      "width": 1280,
+      "theme": "light",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "name": "zh-TW-mobile-320",
+      "language": "zh-TW",
+      "width": 320,
+      "theme": "light",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "name": "fr-desktop-1280",
+      "language": "fr",
+      "width": 1280,
+      "theme": "light",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "name": "fr-mobile-320",
+      "language": "fr",
+      "width": 320,
+      "theme": "light",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "name": "ja-desktop-1280",
+      "language": "ja",
+      "width": 1280,
+      "theme": "light",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "name": "ja-mobile-320",
+      "language": "ja",
+      "width": 320,
+      "theme": "light",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "name": "ru-desktop-1280",
+      "language": "ru",
+      "width": 1280,
+      "theme": "light",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "name": "ru-mobile-320",
+      "language": "ru",
+      "width": 320,
+      "theme": "light",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "name": "vi-desktop-1280",
+      "language": "vi",
+      "width": 1280,
+      "theme": "light",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "name": "vi-mobile-320",
+      "language": "vi",
+      "width": 320,
+      "theme": "light",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "name": "zh-desktop-1440",
+      "language": "zh",
+      "width": 1440,
+      "theme": "light",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "name": "zh-mobile-390",
+      "language": "zh",
+      "width": 390,
+      "theme": "light",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "name": "vi-mobile-320-dark",
+      "language": "vi",
+      "width": 320,
+      "theme": "dark",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "name": "en-desktop-1280-dark",
+      "language": "en",
+      "width": 1280,
+      "theme": "dark",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "result": "passed"
+    },
+    {
+      "name": "zh-mobile-390-error-retry",
+      "result": "passed",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "recovered": [
+        "passkey",
+        "twoFA",
+        "sessions"
+      ]
+    },
+    {
+      "name": "en-desktop-1280-complete-flow",
+      "result": "passed",
+      "stage": "complete",
+      "role": 100,
+      "sid": "synthetic-ui-100",
+      "revision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "passwordValidationAndKeyboardSubmit": true,
+      "authRotationObservedOnSubsequentRequest": true,
+      "accessToken": {
+        "calls": 1,
+        "doubleConfirmation": true,
+        "screenshotRedacted": true,
+        "clearedOnClose": true
+      },
+      "passkey": {
+        "boundary": "Chromium CDP virtual authenticator; not real hardware",
+        "beginCalls": 1,
+        "finishCalls": 1,
+        "removeTargetHeight": 44,
+        "authRotationObservedOnStatusRead": true
+      },
+      "twoFA": {
+        "setupCalls": 1,
+        "enableCalls": 1,
+        "backupCodeCalls": 1,
+        "enableAuthRotationObserved": true,
+        "backupAuthRotationObserved": true,
+        "secretsAbsentAfterClose": true
+      },
+      "sessionRevokeOtherCalls": 1,
+      "mutations": [
+        "PUT /api/user/self password",
+        "POST /api/user/passkey/register/begin",
+        "POST /api/user/passkey/register/finish",
+        "POST /api/user/2fa/setup",
+        "POST /api/user/2fa/enable",
+        "POST /api/user/2fa/backup_codes",
+        "POST /api/user/sessions/revoke-others"
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "advanced-security-en-desktop-1280-panel.png",
+      "language": "en",
+      "width": 1280,
+      "theme": "light",
+      "state": "panel"
+    },
+    {
+      "file": "advanced-security-en-mobile-320-panel.png",
+      "language": "en",
+      "width": 320,
+      "theme": "light",
+      "state": "panel"
+    },
+    {
+      "file": "advanced-security-zh-desktop-1280-panel.png",
+      "language": "zh",
+      "width": 1280,
+      "theme": "light",
+      "state": "panel"
+    },
+    {
+      "file": "advanced-security-zh-mobile-320-panel.png",
+      "language": "zh",
+      "width": 320,
+      "theme": "light",
+      "state": "panel"
+    },
+    {
+      "file": "advanced-security-zh-TW-desktop-1280-panel.png",
+      "language": "zh-TW",
+      "width": 1280,
+      "theme": "light",
+      "state": "panel"
+    },
+    {
+      "file": "advanced-security-zh-TW-mobile-320-panel.png",
+      "language": "zh-TW",
+      "width": 320,
+      "theme": "light",
+      "state": "panel"
+    },
+    {
+      "file": "advanced-security-fr-desktop-1280-panel.png",
+      "language": "fr",
+      "width": 1280,
+      "theme": "light",
+      "state": "panel"
+    },
+    {
+      "file": "advanced-security-fr-mobile-320-panel.png",
+      "language": "fr",
+      "width": 320,
+      "theme": "light",
+      "state": "panel"
+    },
+    {
+      "file": "advanced-security-ja-desktop-1280-panel.png",
+      "language": "ja",
+      "width": 1280,
+      "theme": "light",
+      "state": "panel"
+    },
+    {
+      "file": "advanced-security-ja-mobile-320-panel.png",
+      "language": "ja",
+      "width": 320,
+      "theme": "light",
+      "state": "panel"
+    },
+    {
+      "file": "advanced-security-ru-desktop-1280-panel.png",
+      "language": "ru",
+      "width": 1280,
+      "theme": "light",
+      "state": "panel"
+    },
+    {
+      "file": "advanced-security-ru-mobile-320-panel.png",
+      "language": "ru",
+      "width": 320,
+      "theme": "light",
+      "state": "panel"
+    },
+    {
+      "file": "advanced-security-vi-desktop-1280-panel.png",
+      "language": "vi",
+      "width": 1280,
+      "theme": "light",
+      "state": "panel"
+    },
+    {
+      "file": "advanced-security-vi-mobile-320-panel.png",
+      "language": "vi",
+      "width": 320,
+      "theme": "light",
+      "state": "panel"
+    },
+    {
+      "file": "advanced-security-zh-desktop-1440-panel.png",
+      "language": "zh",
+      "width": 1440,
+      "theme": "light",
+      "state": "panel"
+    },
+    {
+      "file": "advanced-security-zh-mobile-390-panel.png",
+      "language": "zh",
+      "width": 390,
+      "theme": "light",
+      "state": "panel"
+    },
+    {
+      "file": "advanced-security-zh-mobile-390-password-dialog.png",
+      "language": "zh",
+      "width": 390,
+      "theme": "light",
+      "state": "password-dialog"
+    },
+    {
+      "file": "advanced-security-vi-mobile-320-dark-panel.png",
+      "language": "vi",
+      "width": 320,
+      "theme": "dark",
+      "state": "panel"
+    },
+    {
+      "file": "advanced-security-vi-mobile-320-dark-password-dialog.png",
+      "language": "vi",
+      "width": 320,
+      "theme": "dark",
+      "state": "password-dialog"
+    },
+    {
+      "file": "advanced-security-en-desktop-1280-dark-panel.png",
+      "language": "en",
+      "width": 1280,
+      "theme": "dark",
+      "state": "panel"
+    },
+    {
+      "file": "advanced-security-zh-mobile-390-error-retry-failed-statuses.png",
+      "language": "zh",
+      "width": 390,
+      "theme": "light",
+      "state": "failed-statuses"
+    },
+    {
+      "file": "advanced-security-zh-mobile-390-error-retry-passkey-failed.png",
+      "language": "zh",
+      "width": 390,
+      "theme": "light",
+      "state": "error-retry-passkey-failed"
+    },
+    {
+      "file": "advanced-security-zh-mobile-390-error-retry-two-fa-failed.png",
+      "language": "zh",
+      "width": 390,
+      "theme": "light",
+      "state": "error-retry-two-fa-failed"
+    },
+    {
+      "file": "advanced-security-zh-mobile-390-error-retry-sessions-failed.png",
+      "language": "zh",
+      "width": 390,
+      "theme": "light",
+      "state": "error-retry-sessions-failed"
+    },
+    {
+      "file": "advanced-security-zh-mobile-390-error-retry-recovered.png",
+      "language": "zh",
+      "width": 390,
+      "theme": "light",
+      "state": "recovered"
+    },
+    {
+      "file": "advanced-security-en-desktop-1280-complete-flow-access-token-redacted.png",
+      "language": "en",
+      "width": 1280,
+      "theme": "light",
+      "state": "access-token-redacted"
+    },
+    {
+      "file": "advanced-security-en-desktop-1280-complete-flow-completed.png",
+      "language": "en",
+      "width": 1280,
+      "theme": "light",
+      "state": "completed"
+    }
+  ],
+  "errors": []
+}

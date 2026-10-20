@@ -2,3 +2,4 @@
 attempt-1/*.log -text -diff
 candidate-*/*.log -text -diff
 home-entry-regression/*.log -text -diff
+candidate-*/attempt-2/*.log -text -diff

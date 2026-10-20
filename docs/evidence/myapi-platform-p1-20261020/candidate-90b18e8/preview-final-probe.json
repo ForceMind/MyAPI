@@ -1,0 +1,31 @@
+{
+  "time": "2026-10-20T09:03:46.097848+00:00",
+  "origin": "http://127.0.0.1:4181",
+  "http": 200,
+  "candidate": "90b18e83850e07f23d632d21ab98fd6da17a1f11",
+  "checkout": "20e0bba9d46becf95c184ee55b7d83dce786e63d",
+  "verifiedScripts": [
+    {
+      "path": "static/js/vendor-ui-primitives.58b39db179.js",
+      "sha256": "8ff74d840f89685eb4efcd80219517d0373a6e9b0b6a205200d93dfd6f54436e"
+    },
+    {
+      "path": "static/js/vendor-tanstack.581930b28b.js",
+      "sha256": "fd821024c58c7d0a63e32d0ec2f1f9011ccf6028a798a612d4e46df3e2dcbbff"
+    },
+    {
+      "path": "static/js/lib-react.85aeb5b438.js",
+      "sha256": "940d8842390f48570e4bbcfc281c172f7d0b2543854041c8683a3fbcbdb313ee"
+    },
+    {
+      "path": "static/js/5009.978187bd64.js",
+      "sha256": "f311bfd518a09478a35114bd4b8a6e489843834630795423345dd8b124fe4598"
+    },
+    {
+      "path": "static/js/index.5596139fe0.js",
+      "sha256": "a96cf11afc444b5802a32ea5d5e66d0769f0f5e76eb7a5ec2e5e2fe953bf2603"
+    }
+  ],
+  "syntheticBanner": true,
+  "htmlSha256": "0ffb79508c71f8bee70be6ab5d5a55a33dd16fcd277af5e5c57be44674422a07"
+}

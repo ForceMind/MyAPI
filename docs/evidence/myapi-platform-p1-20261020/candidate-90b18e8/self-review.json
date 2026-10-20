@@ -1,0 +1,29 @@
+{
+  "reviewer": "primary agent self-review; no independent review",
+  "source": "90b18e83850e07f23d632d21ab98fd6da17a1f11",
+  "checkout": "20e0bba9d46becf95c184ee55b7d83dce786e63d",
+  "viewed_originals": [
+    "platform-records-zh-1440.png",
+    "platform-records-zh-320.png",
+    "platform-detail-zh-320.png",
+    "platform-saved-content-zh-390.png",
+    "platform-more-zh-768.png",
+    "platform-records-zh-1024.png",
+    "platform-records-fr-1280.png",
+    "platform-home-zh-1280.png"
+  ],
+  "findings": [
+    "Primary PC request ID and details action visible without horizontal scrolling.",
+    "320/390 mobile cards and nested saved-content dialog remain readable and bounded.",
+    "768 uses mobile More; 1024 uses desktop shell; system and diagnostic links remain reachable.",
+    "Completed missing-usage records display success and unknown tokens; recorded content shows actual status and does not resend."
+  ],
+  "remaining": [
+    "Existing French API Request Logs translation remains English; key is wired and new strings translated. Existing locale cleanup belongs to approved P3.",
+    "First advanced model-scope timeout did not reproduce in same-source attempt 2; 17/17 journeys passed. Original timeout cause remains unknown; no production code or test assertion changed. Final CI39391245687 attempt 2 passed all 11 jobs."
+  ],
+  "blocking_layout_issue_in_reviewed_p1_frames": false,
+  "additional_viewed_originals": [
+    "attempt-2/advanced-model-scope-en-1280-light-readback.png"
+  ]
+}

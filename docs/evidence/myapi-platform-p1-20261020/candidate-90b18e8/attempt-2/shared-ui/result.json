@@ -1,0 +1,69 @@
+{
+  "evidence": "Synthetic profile navigation and failure recovery only; no production acceptance",
+  "passed": [
+    {
+      "scenario": "healthy",
+      "width": 1280,
+      "profileReads": 1,
+      "refreshReads": 1,
+      "refreshRecovered": false
+    },
+    {
+      "scenario": "healthy",
+      "width": 320,
+      "profileReads": 1,
+      "refreshReads": 1,
+      "refreshRecovered": false
+    },
+    {
+      "scenario": "null-settings",
+      "width": 1280,
+      "profileReads": 1,
+      "refreshReads": 1,
+      "refreshRecovered": false
+    },
+    {
+      "scenario": "null-settings",
+      "width": 320,
+      "profileReads": 1,
+      "refreshReads": 1,
+      "refreshRecovered": false
+    },
+    {
+      "scenario": "failure-retry",
+      "width": 1280,
+      "profileReads": 2,
+      "refreshReads": 1,
+      "refreshRecovered": false
+    },
+    {
+      "scenario": "failure-retry",
+      "width": 320,
+      "profileReads": 2,
+      "refreshReads": 1,
+      "refreshRecovered": false
+    },
+    {
+      "scenario": "stalled-request",
+      "width": 1280,
+      "profileReads": 2,
+      "refreshReads": 1,
+      "refreshRecovered": false
+    },
+    {
+      "scenario": "stalled-auth-refresh",
+      "width": 1280,
+      "profileReads": 3,
+      "refreshReads": 3,
+      "refreshRecovered": true
+    },
+    {
+      "scenario": "stalled-bootstrap",
+      "width": 1280,
+      "profileReads": 1,
+      "refreshReads": 2,
+      "refreshRecovered": true
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "evidence": "Production-build Chromium with isolated synthetic API responses.",
+  "scope": "Synthetic Users funding presentation and usage-log metadata only; excludes live accounts, providers, billing correctness, settlement acceptance, request admission, deployment, and production.",
+  "mutationPolicy": "GET only; POST /api/user/auth/refresh is the sole exception.",
+  "version": "0.2.0-beta.22",
+  "head": "20e0bba9d46becf95c184ee55b7d83dce786e63d",
+  "workflowHead": "20e0bba9d46becf95c184ee55b7d83dce786e63d",
+  "fixtureTime": "2026-10-07T06:00:00.000Z",
+  "result": "passed",
+  "journeys": [
+    {
+      "name": "users-personal-en-1280",
+      "language": "en",
+      "width": 1280,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "requestCount": 9
+    },
+    {
+      "name": "users-personal-zh-320",
+      "language": "zh",
+      "width": 320,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "requestCount": 9
+    },
+    {
+      "name": "users-commercial-en-1280",
+      "language": "en",
+      "width": 1280,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "requestCount": 9
+    },
+    {
+      "name": "users-unconfirmed-zh-320",
+      "language": "zh",
+      "width": 320,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "requestCount": 9
+    },
+    {
+      "name": "logs-status-en-1280",
+      "language": "en",
+      "width": 1280,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "requestCount": 11
+    },
+    {
+      "name": "logs-status-zh-320",
+      "language": "zh",
+      "width": 320,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p",
+      "requestCount": 11
+    }
+  ],
+  "screenshots": [
+    "users-personal-en-1280-users.png",
+    "users-personal-zh-320-users.png",
+    "users-commercial-en-1280-users.png",
+    "users-unconfirmed-zh-320-users.png",
+    "logs-status-en-1280-logs.png",
+    "logs-status-en-1280-details.png",
+    "logs-status-zh-320-logs.png",
+    "logs-status-zh-320-details.png"
+  ],
+  "errors": []
+}

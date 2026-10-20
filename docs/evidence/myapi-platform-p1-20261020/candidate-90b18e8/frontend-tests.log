@@ -1,0 +1,506 @@
+$ vitest run
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/runner/work/MyAPI/MyAPI/web[39m
+
+ [32m✓[39m src/features/dashboard/components/overview/__tests__/account-quota-changes-panel.test.tsx [2m([22m[2m20 tests[22m[2m)[22m[33m 806[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/subscription-share-dialog.test.tsx [2m([22m[2m20 tests[22m[2m)[22m[33m 3770[2mms[22m[39m
+   [33m[2m✓[22m[39m Root explicitly selects a window and saves an exact basis-point share [33m 705[2mms[22m[39m
+   [33m[2m✓[22m[39m Root can save zero to pause a Key but cannot exceed the pool allocation [33m 350[2mms[22m[39m
+   [33m[2m✓[22m[39m Root must confirm a pool-wide window replacement before it is written explicitly [33m 463[2mms[22m[39m
+   [33m[2m✓[22m[39m Root explicitly confirms closing an existing pool and refreshes the view [33m 308[2mms[22m[39m
+ [32m✓[39m src/features/playground/hooks/__tests__/key-request-lifecycle.test.tsx [2m([22m[2m53 tests[22m[2m)[22m[33m 4101[2mms[22m[39m
+     [33m[2m✓[22m[39m clicking Stop preserves the draft without replay and allows an explicit new send after partial content=false [33m 1308[2mms[22m[39m
+     [33m[2m✓[22m[39m clicking Stop preserves the draft without replay and allows an explicit new send after partial content=true [33m 761[2mms[22m[39m
+ [32m✓[39m src/features/dashboard/lib/flow.test.ts [2m([22m[2m26 tests[22m[2m)[22m[32m 54[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/token-budget-dialog.test.tsx [2m([22m[2m20 tests[22m[2m)[22m[33m 3763[2mms[22m[39m
+   [33m[2m✓[22m[39m requires confirmation and preserves used counters when enabling a token budget [33m 636[2mms[22m[39m
+   [33m[2m✓[22m[39m requires actual input and output counts before reconciling a dispatched request [33m 303[2mms[22m[39m
+   [33m[2m✓[22m[39m USD policy and recovery retain tiny decimal strings without Number conversion [33m 694[2mms[22m[39m
+   [33m[2m✓[22m[39m saves an account safety threshold in exact basis points and rejects mixed strict modes [33m 532[2mms[22m[39m
+ [32m✓[39m src/features/usage-logs/components/__tests__/usage-review-panel.test.tsx [2m([22m[2m22 tests[22m[2m)[22m[33m 2344[2mms[22m[39m
+   [33m[2m✓[22m[39m requires evidence and confirmation before sending one exact recovery request [33m 358[2mms[22m[39m
+   [33m[2m✓[22m[39m changed authoritative evidence after a failed command requires a newly confirmed command instead of silently retrying old values [33m 303[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/personal-share-editor.test.tsx [2m([22m[2m15 tests[22m[2m)[22m[33m 3313[2mms[22m[39m
+   [33m[2m✓[22m[39m explicitly selecting an account and window previews 20 plus 50 as 70 and saves the existing Key [33m 541[2mms[22m[39m
+   [33m[2m✓[22m[39m 60 plus other Keys 50 shows an invalid 110 allocation and blocks saving [33m 312[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/model-scope-dialog.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 2090[2mms[22m[39m
+   [33m[2m✓[22m[39m an existing empty enabled scope is shown as explicit block-all state [33m 350[2mms[22m[39m
+   [33m[2m✓[22m[39m an unconfirmed save stays write-locked through edits until a fresh read succeeds [33m 392[2mms[22m[39m
+ [32m✓[39m src/features/models/hooks/__tests__/deployment-availability.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 854[2mms[22m[39m
+ [32m✓[39m src/features/channels/components/__tests__/channel-routing-preview.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 1523[2mms[22m[39m
+     [33m[2m✓[22m[39m submits an explicit route and renders effective shares [33m 466[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/api-keys-quota-edit.test.tsx [2m([22m[2m15 tests[22m[2m)[22m[33m 4491[2mms[22m[39m
+   [33m[2m✓[22m[39m preserves quota when editing metadata; explicit quota change=false [33m 585[2mms[22m[39m
+   [33m[2m✓[22m[39m preserves quota when editing metadata; explicit quota change=true [33m 314[2mms[22m[39m
+   [33m[2m✓[22m[39m mints a new quota request ID after a metadata-only submission interrupts a failed attempt [33m 331[2mms[22m[39m
+   [33m[2m✓[22m[39m clears the failed attempt when the drawer closes and reopens [33m 438[2mms[22m[39m
+   [33m[2m✓[22m[39m clears the failed attempt and captures a fresh snapshot when switching keys [33m 349[2mms[22m[39m
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+ [32m✓[39m src/features/keys/components/__tests__/credential-maintenance-dialog.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 2928[2mms[22m[39m
+   [33m[2m✓[22m[39m an uncertain commit stays locked across close and remount without repeating the POST [33m 975[2mms[22m[39m
+   [33m[2m✓[22m[39m a storage write failure stops the commit before its POST [33m 546[2mms[22m[39m
+   [33m[2m✓[22m[39m a duplicate verification callback cannot unlock an in-flight commit [33m 579[2mms[22m[39m
+   [33m[2m✓[22m[39m a recovered committed receipt clears the lock before the next reopen [33m 330[2mms[22m[39m
+Not implemented: Window's scrollTo() method
+ [32m✓[39m src/features/access-policy/__tests__/admin-dialog.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 2889[2mms[22m[39m
+   [33m[2m✓[22m[39m opening an unassigned user keeps legacy access and does not write automatically [33m 425[2mms[22m[39m
+   [33m[2m✓[22m[39m previewing explicit empty public scope is read-only and changing the draft clears stale results [33m 454[2mms[22m[39m
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+ [32m✓[39m src/features/profile/__tests__/personal-profile.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 2093[2mms[22m[39m
+     [33m[2m✓[22m[39m shows the real identity and read-only self scope while hiding monetary balances and security forms initially [33m 326[2mms[22m[39m
+     [33m[2m✓[22m[39m clears a pending password form and aborts its request when the role changes in the same session [33m 784[2mms[22m[39m
+     [33m[2m✓[22m[39m reports an unknown account deletion result and retries only after another explicit submit [33m 404[2mms[22m[39m
+ [32m✓[39m src/features/channels/components/__tests__/account-scheduling.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 2716[2mms[22m[39m
+     [33m[2m✓[22m[39m submission is disabled without a model and while its scheduling snapshot is loading [33m 388[2mms[22m[39m
+ [32m✓[39m src/features/channels/components/dialogs/__tests__/codex-usage-dialog.test.tsx [2m([22m[2m15 tests[22m[2m)[22m[33m 1921[2mms[22m[39m
+     [33m[2m✓[22m[39m defaults to the newest active series instead of an unavailable newer series [33m 337[2mms[22m[39m
+     [33m[2m✓[22m[39m renders real consumption bars and changes to rates and user-selected area style [33m 335[2mms[22m[39m
+     [33m[2m✓[22m[39m passes window, granularity, custom dates and refresh through to the history endpoint [33m 450[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/auth-session-route.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+ [32m✓[39m src/features/channels/components/__tests__/quota-history-trend.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 1974[2mms[22m[39m
+     [33m[2m✓[22m[39m renders reset-aware analysis outcome depletes_before_reset without inventing another ETA [33m 462[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/api-keys-mutate-drawer.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 2019[2mms[22m[39m
+     [33m[2m✓[22m[39m inherits the root Auto order and sends an empty override for every batch-created key [33m 611[2mms[22m[39m
+     [33m[2m✓[22m[39m preserves an unsaved custom order and mode after Auto to ordinary to Auto changes [33m 689[2mms[22m[39m
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+[90mstderr[2m | src/features/channels/components/__tests__/channel-quota-changes-panel.test.tsx[2m > [22m[2mchannel quota changes panel[2m > [22m[2mkeeps chart preferences while parent range and refresh reach the detailed query
+[22m[39mThe width(0) and height(0) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width.
+
+Not implemented: Window's scrollTo() method
+[90mstderr[2m | src/features/channels/components/__tests__/channel-quota-changes-panel.test.tsx[2m > [22m[2mchannel quota changes panel[2m > [22m[2mkeeps chart preferences while parent range and refresh reach the detailed query
+[22m[39mThe width(0) and height(0) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width.
+The width(0) and height(0) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width.
+
+[90mstderr[2m | src/features/channels/components/__tests__/channel-quota-changes-panel.test.tsx[2m > [22m[2mchannel quota changes panel[2m > [22m[2mkeeps chart preferences while parent range and refresh reach the detailed query
+[22m[39mThe width(0) and height(0) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width.
+
+[90mstderr[2m | src/features/channels/components/__tests__/channel-quota-changes-panel.test.tsx[2m > [22m[2mchannel quota changes panel[2m > [22m[2mkeeps chart preferences while parent range and refresh reach the detailed query
+[22m[39mThe width(0) and height(0) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width.
+
+[90mstderr[2m | src/features/channels/components/__tests__/channel-quota-changes-panel.test.tsx[2m > [22m[2mchannel quota changes panel[2m > [22m[2mkeeps chart preferences while parent range and refresh reach the detailed query
+[22m[39mThe width(0) and height(0) of chart should be greater than 0,
+       please check the style of container, or the props width(100%) and height(100%),
+       or add a minWidth(0) or minHeight(undefined) or use aspect(undefined) to control the
+       height and width.
+
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+ [32m✓[39m src/features/channels/components/__tests__/channel-quota-changes-panel.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 1039[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps chart preferences while parent range and refresh reach the detailed query [33m 397[2mms[22m[39m
+     [33m[2m✓[22m[39m shows mobile-safe rows and the largest movement summary [33m 333[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/auto-group-order-editor.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 731[2mms[22m[39m
+     [33m[2m✓[22m[39m enforces the limit and exposes accessible reorder controls [33m 334[2mms[22m[39m
+ [32m✓[39m src/features/profile/__tests__/profile-layout.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 3590[2mms[22m[39m
+     [33m[2m✓[22m[39m waits for placeholder funding status confirmation before issuing one profile read [33m 451[2mms[22m[39m
+     [33m[2m✓[22m[39m opens the enabled profile with preferences and only confirmed commercial check-in [33m 799[2mms[22m[39m
+     [33m[2m✓[22m[39m opens the disabled profile with preferences and only confirmed commercial check-in [33m 441[2mms[22m[39m
+     [33m[2m✓[22m[39m opens the retirement profile with preferences and only confirmed commercial check-in [33m 574[2mms[22m[39m
+     [33m[2m✓[22m[39m opens the unconfirmed profile with preferences and only confirmed commercial check-in [33m 614[2mms[22m[39m
+ [32m✓[39m src/features/channels/components/dialogs/__tests__/codex-local-auth-dialog.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 1265[2mms[22m[39m
+     [33m[2m✓[22m[39m imports an existing ready local Codex account without exposing its credential [33m 321[2mms[22m[39m
+ [32m✓[39m src/features/system-settings/models/__tests__/openai-price-check.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 1176[2mms[22m[39m
+   [33m[2m✓[22m[39m opening status reads saved evidence and distinguishes failed freshness from pending locked publication [33m 384[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/credential-rotation-dialog.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 1860[2mms[22m[39m
+   [33m[2m✓[22m[39m fresh rotation uses the dedicated proof and displays the new value once [33m 597[2mms[22m[39m
+   [33m[2m✓[22m[39m unknown outcome survives close, reopen, and remount with the original operation [33m 375[2mms[22m[39m
+   [33m[2m✓[22m[39m a duplicate verification callback cannot send a second rotation POST [33m 316[2mms[22m[39m
+ [32m✓[39m src/features/profile/components/__tests__/security-status.test.tsx [2m([22m[2m16 tests[22m[2m)[22m[33m 526[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/budget-session-boundary.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 1114[2mms[22m[39m
+   [33m[2m✓[22m[39m a delayed old-SID budget read ending in success never enters either session cache [33m 346[2mms[22m[39m
+   [33m[2m✓[22m[39m a pending old-SID write cannot update the replacement cache [33m 331[2mms[22m[39m
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+ [32m✓[39m src/features/keys/components/__tests__/personal-key-actions.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 1086[2mms[22m[39m
+ [32m✓[39m src/features/playground/hooks/__tests__/draft-retry.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 46[2mms[22m[39m
+ [32m✓[39m src/features/redemption-codes/components/__tests__/redemptions-mutate-drawer.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 1025[2mms[22m[39m
+     [33m[2m✓[22m[39m shows the reported CNY quota without floating-point noise [33m 374[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/api-key-group-combobox.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 669[2mms[22m[39m
+     [33m[2m✓[22m[39m rings the selected Auto trigger and its localized ratio without rendering the API ratio text [33m 315[2mms[22m[39m
+Not implemented: Window's scrollTo() method
+ [32m✓[39m src/features/keys/lib/__tests__/auto-group-form.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+ [32m✓[39m src/features/keys/components/__tests__/personal-key-maintenance.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 2192[2mms[22m[39m
+   [33m[2m✓[22m[39m creating a Key through the retained drawer refreshes the personal cards without reloading the page [33m 831[2mms[22m[39m
+   [33m[2m✓[22m[39m advanced edit uses the existing Key drawer and Escape cancels without writing [33m 574[2mms[22m[39m
+   [33m[2m✓[22m[39m cancelling the retained delete confirmation keeps the existing Key and sends no deletion [33m 346[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/api-key-export-session.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 2216[2mms[22m[39m
+   [33m[2m✓[22m[39m a delayed Key reveal cannot open a chat after unmount changes [33m 538[2mms[22m[39m
+ [32m✓[39m src/lib/auth-session.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m src/features/channels/lib/__tests__/quota-history.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 36[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/api-keys-mutate-session.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 2343[2mms[22m[39m
+   [33m[2m✓[22m[39m a batch stops after its in-flight creation when the original unmount changes [33m 662[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/key-maintenance-auth-replay.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 1557[2mms[22m[39m
+   [33m[2m✓[22m[39m a pending create returning 401 after identity changes never refreshes or replays under the new session [33m 672[2mms[22m[39m
+[90mstderr[2m | src/components/layout/components/__tests__/authenticated-navigation.test.tsx[2m > [22m[2mauthenticated operator navigation[2m > [22m[2mdaily tasks lead the navigation and administration precedes optional chat
+[22m[39mYou have Reduced Motion enabled on your device. Animations may not appear as expected.. For more information and steps for solving, visit https://motion.dev/troubleshooting/reduced-motion-disabled
+
+ [32m✓[39m src/features/system-settings/models/__tests__/openai-official-pricing.test.tsx [2m([22m[2m15 tests[22m[2m)[22m[33m 1540[2mms[22m[39m
+ [32m✓[39m src/features/users/components/__tests__/user-usage-policy.test.tsx [2m([22m[2m14 tests[22m[2m)[22m[33m 1685[2mms[22m[39m
+   [33m[2m✓[22m[39m requires explicit confirmation and preserves zero allowance when enabling self-use [33m 533[2mms[22m[39m
+ [32m✓[39m src/components/layout/components/__tests__/authenticated-navigation.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 3215[2mms[22m[39m
+     [33m[2m✓[22m[39m daily tasks lead the navigation and administration precedes optional chat [33m 533[2mms[22m[39m
+     [33m[2m✓[22m[39m disabled commerce is absent from the account menu while profile remains reachable [33m 389[2mms[22m[39m
+     [33m[2m✓[22m[39m the visible mobile Close action preserves the current destination [33m 317[2mms[22m[39m
+     [33m[2m✓[22m[39m choosing a mobile destination closes the drawer and browser Back closes a reopened drawer [33m 623[2mms[22m[39m
+     [33m[2m✓[22m[39m nested settings return to overview through the mobile back affordance [33m 350[2mms[22m[39m
+     [33m[2m✓[22m[39m collapsed desktop settings remain reachable by keyboard [33m 420[2mms[22m[39m
+ [32m✓[39m src/features/access-policy/__tests__/owner-session.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 1102[2mms[22m[39m
+   [33m[2m✓[22m[39m ordinary owners only request the redacted endpoint and have no assignment controls [33m 305[2mms[22m[39m
+ [32m✓[39m src/features/channels/components/dialogs/__tests__/channel-quota-history.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 364[2mms[22m[39m
+ [32m✓[39m src/features/prompt-learning/__tests__/failure-states.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 1628[2mms[22m[39m
+     [33m[2m✓[22m[39m does not claim learning is disabled or allow writes while policy is loading [33m 457[2mms[22m[39m
+ [32m✓[39m src/i18n/__tests__/locale-key-parity.test.ts [2m([22m[2m40 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/features/setup/__tests__/setup-wizard.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 2543[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps failed setup status recoverable without exposing initialization controls [33m 348[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps confirmed success when the timed-out submission rejects after setup status is initialized [33m 824[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps an unknown submission locked and retries only the status check when setup is still incomplete [33m 614[2mms[22m[39m
+ [32m✓[39m src/features/playground/__tests__/key-api.test.ts [2m([22m[2m27 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32m✓[39m src/features/playground/components/input/__tests__/draft-attachments.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 2878[2mms[22m[39m
+     [33m[2m✓[22m[39m image-only upload enables send, reaches the submit callback and clears after success [33m 409[2mms[22m[39m
+     [33m[2m✓[22m[39m failed or cancelled submission preserves both text and images for a deliberate retry [33m 387[2mms[22m[39m
+     [33m[2m✓[22m[39m a successful retry clears only an unchanged failed draft and its attachments [33m 495[2mms[22m[39m
+ [32m✓[39m src/features/playground/components/input/__tests__/key-selection.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 682[2mms[22m[39m
+ [32m✓[39m src/features/system-settings/models/__tests__/price-publication.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 1180[2mms[22m[39m
+   [33m[2m✓[22m[39m source opening is read-only and publishing requires reviewed diff and an explicit checkbox [33m 504[2mms[22m[39m
+ [32m✓[39m src/features/users/components/__tests__/user-list-funding-presentation.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 433[2mms[22m[39m
+ [32m✓[39m src/features/personal-upstream/__tests__/pool-usage-observation.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 685[2mms[22m[39m
+   [33m[2m✓[22m[39m shows all Key allocations and the initial cycle baseline separately from a later recovery reference [33m 325[2mms[22m[39m
+ [32m✓[39m src/features/system-settings/hooks/__tests__/typed-bulk-options.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[32m 58[2mms[22m[39m
+ [32m✓[39m src/features/channels/components/__tests__/model-routes.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 663[2mms[22m[39m
+     [33m[2m✓[22m[39m adding a route exposes editable fields and invalid drafts remain visible [33m 406[2mms[22m[39m
+[90mstderr[2m | src/features/dashboard/components/overview/__tests__/overview-dashboard.setup-guide.test.tsx[2m > [22m[2moverview setup guide edition and role gating[2m > [22m[2mshows the channel setup step only to a permitted full-build administrator
+[22m[39mReceived `false` for a non-boolean attribute `initial`.
+
+If you want to write it to the DOM, pass a string instead: initial="false" or initial={value.toString()}.
+
+If you used to conditionally omit it with initial={condition && value}, pass initial={condition ? value : undefined} instead.
+
+ [32m✓[39m src/features/dashboard/components/overview/__tests__/overview-dashboard.setup-guide.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 738[2mms[22m[39m
+     [33m[2m✓[22m[39m administrator sees operational content before setup and no sales prompts [33m 392[2mms[22m[39m
+Not implemented: Window's scrollTo() method
+ [32m✓[39m src/features/system-settings/models/__tests__/beta6-locales.test.ts [2m([22m[2m21 tests[22m[2m)[22m[33m 312[2mms[22m[39m
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+ [32m✓[39m src/features/channels/components/__tests__/model-discovery.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 406[2mms[22m[39m
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+ [32m✓[39m src/features/usage-logs/__tests__/platform-workflow.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 2863[2mms[22m[39m
+   [33m[2m✓[22m[39m disabled funding preserves admin server pagination, saved content and return context without monetary cells [33m 2082[2mms[22m[39m
+   [33m[2m✓[22m[39m changing the signed-in actor closes request details from the previous actor [33m 332[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/api-keys-delete-session.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 494[2mms[22m[39m
+ [32m✓[39m src/features/profile/components/__tests__/sensitive-dialog-close.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 1477[2mms[22m[39m
+   [33m[2m✓[22m[39m access token generation cannot be dismissed before its one-time result arrives [33m 600[2mms[22m[39m
+   [33m[2m✓[22m[39m an unknown password result requires an explicit retry and closing clears every password [33m 626[2mms[22m[39m
+ [32m✓[39m src/features/channels/components/__tests__/channel-quota-events.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 699[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/funding-presentation.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 491[2mms[22m[39m
+ [32m✓[39m src/features/playground/lib/input/__tests__/image-attachments.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 40[2mms[22m[39m
+ [32m✓[39m src/features/channels/api.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/features/models/components/drawers/__tests__/pricing-access.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 2711[2mms[22m[39m
+     [33m[2m✓[22m[39m does not offer Root pricing controls to an administrator editing metadata [33m 382[2mms[22m[39m
+     [33m[2m✓[22m[39m shows an unavailable state rather than editable pricing defaults when Root cannot load options [33m 339[2mms[22m[39m
+     [33m[2m✓[22m[39m retains pricing controls for Root after a successful options read [33m 353[2mms[22m[39m
+     [33m[2m✓[22m[39m preserves metadata and pricing drafts across a failed background read and retry [33m 610[2mms[22m[39m
+     [33m[2m✓[22m[39m fills first available pricing without replacing metadata typed during an initial failure [33m 395[2mms[22m[39m
+     [33m[2m✓[22m[39m starts a clean form after closing and reopening instead of retaining the previous draft [33m 567[2mms[22m[39m
+ [32m✓[39m src/features/usage-logs/components/__tests__/relay-attempts.test.tsx [2m([22m[2m23 tests[22m[2m)[22m[33m 1043[2mms[22m[39m
+ [32m✓[39m src/features/playground/components/input/__tests__/strict-parameter-controls.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 3132[2mms[22m[39m
+     [33m[2m✓[22m[39m required Max Tokens stays editable even when its saved switch is off [33m 572[2mms[22m[39m
+     [33m[2m✓[22m[39m strict sampling controls explain their disabled state and reject keyboard changes [33m 336[2mms[22m[39m
+ [32m✓[39m src/features/profile/__tests__/use-profile.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 200[2mms[22m[39m
+ [32m✓[39m src/features/full-content-logs/components/__tests__/stale-content-state.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 215[2mms[22m[39m
+ [32m✓[39m src/features/profile/__tests__/security-api.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32m✓[39m src/features/usage-logs/components/__tests__/personal-call-logs.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 1578[2mms[22m[39m
+     [33m[2m✓[22m[39m renders the zhCN locale with valid Intl dates and token numbers [33m 415[2mms[22m[39m
+     [33m[2m✓[22m[39m submits Key filtering to the existing self log endpoint and preserves success semantics in the result filter [33m 429[2mms[22m[39m
+ [32m✓[39m src/features/playground/components/input/__tests__/strict-parameter-selection.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 2431[2mms[22m[39m
+   [33m[2m✓[22m[39m switching the selected key into strict mode and back preserves normal parameter preferences [33m 1714[2mms[22m[39m
+   [33m[2m✓[22m[39m strict parameter display matches the submitted text payload without changing explicit key or model [33m 714[2mms[22m[39m
+ [32m✓[39m src/features/channels/components/__tests__/channels-table-failures.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 2016[2mms[22m[39m
+   [33m[2m✓[22m[39m a 'network' failure on 'desktop' is an error with retry rather than a successful empty list [33m 404[2mms[22m[39m
+   [33m[2m✓[22m[39m a network refresh failure removes stale rows and their open action menu [33m 304[2mms[22m[39m
+   [33m[2m✓[22m[39m a envelope refresh failure removes stale rows and their open action menu [33m 323[2mms[22m[39m
+[90mstderr[2m | src/features/keys/components/__tests__/api-keys-table-failures.test.tsx[2m > [22m[2mkeyboard retry restores actual data without changing the selected search and page
+[22m[39m[Table] Column with id '_tokenSearch' does not exist.
+
+ [32m✓[39m src/features/keys/components/__tests__/api-keys-action-menu.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 2888[2mms[22m[39m
+   [33m[2m✓[22m[39m the first menu opening remains usable while its real-key reveal is pending [33m 1343[2mms[22m[39m
+   [33m[2m✓[22m[39m an open menu retains keyboard selection when key reveal succeeds [33m 676[2mms[22m[39m
+   [33m[2m✓[22m[39m an open menu retains keyboard selection when key reveal fails [33m 582[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/api-keys-table-failures.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 2794[2mms[22m[39m
+   [33m[2m✓[22m[39m a 'network' failure on 'desktop' is an error with retry rather than a successful empty list [33m 666[2mms[22m[39m
+   [33m[2m✓[22m[39m keyboard retry restores actual data without changing the selected search and page [33m 387[2mms[22m[39m
+   [33m[2m✓[22m[39m a network refresh failure removes stale rows and their open action menu [33m 543[2mms[22m[39m
+   [33m[2m✓[22m[39m a envelope refresh failure removes stale rows and their open action menu [33m 428[2mms[22m[39m
+ [32m✓[39m src/components/layout/components/__tests__/personal-console-layout.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 1823[2mms[22m[39m
+   [33m[2m✓[22m[39m complete desktop navigation and mobile More retain diagnostic and maintenance modules [33m 722[2mms[22m[39m
+   [33m[2m✓[22m[39m confirmed personal mode retains context for existing maintenance and error pages [33m 576[2mms[22m[39m
+ [32m✓[39m src/features/keys/__tests__/credential-rotation-api.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m src/features/pricing/components/__tests__/model-details-states.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 1318[2mms[22m[39m
+     [33m[2m✓[22m[39m shows a retryable pricing failure rather than claiming the model does not exist [33m 455[2mms[22m[39m
+     [33m[2m✓[22m[39m retries a failed pricing read and renders the recovered model without navigating away [33m 381[2mms[22m[39m
+ [32m✓[39m src/features/models/components/__tests__/models-table-failures.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 2554[2mms[22m[39m
+   [33m[2m✓[22m[39m a 'network' failure on 'desktop' is an error with retry rather than a successful empty list [33m 541[2mms[22m[39m
+   [33m[2m✓[22m[39m keyboard retry restores actual data without changing the selected search and page [33m 472[2mms[22m[39m
+   [33m[2m✓[22m[39m a network refresh failure removes stale rows and their open action menu [33m 392[2mms[22m[39m
+   [33m[2m✓[22m[39m a envelope refresh failure removes stale rows and their open action menu [33m 392[2mms[22m[39m
+ [32m✓[39m src/features/usage-logs/components/__tests__/cost-display.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 395[2mms[22m[39m
+ [32m✓[39m src/features/users/components/__tests__/users-table-failures.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 2834[2mms[22m[39m
+   [33m[2m✓[22m[39m a 'network' failure on 'desktop' is an error with retry rather than a successful empty list [33m 677[2mms[22m[39m
+   [33m[2m✓[22m[39m keyboard retry restores actual data without changing the selected search and page [33m 446[2mms[22m[39m
+   [33m[2m✓[22m[39m a network refresh failure removes stale rows and their open action menu [33m 431[2mms[22m[39m
+   [33m[2m✓[22m[39m a envelope refresh failure removes stale rows and their open action menu [33m 465[2mms[22m[39m
+ [32m✓[39m src/features/playground/hooks/use-stream-request.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/features/system-settings/integrations/__tests__/channel-quota-alert-delivery-section.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 1112[2mms[22m[39m
+     [33m[2m✓[22m[39m disables saving while the delivery configuration is being persisted [33m 661[2mms[22m[39m
+ [32m✓[39m src/components/ai-elements/__tests__/response-fade.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m src/features/keys/__tests__/credential-maintenance-api.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/features/dashboard/components/personal-workbench/__tests__/data-boundaries.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 356[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/subscription-share-api.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/sidebar-visibility.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 621[2mms[22m[39m
+ [32m✓[39m src/features/dashboard/components/personal-workbench/__tests__/selection-and-limits.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 489[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps every loaded Key unselected until the user chooses one [33m 355[2mms[22m[39m
+ [32m✓[39m src/features/prompt-learning/__tests__/workspace.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 677[2mms[22m[39m
+ [32m✓[39m src/features/usage-logs/components/__tests__/usage-logs-table-mobile.integration.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 229[2mms[22m[39m
+ [32m✓[39m src/features/dashboard/components/overview/__tests__/recent-activity-panel.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 344[2mms[22m[39m
+ [32m✓[39m src/features/home/__tests__/home.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 369[2mms[22m[39m
+ [32m✓[39m src/features/home/hooks/__tests__/use-home-page-content.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 416[2mms[22m[39m
+ [32m✓[39m src/features/profile/components/__tests__/account-bindings-tab.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 289[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/api-key-group-cell.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 77[2mms[22m[39m
+ [32m✓[39m src/features/personal-upstream/__tests__/share-observation.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 417[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps usage and unattributed growth unknown until a trustworthy baseline exists [33m 310[2mms[22m[39m
+ [32m✓[39m src/features/access-policy/__tests__/session-api.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 296[2mms[22m[39m
+ [32m✓[39m src/features/auth/lib/oauth-bind-window.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/features/profile/__tests__/security-request-scope.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 34[2mms[22m[39m
+ [32m✓[39m src/features/auth/lib/__tests__/oauth-callback-mode.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/api-keys-quota-display.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 1492[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps the normal desktop quota display and progress at the exact safe boundary [33m 575[2mms[22m[39m
+ [32m✓[39m src/features/personal-upstream/__tests__/pool-usage-api.test.ts [2m([22m[2m23 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32m✓[39m src/features/playground/__tests__/handoff-lifecycle.test.tsx [2m([22m[2m1 test[22m[2m)[22m[33m 527[2mms[22m[39m
+   [33m[2m✓[22m[39m unmounting a pending handoff prevents it from selecting the Key after remount [33m 522[2mms[22m[39m
+ [32m✓[39m src/components/layout/components/__tests__/public-header-mobile-navigation.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 454[2mms[22m[39m
+ [32m✓[39m src/features/usage-logs/components/__tests__/usage-logs-table.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 196[2mms[22m[39m
+ [32m✓[39m src/features/wallet/lib/user-funding-capabilities.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/features/channels/components/__tests__/channel-quota-detail-chart.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 251[2mms[22m[39m
+ [32m✓[39m src/features/system-settings/quota-writer/__tests__/apply-transition.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 681[2mms[22m[39m
+ [32m✓[39m src/features/playground/lib/streaming/__tests__/strict-key-payload.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/features/dashboard/components/personal-workbench/__tests__/explicit-dialogs.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 463[2mms[22m[39m
+   [33m[2m✓[22m[39m creates a session-bound handoff only after an explicit Key choice and Playground action [33m 329[2mms[22m[39m
+ [32m✓[39m src/features/dashboard/components/overview/__tests__/overview-mode.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 901[2mms[22m[39m
+   [33m[2m✓[22m[39m confirmed disabled mounts only its own data plane [33m 356[2mms[22m[39m
+   [33m[2m✓[22m[39m confirmed enabled mounts only its own data plane [33m 319[2mms[22m[39m
+ [32m✓[39m src/features/personal-upstream/__tests__/upstream-request-cancellation.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 84[2mms[22m[39m
+ [32m✓[39m src/features/access-policy/__tests__/api.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/features/usage-logs/components/__tests__/pending-usage-reviews.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 852[2mms[22m[39m
+   [33m[2m✓[22m[39m opens an unlogged request for review and closing the dialog never writes [33m 527[2mms[22m[39m
+ [32m✓[39m src/features/playground/hooks/__tests__/recoverable-options.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 137[2mms[22m[39m
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+Not implemented: Window's scrollTo() method
+[90mstderr[2m | src/features/setup/__tests__/startup-route.test.tsx[2m > [22m[2mapplication installation guard[2m > [22m[2mkeeps a failed first read recoverable and checks setup again before opening the application
+[22m[39mSetupStatusError: Failed to load setup status
+    at getSetupStatus [90m(/home/runner/work/MyAPI/MyAPI/web/[39msrc/features/setup/api.ts:73:13[90m)[39m
+[90m    at processTicksAndRejections (node:internal/process/task_queues:103:5)[39m {
+  [stack]: [36m[Getter/Setter][39m,
+  [message]: [32m'Failed to load setup status'[39m,
+  [cause]: [90mundefined[39m,
+  name: [32m'SetupStatusError'[39m
+}
+
+The above error occurred in the <MatchInnerImpl> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, CatchBoundaryImpl.
+
+Warning: Error in route match: __root__/
+
+ [32m✓[39m src/features/system-settings/components/__tests__/settings-page-states.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 551[2mms[22m[39m
+Not implemented: Window's scrollTo() method
+ [32m✓[39m src/features/setup/__tests__/startup-route.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 1806[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps a failed first read recoverable and checks setup again before opening the application [33m 1766[2mms[22m[39m
+ [32m✓[39m src/features/full-content-logs/lib/__tests__/format.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/api-keys-primary-buttons.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 736[2mms[22m[39m
+   [33m[2m✓[22m[39m owner opens only their own existing policy with no write controls or automatic requests [33m 331[2mms[22m[39m
+ [32m✓[39m src/features/channels/lib/__tests__/new-api-channel.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/components/ai-elements/__tests__/response-fade-render.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 354[2mms[22m[39m
+ [32m✓[39m src/features/playground/__tests__/account-switch.test.tsx [2m([22m[2m1 test[22m[2m)[22m[33m 946[2mms[22m[39m
+   [33m[2m✓[22m[39m switching accounts remounts the real composer and flushes pending A history only to A storage [33m 939[2mms[22m[39m
+ [32m✓[39m src/features/playground/components/input/__tests__/control-contrast.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 454[2mms[22m[39m
+     [33m[2m✓[22m[39m an expired option and disabled clear tool do not dim the available key or the whole composer [33m 339[2mms[22m[39m
+ [32m✓[39m src/features/playground/components/message/__tests__/playground-message-editor.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 724[2mms[22m[39m
+     [33m[2m✓[22m[39m cancels immediately when the edit has no unsaved changes [33m 341[2mms[22m[39m
+ [32m✓[39m src/features/usage-logs/lib/__tests__/personal-call-evidence.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/features/keys/lib/__tests__/model-scope.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/features/playground/lib/__tests__/playground-key-handoff.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/components/json-code-editor/__tests__/json-code-editor.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 354[2mms[22m[39m
+ [32m✓[39m src/features/pricing/components/__tests__/model-details-performance-states.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 297[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/subscription-share-entry.test.tsx [2m([22m[2m1 test[22m[2m)[22m[33m 641[2mms[22m[39m
+   [33m[2m✓[22m[39m the row menu opens this Key subscription share without exposing its secret [33m 632[2mms[22m[39m
+ [32m✓[39m src/features/usage-logs/components/__tests__/usage-logs-mobile-card.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 235[2mms[22m[39m
+ [32m✓[39m src/features/users/lib/__tests__/user-usage-policy-presentation.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/features/errors/__tests__/recovery.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 334[2mms[22m[39m
+ [32m✓[39m src/features/auth/api.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/features/dashboard/lib/__tests__/granularity.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m src/lib/legacy-route.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/branding.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m src/components/data-table/layout/__tests__/error-state.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 451[2mms[22m[39m
+ [32m✓[39m src/features/channels/lib/__tests__/channel-actions.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/features/profile/components/__tests__/login-session-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/features/dashboard/lib/flow-selection.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/features/profile/components/__tests__/notification-tab.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 465[2mms[22m[39m
+ [32m✓[39m src/features/usage-logs/components/__tests__/token-budget-log.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 625[2mms[22m[39m
+   [33m[2m✓[22m[39m administrator log type 2 shows reserved ceiling separately from confirmed settlement [33m 352[2mms[22m[39m
+ [32m✓[39m src/components/layout/components/__tests__/command-navigation.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 1148[2mms[22m[39m
+     [33m[2m✓[22m[39m an ordinary user can search daily tasks without administrator destinations [33m 477[2mms[22m[39m
+     [33m[2m✓[22m[39m a root operator keeps contextual settings search and keyboard navigation [33m 514[2mms[22m[39m
+ [32m✓[39m src/features/system-settings/quota-writer/__tests__/audit-checklist.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 163[2mms[22m[39m
+ [32m✓[39m src/features/channels/lib/__tests__/channel-field-update.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/features/keys/components/__tests__/credential-maintenance-blockers.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 99[2mms[22m[39m
+ [32m✓[39m src/components/json-code-editor/__tests__/json-code-editor-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/features/channels/__tests__/channels-permissions.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 233[2mms[22m[39m
+ [32m✓[39m src/features/channels/components/dialogs/__tests__/balance-query-dialog.test.tsx [2m([22m[2m1 test[22m[2m)[22m[33m 457[2mms[22m[39m
+     [33m[2m✓[22m[39m clears current windows after the production refresh callback fails and retains the history tab [33m 454[2mms[22m[39m
+ [32m✓[39m src/features/keys/__tests__/model-scope-api.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/features/auth/__tests__/auth-layout.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 346[2mms[22m[39m
+ [32m✓[39m src/features/auth/lib/auth-redirect.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/features/profile/components/__tests__/profile-header.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 320[2mms[22m[39m
+ [32m✓[39m src/features/playground/lib/storage/__tests__/account-isolation.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/features/access-policy/__tests__/policy-form.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/features/chat/__tests__/route-layout.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 217[2mms[22m[39m
+ [32m✓[39m src/lib/server-error-message.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/features/full-content-logs/components/__tests__/filters.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 527[2mms[22m[39m
+     [33m[2m✓[22m[39m submits model, token and request filters from the keyboard [33m 475[2mms[22m[39m
+ [32m✓[39m src/features/playground/components/chat/__tests__/empty-state-layout.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 292[2mms[22m[39m
+ [32m✓[39m src/features/usage-logs/lib/__tests__/tool-surcharge.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/features/wallet/lib/payment.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/features/channels/lib/__tests__/channel-routing.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32m✓[39m src/features/dashboard/components/personal-workbench/__tests__/workbench-state.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/time-granularity.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/features/dashboard/components/overview/__tests__/summary-cards.focus.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 103[2mms[22m[39m
+ [32m✓[39m src/features/dashboard/components/models/__tests__/consumption-distribution-granularity.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 275[2mms[22m[39m
+ [32m✓[39m src/features/dashboard/components/personal-workbench/__tests__/overview-recent.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 121[2mms[22m[39m
+ [32m✓[39m src/components/ai-elements/prompt-input.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 203[2mms[22m[39m
+Not implemented: Window's scrollTo() method
+ [32m✓[39m src/features/home/__tests__/home-entry-route.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 175[2mms[22m[39m
+ [32m✓[39m src/components/layout/components/__tests__/section-page-layout.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 288[2mms[22m[39m
+ [32m✓[39m src/features/setup/components/__tests__/step-navigation.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 264[2mms[22m[39m
+ [32m✓[39m src/features/playground/lib/storage/__tests__/attachment-persistence.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/components/turnstile.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 48[2mms[22m[39m
+ [32m✓[39m src/features/setup/__tests__/status-read.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/features/setup/__tests__/setup-submit.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m src/features/keys/__tests__/api-quota-components.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/features/full-content-logs/components/__tests__/row-interaction.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 264[2mms[22m[39m
+ [32m✓[39m src/features/usage-logs/components/__tests__/model-route-evidence.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[33m 397[2mms[22m[39m
+ [32m✓[39m src/components/model-group-selector/__tests__/layout.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/features/system-settings/models/__tests__/tool-price-validation.test.tsx [2m([22m[2m1 test[22m[2m)[22m[33m 398[2mms[22m[39m
+     [33m[2m✓[22m[39m blocks an empty price without converting it to an explicit zero [33m 393[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/personal-workbench-mode.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[32m 35[2mms[22m[39m
+ [32m✓[39m src/features/playground/hooks/__tests__/handoff-state.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/features/keys/__tests__/credential-maintenance-pending-operation.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/components/ui/dropdown-menu.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/lobe-icon.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 159[2mms[22m[39m
+ [32m✓[39m src/features/channels/components/dialogs/__tests__/codex-oauth-dialog.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 410[2mms[22m[39m
+ [32m✓[39m src/features/auth/lib/telegram-login.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/components/ai-elements/__tests__/code-block-editor.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 251[2mms[22m[39m
+ [32m✓[39m src/features/playground/lib/parameters/playground-parameters.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/features/personal-upstream/__tests__/window-state.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/features/chat/__tests__/redirect-recovery.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 209[2mms[22m[39m
+ [32m✓[39m src/features/channels/lib/__tests__/channel-table-row-id.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/components/layout/components/__tests__/mobile-funding-navigation.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 487[2mms[22m[39m
+ [32m✓[39m src/features/prompt-learning/__tests__/api.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/features/usage-logs/lib/__tests__/request-outcome.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/features/usage-logs/components/__tests__/token-budget-evidence.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 199[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/task-feedback.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 237[2mms[22m[39m
+ [32m✓[39m src/features/playground/api.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/features/system-settings/general/channel-affinity/cache-stats-dialog.test.tsx [2m([22m[2m1 test[22m[2m)[22m[33m 395[2mms[22m[39m
+     [33m[2m✓[22m[39m shows a retryable error and clears stale stats when the cache query fails [33m 391[2mms[22m[39m
+ [32m✓[39m src/hooks/__tests__/use-top-nav-links.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m src/features/keys/__tests__/credential-rotation-pending-operation.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/features/wallet/hooks/use-payment.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/features/dashboard/components/models/__tests__/performance-feedback.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 279[2mms[22m[39m
+[90mstdout[2m | src/lib/__tests__/build-metadata.test.ts[2m > [22m[2mruntime build metadata[2m > [22m[2minstalls the revision in supported runtime inspection surfaces
+[22m[39m[build] rv.9.8.7.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.2k6e8r7p
+
+ [32m✓[39m src/lib/__tests__/build-metadata.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/features/full-content-logs/components/__tests__/view-mode-toggle.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 184[2mms[22m[39m
+ [32m✓[39m src/features/system-settings/models/__tests__/group-auto-limit-validation.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/components/command-menu.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 272[2mms[22m[39m
+ [32m✓[39m src/features/usage-logs/__tests__/api.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/features/channels/components/dialogs/__tests__/channel-test-dialog.stream-default.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 580[2mms[22m[39m
+   [33m[2m✓[22m[39m Codex detailed connection test starts with streaming enabled [33m 441[2mms[22m[39m
+ [32m✓[39m src/components/layout/components/__tests__/footer.default.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 196[2mms[22m[39m
+ [32m✓[39m src/components/layout/components/__tests__/page-section-links.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 272[2mms[22m[39m
+ [32m✓[39m src/components/risk-acknowledgement-dialog.test.tsx [2m([22m[2m1 test[22m[2m)[22m[33m 334[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps duplicate acknowledgement entries visible and gates confirmation [33m 330[2mms[22m[39m
+ [32m✓[39m src/features/channels/lib/__tests__/model-mapping-validation.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/features/channels/__tests__/codex-oauth-api.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/features/wallet/components/__tests__/wallet-stats-mode.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 74[2mms[22m[39m
+ [32m✓[39m src/features/users/lib/account-tier.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/features/channels/__tests__/channel-test-api.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/features/wallet/components/__tests__/affiliate-history-mode.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 81[2mms[22m[39m
+ [32m✓[39m src/features/pricing/lib/mock-stats.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m src/features/channels/components/dialogs/__tests__/param-override-editor-dialog.test.tsx [2m([22m[2m1 test[22m[2m)[22m[33m 444[2mms[22m[39m
+     [33m[2m✓[22m[39m renders the sync endpoint editor for a sync_fields operation [33m 440[2mms[22m[39m
+ [32m✓[39m src/components/__tests__/turnstile-layout.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32m✓[39m src/features/full-content-logs/lib/__tests__/query-key.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/features/dashboard/lib/setup-guide.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/context/search-provider.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 78[2mms[22m[39m
+ [32m✓[39m src/features/channels/__tests__/codex-history-api.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/components/ai-elements/__tests__/web-preview.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 62[2mms[22m[39m
+ [32m✓[39m src/features/channels/lib/__tests__/upstream-update-utils.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/features/dashboard/__tests__/section-access.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/nav-modules-defaults.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/features/pricing/components/model-details-uptime-sparkline.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 74[2mms[22m[39m
+ [32m✓[39m src/features/channels/components/model-mapping-editor.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 92[2mms[22m[39m
+ [32m✓[39m src/features/keys/lib/__tests__/quota-display.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/features/dashboard/__tests__/recent-activity-api.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/features/models/components/dialogs/__tests__/extend-deployment-dialog.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 278[2mms[22m[39m
+ [32m✓[39m src/i18n/__tests__/language-detection.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/lib/__tests__/exact-usd.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/components/ui/__tests__/button-composition.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 206[2mms[22m[39m
+ [32m✓[39m src/features/system-settings/general/channel-affinity/constants.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/components/layout/config/__tests__/official-pricing-nav.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/components/layout/config/__tests__/top-nav.config.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/lib/passkey.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/features/models/components/prefill-group-shared.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/features/usage-logs/lib/__tests__/query-params.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 4[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m245 passed[39m[22m[90m (245)[39m
+[2m      Tests [22m [1m[32m1567 passed[39m[22m[90m (1567)[39m
+[2m   Start at [22m 08:09:41
+[2m   Duration [22m 213.02s[2m (transform 10.92s, setup 52.80s, import 199.05s, tests 154.27s, environment 193.20s)[22m
+

@@ -1,0 +1,146 @@
+{
+  "evidence": "Synthetic installation and security-state recovery only; no production or live-device qualification",
+  "passed": [
+    {
+      "scenario": "setup-failure-retry",
+      "width": 1280,
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 2,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/api/user/sessions": 1,
+        "/api/user/passkey": 2,
+        "/api/user/2fa/status": 1,
+        "/api/user/self": 1
+      },
+      "authHeld": false,
+      "buildRevision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p"
+    },
+    {
+      "scenario": "setup-failure-retry",
+      "width": 320,
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 2,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/api/user/sessions": 1,
+        "/api/user/passkey": 2,
+        "/api/user/2fa/status": 1,
+        "/api/user/self": 1
+      },
+      "authHeld": false,
+      "buildRevision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p"
+    },
+    {
+      "scenario": "setup-stalled-retry",
+      "width": 1280,
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 2,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/api/user/sessions": 1,
+        "/api/user/passkey": 2,
+        "/api/user/2fa/status": 1,
+        "/api/user/self": 1
+      },
+      "authHeld": false,
+      "buildRevision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p"
+    },
+    {
+      "scenario": "setup-before-auth",
+      "width": 1280,
+      "reads": {
+        "/api/status": 2,
+        "/api/setup": 2,
+        "/api/user/auth/refresh": 1
+      },
+      "authHeld": true,
+      "buildRevision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p"
+    },
+    {
+      "scenario": "setup-before-auth",
+      "width": 320,
+      "reads": {
+        "/api/status": 2,
+        "/api/setup": 2,
+        "/api/user/auth/refresh": 1
+      },
+      "authHeld": true,
+      "buildRevision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p"
+    },
+    {
+      "scenario": "setup-old-browser-flag",
+      "width": 1280,
+      "reads": {
+        "/api/status": 2,
+        "/api/setup": 2,
+        "/api/user/auth/refresh": 1
+      },
+      "authHeld": false,
+      "buildRevision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p"
+    },
+    {
+      "scenario": "setup-old-browser-flag",
+      "width": 320,
+      "reads": {
+        "/api/status": 2,
+        "/api/setup": 2,
+        "/api/user/auth/refresh": 1
+      },
+      "authHeld": false,
+      "buildRevision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p"
+    },
+    {
+      "scenario": "security-failure-retry",
+      "width": 1280,
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/api/user/sessions": 1,
+        "/api/user/passkey": 5,
+        "/api/user/2fa/status": 4,
+        "/api/user/self": 1
+      },
+      "authHeld": false,
+      "buildRevision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p"
+    },
+    {
+      "scenario": "security-failure-retry",
+      "width": 320,
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/api/user/sessions": 1,
+        "/api/user/passkey": 5,
+        "/api/user/2fa/status": 4,
+        "/api/user/self": 1
+      },
+      "authHeld": false,
+      "buildRevision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p"
+    },
+    {
+      "scenario": "security-stalled-retry",
+      "width": 1280,
+      "reads": {
+        "/api/status": 3,
+        "/api/setup": 1,
+        "/api/user/auth/refresh": 1,
+        "/api/notice": 1,
+        "/api/user/sessions": 1,
+        "/api/user/passkey": 5,
+        "/api/user/2fa/status": 4,
+        "/api/user/self": 1
+      },
+      "authHeld": false,
+      "buildRevision": "rv.0.2.0-beta.22.20e0bba9d46becf95c184ee55b7d83dce786e63d.2k6e8r7p"
+    }
+  ],
+  "errors": []
+}
