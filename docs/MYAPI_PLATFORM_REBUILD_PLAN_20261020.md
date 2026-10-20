@@ -312,3 +312,5 @@ ad5f017核心20/20、分额28/28通过，但工作台第二旅程失败：Channe
 验证：旧UI实现6条回归失败，初步修正6条通过（/tmp/myapi-token-statistics-ui-{red,green}.log）；后续按最终输入统一定向、typecheck/lint/i18n。Go、三库、完整构建与Chromium仅Actions。三库使用既有S1临时服务和loopback/dbname门槛，仅扩展CI选择器；维护者workflow既有未提交行单独保留，最终只暂存本批hunk。交付继续准确源码/CI checkout/tree/工件及必要原图，不执行真实账号测试或部署。
 
 S1候选准备：版本0.2.0-beta.25；七语言17项已通过脚本并同步，临时脚本已删除。初始6条UI红→绿；增加空范围/无效数据/隐私/actor取消后组件10条通过。HTTP客户端实际取消竞态红1失败，禁用该统计读取的跨observer Promise复用后，5文件31条相关前端回归通过；typecheck/lint以/tmp/myapi-token-statistics-*-final.log为准。新增Go合同尚未本机执行，等待Actions三库/完整回归。浏览器原20旅程增加七语言统计、明确零、已知小计/未知、空范围和503人工重试断言；保留原日志闭环及零供应商出站断言。原CI未提交行保留，只新增S1三库测试选择器。
+
+S1初始源码7686ae9 / tree066ad64，准确CI39445262225（39445257474仅PR检查）。分发作业87/91，4项失败均由deploy/.env.example保留beta.24导致，已同步未发布beta.25示例及注释，不改变契约断言。其余作业仍验收中，准备合并本批必要修正后最终候选；不能将PR检查成功称完整CI通过。维护者workflow既有行仍仅留工作区。
