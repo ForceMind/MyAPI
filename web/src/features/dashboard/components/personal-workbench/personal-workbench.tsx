@@ -36,9 +36,12 @@ function PersonalWorkbenchSession() {
       data-testid='personal-workbench'
     >
       {accountErrors.length > 0 ? (
-        <Alert>
-          <AlertTitle>{t('An upstream account needs attention')}</AlertTitle>
+        <Alert className='flex flex-wrap items-center justify-between gap-2 py-2.5'>
+          <AlertTitle className='mb-0'>
+            {t('An upstream account needs attention')}
+          </AlertTitle>
           <Button
+            className='shrink-0'
             size='sm'
             variant='ghost'
             nativeButton={false}

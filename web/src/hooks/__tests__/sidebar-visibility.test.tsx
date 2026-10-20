@@ -38,9 +38,12 @@ function NavigationProbe() {
 describe('sidebar role and module visibility', () => {
   beforeEach(() => {
     localStorage.clear()
-    useAuthStore
-      .getState()
-      .auth.setUser({ id: 1, username: 'operator', role: ROLE.ADMIN })
+    useAuthStore.getState().auth.setUser({
+      id: 1,
+      username: 'operator',
+      role: ROLE.ADMIN,
+      permissions: { admin_permissions: { channel: { read: true } } },
+    })
   })
 
   afterEach(() => {
@@ -88,6 +91,7 @@ describe('sidebar role and module visibility', () => {
       id: 1,
       username: 'operator',
       role: ROLE.ADMIN,
+      permissions: { admin_permissions: { channel: { read: true } } },
       sidebar_modules: JSON.stringify({ console: { token: true, log: false } }),
     })
     await renderShellRoute(<NavigationProbe />, {
@@ -102,7 +106,7 @@ describe('sidebar role and module visibility', () => {
       screen.queryByRole('link', { name: 'API Keys' })
     ).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('link', { name: 'Usage Logs' })
+      screen.queryByRole('link', { name: 'Call records' })
     ).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Overview' })).toBeInTheDocument()
   })
@@ -153,19 +157,12 @@ describe('sidebar role and module visibility', () => {
       .getState()
       .auth.setUser({ id: 1, username: 'root', role: ROLE.SUPER_ADMIN })
     await renderShellRoute(<NavigationProbe />)
-    const console = screen.getByRole('region', { name: 'Console' })
+    const console = screen.getByRole('region', { name: 'Connections & access' })
     expect(
       within(console)
         .getAllByRole('link')
         .map((link) => link.textContent)
-    ).toEqual([
-      'Overview',
-      'Channels',
-      'Models',
-      'API Keys',
-      'Usage Logs',
-      'System Settings',
-    ])
+    ).toEqual(['Upstream accounts', 'Channels', 'Models', 'API Keys'])
   })
 
   test('ordinary users do not receive upstream or settings destinations in the console', async () => {

@@ -98,17 +98,24 @@ describe('authenticated operator navigation', () => {
         .map((link) => link.textContent)
     ).toEqual([
       'Overview',
+      'Model Call Analytics',
+      'Upstream accounts',
       'Channels',
       'Models',
       'API Keys',
-      'Usage Logs',
-      'System Settings',
     ])
     expect(
       within(navigation)
         .getAllByRole('group')
         .map((group) => group.getAttribute('aria-label'))
-    ).toEqual(['Console', 'Admin', 'Tools', 'Personal'])
+    ).toEqual([
+      'Console',
+      'Connections & access',
+      'Records & diagnostics',
+      'Operations',
+      'Admin',
+      'Tools',
+    ])
     expect(
       within(navigation).getByRole('link', { name: 'Overview' })
     ).toHaveAttribute('aria-current', 'page')

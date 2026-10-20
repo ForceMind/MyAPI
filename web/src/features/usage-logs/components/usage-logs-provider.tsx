@@ -26,6 +26,7 @@ import type { ChannelAffinityInfo } from '../types'
 export type LogsViewScope = 'all' | 'self'
 
 interface UsageLogsContextValue {
+  showCosts: boolean
   selectedUserId: number | null
   setSelectedUserId: (userId: number | null) => void
   userInfoDialogOpen: boolean
@@ -44,7 +45,10 @@ const UsageLogsContext = createContext<UsageLogsContextValue | undefined>(
   undefined
 )
 
-export function UsageLogsProvider({ children }: { children: ReactNode }) {
+export function UsageLogsProvider(props: {
+  children: ReactNode
+  showCosts?: boolean
+}) {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
   const [userInfoDialogOpen, setUserInfoDialogOpen] = useState(false)
   const [affinityTarget, setAffinityTarget] =
@@ -56,6 +60,7 @@ export function UsageLogsProvider({ children }: { children: ReactNode }) {
   return (
     <UsageLogsContext.Provider
       value={{
+        showCosts: props.showCosts ?? true,
         selectedUserId,
         setSelectedUserId,
         userInfoDialogOpen,
@@ -70,7 +75,7 @@ export function UsageLogsProvider({ children }: { children: ReactNode }) {
         setViewScope,
       }}
     >
-      {children}
+      {props.children}
     </UsageLogsContext.Provider>
   )
 }
@@ -101,4 +106,10 @@ export function useLogsViewScope() {
     setViewScope,
     isAdminView: canManageScope && viewScope === 'all',
   }
+}
+
+// Standalone legacy consumers retain their presentation; the full log page
+// establishes the current instance funding capabilities in its provider.
+export function useLogMoneyVisibility() {
+  return useContext(UsageLogsContext)?.showCosts ?? true
 }

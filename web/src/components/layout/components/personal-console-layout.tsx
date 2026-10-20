@@ -1,79 +1,90 @@
-import { Link, linkOptions, useLocation } from '@tanstack/react-router'
-import { Database, FileText, Home, KeyRound, Settings } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { Link, useLocation } from '@tanstack/react-router'
+import { Ellipsis, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { AnimatedOutlet } from '@/components/page-transition'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { SkipToMain } from '@/components/skip-to-main'
-import { useSidebarConfig } from '@/hooks/use-sidebar-config'
-import { hasPermission } from '@/lib/admin-permissions'
+import { Button } from '@/components/ui/button'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetTrigger,
+} from '@/components/ui/sheet'
+import { useSidebarView } from '@/hooks/use-sidebar-view'
 import { getBuildRevision } from '@/lib/build-metadata'
-import { ROLE } from '@/lib/roles'
-import { useAuthStore } from '@/stores/auth-store'
 
-const destinations = [
-  {
-    title: 'Overview',
-    url: '/dashboard/overview',
-    icon: Home,
-    link: linkOptions({
-      to: '/dashboard/$section',
-      params: { section: 'overview' },
-    }),
-  },
-  {
-    title: 'Upstream accounts',
-    url: '/upstream-accounts',
-    icon: Database,
-    link: linkOptions({ to: '/upstream-accounts' }),
-  },
-  {
-    title: 'API Keys',
-    url: '/keys',
-    icon: KeyRound,
-    link: linkOptions({ to: '/keys' }),
-  },
-  {
-    title: 'Call records',
-    url: '/usage-logs/common',
-    icon: FileText,
-    link: linkOptions({
-      to: '/usage-logs/$section',
-      params: { section: 'common' },
-    }),
-  },
-] as const
+import { checkIsActive } from '../lib/url-utils'
+import type { NavGroup, NavLink } from '../types'
+import { ChatPresetsItem } from './chat-presets-item'
+
+function ModuleNavigation(props: {
+  groups: NavGroup[]
+  path: string
+  onNavigate?: () => void
+}) {
+  return props.groups.map((group) => (
+    <section
+      key={group.id ?? group.title}
+      className='pc-nav-group'
+      aria-label={group.title}
+    >
+      <h2>{group.title}</h2>
+      {group.items.map((item) => {
+        if (item.type === 'chat-presets') {
+          return <ChatPresetsItem key={item.title} item={item} />
+        }
+        const links = item.items ?? [item as NavLink]
+        return links.map((link) => (
+          <Link
+            key={link.url}
+            to={link.url}
+            className='pc-nav-link'
+            preload={false}
+            aria-current={checkIsActive(props.path, link) ? 'page' : undefined}
+            onClick={props.onNavigate}
+            title={link.title}
+          >
+            {link.icon && <link.icon aria-hidden='true' />}
+            <span>{link.title}</span>
+          </Link>
+        ))
+      })}
+    </section>
+  ))
+}
 
 export function PersonalConsoleLayout(props: { children?: ReactNode }) {
   const { t } = useTranslation()
   const path = useLocation({ select: (location) => location.pathname })
-  const user = useAuthStore((state) => state.auth.user)
-  const canReadChannels = Boolean(
-    user && user.role >= ROLE.ADMIN && hasPermission(user, 'channel', 'read')
+  const { navGroups } = useSidebarView({ rootOnly: true })
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
+  const primaryUrls = [
+    '/dashboard/overview',
+    '/upstream-accounts',
+    '/keys',
+    '/usage-logs/common',
+  ]
+  const items = navGroups
+    .flatMap((group) => group.items)
+    .filter((item): item is NavLink => Boolean(item.url))
+  const primary = primaryUrls.flatMap((url) =>
+    items.filter((item) => item.url === url)
   )
-  const navigation = useSidebarConfig([
-    {
-      title: 'Personal console',
-      items: destinations
-        .filter((item) => item.url !== '/upstream-accounts' || canReadChannels)
-        .map((item) => ({ title: item.title, url: item.url, icon: item.icon })),
-    },
-  ])
-  const visibleUrls = new Set(
-    navigation.flatMap((group) =>
-      group.items.flatMap((item) => ('url' in item ? [item.url] : []))
-    )
-  )
-  const items = destinations.filter((item) => visibleUrls.has(item.url))
-  const selected = (url: string) =>
-    path === url ||
-    (url === '/dashboard/overview' && path === '/dashboard') ||
-    (url === '/upstream-accounts' && path.startsWith('/channels')) ||
-    (url === '/usage-logs/common' && path.startsWith('/usage-logs'))
+  const active = items.find((item) => checkIsActive(path, item))
+  const version = import.meta.env.VITE_REACT_APP_VERSION || getBuildRevision()
 
   return (
-    <div className='personal-console' data-myapi-shell='personal'>
+    <div
+      className='personal-console'
+      data-myapi-shell='personal'
+      data-collapsed={collapsed}
+    >
       <SkipToMain />
       <aside className='pc-sidebar'>
         <Link
@@ -87,56 +98,48 @@ export function PersonalConsoleLayout(props: { children?: ReactNode }) {
           </span>
           <span>
             <strong>MyAPI</strong>
-            <small>{t('Personal console')}</small>
+            <small>{t('Console')}</small>
           </span>
         </Link>
         <nav
           className='pc-desktop-nav'
           aria-label={t('Personal console navigation')}
         >
-          {items.map((item) => (
-            <Link
-              key={item.url}
-              {...item.link}
-              className='pc-nav-link'
-              aria-current={selected(item.url) ? 'page' : undefined}
-            >
-              <item.icon aria-hidden='true' />
-              <span>{t(item.title)}</span>
-            </Link>
-          ))}
+          <ModuleNavigation groups={navGroups} path={path} />
         </nav>
         <div className='pc-sidebar-bottom'>
-          <Link
-            to='/profile'
-            className='pc-nav-link'
-            aria-current={path === '/profile' ? 'page' : undefined}
+          <Button
+            variant='ghost'
+            size='sm'
+            className='pc-collapse'
+            onClick={() => setCollapsed(!collapsed)}
+            aria-label={collapsed ? t('Expand sidebar') : t('Collapse sidebar')}
           >
-            <Settings aria-hidden='true' />
-            <span>{t('Settings & profile')}</span>
-          </Link>
-          <details className='pc-maintenance'>
-            <summary>{t('Maintenance tools')}</summary>
-            {canReadChannels && (
-              <Link to='/channels'>{t('Channel management')}</Link>
-            )}
-            {user?.role === ROLE.SUPER_ADMIN && (
-              <Link to='/system-settings'>{t('System Settings')}</Link>
-            )}
-            {user?.role === ROLE.SUPER_ADMIN && (
-              <Link to='/system-info'>{t('System information')}</Link>
-            )}
-          </details>
+            {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+            <span>{t('Collapse sidebar')}</span>
+          </Button>
           <small
             className='pc-build'
             data-testid='console-build-revision'
             title={getBuildRevision()}
           >
-            {import.meta.env.VITE_REACT_APP_VERSION || getBuildRevision()}
+            {version}
           </small>
         </div>
       </aside>
       <div className='pc-workspace'>
+        <header className='pc-desktop-header'>
+          <span className='text-muted-foreground text-sm'>
+            MyAPI{' '}
+            <span aria-hidden='true' className='px-2'>
+              /
+            </span>{' '}
+            <span className='text-foreground font-medium'>
+              {active?.title ?? t('Console')}
+            </span>
+          </span>
+          <ProfileDropdown />
+        </header>
         <header className='pc-mobile-header'>
           <Link
             to='/dashboard/$section'
@@ -151,15 +154,12 @@ export function PersonalConsoleLayout(props: { children?: ReactNode }) {
                 data-testid='console-mobile-build-version'
                 title={getBuildRevision()}
               >
-                {import.meta.env.VITE_REACT_APP_VERSION || getBuildRevision()}
+                {version}
               </small>
             </span>
           </Link>
           <ProfileDropdown />
         </header>
-        <div className='pc-desktop-account'>
-          <ProfileDropdown />
-        </div>
         <div className='pc-route-content'>
           {props.children ?? <AnimatedOutlet />}
         </div>
@@ -167,16 +167,49 @@ export function PersonalConsoleLayout(props: { children?: ReactNode }) {
           className='pc-mobile-nav'
           aria-label={t('Mobile console navigation')}
         >
-          {items.map((item) => (
+          {primary.map((item) => (
             <Link
               key={item.url}
-              {...item.link}
-              aria-current={selected(item.url) ? 'page' : undefined}
+              to={item.url}
+              preload={false}
+              aria-current={checkIsActive(path, item) ? 'page' : undefined}
             >
-              <item.icon aria-hidden='true' />
-              <span>{t(item.title)}</span>
+              {item.icon && <item.icon aria-hidden='true' />}
+              <span>{item.title}</span>
             </Link>
           ))}
+          <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+            <SheetTrigger
+              className='pc-more'
+              aria-current={
+                !primary.some((item) => checkIsActive(path, item))
+                  ? 'page'
+                  : undefined
+              }
+            >
+              <Ellipsis aria-hidden='true' />
+              <span>{t('More')}</span>
+            </SheetTrigger>
+            <SheetContent
+              side='bottom'
+              className='pc-more-sheet max-h-[85dvh] overflow-y-auto rounded-t-2xl'
+            >
+              <SheetHeader>
+                <SheetTitle>{t('All modules')}</SheetTitle>
+                <SheetDescription>{t('Console')}</SheetDescription>
+              </SheetHeader>
+              <nav
+                className='pc-more-modules px-4 pb-6'
+                aria-label={t('All modules')}
+              >
+                <ModuleNavigation
+                  groups={navGroups}
+                  path={path}
+                  onNavigate={() => setMoreOpen(false)}
+                />
+              </nav>
+            </SheetContent>
+          </Sheet>
         </nav>
       </div>
     </div>

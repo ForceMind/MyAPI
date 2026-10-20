@@ -41,6 +41,7 @@ import { cn } from '@/lib/utils'
 import { LOG_TYPE_ENUM } from '../constants'
 import type { UsageLog } from '../data/schema'
 import { parseLogOther } from '../lib/format'
+import { getPersonalCallEvidence } from '../lib/personal-call-evidence'
 import {
   getLogTypeConfig,
   isCompletedUsageReview,
@@ -190,7 +191,7 @@ function MobileLogTimeStatus({
           )}
           aria-hidden='true'
         />
-        <span className='min-w-0 break-keep whitespace-normal leading-snug'>
+        <span className='min-w-0 leading-snug break-keep whitespace-normal'>
           {t(config.label)}
         </span>
       </div>
@@ -206,10 +207,10 @@ function MobileTokensField({ log }: { log: UsageLog }) {
 
   const promptTokens = log.prompt_tokens || 0
   const completionTokens = log.completion_tokens || 0
-  if (promptTokens === 0 && completionTokens === 0) {
+  if (!getPersonalCallEvidence(log).usageKnown) {
     return (
-      <div className='bg-muted/20 min-w-0 rounded-md px-2 py-1.5'>
-        <span className='text-muted-foreground text-xs'>-</span>
+      <div className='bg-muted/20 text-muted-foreground min-w-0 rounded-md px-2 py-1.5 text-xs'>
+        {t('Unknown')}
       </div>
     )
   }
@@ -346,6 +347,14 @@ function CommonLogsCard<TData>({
         />
       </div>
 
+      {rowData?.request_id && (
+        <p
+          className='text-muted-foreground truncate font-mono text-xs'
+          title={rowData.request_id}
+        >
+          {rowData.request_id}
+        </p>
+      )}
       <div className='grid grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] gap-1.5'>
         <div className='bg-muted/20 min-w-0 rounded-md px-2 py-1.5'>
           <MobileLogTimeStatus
@@ -535,6 +544,7 @@ export function UsageLogsMobileList<TData>({
         return (
           <div
             key={row.id}
+            data-log-row=''
             className={cn(
               'border-border/40 border-b border-l-2 border-l-transparent p-3 transition-colors last:border-b-0',
               tintClass

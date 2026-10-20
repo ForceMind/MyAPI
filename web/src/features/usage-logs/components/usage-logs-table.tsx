@@ -31,6 +31,7 @@ import { ErrorState } from '@/components/error-state'
 import { Button } from '@/components/ui/button'
 import { useMediaQuery } from '@/hooks'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
+import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -83,7 +84,7 @@ interface UsageLogsTableProps {
 export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   const { t } = useTranslation()
   const { isAdminView: isAdmin } = useLogsViewScope()
-  const isMobile = useMediaQuery('(max-width: 640px)')
+  const isMobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
   const searchParams = route.useSearch()
   const userId = useAuthStore((state) => state.auth.user?.id ?? null)
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
@@ -158,7 +159,12 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
       return result.data || DEFAULT_LOGS_DATA
     },
     placeholderData: (previousData, previousQuery) => {
-      if (previousQuery?.queryKey[1] === logCategory) {
+      if (
+        previousQuery?.queryKey[1] === logCategory &&
+        previousQuery.queryKey[2] === isAdmin &&
+        previousQuery.queryKey[3] === userId &&
+        previousQuery.queryKey[4] === sessionId
+      ) {
         return previousData
       }
       return undefined

@@ -92,6 +92,7 @@ vi.mock('@/components/ui/button', () => ({
 }))
 
 vi.mock('../usage-logs-provider', () => ({
+  useLogMoneyVisibility: () => true,
   useLogsViewScope: () => ({ isAdminView: false }),
 }))
 

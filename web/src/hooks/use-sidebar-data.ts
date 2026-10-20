@@ -20,6 +20,7 @@ import {
   Activity,
   Box,
   CreditCard,
+  Database,
   FileText,
   FileSearch,
   FlaskConical,
@@ -54,7 +55,8 @@ export function useSidebarData(): SidebarData {
   const { t } = useTranslation()
   const funding = useFundingPresentation()
   const serverFundingMode = useConfirmedFundingMode()
-  const commercialEnabled = funding.commercialEnabled && serverFundingMode === 'enabled'
+  const commercialEnabled =
+    funding.commercialEnabled && serverFundingMode === 'enabled'
 
   const hiddenSelfUseItems = new Set(['/redemption-codes'])
 
@@ -63,10 +65,24 @@ export function useSidebarData(): SidebarData {
       id: 'general',
       title: t('Console'),
       items: [
+        { title: t('Overview'), url: '/dashboard/overview', icon: Activity },
         {
-          title: t(serverFundingMode === 'disabled' ? 'Personal workbench' : 'Overview'),
-          url: '/dashboard/overview',
-          icon: Activity,
+          title: t('Model Call Analytics'),
+          url: '/dashboard/models',
+          icon: LayoutDashboard,
+          activeUrls: ['/dashboard/flow', '/dashboard/users'],
+        },
+      ],
+    },
+    {
+      id: 'connections',
+      title: t('Connections & access'),
+      items: [
+        {
+          title: t('Upstream accounts'),
+          url: '/upstream-accounts',
+          icon: Database,
+          requiredRole: ROLE.ADMIN,
         },
         {
           title: t('Channels'),
@@ -81,15 +97,37 @@ export function useSidebarData(): SidebarData {
           icon: Box,
           requiredRole: ROLE.ADMIN,
         },
+        { title: t('API Keys'), url: '/keys', icon: Key },
+      ],
+    },
+    {
+      id: 'records',
+      title: t('Records & diagnostics'),
+      items: [
+        { title: t('Call records'), url: '/usage-logs/common', icon: FileText },
         {
-          title: t('API Keys'),
-          url: '/keys',
-          icon: Key,
+          title: t('API Request Logs'),
+          url: '/full-content-logs',
+          icon: FileSearch,
+          requiredRole: ROLE.ADMIN,
         },
         {
-          title: t('Usage Logs'),
-          url: '/usage-logs/common',
-          icon: FileText,
+          title: t('Drawing Logs'),
+          url: '/usage-logs/drawing',
+          icon: ListTodo,
+        },
+        { title: t('Task Logs'), url: '/usage-logs/task', icon: ListTodo },
+      ],
+    },
+    {
+      id: 'system',
+      title: t('Operations'),
+      items: [
+        {
+          title: t('System Info'),
+          url: '/system-info',
+          icon: ServerCog,
+          requiredRole: ROLE.SUPER_ADMIN,
         },
         {
           title: t('System Settings'),
@@ -98,68 +136,28 @@ export function useSidebarData(): SidebarData {
           icon: Settings,
           requiredRole: ROLE.SUPER_ADMIN,
         },
+        { title: t('Profile'), url: '/profile', icon: User },
       ],
     },
     {
       id: 'admin',
       title: t('Admin'),
       items: [
-        {
-          title: t('Users'),
-          url: '/users',
-          icon: Users,
-        },
+        { title: t('Users'), url: '/users', icon: Users },
         {
           title: t('Redemption Codes'),
           url: '/redemption-codes',
           icon: Ticket,
         },
-        {
-          title: t('Subscriptions'),
-          url: '/subscriptions',
-          icon: CreditCard,
-        },
-        {
-          title: t('API Request Logs'),
-          url: '/full-content-logs',
-          icon: FileSearch,
-          requiredRole: ROLE.ADMIN,
-        },
-        {
-          title: t('System Info'),
-          url: '/system-info',
-          icon: ServerCog,
-          requiredRole: ROLE.SUPER_ADMIN,
-        },
+        { title: t('Subscriptions'), url: '/subscriptions', icon: CreditCard },
       ],
     },
     {
       id: 'chat',
       title: t('Tools'),
       items: [
-        {
-          title: t('Model Call Analytics'),
-          url: '/dashboard/models',
-          icon: LayoutDashboard,
-          activeUrls: ['/dashboard/flow', '/dashboard/users'],
-        },
-        {
-          title: t('Task Logs'),
-          url: '/usage-logs/task',
-          activeUrls: ['/usage-logs/drawing'],
-          configUrls: ['/usage-logs/drawing', '/usage-logs/task'],
-          icon: ListTodo,
-        },
-        {
-          title: t('Playground'),
-          url: '/playground',
-          icon: FlaskConical,
-        },
-        {
-          title: t('Chat'),
-          icon: MessageSquare,
-          type: 'chat-presets',
-        },
+        { title: t('Playground'), url: '/playground', icon: FlaskConical },
+        { title: t('Chat'), icon: MessageSquare, type: 'chat-presets' },
       ],
     },
     {
@@ -171,11 +169,6 @@ export function useSidebarData(): SidebarData {
           url: '/wallet',
           icon: Wallet,
         },
-        {
-          title: t('Profile'),
-          url: '/profile',
-          icon: User,
-        },
       ],
     },
   ]
@@ -185,11 +178,11 @@ export function useSidebarData(): SidebarData {
     for (const group of navGroups) {
       group.items = group.items.filter(
         (item) =>
-          !(serverFundingMode === 'retirement'
-            ? ['/redemption-codes', '/subscriptions']
-            : ['/wallet', '/redemption-codes', '/subscriptions']).includes(
-            item.url ?? ''
-          )
+          !(
+            serverFundingMode === 'retirement'
+              ? ['/redemption-codes', '/subscriptions']
+              : ['/wallet', '/redemption-codes', '/subscriptions']
+          ).includes(item.url ?? '')
       )
     }
   }

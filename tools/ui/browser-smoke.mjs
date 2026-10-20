@@ -415,7 +415,7 @@ try {
       await page.getByRole('button', { name: label('Search'), exact: true }).click()
       const command = page.getByRole('dialog')
       await command.getByRole('combobox').waitFor()
-      for (const title of ['System Settings', 'System Info', ...(options.role === 1 ? ['Channels', 'Users', 'Models'] : []), ...(options.sidebar ? ['API Keys', 'Usage Logs'] : [])]) {
+      for (const title of ['System Settings', 'System Info', ...(options.role === 1 ? ['Channels', 'Users', 'Models'] : []), ...(options.sidebar ? ['API Keys', 'Call records'] : [])]) {
         assert.equal(await command.getByRole('option', { name: label(title), exact: true }).count(), 0, `command honors role/sidebar narrowing: ${title}`)
       }
       if (options.sidebar) {
@@ -1120,7 +1120,7 @@ try {
     for (const { language, width } of profiles) {
       const { page, context } = await session({ language, width, settlementReviews: true })
       const start = report.requests.length
-      await open(page, '/usage-logs/common', { title: label('Common Logs', language) })
+      await open(page, '/usage-logs/common', { title: label('Call records', language) })
       for (const index of [0, 1]) {
         const requestId = SETTLEMENT_REVIEW_IDS[index]
         const { dialog, panel } = await openSettlementLog(page, requestId, language)
@@ -1161,7 +1161,7 @@ try {
     for (const width of [1280, 320]) {
       const { page, context } = await session({ width, settlementReviews: true })
       const start = report.requests.length
-      await open(page, '/usage-logs/common', { title: label('Common Logs') })
+      await open(page, '/usage-logs/common', { title: label('Call records') })
       await page.getByRole('button', { name: label('Pending requests'), exact: true }).click()
       const dialog = page.getByRole('dialog', { name: label('Pending requests'), exact: true })
       await dialog.getByRole('button').filter({ hasText: SETTLEMENT_REVIEW_IDS[2] }).click()
@@ -1207,7 +1207,7 @@ try {
     for (const width of [1280, 320]) {
       const { page, context } = await session({ role: 1, width, settlementReviews: true })
       const start = report.requests.length
-      await open(page, '/usage-logs/common', { title: label('Common Logs') })
+      await open(page, '/usage-logs/common', { title: label('Call records') })
       assert.equal(await page.getByRole('button', { name: label('Pending requests'), exact: true }).count(), 0, 'ordinary owner has no Root pending queue')
       for (const index of [0, 1, 2]) {
         const { dialog, panel } = await openSettlementLog(page, SETTLEMENT_REVIEW_IDS[index])

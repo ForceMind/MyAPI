@@ -242,27 +242,27 @@ async function verifyUsers(page, scenario) {
 }
 
 async function verifyLogs(page, scenario) {
-  const revision = await open(page, '/usage-logs/common', tr('Call logs', scenario.language))
-  for (const log of logs) {
-    await page.getByRole('button', { name: tr('View call {{id}}', scenario.language).replace('{{id}}', log.request_id), exact: true }).waitFor()
-  }
+  const revision = await open(page, '/usage-logs/common', tr('Call records', scenario.language))
+  await page.getByText(logs[0].request_id, { exact: true }).first().waitFor()
   await shot(page, scenario, 'logs')
   for (const [index, log] of logs.entries()) {
-    const completed = index < 2
-    const usageKnown = index === 1
-    await page.getByRole('button', { name: tr('View call {{id}}', scenario.language).replace('{{id}}', log.request_id), exact: true }).click()
-    const detail = page.locator(`[aria-label="${tr('Call details', scenario.language)}"]`)
-    await detail.getByRole('heading', { name: tr(completed ? 'Request succeeded' : 'Request failed', scenario.language), exact: true }).waitFor()
-    await detail.getByRole('heading', { name: tr(usageKnown ? 'Usage reported' : 'Usage not provided', scenario.language), exact: true }).waitFor()
-    const tokenValue = usageKnown ? '0' : tr('Unknown', scenario.language)
-    for (const tokenLabel of ['Input Tokens', 'Output Tokens']) {
-      const row = detail.locator('dl > div').filter({ has: page.getByText(tr(tokenLabel, scenario.language), { exact: true }) })
-      assert.equal(await row.locator('dd').innerText(), tokenValue, 'Missing usage stays unknown while explicit reported zero remains zero')
+    const record = page.getByText(log.request_id, { exact: true }).first()
+    const row = scenario.width < 1024 ? record.locator('xpath=ancestor::*[@data-log-row]') : record.locator('xpath=ancestor::tr')
+    await row.getByTitle(tr('Click to view full details', scenario.language), { exact: true }).click()
+    const detail = page.getByRole('dialog', { name: new RegExp(tr('Log Details', scenario.language)) })
+    await detail.getByText(tr(index < 2 ? 'Request succeeded' : 'Request failed', scenario.language), { exact: true }).first().waitFor()
+    if (index === 1) {
+      // Explicit upstream-reported zero is valid evidence, never Unknown.
+      assert.equal(await detail.getByText(tr('Unknown', scenario.language), { exact: true }).count(), 0)
+      assert(await detail.getByText('0', { exact: true }).count() >= 2)
+    } else {
+      assert(await detail.getByText(tr('Unknown', scenario.language), { exact: true }).count() >= 2, 'Missing usage stays unknown')
     }
-    assert.equal(await page.getByRole('region', { name: tr('Usage pending review', scenario.language), exact: true }).count(), 0, 'Personal request success is independent of accounting review')
-    assert.equal(await page.getByText(tr('Current Balance', scenario.language), { exact: true }).count(), 0, 'Personal logs hide monetary balance')
+    assert.equal(await detail.getByText(tr('Total Cost', scenario.language), { exact: true }).count(), 0)
+    assert.equal(await page.getByText(tr('Current Balance', scenario.language), { exact: true }).count(), 0)
     if (index === 0) await shot(page, scenario, 'details')
-    if (scenario.width === 320) await page.getByRole('button', { name: tr('Back to call list', scenario.language), exact: true }).click()
+    await page.keyboard.press('Escape')
+    await detail.waitFor({ state: 'hidden' })
   }
   await noOverflow(page, scenario.name)
   return revision
@@ -274,7 +274,7 @@ async function run(scenario) {
   try {
     journey.buildRevision = await (scenario.kind === 'logs' ? verifyLogs(page, scenario) : verifyUsers(page, scenario))
     assert(audit.statusRead, 'Journey reads funding status')
-    assert(scenario.kind === 'logs' ? audit.logsRead && audit.reviewReads === 0 : audit.usersRead, 'Journey reads its bounded API')
+    assert(scenario.kind === 'logs' ? audit.logsRead : audit.usersRead, 'Journey reads its bounded API')
     assert.deepEqual(audit.mutations, [], 'No business POST/PUT/PATCH/DELETE')
     assert.deepEqual(audit.external, [], 'No external requests')
     assert.deepEqual(audit.violations, [], 'No fixture violations')

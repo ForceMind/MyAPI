@@ -28,7 +28,11 @@ import { useAuthStore } from '@/stores/auth-store'
 import { getLogStats, getUserLogStats } from '../api'
 import { DEFAULT_LOG_STATS } from '../constants'
 import { buildApiParams } from '../lib/utils'
-import { useLogsViewScope, useUsageLogsContext } from './usage-logs-provider'
+import {
+  useLogMoneyVisibility,
+  useLogsViewScope,
+  useUsageLogsContext,
+} from './usage-logs-provider'
 
 const route = getRouteApi('/_authenticated/usage-logs/$section')
 
@@ -50,6 +54,7 @@ function StatBadge(props: {
 
 export function CommonLogsStats() {
   const { t } = useTranslation()
+  const showCosts = useLogMoneyVisibility()
   const { isAdminView: isAdmin } = useLogsViewScope()
   const searchParams = route.useSearch()
   const { sensitiveVisible } = useUsageLogsContext()
@@ -75,7 +80,15 @@ export function CommonLogsStats() {
         ? result.data || DEFAULT_LOG_STATS
         : DEFAULT_LOG_STATS
     },
-    placeholderData: (previousData) => previousData,
+    placeholderData: (previousData, previousQuery) => {
+      if (
+        previousQuery?.queryKey[1] === isAdmin &&
+        previousQuery.queryKey[2] === userId &&
+        previousQuery.queryKey[3] === sessionId
+      )
+        return previousData
+      return undefined
+    },
   })
 
   if (isLoading) {
@@ -90,11 +103,13 @@ export function CommonLogsStats() {
 
   return (
     <div className='flex flex-wrap items-center gap-2'>
-      <StatBadge
-        label={t('Usage')}
-        value={sensitiveVisible ? formatLogQuota(stats?.quota || 0) : '••••'}
-        accent='bg-sky-500/70'
-      />
+      {showCosts && (
+        <StatBadge
+          label={t('Usage')}
+          value={sensitiveVisible ? formatLogQuota(stats?.quota || 0) : '••••'}
+          accent='bg-sky-500/70'
+        />
+      )}
       <StatBadge
         label={t('RPM')}
         value={stats?.rpm || 0}

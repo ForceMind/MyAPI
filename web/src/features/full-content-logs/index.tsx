@@ -34,6 +34,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useMediaQuery } from '@/hooks'
+import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { getFullContentLogs } from './api'
@@ -67,7 +68,7 @@ const EMPTY_FILTERS: FullContentLogFilters = {
 
 export function FullContentLogs() {
   const { t } = useTranslation()
-  const isMobile = useMediaQuery('(max-width: 640px)')
+  const isMobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
   const userId = useAuthStore((state) => state.auth.user?.id ?? null)
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const [page, setPage] = useState(1)

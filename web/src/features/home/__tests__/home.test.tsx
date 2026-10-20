@@ -12,6 +12,11 @@ import { useHomePageContent } from '../hooks'
 import { Home } from '../index'
 
 vi.mock('@tanstack/react-router', () => ({
+  Navigate: () => (
+    <a data-testid='workbench-redirect' href='/dashboard/overview'>
+      Console
+    </a>
+  ),
   Link: (props: AnchorHTMLAttributes<HTMLAnchorElement> & { to?: string }) => {
     const { to, children, ...attributes } = props
     return (
@@ -62,31 +67,20 @@ describe('default self-hosted home', () => {
     vi.clearAllMocks()
   })
 
-  test('shows a three-step start path without promising protected actions to visitors', () => {
+  test('visitors get a complete gateway entry and a sign-in action without balance promises', () => {
     render(<Home />)
-
-    expect(screen.getByText('MyAPI · Self-hosted gateway')).toBeInTheDocument()
-
-    const steps = screen.getByRole('region', {
-      name: 'Three steps to get started',
-    })
-    expect(within(steps).getAllByRole('listitem')).toHaveLength(3)
+    const workflow = screen.getByRole('region', { name: 'Platform workflow' })
     expect(
-      within(steps).getByRole('heading', { name: 'Channels' })
+      within(workflow).getByRole('heading', { name: /Connections & access/ })
     ).toBeInTheDocument()
     expect(
-      within(steps).getByRole('heading', { name: 'API Keys' })
+      within(workflow).getByRole('heading', { name: /Records & diagnostics/ })
     ).toBeInTheDocument()
-    expect(
-      within(steps).getByRole('heading', { name: 'Remaining quota' })
-    ).toBeInTheDocument()
-    expect(
-      within(steps).queryByRole('link', { name: /Open/ })
-    ).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Sign in' })).toHaveAttribute(
       'href',
       '/sign-in'
     )
+    expect(screen.queryByText(/remaining credit/i)).not.toBeInTheDocument()
   })
 
   test('unavailable live home settings show one inline retry without hiding default actions', async () => {
@@ -107,7 +101,9 @@ describe('default self-hosted home', () => {
       screen.getByRole('alert', { name: 'Failed to load home page content' })
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: 'Three steps to get started' })
+      screen.getByRole('heading', {
+        name: 'Your gateway. Every request in view.',
+      })
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Retry' }))
     expect(retry).toHaveBeenCalledOnce()
@@ -129,60 +125,19 @@ describe('default self-hosted home', () => {
     )
   })
 
-  test('links a signed-in root to channels, keys, and the quota overview', () => {
-    useAuthStore
-      .getState()
-      .auth.setUser({ id: 1, username: 'root', role: ROLE.SUPER_ADMIN })
-    render(<Home />)
-
-    const steps = screen.getByRole('region', {
-      name: 'Three steps to get started',
-    })
-    expect(
-      within(steps).getByRole('link', { name: 'Open Channels' })
-    ).toHaveAttribute('href', '/channels')
-    expect(
-      within(steps).getByRole('link', { name: 'Open API Keys' })
-    ).toHaveAttribute('href', '/keys')
-    expect(
-      within(steps).getByRole('link', { name: 'Open Remaining quota' })
-    ).toHaveAttribute('href', '/dashboard')
-  })
-
-  test('signed-in ordinary user sees only steps they can actually open', () => {
-    useAuthStore
-      .getState()
-      .auth.setUser({ id: 2, username: 'user', role: ROLE.USER })
-    render(<Home />)
-
-    const steps = screen.getByRole('region', {
-      name: 'Three steps to get started',
-    })
-    expect(within(steps).getAllByRole('listitem')).toHaveLength(3)
-    expect(
-      within(steps).queryByRole('heading', { name: 'Channels' })
-    ).toBeNull()
-    expect(
-      within(steps).queryByRole('heading', { name: 'Remaining quota' })
-    ).toBeNull()
-    expect(
-      within(steps).getByRole('link', { name: 'Open API Keys' })
-    ).toHaveAttribute('href', '/keys')
-    expect(
-      within(steps).getByRole('link', { name: 'Open Usage logs' })
-    ).toHaveAttribute('href', '/usage-logs')
-    expect(
-      within(steps).getByRole('link', { name: 'Open Quota & history' })
-    ).toHaveAttribute('href', '/wallet')
-    expect(
-      screen.queryByRole('heading', { name: 'Container or native process' })
-    ).toBeNull()
-    expect(
-      screen.getByText(
-        'Use your API key, review requests, and track remaining credit.'
+  test.each([ROLE.SUPER_ADMIN, ROLE.USER])(
+    'signed-in role %s enters the workbench from the empty default home',
+    (role) => {
+      useAuthStore
+        .getState()
+        .auth.setUser({ id: 1, username: 'operator', role })
+      render(<Home />)
+      expect(screen.getByTestId('workbench-redirect')).toHaveAttribute(
+        'href',
+        '/dashboard/overview'
       )
-    ).toBeInTheDocument()
-  })
+    }
+  )
 
   test('keeps administrator custom Markdown instead of the default home', () => {
     vi.mocked(useHomePageContent).mockReturnValue({
@@ -199,7 +154,9 @@ describe('default self-hosted home', () => {
       '# Instance home'
     )
     expect(
-      screen.queryByRole('heading', { name: 'Three steps to get started' })
+      screen.queryByRole('heading', {
+        name: 'Your gateway. Every request in view.',
+      })
     ).not.toBeInTheDocument()
   })
 
@@ -218,7 +175,9 @@ describe('default self-hosted home', () => {
     expect(frame).toHaveAttribute('src', 'https://example.invalid/home')
     expect(frame).toHaveAttribute('sandbox')
     expect(
-      screen.queryByRole('heading', { name: 'Three steps to get started' })
+      screen.queryByRole('heading', {
+        name: 'Your gateway. Every request in view.',
+      })
     ).not.toBeInTheDocument()
   })
 })

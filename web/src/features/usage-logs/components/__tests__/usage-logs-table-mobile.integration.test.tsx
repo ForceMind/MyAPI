@@ -72,6 +72,7 @@ vi.mock('@/hooks/use-table-url-state', () => ({
 }))
 
 vi.mock('../usage-logs-provider', () => ({
+  useLogMoneyVisibility: () => true,
   useLogsViewScope: () => ({ isAdminView: false }),
   useUsageLogsContext: () => ({
     sensitiveVisible: true,

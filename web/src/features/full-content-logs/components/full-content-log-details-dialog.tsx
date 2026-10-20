@@ -29,6 +29,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { useMediaQuery } from '@/hooks/use-media-query'
+import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -117,7 +118,7 @@ export function FullContentLogDetailsDialog(
   props: FullContentLogDetailsDialogProps
 ) {
   const { t } = useTranslation()
-  const isMobile = useMediaQuery('(max-width: 640px)')
+  const isMobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
   const userId = useAuthStore((state) => state.auth.user?.id ?? null)
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const [showRaw, setShowRaw] = useState(false)

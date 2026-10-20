@@ -50,6 +50,7 @@ import {
   Info,
   LogIn,
 } from 'lucide-react'
+import { lazy, Suspense, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
@@ -78,6 +79,7 @@ import {
   renderAuditContent,
   readPublishedPriceReference,
 } from '../../lib/format'
+import { getPersonalCallEvidence } from '../../lib/personal-call-evidence'
 import {
   getLogTypeConfig,
   isCompletedUsageReview,
@@ -87,6 +89,7 @@ import {
 import { USAGE_BILLING_PATH, type LogOtherData } from '../../types'
 import { TokenBudgetEvidence } from '../token-budget-evidence'
 import { UsageAccuracyBadge } from '../usage-accuracy-badge'
+import { useLogMoneyVisibility } from '../usage-logs-provider'
 import { UsageReviewPanel } from '../usage-review-panel'
 
 // Maps a channel-update changed-field token (as recorded by the backend audit)
@@ -425,9 +428,15 @@ function TokenBreakdown(props: { log: UsageLog; other: LogOtherData }) {
   const cacheWrite = other.cache_creation_tokens || 0
   const cacheWrite5m = other.cache_creation_tokens_5m || 0
   const cacheWrite1h = other.cache_creation_tokens_1h || 0
-  const hasTokens = promptTokens > 0 || completionTokens > 0
 
-  if (!hasTokens) return null
+  if (!getPersonalCallEvidence(log).usageKnown) {
+    return (
+      <DetailSection label={t('Token Breakdown')}>
+        <DetailRow label={t('Input Tokens')} value={t('Unknown')} />
+        <DetailRow label={t('Output Tokens')} value={t('Unknown')} />
+      </DetailSection>
+    )
+  }
 
   const rows: Array<{ label: string; value: string }> = []
 
@@ -481,6 +490,12 @@ function TokenBreakdown(props: { log: UsageLog; other: LogOtherData }) {
   )
 }
 
+const RequestContentDialog = lazy(() =>
+  import('@/features/full-content-logs/components/full-content-log-details-dialog').then(
+    (module) => ({ default: module.FullContentLogDetailsDialog })
+  )
+)
+
 interface DetailsDialogProps {
   log: UsageLog
   isAdmin: boolean
@@ -493,7 +508,9 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const details = props.log.content ?? ''
   const other = parseLogOther(props.log.other)
-  const publishedPrice = readPublishedPriceReference(other)
+  const showCosts = useLogMoneyVisibility()
+  const [contentOpen, setContentOpen] = useState(false)
+  const publishedPrice = showCosts ? readPublishedPriceReference(other) : null
   const typeConfig = getLogTypeConfig(props.log.type, other)
   const completedUsageReview = isCompletedUsageReview(props.log.type, other)
 
@@ -672,6 +689,44 @@ export function DetailsDialog(props: DetailsDialogProps) {
           )}
         {props.isAdmin && other?.admin_info?.token_budget && (
           <TokenBudgetEvidence evidence={other.admin_info.token_budget} />
+        )}
+        {props.isAdmin && props.log.request_id && (
+          <div className='rounded-lg border p-3'>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => setContentOpen(true)}
+            >
+              {t('View request content')}
+            </Button>
+            <p className='text-muted-foreground mt-2 text-xs'>
+              {t(
+                'Read saved, redacted request and response content. This does not resend the request.'
+              )}
+            </p>
+            {contentOpen && (
+              <Suspense fallback={<p>{t('Loading...')}</p>}>
+                <RequestContentDialog
+                  requestId={props.log.request_id}
+                  open={props.open && contentOpen}
+                  onOpenChange={setContentOpen}
+                />
+              </Suspense>
+            )}
+          </div>
+        )}
+        {props.log.token_name && (
+          <Button
+            size='sm'
+            variant='ghost'
+            render={
+              <a
+                href={`/keys?filter=${encodeURIComponent(props.log.token_name)}`}
+              />
+            }
+          >
+            {t('View this Key')}
+          </Button>
         )}
         {/* Overview section - key identifiers */}
         <div className='min-w-0 space-y-1'>
@@ -900,11 +955,13 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 value={other.violation_fee_marker}
               />
             )}
-            <DetailRow
-              label={t('Fee Amount')}
-              value={formatLogQuota(other.fee_quota ?? props.log.quota)}
-              mono
-            />
+            {showCosts && (
+              <DetailRow
+                label={t('Fee Amount')}
+                value={formatLogQuota(other.fee_quota ?? props.log.quota)}
+                mono
+              />
+            )}
           </DetailSection>
         )}
 
@@ -1233,7 +1290,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
         )}
 
         {/* Billing breakdown (consume type) */}
-        {isConsume && other && !isViolation && (
+        {showCosts && isConsume && other && !isViolation && (
           <BillingBreakdown
             log={props.log}
             other={other}
@@ -1242,7 +1299,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
         )}
 
         {/* Tiered pricing breakdown (when billing_mode is tiered_expr) */}
-        {isTieredBilling && other?.expr_b64 && (
+        {showCosts && isTieredBilling && other?.expr_b64 && (
           <DetailSection label={t('Dynamic Pricing')}>
             <DynamicPricingBreakdown
               compact

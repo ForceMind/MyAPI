@@ -50,6 +50,7 @@ import {
   isViolationFeeLog,
   renderAuditContent,
 } from '../../lib/format'
+import { getPersonalCallEvidence } from '../../lib/personal-call-evidence'
 import {
   isDisplayableLogType,
   isTimingLogType,
@@ -61,7 +62,10 @@ import { DetailsDialog } from '../dialogs/details-dialog'
 import { LogCostDisplay } from '../log-cost-display'
 import { ModelBadge } from '../model-badge'
 import { TimingMetricsCell, StreamTpsCell } from '../timing-metrics-cell'
-import { useUsageLogsContext } from '../usage-logs-provider'
+import {
+  useLogMoneyVisibility,
+  useUsageLogsContext,
+} from '../usage-logs-provider'
 
 interface DetailSegment {
   text: string
@@ -285,6 +289,7 @@ function buildTypeDetailSegments(
 
 export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
   const { t } = useTranslation()
+  const showCosts = useLogMoneyVisibility()
   const columns: ColumnDef<UsageLog>[] = [
     {
       accessorKey: 'created_at',
@@ -306,7 +311,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
               copyable={false}
               className='-ml-1.5 h-auto min-h-5 !text-xs [&_span]:!text-xs'
             >
-              <span className='min-w-0 break-keep whitespace-normal leading-snug'>
+              <span className='min-w-0 leading-snug break-keep whitespace-normal'>
                 {t(config.label)}
               </span>
             </StatusBadge>
@@ -655,11 +660,15 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
 
         const other = parseLogOther(log.other)
 
+        if (!getPersonalCallEvidence(log).usageKnown) {
+          return (
+            <span className='text-muted-foreground text-xs'>
+              {t('Unknown')}
+            </span>
+          )
+        }
         const promptTokens = log.prompt_tokens || 0
         const completionTokens = log.completion_tokens || 0
-        if (promptTokens === 0 && completionTokens === 0) {
-          return <span className='text-muted-foreground text-xs'>-</span>
-        }
 
         const cacheReadTokens = other?.cache_tokens || 0
         const cacheWrite5m = other?.cache_creation_tokens_5m || 0
@@ -694,6 +703,18 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
       },
     },
     {
+      accessorKey: 'request_id',
+      header: t('Request ID'),
+      cell: ({ row }) => (
+        <span
+          className='block max-w-48 truncate font-mono text-xs'
+          title={row.original.request_id}
+        >
+          {row.original.request_id || '—'}
+        </span>
+      ),
+    },
+    {
       accessorKey: 'quota',
       header: t('Cost'),
       cell: ({ row }) => {
@@ -702,7 +723,13 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
 
         const quota = row.getValue('quota') as number
         const other = parseLogOther(log.other)
-        return <LogCostDisplay quota={quota} other={other} showUsageAccuracy={log.type === 2} />
+        return (
+          <LogCostDisplay
+            quota={quota}
+            other={other}
+            showUsageAccuracy={log.type === 2}
+          />
+        )
       },
     },
 
@@ -735,7 +762,10 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         const log = row.original
         const other = parseLogOther(log.other)
 
-        const segments = buildDetailSegments(log, other, t, isAdmin)
+        const segments =
+          showCosts || log.type === 3 || log.type === 7
+            ? buildDetailSegments(log, other, t, isAdmin)
+            : []
         const primary = segments[0]
         const hasMore = segments.length > 1
         let primaryTextClass = 'text-foreground'
@@ -793,5 +823,9 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
     }
   )
 
-  return columns
+  return showCosts
+    ? columns
+    : columns.filter(
+        (column) => !('accessorKey' in column && column.accessorKey === 'quota')
+      )
 }

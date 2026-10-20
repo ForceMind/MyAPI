@@ -25,12 +25,12 @@ import type { NavGroup } from '@/components/layout/types'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CacheStatsDialog } from '@/features/system-settings/general/channel-affinity/cache-stats-dialog'
 import { useMediaQuery } from '@/hooks'
-import { usePersonalWorkbenchMode } from '@/hooks/use-personal-workbench-mode'
+import { useFundingPresentation } from '@/hooks/use-funding-presentation'
 import { useSidebarConfig } from '@/hooks/use-sidebar-config'
+import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 
 import { UserInfoDialog } from './components/dialogs/user-info-dialog'
 import { PendingUsageReviews } from './components/pending-usage-reviews'
-import { PersonalCallLogs } from './components/personal-call-logs'
 import {
   type LogsViewScope,
   UsageLogsProvider,
@@ -49,7 +49,7 @@ const TASK_LOG_SECTIONS = ['drawing', 'task'] as const
 
 const SECTION_META: Record<UsageLogsSectionId, { titleKey: string }> = {
   common: {
-    titleKey: 'Common Logs',
+    titleKey: 'Call records',
   },
   drawing: {
     titleKey: 'Drawing Logs',
@@ -61,7 +61,7 @@ const SECTION_META: Record<UsageLogsSectionId, { titleKey: string }> = {
 
 function UsageLogsContent() {
   const { t } = useTranslation()
-  const isMobile = useMediaQuery('(max-width: 640px)')
+  const isMobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
   const navigate = useNavigate()
   const params = route.useParams()
   const activeCategory: UsageLogsSectionId =
@@ -134,7 +134,7 @@ function UsageLogsContent() {
           {t(pageMeta.titleKey)}
         </SectionPageLayout.Title>
         <SectionPageLayout.Description>
-          {t('Inspect requests, costs and unresolved usage.')}
+          {t('Inspect requests, routing and usage evidence.')}
         </SectionPageLayout.Description>
         {canManageScope && (
           <SectionPageLayout.Actions>
@@ -201,11 +201,9 @@ function UsageLogsContent() {
 }
 
 export function UsageLogs() {
-  const personalMode = usePersonalWorkbenchMode()
-  const params = route.useParams()
-  if (personalMode && params.section === 'common') return <PersonalCallLogs />
+  const funding = useFundingPresentation()
   return (
-    <UsageLogsProvider>
+    <UsageLogsProvider showCosts={funding.commercialEnabled}>
       <UsageLogsContent />
     </UsageLogsProvider>
   )

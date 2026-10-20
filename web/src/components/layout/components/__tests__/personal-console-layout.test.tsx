@@ -2,6 +2,7 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test } from 'vitest'
 
+import { SidebarProvider } from '@/components/ui/sidebar'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -35,18 +36,19 @@ afterEach(() => {
   }
 })
 
-test('overview keeps four core destinations and marks the current page in both navigations', async () => {
+test('complete desktop navigation and mobile More retain diagnostic and maintenance modules', async () => {
   await renderShellRoute(
-    <PersonalConsoleLayout>
-      <main id='content'>Workspace</main>
-    </PersonalConsoleLayout>
+    <SidebarProvider>
+      <PersonalConsoleLayout>
+        <main id='content'>Workspace</main>
+      </PersonalConsoleLayout>
+    </SidebarProvider>
   )
   for (const label of [
     'Personal console navigation',
     'Mobile console navigation',
   ]) {
     const navigation = screen.getByRole('navigation', { name: label })
-    expect(within(navigation).getAllByRole('link')).toHaveLength(4)
     expect(
       within(navigation).getByRole('link', { name: 'Overview' })
     ).toHaveAttribute('aria-current', 'page')
@@ -59,9 +61,29 @@ test('overview keeps four core destinations and marks the current page in both n
       })
     ).not.toBeInTheDocument()
   }
+  const desktop = screen.getByRole('navigation', {
+    name: 'Personal console navigation',
+  })
+  for (const [name, href] of [
+    ['API Request Logs', '/full-content-logs'],
+    ['Task Logs', '/usage-logs/task'],
+    ['Drawing Logs', '/usage-logs/drawing'],
+    ['Channels', '/channels'],
+    ['System Info', '/system-info'],
+  ]) {
+    expect(within(desktop).getByRole('link', { name })).toHaveAttribute(
+      'href',
+      href
+    )
+  }
+  await userEvent.setup().click(screen.getByRole('button', { name: 'More' }))
+  const more = await screen.findByRole('dialog', { name: 'All modules' })
   expect(
-    screen.getByRole('link', { name: 'Settings & profile' })
-  ).toHaveAttribute('href', '/profile')
+    within(more).getByRole('link', { name: 'API Request Logs' })
+  ).toHaveAttribute('href', '/full-content-logs')
+  expect(
+    within(more).getByRole('link', { name: 'System Settings' })
+  ).toHaveAttribute('href', '/system-settings/site')
   expect(screen.getByTestId('console-build-revision')).toHaveTextContent(
     /^rv\./
   )
@@ -72,9 +94,11 @@ test('a lower role cannot use the upstream destination and sidebar narrowing sti
     .getState()
     .auth.setUser({ id: 2, username: 'key-owner', role: ROLE.USER })
   await renderShellRoute(
-    <PersonalConsoleLayout>
-      <main id='content'>Workspace</main>
-    </PersonalConsoleLayout>,
+    <SidebarProvider>
+      <PersonalConsoleLayout>
+        <main id='content'>Workspace</main>
+      </PersonalConsoleLayout>
+    </SidebarProvider>,
     {
       status: {
         SidebarModulesAdmin: JSON.stringify({
@@ -94,32 +118,36 @@ test('a lower role cannot use the upstream destination and sidebar narrowing sti
   ).not.toBeInTheDocument()
 })
 
-test('channel maintenance stays selected under upstream accounts', async () => {
+test('channel management has its own destination instead of selecting the account window page', async () => {
   await renderShellRoute(
-    <PersonalConsoleLayout>
-      <main id='content'>Channel management</main>
-    </PersonalConsoleLayout>,
+    <SidebarProvider>
+      <PersonalConsoleLayout>
+        <main id='content'>Channel management</main>
+      </PersonalConsoleLayout>
+    </SidebarProvider>,
     { path: '/channels' }
   )
-  for (const label of [
-    'Personal console navigation',
-    'Mobile console navigation',
-  ]) {
+  for (const label of ['Personal console navigation']) {
     const navigation = screen.getByRole('navigation', { name: label })
     expect(
-      within(navigation).getByRole('link', { name: 'Upstream accounts' })
+      within(navigation).getByRole('link', { name: 'Channels' })
     ).toHaveAttribute('aria-current', 'page')
+    expect(
+      within(navigation).getByRole('link', { name: 'Upstream accounts' })
+    ).not.toHaveAttribute('aria-current')
   }
 })
 
 test('keyboard users can reach the skip link before the navigation', async () => {
   const user = userEvent.setup()
   await renderShellRoute(
-    <PersonalConsoleLayout>
-      <main id='content' tabIndex={-1}>
-        Workspace
-      </main>
-    </PersonalConsoleLayout>
+    <SidebarProvider>
+      <PersonalConsoleLayout>
+        <main id='content' tabIndex={-1}>
+          Workspace
+        </main>
+      </PersonalConsoleLayout>
+    </SidebarProvider>
   )
   await user.tab()
   expect(screen.getByRole('link', { name: 'Skip to Main' })).toHaveFocus()
