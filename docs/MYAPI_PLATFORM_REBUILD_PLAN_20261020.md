@@ -286,3 +286,7 @@ P4集中复核d77b02e：后端及其余10作业成功，前端完整单元/高�
 2fcd34e实际checkout `e8be7487f7f9fc1cf10c53d6442919ee31d57ab8` 已确认同tree3944679；构建工件12260727461，200文件manifest `/tmp/myapi-platform-p4-build-manifest-2fcd34e.json`（SHA256 608147cb5a1c00b7e10c599581866c85063dc544343c67096a539f3657728195）。4181已切换该准确制品，旧TTY65125正常停止，现TTY53565；HTTP200与5个入口JS SHA均通过，记录 `/tmp/myapi-platform-p4-preview-probe-2fcd34e.json`。源码仍待当前CI完整及原图收口，未部署。无需重新运行不变输入的本机证据；剩余只读检查和归档。
 
 2fcd34e准确CI的前端作业已成功：251文件/1588测试，typecheck/lint/build，以及高级模型17、窗口17、安全20通过。主代理查看法语320会话原图，布局已正确，但“最近活跃”相对时间仍用英文；修正仅在LoginSessionItem注册既有Dayjs语言并按当前界面语言格式化，不改时间戳或全局语言。旧实现法语回归失败，修正后七语言及原移动布局共7例通过，typecheck/lint通过；对应安全原旅程补充法语值断言。此为本批最后已证明语言缺口，版本保持beta.24，需随准确新源码通过Actions；不追加统计后端或其他功能。
+
+最终源码ad5f017492cad9b8ecc85919c3f2f85c0effd541，tree b450377549652fb51d5b4a3d99a3729a321d3236，准确CI39418749223；checkout227a52044513d856baa98b0735399ea427591eb1与候选同tree，构建工件12262511368。200文件manifest SHA25627b77ba5255ad8944842407e82d76206c03a6873af3c2375a8de23df2f75a10b。4181已切准确制品，TTY20142，HTTP/5入口JS核对通过，预览提示条为唯一声明的HTML注入。完整前端252文件/1594测试、高级模型17/窗口17/安全20及原隔离Key维护已通过；法语320原图确认最近活跃时间为法语且会话操作独立行。其余准确核心/全平台/后端结果待当前Actions完成。本批证据唯一入口docs/evidence/myapi-platform-rebuild-20261020/README.md。
+
+ad5f017核心20/20、分额28/28通过，但工作台第二旅程失败：Channels现有图表在导航返回前读/api/channel/7/quota/history，夹具仅配置1。原始JSON证明零外部请求/写操作，非产品语言回归。保留diagnostics/ad5f017；工作台夹具仅允许该场景Root/channel.read且实际/channels页面的GET7历史，返回明确合成空历史。导航旅程等待这次真实读取并验证channel_id7/一次读取后再返回，消除原本未等待图表完成的竞态；不改产品代码、权限、超时或外网断言。Node语法/差异检查通过，需既有Actions复验。

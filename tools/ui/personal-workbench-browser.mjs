@@ -422,6 +422,11 @@ function scenarioResponse(fixture, scenario, url, method, reads, pagePath) {
     return { status: 200, body: { success: true, data: { items, total: items.length, page: 1, page_size: Number(url.searchParams.get('page_size') || 10) } } }
   }
 
+  if (scenario.windowStates && path === '/api/channel/7/quota/history') {
+    assert(scenario.role === 100 && scenario.channelRead && method === 'GET' && pagePath === '/channels', 'Only the authorized channel page reads its saved history')
+    return { status: 200, body: { success: true, data: { channel_id: 7, start: now - 86400, end: now, limit: 5000, points: [], current: null, source_complete: true, points_complete: true, complete: true } } }
+  }
+
   if (path === '/api/status') {
     const response = fixture.response(url, method)
     return {
@@ -1166,9 +1171,13 @@ async function inspectWindowStates(scenario) {
     }
     assert.equal(reads.get('/api/channel'), 1, 'Desktop and mobile connection presentations share one metadata read')
     await screenshot(page, scenario, 'overview-connections')
+    const savedHistory = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/channel/7/quota/history' && response.request().method() === 'GET' && response.status() === 200)
     await connections.getByRole('link', { name: tr('Manage connections', scenario.language), exact: true }).click()
     await page.waitForURL('**/channels')
     await page.waitForFunction((name) => [...document.querySelectorAll('main *')].some((element) => element.textContent?.trim() === name && element.checkVisibility()), 'Synthetic standard API channel')
+    const history = await (await savedHistory).json()
+    assert.equal(history.data.channel_id, 7, 'The channel page loads the selected synthetic account history')
+    assert.equal(reads.get('/api/channel/7/quota/history'), 1, 'The existing history chart performs one saved-data read before returning')
     await page.goBack()
     await page.getByTestId('personal-workbench').waitFor()
     await page.goto(`${origin}/upstream-accounts`, { waitUntil: 'networkidle' })
