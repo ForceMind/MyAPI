@@ -19,9 +19,16 @@ For commercial licensing, please contact support@quantumnous.com
 import { LaptopIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
+import 'dayjs/locale/fr'
+import 'dayjs/locale/ja'
+import 'dayjs/locale/ru'
+import 'dayjs/locale/vi'
+import 'dayjs/locale/zh-cn'
+import 'dayjs/locale/zh-tw'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { toIntlLocale } from '@/i18n/languages'
 import dayjs from '@/lib/dayjs'
 import type { LoginSession } from '@/stores/auth-store'
 
@@ -33,7 +40,7 @@ interface LoginSessionItemProps {
 }
 
 export function LoginSessionItem({ session, onRevoke }: LoginSessionItemProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const maxTouchPoints =
     session.current && typeof navigator !== 'undefined'
       ? navigator.maxTouchPoints
@@ -64,7 +71,14 @@ export function LoginSessionItem({ session, onRevoke }: LoginSessionItemProps) {
         </p>
         <p className='text-muted-foreground mt-1 text-xs'>
           {t('Last active {{time}} · Expires {{expires}}', {
-            time: dayjs.unix(session.last_active_at).fromNow(),
+            time: dayjs
+              .unix(session.last_active_at)
+              .locale(
+                toIntlLocale(
+                  i18n.resolvedLanguage ?? i18n.language
+                )?.toLowerCase() ?? 'en'
+              )
+              .fromNow(),
             expires: dayjs.unix(session.expires_at).format('YYYY-MM-DD HH:mm'),
           })}
         </p>

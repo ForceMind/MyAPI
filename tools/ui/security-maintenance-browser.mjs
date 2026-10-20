@@ -497,6 +497,7 @@ async function openSecurity(page, scenario) {
     })
     assert(layout.actionTop >= layout.descriptionBottom, 'Mobile session actions follow the complete heading and description')
     if (scenario.language === 'fr' && scenario.width === 320) {
+      await cards[3].getByText(/il y a /).first().waitFor()
       await header.scrollIntoViewIfNeeded()
       await screenshot(page, scenario, 'sessions-header')
     }
