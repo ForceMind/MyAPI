@@ -283,6 +283,7 @@ export interface LogStatistics {
   quota: number
   rpm: number
   tpm: number
+  token_usage?: import('./lib/token-statistics').TokenUsageStatistics
 }
 
 // ============================================================================

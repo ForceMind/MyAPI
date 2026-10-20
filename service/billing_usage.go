@@ -79,6 +79,7 @@ func appendUsageBillingPathForLog(other map[string]interface{}, isLocalCountToke
 		accuracy = "unknown"
 	}
 	other["usage_accuracy"] = accuracy
+	appendLogTokenEvidence(other, usage, effectiveUsage, accuracy == "reported" && hasSource)
 	if effectiveUsage != nil && effectiveUsage.CompletionTokenDetails.ReasoningTokens > 0 {
 		other["reasoning_tokens"] = effectiveUsage.CompletionTokenDetails.ReasoningTokens
 	}

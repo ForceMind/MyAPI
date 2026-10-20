@@ -273,7 +273,7 @@ jobs:
         env:
           MYAPI_S1_MYSQL_DSN: root:s1-fixture-password@tcp(127.0.0.1:${{ job.services.mysql.ports[3306] }})/myapi_s1_test?charset=utf8mb4&parseTime=true
           MYAPI_S1_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=s1-fixture-password dbname=myapi_s1_test sslmode=disable
-        run: go test -p 1 ./model -run '^Test(AccessProfile|AssignedAccessPolicy)ConfiguredDatabases$' -count=1 -timeout=180s -v
+        run: go test -p 1 ./model -run '^Test((AccessProfile|AssignedAccessPolicy)ConfiguredDatabases|LogTokenStatisticsConfiguredDatabases)$' -count=1 -timeout=180s -v
 
   s2a-databases:
     name: S2-A payment and subscription database regression

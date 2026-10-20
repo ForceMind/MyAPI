@@ -16,7 +16,7 @@ const version = readFileSync(resolve(repo, 'VERSION'), 'utf8').trim()
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim()
 const codes = { en: 'en', zh: 'zhCN', 'zh-TW': 'zhTW', fr: 'fr', ja: 'ja', ru: 'ru', vi: 'vi' }
 const translations = Object.fromEntries(Object.keys(codes).map(lang => [lang, JSON.parse(readFileSync(resolve(repo, `web/src/i18n/locales/${lang}.json`))).translation]))
-const report = { head, version, workflowHead: process.env.GITHUB_SHA || null, scope: 'Platform P1: public home, signed-in entry, desktop grouped navigation, mobile More, admin/self logs with server filters and pagination, completed missing usage, saved content and return. Synthetic APIs only; no providers or production.', result: 'running', journeys: [], screenshots: [], errors: [] }
+const report = { head, version, workflowHead: process.env.GITHUB_SHA || null, scope: 'Platform call records and additive Token/cache statistics: scope, filters, known subtotals, unknown usage, explicit cached zero, empty range, retry, seven languages and PC/mobile. Synthetic APIs only; no providers or production.', result: 'running', journeys: [], tokenStatistics: [], screenshots: [], errors: [] }
 const persist = () => writeFileSync(resolve(output, 'personal-console-qualification.json'), JSON.stringify(report, null, 2))
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' }
 const server = createServer((request, response) => {
@@ -44,7 +44,9 @@ try {
     }
     const context = await browser.newContext({ viewport: { width: item.width, height: 960 }, reducedMotion: 'reduce', colorScheme: 'light', serviceWorkers: 'block' })
     const fixture = createUIFixture({ role: 100, language: codes[item.language], longText: item.language === 'fr' })
-    const errors = [], external = [], queries = []
+    const errors = [], external = [], queries = [], statisticsQueries = []
+    const statisticsMode = item.language === 'en' && item.width === 1280 ? 'mixed' : item.language === 'fr' && item.width === 320 ? 'zero-cache' : 'unknown'
+    let statisticsFailed = false
     let failProfile = false
     await context.addInitScript(language => localStorage.setItem('i18nextLng', language), codes[item.language])
     await context.route('**/*', async route => {
@@ -53,12 +55,38 @@ try {
       if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/pg/')) return route.continue()
       assert(request.method() === 'GET' || url.pathname === '/api/user/auth/refresh', 'No business mutation or Key reveal')
       if (url.pathname === '/api/user/self' && failProfile) return route.fulfill({ status: 503, json: { success: false } })
+      if (/^\/api\/log(\/self)?\/stat$/.test(url.pathname)) {
+        statisticsQueries.push({ path: url.pathname, params: Object.fromEntries(url.searchParams) })
+        const selected = url.searchParams.get('request_id')
+        if (selected === 'STATS-RETRY' && !statisticsFailed) { statisticsFailed = true; return route.fulfill({ status: 503, json: { success: false } }) }
+        const empty = selected === 'STATS-EMPTY' || selected === 'STATS-RETRY'
+        const known = !empty && statisticsMode !== 'unknown'
+        const input = statisticsMode === 'mixed' ? '1000' : '100'
+        const output = statisticsMode === 'mixed' ? '100' : '0'
+        const token_usage = {
+          records: empty ? 0 : 21, known_records: known ? 1 : 0, unknown_records: empty ? 0 : known ? 20 : 21,
+          input_tokens: empty ? '0' : null, output_tokens: empty ? '0' : null, total_tokens: empty ? '0' : null,
+          known_input_tokens: known ? input : '0', known_output_tokens: known ? output : '0', known_total_tokens: known ? String(BigInt(input) + BigInt(output)) : '0',
+          cache_known_records: known ? 1 : 0, cache_unknown_records: empty ? 0 : known ? 20 : 21,
+          cache_read_tokens: known && statisticsMode === 'mixed' ? '250' : '0', cache_input_tokens: known ? input : '0',
+          cache_hit_rate: known ? statisticsMode === 'mixed' ? 0.25 : 0 : null,
+        }
+        return route.fulfill({ json: { success: true, data: { quota: 0, rpm: 0, tpm: 0, token_usage } } })
+      }
       if (/^\/api\/log(\/self)?$/.test(url.pathname)) {
         queries.push({ path: url.pathname, params: Object.fromEntries(url.searchParams) })
         const pageNumber = Number(url.searchParams.get('p') || 1)
-        const log = id => ({ id, user_id: 1, token_id: 21, channel: 1, channel_name: 'synthetic-channel', created_at: FIXTURE_TIME / 1000 - id, type: 5, content: 'Synthetic completed response', username: 'synthetic-operator', token_name: 'synthetic-key', model_name: 'synthetic-text-model', quota: 125000, prompt_tokens: 0, completion_tokens: 0, use_time: 2, is_stream: true, request_id: `REQ-SYNTHETIC-${id}`, group: 'default', ip: '', other: JSON.stringify({ request_outcome: 'completed', usage_outcome: 'missing' }) })
-        const items = pageNumber === 1 ? Array.from({ length: 20 }, (_, i) => log(501 + i)) : [log(521)]
-        return route.fulfill({ json: { success: true, data: { items, total: 21, page: pageNumber, page_size: 20 } } })
+        const log = id => {
+          const row = { id, user_id: 1, token_id: 21, channel: 1, channel_name: 'synthetic-channel', created_at: FIXTURE_TIME / 1000 - id, type: 5, content: 'Synthetic completed response', username: 'synthetic-operator', token_name: 'synthetic-key', model_name: 'synthetic-text-model', quota: 125000, prompt_tokens: 0, completion_tokens: 0, use_time: 2, is_stream: true, request_id: `REQ-SYNTHETIC-${id}`, group: 'default', ip: '', other: JSON.stringify({ request_outcome: 'completed', usage_outcome: 'missing' }) }
+          if (id === 501 && statisticsMode !== 'unknown') {
+            row.type = 2; row.prompt_tokens = statisticsMode === 'mixed' ? 1000 : 100; row.completion_tokens = statisticsMode === 'mixed' ? 100 : 0
+            row.other = JSON.stringify({ usage_accuracy: 'reported', token_usage_evidence: { schema: 1, input_tokens: row.prompt_tokens, output_tokens: row.completion_tokens, cache_read_tokens: statisticsMode === 'mixed' ? 250 : 0 } })
+          }
+          return row
+        }
+        const empty = ['STATS-EMPTY', 'STATS-RETRY'].includes(url.searchParams.get('request_id'))
+        const items = empty ? [] : pageNumber === 1 ? Array.from({ length: 20 }, (_, i) => log(501 + i)) : [log(521)]
+        return route.fulfill({ json: { success: true, data: { items, total: empty ? 0 : 21, page: pageNumber, page_size: 20 } } })
       }
       if (url.pathname === '/api/full-content-logs/REQ-SYNTHETIC-521') {
         return route.fulfill({ json: { success: true, data: { request_id: 'REQ-SYNTHETIC-521', timestamp: new Date(FIXTURE_TIME).toISOString(), method: 'POST', path: '/v1/responses', status: 200, duration_ms: 2000, chunk_count: 1, request_bytes: 2, response_bytes: 50, request_body: '{"input":"Synthetic request"}', response_body: 'data: {"choices":[{"delta":{"content":"SYNTHETIC-SAVED-RESPONSE"}}]}\n\ndata: [DONE]\n\n', response_content_type: 'text/event-stream', request_headers: {}, response_headers: {}, query: {} } } })
@@ -102,6 +130,23 @@ try {
       await page.getByRole('heading', { name: t('Call records'), level: 1 }).waitFor()
       // This bookmarked server-filtered list must survive detail and return.
       await page.goto(`${origin}/usage-logs/common?pageSize=20&model=synthetic-text-model`, { waitUntil: 'networkidle' })
+      const statistics = page.getByRole('region', { name: t('Token usage statistics'), exact: true })
+      await statistics.waitFor()
+      const values = await statistics.locator('dd').allTextContents()
+      if (statisticsMode === 'mixed') {
+        assert(values.includes('1,100'), 'Partial usage presents the exact known subtotal')
+        assert(values.some(value => value.replace(/\s/g, '') === '25%'), 'Cache rate uses paired input evidence')
+        await statistics.getByText(t('Known Token subtotal'), { exact: true }).waitFor()
+      } else if (statisticsMode === 'zero-cache') {
+        assert(values.some(value => value.replace(/\s/g, '') === '0%'), 'An explicitly reported cache zero stays zero')
+      } else assert.deepEqual(values, Array(4).fill(t('Unknown')), 'Missing usage and absent cache evidence remain unknown')
+      await capture('token-statistics')
+      const methodTarget = await statistics.locator('summary').boundingBox()
+      assert(methodTarget && methodTarget.width >= 44 && methodTarget.height >= 44, 'The statistics method remains an accessible touch target')
+      await statistics.locator('summary').click()
+      await statistics.getByText(t('Cache hit rate uses summed cached input divided by summed input for records with cache evidence. Missing usage is excluded, not zero.'), { exact: true }).waitFor({ state: 'visible' })
+      await statistics.locator('summary').click()
+      report.tokenStatistics.push({ ...item, mode: statisticsMode, values, result: 'passed' })
       assert(queries.some(query => query.path === '/api/log' && query.params.model_name === 'synthetic-text-model'), 'Admin scope and model filter reach backend')
       assert.equal(await page.getByRole('columnheader', { name: t('Cost'), exact: true }).count(), 0)
       let filterScope = page.getByRole('main')
@@ -117,6 +162,7 @@ try {
         filterScope.getByRole('button', { name: t('Search'), exact: true }).click(),
       ])
       assert(queries.some(query => query.params.request_id === 'REQ-SYNTHETIC-'), 'Submitted Request ID filter reaches server')
+      assert(statisticsQueries.some(query => query.params.request_id === 'REQ-SYNTHETIC-'), 'Statistics use the same Request ID filter')
       if (!mobile) {
         const action = await page.getByTitle(t('Click to view full details'), { exact: true }).first().boundingBox()
         assert(action && action.x >= 0 && action.x + action.width <= item.width, 'Primary details action is visible without horizontal scrolling')
@@ -142,8 +188,23 @@ try {
       await page.keyboard.press('Escape')
       assert.equal(page.url(), before, 'Filter and page URL survive return')
       await page.getByText('REQ-SYNTHETIC-521', { exact: true }).first().waitFor()
-      await Promise.all([page.waitForResponse(response => /\/api\/log\/self\?/.test(response.url())), page.getByRole('tab', { name: t('Only Mine'), exact: true }).click()])
+      await Promise.all([page.waitForResponse(response => /\/api\/log\/self\?/.test(response.url())), page.waitForResponse(response => new URL(response.url()).pathname === '/api/log/self/stat'), page.getByRole('tab', { name: t('Only Mine'), exact: true }).click()])
       assert(queries.some(query => query.path === '/api/log/self'), 'Only Mine uses self API')
+      assert(statisticsQueries.some(query => query.path === '/api/log/self/stat'), 'Only Mine uses self statistics')
+      if (item.language === 'en' && item.width === 1280) {
+        await page.goto(`${origin}/usage-logs/common?requestId=STATS-EMPTY`, { waitUntil: 'networkidle' })
+        await page.getByText(t('No call records match this range.'), { exact: true }).waitFor()
+        assert.deepEqual(await page.getByTestId('log-token-statistics').locator('dd').allTextContents(), ['0', '0', '0', t('Unknown')])
+        await capture('token-statistics-empty')
+        await page.goto(`${origin}/usage-logs/common?requestId=STATS-RETRY`, { waitUntil: 'networkidle' })
+        const error = page.getByRole('alert').filter({ hasText: t('Failed to load usage statistics') })
+        await error.waitFor()
+        assert.equal(await page.getByTestId('log-token-statistics').count(), 0, 'A failed read does not display a fabricated zero total')
+        await capture('token-statistics-failed')
+        await error.getByRole('button', { name: t('Retry'), exact: true }).click()
+        await page.getByText(t('No call records match this range.'), { exact: true }).waitFor()
+        report.tokenStatistics.push({ name: 'empty-and-retry', result: 'passed' })
+      }
       if (item.language === 'zh') {
         failProfile = true
         await page.goto(`${origin}/profile`, { waitUntil: 'networkidle' })
@@ -153,7 +214,7 @@ try {
         await page.getByRole('heading', { name: fixture.user.display_name, level: 2, exact: true }).waitFor()
       }
       assert.deepEqual(errors, [], 'No runtime errors'); assert.deepEqual(external, [], 'Zero external requests')
-      report.journeys.push({ ...item, revision, queries, result: 'passed' })
+      report.journeys.push({ ...item, revision, queries, statisticsQueries, result: 'passed' })
     } finally { await context.close() }
   }
   // Public default home and signed-in root entry are separate paths.
