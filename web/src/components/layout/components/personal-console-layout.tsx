@@ -196,7 +196,9 @@ export function PersonalConsoleLayout(props: { children?: ReactNode }) {
             >
               <SheetHeader>
                 <SheetTitle>{t('All modules')}</SheetTitle>
-                <SheetDescription>{t('Console')}</SheetDescription>
+                <SheetDescription className='sr-only'>
+                  {t('Console')}
+                </SheetDescription>
               </SheetHeader>
               <nav
                 className='pc-more-modules px-4 pb-6'

@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "evidence": "Production-build Chromium with isolated synthetic API responses.",
+  "scope": "Synthetic Users funding presentation and usage-log metadata only; excludes live accounts, providers, billing correctness, settlement acceptance, request admission, deployment, and production.",
+  "mutationPolicy": "GET only; POST /api/user/auth/refresh is the sole exception.",
+  "version": "0.2.0-beta.22",
+  "head": "6798d3114aca3367e736f662180feb586d81aadf",
+  "workflowHead": "6798d3114aca3367e736f662180feb586d81aadf",
+  "fixtureTime": "2026-10-07T06:00:00.000Z",
+  "result": "failed",
+  "journeys": [
+    {
+      "name": "users-personal-en-1280",
+      "language": "en",
+      "width": 1280,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.22.6798d3114aca3367e736f662180feb586d81aadf.2k6e8r7p",
+      "requestCount": 9
+    },
+    {
+      "name": "users-personal-zh-320",
+      "language": "zh",
+      "width": 320,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.22.6798d3114aca3367e736f662180feb586d81aadf.2k6e8r7p",
+      "requestCount": 9
+    },
+    {
+      "name": "users-commercial-en-1280",
+      "language": "en",
+      "width": 1280,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.22.6798d3114aca3367e736f662180feb586d81aadf.2k6e8r7p",
+      "requestCount": 9
+    },
+    {
+      "name": "users-unconfirmed-zh-320",
+      "language": "zh",
+      "width": 320,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.22.6798d3114aca3367e736f662180feb586d81aadf.2k6e8r7p",
+      "requestCount": 9
+    },
+    {
+      "name": "logs-status-en-1280",
+      "language": "en",
+      "width": 1280,
+      "result": "failed",
+      "error": "locator.waitFor: Timeout 20000ms exceeded.\nCall log:\n  - waiting for getByRole('dialog', { name: /Log Details/ }).getByText('Request succeeded', { exact: true }).first() to be visible\n"
+    }
+  ],
+  "screenshots": [
+    "users-personal-en-1280-users.png",
+    "users-personal-zh-320-users.png",
+    "users-commercial-en-1280-users.png",
+    "users-unconfirmed-zh-320-users.png",
+    "logs-status-en-1280-logs.png"
+  ],
+  "errors": [
+    "locator.waitFor: Timeout 20000ms exceeded.\nCall log:\n  - waiting for getByRole('dialog', { name: /Log Details/ }).getByText('Request succeeded', { exact: true }).first() to be visible\n"
+  ]
+}

@@ -24,7 +24,10 @@ describe('request outcome is independent of usage settlement', () => {
         usage_outcome: 'reported',
         settlement_status: 'pending_review',
       })
-    ).toMatchObject({ label: 'Completed · settlement pending', color: 'orange' })
+    ).toMatchObject({
+      label: 'Completed · settlement pending',
+      color: 'orange',
+    })
   })
 
   test.each([undefined, 'failed', 'unknown', 'COMPLETED'])(
@@ -39,10 +42,17 @@ describe('request outcome is independent of usage settlement', () => {
     }
   )
 
-  test('does not reinterpret other log types or an ordinary request error', () => {
+  test('completion evidence remains successful without a pending settlement marker', () => {
     expect(getLogTypeConfig(2)).toMatchObject({ label: 'Consume' })
-    expect(getLogTypeConfig(5, { request_outcome: 'completed' })).toMatchObject({
+    expect(getLogTypeConfig(5, { request_outcome: 'completed' })).toMatchObject(
+      {
+        label: 'Request succeeded',
+        color: 'green',
+      }
+    )
+    expect(getLogTypeConfig(5, { request_outcome: 'failed' })).toMatchObject({
       label: 'Error',
+      color: 'red',
     })
   })
 })

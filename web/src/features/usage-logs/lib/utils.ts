@@ -64,7 +64,10 @@ export function isTimingLogType(type: number): boolean {
 /**
  * Only explicit completion evidence can distinguish a review from a request error.
  */
-export function isCompletedUsageReview(type: number, other?: LogOtherData | null) {
+export function isCompletedUsageReview(
+  type: number,
+  other?: LogOtherData | null
+) {
   return (
     type === 5 &&
     other?.request_outcome === 'completed' &&
@@ -82,6 +85,9 @@ export function getLogTypeConfig(type: number, other?: LogOtherData | null) {
           : 'Completed · usage pending',
       color: 'orange',
     } as const
+  }
+  if (type === 5 && other?.request_outcome === 'completed') {
+    return { value: type, label: 'Request succeeded', color: 'green' } as const
   }
   return LOG_TYPES.find((t) => t.value === type) || LOG_TYPES[0]
 }

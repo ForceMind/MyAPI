@@ -1,0 +1,19 @@
+{
+  "candidate": "9876a143065586d20e0c1a6ec10ae4754838b82a",
+  "checkout": "6798d3114aca3367e736f662180feb586d81aadf",
+  "tree": "df62b809b92bbe7560a5cee84a6da6a89068cd1e",
+  "ci": "https://github.com/ForceMind/MyAPI/actions/runs/39383953284",
+  "result": "not-qualified",
+  "findings": [
+    "Lint: missing braces in statistics placeholder branch.",
+    "Platform browser: completed missing-usage request without pending marker incorrectly inherited the legacy error label.",
+    "Shared status browser: pending completion needs a separate successful request outcome label.",
+    "Shared route guard browser: old homepage heading assertion must follow the approved new copy; all route-guard checks remain."
+  ],
+  "frontend_tests": {
+    "files": 244,
+    "tests": 1565,
+    "result": "passed"
+  },
+  "preview": "127.0.0.1:4181; synthetic only"
+}

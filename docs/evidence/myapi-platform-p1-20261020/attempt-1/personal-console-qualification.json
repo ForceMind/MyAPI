@@ -1,0 +1,25 @@
+{
+  "head": "6798d3114aca3367e736f662180feb586d81aadf",
+  "version": "0.2.0-beta.22",
+  "workflowHead": "6798d3114aca3367e736f662180feb586d81aadf",
+  "scope": "Platform P1: public home, signed-in entry, desktop grouped navigation, mobile More, admin/self logs with server filters and pagination, completed missing usage, saved content and return. Synthetic APIs only; no providers or production.",
+  "result": "failed",
+  "journeys": [],
+  "screenshots": [
+    {
+      "file": "platform-more-en-320.png",
+      "language": "en",
+      "width": 320,
+      "state": "more"
+    },
+    {
+      "file": "platform-records-en-320.png",
+      "language": "en",
+      "width": 320,
+      "state": "records"
+    }
+  ],
+  "errors": [
+    "AssertionError [ERR_ASSERTION]: Missing usage remains successful\n    at file:///home/runner/work/MyAPI/MyAPI/tools/ui/personal-console-browser.mjs:113:7"
+  ]
+}

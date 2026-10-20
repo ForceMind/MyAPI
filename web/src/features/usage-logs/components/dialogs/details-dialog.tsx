@@ -728,6 +728,15 @@ export function DetailsDialog(props: DetailsDialogProps) {
             {t('View this Key')}
           </Button>
         )}
+        {isDisplayableType(props.log.type) && (
+          <p className='text-sm font-medium'>
+            {t(
+              getPersonalCallEvidence(props.log).completed
+                ? 'Request succeeded'
+                : 'Request failed'
+            )}
+          </p>
+        )}
         {/* Overview section - key identifiers */}
         <div className='min-w-0 space-y-1'>
           {publishedPrice && (

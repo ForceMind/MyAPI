@@ -194,11 +194,12 @@ export function CommonLogsFilterBar<TData>(
         ...filterParams,
         type: [logType],
         page: 1,
+        pageSize: searchParams.pageSize,
       },
     })
     queryClient.invalidateQueries({ queryKey: ['logs'] })
     queryClient.invalidateQueries({ queryKey: ['usage-logs-stats'] })
-  }, [filters, logType, navigate, queryClient])
+  }, [filters, logType, navigate, queryClient, searchParams.pageSize])
 
   const handleReset = useCallback(() => {
     const { start, end } = getDefaultTimeRange()
@@ -219,12 +220,13 @@ export function CommonLogsFilterBar<TData>(
       params: { section: 'common' },
       search: {
         page: 1,
+        pageSize: searchParams.pageSize,
         ...resetSearch,
       },
     })
     queryClient.invalidateQueries({ queryKey: ['logs'] })
     queryClient.invalidateQueries({ queryKey: ['usage-logs-stats'] })
-  }, [navigate, queryClient])
+  }, [navigate, queryClient, searchParams.pageSize])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

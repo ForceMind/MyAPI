@@ -85,8 +85,9 @@ export function CommonLogsStats() {
         previousQuery?.queryKey[1] === isAdmin &&
         previousQuery.queryKey[2] === userId &&
         previousQuery.queryKey[3] === sessionId
-      )
+      ) {
         return previousData
+      }
       return undefined
     },
   })
@@ -102,7 +103,12 @@ export function CommonLogsStats() {
   }
 
   return (
-    <div className='flex flex-wrap items-center gap-2'>
+    <div
+      className='flex flex-wrap items-center gap-2'
+      title={t(
+        'RPM and TPM cover consumption logs from the last 60 seconds, not all requests or complete token usage.'
+      )}
+    >
       {showCosts && (
         <StatBadge
           label={t('Usage')}
@@ -110,6 +116,9 @@ export function CommonLogsStats() {
           accent='bg-sky-500/70'
         />
       )}
+      <span className='text-muted-foreground text-[11px]'>
+        {t('Recorded usage · last 60s')}
+      </span>
       <StatBadge
         label={t('RPM')}
         value={stats?.rpm || 0}

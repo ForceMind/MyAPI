@@ -7,7 +7,7 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 
@@ -100,6 +100,15 @@ async function renderWorkflow(role = 100, holdSelf = false) {
         query: {},
       }
     }
+    if (url.pathname === '/api/user/1') {
+      data = {
+        username: 'fixture-owner',
+        quota: 1234567,
+        used_quota: 7654321,
+        aff_quota: 1234567,
+        request_count: 2,
+      }
+    }
     if (url.pathname.startsWith('/api/usage-review/')) {
       data = {
         request_id: url.pathname.split('/').pop(),
@@ -156,6 +165,18 @@ test('disabled funding preserves admin server pagination, saved content and retu
   expect(
     screen.queryByRole('columnheader', { name: 'Cost' })
   ).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Expand' }))
+  await user.type(screen.getByPlaceholderText('Request ID'), 'REQ-SYNTHETIC-')
+  await user.click(screen.getByRole('button', { name: 'Search' }))
+  await waitFor(() =>
+    expect(
+      requests.some(
+        (url) =>
+          url.pathname === '/api/log' &&
+          url.searchParams.get('request_id') === 'REQ-SYNTHETIC-'
+      )
+    ).toBe(true)
+  )
   await user.click(screen.getByRole('button', { name: 'Go to next page' }))
   await screen.findByText('REQ-SYNTHETIC-2')
   expect(
@@ -214,4 +235,22 @@ test('switching to self scope removes admin data while the self response is pend
     releaseSelf()
   }
   await screen.findByText('REQ-SYNTHETIC-1')
+})
+
+test('changing the signed-in actor closes request details from the previous actor', async () => {
+  const { user } = await renderWorkflow()
+  await screen.findByText('REQ-SYNTHETIC-1')
+  await user.click(screen.getByTitle('Click to view full details'))
+  await screen.findByRole('dialog', { name: /Log Details/ })
+  act(() =>
+    useAuthStore
+      .getState()
+      .auth.setUser({ id: 2, username: 'synthetic-other-owner', role: 1 })
+  )
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('dialog', { name: /Log Details/ })
+    ).not.toBeInTheDocument()
+  )
+  expect(screen.queryByRole('tab', { name: 'All' })).not.toBeInTheDocument()
 })

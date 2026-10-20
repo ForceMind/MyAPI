@@ -341,10 +341,12 @@ function CommonLogsCard<TData>({
           cell={modelCell}
           className='min-w-0 flex-1 [&_.flex-col]:max-w-full [&_.flex-col]:min-w-0'
         />
-        <CompactCell
-          cell={quotaCell}
-          className='shrink-0 text-right [&_.flex-col]:items-end'
-        />
+        {quotaCell && (
+          <CompactCell
+            cell={quotaCell}
+            className='shrink-0 text-right [&_.flex-col]:items-end'
+          />
+        )}
       </div>
 
       {rowData?.request_id && (

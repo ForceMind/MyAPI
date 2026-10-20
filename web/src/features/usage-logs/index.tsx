@@ -28,6 +28,7 @@ import { useMediaQuery } from '@/hooks'
 import { useFundingPresentation } from '@/hooks/use-funding-presentation'
 import { useSidebarConfig } from '@/hooks/use-sidebar-config'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { UserInfoDialog } from './components/dialogs/user-info-dialog'
 import { PendingUsageReviews } from './components/pending-usage-reviews'
@@ -201,9 +202,13 @@ function UsageLogsContent() {
 }
 
 export function UsageLogs() {
+  const actorKey = useAuthStore(
+    (state) =>
+      `${state.auth.user?.id ?? ''}:${state.auth.user?.role ?? ''}:${state.auth.session?.sid ?? ''}`
+  )
   const funding = useFundingPresentation()
   return (
-    <UsageLogsProvider showCosts={funding.commercialEnabled}>
+    <UsageLogsProvider key={actorKey} showCosts={funding.commercialEnabled}>
       <UsageLogsContent />
     </UsageLogsProvider>
   )

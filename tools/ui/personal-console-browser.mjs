@@ -103,6 +103,19 @@ try {
       await page.goto(`${origin}/usage-logs/common?pageSize=20&model=synthetic-text-model`, { waitUntil: 'networkidle' })
       assert(queries.some(query => query.path === '/api/log' && query.params.model_name === 'synthetic-text-model'), 'Admin scope and model filter reach backend')
       assert.equal(await page.getByRole('columnheader', { name: t('Cost'), exact: true }).count(), 0)
+      let filterScope = page
+      if (mobile) {
+        await page.getByRole('button', { name: new RegExp(`^${t('Filter')}`) }).click()
+        filterScope = page.getByRole('dialog', { name: t('Filter'), exact: true })
+      } else {
+        await page.getByRole('button', { name: t('Expand'), exact: true }).click()
+      }
+      await filterScope.getByPlaceholder(t('Request ID'), { exact: true }).fill('REQ-SYNTHETIC-')
+      await Promise.all([
+        page.waitForResponse(response => /\/api\/log\?/.test(response.url()) && new URL(response.url()).searchParams.get('request_id') === 'REQ-SYNTHETIC-'),
+        filterScope.getByRole('button', { name: t('Search'), exact: true }).click(),
+      ])
+      assert(queries.some(query => query.params.request_id === 'REQ-SYNTHETIC-'), 'Submitted Request ID filter reaches server')
       await capture('records')
       await page.getByRole('button', { name: t('Go to next page'), exact: true }).click()
       await page.getByText('REQ-SYNTHETIC-521', { exact: true }).first().waitFor()
@@ -151,6 +164,7 @@ try {
       await route.fulfill({ status: response.status, json: response.body })
     })
     const page = await context.newPage()
+    await page.clock.setFixedTime(FIXTURE_TIME)
     await page.goto(origin, { waitUntil: 'networkidle' })
     if (role === 0) {
       await page.getByRole('heading', { name: translations.zh['Your gateway. Every request in view.'], exact: true }).waitFor()

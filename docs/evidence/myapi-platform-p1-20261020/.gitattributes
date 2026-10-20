@@ -1,0 +1,2 @@
+# Preserve raw CI output bytes; source-format checks do not rewrite evidence.
+attempt-1/*.log -text -diff

@@ -1005,7 +1005,7 @@ try {
       await page.setViewportSize({ width, height: 900 })
       for (const path of ['/pricing', '/pricing/synthetic-text-model', '/rankings']) {
         const start = report.requests.length
-        await open(page, path, { shell: false, title: label('Your AI gateway, in one place'), expectedPath: '/' })
+        await open(page, path, { shell: false, title: label('Your gateway. Every request in view.'), expectedPath: '/' })
         assert.equal(report.requests.slice(start).filter(request => ['/api/pricing', '/api/rankings', '/api/perf-metrics', '/api/perf-metrics/summary'].includes(request.path)).length, 0, 'disabled modules never fetch public model content')
         await screenshot(page, `${path.replaceAll('/', '-').slice(1)}-disabled-guard-${width}`, { shell: false })
       }
