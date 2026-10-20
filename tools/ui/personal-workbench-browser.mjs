@@ -1153,7 +1153,7 @@ async function inspectWindowStates(scenario) {
     const connections = page.getByTestId('overview-connections')
     await connections.getByText('4', { exact: true }).waitFor()
     const list = connections.getByTestId(scenario.width >= 1024 ? 'connection-desktop-list' : 'connection-mobile-list')
-    await list.getByText('Synthetic standard API channel', { exact: true }).waitFor()
+    await list.getByRole(scenario.width >= 1024 ? 'row' : 'listitem').filter({ hasText: 'Synthetic standard API channel' }).waitFor()
     assert.equal(reads.get('/api/channel'), 1, 'Desktop and mobile connection presentations share one metadata read')
     await screenshot(page, scenario, 'overview-connections')
     await connections.getByRole('link', { name: tr('Manage connections', scenario.language), exact: true }).click()
