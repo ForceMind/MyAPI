@@ -1151,6 +1151,8 @@ async function blockedHandoff(scenario) {
 async function inspectWindowStates(scenario) {
   await runJourney(scenario, async ({ page, reads }) => {
     const connections = page.getByTestId('overview-connections')
+    const search = await page.locator('header[data-myapi-header]').getByRole('button', { name: tr('Search', scenario.language), exact: true }).boundingBox()
+    assert(search && search.width === search.height && search.width >= 44, 'The console search is a compact square control with an accessible target')
     await connections.getByText('4', { exact: true }).waitFor()
     const list = connections.getByTestId(scenario.width >= 1024 ? 'connection-desktop-list' : 'connection-mobile-list')
     await list.getByRole(scenario.width >= 1024 ? 'row' : 'listitem').filter({ hasText: 'Synthetic standard API channel' }).waitFor()

@@ -18,7 +18,7 @@ export function ConsoleHeaderActions(props: { mobile: boolean }) {
   const notifications = useNotifications()
   return (
     <div className='pc-header-actions flex shrink-0 items-center gap-0.5'>
-      <Search className='size-11 flex-none justify-center p-0 sm:w-11 sm:pe-0 [&>kbd]:hidden [&>span]:hidden [&>svg]:start-1/2 [&>svg]:-translate-x-1/2' />
+      <Search className='size-11 flex-none justify-center p-0 sm:w-11 sm:pe-0 lg:w-11 xl:w-11 [&>kbd]:hidden [&>span]:hidden [&>svg]:start-1/2 [&>svg]:-translate-x-1/2' />
       <NotificationPopover
         open={notifications.popoverOpen}
         onOpenChange={notifications.setPopoverOpen}

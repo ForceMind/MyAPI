@@ -87,7 +87,7 @@
 .pc-header > .pc-brand strong {
   font-size: 18px;
 }
-.pc-header-actions > button {
+.personal-console .pc-header-actions > button {
   min-width: 44px;
   min-height: 44px;
 }
@@ -222,6 +222,9 @@
 @media (width < 1024px) {
   .personal-console [data-slot='button'] {
     min-height: 40px;
+  }
+  .personal-console .myapi-page-actions [data-slot='button'] {
+    min-height: 44px;
   }
 }
 @media (min-width: 1024px) {

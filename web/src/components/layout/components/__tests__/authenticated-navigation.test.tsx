@@ -149,6 +149,11 @@ describe('authenticated operator navigation', () => {
       within(context).getByRole('link', { current: 'page' })
     ).toHaveTextContent('Flow')
     expect(within(header).getByRole('button', { name: 'Search' })).toBeEnabled()
+    expect(within(header).getByRole('button', { name: 'Search' })).toHaveClass(
+      'size-11',
+      'lg:w-11',
+      'xl:w-11'
+    )
     expect(
       within(header).getByRole('button', { name: 'Change language' })
     ).toBeInTheDocument()

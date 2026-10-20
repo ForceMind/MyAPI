@@ -104,7 +104,7 @@ try {
       await page.goto(`${origin}/usage-logs/common?pageSize=20&model=synthetic-text-model`, { waitUntil: 'networkidle' })
       assert(queries.some(query => query.path === '/api/log' && query.params.model_name === 'synthetic-text-model'), 'Admin scope and model filter reach backend')
       assert.equal(await page.getByRole('columnheader', { name: t('Cost'), exact: true }).count(), 0)
-      let filterScope = page
+      let filterScope = page.getByRole('main')
       if (mobile) {
         await page.getByRole('button', { name: new RegExp(`^${t('Filter')}`) }).click()
         filterScope = page.getByRole('dialog', { name: t('Filter'), exact: true })
