@@ -1,0 +1,54 @@
+$ vitest run src/features/home/__tests__/home-entry-route.test.tsx "--maxWorkers=1"
+
+ RUN  v4.1.10 /root/myapi/web
+
+stderr | src/features/home/__tests__/home-entry-route.test.tsx > signed-in home finishes navigation when the root guard reconfirms authentication
+Error: Repeated home navigation prevented completion
+    at Object.beforeLoad (/root/myapi/web/src/features/home/__tests__/home-entry-route.test.tsx:26:91)
+    at executeBeforeLoad (file:///root/myapi/web/node_modules/@tanstack/router-core/dist/esm/load-matches.js:274:37)
+    at execute (file:///root/myapi/web/node_modules/@tanstack/router-core/dist/esm/load-matches.js:297:24)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at loadMatches (file:///root/myapi/web/node_modules/@tanstack/router-core/dist/esm/load-matches.js:514:31)
+    at file:///root/myapi/web/node_modules/@tanstack/router-core/dist/esm/router.js:554:7 {
+  [stack]: [Getter/Setter],
+  [message]: 'Repeated home navigation prevented completion'
+}
+
+The above error occurred in the <MatchInnerImpl> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, CatchBoundaryImpl.
+
+Warning: The following error wasn't caught by any route! At the very least, consider setting an 'errorComponent' in your RootRoute!
+Warning: Repeated home navigation prevented completion
+
+ ❯ src/features/home/__tests__/home-entry-route.test.tsx (1 test | 1 failed) 257ms
+   × signed-in home finishes navigation when the root guard reconfirms authentication 253ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/home/__tests__/home-entry-route.test.tsx > signed-in home finishes navigation when the root guard reconfirms authentication
+AssertionError: expected [ '/dashboard/overview', …(2) ] to have a length of 1 but got 3
+
+- Expected
++ Received
+
+- 1
++ 3
+
+ ❯ src/features/home/__tests__/home-entry-route.test.tsx:38:73
+     36|   await screen.findByRole('heading', { name: 'Synthetic workspace' })
+     37|   expect(router.state.location.pathname).toBe('/dashboard/overview')
+     38|   expect(guardedPaths.filter((path) => path === '/dashboard/overview')…
+       |                                                                         ^
+     39| })
+     40|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  16:03:03
+   Duration  2.60s (transform 173ms, setup 419ms, import 320ms, tests 257ms, environment 1.43s)
+
+error: script "test" exited with code 1

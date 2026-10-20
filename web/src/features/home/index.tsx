@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Link, Navigate } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import {
   ArrowRight,
   ArrowUpRight,
@@ -44,8 +44,8 @@ export function Home() {
   const { i18n, t } = useTranslation()
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const { resolvedTheme } = useTheme()
-  const { auth } = useAuthStore()
-  const isAuthenticated = !!auth.user
+  const navigate = useNavigate()
+  const isAuthenticated = useAuthStore((state) => Boolean(state.auth.user))
   const { content, isLoaded, isUrl, failed, retrying, retry } =
     useHomePageContent()
   const { status } = useStatus()
@@ -71,6 +71,16 @@ export function Home() {
       syncIframePreferences()
     }
   }, [isUrl, syncIframePreferences])
+
+  useEffect(() => {
+    if (isLoaded && !content && !failed && isAuthenticated) {
+      void navigate({
+        to: '/dashboard/$section',
+        params: { section: 'overview' },
+        replace: true,
+      })
+    }
+  }, [content, failed, isAuthenticated, isLoaded, navigate])
 
   if (!isLoaded) {
     return (
@@ -134,15 +144,7 @@ export function Home() {
     )
   }
 
-  if (isAuthenticated && !failed) {
-    return (
-      <Navigate
-        to='/dashboard/$section'
-        params={{ section: 'overview' }}
-        replace
-      />
-    )
-  }
+  if (isAuthenticated && !failed) return null
 
   const capabilities = [
     {

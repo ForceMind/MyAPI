@@ -193,8 +193,10 @@ try {
       assert.deepEqual(homeAudit.runtime, [], 'Home entry has no runtime errors')
     } catch (error) {
       const file = `platform-home-failed-${role}`
-      await page.screenshot({ path: resolve(output, `${file}.png`) })
-      writeFileSync(resolve(output, `${file}.json`), JSON.stringify({ role, url: page.url(), error: String(error), ...homeAudit }, null, 2))
+      const failure = { role, url: page.url(), error: String(error), ...homeAudit }
+      writeFileSync(resolve(output, `${file}.json`), JSON.stringify(failure, null, 2))
+      try { await page.screenshot({ path: resolve(output, `${file}.png`), timeout: 5000, animations: 'disabled' }) }
+      catch (screenshotError) { failure.screenshotError = String(screenshotError); writeFileSync(resolve(output, `${file}.json`), JSON.stringify(failure, null, 2)) }
       throw error
     }
     report.journeys.push({ name: 'home-entry', role, result: 'passed' })

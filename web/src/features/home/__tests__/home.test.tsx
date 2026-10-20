@@ -11,12 +11,10 @@ import { useAuthStore } from '@/stores/auth-store'
 import { useHomePageContent } from '../hooks'
 import { Home } from '../index'
 
+const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }))
+
 vi.mock('@tanstack/react-router', () => ({
-  Navigate: () => (
-    <a data-testid='workbench-redirect' href='/dashboard/overview'>
-      Console
-    </a>
-  ),
+  useNavigate: () => navigate,
   Link: (props: AnchorHTMLAttributes<HTMLAnchorElement> & { to?: string }) => {
     const { to, children, ...attributes } = props
     return (
@@ -132,10 +130,12 @@ describe('default self-hosted home', () => {
         .getState()
         .auth.setUser({ id: 1, username: 'operator', role })
       render(<Home />)
-      expect(screen.getByTestId('workbench-redirect')).toHaveAttribute(
-        'href',
-        '/dashboard/overview'
-      )
+      expect(navigate).toHaveBeenCalledOnce()
+      expect(navigate).toHaveBeenCalledWith({
+        to: '/dashboard/$section',
+        params: { section: 'overview' },
+        replace: true,
+      })
     }
   )
 
