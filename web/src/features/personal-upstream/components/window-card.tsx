@@ -6,6 +6,7 @@ it under the terms of the GNU Affero General Public License as published by
 the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
+import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { StatusBadge } from '@/components/status-badge'
@@ -18,15 +19,16 @@ import {
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
 import { toIntlLocale } from '@/i18n/languages'
 
-import { nativeWindowFreshness, nativeWindowUsage } from '../window-state'
+import { nativeWindowState, nativeWindowUsage } from '../window-state'
 
 export function WindowCard(props: {
   item: ChannelQuotaChangeItem
   compact?: boolean
+  showHistory?: boolean
 }) {
   const { t, i18n } = useTranslation()
   const used = nativeWindowUsage(props.item)
-  const freshness = nativeWindowFreshness(props.item, Date.now() / 1000)
+  const state = nativeWindowState(props.item, Date.now() / 1000)
   const observed = props.item.observed_at
   const observedValid = Number.isSafeInteger(observed) && (observed ?? 0) > 0
   const label =
@@ -39,16 +41,35 @@ export function WindowCard(props: {
   } else if (props.item.source === 'codex_wham_usage_secondary') {
     slotLabel = t('Secondary window')
   }
-  let statusLabel = t('Snapshot unavailable')
+  let statusLabel = t('No reliable usage sample')
+  let description = t(
+    'No trustworthy usage observation is available for this window.'
+  )
   let status: 'neutral' | 'success' | 'warning' | 'danger' = 'neutral'
-  if (props.item.status === 'error') {
-    statusLabel = t('Error')
+  if (state === 'error') {
+    statusLabel = t('Usage sample failed')
+    description = t(
+      'The latest usage sample failed. Inspect the channel history and connection.'
+    )
     status = 'danger'
-  } else if (freshness === 'stale') {
+  } else if (state === 'unsupported') {
+    statusLabel = t('Window reporting unsupported')
+    description = t('This provider does not report this window.')
+  } else if (state === 'stale') {
     statusLabel = t('Stale sample')
+    description = t(
+      'This is a past observation, not a current availability check.'
+    )
     status = 'warning'
-  } else if (used !== null && freshness === 'fresh') {
+  } else if (state === 'unverified') {
+    statusLabel = t('Sample time unverified')
+    description = t(
+      'The observation time is missing or invalid. This value is not confirmed current.'
+    )
+    status = 'warning'
+  } else if (state === 'available') {
     statusLabel = t('Snapshot available')
+    description = t('Window resets require a trustworthy upstream sample.')
     status = 'success'
   }
   return (
@@ -62,7 +83,11 @@ export function WindowCard(props: {
                 : label}
             </h2>
           </CardTitle>
-          <StatusBadge variant={status} copyable={false}>
+          <StatusBadge
+            className='h-auto min-h-5 py-0.5 text-left whitespace-normal'
+            variant={status}
+            copyable={false}
+          >
             {statusLabel}
           </StatusBadge>
         </div>
@@ -77,13 +102,23 @@ export function WindowCard(props: {
         ) : null}
       </CardHeader>
       <CardContent className='flex flex-col gap-3'>
-        <p className='text-foreground text-4xl font-semibold tracking-tight tabular-nums sm:text-5xl'>
-          {used === null
-            ? t('Unknown')
-            : `${new Intl.NumberFormat(toIntlLocale(i18n.language), { maximumFractionDigits: 2 }).format(used)}%`}
-        </p>
-        <p className='text-muted-foreground'>{t('Account window used')}</p>
-        {used !== null ? (
+        {used === null ? (
+          <p className='text-muted-foreground text-base font-medium'>
+            {t('Usage unavailable')}
+          </p>
+        ) : (
+          <div className='flex flex-wrap items-baseline gap-x-3 gap-y-1'>
+            <p className='text-foreground text-3xl font-semibold tracking-tight tabular-nums'>
+              {`${new Intl.NumberFormat(toIntlLocale(i18n.language), { maximumFractionDigits: 2 }).format(used)}%`}
+            </p>
+            <p className='text-muted-foreground text-sm'>
+              {state === 'available'
+                ? t('Account window used')
+                : t('Last reported usage')}
+            </p>
+          </div>
+        )}
+        {used !== null && state === 'available' ? (
           <Progress
             value={used}
             aria-label={t('Account window used')}
@@ -102,9 +137,18 @@ export function WindowCard(props: {
               })
             : t('No timestamp')}
         </p>
-        <p className='bg-muted rounded-lg p-3 text-xs leading-relaxed'>
-          {t('Window resets require a trustworthy upstream sample.')}
+        <p className='text-muted-foreground text-xs leading-relaxed'>
+          {description}
         </p>
+        {props.showHistory ? (
+          <Link
+            to='/channels'
+            search={{ quotaChannelId: props.item.channel_id }}
+            className='text-primary self-start text-xs font-medium underline-offset-4 hover:underline focus-visible:underline'
+          >
+            {t('View channel history')}
+          </Link>
+        ) : null}
       </CardContent>
     </Card>
   )

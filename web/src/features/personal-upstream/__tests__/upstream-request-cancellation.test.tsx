@@ -41,7 +41,10 @@ test('a remounted personal window observer owns its request after the previous o
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
   // A validated self snapshot is already cached when the observer remounts.
-  client.setQueryData(['personal-console', 'self', user.id, sid], user)
+  client.setQueryData(
+    ['personal-console', 'self', user.id, sid, user.role, true],
+    user
+  )
   function Wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>
   }

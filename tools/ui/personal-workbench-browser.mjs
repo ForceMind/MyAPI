@@ -395,10 +395,32 @@ function poolUsageFixture(scenario) {
   return usage
 }
 
+function nativeWindowStatesFixture() {
+  const primary = { metric_type: 'codex_rate_limit', unit: 'percent', window_type: 'five_hour', window_seconds: 18000, source: 'codex_wham_usage_primary', status: 'success', observed_at: now - 60 }
+  const secondary = { ...primary, window_type: 'weekly', window_seconds: 604800, source: 'codex_wham_usage_secondary' }
+  return [
+    { ...primary, channel_id: 7, series_id: '7a'.padStart(64, '0'), name: 'Synthetic failed subscription account with a long descriptive identity', status: 'error', current_available: null },
+    { ...secondary, channel_id: 7, series_id: '7b'.padStart(64, '0'), name: 'Synthetic failed subscription account with a long descriptive identity', status: 'unsupported', current_available: null },
+    { ...primary, channel_id: 8, series_id: '8a'.padStart(64, '0'), name: 'Synthetic zero and stale account', current_available: 100 },
+    { ...secondary, channel_id: 8, series_id: '8b'.padStart(64, '0'), name: 'Synthetic zero and stale account', current_available: 32, observed_at: now - 600 },
+    { ...primary, channel_id: 9, series_id: '9a'.padStart(64, '0'), name: 'Synthetic incomplete evidence account', status: 'unavailable', current_available: null },
+    { ...secondary, channel_id: 9, series_id: '9b'.padStart(64, '0'), name: 'Synthetic incomplete evidence account', current_available: 45, observed_at: undefined },
+  ]
+}
+
 function scenarioResponse(fixture, scenario, url, method, reads, pagePath) {
   const path = url.pathname.replace(/\/$/, '')
   const count = (reads.get(path) || 0) + 1
   reads.set(path, count)
+
+  if (scenario.windowStates && path === '/api/channel') {
+    assert(scenario.role === 100 && scenario.channelRead && method === 'GET', 'Only the authorized metadata read is configured')
+    const template = fixture.response(url, method).body.data.items[0]
+    const accounts = [...new Map(nativeWindowStatesFixture().map((item) => [item.channel_id, item])).values()]
+    const items = accounts.map((item) => ({ ...template, id: item.channel_id, name: item.name, type: 57, key: '', status: 1 }))
+    items.push({ ...template, id: 10, name: 'Synthetic standard API channel', type: 1, key: '', status: 1 })
+    return { status: 200, body: { success: true, data: { items, total: items.length, page: 1, page_size: Number(url.searchParams.get('page_size') || 10) } } }
+  }
 
   if (path === '/api/status') {
     const response = fixture.response(url, method)
@@ -538,6 +560,7 @@ function scenarioResponse(fixture, scenario, url, method, reads, pagePath) {
     if (!scenario.channelRead) {
       return { violation: 'Session without channel.read requested account windows' }
     }
+    if (scenario.windowStates) return { status: 200, body: { success: true, data: { items: nativeWindowStatesFixture(), source_complete: true, items_complete: true, generated_at: now } } }
     if (scenario.failAccounts && count === 1) {
       return {
         status: 503,
@@ -1125,6 +1148,46 @@ async function blockedHandoff(scenario) {
   })
 }
 
+async function inspectWindowStates(scenario) {
+  await runJourney(scenario, async ({ page, reads }) => {
+    const connections = page.getByTestId('overview-connections')
+    await connections.getByText('4', { exact: true }).waitFor()
+    const list = connections.getByTestId(scenario.width >= 1024 ? 'connection-desktop-list' : 'connection-mobile-list')
+    await list.getByText('Synthetic standard API channel', { exact: true }).waitFor()
+    assert.equal(reads.get('/api/channel'), 1, 'Desktop and mobile connection presentations share one metadata read')
+    await screenshot(page, scenario, 'overview-connections')
+    await connections.getByRole('link', { name: tr('Manage connections', scenario.language), exact: true }).click()
+    await page.waitForURL('**/channels')
+    await page.waitForFunction((name) => [...document.querySelectorAll('main *')].some((element) => element.textContent?.trim() === name && element.checkVisibility()), 'Synthetic standard API channel')
+    await page.goBack()
+    await page.getByTestId('personal-workbench').waitFor()
+    await page.goto(`${origin}/upstream-accounts`, { waitUntil: 'networkidle' })
+    await page.getByText(tr('Usage sample failed', scenario.language), { exact: true }).waitFor()
+    await page.getByText(tr('Window reporting unsupported', scenario.language), { exact: true }).waitFor()
+    const snapshotReads = reads.get('/api/channel/quota/changes')
+    const windows = page.getByTestId('native-window-card')
+    assert.equal(await windows.count(), 2, 'The failed and unsupported account windows remain separate')
+    assert.equal(await windows.getByRole('link', { name: tr('View channel history', scenario.language), exact: true }).first().getAttribute('href'), '/channels?quotaChannelId=7', 'History locates the original channel identity')
+    await screenshot(page, scenario, 'failed-and-unsupported')
+    const selectAccount = async (id, name) => {
+      if (scenario.width >= 1024) await page.getByRole('complementary', { name: tr('Select upstream account', scenario.language), exact: true }).getByRole('button', { name, exact: true }).click()
+      else await page.getByRole('combobox', { name: tr('Select upstream account', scenario.language), exact: true }).selectOption(String(id))
+      await page.getByRole('heading', { name, exact: true }).waitFor()
+    }
+    await selectAccount(8, 'Synthetic zero and stale account')
+    await windows.getByText('0%', { exact: true }).waitFor()
+    await windows.getByText(tr('Stale sample', scenario.language), { exact: true }).waitFor()
+    await windows.getByText(tr('Last reported usage', scenario.language), { exact: true }).waitFor()
+    await screenshot(page, scenario, 'zero-and-stale')
+    await selectAccount(9, 'Synthetic incomplete evidence account')
+    await windows.getByText(tr('No reliable usage sample', scenario.language), { exact: true }).waitFor()
+    await windows.getByText(tr('Sample time unverified', scenario.language), { exact: true }).waitFor()
+    assert.equal(await windows.getByText('0%', { exact: true }).count(), 0, 'Missing evidence is never replaced with zero')
+    assert.equal(reads.get('/api/channel/quota/changes'), snapshotReads, 'Switching account presentations does not duplicate snapshot reads')
+    await screenshot(page, scenario, 'incomplete-evidence')
+  })
+}
+
 try {
   await new Promise((done) => server.listen(0, '127.0.0.1', done))
   origin = `http://127.0.0.1:${server.address().port}`
@@ -1135,6 +1198,11 @@ try {
   matrix.push(...[390, 1440].map((width) => ({ ...base, name: `personal-zh-${width}`, language: 'zh', width, stale: width === 390 })))
   matrix.push({ ...base, name: 'personal-zh-320-dark', language: 'zh', width: 320, theme: 'dark' }, { ...base, name: 'personal-en-1280-dark', language: 'en', width: 1280, theme: 'dark' })
   report.coverage = { languages: Object.keys(languageCodes), widths: [320, 390, 1280, 1440], handoffCases: ['available', 'key-unavailable', 'safe-list-failed'], poolUsageCases: ['available', 'baseline_pending', 'baseline_unknown', 'inconsistent', 'zero-share', 'timeout', 'error', 'recovered', 'candidate-not-read', 'session-isolated', 'non-root-not-read', 'admin-channel-read-without-root'] }
+  report.coverage.widths = [320, 390, 768, 1024, 1280, 1440]
+  report.coverage.nativeWindowStates = ['error', 'unsupported', 'available-zero', 'stale', 'unavailable', 'unverified-time']
+  for (const item of [{ language: 'fr', width: 320 }, { language: 'zh', width: 768 }, { language: 'en', width: 1024 }]) {
+    await inspectWindowStates({ ...base, ...item, name: `platform-p2-${item.language}-${item.width}`, windowStates: true })
+  }
   for (const scenario of matrix) await populated(scenario)
   for (const role of [1, 10]) await populated({ ...base, name: `personal-permission-${role}`, role, channelRead: false, language: 'en', width: 320 })
   await blockedHandoff({ ...base, name: 'personal-handoff-key-unavailable-en-1280', role: 1, channelRead: false, language: 'en', width: 1280, handoffKeyUnavailable: true })

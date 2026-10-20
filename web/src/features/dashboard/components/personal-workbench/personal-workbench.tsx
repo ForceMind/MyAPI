@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Alert, AlertTitle } from '@/components/ui/alert'
+import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import {
   quotaSeriesKey,
@@ -11,14 +11,19 @@ import {
 import { AccountsState } from '@/features/personal-upstream/components/accounts-state'
 import { WindowCard } from '@/features/personal-upstream/components/window-card'
 import { useUpstreamAccounts } from '@/features/personal-upstream/use-upstream-accounts'
+import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
 import { useAuthStore } from '@/stores/auth-store'
 
+import { OverviewConnections } from './overview-connections'
 import { OverviewKeys } from './overview-keys'
 import { OverviewRecent } from './overview-recent'
 
 function PersonalWorkbenchSession() {
   const { t } = useTranslation()
   const data = useUpstreamAccounts()
+  const showChannels = useIsSidebarModuleVisible('/channels')
+  const showModels = useIsSidebarModuleVisible('/models/metadata')
+  const showUpstream = useIsSidebarModuleVisible('/upstream-accounts')
   const [selectedSeries, setSelectedSeries] = useState('')
   const items =
     data.canRead && !data.accountsQuery.isError
@@ -29,81 +34,95 @@ function PersonalWorkbenchSession() {
       : []
   const selected =
     items.find((item) => quotaSeriesKey(item) === selectedSeries) ?? items[0]
-  const accountErrors = items.filter((item) => item.status === 'error')
+  const failedAccounts = new Set(
+    items
+      .filter((item) => item.status === 'error')
+      .map((item) => item.channel_id)
+  ).size
   return (
     <div
       className='pc-page flex min-w-0 flex-col gap-5'
       data-testid='personal-workbench'
     >
-      {accountErrors.length > 0 ? (
-        <Alert className='flex flex-wrap items-center justify-between gap-2 py-2.5'>
-          <AlertTitle className='mb-0'>
-            {t('An upstream account needs attention')}
-          </AlertTitle>
-          <Button
-            className='shrink-0'
-            size='sm'
-            variant='ghost'
-            nativeButton={false}
-            render={<Link to='/upstream-accounts' />}
+      <header className='flex min-w-0 flex-wrap items-start justify-between gap-3'>
+        <div>
+          <h1 className='text-2xl leading-8 font-semibold tracking-tight sm:text-[32px] sm:leading-10'>
+            {t('Your API workspace')}
+          </h1>
+          <p className='text-muted-foreground mt-2 text-base'>
+            {t('Connections, Keys, and calls at a glance')}
+          </p>
+        </div>
+        {failedAccounts > 0 && showUpstream ? (
+          <Link
+            to='/upstream-accounts'
+            className='max-w-full rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
           >
-            {t('View upstream accounts')}
-          </Button>
-        </Alert>
-      ) : null}
-      <header>
-        <h1 className='text-2xl leading-8 font-semibold tracking-tight sm:text-[32px] sm:leading-10'>
-          {t('Your API workspace')}
-        </h1>
-        <p className='text-muted-foreground mt-2 text-base'>
-          {t('Connections, Keys, and calls at a glance')}
-        </p>
+            <StatusBadge
+              className='h-auto min-h-5 py-1 text-left whitespace-normal'
+              variant='warning'
+              copyable={false}
+            >
+              {t('Accounts with failed samples: {{count}}', {
+                count: failedAccounts,
+              })}
+            </StatusBadge>
+          </Link>
+        ) : null}
       </header>
       <div
-        className='grid min-w-0 gap-5 md:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]'
+        className='grid min-w-0 items-start gap-5 lg:grid-cols-2 xl:grid-cols-3'
         data-testid='personal-workbench-layout'
       >
+        <OverviewConnections
+          canRead={data.canRead && showChannels}
+          showModels={showModels}
+        />
+        <OverviewKeys />
         <section
-          className='flex min-w-0 flex-col gap-3'
+          className='flex min-w-0 flex-col gap-3 lg:col-span-2 xl:col-span-1'
           aria-label={t('Upstream account windows')}
           data-testid='account-windows-section'
         >
           {items.length > 1 ? (
-            <div
-              className='flex min-w-0 flex-wrap gap-2'
-              role='group'
-              aria-label={t('Select account window')}
-            >
-              {items.map((item) => (
-                <Button
-                  key={quotaSeriesKey(item)}
-                  size='sm'
-                  variant={selected === item ? 'default' : 'outline'}
-                  aria-pressed={selected === item}
-                  onClick={() => setSelectedSeries(quotaSeriesKey(item))}
-                  className='h-auto max-w-full min-w-0 break-words whitespace-normal'
-                >
-                  {item.account_label || item.name} ·{' '}
-                  {quotaWindowLabel(item.window_type, t)}
-                </Button>
-              ))}
+            <div className='flex min-w-0 flex-col gap-2'>
+              <label htmlFor='overview-window' className='text-sm font-medium'>
+                {t('Select account window')}
+              </label>
+              <select
+                id='overview-window'
+                className='bg-background h-10 w-full min-w-0 rounded-md border px-2 text-sm'
+                value={selected ? quotaSeriesKey(selected) : ''}
+                onChange={(event) => setSelectedSeries(event.target.value)}
+              >
+                {items.map((item) => (
+                  <option
+                    key={quotaSeriesKey(item)}
+                    value={quotaSeriesKey(item)}
+                  >
+                    {item.account_label || item.name} ·{' '}
+                    {quotaWindowLabel(item.window_type, t)}
+                  </option>
+                ))}
+              </select>
             </div>
           ) : null}
           {selected ? (
-            <WindowCard item={selected} compact />
+            <WindowCard item={selected} compact showHistory={showChannels} />
           ) : (
             <AccountsState data={data} />
           )}
-          <Button
-            variant='ghost'
-            className='self-start'
-            nativeButton={false}
-            render={<Link to='/upstream-accounts' />}
-          >
-            {t('View upstream accounts')}
-          </Button>
+          {showUpstream ? (
+            <Button
+              variant='ghost'
+              className='self-start'
+              nativeButton={false}
+              render={<Link to='/upstream-accounts' />}
+            >
+              {t('View upstream accounts')}
+            </Button>
+          ) : null}
         </section>
-        <OverviewKeys />
       </div>
       <OverviewRecent />
     </div>

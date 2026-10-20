@@ -42,3 +42,21 @@ export function nativeWindowFreshness(
   // Match the existing subscription-share default sampling validity. A pool can impose a stricter bound.
   return nowSeconds - (item.observed_at as number) > 300 ? 'stale' : 'fresh'
 }
+
+export function nativeWindowState(
+  item: ChannelQuotaChangeItem,
+  nowSeconds: number
+):
+  | 'available'
+  | 'stale'
+  | 'unverified'
+  | 'error'
+  | 'unsupported'
+  | 'unavailable' {
+  if (item.status === 'error') return 'error'
+  if (item.status === 'unsupported') return 'unsupported'
+  if (nativeWindowUsage(item) === null) return 'unavailable'
+  const freshness = nativeWindowFreshness(item, nowSeconds)
+  if (freshness === 'fresh') return 'available'
+  return freshness === 'stale' ? 'stale' : 'unverified'
+}

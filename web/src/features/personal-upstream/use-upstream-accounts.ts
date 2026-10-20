@@ -18,7 +18,10 @@ import { useAuthStore } from '@/stores/auth-store'
 export function useUpstreamAccounts() {
   const user = useAuthStore((state) => state.auth.user)
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
-  const identity = [user?.id, sessionId]
+  const declaredChannelRead = Boolean(
+    user && user.role >= ROLE.ADMIN && hasPermission(user, 'channel', 'read')
+  )
+  const identity = [user?.id, sessionId, user?.role, declaredChannelRead]
   const selfQuery = useQuery({
     queryKey: ['personal-console', 'self', ...identity],
     queryFn: async () => parseFreshSelfUser(await getSelf(), user?.id ?? -1),
@@ -27,6 +30,7 @@ export function useUpstreamAccounts() {
     refetchOnWindowFocus: false,
   })
   const canRead = Boolean(
+    declaredChannelRead &&
     selfQuery.isSuccess &&
     !selfQuery.isError &&
     selfQuery.data.role >= ROLE.ADMIN &&

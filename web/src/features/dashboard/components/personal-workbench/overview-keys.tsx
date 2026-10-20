@@ -69,7 +69,7 @@ export function OverviewKeys() {
         ) : null}
         {keys ? (
           <>
-            <p className='text-5xl font-semibold tabular-nums'>{keys.length}</p>
+            <p className='text-3xl font-semibold tabular-nums'>{keys.length}</p>
             <p className='text-muted-foreground'>
               {t('Keep using your existing Keys')}
             </p>
