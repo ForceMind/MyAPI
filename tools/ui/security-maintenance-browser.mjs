@@ -405,7 +405,7 @@ function exactText(value) {
 }
 
 function securityCard(page, title) {
-  const panel = page.locator('#personal-security-settings')
+  const panel = page.locator('main#content')
   const cardTitle = page
     .locator('[data-slot="card-title"]')
     .filter({ hasText: exactText(title) })
@@ -472,21 +472,12 @@ async function screenshot(page, scenario, stateName) {
 async function openSecurity(page, scenario) {
   const t = (key) => tr(key, scenario.language)
   await page.goto(`${origin}/profile`, { waitUntil: 'networkidle' })
-  await page.getByRole('heading', { name: t('Identity'), exact: true }).waitFor()
+  await page.getByRole('main', { name: t('Profile'), exact: true }).waitFor()
   const revision = await page.locator('html').getAttribute('data-build-rev')
   assert(
     revision?.startsWith(`rv.${version}.${buildHead}.`),
     'Visible build revision matches the qualified source'
   )
-  const trigger = page.getByRole('button', {
-    name: new RegExp(t('Manage login methods')),
-  })
-  await trigger.focus()
-  await page.keyboard.press('Enter')
-  assert.equal(await trigger.getAttribute('aria-expanded'), 'true')
-  await page
-    .locator('#personal-security-settings')
-    .waitFor({ state: 'visible' })
   const cards = [
     securityCard(page, t('Password and account access')),
     securityCard(page, t('Passkey Login')),
@@ -498,14 +489,14 @@ async function openSecurity(page, scenario) {
     assert.equal(await card.count(), 1)
   }
   // The application scrolls its main content inside a viewport-height shell.
-  // Put the expanded security region in that real viewport before evidence.
+  // Put the existing security controls in that real viewport before evidence.
   await cards[0].scrollIntoViewIfNeeded()
   const securityBounds = await cards[0].boundingBox()
   assert(
     securityBounds &&
       securityBounds.y < scenario.height &&
       securityBounds.y + securityBounds.height > 0,
-    'Expanded security controls are visible in the screenshot viewport'
+    'Security controls are visible in the screenshot viewport'
   )
   return revision
 }

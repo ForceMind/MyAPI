@@ -113,9 +113,8 @@ try {
             await page.screenshot({ path: resolve(output, `stability-${scenario}-${width}-error.png`) })
             await alert.getByRole('button', { name: 'Retry', exact: true }).click()
           }
-          await page.getByRole('heading', { name: 'Synthetic UI operator', level: 3 }).waitFor()
+          await page.getByRole('heading', { name: 'Synthetic UI operator', level: 2 }).waitFor()
           if (scenario.startsWith('security-')) {
-            await page.getByRole('button', { name: /Manage login methods/ }).click()
             const twoFA = page.getByRole('alert').filter({ hasText: 'Unable to load settings' })
             const passkey = page.getByRole('alert').filter({ hasText: 'Failed to load Passkey status' })
             await twoFA.waitFor()

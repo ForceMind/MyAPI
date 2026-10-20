@@ -81,7 +81,7 @@ try {
     }
     try {
       await page.goto(`${origin}/profile`, { waitUntil: 'networkidle' })
-      await page.getByRole('heading', { name: t('Identity'), exact: true }).waitFor()
+      await page.getByRole('heading', { name: 'Synthetic UI operator', level: 2, exact: true }).waitFor()
       const revision = await page.locator('html').getAttribute('data-build-rev')
       assert(revision?.startsWith(`rv.${version}.${process.env.GITHUB_SHA || head}.`))
       const nav = page.getByRole('navigation', { name: t(mobile ? 'Mobile console navigation' : 'Personal console navigation') })
@@ -147,10 +147,10 @@ try {
       if (item.language === 'zh') {
         failProfile = true
         await page.goto(`${origin}/profile`, { waitUntil: 'networkidle' })
-        await page.getByRole('alert').filter({ hasText: t('Profile is temporarily unavailable') }).waitFor()
+        await page.getByRole('alert').filter({ hasText: t('Failed to load profile') }).waitFor()
         failProfile = false
-        await page.getByRole('button', { name: t('Reload profile'), exact: true }).click()
-        await page.getByRole('heading', { name: t('Identity'), exact: true }).waitFor()
+        await page.getByRole('button', { name: t('Retry'), exact: true }).click()
+        await page.getByRole('heading', { name: 'Synthetic UI operator', level: 2, exact: true }).waitFor()
       }
       assert.deepEqual(errors, [], 'No runtime errors'); assert.deepEqual(external, [], 'Zero external requests')
       report.journeys.push({ ...item, revision, queries, result: 'passed' })

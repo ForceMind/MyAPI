@@ -206,7 +206,7 @@ try {
         } else {
           await page.locator('a[href="/profile"]').filter({ visible: true }).click()
         }
-        await page.getByRole('heading', { name: 'Synthetic UI operator', level: 3 }).waitFor()
+        await page.getByRole('heading', { name: 'Synthetic UI operator', level: 2 }).waitFor()
         assert.equal(logins, 1)
         assert.equal(submits, scenario === 'business-failure' ? 2 : 1)
         assert(profileReads > 0, 'Profile actually fetched after sidebar navigation')
@@ -220,7 +220,7 @@ try {
       releasePost()
       if (scenario === 'stalled-post') {
         await obsoletePostFinished
-        await page.getByRole('heading', { name: 'Synthetic UI operator', level: 3 }).waitFor()
+        await page.getByRole('heading', { name: 'Synthetic UI operator', level: 2 }).waitFor()
         assert.equal(new URL(page.url()).pathname.replace(/\/$/, ''), '/profile')
         assert.equal(submits, 1)
       }

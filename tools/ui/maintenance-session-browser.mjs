@@ -334,7 +334,7 @@ try {
         // This creates a real browser history entry so Back unmounts the form.
         await page.goto(`${origin}/profile`, { waitUntil: 'networkidle' })
         await page
-          .getByRole('heading', { name: t('Identity'), exact: true })
+          .getByRole('main', { name: t('Profile'), exact: true })
           .waitFor()
         const nav = page.getByRole('navigation', {
           name: t(
@@ -445,7 +445,7 @@ try {
           assert.equal(writes.length, 1)
           await page.goBack({ waitUntil: 'domcontentloaded' })
           await page
-            .getByRole('heading', { name: t('Identity'), exact: true })
+            .getByRole('main', { name: t('Profile'), exact: true })
             .waitFor()
           await capture('navigated')
           if (cancelled) await cancelled
