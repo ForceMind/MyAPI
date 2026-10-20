@@ -349,7 +349,7 @@ try {
     const chooseLayout = async (name) => {
       await page.getByRole('button', { name: label('Open theme settings'), exact: true }).click()
       const preferences = page.getByRole('dialog', { name: label('Theme Settings'), exact: true })
-      await preferences.getByRole('radiogroup', { name: label('Select layout style'), exact: true }).getByRole('radio', { name: label(name), exact: true }).click()
+      await preferences.getByRole('radiogroup', { name: label('Select layout style'), exact: true }).getByRole('radio', { name: label('Select {{option}}').replace('{{option}}', label(name)), exact: true }).click()
       await preferences.getByRole('button', { name: label('Close'), exact: true }).click()
       await preferences.waitFor({ state: 'hidden' })
       await settled(page)
@@ -366,7 +366,7 @@ try {
     await page.setViewportSize({ width: 1920, height: 900 })
     await page.getByRole('button', { name: label('Open theme settings'), exact: true }).click()
     const preferences = page.getByRole('dialog', { name: label('Theme Settings'), exact: true })
-    await preferences.getByRole('radiogroup', { name: label('Select sidebar style'), exact: true }).getByRole('radio', { name: label('Floating'), exact: true }).click()
+    await preferences.getByRole('radiogroup', { name: label('Select sidebar style'), exact: true }).getByRole('radio', { name: label('Select {{option}}').replace('{{option}}', label('Floating')), exact: true }).click()
     await preferences.getByRole('radiogroup', { name: label('Select content width'), exact: true }).getByRole('radio', { name: label('Centered'), exact: true }).click()
     await preferences.getByRole('button', { name: label('Close'), exact: true }).click()
     await preferences.waitFor({ state: 'hidden' })
@@ -435,6 +435,16 @@ try {
       section.reached = true
       if (settings.find(candidate => candidate.family === section.family).id === section.id) {
         await page.setViewportSize({ width: 320, height: 900 })
+        if (section.path === '/system-settings/security/rate-limit') {
+          for (const unit of ['minutes', 'times']) {
+            const lines = await page.getByText(label(unit), { exact: true }).evaluateAll(elements => elements.filter(element => element.checkVisibility()).map(element => {
+              const range = document.createRange()
+              range.selectNodeContents(element)
+              return range.getClientRects().length
+            }))
+            assert(lines.length > 0 && lines.every(count => count === 1), `Mobile numeric units remain readable without splitting ${unit}`)
+          }
+        }
         await screenshot(page, `settings-${section.family}-320`)
         await page.setViewportSize({ width: 1280, height: 900 })
       }

@@ -166,12 +166,13 @@ function RadioGroupItem(props: {
   }
   isTheme?: boolean
 }) {
+  const { t } = useTranslation()
   const isTheme = props.isTheme ?? false
   return (
     <Item
       value={props.item.value}
       className={cn('group outline-none', 'transition duration-200 ease-in')}
-      aria-label={`Select ${props.item.label.toLowerCase()}`}
+      aria-label={t('Select {{option}}', { option: props.item.label })}
       aria-describedby={`${props.item.value}-description`}
     >
       <div
@@ -182,7 +183,9 @@ function RadioGroupItem(props: {
         )}
         role='img'
         aria-hidden='false'
-        aria-label={`${props.item.label} option preview`}
+        aria-label={t('{{option}} option preview', {
+          option: props.item.label,
+        })}
       >
         <CircleCheck
           className={cn(

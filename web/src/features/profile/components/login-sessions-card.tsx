@@ -193,16 +193,17 @@ export function LoginSessionsCard(props: LoginSessionsCardProps) {
   return (
     <>
       <Card data-card-hover='false'>
-        <CardHeader>
+        <CardHeader className='has-data-[slot=card-action]:grid-cols-1 lg:has-data-[slot=card-action]:grid-cols-[1fr_auto]'>
           <CardTitle>{t('Login sessions')}</CardTitle>
           <CardDescription>
             {t('Review and sign out devices currently using your account.')}
           </CardDescription>
-          <CardAction>
+          <CardAction className='col-start-1 row-span-1 row-start-3 justify-self-stretch lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:justify-self-end'>
             <Button
               type='button'
               variant='outline'
               size='sm'
+              className='h-auto w-full whitespace-normal lg:w-auto'
               disabled={!hasOtherSessions || revokeOthersMutation.isPending}
               onClick={() => setConfirmOthers(true)}
             >

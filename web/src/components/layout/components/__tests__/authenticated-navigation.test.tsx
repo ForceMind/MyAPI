@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { DirectionProvider } from '@/context/direction-provider'
 import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
 import { ThemeProvider } from '@/context/theme-provider'
+import frenchLocale from '@/i18n/locales/fr.json'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -186,6 +187,27 @@ describe('authenticated operator navigation', () => {
     expect(currentPage).toHaveAccessibleName(longTitle)
     expect(currentPage).toHaveAttribute('title', longTitle)
     expect(currentPage).toHaveClass('truncate')
+  })
+
+  test('appearance choices expose translated accessible names and previews after switching language', async () => {
+    const user = userEvent.setup()
+    await renderShellRoute(<OperatorWorkspace />)
+    await user.click(
+      screen.getByRole('button', { name: 'Open theme settings' })
+    )
+    i18next.addResourceBundle('fr', 'translation', frenchLocale.translation)
+    await act(async () => {
+      await i18next.changeLanguage('fr')
+    })
+    const layout = screen.getByRole('radiogroup', {
+      name: frenchLocale.translation['Select layout style'],
+    })
+    expect(
+      within(layout).getAllByRole('radio', { name: /^Choisir / })
+    ).toHaveLength(3)
+    expect(
+      within(layout).getAllByRole('img', { name: /^Aperçu / })
+    ).toHaveLength(3)
   })
 
   test('a mobile drawer supports Escape and restores keyboard focus to its trigger', async () => {

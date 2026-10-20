@@ -488,6 +488,19 @@ async function openSecurity(page, scenario) {
     await card.waitFor({ state: 'visible' })
     assert.equal(await card.count(), 1)
   }
+  if (scenario.width < 1024) {
+    const header = cards[3].locator('[data-slot="card-header"]')
+    const layout = await header.evaluate((element) => {
+      const description = element.querySelector('[data-slot="card-description"]').getBoundingClientRect()
+      const action = element.querySelector('[data-slot="card-action"]').getBoundingClientRect()
+      return { descriptionBottom: description.bottom, actionTop: action.top }
+    })
+    assert(layout.actionTop >= layout.descriptionBottom, 'Mobile session actions follow the complete heading and description')
+    if (scenario.language === 'fr' && scenario.width === 320) {
+      await header.scrollIntoViewIfNeeded()
+      await screenshot(page, scenario, 'sessions-header')
+    }
+  }
   // The application scrolls its main content inside a viewport-height shell.
   // Put the existing security controls in that real viewport before evidence.
   await cards[0].scrollIntoViewIfNeeded()
