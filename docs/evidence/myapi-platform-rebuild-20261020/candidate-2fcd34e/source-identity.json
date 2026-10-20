@@ -1,0 +1,11 @@
+{
+  "source": "2fcd34e0425efdcf9e9a0419d2f4635ef2df86b0",
+  "tree": "3944679cea9513e36e88027241b6824a2b39e1b0",
+  "checkout": "e8be7487f7f9fc1cf10c53d6442919ee31d57ab8",
+  "run": 39415316504,
+  "artifact": 12260727461,
+  "version": "0.2.0-beta.24",
+  "backend_go_changes": [],
+  "synthetic_only": true,
+  "deployment": false
+}

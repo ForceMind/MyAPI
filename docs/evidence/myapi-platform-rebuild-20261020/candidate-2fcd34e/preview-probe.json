@@ -1,0 +1,34 @@
+{
+  "source": "2fcd34e0425efdcf9e9a0419d2f4635ef2df86b0",
+  "tree": "3944679cea9513e36e88027241b6824a2b39e1b0",
+  "checkout": "e8be7487f7f9fc1cf10c53d6442919ee31d57ab8",
+  "run": 39415316504,
+  "artifact": 12260727461,
+  "version": "0.2.0-beta.24",
+  "time": "2026-10-20T11:36:24.029000+00:00",
+  "origin": "http://127.0.0.1:4181",
+  "http": 200,
+  "verifiedScripts": [
+    {
+      "path": "static/js/vendor-ui-primitives.58b39db179.js",
+      "sha256": "8ff74d840f89685eb4efcd80219517d0373a6e9b0b6a205200d93dfd6f54436e"
+    },
+    {
+      "path": "static/js/vendor-tanstack.581930b28b.js",
+      "sha256": "fd821024c58c7d0a63e32d0ec2f1f9011ccf6028a798a612d4e46df3e2dcbbff"
+    },
+    {
+      "path": "static/js/lib-react.85aeb5b438.js",
+      "sha256": "940d8842390f48570e4bbcfc281c172f7d0b2543854041c8683a3fbcbdb313ee"
+    },
+    {
+      "path": "static/js/5009.327dbd4ff6.js",
+      "sha256": "aa916334de073b08efcb6a13485e855d759ba63c9961c80244bcfe543fdec1d7"
+    },
+    {
+      "path": "static/js/index.7153947216.js",
+      "sha256": "7a26e87fd4a451ac8c24891facc097e7092a8a913e0b0d80a82ef5784ed0b4cf"
+    }
+  ],
+  "previewScriptSha256": "ff58c7c015b1fe2e35b4c347cb1ef2524592ce961c0fb0145ca23747128d3a27"
+}

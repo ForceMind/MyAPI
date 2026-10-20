@@ -1,0 +1,10 @@
+$ vitest run src/features/dashboard/components/personal-workbench/__tests__/overview-connections.test.tsx src/features/personal-upstream/__tests__/upstream-selection.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+
+ Test Files  2 passed (2)
+      Tests  7 passed (7)
+   Start at  18:14:45
+   Duration  4.48s (transform 566ms, setup 367ms, import 1.28s, tests 988ms, environment 1.55s)
+

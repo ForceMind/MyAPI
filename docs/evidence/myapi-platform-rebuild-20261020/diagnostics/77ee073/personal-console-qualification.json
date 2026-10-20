@@ -1,0 +1,111 @@
+{
+  "head": "4f072f2f8394236166e9176f45673466b995d340",
+  "version": "0.2.0-beta.24",
+  "workflowHead": "4f072f2f8394236166e9176f45673466b995d340",
+  "scope": "Platform P1: public home, signed-in entry, desktop grouped navigation, mobile More, admin/self logs with server filters and pagination, completed missing usage, saved content and return. Synthetic APIs only; no providers or production.",
+  "result": "failed",
+  "journeys": [
+    {
+      "language": "en",
+      "width": 320,
+      "revision": "rv.0.2.0-beta.24.4f072f2f8394236166e9176f45673466b995d340.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "platform-more-en-320.png",
+      "language": "en",
+      "width": 320,
+      "state": "more"
+    },
+    {
+      "file": "platform-records-en-320.png",
+      "language": "en",
+      "width": 320,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-en-320.png",
+      "language": "en",
+      "width": 320,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-en-320.png",
+      "language": "en",
+      "width": 320,
+      "state": "saved-content"
+    }
+  ],
+  "errors": [
+    "locator.click: Error: strict mode violation: getByRole('button', { name: 'Search', exact: true }) resolved to 2 elements:\n    1) <button tabindex=\"0\" type=\"button\" data-slot=\"button\" data-size=\"default\" aria-label=\"Search\" data-myapi-button=\"\" data-variant=\"outline\" class=\"group/button inline-flex items-center border bg-clip-padding whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destruc…>…</button> aka getByLabel('Search')\n    2) <button tabindex=\"0\" type=\"button\" data-slot=\"button\" data-size=\"default\" data-myapi-button=\"\" data-variant=\"default\" class=\"group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-des…>Search</button> aka getByLabel('Call records').getByRole('button', { name: 'Search' })\n\nCall log:\n  - waiting for getByRole('button', { name: 'Search', exact: true })\n\n    at /home/runner/work/MyAPI/MyAPI/tools/ui/personal-console-browser.mjs:117:77"
+  ]
+}

@@ -1,0 +1,10 @@
+$ vitest run src/features/personal-upstream/__tests__/upstream-permissions.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  17:19:05
+   Duration  1.67s (transform 215ms, setup 204ms, import 439ms, tests 128ms, environment 770ms)
+

@@ -1,0 +1,443 @@
+{
+  "schema": 1,
+  "evidence": "Production-build Chromium with fixed, isolated API fixtures. This does not validate live providers, OAuth, 429 behavior, billing, settlement, deployment, or production.",
+  "sourceHead": "227a52044513d856baa98b0735399ea427591eb1",
+  "workflowHead": "227a52044513d856baa98b0735399ea427591eb1",
+  "version": "0.2.0-beta.24",
+  "fixtureTime": "2026-10-07T06:00:00.000Z",
+  "result": "failed",
+  "journeys": [
+    {
+      "name": "platform-p2-fr-320",
+      "language": "fr",
+      "width": 320,
+      "role": 100,
+      "result": "passed",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "reads": {
+        "/api/status": 6,
+        "/api/setup": 2,
+        "/api/user/auth/refresh": 2,
+        "/api/notice": 2,
+        "/pg/keys": 2,
+        "/api/log/self": 1,
+        "/api/user/self": 2,
+        "/api/channel": 2,
+        "/api/channel/quota/changes": 3,
+        "/api/group": 1,
+        "/api/channel/quota/status": 1,
+        "/api/channel/models": 1,
+        "/api/prefill_group": 1,
+        "/api/user/2fa/status": 1,
+        "/api/user/passkey": 1,
+        "/api/channel/ops": 1
+      }
+    },
+    {
+      "name": "platform-p2-zh-768",
+      "language": "zh",
+      "width": 768,
+      "role": 100,
+      "result": "failed",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "error": "AssertionError [ERR_ASSERTION]: All reads respect API and permission contracts\n+ actual - expected\n\n+ [\n+   'Unconfigured API: GET /api/channel/7/quota/history'\n+ ]\n- []\n\n    at runJourney (file:///home/runner/work/MyAPI/MyAPI/tools/ui/personal-workbench-browser.mjs:925:12)\n    at async inspectWindowStates (file:///home/runner/work/MyAPI/MyAPI/tools/ui/personal-workbench-browser.mjs:1152:3)\n    at async file:///home/runner/work/MyAPI/MyAPI/tools/ui/personal-workbench-browser.mjs:1214:5",
+      "reads": {
+        "/api/status": 6,
+        "/api/setup": 2,
+        "/api/user/auth/refresh": 2,
+        "/api/notice": 2,
+        "/pg/keys": 2,
+        "/api/log/self": 1,
+        "/api/user/self": 2,
+        "/api/channel": 2,
+        "/api/channel/quota/changes": 3,
+        "/api/group": 1,
+        "/api/channel/quota/status": 1,
+        "/api/channel/models": 1,
+        "/api/prefill_group": 1,
+        "/api/user/2fa/status": 1,
+        "/api/user/passkey": 1,
+        "/api/channel/ops": 1,
+        "/api/channel/7/quota/history": 1
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "platform-p2-fr-320-overview-connections.png",
+      "journey": "platform-p2-fr-320",
+      "sourceHead": "227a52044513d856baa98b0735399ea427591eb1",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "platform-p2-fr-320-failed-and-unsupported.png",
+      "journey": "platform-p2-fr-320",
+      "sourceHead": "227a52044513d856baa98b0735399ea427591eb1",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "platform-p2-fr-320-zero-and-stale.png",
+      "journey": "platform-p2-fr-320",
+      "sourceHead": "227a52044513d856baa98b0735399ea427591eb1",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "platform-p2-fr-320-incomplete-evidence.png",
+      "journey": "platform-p2-fr-320",
+      "sourceHead": "227a52044513d856baa98b0735399ea427591eb1",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "platform-p2-zh-768-overview-connections.png",
+      "journey": "platform-p2-zh-768",
+      "sourceHead": "227a52044513d856baa98b0735399ea427591eb1",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "platform-p2-zh-768-failed-and-unsupported.png",
+      "journey": "platform-p2-zh-768",
+      "sourceHead": "227a52044513d856baa98b0735399ea427591eb1",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "platform-p2-zh-768-zero-and-stale.png",
+      "journey": "platform-p2-zh-768",
+      "sourceHead": "227a52044513d856baa98b0735399ea427591eb1",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    },
+    {
+      "file": "platform-p2-zh-768-incomplete-evidence.png",
+      "journey": "platform-p2-zh-768",
+      "sourceHead": "227a52044513d856baa98b0735399ea427591eb1",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "fixtureTime": "2026-10-07T06:00:00.000Z"
+    }
+  ],
+  "contrast": [
+    {
+      "journey": "platform-p2-fr-320",
+      "snapshot": "overview-connections",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "platform-p2-fr-320",
+      "snapshot": "overview-connections",
+      "name": "warning",
+      "theme": "light",
+      "background": [
+        247,
+        248,
+        252
+      ],
+      "foreground": [
+        138,
+        91,
+        0
+      ],
+      "ratio": 5.531718002529451,
+      "minimum": 4.5
+    },
+    {
+      "journey": "platform-p2-fr-320",
+      "snapshot": "overview-connections",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "platform-p2-fr-320",
+      "snapshot": "failed-and-unsupported",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "platform-p2-fr-320",
+      "snapshot": "zero-and-stale",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "platform-p2-fr-320",
+      "snapshot": "zero-and-stale",
+      "name": "warning",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        138,
+        91,
+        0
+      ],
+      "ratio": 5.870695592150622,
+      "minimum": 4.5
+    },
+    {
+      "journey": "platform-p2-fr-320",
+      "snapshot": "incomplete-evidence",
+      "name": "warning",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        138,
+        91,
+        0
+      ],
+      "ratio": 5.870695592150622,
+      "minimum": 4.5
+    },
+    {
+      "journey": "platform-p2-zh-768",
+      "snapshot": "overview-connections",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "platform-p2-zh-768",
+      "snapshot": "overview-connections",
+      "name": "warning",
+      "theme": "light",
+      "background": [
+        247,
+        248,
+        252
+      ],
+      "foreground": [
+        138,
+        91,
+        0
+      ],
+      "ratio": 5.531718002529451,
+      "minimum": 4.5
+    },
+    {
+      "journey": "platform-p2-zh-768",
+      "snapshot": "overview-connections",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "platform-p2-zh-768",
+      "snapshot": "failed-and-unsupported",
+      "name": "destructive",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        180,
+        35,
+        24
+      ],
+      "ratio": 6.57428861557707,
+      "minimum": 4.5
+    },
+    {
+      "journey": "platform-p2-zh-768",
+      "snapshot": "zero-and-stale",
+      "name": "success",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        8,
+        122,
+        85
+      ],
+      "ratio": 5.349890955134842,
+      "minimum": 4.5
+    },
+    {
+      "journey": "platform-p2-zh-768",
+      "snapshot": "zero-and-stale",
+      "name": "warning",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        138,
+        91,
+        0
+      ],
+      "ratio": 5.870695592150622,
+      "minimum": 4.5
+    },
+    {
+      "journey": "platform-p2-zh-768",
+      "snapshot": "incomplete-evidence",
+      "name": "warning",
+      "theme": "light",
+      "background": [
+        255,
+        255,
+        255
+      ],
+      "foreground": [
+        138,
+        91,
+        0
+      ],
+      "ratio": 5.870695592150622,
+      "minimum": 4.5
+    }
+  ],
+  "diagnostics": [
+    {
+      "journey": "platform-p2-zh-768",
+      "image": "platform-p2-zh-768-failed-page.png",
+      "evidence": "platform-p2-zh-768-failed-page.json"
+    }
+  ],
+  "buildRevisions": [
+    {
+      "journey": "platform-p2-fr-320",
+      "revision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p"
+    },
+    {
+      "journey": "platform-p2-zh-768",
+      "revision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p"
+    }
+  ],
+  "errors": [
+    "AssertionError [ERR_ASSERTION]: All reads respect API and permission contracts\n+ actual - expected\n\n+ [\n+   'Unconfigured API: GET /api/channel/7/quota/history'\n+ ]\n- []\n\n    at runJourney (file:///home/runner/work/MyAPI/MyAPI/tools/ui/personal-workbench-browser.mjs:925:12)\n    at async inspectWindowStates (file:///home/runner/work/MyAPI/MyAPI/tools/ui/personal-workbench-browser.mjs:1152:3)\n    at async file:///home/runner/work/MyAPI/MyAPI/tools/ui/personal-workbench-browser.mjs:1214:5"
+  ],
+  "coverage": {
+    "languages": [
+      "en",
+      "zh",
+      "zh-TW",
+      "fr",
+      "ru",
+      "ja",
+      "vi"
+    ],
+    "widths": [
+      320,
+      390,
+      768,
+      1024,
+      1280,
+      1440
+    ],
+    "handoffCases": [
+      "available",
+      "key-unavailable",
+      "safe-list-failed"
+    ],
+    "poolUsageCases": [
+      "available",
+      "baseline_pending",
+      "baseline_unknown",
+      "inconsistent",
+      "zero-share",
+      "timeout",
+      "error",
+      "recovered",
+      "candidate-not-read",
+      "session-isolated",
+      "non-root-not-read",
+      "admin-channel-read-without-root"
+    ],
+    "nativeWindowStates": [
+      "error",
+      "unsupported",
+      "available-zero",
+      "stale",
+      "unavailable",
+      "unverified-time"
+    ]
+  }
+}

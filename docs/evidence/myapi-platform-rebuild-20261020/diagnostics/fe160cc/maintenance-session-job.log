@@ -1,0 +1,842 @@
+﻿2026-10-20T10:21:00.0655544Z Current runner version: '2.337.0'
+2026-10-20T10:21:00.0678665Z ##[group]Runner Image Provisioner
+2026-10-20T10:21:00.0679406Z Hosted Compute Agent
+2026-10-20T10:21:00.0679964Z Version: 20261012.601
+2026-10-20T10:21:00.0680479Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+2026-10-20T10:21:00.0681097Z Build Date: 2026-10-12T17:48:21Z
+2026-10-20T10:21:00.0682253Z Worker ID: {9c5bfa98-5f63-4f04-aecd-34e15eb5eaa4}
+2026-10-20T10:21:00.0683105Z Region: westus3
+2026-10-20T10:21:00.0683797Z Cloud: Azure
+2026-10-20T10:21:00.0684273Z ##[endgroup]
+2026-10-20T10:21:00.0685482Z ##[group]Operating System
+2026-10-20T10:21:00.0686067Z Ubuntu
+2026-10-20T10:21:00.0686499Z 24.04.5
+2026-10-20T10:21:00.0686949Z LTS
+2026-10-20T10:21:00.0687390Z ##[endgroup]
+2026-10-20T10:21:00.0687879Z ##[group]Runner Image
+2026-10-20T10:21:00.0688421Z Image: ubuntu-24.04
+2026-10-20T10:21:00.0688930Z Version: 20261012.334.1
+2026-10-20T10:21:00.0690048Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-20T10:21:00.0691424Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-20T10:21:00.0692266Z ##[endgroup]
+2026-10-20T10:21:00.0693292Z ##[group]GITHUB_TOKEN Permissions
+2026-10-20T10:21:00.0695000Z Actions: read
+2026-10-20T10:21:00.0695523Z Contents: read
+2026-10-20T10:21:00.0696037Z Metadata: read
+2026-10-20T10:21:00.0696511Z ##[endgroup]
+2026-10-20T10:21:00.0698276Z Secret source: Actions
+2026-10-20T10:21:00.0699151Z Cache mode: write
+2026-10-20T10:21:00.0699774Z Prepare workflow directory
+2026-10-20T10:21:00.1060928Z Prepare all required actions
+2026-10-20T10:21:00.1101863Z Getting action download info
+2026-10-20T10:21:00.4153153Z Download action repository 'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0' (SHA:9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0)
+2026-10-20T10:21:00.5521812Z Download action repository 'actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16' (SHA:924ae3a1cded613372ab5595356fb5720e22ba16)
+2026-10-20T10:21:01.3615402Z Download action repository 'actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e' (SHA:48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e)
+2026-10-20T10:21:01.5138378Z Download action repository 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' (SHA:3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c)
+2026-10-20T10:21:02.2666175Z Download action repository 'actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08' (SHA:65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08)
+2026-10-20T10:21:02.5004719Z Complete job name: Isolated credential maintenance browser and real API
+2026-10-20T10:21:02.5702354Z ##[group]Run actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+2026-10-20T10:21:02.5702993Z with:
+2026-10-20T10:21:02.5703224Z   persist-credentials: false
+2026-10-20T10:21:02.5703493Z   repository: ForceMind/MyAPI
+2026-10-20T10:21:02.5705885Z   token: ***
+2026-10-20T10:21:02.5706114Z   ssh-strict: true
+2026-10-20T10:21:02.5706333Z   ssh-user: git
+2026-10-20T10:21:02.5706559Z   clean: true
+2026-10-20T10:21:02.5706787Z   sparse-checkout-cone-mode: true
+2026-10-20T10:21:02.5707057Z   fetch-depth: 1
+2026-10-20T10:21:02.5707277Z   fetch-tags: false
+2026-10-20T10:21:02.5707516Z   show-progress: true
+2026-10-20T10:21:02.5707746Z   lfs: false
+2026-10-20T10:21:02.5707950Z   submodules: false
+2026-10-20T10:21:02.5708173Z   set-safe-directory: true
+2026-10-20T10:21:02.5708424Z   allow-unsafe-pr-checkout: false
+2026-10-20T10:21:02.5708824Z env:
+2026-10-20T10:21:02.5709023Z   GOWORK: off
+2026-10-20T10:21:02.5709228Z   GOMAXPROCS: 2
+2026-10-20T10:21:02.5709438Z   GOMEMLIMIT: 768MiB
+2026-10-20T10:21:02.5709768Z   NODE_OPTIONS: --max-old-space-size=768
+2026-10-20T10:21:02.5710039Z ##[endgroup]
+2026-10-20T10:21:02.6555983Z Syncing repository: ForceMind/MyAPI
+2026-10-20T10:21:02.6557745Z ##[group]Getting Git version info
+2026-10-20T10:21:02.6558303Z Working directory is '/home/runner/work/MyAPI/MyAPI'
+2026-10-20T10:21:02.6559200Z [command]/usr/bin/git version
+2026-10-20T10:21:02.6592655Z git version 2.55.0
+2026-10-20T10:21:02.6611278Z ##[endgroup]
+2026-10-20T10:21:02.6621677Z Temporarily overriding HOME='/home/runner/work/_temp/be6b8f84-97a3-44be-ae33-024fa382662f' before making global git config changes
+2026-10-20T10:21:02.6622803Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-20T10:21:02.6627662Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MyAPI/MyAPI
+2026-10-20T10:21:02.6677067Z Deleting the contents of '/home/runner/work/MyAPI/MyAPI'
+2026-10-20T10:21:02.6682431Z ##[group]Determining repository object format
+2026-10-20T10:21:02.6683629Z ##[endgroup]
+2026-10-20T10:21:02.6684487Z ##[group]Initializing the repository
+2026-10-20T10:21:02.6685764Z [command]/usr/bin/git init /home/runner/work/MyAPI/MyAPI
+2026-10-20T10:21:02.6768769Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-20T10:21:02.6769808Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-20T10:21:02.6770860Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-20T10:21:02.6771833Z hint: call:
+2026-10-20T10:21:02.6772302Z hint:
+2026-10-20T10:21:02.6772899Z hint: 	git config --global init.defaultBranch <name>
+2026-10-20T10:21:02.6773542Z hint:
+2026-10-20T10:21:02.6774184Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-20T10:21:02.6775116Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-20T10:21:02.6775866Z hint:
+2026-10-20T10:21:02.6776409Z hint: 	git branch -m <name>
+2026-10-20T10:21:02.6776955Z hint:
+2026-10-20T10:21:02.6777613Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-20T10:21:02.6778690Z Initialized empty Git repository in /home/runner/work/MyAPI/MyAPI/.git/
+2026-10-20T10:21:02.6780687Z [command]/usr/bin/git remote add origin https://github.com/ForceMind/MyAPI
+2026-10-20T10:21:02.6827414Z ##[endgroup]
+2026-10-20T10:21:02.6828053Z ##[group]Disabling automatic garbage collection
+2026-10-20T10:21:02.6831596Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-20T10:21:02.6862371Z ##[endgroup]
+2026-10-20T10:21:02.6863398Z ##[group]Setting up auth
+2026-10-20T10:21:02.6863895Z Removing SSH command configuration
+2026-10-20T10:21:02.6867500Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-20T10:21:02.6900707Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-20T10:21:02.7212605Z Removing HTTP extra header
+2026-10-20T10:21:02.7218996Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-20T10:21:02.7257908Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-20T10:21:02.7462038Z Removing includeIf entries pointing to credentials config files
+2026-10-20T10:21:02.7466803Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-20T10:21:02.7499357Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-20T10:21:02.7703839Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-4cf6d203-7daa-4bbe-9d2a-c0741d6a811e.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-20T10:21:02.7741781Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path /home/runner/work/_temp/git-credentials-4cf6d203-7daa-4bbe-9d2a-c0741d6a811e.config
+2026-10-20T10:21:02.7772835Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-4cf6d203-7daa-4bbe-9d2a-c0741d6a811e.config
+2026-10-20T10:21:02.7807885Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-4cf6d203-7daa-4bbe-9d2a-c0741d6a811e.config
+2026-10-20T10:21:02.7840343Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-4cf6d203-7daa-4bbe-9d2a-c0741d6a811e.config
+2026-10-20T10:21:02.7869288Z ##[endgroup]
+2026-10-20T10:21:02.7869705Z ##[group]Fetching the repository
+2026-10-20T10:21:02.7875197Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +99aeccfddc0a3e274bf0b62c2ed4a9b718f83417:refs/remotes/pull/17/merge
+2026-10-20T10:21:08.0096754Z From https://github.com/ForceMind/MyAPI
+2026-10-20T10:21:08.0097548Z  * [new ref]         99aeccfddc0a3e274bf0b62c2ed4a9b718f83417 -> pull/17/merge
+2026-10-20T10:21:08.0100199Z ##[endgroup]
+2026-10-20T10:21:08.0100679Z ##[group]Determining the checkout info
+2026-10-20T10:21:08.0101453Z ##[endgroup]
+2026-10-20T10:21:08.0106298Z [command]/usr/bin/git sparse-checkout disable
+2026-10-20T10:21:08.0155817Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-20T10:21:08.0191519Z ##[group]Checking out the ref
+2026-10-20T10:21:08.0192218Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/17/merge
+2026-10-20T10:21:08.4412600Z Note: switching to 'refs/remotes/pull/17/merge'.
+2026-10-20T10:21:08.4413005Z 
+2026-10-20T10:21:08.4413269Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-20T10:21:08.4413923Z changes and commit them, and you can discard any commits you make in this
+2026-10-20T10:21:08.4414486Z state without impacting any branches by switching back to a branch.
+2026-10-20T10:21:08.4414980Z 
+2026-10-20T10:21:08.4442472Z If you want to create a new branch to retain commits you create, you may
+2026-10-20T10:21:08.4458420Z do so (now or later) by using -c with the switch command. Example:
+2026-10-20T10:21:08.4460514Z 
+2026-10-20T10:21:08.4460723Z   git switch -c <new-branch-name>
+2026-10-20T10:21:08.4460952Z 
+2026-10-20T10:21:08.4461719Z Or undo this operation with:
+2026-10-20T10:21:08.4461949Z 
+2026-10-20T10:21:08.4462077Z   git switch -
+2026-10-20T10:21:08.4462338Z 
+2026-10-20T10:21:08.4492104Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-20T10:21:08.4511741Z 
+2026-10-20T10:21:08.4512586Z HEAD is now at 99aeccf Merge fe160cc8da5419687d76a0926b181367e065a10c into c1beb07520f43c106b4406ba8a0b1227bc1cf67e
+2026-10-20T10:21:08.4514135Z ##[endgroup]
+2026-10-20T10:21:08.4515217Z [command]/usr/bin/git log -1 --format=%H
+2026-10-20T10:21:08.4519286Z 99aeccfddc0a3e274bf0b62c2ed4a9b718f83417
+2026-10-20T10:21:08.4531814Z ##[group]Removing auth
+2026-10-20T10:21:08.4532175Z Removing SSH command configuration
+2026-10-20T10:21:08.4532719Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-20T10:21:08.4564481Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-20T10:21:08.4768214Z Removing HTTP extra header
+2026-10-20T10:21:08.4771493Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-20T10:21:08.4806638Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-20T10:21:08.5017127Z Removing includeIf entries pointing to credentials config files
+2026-10-20T10:21:08.5019984Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-20T10:21:08.5048511Z includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path
+2026-10-20T10:21:08.5048911Z includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path
+2026-10-20T10:21:08.5049247Z includeif.gitdir:/github/workspace/.git.path
+2026-10-20T10:21:08.5049875Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-20T10:21:08.5056236Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path
+2026-10-20T10:21:08.5080926Z /home/runner/work/_temp/git-credentials-4cf6d203-7daa-4bbe-9d2a-c0741d6a811e.config
+2026-10-20T10:21:08.5090122Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path /home/runner/work/_temp/git-credentials-4cf6d203-7daa-4bbe-9d2a-c0741d6a811e.config
+2026-10-20T10:21:08.5124161Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path
+2026-10-20T10:21:08.5153206Z /home/runner/work/_temp/git-credentials-4cf6d203-7daa-4bbe-9d2a-c0741d6a811e.config
+2026-10-20T10:21:08.5160751Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-4cf6d203-7daa-4bbe-9d2a-c0741d6a811e.config
+2026-10-20T10:21:08.5192181Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-20T10:21:08.5218407Z /github/runner_temp/git-credentials-4cf6d203-7daa-4bbe-9d2a-c0741d6a811e.config
+2026-10-20T10:21:08.5225444Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-4cf6d203-7daa-4bbe-9d2a-c0741d6a811e.config
+2026-10-20T10:21:08.5258753Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-20T10:21:08.5282821Z /github/runner_temp/git-credentials-4cf6d203-7daa-4bbe-9d2a-c0741d6a811e.config
+2026-10-20T10:21:08.5294164Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-4cf6d203-7daa-4bbe-9d2a-c0741d6a811e.config
+2026-10-20T10:21:08.5324926Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-20T10:21:08.5520068Z Removing credentials config '/home/runner/work/_temp/git-credentials-4cf6d203-7daa-4bbe-9d2a-c0741d6a811e.config'
+2026-10-20T10:21:08.5528464Z ##[endgroup]
+2026-10-20T10:21:08.5732946Z ##[group]Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+2026-10-20T10:21:08.5733261Z with:
+2026-10-20T10:21:08.5733438Z   go-version-file: go.mod
+2026-10-20T10:21:08.5733675Z   cache-dependency-path: go.sum
+relaykit/go.sum
+
+2026-10-20T10:21:08.5733942Z   check-latest: false
+2026-10-20T10:21:08.5736061Z   token: ***
+2026-10-20T10:21:08.5736227Z   cache: true
+2026-10-20T10:21:08.5736389Z env:
+2026-10-20T10:21:08.5736541Z   GOWORK: off
+2026-10-20T10:21:08.5736702Z   GOMAXPROCS: 2
+2026-10-20T10:21:08.5736883Z   GOMEMLIMIT: 768MiB
+2026-10-20T10:21:08.5737086Z   NODE_OPTIONS: --max-old-space-size=768
+2026-10-20T10:21:08.5737311Z ##[endgroup]
+2026-10-20T10:21:08.6779052Z Setup go version spec 1.25.1
+2026-10-20T10:21:08.6788242Z Attempting to download 1.25.1...
+2026-10-20T10:21:09.6024659Z matching 1.25.1...
+2026-10-20T10:21:09.6060538Z Acquiring 1.25.1 from https://github.com/actions/go-versions/releases/download/1.25.1-17451174567/go-1.25.1-linux-x64.tar.gz
+2026-10-20T10:21:10.1143390Z Extracting Go...
+2026-10-20T10:21:10.1237401Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/327f3253-dd6b-490d-9350-b2166a01d5d6 -f /home/runner/work/_temp/4f42f9f8-f3fb-4905-acd8-36b6d5f23d74
+2026-10-20T10:21:11.3499787Z Successfully extracted go to /home/runner/work/_temp/327f3253-dd6b-490d-9350-b2166a01d5d6
+2026-10-20T10:21:11.3500345Z Adding to the cache ...
+2026-10-20T10:21:16.8736047Z Successfully cached go to /opt/hostedtoolcache/go/1.25.1/x64
+2026-10-20T10:21:16.8738124Z Added go to the path
+2026-10-20T10:21:16.8740031Z Successfully set up Go version 1.25.1
+2026-10-20T10:21:16.8911656Z [command]/opt/hostedtoolcache/go/1.25.1/x64/bin/go env GOMODCACHE
+2026-10-20T10:21:16.8939811Z [command]/opt/hostedtoolcache/go/1.25.1/x64/bin/go env GOCACHE
+2026-10-20T10:21:16.8968347Z /home/runner/go/pkg/mod
+2026-10-20T10:21:16.8981529Z /home/runner/.cache/go-build
+2026-10-20T10:21:17.1101563Z Cache hit for: setup-go-Linux-x64-ubuntu24-go-1.25.1-6d5e7a422ac7cc4529fbd9df01ec0b200929303e0fa2bb12bc04294bfe908406
+2026-10-20T10:21:18.3282593Z Received 0 of 33295291 (0.0%), 0.0 MBs/sec
+2026-10-20T10:21:19.3295893Z Received 0 of 33295291 (0.0%), 0.0 MBs/sec
+2026-10-20T10:21:20.3308931Z Received 0 of 33295291 (0.0%), 0.0 MBs/sec
+2026-10-20T10:21:21.3321080Z Received 0 of 33295291 (0.0%), 0.0 MBs/sec
+2026-10-20T10:21:22.3333936Z Received 0 of 33295291 (0.0%), 0.0 MBs/sec
+2026-10-20T10:21:23.3202004Z Received 33295291 of 33295291 (100.0%), 5.3 MBs/sec
+2026-10-20T10:21:23.3202445Z Cache Size: ~32 MB (33295291 B)
+2026-10-20T10:21:23.3228267Z [command]/usr/bin/tar -xf /home/runner/work/_temp/cff7999b-be24-4c16-b596-c1843a80d820/cache.tzst -P -C /home/runner/work/MyAPI/MyAPI --use-compress-program unzstd
+2026-10-20T10:21:23.5340773Z Cache restored successfully
+2026-10-20T10:21:23.5362366Z Cache restored from key: setup-go-Linux-x64-ubuntu24-go-1.25.1-6d5e7a422ac7cc4529fbd9df01ec0b200929303e0fa2bb12bc04294bfe908406
+2026-10-20T10:21:23.5388408Z go version go1.25.1 linux/amd64
+2026-10-20T10:21:23.5388599Z 
+2026-10-20T10:21:23.5388872Z ##[group]go env
+2026-10-20T10:21:23.5493224Z AR='ar'
+2026-10-20T10:21:23.5493515Z CC='gcc'
+2026-10-20T10:21:23.5493797Z CGO_CFLAGS='-O2 -g'
+2026-10-20T10:21:23.5494092Z CGO_CPPFLAGS=''
+2026-10-20T10:21:23.5494383Z CGO_CXXFLAGS='-O2 -g'
+2026-10-20T10:21:23.5494703Z CGO_ENABLED='1'
+2026-10-20T10:21:23.5494959Z CGO_FFLAGS='-O2 -g'
+2026-10-20T10:21:23.5495218Z CGO_LDFLAGS='-O2 -g'
+2026-10-20T10:21:23.5495474Z CXX='g++'
+2026-10-20T10:21:23.5495726Z GCCGO='gccgo'
+2026-10-20T10:21:23.5495961Z GO111MODULE=''
+2026-10-20T10:21:23.5496199Z GOAMD64='v1'
+2026-10-20T10:21:23.5496432Z GOARCH='amd64'
+2026-10-20T10:21:23.5496665Z GOAUTH='netrc'
+2026-10-20T10:21:23.5496901Z GOBIN=''
+2026-10-20T10:21:23.5497167Z GOCACHE='/home/runner/.cache/go-build'
+2026-10-20T10:21:23.5497537Z GOCACHEPROG=''
+2026-10-20T10:21:23.5497773Z GODEBUG=''
+2026-10-20T10:21:23.5498037Z GOENV='/home/runner/.config/go/env'
+2026-10-20T10:21:23.5498342Z GOEXE=''
+2026-10-20T10:21:23.5498918Z GOEXPERIMENT=''
+2026-10-20T10:21:23.5499174Z GOFIPS140='off'
+2026-10-20T10:21:23.5499415Z GOFLAGS=''
+2026-10-20T10:21:23.5500183Z GOGCCFLAGS='-fPIC -m64 -pthread -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=/tmp/go-build4170352794=/tmp/go-build -gno-record-gcc-switches'
+2026-10-20T10:21:23.5500954Z GOHOSTARCH='amd64'
+2026-10-20T10:21:23.5501411Z GOHOSTOS='linux'
+2026-10-20T10:21:23.5501652Z GOINSECURE=''
+2026-10-20T10:21:23.5502032Z GOMOD='/home/runner/work/MyAPI/MyAPI/go.mod'
+2026-10-20T10:21:23.5502418Z GOMODCACHE='/home/runner/go/pkg/mod'
+2026-10-20T10:21:23.5502732Z GONOPROXY=''
+2026-10-20T10:21:23.5502979Z GONOSUMDB=''
+2026-10-20T10:21:23.5503216Z GOOS='linux'
+2026-10-20T10:21:23.5503461Z GOPATH='/home/runner/go'
+2026-10-20T10:21:23.5503746Z GOPRIVATE=''
+2026-10-20T10:21:23.5504061Z GOPROXY='https://proxy.golang.org,direct'
+2026-10-20T10:21:23.5504473Z GOROOT='/opt/hostedtoolcache/go/1.25.1/x64'
+2026-10-20T10:21:23.5504824Z GOSUMDB='sum.golang.org'
+2026-10-20T10:21:23.5505115Z GOTELEMETRY='local'
+2026-10-20T10:21:23.5505444Z GOTELEMETRYDIR='/home/runner/.config/go/telemetry'
+2026-10-20T10:21:23.5505808Z GOTMPDIR=''
+2026-10-20T10:21:23.5506063Z GOTOOLCHAIN='local'
+2026-10-20T10:21:23.5506441Z GOTOOLDIR='/opt/hostedtoolcache/go/1.25.1/x64/pkg/tool/linux_amd64'
+2026-10-20T10:21:23.5506875Z GOVCS=''
+2026-10-20T10:21:23.5507111Z GOVERSION='go1.25.1'
+2026-10-20T10:21:23.5507370Z GOWORK='off'
+2026-10-20T10:21:23.5507639Z PKG_CONFIG='pkg-config'
+2026-10-20T10:21:23.5507815Z 
+2026-10-20T10:21:23.5508236Z ##[endgroup]
+2026-10-20T10:21:23.5697985Z ##[group]Run actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+2026-10-20T10:21:23.5698306Z with:
+2026-10-20T10:21:23.5698477Z   node-version: 22
+2026-10-20T10:21:23.5698660Z   check-latest: false
+2026-10-20T10:21:23.5700773Z   token: ***
+2026-10-20T10:21:23.5722668Z   package-manager-cache: true
+2026-10-20T10:21:23.5722945Z env:
+2026-10-20T10:21:23.5723113Z   GOWORK: off
+2026-10-20T10:21:23.5723294Z   GOMAXPROCS: 2
+2026-10-20T10:21:23.5723471Z   GOMEMLIMIT: 768MiB
+2026-10-20T10:21:23.5723698Z   NODE_OPTIONS: --max-old-space-size=768
+2026-10-20T10:21:23.5723939Z   GOTOOLCHAIN: local
+2026-10-20T10:21:23.5724125Z ##[endgroup]
+2026-10-20T10:21:23.7212363Z Found in cache @ /opt/hostedtoolcache/node/22.23.3/x64
+2026-10-20T10:21:23.7216394Z ##[group]Environment details
+2026-10-20T10:21:24.0470905Z node: v22.23.3
+2026-10-20T10:21:24.0471304Z npm: 10.9.9
+2026-10-20T10:21:24.0471503Z yarn: 1.22.22
+2026-10-20T10:21:24.0471919Z ##[endgroup]
+2026-10-20T10:21:24.0596177Z ##[group]Run set -euo pipefail
+2026-10-20T10:21:24.0596523Z [36;1mset -euo pipefail[0m
+2026-10-20T10:21:24.0596789Z [36;1mfor credential_attempt in $(seq 1 60); do[0m
+2026-10-20T10:21:24.0597481Z [36;1m  credential_artifact_ready="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" --jq ".artifacts | any(.name == \"myapi-console-build-$GITHUB_SHA\" and .expired == false)")"[0m
+2026-10-20T10:21:24.0598160Z [36;1m  if [ "$credential_artifact_ready" = true ]; then[0m
+2026-10-20T10:21:24.0598413Z [36;1m    exit 0[0m
+2026-10-20T10:21:24.0598598Z [36;1m  fi[0m
+2026-10-20T10:21:24.0598764Z [36;1m  sleep 5[0m
+2026-10-20T10:21:24.0598936Z [36;1mdone[0m
+2026-10-20T10:21:24.0599228Z [36;1mecho 'This run did not produce the expected frontend build within five minutes.' >&2[0m
+2026-10-20T10:21:24.0599572Z [36;1mexit 1[0m
+2026-10-20T10:21:24.0796933Z shell: /usr/bin/bash -e {0}
+2026-10-20T10:21:24.0797198Z env:
+2026-10-20T10:21:24.0797467Z   GOWORK: off
+2026-10-20T10:21:24.0797646Z   GOMAXPROCS: 2
+2026-10-20T10:21:24.0797821Z   GOMEMLIMIT: 768MiB
+2026-10-20T10:21:24.0798039Z   NODE_OPTIONS: --max-old-space-size=768
+2026-10-20T10:21:24.0798270Z   GOTOOLCHAIN: local
+2026-10-20T10:21:24.0800958Z   GH_TOKEN: ***
+2026-10-20T10:21:24.0801253Z ##[endgroup]
+2026-10-20T10:21:51.3559263Z ##[group]Run actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+2026-10-20T10:21:51.3559624Z with:
+2026-10-20T10:21:51.3559887Z   name: myapi-console-build-99aeccfddc0a3e274bf0b62c2ed4a9b718f83417
+2026-10-20T10:21:51.3560197Z   path: web
+2026-10-20T10:21:51.3560373Z   merge-multiple: false
+2026-10-20T10:21:51.3560575Z   repository: ForceMind/MyAPI
+2026-10-20T10:21:51.3560777Z   run-id: 39407187058
+2026-10-20T10:21:51.3560975Z   skip-decompress: false
+2026-10-20T10:21:51.3561380Z   digest-mismatch: error
+2026-10-20T10:21:51.3561566Z env:
+2026-10-20T10:21:51.3561724Z   GOWORK: off
+2026-10-20T10:21:51.3561890Z   GOMAXPROCS: 2
+2026-10-20T10:21:51.3562070Z   GOMEMLIMIT: 768MiB
+2026-10-20T10:21:51.3562280Z   NODE_OPTIONS: --max-old-space-size=768
+2026-10-20T10:21:51.3562524Z   GOTOOLCHAIN: local
+2026-10-20T10:21:51.3562707Z ##[endgroup]
+2026-10-20T10:21:51.4673940Z Downloading single artifact
+2026-10-20T10:21:51.7035062Z Preparing to download the following artifacts:
+2026-10-20T10:21:51.7036778Z - myapi-console-build-99aeccfddc0a3e274bf0b62c2ed4a9b718f83417 (ID: 12257877111, Size: 5497103, Expected Digest: sha256:f08cdfd96909778c1db9d1ed8e1f980562c55ae8fb933726d331c795fb284be8)
+2026-10-20T10:21:52.1557419Z Redirecting to blob download url: https://productionresultssa3.blob.core.windows.net/actions-results/79d0e0a8-5b48-8c2a-ba20-565653eb4245/workflow-job-run-08c40232-cd00-5d9d-a93c-f029555002d8/artifacts/bdb087e2fa691d293e59873a2d5901bbe141e68cbe5b3d0a447d110fd4db85c6.zip
+2026-10-20T10:21:52.1558495Z Starting download of artifact to: /home/runner/work/MyAPI/MyAPI/web
+2026-10-20T10:21:52.4317527Z (node:2314) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+2026-10-20T10:21:52.4318368Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-20T10:21:53.2790924Z SHA256 digest of downloaded artifact is f08cdfd96909778c1db9d1ed8e1f980562c55ae8fb933726d331c795fb284be8
+2026-10-20T10:21:53.2791952Z Artifact download completed successfully.
+2026-10-20T10:21:53.2792288Z Total of 1 artifact(s) downloaded
+2026-10-20T10:21:53.2794250Z Download artifact has finished successfully
+2026-10-20T10:21:53.2895661Z ##[group]Run npm install --prefix "$RUNNER_TEMP/myapi-credential-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1
+2026-10-20T10:21:53.2896478Z [36;1mnpm install --prefix "$RUNNER_TEMP/myapi-credential-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1[0m
+2026-10-20T10:21:53.2897151Z [36;1m"$RUNNER_TEMP/myapi-credential-browser/node_modules/.bin/playwright" install --with-deps chromium[0m
+2026-10-20T10:21:53.2957410Z shell: /usr/bin/bash -e {0}
+2026-10-20T10:21:53.2957676Z env:
+2026-10-20T10:21:53.2957863Z   GOWORK: off
+2026-10-20T10:21:53.2958050Z   GOMAXPROCS: 2
+2026-10-20T10:21:53.2958240Z   GOMEMLIMIT: 768MiB
+2026-10-20T10:21:53.2958453Z   NODE_OPTIONS: --max-old-space-size=768
+2026-10-20T10:21:53.2958722Z   GOTOOLCHAIN: local
+2026-10-20T10:21:53.2958954Z ##[endgroup]
+2026-10-20T10:21:55.1027039Z 
+2026-10-20T10:21:55.1028180Z added 2 packages in 2s
+2026-10-20T10:21:55.6055296Z Installing dependencies...
+2026-10-20T10:21:55.6118188Z Switching to root user to install dependencies...
+2026-10-20T10:21:55.7055741Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+2026-10-20T10:21:55.7413086Z Hit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
+2026-10-20T10:21:55.7420216Z Get:6 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
+2026-10-20T10:21:55.7430704Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+2026-10-20T10:21:55.7493739Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+2026-10-20T10:21:55.7512948Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+2026-10-20T10:21:55.8507967Z Get:7 https://packages.microsoft.com/ubuntu/24.04/prod noble/main armhf Packages [12.4 kB]
+2026-10-20T10:21:55.8593489Z Get:8 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [557 kB]
+2026-10-20T10:21:55.8678054Z Get:9 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages [618 kB]
+2026-10-20T10:21:55.8960250Z Get:10 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1397 kB]
+2026-10-20T10:21:55.9036088Z Get:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/main Translation-en [308 kB]
+2026-10-20T10:21:55.9060579Z Get:12 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1704 kB]
+2026-10-20T10:21:55.9225145Z Get:13 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe Translation-en [342 kB]
+2026-10-20T10:21:55.9250961Z Get:14 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted amd64 Packages [1805 kB]
+2026-10-20T10:21:55.9353801Z Get:15 http://azure.archive.ubuntu.com/ubuntu noble-updates/restricted Translation-en [411 kB]
+2026-10-20T10:21:55.9913346Z Get:16 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Packages [1145 kB]
+2026-10-20T10:21:55.9964364Z Get:17 http://azure.archive.ubuntu.com/ubuntu noble-security/main Translation-en [231 kB]
+2026-10-20T10:21:55.9983602Z Get:18 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1222 kB]
+2026-10-20T10:21:56.0034303Z Get:19 http://azure.archive.ubuntu.com/ubuntu noble-security/universe Translation-en [246 kB]
+2026-10-20T10:21:56.0493678Z Get:20 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted amd64 Packages [1713 kB]
+2026-10-20T10:21:56.0574835Z Get:21 http://azure.archive.ubuntu.com/ubuntu noble-security/restricted Translation-en [392 kB]
+2026-10-20T10:22:02.9701522Z Fetched 12.5 MB in 1s (11.6 MB/s)
+2026-10-20T10:22:03.7976073Z Reading package lists...
+2026-10-20T10:22:03.8184423Z Reading package lists...
+2026-10-20T10:22:04.0678543Z Building dependency tree...
+2026-10-20T10:22:04.0684975Z Reading state information...
+2026-10-20T10:22:04.3115159Z libasound2t64 is already the newest version (1.2.11-1ubuntu0.3).
+2026-10-20T10:22:04.3116341Z libasound2t64 set to manually installed.
+2026-10-20T10:22:04.3116973Z libatk-bridge2.0-0t64 is already the newest version (2.52.0-1build1).
+2026-10-20T10:22:04.3117848Z libatk-bridge2.0-0t64 set to manually installed.
+2026-10-20T10:22:04.3118469Z libatk1.0-0t64 is already the newest version (2.52.0-1build1).
+2026-10-20T10:22:04.3119012Z libatk1.0-0t64 set to manually installed.
+2026-10-20T10:22:04.3119593Z libatspi2.0-0t64 is already the newest version (2.52.0-1build1).
+2026-10-20T10:22:04.3120192Z libatspi2.0-0t64 set to manually installed.
+2026-10-20T10:22:04.3120673Z libcairo2 is already the newest version (1.18.0-3build1).
+2026-10-20T10:22:04.3121111Z libcairo2 set to manually installed.
+2026-10-20T10:22:04.3121801Z libcups2t64 is already the newest version (2.4.7-1.2ubuntu7.14).
+2026-10-20T10:22:04.3122287Z libcups2t64 set to manually installed.
+2026-10-20T10:22:04.3122793Z libdbus-1-3 is already the newest version (1.14.10-4ubuntu4.1).
+2026-10-20T10:22:04.3123264Z libdbus-1-3 set to manually installed.
+2026-10-20T10:22:04.3123786Z libdrm2 is already the newest version (2.4.125-1ubuntu0.1~24.04.2).
+2026-10-20T10:22:04.3124303Z libdrm2 set to manually installed.
+2026-10-20T10:22:04.3124857Z libgbm1 is already the newest version (25.2.8-0ubuntu0.24.04.4).
+2026-10-20T10:22:04.3125394Z libgbm1 set to manually installed.
+2026-10-20T10:22:04.3125944Z libglib2.0-0t64 is already the newest version (2.80.0-6ubuntu3.9).
+2026-10-20T10:22:04.3126494Z libglib2.0-0t64 set to manually installed.
+2026-10-20T10:22:04.3127145Z libnspr4 is already the newest version (2:4.35-1.1build1).
+2026-10-20T10:22:04.3127673Z libnspr4 set to manually installed.
+2026-10-20T10:22:04.3128218Z libnss3 is already the newest version (2:3.98-1ubuntu0.2).
+2026-10-20T10:22:04.3128725Z libnss3 set to manually installed.
+2026-10-20T10:22:04.3129311Z libpango-1.0-0 is already the newest version (1.52.1+ds-1build1).
+2026-10-20T10:22:04.3129878Z libpango-1.0-0 set to manually installed.
+2026-10-20T10:22:04.3130470Z libx11-6 is already the newest version (2:1.8.7-1ubuntu0.1).
+2026-10-20T10:22:04.3130995Z libx11-6 set to manually installed.
+2026-10-20T10:22:04.3131707Z libxcb1 is already the newest version (1.15-1ubuntu2).
+2026-10-20T10:22:04.3132202Z libxcb1 set to manually installed.
+2026-10-20T10:22:04.3132795Z libxcomposite1 is already the newest version (1:0.4.5-1build3).
+2026-10-20T10:22:04.3133367Z libxcomposite1 set to manually installed.
+2026-10-20T10:22:04.3133952Z libxdamage1 is already the newest version (1:1.1.6-1build1).
+2026-10-20T10:22:04.3134493Z libxdamage1 set to manually installed.
+2026-10-20T10:22:04.3135017Z libxext6 is already the newest version (2:1.3.4-1build2).
+2026-10-20T10:22:04.3135519Z libxext6 set to manually installed.
+2026-10-20T10:22:04.3136033Z libxfixes3 is already the newest version (1:6.0.0-2build1).
+2026-10-20T10:22:04.3136597Z libxfixes3 set to manually installed.
+2026-10-20T10:22:04.3137174Z libxkbcommon0 is already the newest version (1.6.0-1build1).
+2026-10-20T10:22:04.3137740Z libxkbcommon0 set to manually installed.
+2026-10-20T10:22:04.3138308Z libxrandr2 is already the newest version (2:1.5.2-2build1).
+2026-10-20T10:22:04.3138845Z libxrandr2 set to manually installed.
+2026-10-20T10:22:04.3139514Z fonts-noto-color-emoji is already the newest version (2.047-0ubuntu0.24.04.1).
+2026-10-20T10:22:04.3140282Z libfontconfig1 is already the newest version (2.15.0-1.1ubuntu2).
+2026-10-20T10:22:04.3140865Z libfontconfig1 set to manually installed.
+2026-10-20T10:22:04.3141665Z libfreetype6 is already the newest version (2.13.2+dfsg-1ubuntu0.2).
+2026-10-20T10:22:04.3142261Z libfreetype6 set to manually installed.
+2026-10-20T10:22:04.3142858Z fonts-liberation is already the newest version (1:2.1.5-3).
+2026-10-20T10:22:04.3143447Z fonts-liberation set to manually installed.
+2026-10-20T10:22:04.3144004Z The following additional packages will be installed:
+2026-10-20T10:22:04.3144580Z   xfonts-encodings xfonts-utils xserver-common
+2026-10-20T10:22:04.3145037Z Recommended packages:
+2026-10-20T10:22:04.3145812Z   fonts-ipafont-mincho fonts-tlwg-loma xfonts-base
+2026-10-20T10:22:04.3339209Z The following NEW packages will be installed:
+2026-10-20T10:22:04.3340108Z   fonts-freefont-ttf fonts-ipafont-gothic fonts-tlwg-loma-otf fonts-unifont
+2026-10-20T10:22:04.3351804Z   fonts-wqy-zenhei xfonts-cyrillic xfonts-encodings xfonts-scalable
+2026-10-20T10:22:04.3352310Z   xfonts-utils
+2026-10-20T10:22:04.3366350Z The following packages will be upgraded:
+2026-10-20T10:22:04.3366667Z   xserver-common xvfb
+2026-10-20T10:22:04.3562774Z 2 upgraded, 9 newly installed, 0 to remove and 79 not upgraded.
+2026-10-20T10:22:04.3563187Z Need to get 22.0 MB of archives.
+2026-10-20T10:22:04.3563574Z After this operation, 79.5 MB of additional disk space will be used.
+2026-10-20T10:22:04.3563994Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+2026-10-20T10:22:04.4983196Z Get:2 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-ipafont-gothic all 00303-21ubuntu1 [3513 kB]
+2026-10-20T10:22:05.0861701Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 fonts-freefont-ttf all 20211204+svn4273-2 [5641 kB]
+2026-10-20T10:22:05.2452903Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-tlwg-loma-otf all 1:0.7.3-1 [107 kB]
+2026-10-20T10:22:05.3135765Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-unifont all 1:15.1.01-1build1 [2993 kB]
+2026-10-20T10:22:05.3982228Z Get:6 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-wqy-zenhei all 0.9.45-8 [7472 kB]
+2026-10-20T10:22:05.5968008Z Get:7 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-encodings all 1:1.0.5-0ubuntu2 [578 kB]
+2026-10-20T10:22:05.6665349Z Get:8 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-utils amd64 1:7.7+6build3 [94.4 kB]
+2026-10-20T10:22:05.7315040Z Get:9 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 xfonts-cyrillic all 1:1.0.5+nmu1 [384 kB]
+2026-10-20T10:22:05.7974489Z Get:10 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-scalable all 1:1.0.3-1.3 [304 kB]
+2026-10-20T10:22:05.8676690Z Get:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 xserver-common all 2:21.1.12-1ubuntu1.9 [35.0 kB]
+2026-10-20T10:22:05.9327248Z Get:12 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 xvfb amd64 2:21.1.12-1ubuntu1.9 [877 kB]
+2026-10-20T10:22:06.1840412Z Fetched 22.0 MB in 2s (13.7 MB/s)
+2026-10-20T10:22:06.2022794Z Selecting previously unselected package fonts-ipafont-gothic.
+2026-10-20T10:22:06.2232990Z (Reading database ... 
+2026-10-20T10:22:06.2233433Z (Reading database ... 5%
+2026-10-20T10:22:06.2233685Z (Reading database ... 10%
+2026-10-20T10:22:06.2233914Z (Reading database ... 15%
+2026-10-20T10:22:06.2234155Z (Reading database ... 20%
+2026-10-20T10:22:06.2234366Z (Reading database ... 25%
+2026-10-20T10:22:06.2234579Z (Reading database ... 30%
+2026-10-20T10:22:06.2234787Z (Reading database ... 35%
+2026-10-20T10:22:06.2234995Z (Reading database ... 40%
+2026-10-20T10:22:06.2235252Z (Reading database ... 45%
+2026-10-20T10:22:06.2235510Z (Reading database ... 50%
+2026-10-20T10:22:06.2269098Z (Reading database ... 55%
+2026-10-20T10:22:06.2861891Z (Reading database ... 60%
+2026-10-20T10:22:06.4963187Z (Reading database ... 65%
+2026-10-20T10:22:06.6838168Z (Reading database ... 70%
+2026-10-20T10:22:06.8848038Z (Reading database ... 75%
+2026-10-20T10:22:07.0035708Z (Reading database ... 80%
+2026-10-20T10:22:07.1354577Z (Reading database ... 85%
+2026-10-20T10:22:07.2304613Z (Reading database ... 90%
+2026-10-20T10:22:07.4909818Z (Reading database ... 95%
+2026-10-20T10:22:07.4910177Z (Reading database ... 100%
+2026-10-20T10:22:07.4910586Z (Reading database ... 203540 files and directories currently installed.)
+2026-10-20T10:22:07.4952069Z Preparing to unpack .../00-fonts-ipafont-gothic_00303-21ubuntu1_all.deb ...
+2026-10-20T10:22:07.5067047Z Unpacking fonts-ipafont-gothic (00303-21ubuntu1) ...
+2026-10-20T10:22:07.7405751Z Selecting previously unselected package fonts-freefont-ttf.
+2026-10-20T10:22:07.7518836Z Preparing to unpack .../01-fonts-freefont-ttf_20211204+svn4273-2_all.deb ...
+2026-10-20T10:22:07.7525228Z Unpacking fonts-freefont-ttf (20211204+svn4273-2) ...
+2026-10-20T10:22:07.8713129Z Selecting previously unselected package fonts-tlwg-loma-otf.
+2026-10-20T10:22:07.8824056Z Preparing to unpack .../02-fonts-tlwg-loma-otf_1%3a0.7.3-1_all.deb ...
+2026-10-20T10:22:07.8829749Z Unpacking fonts-tlwg-loma-otf (1:0.7.3-1) ...
+2026-10-20T10:22:07.9012942Z Selecting previously unselected package fonts-unifont.
+2026-10-20T10:22:07.9127233Z Preparing to unpack .../03-fonts-unifont_1%3a15.1.01-1build1_all.deb ...
+2026-10-20T10:22:07.9133429Z Unpacking fonts-unifont (1:15.1.01-1build1) ...
+2026-10-20T10:22:08.1289039Z Selecting previously unselected package fonts-wqy-zenhei.
+2026-10-20T10:22:08.1401083Z Preparing to unpack .../04-fonts-wqy-zenhei_0.9.45-8_all.deb ...
+2026-10-20T10:22:08.1492955Z Unpacking fonts-wqy-zenhei (0.9.45-8) ...
+2026-10-20T10:22:08.6061680Z Selecting previously unselected package xfonts-encodings.
+2026-10-20T10:22:08.6173409Z Preparing to unpack .../05-xfonts-encodings_1%3a1.0.5-0ubuntu2_all.deb ...
+2026-10-20T10:22:08.6178780Z Unpacking xfonts-encodings (1:1.0.5-0ubuntu2) ...
+2026-10-20T10:22:08.6419028Z Selecting previously unselected package xfonts-utils.
+2026-10-20T10:22:08.6533031Z Preparing to unpack .../06-xfonts-utils_1%3a7.7+6build3_amd64.deb ...
+2026-10-20T10:22:08.6539262Z Unpacking xfonts-utils (1:7.7+6build3) ...
+2026-10-20T10:22:08.6813813Z Selecting previously unselected package xfonts-cyrillic.
+2026-10-20T10:22:08.6929343Z Preparing to unpack .../07-xfonts-cyrillic_1%3a1.0.5+nmu1_all.deb ...
+2026-10-20T10:22:08.7126762Z Unpacking xfonts-cyrillic (1:1.0.5+nmu1) ...
+2026-10-20T10:22:08.7395409Z Selecting previously unselected package xfonts-scalable.
+2026-10-20T10:22:08.7509344Z Preparing to unpack .../08-xfonts-scalable_1%3a1.0.3-1.3_all.deb ...
+2026-10-20T10:22:08.7516199Z Unpacking xfonts-scalable (1:1.0.3-1.3) ...
+2026-10-20T10:22:08.7830170Z Preparing to unpack .../09-xserver-common_2%3a21.1.12-1ubuntu1.9_all.deb ...
+2026-10-20T10:22:08.7849003Z Unpacking xserver-common (2:21.1.12-1ubuntu1.9) over (2:21.1.12-1ubuntu1.8) ...
+2026-10-20T10:22:08.8162447Z Preparing to unpack .../10-xvfb_2%3a21.1.12-1ubuntu1.9_amd64.deb ...
+2026-10-20T10:22:08.8177822Z Unpacking xvfb (2:21.1.12-1ubuntu1.9) over (2:21.1.12-1ubuntu1.8) ...
+2026-10-20T10:22:08.8757427Z Setting up fonts-wqy-zenhei (0.9.45-8) ...
+2026-10-20T10:22:08.8862541Z Setting up fonts-freefont-ttf (20211204+svn4273-2) ...
+2026-10-20T10:22:08.8878194Z Setting up fonts-tlwg-loma-otf (1:0.7.3-1) ...
+2026-10-20T10:22:08.8892751Z Setting up xfonts-encodings (1:1.0.5-0ubuntu2) ...
+2026-10-20T10:22:08.8906914Z Setting up fonts-ipafont-gothic (00303-21ubuntu1) ...
+2026-10-20T10:22:08.8965190Z update-alternatives: using /usr/share/fonts/opentype/ipafont-gothic/ipag.ttf to provide /usr/share/fonts/truetype/fonts-japanese-gothic.ttf (fonts-japanese-gothic.ttf) in auto mode
+2026-10-20T10:22:08.8977996Z Setting up xserver-common (2:21.1.12-1ubuntu1.9) ...
+2026-10-20T10:22:08.8992426Z Setting up fonts-unifont (1:15.1.01-1build1) ...
+2026-10-20T10:22:08.9195421Z Setting up xvfb (2:21.1.12-1ubuntu1.9) ...
+2026-10-20T10:22:08.9214216Z Setting up xfonts-utils (1:7.7+6build3) ...
+2026-10-20T10:22:08.9250250Z Setting up xfonts-cyrillic (1:1.0.5+nmu1) ...
+2026-10-20T10:22:08.9827322Z Setting up xfonts-scalable (1:1.0.3-1.3) ...
+2026-10-20T10:22:09.0071608Z Processing triggers for man-db (2.12.0-4build2) ...
+2026-10-20T10:22:09.0096728Z Not building database; man-db/auto-update is not 'true'.
+2026-10-20T10:22:09.0108888Z Processing triggers for fontconfig (2.15.0-1.1ubuntu2) ...
+2026-10-20T10:22:09.6787389Z 
+2026-10-20T10:22:09.6788016Z Running kernel seems to be up-to-date.
+2026-10-20T10:22:09.6788354Z 
+2026-10-20T10:22:09.6788559Z No services need to be restarted.
+2026-10-20T10:22:09.6788823Z 
+2026-10-20T10:22:09.6788997Z No containers need to be restarted.
+2026-10-20T10:22:09.6789164Z 
+2026-10-20T10:22:09.6789326Z No user sessions are running outdated binaries.
+2026-10-20T10:22:09.6789837Z 
+2026-10-20T10:22:09.6790094Z No VM guests are running outdated hypervisor (qemu) binaries on this host.
+2026-10-20T10:22:10.7932282Z Downloading Chrome for Testing 149.0.7827.55 (playwright chromium v1228) from https://cdn.playwright.dev/builds/cft/149.0.7827.55/linux64/chrome-linux64.zip
+2026-10-20T10:22:11.8099910Z |                                                                                |   0% of 177 MiB
+2026-10-20T10:22:11.9953246Z |■■■■■■■■                                                                        |  10% of 177 MiB
+2026-10-20T10:22:12.0859906Z |■■■■■■■■■■■■■■■■                                                                |  20% of 177 MiB
+2026-10-20T10:22:12.1509520Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 177 MiB
+2026-10-20T10:22:12.2183854Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 177 MiB
+2026-10-20T10:22:12.2815596Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 177 MiB
+2026-10-20T10:22:12.3530184Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 177 MiB
+2026-10-20T10:22:12.4413441Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 177 MiB
+2026-10-20T10:22:12.5077805Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 177 MiB
+2026-10-20T10:22:12.5651481Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 177 MiB
+2026-10-20T10:22:12.6384014Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 177 MiB
+2026-10-20T10:22:15.0457177Z Chrome for Testing 149.0.7827.55 (playwright chromium v1228) downloaded to /home/runner/.cache/ms-playwright/chromium-1228
+2026-10-20T10:22:15.0460689Z Downloading FFmpeg (playwright ffmpeg v1011) from https://cdn.playwright.dev/dbazure/download/playwright/builds/ffmpeg/1011/ffmpeg-linux.zip
+2026-10-20T10:22:16.0218524Z |                                                                                |   0% of 2.3 MiB
+2026-10-20T10:22:16.0445271Z |■■■■■■■■                                                                        |  10% of 2.3 MiB
+2026-10-20T10:22:16.0543367Z |■■■■■■■■■■■■■■■■                                                                |  20% of 2.3 MiB
+2026-10-20T10:22:16.0623664Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 2.3 MiB
+2026-10-20T10:22:16.0697492Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 2.3 MiB
+2026-10-20T10:22:16.0712386Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 2.3 MiB
+2026-10-20T10:22:16.0780352Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 2.3 MiB
+2026-10-20T10:22:16.0787435Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 2.3 MiB
+2026-10-20T10:22:16.0806755Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 2.3 MiB
+2026-10-20T10:22:16.0869337Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 2.3 MiB
+2026-10-20T10:22:16.0877641Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 2.3 MiB
+2026-10-20T10:22:16.1353837Z FFmpeg (playwright ffmpeg v1011) downloaded to /home/runner/.cache/ms-playwright/ffmpeg-1011
+2026-10-20T10:22:16.1357104Z Downloading Chrome Headless Shell 149.0.7827.55 (playwright chromium-headless-shell v1228) from https://cdn.playwright.dev/builds/cft/149.0.7827.55/linux64/chrome-headless-shell-linux64.zip
+2026-10-20T10:22:17.1456120Z |                                                                                |   0% of 114.2 MiB
+2026-10-20T10:22:17.2860820Z |■■■■■■■■                                                                        |  10% of 114.2 MiB
+2026-10-20T10:22:17.3425300Z |■■■■■■■■■■■■■■■■                                                                |  20% of 114.2 MiB
+2026-10-20T10:22:17.3999707Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 114.2 MiB
+2026-10-20T10:22:17.4299152Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 114.2 MiB
+2026-10-20T10:22:17.4745301Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 114.2 MiB
+2026-10-20T10:22:17.5350639Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 114.2 MiB
+2026-10-20T10:22:17.5631322Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 114.2 MiB
+2026-10-20T10:22:17.6062668Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 114.2 MiB
+2026-10-20T10:22:17.6518811Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 114.2 MiB
+2026-10-20T10:22:17.6936484Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 114.2 MiB
+2026-10-20T10:22:19.3700207Z Chrome Headless Shell 149.0.7827.55 (playwright chromium-headless-shell v1228) downloaded to /home/runner/.cache/ms-playwright/chromium_headless_shell-1228
+2026-10-20T10:22:19.3869604Z ##[group]Run node tools/ui/credential-maintenance-browser.mjs
+2026-10-20T10:22:19.3870017Z [36;1mnode tools/ui/credential-maintenance-browser.mjs[0m
+2026-10-20T10:22:19.3927566Z shell: /usr/bin/bash -e {0}
+2026-10-20T10:22:19.3927814Z env:
+2026-10-20T10:22:19.3927994Z   GOWORK: off
+2026-10-20T10:22:19.3928179Z   GOMAXPROCS: 2
+2026-10-20T10:22:19.3928360Z   GOMEMLIMIT: 768MiB
+2026-10-20T10:22:19.3928582Z   NODE_OPTIONS: --max-old-space-size=768
+2026-10-20T10:22:19.3928822Z   GOTOOLCHAIN: local
+2026-10-20T10:22:19.3929218Z   MYAPI_PLAYWRIGHT_MODULE: /home/runner/work/_temp/myapi-credential-browser/node_modules/playwright/index.mjs
+2026-10-20T10:22:19.3929749Z   MYAPI_BROWSER_ARTIFACTS: /home/runner/work/_temp/myapi-credential-browser-artifacts
+2026-10-20T10:22:19.3930313Z ##[endgroup]
+2026-10-20T10:22:31.7290064Z ##[group]Run node tools/ui/credential-rotation-browser.mjs
+2026-10-20T10:22:31.7290476Z [36;1mnode tools/ui/credential-rotation-browser.mjs[0m
+2026-10-20T10:22:31.7346613Z shell: /usr/bin/bash -e {0}
+2026-10-20T10:22:31.7346849Z env:
+2026-10-20T10:22:31.7347019Z   GOWORK: off
+2026-10-20T10:22:31.7347209Z   GOMAXPROCS: 2
+2026-10-20T10:22:31.7347388Z   GOMEMLIMIT: 768MiB
+2026-10-20T10:22:31.7347600Z   NODE_OPTIONS: --max-old-space-size=768
+2026-10-20T10:22:31.7347846Z   GOTOOLCHAIN: local
+2026-10-20T10:22:31.7348234Z   MYAPI_PLAYWRIGHT_MODULE: /home/runner/work/_temp/myapi-credential-browser/node_modules/playwright/index.mjs
+2026-10-20T10:22:31.7348777Z   MYAPI_BROWSER_ARTIFACTS: /home/runner/work/_temp/myapi-credential-rotation-artifacts
+2026-10-20T10:22:31.7349129Z ##[endgroup]
+2026-10-20T10:22:44.2541571Z ##[group]Run node tools/ui/maintenance-session-browser.mjs
+2026-10-20T10:22:44.2542034Z [36;1mnode tools/ui/maintenance-session-browser.mjs[0m
+2026-10-20T10:22:44.2603460Z shell: /usr/bin/bash -e {0}
+2026-10-20T10:22:44.2603716Z env:
+2026-10-20T10:22:44.2603891Z   GOWORK: off
+2026-10-20T10:22:44.2604074Z   GOMAXPROCS: 2
+2026-10-20T10:22:44.2604256Z   GOMEMLIMIT: 768MiB
+2026-10-20T10:22:44.2604481Z   NODE_OPTIONS: --max-old-space-size=768
+2026-10-20T10:22:44.2604741Z   GOTOOLCHAIN: local
+2026-10-20T10:22:44.2605132Z   MYAPI_PLAYWRIGHT_MODULE: /home/runner/work/_temp/myapi-credential-browser/node_modules/playwright/index.mjs
+2026-10-20T10:22:44.2605673Z   MYAPI_BROWSER_ARTIFACTS: /home/runner/work/_temp/myapi-session-browser-artifacts
+2026-10-20T10:22:44.2606003Z ##[endgroup]
+2026-10-20T10:23:00.9033258Z node:internal/modules/run_main:123
+2026-10-20T10:23:00.9033855Z     triggerUncaughtException(
+2026-10-20T10:23:00.9034197Z     ^
+2026-10-20T10:23:00.9034382Z 
+2026-10-20T10:23:00.9034813Z locator.waitFor: Timeout 15000ms exceeded.
+2026-10-20T10:23:00.9035232Z Call log:
+2026-10-20T10:23:00.9035760Z   - waiting for getByRole('heading', { name: 'Identity', exact: true }) to be visible
+2026-10-20T10:23:00.9036118Z 
+2026-10-20T10:23:00.9036594Z     at /home/runner/work/MyAPI/MyAPI/tools/ui/maintenance-session-browser.mjs:338:12 {
+2026-10-20T10:23:00.9037093Z   log: [
+2026-10-20T10:23:00.9037657Z     "  - waiting for getByRole('heading', { name: 'Identity', exact: true }) to be visible"
+2026-10-20T10:23:00.9038125Z   ],
+2026-10-20T10:23:00.9038378Z   name: 'TimeoutError'
+2026-10-20T10:23:00.9038655Z }
+2026-10-20T10:23:00.9038771Z 
+2026-10-20T10:23:00.9038885Z Node.js v22.23.3
+2026-10-20T10:23:00.9149354Z ##[error]Process completed with exit code 1.
+2026-10-20T10:23:00.9195079Z ##[group]Run go test -p 1 ./router -run '^TestTokenMaintenanceRuntimeBrowser$' -count=1 -timeout=240s -v
+2026-10-20T10:23:00.9195680Z [36;1mgo test -p 1 ./router -run '^TestTokenMaintenanceRuntimeBrowser$' -count=1 -timeout=240s -v[0m
+2026-10-20T10:23:00.9252260Z shell: /usr/bin/bash -e {0}
+2026-10-20T10:23:00.9252506Z env:
+2026-10-20T10:23:00.9252678Z   GOWORK: off
+2026-10-20T10:23:00.9252864Z   GOMAXPROCS: 2
+2026-10-20T10:23:00.9253046Z   GOMEMLIMIT: 768MiB
+2026-10-20T10:23:00.9253258Z   NODE_OPTIONS: --max-old-space-size=768
+2026-10-20T10:23:00.9253503Z   GOTOOLCHAIN: local
+2026-10-20T10:23:00.9253712Z   MYAPI_CREDENTIAL_BROWSER_TESTS: 1
+2026-10-20T10:23:00.9254152Z   MYAPI_PLAYWRIGHT_MODULE: /home/runner/work/_temp/myapi-credential-browser/node_modules/playwright/index.mjs
+2026-10-20T10:23:00.9254714Z   MYAPI_CREDENTIAL_RUNTIME_ARTIFACTS: /home/runner/work/_temp/myapi-credential-runtime-artifacts
+2026-10-20T10:23:00.9255080Z ##[endgroup]
+2026-10-20T10:23:00.9516340Z go: downloading github.com/gin-contrib/gzip v0.0.6
+2026-10-20T10:23:00.9517022Z go: downloading github.com/gin-contrib/static v0.0.1
+2026-10-20T10:23:01.0372443Z go: downloading github.com/gin-gonic/gin v1.9.1
+2026-10-20T10:23:01.1415302Z go: downloading github.com/bytedance/gopkg v0.1.3
+2026-10-20T10:23:01.2028861Z go: downloading github.com/glebarez/sqlite v1.9.0
+2026-10-20T10:23:01.2296396Z go: downloading gorm.io/gorm v1.25.5
+2026-10-20T10:23:01.2983807Z go: downloading github.com/Azure/go-ntlmssp v0.1.1
+2026-10-20T10:23:01.3123402Z go: downloading github.com/abema/go-mp4 v1.4.1
+2026-10-20T10:23:01.3348408Z go: downloading github.com/go-audio/aiff v1.1.0
+2026-10-20T10:23:01.3790456Z go: downloading github.com/go-audio/wav v1.1.0
+2026-10-20T10:23:01.5213950Z go: downloading github.com/go-playground/validator/v10 v10.20.0
+2026-10-20T10:23:01.5664915Z go: downloading github.com/google/uuid v1.6.0
+2026-10-20T10:23:01.5938250Z go: downloading github.com/grafana/pyroscope-go v1.2.7
+2026-10-20T10:23:01.6258421Z go: downloading github.com/jfreymuth/oggvorbis v1.0.5
+2026-10-20T10:23:01.6439610Z go: downloading github.com/jinzhu/copier v0.4.0
+2026-10-20T10:23:01.6550455Z go: downloading github.com/mewkiz/flac v1.0.13
+2026-10-20T10:23:01.6692027Z go: downloading github.com/pkg/errors v0.9.1
+2026-10-20T10:23:01.6955852Z go: downloading github.com/pquerna/otp v1.5.0
+2026-10-20T10:23:01.7217789Z go: downloading github.com/samber/lo v1.53.0
+2026-10-20T10:23:01.7485360Z go: downloading github.com/shirou/gopsutil v3.21.11+incompatible
+2026-10-20T10:23:01.8035442Z go: downloading github.com/shopspring/decimal v1.4.0
+2026-10-20T10:23:01.8036615Z go: downloading github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
+2026-10-20T10:23:01.8312723Z go: downloading github.com/yapingcat/gomedia v0.0.0-20240906162731-17feea57090c
+2026-10-20T10:23:01.8317054Z go: downloading golang.org/x/crypto v0.52.0
+2026-10-20T10:23:01.9174473Z go: downloading golang.org/x/sys v0.45.0
+2026-10-20T10:23:02.0234424Z go: downloading github.com/andybalholm/brotli v1.1.1
+2026-10-20T10:23:02.0855355Z go: downloading github.com/gin-contrib/cors v1.7.2
+2026-10-20T10:23:02.0950351Z go: downloading github.com/klauspost/compress v1.18.0
+2026-10-20T10:23:02.1129142Z go: downloading github.com/tidwall/gjson v1.19.0
+2026-10-20T10:23:02.1567245Z go: downloading github.com/gorilla/websocket v1.5.0
+2026-10-20T10:23:02.1864257Z go: downloading github.com/casbin/casbin/v2 v2.135.0
+2026-10-20T10:23:02.2345728Z go: downloading github.com/Calcium-Ion/go-epay v0.0.4
+2026-10-20T10:23:02.2608168Z go: downloading github.com/go-webauthn/webauthn v0.14.0
+2026-10-20T10:23:02.3022518Z go: downloading github.com/stripe/stripe-go/v81 v81.4.0
+2026-10-20T10:23:02.4436132Z go: downloading github.com/thanhpk/randstr v1.0.6
+2026-10-20T10:23:02.4681691Z go: downloading github.com/waffo-com/waffo-go v1.3.2
+2026-10-20T10:23:02.5020909Z go: downloading golang.org/x/sync v0.20.0
+2026-10-20T10:23:02.5297517Z go: downloading github.com/gin-contrib/sse v0.1.0
+2026-10-20T10:23:02.5526193Z go: downloading github.com/mattn/go-isatty v0.0.20
+2026-10-20T10:23:02.5757272Z go: downloading golang.org/x/net v0.55.0
+2026-10-20T10:23:02.7858250Z go: downloading github.com/nicksnyder/go-i18n/v2 v2.6.1
+2026-10-20T10:23:02.8135312Z go: downloading golang.org/x/text v0.37.0
+2026-10-20T10:23:02.8197159Z go: downloading github.com/ClickHouse/clickhouse-go/v2 v2.32.0
+2026-10-20T10:23:02.9248701Z go: downloading github.com/glebarez/go-sqlite v1.21.2
+2026-10-20T10:23:02.9542120Z go: downloading github.com/go-sql-driver/mysql v1.7.0
+2026-10-20T10:23:02.9859421Z go: downloading github.com/jackc/pgx/v5 v5.9.2
+2026-10-20T10:23:03.0622619Z go: downloading github.com/samber/hot v0.11.0
+2026-10-20T10:23:03.1013568Z go: downloading gorm.io/driver/clickhouse v0.6.0
+2026-10-20T10:23:03.1286735Z go: downloading gorm.io/driver/mysql v1.4.3
+2026-10-20T10:23:03.1527959Z go: downloading gorm.io/driver/postgres v1.5.4
+2026-10-20T10:23:03.1715933Z go: downloading github.com/anknown/ahocorasick v0.0.0-20190904063843-d75dbd5169c0
+2026-10-20T10:23:03.1764702Z go: downloading github.com/golang-jwt/jwt/v5 v5.3.0
+2026-10-20T10:23:03.2098306Z go: downloading github.com/tiktoken-go/tokenizer v0.6.2
+2026-10-20T10:23:03.3902445Z go: downloading github.com/waffo-com/waffo-pancake-sdk-go v0.3.1
+2026-10-20T10:23:03.3903113Z go: downloading golang.org/x/image v0.41.0
+2026-10-20T10:23:03.4244514Z go: downloading modernc.org/sqlite v1.40.1
+2026-10-20T10:23:03.5871282Z go: downloading github.com/jinzhu/now v1.1.5
+2026-10-20T10:23:03.6184152Z go: downloading github.com/go-audio/audio v1.0.0
+2026-10-20T10:23:03.6421541Z go: downloading github.com/go-audio/riff v1.0.0
+2026-10-20T10:23:03.6781793Z go: downloading github.com/gabriel-vasile/mimetype v1.4.3
+2026-10-20T10:23:04.2575464Z go: downloading github.com/go-playground/universal-translator v0.18.1
+2026-10-20T10:23:04.2846267Z go: downloading github.com/leodido/go-urn v1.4.0
+2026-10-20T10:23:04.3580945Z go: downloading github.com/grafana/pyroscope-go/godeltaprof v0.1.9
+2026-10-20T10:23:04.3842180Z go: downloading github.com/jfreymuth/vorbis v1.0.2
+2026-10-20T10:23:04.4193503Z go: downloading github.com/boombuler/barcode v1.1.0
+2026-10-20T10:23:04.4501787Z go: downloading github.com/icza/bitio v1.1.0
+2026-10-20T10:23:04.4760678Z go: downloading github.com/mewkiz/pkg v0.0.0-20250417130911-3f050ff8c56d
+2026-10-20T10:23:04.5088330Z go: downloading github.com/tklauser/go-sysconf v0.3.12
+2026-10-20T10:23:04.5548175Z go: downloading github.com/tidwall/match v1.1.1
+2026-10-20T10:23:04.5798066Z go: downloading github.com/tidwall/pretty v1.2.0
+2026-10-20T10:23:04.6023809Z go: downloading github.com/aws/aws-sdk-go-v2 v1.41.5
+2026-10-20T10:23:04.6707976Z go: downloading github.com/aws/aws-sdk-go-v2/credentials v1.19.10
+2026-10-20T10:23:04.7033108Z go: downloading github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.50.4
+2026-10-20T10:23:04.7345277Z go: downloading github.com/aws/smithy-go v1.24.2
+2026-10-20T10:23:04.7987782Z go: downloading github.com/tidwall/sjson v1.2.5
+2026-10-20T10:23:04.8248397Z go: downloading github.com/casbin/govaluate v1.10.0
+2026-10-20T10:23:04.8526571Z go: downloading github.com/mitchellh/mapstructure v1.5.0
+2026-10-20T10:23:04.8777326Z go: downloading github.com/expr-lang/expr v1.17.8
+2026-10-20T10:23:04.9930493Z go: downloading github.com/google/go-tpm v0.9.5
+2026-10-20T10:23:05.0493358Z go: downloading github.com/pelletier/go-toml/v2 v2.2.1
+2026-10-20T10:23:05.1216565Z go: downloading github.com/ugorji/go/codec v1.2.12
+2026-10-20T10:23:05.1714536Z go: downloading google.golang.org/protobuf v1.36.5
+2026-10-20T10:23:05.4078918Z go: downloading github.com/ClickHouse/ch-go v0.65.0
+2026-10-20T10:23:05.4105789Z go: downloading go.opentelemetry.io/otel/trace v1.34.0
+2026-10-20T10:23:05.4262874Z go: downloading go.opentelemetry.io/otel v1.34.0
+2026-10-20T10:23:05.5072435Z go: downloading modernc.org/libc v1.66.10
+2026-10-20T10:23:06.5656736Z go: downloading github.com/jackc/pgpassfile v1.0.0
+2026-10-20T10:23:06.5658131Z go: downloading github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761
+2026-10-20T10:23:06.5897280Z go: downloading github.com/prometheus/client_golang v1.22.0
+2026-10-20T10:23:06.5917509Z go: downloading github.com/samber/go-singleflightx v0.3.2
+2026-10-20T10:23:06.6212292Z go: downloading github.com/hashicorp/go-version v1.7.0
+2026-10-20T10:23:06.6452759Z go: downloading github.com/anknown/darts v0.0.0-20151216065714-83ff685239e6
+2026-10-20T10:23:06.6467337Z go: downloading github.com/dlclark/regexp2 v1.11.5
+2026-10-20T10:23:06.6722313Z go: downloading github.com/jinzhu/inflection v1.0.0
+2026-10-20T10:23:06.6962236Z go: downloading github.com/go-playground/locales v0.14.1
+2026-10-20T10:23:06.7883356Z go: downloading github.com/mewpkg/term v0.0.0-20241026122259-37a80af23985
+2026-10-20T10:23:06.8113106Z go: downloading github.com/tklauser/numcpus v0.6.1
+2026-10-20T10:23:06.8378012Z go: downloading github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.8
+2026-10-20T10:23:06.8661399Z go: downloading github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.21
+2026-10-20T10:23:06.8902438Z go: downloading github.com/bmatcuk/doublestar/v4 v4.6.1
+2026-10-20T10:23:06.9167597Z go: downloading github.com/go-webauthn/x v0.1.25
+2026-10-20T10:23:06.9443015Z go: downloading github.com/fxamacker/cbor/v2 v2.9.0
+2026-10-20T10:23:06.9836315Z go: downloading github.com/paulmach/orb v0.11.1
+2026-10-20T10:23:07.1787758Z go: downloading github.com/go-faster/errors v0.7.1
+2026-10-20T10:23:07.2117111Z go: downloading github.com/segmentio/asm v1.2.0
+2026-10-20T10:23:07.2516055Z go: downloading github.com/dustin/go-humanize v1.0.1
+2026-10-20T10:23:07.2519590Z go: downloading golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b
+2026-10-20T10:23:07.2809621Z go: downloading modernc.org/mathutil v1.7.1
+2026-10-20T10:23:07.3117399Z go: downloading modernc.org/memory v1.11.0
+2026-10-20T10:23:07.3309382Z go: downloading github.com/jackc/puddle/v2 v2.2.2
+2026-10-20T10:23:07.3375434Z go: downloading github.com/DmitriyVTitov/size v1.5.0
+2026-10-20T10:23:07.3566298Z go: downloading github.com/beorn7/perks v1.0.1
+2026-10-20T10:23:07.3610563Z go: downloading github.com/prometheus/client_model v0.6.1
+2026-10-20T10:23:07.3799658Z go: downloading github.com/prometheus/common v0.62.0
+2026-10-20T10:23:07.4254199Z go: downloading github.com/prometheus/procfs v0.15.1
+2026-10-20T10:23:07.4269971Z go: downloading github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.21
+2026-10-20T10:23:07.4509078Z go: downloading github.com/x448/float16 v0.8.4
+2026-10-20T10:23:07.4744020Z go: downloading github.com/go-faster/city v1.0.1
+2026-10-20T10:23:07.4798602Z go: downloading github.com/pierrec/lz4/v4 v4.1.22
+2026-10-20T10:23:07.5106438Z go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+2026-10-20T10:23:07.5366368Z go: downloading github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
+2026-10-20T10:24:41.6745180Z === RUN   TestTokenMaintenanceRuntimeBrowser
+2026-10-20T10:24:41.6745827Z === RUN   TestTokenMaintenanceRuntimeBrowser/en-1440
+2026-10-20T10:24:45.7883404Z     token_maintenance_runtime_test.go:207: production frontend and real Go migration/proof/receipt routes passed; isolated history, Key identity, target usage and balances preserved
+2026-10-20T10:24:45.7914942Z === RUN   TestTokenMaintenanceRuntimeBrowser/zh-390
+2026-10-20T10:24:49.5018852Z     token_maintenance_runtime_test.go:207: production frontend and real Go migration/proof/receipt routes passed; isolated history, Key identity, target usage and balances preserved
+2026-10-20T10:24:49.5045707Z --- PASS: TestTokenMaintenanceRuntimeBrowser (7.83s)
+2026-10-20T10:24:49.5046611Z     --- PASS: TestTokenMaintenanceRuntimeBrowser/en-1440 (4.12s)
+2026-10-20T10:24:49.5047423Z     --- PASS: TestTokenMaintenanceRuntimeBrowser/zh-390 (3.71s)
+2026-10-20T10:24:49.5047818Z PASS
+2026-10-20T10:24:49.5058390Z ok  	github.com/ForceMind/MyAPI/router	7.844s
+2026-10-20T10:24:49.8808853Z ##[group]Run go test -p 1 ./router -run '^TestTokenCredentialRotationRuntimeBrowser$' -count=1 -timeout=240s -v
+2026-10-20T10:24:49.8809534Z [36;1mgo test -p 1 ./router -run '^TestTokenCredentialRotationRuntimeBrowser$' -count=1 -timeout=240s -v[0m
+2026-10-20T10:24:49.8866466Z shell: /usr/bin/bash -e {0}
+2026-10-20T10:24:49.8866687Z env:
+2026-10-20T10:24:49.8866855Z   GOWORK: off
+2026-10-20T10:24:49.8867027Z   GOMAXPROCS: 2
+2026-10-20T10:24:49.8867205Z   GOMEMLIMIT: 768MiB
+2026-10-20T10:24:49.8867415Z   NODE_OPTIONS: --max-old-space-size=768
+2026-10-20T10:24:49.8867677Z   GOTOOLCHAIN: local
+2026-10-20T10:24:49.8867879Z   MYAPI_CREDENTIAL_ROTATION_BROWSER_TESTS: 1
+2026-10-20T10:24:49.8868322Z   MYAPI_PLAYWRIGHT_MODULE: /home/runner/work/_temp/myapi-credential-browser/node_modules/playwright/index.mjs
+2026-10-20T10:24:49.8868895Z   MYAPI_ROTATION_RUNTIME_ARTIFACTS: /home/runner/work/_temp/myapi-rotation-runtime-artifacts
+2026-10-20T10:24:49.8869253Z ##[endgroup]
+2026-10-20T10:24:51.9176908Z === RUN   TestTokenCredentialRotationRuntimeBrowser
+2026-10-20T10:24:51.9179496Z === RUN   TestTokenCredentialRotationRuntimeBrowser/en-1440
+2026-10-20T10:24:55.0571734Z [SYS] 2026/10/20 - 10:24:55 | ValidateUserToken: failed to get token: record not found 
+2026-10-20T10:24:55.0572515Z [ERR] 2026/10/20 - 10:24:55 | SYSTEM | user 0 | Invalid token 
+2026-10-20T10:24:55.6175907Z     token_credential_rotation_runtime_test.go:159: real Root session, dedicated 2FA, fresh rotation, secret-free replay/receipt and old/new Key authentication passed; ID, metadata, policy, budgets, writer and history preserved
+2026-10-20T10:24:55.6208045Z === RUN   TestTokenCredentialRotationRuntimeBrowser/zh-390
+2026-10-20T10:24:58.3173197Z [SYS] 2026/10/20 - 10:24:58 | ValidateUserToken: failed to get token: record not found 
+2026-10-20T10:24:58.3174526Z [ERR] 2026/10/20 - 10:24:58 | SYSTEM | user 0 | Invalid token 
+2026-10-20T10:24:58.7216641Z     token_credential_rotation_runtime_test.go:159: real Root session, dedicated 2FA, fresh rotation, secret-free replay/receipt and old/new Key authentication passed; ID, metadata, policy, budgets, writer and history preserved
+2026-10-20T10:24:58.7244884Z --- PASS: TestTokenCredentialRotationRuntimeBrowser (6.81s)
+2026-10-20T10:24:58.7245847Z     --- PASS: TestTokenCredentialRotationRuntimeBrowser/en-1440 (3.70s)
+2026-10-20T10:24:58.7246759Z     --- PASS: TestTokenCredentialRotationRuntimeBrowser/zh-390 (3.10s)
+2026-10-20T10:24:58.7247363Z PASS
+2026-10-20T10:24:58.7257361Z ok  	github.com/ForceMind/MyAPI/router	6.820s
+2026-10-20T10:24:58.7648343Z ##[group]Run actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+2026-10-20T10:24:58.7648709Z with:
+2026-10-20T10:24:58.7649024Z   name: myapi-credential-maintenance-99aeccfddc0a3e274bf0b62c2ed4a9b718f83417
+2026-10-20T10:24:58.7651018Z   path: /home/runner/work/_temp/myapi-credential-browser-artifacts/*.png
+/home/runner/work/_temp/myapi-credential-browser-artifacts/*.json
+/home/runner/work/_temp/myapi-credential-rotation-artifacts/*.png
+/home/runner/work/_temp/myapi-credential-rotation-artifacts/*.json
+/home/runner/work/_temp/myapi-credential-runtime-artifacts/**/*.png
+/home/runner/work/_temp/myapi-credential-runtime-artifacts/**/*.json
+/home/runner/work/_temp/myapi-rotation-runtime-artifacts/**/*.png
+/home/runner/work/_temp/myapi-rotation-runtime-artifacts/**/*.json
+/home/runner/work/_temp/myapi-session-browser-artifacts/*.png
+/home/runner/work/_temp/myapi-session-browser-artifacts/*.json
+
+2026-10-20T10:24:58.7653141Z   if-no-files-found: error
+2026-10-20T10:24:58.7653390Z   retention-days: 7
+2026-10-20T10:24:58.7653608Z   compression-level: 6
+2026-10-20T10:24:58.7653795Z   overwrite: false
+2026-10-20T10:24:58.7653977Z   include-hidden-files: false
+2026-10-20T10:24:58.7654180Z env:
+2026-10-20T10:24:58.7654338Z   GOWORK: off
+2026-10-20T10:24:58.7654505Z   GOMAXPROCS: 2
+2026-10-20T10:24:58.7654680Z   GOMEMLIMIT: 768MiB
+2026-10-20T10:24:58.7654886Z   NODE_OPTIONS: --max-old-space-size=768
+2026-10-20T10:24:58.7655131Z   GOTOOLCHAIN: local
+2026-10-20T10:24:58.7655312Z ##[endgroup]
+2026-10-20T10:24:58.9010529Z (node:9226) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-20T10:24:58.9011431Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-20T10:24:58.9166635Z Multiple search paths detected. Calculating the least common ancestor of all paths
+2026-10-20T10:24:58.9168896Z The least common ancestor is /home/runner/work/_temp. This will be the root directory of the artifact
+2026-10-20T10:24:58.9169855Z With the provided path, there will be 43 files uploaded
+2026-10-20T10:24:58.9173890Z Artifact name is valid!
+2026-10-20T10:24:58.9174432Z Root directory input is valid!
+2026-10-20T10:24:59.2651627Z Beginning upload of artifact content to blob storage
+2026-10-20T10:24:59.4310237Z (node:9226) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-20T10:25:00.1221899Z Uploaded bytes 4608044
+2026-10-20T10:25:00.1880386Z Finished uploading artifact content to blob storage!
+2026-10-20T10:25:00.1881001Z SHA256 hash of uploaded artifact zip is 38893349bfac2a61245a6b1d6881864b38512ef49d817cfb5cecbdc9e44e1f21
+2026-10-20T10:25:00.1882693Z Finalizing artifact upload
+2026-10-20T10:25:00.4810333Z Artifact myapi-credential-maintenance-99aeccfddc0a3e274bf0b62c2ed4a9b718f83417.zip successfully finalized. Artifact ID 12257877603
+2026-10-20T10:25:00.4811605Z Artifact myapi-credential-maintenance-99aeccfddc0a3e274bf0b62c2ed4a9b718f83417 has been successfully uploaded! Final size is 4608044 bytes. Artifact ID is 12257877603
+2026-10-20T10:25:00.4815538Z Artifact download URL: https://github.com/ForceMind/MyAPI/actions/runs/39407187058/artifacts/12257877603
+2026-10-20T10:25:00.4987257Z Post job cleanup.
+2026-10-20T10:25:00.5694991Z [command]/usr/bin/git version
+2026-10-20T10:25:00.5734221Z git version 2.55.0
+2026-10-20T10:25:00.5763679Z Temporarily overriding HOME='/home/runner/work/_temp/fa539b09-44a9-4871-8add-a9174b6ae4ff' before making global git config changes
+2026-10-20T10:25:00.5764842Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-20T10:25:00.5768475Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MyAPI/MyAPI
+2026-10-20T10:25:00.5797664Z Removing SSH command configuration
+2026-10-20T10:25:00.5803019Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-20T10:25:00.5839916Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-20T10:25:00.6064552Z Removing HTTP extra header
+2026-10-20T10:25:00.6070892Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-20T10:25:00.6109734Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-20T10:25:00.6335902Z Removing includeIf entries pointing to credentials config files
+2026-10-20T10:25:00.6342823Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-20T10:25:00.6379834Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-20T10:25:00.6747718Z Cleaning up orphan processes
+2026-10-20T10:25:00.7009283Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

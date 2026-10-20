@@ -1,0 +1,32 @@
+{
+  "reviewer": "primary agent; not independent review",
+  "source": "ad5f017492cad9b8ecc85919c3f2f85c0effd541",
+  "checkout": "227a52044513d856baa98b0735399ea427591eb1",
+  "reviewed": [
+    {
+      "file": "advanced/advanced-security-fr-mobile-320-sessions-header.png",
+      "check": "French relative time; complete mobile heading/description; separate action row; no horizontal clipping",
+      "result": "passed"
+    },
+    {
+      "file": "browser/platform-home-zh-1280.png",
+      "check": "MyAPI home and console/login entry",
+      "result": "passed"
+    },
+    {
+      "file": "browser/platform-records-zh-1024.png",
+      "check": "Complete navigation, server filters and pagination; table has independent horizontal scrolling",
+      "result": "passed"
+    },
+    {
+      "file": "browser/platform-detail-zh-1024.png",
+      "check": "Completed request remains successful with missing usage explicitly unknown; associated saved-content entry",
+      "result": "passed"
+    },
+    {
+      "file": "browser/platform-saved-content-zh-1024.png",
+      "check": "Linked stored response shows real synthetic HTTP status and request ID; content bounded to panel",
+      "result": "passed"
+    }
+  ]
+}

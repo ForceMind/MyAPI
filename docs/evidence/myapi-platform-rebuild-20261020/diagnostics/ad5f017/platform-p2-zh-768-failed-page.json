@@ -1,0 +1,368 @@
+{
+  "sourceHead": "227a52044513d856baa98b0735399ea427591eb1",
+  "journey": "platform-p2-zh-768",
+  "reads": {
+    "/api/status": 6,
+    "/api/setup": 2,
+    "/api/user/auth/refresh": 2,
+    "/api/notice": 2,
+    "/pg/keys": 2,
+    "/api/log/self": 1,
+    "/api/user/self": 2,
+    "/api/channel": 2,
+    "/api/channel/quota/changes": 3,
+    "/api/group": 1,
+    "/api/channel/quota/status": 1,
+    "/api/channel/models": 1,
+    "/api/prefill_group": 1,
+    "/api/user/2fa/status": 1,
+    "/api/user/passkey": 1,
+    "/api/channel/ops": 1,
+    "/api/channel/7/quota/history": 1
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/setup",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/user/auth/refresh",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/notice",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/pg/keys",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/log/self",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/user/self",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel/quota/changes",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/group",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel/quota/changes",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel/quota/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel/models",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/prefill_group",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/user/2fa/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/user/passkey",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel/ops",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel/7/quota/history",
+      "status": 501
+    },
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/setup",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/user/auth/refresh",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/notice",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/user/self",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel/quota/changes",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/pg/keys",
+      "status": 200
+    }
+  ],
+  "fixtureResponses": [
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/setup",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/user/auth/refresh",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/notice",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/pg/keys",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/log/self",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/user/self",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel/quota/changes",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/group",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel/quota/changes",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel/quota/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel/models",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/prefill_group",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/user/2fa/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/user/passkey",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel/ops",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel/7/quota/history",
+      "status": 501
+    },
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/setup",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/user/auth/refresh",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/notice",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/user/self",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel/quota/changes",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/pg/keys",
+      "status": 200
+    }
+  ],
+  "requestFailures": [],
+  "pageErrors": {
+    "count": 0,
+    "kinds": []
+  },
+  "violations": 1,
+  "mutations": 0,
+  "externalRequests": 0,
+  "finalUrl": "http://127.0.0.1:33361/upstream-accounts",
+  "states": {
+    "loading": false,
+    "permissionError": false,
+    "permissionDenied": false,
+    "accountsError": false,
+    "empty": false,
+    "upstream": true,
+    "overview": false
+  },
+  "render": {
+    "readyState": "complete",
+    "hidden": false,
+    "viewport": 768,
+    "documentWidth": 768,
+    "windows": [
+      {
+        "visible": true,
+        "left": 16,
+        "right": 752,
+        "top": 357,
+        "bottom": 560.5
+      },
+      {
+        "visible": true,
+        "left": 16,
+        "right": 752,
+        "top": 576.5,
+        "bottom": 792
+      }
+    ]
+  },
+  "image": "platform-p2-zh-768-failed-page.png"
+}

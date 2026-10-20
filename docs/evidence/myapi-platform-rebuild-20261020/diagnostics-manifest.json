@@ -1,0 +1,235 @@
+{
+  "scope": "Original diagnostic and local regression evidence; final candidate separate",
+  "files": [
+    {
+      "path": "diagnostics/77ee073/personal-console-qualification.json",
+      "bytes": 4488,
+      "sha256": "53073ab755ca865614ef1fe8d1e34901459c7eb73a9eeaec758ec88df0d20950"
+    },
+    {
+      "path": "diagnostics/77ee073/personal-workbench-qualification.json",
+      "bytes": 159622,
+      "sha256": "6b38a9c5d8ae0548c9dcad31cf39660f8568be78d9e3a4963e3d2e3789cf1994"
+    },
+    {
+      "path": "diagnostics/77ee073/platform-p2-en-1024-overview-connections.png",
+      "bytes": 126327,
+      "sha256": "3f7c96056f7c606245bc95fb492a12e5fbe285cab8318a09cbe783ded075ed41"
+    },
+    {
+      "path": "diagnostics/ad5f017/personal-workbench-qualification.json",
+      "bytes": 11537,
+      "sha256": "822fb4afc9d5d53629d1fd0358cd7f0c0b23558c7330e1f77dcf8fd4f2818d5b"
+    },
+    {
+      "path": "diagnostics/ad5f017/platform-p2-zh-768-failed-page.json",
+      "bytes": 6840,
+      "sha256": "5cfed1db9b65f18ad66e8a222d3b7c16d24f6a9794efbd5e4a6674aee39fbd7b"
+    },
+    {
+      "path": "diagnostics/ad5f017/platform-p2-zh-768-failed-page.png",
+      "bytes": 74127,
+      "sha256": "37f43028af3db5c6fea18bda94f6a98b98f3fd30f6ad2ce2a7c388187b166a6f"
+    },
+    {
+      "path": "diagnostics/b14a212/personal-workbench-qualification.json",
+      "bytes": 159622,
+      "sha256": "b90134300719145bc00baafa28f59df87e1ad7e54dbe87d598bb52d50c5f1191"
+    },
+    {
+      "path": "diagnostics/b14a212/platform-p2-en-1024-overview-connections.png",
+      "bytes": 129962,
+      "sha256": "775ac7e7a6caaa6ea5965f4dd527b8df5e7c2253c0fb42eb24d75aa4e7e1912a"
+    },
+    {
+      "path": "diagnostics/d77b02e/advanced-security-fr-mobile-320-panel.png",
+      "bytes": 59797,
+      "sha256": "1cb9fa61a78fb583509e5b55cf83d1afcb84347a9a3028f78fca39d9bc268a89"
+    },
+    {
+      "path": "diagnostics/d77b02e/failure-platform-shell-layout-preferences.png",
+      "bytes": 168340,
+      "sha256": "cdd1f3cfb7dc6d5acb7b51f92d26e7c77efe5cc7ac10481f73caf4864036d565"
+    },
+    {
+      "path": "diagnostics/d77b02e/personal-console-qualification.json",
+      "bytes": 15571,
+      "sha256": "16f48f1a8ad053081a78207a0bcd8a901b8ef22533b8afd6b1cb3eff84ea2bcb"
+    },
+    {
+      "path": "diagnostics/d77b02e/ui-qualification.json",
+      "bytes": 1066522,
+      "sha256": "24b7520210cb8f7fd3364d10c555ce74133c95ef0025b356b0ce9af1d85fe21e"
+    },
+    {
+      "path": "diagnostics/e51940a/platform-p2-fr-320-failed-page.json",
+      "bytes": 3028,
+      "sha256": "ef5782cd5850de9c8b349f60db11481a14b413ee9eb4a92a47f0bfc2378331dc"
+    },
+    {
+      "path": "diagnostics/e51940a/platform-p2-fr-320-failed-page.png",
+      "bytes": 69182,
+      "sha256": "7362766692f515c9b718204b90e0f7ae2cf696089fae8194e382841e2b4df8f5"
+    },
+    {
+      "path": "diagnostics/fe160cc/advanced-security-qualification.json",
+      "bytes": 1462,
+      "sha256": "4f3f010f7c6923e24830cb1577b9e1ab57f5151629a06e7b890c53f78a386f9c"
+    },
+    {
+      "path": "diagnostics/fe160cc/maintenance-session-job.log",
+      "bytes": 72680,
+      "sha256": "516dd9470f5f8981f57fdb20308acfbb94ac852474fc24e2a69fe0c0c633a874"
+    },
+    {
+      "path": "local/myapi-platform-p2-column-green.log",
+      "bytes": 379,
+      "sha256": "c06e5da9509ec6d31fea073f5310be9f3a84ee54e66fe3716143f30c98b060eb"
+    },
+    {
+      "path": "local/myapi-platform-p2-column-red.log",
+      "bytes": 1557,
+      "sha256": "8984e22713ec4bcc0f38258a6472bd1550fcd4b0cd830ffdf9f1152fd672077f"
+    },
+    {
+      "path": "local/myapi-platform-p2-permission-revoke-green.log",
+      "bytes": 368,
+      "sha256": "ace14385d19e5ae584b46dc37482be7e83f6312704d972731ba9973ef87d4d4b"
+    },
+    {
+      "path": "local/myapi-platform-p2-permission-revoke-red.log",
+      "bytes": 1827,
+      "sha256": "6ac491ddda401698b7282183b61bd69c82c5ee077055711daf986a76bd8c1605"
+    },
+    {
+      "path": "local/myapi-platform-p2-permissions-green.log",
+      "bytes": 288,
+      "sha256": "9ca86e0f04aa9125e457e72c8a797678a5ffed15bc2de8ac97dd5a319bd36c56"
+    },
+    {
+      "path": "local/myapi-platform-p2-permissions-red.log",
+      "bytes": 1826,
+      "sha256": "f783750f5155aa0cc8c9a3d3a99786fc3c9f6777965ddc7f5bb24520094c9dc1"
+    },
+    {
+      "path": "local/myapi-platform-p3-header-green.log",
+      "bytes": 294,
+      "sha256": "0c889fa92d1e550bbe389a7b661e8f2400469128948436162b77622bf865f563"
+    },
+    {
+      "path": "local/myapi-platform-p3-header-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "local/myapi-platform-p3-header-red.log",
+      "bytes": 2538,
+      "sha256": "b26876533cd37adc328f908f9082008acc58d1f700bb621ff8ed42da347b884c"
+    },
+    {
+      "path": "local/myapi-platform-p3-i18n-sync.log",
+      "bytes": 113,
+      "sha256": "575be31a645a69858a97ca45323deb2b629dbf26d1d70d3bb14e58f703e91bd2"
+    },
+    {
+      "path": "local/myapi-platform-p3-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "local/myapi-platform-p3-profile-status-green.log",
+      "bytes": 273,
+      "sha256": "c1780e8df66382fd9c920176632b0692a368a7b8846c2ff5e51986605616647a"
+    },
+    {
+      "path": "local/myapi-platform-p3-profile-status-red.log",
+      "bytes": 15589,
+      "sha256": "2b04a21275ff3852609071e06ed6de7cd02443670a015474e892317eecadfa37"
+    },
+    {
+      "path": "local/myapi-platform-p3-related-tests.log",
+      "bytes": 622,
+      "sha256": "ca345eca4d639464446ae3543fd0b53be6dfa0e7333b270f2ea8e0e989d788f3"
+    },
+    {
+      "path": "local/myapi-platform-p3-shell-red.log",
+      "bytes": 15441,
+      "sha256": "d4f4fa12d25811b0f96daaf3149d0a03b977deaed006992670ab0169fc73dd66"
+    },
+    {
+      "path": "local/myapi-platform-p3-typecheck-final.log",
+      "bytes": 10,
+      "sha256": "5b79a0e507fbfe3ee9fe68d86a274c3dec57408303abba3ba342ef01f4551dbe"
+    },
+    {
+      "path": "local/myapi-platform-p3-typecheck.log",
+      "bytes": 10,
+      "sha256": "5b79a0e507fbfe3ee9fe68d86a274c3dec57408303abba3ba342ef01f4551dbe"
+    },
+    {
+      "path": "local/myapi-platform-p4-appearance-labels-green.log",
+      "bytes": 296,
+      "sha256": "49853850d0b06497fa8068af21da3cf4ab40d29a7e6fda72e7f6392969d6ef9d"
+    },
+    {
+      "path": "local/myapi-platform-p4-appearance-labels-red.log",
+      "bytes": 11777,
+      "sha256": "f7f9d9edd54d75898b7897cde1c3899ccf66e04e7c5fe35a956e8f824b9576f8"
+    },
+    {
+      "path": "local/myapi-platform-p4-i18n-sync.log",
+      "bytes": 113,
+      "sha256": "575be31a645a69858a97ca45323deb2b629dbf26d1d70d3bb14e58f703e91bd2"
+    },
+    {
+      "path": "local/myapi-platform-p4-lint-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "local/myapi-platform-p4-session-locale-green.log",
+      "bytes": 362,
+      "sha256": "b237d5f2d94cab0f8714816e8740a0665f172dc33fce9d17741ef04dff2e45f1"
+    },
+    {
+      "path": "local/myapi-platform-p4-session-locale-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "local/myapi-platform-p4-session-locale-red.log",
+      "bytes": 6707,
+      "sha256": "6da85198cabc2d7711adf191a48420dc3857a7fee338704d54783cd24b3ace8d"
+    },
+    {
+      "path": "local/myapi-platform-p4-session-locale-typecheck.log",
+      "bytes": 10,
+      "sha256": "5b79a0e507fbfe3ee9fe68d86a274c3dec57408303abba3ba342ef01f4551dbe"
+    },
+    {
+      "path": "local/myapi-platform-p4-sessions-green.log",
+      "bytes": 422,
+      "sha256": "ba5e637ed3a79ae17fbf0400358b24fe59e2a108cfeb765853debecd78aa5092"
+    },
+    {
+      "path": "local/myapi-platform-p4-sessions-lint.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "local/myapi-platform-p4-sessions-red.log",
+      "bytes": 1868,
+      "sha256": "6bf9a2f13a33c4dfcaca58d637c391c02e25eac78ab7c75f14553464a2f61ee3"
+    },
+    {
+      "path": "local/myapi-platform-p4-sessions-typecheck.log",
+      "bytes": 10,
+      "sha256": "5b79a0e507fbfe3ee9fe68d86a274c3dec57408303abba3ba342ef01f4551dbe"
+    },
+    {
+      "path": "local/myapi-platform-p4-typecheck-final.log",
+      "bytes": 10,
+      "sha256": "5b79a0e507fbfe3ee9fe68d86a274c3dec57408303abba3ba342ef01f4551dbe"
+    }
+  ]
+}

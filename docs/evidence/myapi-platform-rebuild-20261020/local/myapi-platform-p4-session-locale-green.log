@@ -1,0 +1,10 @@
+$ vitest run src/features/profile/components/__tests__/login-session-locale.test.tsx src/features/profile/components/__tests__/login-sessions-layout.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+
+ Test Files  2 passed (2)
+      Tests  7 passed (7)
+   Start at  19:51:22
+   Duration  6.82s (transform 1.21s, setup 400ms, import 2.95s, tests 1.39s, environment 1.79s)
+

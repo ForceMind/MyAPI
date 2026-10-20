@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "evidence": "Production-build Chromium with isolated synthetic security APIs and an optional Chromium virtual authenticator.",
+  "scope": "Profile password, bindings presentation, Passkey, 2FA, backup codes, login sessions, Root deletion restriction, and one-time console Access Token presentation. Excludes production, live accounts, real credentials, real hardware authenticators, credential migration, and rotation policy changes.",
+  "mutationPolicy": "Only the explicit synthetic actions listed per journey are accepted; every other mutation is a qualification failure.",
+  "webauthnBoundary": "Chromium CDP virtual authenticator only. It exercises navigator.credentials and browser WebAuthn serialization but is not real hardware or biometric evidence.",
+  "version": "0.2.0-beta.24",
+  "head": "99aeccfddc0a3e274bf0b62c2ed4a9b718f83417",
+  "buildHead": "99aeccfddc0a3e274bf0b62c2ed4a9b718f83417",
+  "workflowHead": "99aeccfddc0a3e274bf0b62c2ed4a9b718f83417",
+  "fixtureTime": "2026-10-07T06:00:00.000Z",
+  "result": "failed",
+  "journeys": [],
+  "screenshots": [],
+  "errors": [
+    "locator.waitFor: Timeout 25000ms exceeded.\nCall log:\n  - waiting for getByRole('heading', { name: 'Identity', exact: true }) to be visible\n\n    at openSecurity (/home/runner/work/MyAPI/MyAPI/tools/ui/security-maintenance-browser.mjs:475:73)\n    at async file:///home/runner/work/MyAPI/MyAPI/tools/ui/security-maintenance-browser.mjs:1012:24"
+  ]
+}

@@ -1,0 +1,46 @@
+$ vitest run src/features/personal-upstream/__tests__/upstream-permissions.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+ ❯ src/features/personal-upstream/__tests__/upstream-permissions.test.tsx (1 test | 1 failed) 1088ms
+   × a role downgrade in the same session confirms permissions again and stops channel reads 1083ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/personal-upstream/__tests__/upstream-permissions.test.tsx > a role downgrade in the same session confirms permissions again and stops channel reads
+AssertionError: expected 1 to be 2 // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div />[39m
+  [36m</body>[39m
+[36m</html>[39m...
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ src/features/personal-upstream/__tests__/upstream-permissions.test.tsx:54:43
+     52|     servedRole = ROLE.USER
+     53|     useAuthStore.getState().auth.setUser({ ...user, role: ROLE.USER })
+     54|     await waitFor(() => expect(selfReads).toBe(2))
+       |                                           ^
+     55|     await waitFor(() => expect(observer.result.current.selfQuery.data?…
+     56|     expect(observer.result.current.canRead).toBe(false)
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  17:18:50
+   Duration  2.99s (transform 195ms, setup 270ms, import 480ms, tests 1.09s, environment 1.02s)
+
+error: script "test" exited with code 1

@@ -1,0 +1,10 @@
+$ vitest run src/components/layout/components/__tests__/authenticated-layout.test.tsx src/components/layout/components/__tests__/personal-console-layout.test.tsx src/components/layout/components/__tests__/authenticated-navigation.test.tsx src/components/layout/components/__tests__/command-navigation.test.tsx src/hooks/__tests__/sidebar-visibility.test.tsx src/features/profile/__tests__/profile-layout.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+
+ Test Files  6 passed (6)
+      Tests  39 passed (39)
+   Start at  18:13:24
+   Duration  35.51s (transform 1.83s, setup 1.37s, import 14.55s, tests 13.39s, environment 5.34s)
+

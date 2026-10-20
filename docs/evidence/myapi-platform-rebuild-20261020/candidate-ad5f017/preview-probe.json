@@ -1,0 +1,37 @@
+{
+  "source": "ad5f017492cad9b8ecc85919c3f2f85c0effd541",
+  "tree": "b450377549652fb51d5b4a3d99a3729a321d3236",
+  "checkout": "227a52044513d856baa98b0735399ea427591eb1",
+  "run": 39418749223,
+  "artifact": 12262511368,
+  "version": "0.2.0-beta.24",
+  "time": "2026-10-20T12:00:59.499659+00:00",
+  "origin": "http://127.0.0.1:4181",
+  "http": 200,
+  "htmlMatchesArtifactWithDeclaredSyntheticBanner": true,
+  "verifiedScripts": [
+    {
+      "path": "static/js/vendor-ui-primitives.58b39db179.js",
+      "sha256": "8ff74d840f89685eb4efcd80219517d0373a6e9b0b6a205200d93dfd6f54436e"
+    },
+    {
+      "path": "static/js/vendor-tanstack.581930b28b.js",
+      "sha256": "fd821024c58c7d0a63e32d0ec2f1f9011ccf6028a798a612d4e46df3e2dcbbff"
+    },
+    {
+      "path": "static/js/lib-react.85aeb5b438.js",
+      "sha256": "940d8842390f48570e4bbcfc281c172f7d0b2543854041c8683a3fbcbdb313ee"
+    },
+    {
+      "path": "static/js/5009.327dbd4ff6.js",
+      "sha256": "aa916334de073b08efcb6a13485e855d759ba63c9961c80244bcfe543fdec1d7"
+    },
+    {
+      "path": "static/js/index.434d9a0434.js",
+      "sha256": "f01e257b6a3acc6bd902208a94e778304c5e79f9d01daa5fd1a4f0895ba06e68"
+    }
+  ],
+  "previewScriptSha256": "ff58c7c015b1fe2e35b4c347cb1ef2524592ce961c0fb0145ca23747128d3a27",
+  "processSession": 20142,
+  "synthetic": true
+}

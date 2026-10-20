@@ -1,0 +1,57 @@
+{
+  "reviewer": "primary agent; not independent review",
+  "source": "458f07a24ef6cbdd3055757cc428aa8c92cc20d3",
+  "checkout": "cca41246f68a2e2b2a7e1387f6025dd5e36b8f1c",
+  "reviewed": [
+    {
+      "file": "advanced/advanced-security-fr-mobile-320-sessions-header.png",
+      "check": "French relative time and complete mobile heading/description with separate action row",
+      "result": "passed"
+    },
+    {
+      "file": "browser/platform-home-zh-1280.png",
+      "check": "Default home, MyAPI identity, login and console entry",
+      "result": "passed"
+    },
+    {
+      "file": "browser/platform-records-zh-1024.png",
+      "check": "Full navigation, filters, pagination and independent table scrolling",
+      "result": "passed"
+    },
+    {
+      "file": "browser/platform-detail-zh-1024.png",
+      "check": "Successful completed response with missing usage explicitly unknown; associated saved-content entry",
+      "result": "passed"
+    },
+    {
+      "file": "browser/platform-saved-content-zh-1024.png",
+      "check": "Linked persisted synthetic request/response, request ID and HTTP status",
+      "result": "passed"
+    },
+    {
+      "file": "browser/platform-p2-en-1024-overview-connections.png",
+      "check": "Desktop status remains one line, square header search, connection/Key/window hierarchy",
+      "result": "passed"
+    },
+    {
+      "file": "browser/platform-p2-fr-320-overview-connections.png",
+      "check": "Mobile long labels and connection list; fixed bottom navigation does not overlap actions",
+      "result": "passed"
+    },
+    {
+      "file": "browser/platform-p2-en-1024-failed-and-unsupported.png",
+      "check": "Desktop account aside and separate failed/unsupported windows; history and Key share entry",
+      "result": "passed"
+    },
+    {
+      "file": "ui/settings-security-320.png",
+      "check": "Mobile rate-limit units remain complete; save action and full settings/navigation remain reachable",
+      "result": "passed"
+    },
+    {
+      "file": "ui/system-info-1280.png",
+      "check": "Desktop runtime build revision matches exact checkout; instances and background tasks remain reachable",
+      "result": "passed"
+    }
+  ]
+}

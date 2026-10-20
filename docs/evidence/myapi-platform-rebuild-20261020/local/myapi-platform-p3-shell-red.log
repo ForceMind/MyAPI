@@ -1,0 +1,460 @@
+$ vitest run src/components/layout/components/__tests__/authenticated-layout.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+ ❯ src/components/layout/components/__tests__/authenticated-layout.test.tsx (4 tests | 4 failed) 1380ms
+   × a funding change to enabled preserves the open page and complete platform navigation 537ms
+   × a funding change to retirement preserves the open page and complete platform navigation 285ms
+   × a funding change to unconfirmed preserves the open page and complete platform navigation 249ms
+   × a Root settings page exposes existing setting sections on desktop and mobile More 305ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/layout/components/__tests__/authenticated-layout.test.tsx > a funding change to enabled preserves the open page and complete platform navigation
+ FAIL  src/components/layout/components/__tests__/authenticated-layout.test.tsx > a funding change to retirement preserves the open page and complete platform navigation
+ FAIL  src/components/layout/components/__tests__/authenticated-layout.test.tsx > a funding change to unconfirmed preserves the open page and complete platform navigation
+Error: expect(element).toHaveValue(request-42)
+
+Expected the element to have value:
+  request-42
+Received:
+
+ ❯ src/components/layout/components/__tests__/authenticated-layout.test.tsx:75:53
+     73|     })
+     74|     await screen.findByText(mode)
+     75|     expect(screen.getByLabelText('Request filter')).toHaveValue('reque…
+       |                                                     ^
+     76|     const navigation = screen.getByRole('navigation', { name: 'Persona…
+     77|     expect(within(navigation).getByRole('link', { name: 'System Info' …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/components/layout/components/__tests__/authenticated-layout.test.tsx > a Root settings page exposes existing setting sections on desktop and mobile More
+TestingLibraryElementError: Unable to find an accessible element with the role "link" and name "Log Maintenance"
+
+Here are the accessible roles:
+
+  region:
+
+  Name "Console":
+  [36m<section[39m
+    [33maria-label[39m=[32m"Console"[39m
+    [33mclass[39m=[32m"pc-nav-group"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "Console":
+  [36m<h2 />[39m
+
+  --------------------------------------------------
+  link:
+
+  Name "Overview":
+  [36m<a[39m
+    [33mclass[39m=[32m"pc-nav-link"[39m
+    [33mhref[39m=[32m"/dashboard/overview"[39m
+    [33mtitle[39m=[32m"Overview"[39m
+  [36m/>[39m
+
+  Name "Model Call Analytics":
+  [36m<a[39m
+    [33mclass[39m=[32m"pc-nav-link"[39m
+    [33mhref[39m=[32m"/dashboard/models"[39m
+    [33mtitle[39m=[32m"Model Call Analytics"[39m
+  [36m/>[39m
+
+  --------------------------------------------------region:
+
+  Name "Connections & access":
+  [36m<section[39m
+    [33maria-label[39m=[32m"Connections & access"[39m
+    [33mclass[39m=[32m"pc-nav-group"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "Connections & access":
+  [36m<h2 />[39m
+
+  --------------------------------------------------
+  link:
+
+  Name "Upstream accounts":
+  [36m<a[39m
+    [33mclass[39m=[32m"pc-nav-link"[39m
+    [33mhref[39m=[32m"/upstream-accounts"[39m
+    [33mtitle[39m=[32m"Upstream accounts"[39m
+  [36m/>[39m
+
+  Name "Channels":
+  [36m<a[39m
+    [33mclass[39m=[32m"pc-nav-link"[39m
+    [33mhref[39m=[32m"/channels"[39m
+    [33mtitle[39m=[32m"Channels"[39m
+  [36m/>[39m
+
+  Name "Models":
+  [36m<a[39m
+    [33mclass[39m=[32m"pc-nav-link"[39m
+    [33mhref[39m=[32m"/models/metadata"[39m
+    [33mtitle[39m=[32m"Models"[39m
+  [36m/>[39m
+
+  Name "API Keys":
+  [36m<a[39m
+    [33mclass[39m=[32m"pc-nav-link"[39m
+    [33mhref[39m=[32m"/keys"[39m
+    [33mtitle[39m=[32m"API Keys"[39m
+  [36m/>[39m
+
+  --------------------------------------------------region:
+
+  Name "Records & diagnostics":
+  [36m<section[39m
+    [33maria-label[39m=[32m"Records & diagnostics"[39m
+    [33mclass[39m=[32m"pc-nav-group"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "Records & diagnostics":
+  [36m<h2 />[39m
+
+  --------------------------------------------------
+  link:
+
+  Name "Call records":
+  [36m<a[39m
+    [33mclass[39m=[32m"pc-nav-link"[39m
+    [33mhref[39m=[32m"/usage-logs/common"[39m
+    [33mtitle[39m=[32m"Call records"[39m
+  [36m/>[39m
+
+  Name "API Request Logs":
+  [36m<a[39m
+    [33mclass[39m=[32m"pc-nav-link"[39m
+    [33mhref[39m=[32m"/full-content-logs"[39m
+    [33mtitle[39m=[32m"API Request Logs"[39m
+  [36m/>[39m
+
+  Name "Drawing Logs":
+  [36m<a[39m
+    [33mclass[39m=[32m"pc-nav-link"[39m
+    [33mhref[39m=[32m"/usage-logs/drawing"[39m
+    [33mtitle[39m=[32m"Drawing Logs"[39m
+  [36m/>[39m
+
+  Name "Task Logs":
+  [36m<a[39m
+    [33mclass[39m=[32m"pc-nav-link"[39m
+    [33mhref[39m=[32m"/usage-logs/task"[39m
+    [33mtitle[39m=[32m"Task Logs"[39m
+  [36m/>[39m
+
+  --------------------------------------------------region:
+
+  Name "Operations":
+  [36m<section[39m
+    [33maria-label[39m=[32m"Operations"[39m
+    [33mclass[39m=[32m"pc-nav-group"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "Operations":
+  [36m<h2 />[39m
+
+  --------------------------------------------------
+  link:
+
+  Name "System Info":
+  [36m<a[39m
+    [33mclass[39m=[32m"pc-nav-link"[39m
+    [33mhref[39m=[32m"/system-info"[39m
+    [33mtitle[39m=[32m"System Info"[39m
+  [36m/>[39m
+
+  Name "System Settings":
+  [36m<a[39m
+    [33maria-current[39m=[32m"page"[39m
+    [33mclass[39m=[32m"pc-nav-link active"[39m
+    [33mdata-status[39m=[32m"active"[39m
+    [33mhref[39m=[32m"/system-settings/site"[39m
+    [33mtitle[39m=[32m"System Settings"[39m
+  [36m/>[39m
+
+  Name "Profile":
+  [36m<a[39m
+    [33mclass[39m=[32m"pc-nav-link"[39m
+    [33mhref[39m=[32m"/profile"[39m
+    [33mtitle[39m=[32m"Profile"[39m
+  [36m/>[39m
+
+  --------------------------------------------------region:
+
+  Name "Admin":
+  [36m<section[39m
+    [33maria-label[39m=[32m"Admin"[39m
+    [33mclass[39m=[32m"pc-nav-group"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "Admin":
+  [36m<h2 />[39m
+
+  --------------------------------------------------
+  link:
+
+  Name "Users":
+  [36m<a[39m
+    [33mclass[39m=[32m"pc-nav-link"[39m
+    [33mhref[39m=[32m"/users"[39m
+    [33mtitle[39m=[32m"Users"[39m
+  [36m/>[39m
+
+  --------------------------------------------------region:
+
+  Name "Tools":
+  [36m<section[39m
+    [33maria-label[39m=[32m"Tools"[39m
+    [33mclass[39m=[32m"pc-nav-group"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "Tools":
+  [36m<h2 />[39m
+
+  --------------------------------------------------
+  link:
+
+  Name "Playground":
+  [36m<a[39m
+    [33mclass[39m=[32m"pc-nav-link"[39m
+    [33mhref[39m=[32m"/playground"[39m
+    [33mtitle[39m=[32m"Playground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<nav[39m
+  [33maria-label[39m=[32m"Personal console navigation"[39m
+  [33mclass[39m=[32m"pc-desktop-nav"[39m
+[36m>[39m
+  [36m<section[39m
+    [33maria-label[39m=[32m"Console"[39m
+    [33mclass[39m=[32m"pc-nav-group"[39m
+  [36m>[39m
+    [36m<h2>[39m
+      [0mConsole[0m
+    [36m</h2>[39m
+    [36m<a[39m
+      [33mclass[39m=[32m"pc-nav-link"[39m
+      [33mhref[39m=[32m"/dashboard/overview"[39m
+      [33mtitle[39m=[32m"Overview"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-activity"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<span>[39m
+        [0mOverview[0m
+      [36m</span>[39m
+    [36m</a>[39m
+    [36m<a[39m
+      [33mclass[39m=[32m"pc-nav-link"[39m
+      [33mhref[39m=[32m"/dashboard/models"[39m
+      [33mtitle[39m=[32m"Model Call Analytics"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-layout-dashboard"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<rect[39m
+          [33mheight[39m=[32m"9"[39m
+          [33mrx[39m=[32m"1"[39m
+          [33mwidth[39m=[32m"7"[39m
+          [33mx[39m=[32m"3"[39m
+          [33my[39m=[32m"3"[39m
+        [36m/>[39m
+        [36m<rect[39m
+          [33mheight[39m=[32m"5"[39m
+          [33mrx[39m=[32m"1"[39m
+          [33mwidth[39m=[32m"7"[39m
+          [33mx[39m=[32m"14"[39m
+          [33my[39m=[32m"3"[39m
+        [36m/>[39m
+        [36m<rect[39m
+          [33mheight[39m=[32m"9"[39m
+          [33mrx[39m=[32m"1"[39m
+          [33mwidth[39m=[32m"7"[39m
+          [33mx[39m=[32m"14"[39m
+          [33my[39m=[32m"12"[39m
+        [36m/>[39m
+        [36m<rect[39m
+          [33mheight[39m=[32m"5"[39m
+          [33mrx[39m=[32m"1"[39m
+          [33mwidth[39m=[32m"7"[39m
+          [33mx[39m=[32m"3"[39m
+          [33my[39m=[32m"16"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<span>[39m
+        [0mModel Call Analytics[0m
+      [36m</span>[39m
+    [36m</a>[39m
+  [36m</section>[39m
+  [36m<section[39m
+    [33maria-label[39m=[32m"Connections & access"[39m
+    [33mclass[39m=[32m"pc-nav-group"[39m
+  [36m>[39m
+    [36m<h2>[39m
+      [0mConnections & access[0m
+    [36m</h2>[39m
+    [36m<a[39m
+      [33mclass[39m=[32m"pc-nav-link"[39m
+      [33mhref[39m=[32m"/upstream-accounts"[39m
+      [33mtitle[39m=[32m"Upstream accounts"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-database"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<ellipse[39m
+          [33mcx[39m=[32m"12"[39m
+          [33mcy[39m=[32m"5"[39m
+          [33mrx[39m=[32m"9"[39m
+          [33mry[39m=[32m"3"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M3 5V19A9 3 0 0 0 21 19V5"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M3 12A9 3 0 0 0 21 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<span>[39m
+        [0mUpstream accounts[0m
+      [36m</span>[39m
+    [36m</a>[39m
+    [36m<a[39m
+      [33mclass[39m=[32m"pc-nav-link"[39m
+      [33mhref[39m=[32m"/channels"[39m
+      [33mtitle[39m=[32m"Channels"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-radio"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M16.247 7.761a6 6 0 0 1 0 8.478"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M19.075 4.933a10 10 0 0 1 0 14.134"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M4.925 19.067a10 10 0 0 1 0-14.134"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M7.753 16.239a6 6 0 0 1 0-8.478"[39m
+        [36m/>[39m
+        [36m<circle[39m
+          [33mcx[39m=[32m"12"[39m
+          [33mcy[39m=[32m"12"[39m
+          [33mr[39m=[32m"2"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<span>[39m
+        [0mChannels[0m
+      [36m</span>[39m
+    [36m</a>[39m
+    [36m<a[39m
+      [33mclass[39m=[32m"pc-nav-link"[39m
+      [33mhref[39m=[32m"/models/metadata"[39m
+      [33mtitle[39m=[32m"Models"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-box"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M21 8a2 2 0 0 ...
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/layout/components/__tests__/authenticated-layout.test.tsx:95:29
+     93|   )
+     94|   const navigation = screen.getByRole('navigation', { name: 'Personal …
+     95|   expect(within(navigation).getByRole('link', { name: 'Log Maintenance…
+       |                             ^
+     96|   await userEvent.setup().click(screen.getByRole('button', { name: 'Mo…
+     97|   const dialog = await screen.findByRole('dialog', { name: 'All module…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed (4)
+   Start at  18:02:47
+   Duration  5.31s (transform 929ms, setup 203ms, import 2.78s, tests 1.38s, environment 806ms)
+
+error: script "test" exited with code 1

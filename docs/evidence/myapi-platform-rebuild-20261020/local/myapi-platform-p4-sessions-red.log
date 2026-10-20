@@ -1,0 +1,33 @@
+$ vitest run src/features/profile/components/__tests__/login-sessions-layout.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+ ❯ src/features/profile/components/__tests__/login-sessions-layout.test.tsx (1 test | 1 failed) 98ms
+   × mobile session actions occupy a separate full-width row so long labels cannot squeeze the title 92ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/profile/components/__tests__/login-sessions-layout.test.tsx > mobile session actions occupy a separate full-width row so long labels cannot squeeze the title
+Error: expect(element).toHaveClass("has-data-[slot=card-action]:grid-cols-1")
+
+Expected the element to have class:
+  has-data-[slot=card-action]:grid-cols-1
+Received:
+  group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl px-4 group-data-[size=sm]/card:px-3 has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-4 group-data-[size=sm]/card:[.border-b]:pb-3
+ ❯ src/features/profile/components/__tests__/login-sessions-layout.test.tsx:30:54
+     28|   render(<QueryClientProvider client={client}><RouterProvider router={…
+     29|   const title = await screen.findByText('Login sessions')
+     30|   expect(title.closest('[data-slot="card-header"]')).toHaveClass('has-…
+       |                                                      ^
+     31|   const action = screen.getByRole('button', { name: 'Sign out other se…
+     32|   expect(action.closest('[data-slot="card-action"]')).toHaveClass('col…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  19:09:20
+   Duration  4.06s (transform 305ms, setup 416ms, import 1.91s, tests 98ms, environment 1.47s)
+
+error: script "test" exited with code 1

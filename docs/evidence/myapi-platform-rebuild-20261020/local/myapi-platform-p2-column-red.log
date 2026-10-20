@@ -1,0 +1,33 @@
+$ vitest run src/features/dashboard/components/personal-workbench/__tests__/overview-connections.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+ ❯ src/features/dashboard/components/personal-workbench/__tests__/overview-connections.test.tsx (4 tests | 1 failed) 376ms
+   × desktop and mobile lists share one metadata read, preserve the server total and omit sensitive fields 221ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/dashboard/components/personal-workbench/__tests__/overview-connections.test.tsx > desktop and mobile lists share one metadata read, preserve the server total and omit sensitive fields
+Error: expect(element).toHaveClass("w-24")
+
+Expected the element to have class:
+  w-24
+Received:
+  pb-2 text-right font-medium
+ ❯ src/features/dashboard/components/personal-workbench/__tests__/overview-connections.test.tsx:82:64
+     80|   )
+     81|   expect(await screen.findByText('9')).toBeInTheDocument()
+     82|   expect(screen.getByRole('columnheader', { name: 'Status' })).toHaveC…
+       |                                                                ^
+     83|   for (const id of ['connection-desktop-list', 'connection-mobile-list…
+     84|     const list = within(screen.getByTestId(id))
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  18:14:27
+   Duration  2.00s (transform 230ms, setup 207ms, import 495ms, tests 376ms, environment 790ms)
+
+error: script "test" exited with code 1

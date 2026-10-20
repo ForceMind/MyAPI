@@ -1,0 +1,113 @@
+$ vitest run src/features/profile/components/__tests__/login-session-locale.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+ ❯ src/features/profile/components/__tests__/login-session-locale.test.tsx (1 test | 1 failed) 88ms
+   × session recency follows the current language and returns to English without changing its timestamps 84ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/profile/components/__tests__/login-session-locale.test.tsx > session recency follows the current language and returns to English without changing its timestamps
+TestingLibraryElementError: Unable to find an element with the text: /il y a quelques secondes/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-col gap-3 py-4 sm:flex-row sm:items-center"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"bg-muted flex size-10 shrink-0 items-center justify-center rounded-lg"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33mclass[39m=[32m"size-5"[39m
+          [33mcolor[39m=[32m"currentColor"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M20.4999 16.5V8.5C20.4999 6.14298 20.4999 4.96447 19.7676 4.23223C19.0354 3.5 17.8569 3.5 15.4999 3.5H8.49988C6.14286 3.5 4.96434 3.5 4.23211 4.23223C3.49988 4.96447 3.49988 6.14298 3.49988 8.5V16.5"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M21.9841 20.5H2.01567C1.63273 20.5 1.38367 20.1088 1.55493 19.7764L3.49988 16.5H20.4999L22.4448 19.7764C22.6161 20.1088 22.367 20.5 21.9841 20.5Z"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"min-w-0 flex-1"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"font-medium"[39m
+          [36m>[39m
+            [0mNavigateur[0m
+          [36m</p>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3! bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80"[39m
+            [33mdata-slot[39m=[32m"badge"[39m
+            [33mdata-variant[39m=[32m"secondary"[39m
+          [36m>[39m
+            [0mActuelle[0m
+          [36m</span>[39m
+        [36m</div>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-muted-foreground mt-1 text-xs"[39m
+        [36m>[39m
+          [0mIP : 127.0.0.1 · Méthode : Mot de passe[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-muted-foreground mt-1 text-xs"[39m
+        [36m>[39m
+          [0mDernière activité a few seconds ago · Expire le 2026-10-07 15:00[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"group/button inline-flex shrink-0 items-center justify-center border bg-clip-padding font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50 h-8 gap-1.5 rounded-md px-3 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-3.5"[39m
+        [33mdata-myapi-button[39m=[32m""[39m
+        [33mdata-size[39m=[32m"sm"[39m
+        [33mdata-slot[39m=[32m"button"[39m
+        [33mdata-variant[39m=[32m"outline"[39m
+        [33mtabindex[39m=[32m"0"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [0mSe déconnecter[0m
+      [36m</button>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/features/profile/components/__tests__/login-session-locale.test.tsx:38:17
+     36|   expect(screen.getByText(/a few seconds ago/)).toBeInTheDocument()
+     37|   await act(async () => { await i18next.changeLanguage('fr') })
+     38|   expect(screen.getByText(/il y a quelques secondes/)).toBeInTheDocume…
+       |                 ^
+     39|   await act(async () => { await i18next.changeLanguage('en') })
+     40|   expect(screen.getByText(/a few seconds ago/)).toBeInTheDocument()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  19:44:32
+   Duration  3.42s (transform 286ms, setup 426ms, import 1.31s, tests 88ms, environment 1.45s)
+
+error: script "test" exited with code 1

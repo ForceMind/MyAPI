@@ -1,0 +1,673 @@
+{
+  "synthetic": true,
+  "version": "0.2.0-beta.24",
+  "sourceHead": "227a52044513d856baa98b0735399ea427591eb1",
+  "workflowHead": "227a52044513d856baa98b0735399ea427591eb1",
+  "fixtureTime": "2026-10-07T06:00:00.000Z",
+  "source": "Actual web/dist from this checkout, served locally with createUIFixture and model-scope endpoint overrides.",
+  "scope": "Key model-scope UI and narrow API behavior. Excludes real Key secrets, providers, account migration, credential rotation, quota and billing writes.",
+  "journeys": [
+    {
+      "name": "advanced-model-scope-en-320-light",
+      "language": "en",
+      "languageCode": "en",
+      "width": 320,
+      "theme": "light",
+      "initial": "restricted",
+      "catalog": "empty",
+      "action": "cancel",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "scopeReads": 1,
+      "catalogReads": 1,
+      "writes": 0,
+      "keySecretReads": 0,
+      "exactNarrowWrites": true,
+      "geometry": {
+        "left": 16,
+        "right": 304,
+        "viewport": 320,
+        "clientWidth": 288,
+        "scrollWidth": 288,
+        "pageScrollWidth": 320
+      },
+      "actionGeometry": [
+        {
+          "x": 32,
+          "y": 827.75,
+          "width": 256,
+          "height": 36
+        },
+        {
+          "x": 32,
+          "y": 783.75,
+          "width": 256,
+          "height": 36
+        }
+      ],
+      "computedDialogColors": null,
+      "screenshots": [
+        "advanced-model-scope-en-320-light-open.png",
+        "advanced-model-scope-en-320-light-mobile-preserved-model.png",
+        "advanced-model-scope-en-320-light-mobile-actions.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-model-scope-en-1280-light",
+      "language": "en",
+      "languageCode": "en",
+      "width": 1280,
+      "theme": "light",
+      "initial": "unlimited-retained",
+      "catalog": "populated",
+      "action": "restricted-save",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "scopeReads": 3,
+      "catalogReads": 1,
+      "writes": 1,
+      "keySecretReads": 0,
+      "exactNarrowWrites": true,
+      "geometry": {
+        "left": 304.27679443359375,
+        "right": 975.7232055664062,
+        "viewport": 1280,
+        "clientWidth": 672,
+        "scrollWidth": 672,
+        "pageScrollWidth": 1280
+      },
+      "actionGeometry": null,
+      "computedDialogColors": null,
+      "screenshots": [
+        "advanced-model-scope-en-1280-light-open.png",
+        "advanced-model-scope-en-1280-light-readback.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-model-scope-zh-320-light",
+      "language": "zh",
+      "languageCode": "zhCN",
+      "width": 320,
+      "theme": "light",
+      "initial": "blocked",
+      "catalog": "populated",
+      "action": "cancel",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "scopeReads": 1,
+      "catalogReads": 1,
+      "writes": 0,
+      "keySecretReads": 0,
+      "exactNarrowWrites": true,
+      "geometry": {
+        "left": 16,
+        "right": 304,
+        "viewport": 320,
+        "clientWidth": 288,
+        "scrollWidth": 288,
+        "pageScrollWidth": 320
+      },
+      "actionGeometry": [
+        {
+          "x": 32,
+          "y": 760.75,
+          "width": 256,
+          "height": 36
+        },
+        {
+          "x": 32,
+          "y": 716.75,
+          "width": 256,
+          "height": 36
+        }
+      ],
+      "computedDialogColors": null,
+      "screenshots": [
+        "advanced-model-scope-zh-320-light-open.png",
+        "advanced-model-scope-zh-320-light-mobile-actions.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-model-scope-zh-1280-light",
+      "language": "zh",
+      "languageCode": "zhCN",
+      "width": 1280,
+      "theme": "light",
+      "initial": "unlimited-retained",
+      "catalog": "populated",
+      "action": "cancel",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "scopeReads": 1,
+      "catalogReads": 1,
+      "writes": 0,
+      "keySecretReads": 0,
+      "exactNarrowWrites": true,
+      "geometry": {
+        "left": 304.2756042480469,
+        "right": 975.7243347167969,
+        "viewport": 1280,
+        "clientWidth": 672,
+        "scrollWidth": 672,
+        "pageScrollWidth": 1280
+      },
+      "actionGeometry": null,
+      "computedDialogColors": null,
+      "screenshots": [
+        "advanced-model-scope-zh-1280-light-open.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-model-scope-zh-TW-320-light",
+      "language": "zh-TW",
+      "languageCode": "zhTW",
+      "width": 320,
+      "theme": "light",
+      "initial": "restricted",
+      "catalog": "populated",
+      "action": "cancel",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "scopeReads": 1,
+      "catalogReads": 1,
+      "writes": 0,
+      "keySecretReads": 0,
+      "exactNarrowWrites": true,
+      "geometry": {
+        "left": 16,
+        "right": 304,
+        "viewport": 320,
+        "clientWidth": 288,
+        "scrollWidth": 288,
+        "pageScrollWidth": 320
+      },
+      "actionGeometry": [
+        {
+          "x": 32,
+          "y": 827.75,
+          "width": 256,
+          "height": 36
+        },
+        {
+          "x": 32,
+          "y": 783.75,
+          "width": 256,
+          "height": 36
+        }
+      ],
+      "computedDialogColors": null,
+      "screenshots": [
+        "advanced-model-scope-zh-TW-320-light-open.png",
+        "advanced-model-scope-zh-TW-320-light-mobile-preserved-model.png",
+        "advanced-model-scope-zh-TW-320-light-mobile-actions.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-model-scope-zh-TW-1280-light",
+      "language": "zh-TW",
+      "languageCode": "zhTW",
+      "width": 1280,
+      "theme": "light",
+      "initial": "blocked",
+      "catalog": "populated",
+      "action": "cancel",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "scopeReads": 1,
+      "catalogReads": 1,
+      "writes": 0,
+      "keySecretReads": 0,
+      "exactNarrowWrites": true,
+      "geometry": {
+        "left": 304,
+        "right": 976,
+        "viewport": 1280,
+        "clientWidth": 672,
+        "scrollWidth": 672,
+        "pageScrollWidth": 1280
+      },
+      "actionGeometry": null,
+      "computedDialogColors": null,
+      "screenshots": [
+        "advanced-model-scope-zh-TW-1280-light-open.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-model-scope-fr-320-light",
+      "language": "fr",
+      "languageCode": "fr",
+      "width": 320,
+      "theme": "light",
+      "initial": "unlimited-retained",
+      "catalog": "populated",
+      "action": "cancel",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "scopeReads": 1,
+      "catalogReads": 1,
+      "writes": 0,
+      "keySecretReads": 0,
+      "exactNarrowWrites": true,
+      "geometry": {
+        "left": 16.540475845336914,
+        "right": 303.4595432281494,
+        "viewport": 320,
+        "clientWidth": 288,
+        "scrollWidth": 288,
+        "pageScrollWidth": 320
+      },
+      "actionGeometry": [
+        {
+          "x": 32,
+          "y": 828.25,
+          "width": 256,
+          "height": 36
+        },
+        {
+          "x": 32,
+          "y": 784.25,
+          "width": 256,
+          "height": 36
+        }
+      ],
+      "computedDialogColors": null,
+      "screenshots": [
+        "advanced-model-scope-fr-320-light-open.png",
+        "advanced-model-scope-fr-320-light-mobile-preserved-model.png",
+        "advanced-model-scope-fr-320-light-mobile-actions.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-model-scope-fr-1280-light",
+      "language": "fr",
+      "languageCode": "fr",
+      "width": 1280,
+      "theme": "light",
+      "initial": "restricted",
+      "catalog": "failure",
+      "action": "cancel",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "scopeReads": 2,
+      "catalogReads": 1,
+      "writes": 0,
+      "keySecretReads": 0,
+      "exactNarrowWrites": true,
+      "geometry": {
+        "left": 304,
+        "right": 976,
+        "viewport": 1280,
+        "clientWidth": 672,
+        "scrollWidth": 672,
+        "pageScrollWidth": 1280
+      },
+      "actionGeometry": null,
+      "computedDialogColors": null,
+      "screenshots": [
+        "advanced-model-scope-fr-1280-light-scope-error.png",
+        "advanced-model-scope-fr-1280-light-catalog-error-preserved.png",
+        "advanced-model-scope-fr-1280-light-open.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-model-scope-ru-320-light",
+      "language": "ru",
+      "languageCode": "ru",
+      "width": 320,
+      "theme": "light",
+      "initial": "blocked",
+      "catalog": "populated",
+      "action": "cancel",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "scopeReads": 1,
+      "catalogReads": 1,
+      "writes": 0,
+      "keySecretReads": 0,
+      "exactNarrowWrites": true,
+      "geometry": {
+        "left": 16,
+        "right": 304,
+        "viewport": 320,
+        "clientWidth": 288,
+        "scrollWidth": 288,
+        "pageScrollWidth": 320
+      },
+      "actionGeometry": [
+        {
+          "x": 32,
+          "y": 827.75,
+          "width": 256,
+          "height": 36
+        },
+        {
+          "x": 32,
+          "y": 783.75,
+          "width": 256,
+          "height": 36
+        }
+      ],
+      "computedDialogColors": null,
+      "screenshots": [
+        "advanced-model-scope-ru-320-light-open.png",
+        "advanced-model-scope-ru-320-light-mobile-actions.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-model-scope-ru-1280-light",
+      "language": "ru",
+      "languageCode": "ru",
+      "width": 1280,
+      "theme": "light",
+      "initial": "restricted",
+      "catalog": "empty",
+      "action": "cancel",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "scopeReads": 1,
+      "catalogReads": 1,
+      "writes": 0,
+      "keySecretReads": 0,
+      "exactNarrowWrites": true,
+      "geometry": {
+        "left": 304,
+        "right": 976,
+        "viewport": 1280,
+        "clientWidth": 672,
+        "scrollWidth": 672,
+        "pageScrollWidth": 1280
+      },
+      "actionGeometry": null,
+      "computedDialogColors": null,
+      "screenshots": [
+        "advanced-model-scope-ru-1280-light-open.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-model-scope-ja-320-light",
+      "language": "ja",
+      "languageCode": "ja",
+      "width": 320,
+      "theme": "light",
+      "initial": "restricted",
+      "catalog": "populated",
+      "action": "cancel",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "scopeReads": 1,
+      "catalogReads": 1,
+      "writes": 0,
+      "keySecretReads": 0,
+      "exactNarrowWrites": true,
+      "geometry": {
+        "left": 16,
+        "right": 304,
+        "viewport": 320,
+        "clientWidth": 288,
+        "scrollWidth": 288,
+        "pageScrollWidth": 320
+      },
+      "actionGeometry": [
+        {
+          "x": 32,
+          "y": 827.75,
+          "width": 256,
+          "height": 36
+        },
+        {
+          "x": 32,
+          "y": 783.75,
+          "width": 256,
+          "height": 36
+        }
+      ],
+      "computedDialogColors": null,
+      "screenshots": [
+        "advanced-model-scope-ja-320-light-open.png",
+        "advanced-model-scope-ja-320-light-mobile-preserved-model.png",
+        "advanced-model-scope-ja-320-light-mobile-actions.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-model-scope-ja-1280-light",
+      "language": "ja",
+      "languageCode": "ja",
+      "width": 1280,
+      "theme": "light",
+      "initial": "blocked",
+      "catalog": "populated",
+      "action": "cancel",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "scopeReads": 1,
+      "catalogReads": 1,
+      "writes": 0,
+      "keySecretReads": 0,
+      "exactNarrowWrites": true,
+      "geometry": {
+        "left": 304,
+        "right": 976,
+        "viewport": 1280,
+        "clientWidth": 672,
+        "scrollWidth": 672,
+        "pageScrollWidth": 1280
+      },
+      "actionGeometry": null,
+      "computedDialogColors": null,
+      "screenshots": [
+        "advanced-model-scope-ja-1280-light-open.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-model-scope-vi-320-light",
+      "language": "vi",
+      "languageCode": "vi",
+      "width": 320,
+      "theme": "light",
+      "initial": "unlimited-retained",
+      "catalog": "populated",
+      "action": "cancel",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "scopeReads": 1,
+      "catalogReads": 1,
+      "writes": 0,
+      "keySecretReads": 0,
+      "exactNarrowWrites": true,
+      "geometry": {
+        "left": 16,
+        "right": 304,
+        "viewport": 320,
+        "clientWidth": 288,
+        "scrollWidth": 288,
+        "pageScrollWidth": 320
+      },
+      "actionGeometry": [
+        {
+          "x": 32,
+          "y": 828,
+          "width": 256,
+          "height": 36
+        },
+        {
+          "x": 32,
+          "y": 784,
+          "width": 256,
+          "height": 36
+        }
+      ],
+      "computedDialogColors": null,
+      "screenshots": [
+        "advanced-model-scope-vi-320-light-open.png",
+        "advanced-model-scope-vi-320-light-mobile-preserved-model.png",
+        "advanced-model-scope-vi-320-light-mobile-actions.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-model-scope-vi-1280-light",
+      "language": "vi",
+      "languageCode": "vi",
+      "width": 1280,
+      "theme": "light",
+      "initial": "restricted",
+      "catalog": "populated",
+      "action": "cancel",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "scopeReads": 1,
+      "catalogReads": 1,
+      "writes": 0,
+      "keySecretReads": 0,
+      "exactNarrowWrites": true,
+      "geometry": {
+        "left": 304.2760925292969,
+        "right": 975.7238464355469,
+        "viewport": 1280,
+        "clientWidth": 672,
+        "scrollWidth": 672,
+        "pageScrollWidth": 1280
+      },
+      "actionGeometry": null,
+      "computedDialogColors": null,
+      "screenshots": [
+        "advanced-model-scope-vi-1280-light-open.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-model-scope-zh-1440-light",
+      "language": "zh",
+      "languageCode": "zhCN",
+      "width": 1440,
+      "theme": "light",
+      "initial": "restricted",
+      "catalog": "populated",
+      "action": "unlimited-save",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "scopeReads": 3,
+      "catalogReads": 1,
+      "writes": 1,
+      "keySecretReads": 0,
+      "exactNarrowWrites": true,
+      "geometry": {
+        "left": 385.2596435546875,
+        "right": 1054.7403564453125,
+        "viewport": 1440,
+        "clientWidth": 672,
+        "scrollWidth": 672,
+        "pageScrollWidth": 1440
+      },
+      "actionGeometry": null,
+      "computedDialogColors": null,
+      "screenshots": [
+        "advanced-model-scope-zh-1440-light-open.png",
+        "advanced-model-scope-zh-1440-light-readback.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-model-scope-zh-390-light",
+      "language": "zh",
+      "languageCode": "zhCN",
+      "width": 390,
+      "theme": "light",
+      "initial": "restricted",
+      "catalog": "populated",
+      "action": "blocked-save",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "scopeReads": 3,
+      "catalogReads": 1,
+      "writes": 1,
+      "keySecretReads": 0,
+      "exactNarrowWrites": true,
+      "geometry": {
+        "left": 16,
+        "right": 374,
+        "viewport": 390,
+        "clientWidth": 358,
+        "scrollWidth": 358,
+        "pageScrollWidth": 390
+      },
+      "actionGeometry": [
+        {
+          "x": 32,
+          "y": 827.75,
+          "width": 326,
+          "height": 36
+        },
+        {
+          "x": 32,
+          "y": 783.75,
+          "width": 326,
+          "height": 36
+        }
+      ],
+      "computedDialogColors": null,
+      "screenshots": [
+        "advanced-model-scope-zh-390-light-open.png",
+        "advanced-model-scope-zh-390-light-mobile-preserved-model.png",
+        "advanced-model-scope-zh-390-light-mobile-actions.png",
+        "advanced-model-scope-zh-390-light-block-confirmation.png",
+        "advanced-model-scope-zh-390-light-readback.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "advanced-model-scope-vi-320-dark",
+      "language": "vi",
+      "languageCode": "vi",
+      "width": 320,
+      "theme": "dark",
+      "initial": "unlimited-retained",
+      "catalog": "populated",
+      "action": "unknown-save",
+      "buildRevision": "rv.0.2.0-beta.24.227a52044513d856baa98b0735399ea427591eb1.2k6e8r7p",
+      "scopeReads": 4,
+      "catalogReads": 1,
+      "writes": 1,
+      "keySecretReads": 0,
+      "exactNarrowWrites": true,
+      "geometry": {
+        "left": 16.11764907836914,
+        "right": 303.8823585510254,
+        "viewport": 320,
+        "clientWidth": 288,
+        "scrollWidth": 288,
+        "pageScrollWidth": 320
+      },
+      "actionGeometry": [
+        {
+          "x": 32,
+          "y": 828,
+          "width": 256,
+          "height": 36
+        },
+        {
+          "x": 32,
+          "y": 784,
+          "width": 256,
+          "height": 36
+        }
+      ],
+      "computedDialogColors": {
+        "background": {
+          "value": "rgb(27, 38, 57)",
+          "mean": 40.666666666666664
+        },
+        "foreground": {
+          "value": "rgb(230, 235, 245)",
+          "mean": 236.66666666666666
+        }
+      },
+      "screenshots": [
+        "advanced-model-scope-vi-320-dark-open.png",
+        "advanced-model-scope-vi-320-dark-mobile-preserved-model.png",
+        "advanced-model-scope-vi-320-dark-mobile-actions.png",
+        "advanced-model-scope-vi-320-dark-unknown-readback.png",
+        "advanced-model-scope-vi-320-dark-readback.png"
+      ],
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "result": "passed"
+}

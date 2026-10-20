@@ -1,0 +1,163 @@
+{
+  "sourceHead": "4cb3a7362a4d005f6acaf7f5d4f7e0bf1b5736be",
+  "journey": "platform-p2-fr-320",
+  "reads": {
+    "/api/status": 3,
+    "/api/setup": 1,
+    "/api/user/auth/refresh": 1,
+    "/api/notice": 1,
+    "/pg/keys": 1,
+    "/api/log/self": 1,
+    "/api/user/self": 1,
+    "/api/channel": 1,
+    "/api/channel/quota/changes": 1
+  },
+  "responses": [
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/setup",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/user/auth/refresh",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/notice",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/pg/keys",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/log/self",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/user/self",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel/quota/changes",
+      "status": 200
+    }
+  ],
+  "fixtureResponses": [
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/setup",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/user/auth/refresh",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/notice",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/pg/keys",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/log/self",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/user/self",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/channel/quota/changes",
+      "status": 200
+    }
+  ],
+  "requestFailures": [],
+  "pageErrors": {
+    "count": 0,
+    "kinds": []
+  },
+  "violations": 0,
+  "mutations": 0,
+  "externalRequests": 0,
+  "finalUrl": "http://127.0.0.1:38363/dashboard/overview",
+  "states": {
+    "loading": false,
+    "permissionError": false,
+    "permissionDenied": false,
+    "accountsError": false,
+    "empty": false,
+    "upstream": false,
+    "overview": true
+  },
+  "render": {
+    "readyState": "complete",
+    "hidden": false,
+    "viewport": 320,
+    "documentWidth": 320,
+    "windows": [
+      {
+        "visible": true,
+        "left": 16,
+        "right": 304,
+        "top": 1128,
+        "bottom": 1431
+      }
+    ]
+  },
+  "image": "platform-p2-fr-320-failed-page.png"
+}

@@ -1,0 +1,33 @@
+{
+  "source": "458f07a24ef6cbdd3055757cc428aa8c92cc20d3",
+  "tree": "6f5d30621a64b4e7a6821d0ddfcd7f6554563965",
+  "checkout": "cca41246f68a2e2b2a7e1387f6025dd5e36b8f1c",
+  "version": "0.2.0-beta.24",
+  "ciRun": 39420412383,
+  "ciJobsPassed": 11,
+  "ciJobsTotal": 11,
+  "frontendTestFiles": 252,
+  "frontendTests": 1594,
+  "journeys": {
+    "platformCore": 20,
+    "workbench": 30,
+    "subscriptionShare": 28,
+    "sharedUi": 33,
+    "modelScope": 17,
+    "windowMaintenance": 17,
+    "security": 20,
+    "profile": 9,
+    "stability": 10,
+    "setup": 25,
+    "playground": 8,
+    "personalStatus": 6,
+    "maintenanceSession": 12,
+    "migration": 4,
+    "rotation": 4
+  },
+  "reviewedFinalOriginalPng": 10,
+  "review": "primary-agent self-review, no independent review",
+  "syntheticOnly": true,
+  "deployment": false,
+  "realProviderAcceptance": false
+}

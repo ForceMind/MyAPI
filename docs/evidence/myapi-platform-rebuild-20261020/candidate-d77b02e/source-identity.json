@@ -1,0 +1,13 @@
+{
+  "candidate_source": "d77b02e50a52961a7eb9955222c71619c2624fb1",
+  "candidate_tree": "b4b036775ae0da0f85556dd86fb781da9286dbce",
+  "checkout": "ba2977bb62189315ac453721b3e6cb0df36fe0ec",
+  "ci_run": 39410672493,
+  "version": "0.2.0-beta.24",
+  "baseline": "c6641b9d01e04c5ad3ff0434e613612a21e0b10e",
+  "backend_go_changes": [],
+  "preview_script_sha256": "ff58c7c015b1fe2e35b4c347cb1ef2524592ce961c0fb0145ca23747128d3a27",
+  "fixture_git_blob": "fb3ba97d52ecd0ca2f6bf13fc37537ca13c185e6",
+  "synthetic_only": true,
+  "deployment": false
+}

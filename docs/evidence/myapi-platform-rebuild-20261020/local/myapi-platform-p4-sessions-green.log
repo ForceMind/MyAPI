@@ -1,0 +1,10 @@
+$ vitest run src/features/profile/components/__tests__/login-sessions-layout.test.tsx src/features/profile/components/__tests__/sensitive-dialog-close.test.tsx src/features/profile/__tests__/profile-layout.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+
+ Test Files  3 passed (3)
+      Tests  13 passed (13)
+   Start at  19:10:26
+   Duration  15.46s (transform 1.63s, setup 584ms, import 6.44s, tests 5.68s, environment 2.35s)
+

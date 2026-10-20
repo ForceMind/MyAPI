@@ -1,0 +1,14 @@
+{
+  "source": "458f07a24ef6cbdd3055757cc428aa8c92cc20d3",
+  "tree": "6f5d30621a64b4e7a6821d0ddfcd7f6554563965",
+  "backendFilesChangedSincePlatformStart": [],
+  "protectedWip": {
+    "MYAPI_MASTER_PLAN.md": "e058e179a828c752b5b389cde5a88d05c5999c61029948a88e270aad7131b243",
+    "NEXT_SESSION_HANDOFF.md": "4e21c1e847db911b9143f580778ca63650337d7a330b658f8556aa1f499f1c39"
+  },
+  "localHeavyBuilds": false,
+  "deploymentPerformedInPlatformBatch": false,
+  "realProviderTestsInPlatformBatch": false,
+  "review": "primary-agent self-review; no new independent review or subagent",
+  "applicationUnchangedSince": "ad5f017492cad9b8ecc85919c3f2f85c0effd541"
+}

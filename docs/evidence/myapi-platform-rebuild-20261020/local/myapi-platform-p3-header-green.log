@@ -1,0 +1,10 @@
+$ vitest run src/components/layout/components/__tests__/authenticated-navigation.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  18:47:19
+   Duration  7.70s (transform 919ms, setup 219ms, import 2.71s, tests 3.47s, environment 1.09s)
+

@@ -1,0 +1,10 @@
+$ vitest run src/features/personal-upstream/__tests__/upstream-permissions.test.tsx src/features/personal-upstream/__tests__/upstream-request-cancellation.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+
+ Test Files  2 passed (2)
+      Tests  3 passed (3)
+   Start at  17:33:25
+   Duration  3.65s (transform 227ms, setup 413ms, import 743ms, tests 327ms, environment 1.89s)
+

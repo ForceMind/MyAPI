@@ -1,0 +1,11 @@
+{
+  "source": "458f07a24ef6cbdd3055757cc428aa8c92cc20d3",
+  "tree": "6f5d30621a64b4e7a6821d0ddfcd7f6554563965",
+  "run": 39420412383,
+  "applicationSourceUnchangedSince": "ad5f017492cad9b8ecc85919c3f2f85c0effd541",
+  "changes": [
+    "tools/ui/personal-workbench-browser.mjs",
+    "docs/MYAPI_PLATFORM_REBUILD_PLAN_20261020.md"
+  ],
+  "scope": "Narrow synthetic saved channel history contract and deterministic navigation completion only"
+}

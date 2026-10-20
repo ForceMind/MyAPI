@@ -1,0 +1,10 @@
+$ vitest run src/features/profile/__tests__/profile-layout.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  18:18:19
+   Duration  10.30s (transform 1.76s, setup 286ms, import 4.33s, tests 4.28s, environment 1.20s)
+
