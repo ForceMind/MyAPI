@@ -73,6 +73,7 @@ try {
     page.setDefaultTimeout(20000)
     page.on('pageerror', error => errors.push(error.message))
     const capture = async name => {
+      await page.locator('main .pointer-events-none.opacity-60').waitFor({ state: 'hidden' })
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'No horizontal viewport overflow')
       const file = `platform-${name}-${item.language}-${item.width}.png`
       await page.screenshot({ path: resolve(output, file), animations: 'disabled' })
@@ -116,6 +117,10 @@ try {
         filterScope.getByRole('button', { name: t('Search'), exact: true }).click(),
       ])
       assert(queries.some(query => query.params.request_id === 'REQ-SYNTHETIC-'), 'Submitted Request ID filter reaches server')
+      if (!mobile) {
+        const action = await page.getByTitle(t('Click to view full details'), { exact: true }).first().boundingBox()
+        assert(action && action.x >= 0 && action.x + action.width <= item.width, 'Primary details action is visible without horizontal scrolling')
+      }
       await capture('records')
       await page.getByRole('button', { name: t('Go to next page'), exact: true }).click()
       await page.getByText('REQ-SYNTHETIC-521', { exact: true }).first().waitFor()
@@ -153,24 +158,45 @@ try {
   }
   // Public default home and signed-in root entry are separate paths.
   for (const role of [0, 100]) {
-    const fixture = createUIFixture({ role, language: 'zhCN' })
+    const fixture = createUIFixture({ role, language: 'zhCN', personalPolicy: true })
     const context = await browser.newContext({ viewport: { width: 1280, height: 960 }, serviceWorkers: 'block' })
     await context.addInitScript(() => localStorage.setItem('i18nextLng', 'zhCN'))
+    const homeAudit = { violations: [], external: [], runtime: [], requests: [] }
     await context.route('**/*', async route => {
-      const url = new URL(route.request().url())
-      assert.equal(url.origin, origin, 'Homepage has no external requests')
-      if (!url.pathname.startsWith('/api/')) return route.continue()
-      const response = fixture.response(url, route.request().method()); assert(!response.violation, response.violation)
+      const request = route.request(), url = new URL(request.url())
+      if (url.origin !== origin) { homeAudit.external.push(url.origin); return route.abort('blockedbyclient') }
+      if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/pg/')) return route.continue()
+      homeAudit.requests.push({ method: request.method(), path: url.pathname })
+      const response = fixture.response(url, request.method())
+      if (response.violation) {
+        homeAudit.violations.push(response.violation)
+        return route.fulfill({ status: 503, json: { success: false, message: response.violation } })
+      }
       await route.fulfill({ status: response.status, json: response.body })
     })
     const page = await context.newPage()
+    page.on('pageerror', error => homeAudit.runtime.push(error.message))
     await page.clock.setFixedTime(FIXTURE_TIME)
-    await page.goto(origin, { waitUntil: 'networkidle' })
-    if (role === 0) {
-      await page.getByRole('heading', { name: translations.zh['Your gateway. Every request in view.'], exact: true }).waitFor()
-      await page.screenshot({ path: resolve(output, 'platform-home-zh-1280.png') })
-      report.screenshots.push({ file: 'platform-home-zh-1280.png', state: 'public-home', width: 1280, language: 'zh' })
-    } else { await page.waitForURL('**/dashboard/overview') }
+    try {
+      await page.goto(origin, { waitUntil: 'domcontentloaded' })
+      if (role === 0) {
+        await page.getByRole('heading', { name: translations.zh['Your gateway. Every request in view.'], exact: true }).waitFor()
+        await page.screenshot({ path: resolve(output, 'platform-home-zh-1280.png') })
+        report.screenshots.push({ file: 'platform-home-zh-1280.png', state: 'public-home', width: 1280, language: 'zh' })
+      } else {
+        await page.waitForURL('**/dashboard/overview', { waitUntil: 'domcontentloaded' })
+        await page.getByTestId('personal-workbench').waitFor()
+        await page.getByTestId('overview-keys').getByText('1', { exact: true }).first().waitFor()
+      }
+      assert.deepEqual(homeAudit.violations, [], 'Home entry only uses configured fixture APIs')
+      assert.deepEqual(homeAudit.external, [], 'Home entry has zero external requests')
+      assert.deepEqual(homeAudit.runtime, [], 'Home entry has no runtime errors')
+    } catch (error) {
+      const file = `platform-home-failed-${role}`
+      await page.screenshot({ path: resolve(output, `${file}.png`) })
+      writeFileSync(resolve(output, `${file}.json`), JSON.stringify({ role, url: page.url(), error: String(error), ...homeAudit }, null, 2))
+      throw error
+    }
     report.journeys.push({ name: 'home-entry', role, result: 'passed' })
     await context.close()
   }

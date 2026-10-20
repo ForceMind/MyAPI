@@ -270,6 +270,17 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
         ) {
           tintClass = 'bg-amber-50/40 dark:bg-amber-950/20'
         }
+        const outcome = parseLogOther(
+          ((row.original as Record<string, unknown>).other as string) ?? ''
+        )
+        if (
+          isCommon &&
+          logType === 5 &&
+          outcome?.request_outcome === 'completed' &&
+          !isCompletedUsageReview(logType, outcome)
+        ) {
+          tintClass = ''
+        }
         if (isCommon && isAdmin) {
           const other = parseLogOther(
             ((row.original as Record<string, unknown>).other as string) ?? ''

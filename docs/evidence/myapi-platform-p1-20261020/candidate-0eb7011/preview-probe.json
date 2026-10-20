@@ -1,0 +1,15 @@
+{
+  "time": "2026-10-20T07:32:00.059Z",
+  "origin": "http://127.0.0.1:4181",
+  "http": 200,
+  "syntheticBanner": true,
+  "cspConnectSelf": true,
+  "pagination": {
+    "total": 42,
+    "page": 2,
+    "first": "REQ-SYNTHETIC-521"
+  },
+  "syntheticMutationRejected": 409,
+  "htmlSha256": "857ad326c704ec4c66fe470425a170e89536cd4393006b3e66534ceffdfbf2f5",
+  "scope": "Synthetic preview only. No production, credentials, DB or supplier calls."
+}

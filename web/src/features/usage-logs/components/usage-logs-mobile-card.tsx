@@ -537,6 +537,13 @@ export function UsageLogsMobileList<TData>({
         let tintClass = logType != null ? (logTypeRowTint[logType] ?? '') : ''
         if (
           logCategory === 'common' &&
+          logType === 5 &&
+          other?.request_outcome === 'completed'
+        ) {
+          tintClass = ''
+        }
+        if (
+          logCategory === 'common' &&
           isCompletedUsageReview(logType ?? LOG_TYPE_ENUM.UNKNOWN, other)
         ) {
           tintClass =

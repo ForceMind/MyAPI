@@ -304,6 +304,14 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
             <span className='truncate font-mono text-xs tabular-nums'>
               {formatTimestampToDate(timestamp)}
             </span>
+            {log.request_id && (
+              <span
+                className='max-w-48 truncate font-mono text-xs'
+                title={log.request_id}
+              >
+                {log.request_id}
+              </span>
+            )}
             <StatusBadge
               label={t(config.label)}
               variant={config.color as StatusBadgeProps['variant']}
@@ -703,18 +711,6 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
       },
     },
     {
-      accessorKey: 'request_id',
-      header: t('Request ID'),
-      cell: ({ row }) => (
-        <span
-          className='block max-w-48 truncate font-mono text-xs'
-          title={row.original.request_id}
-        >
-          {row.original.request_id || '—'}
-        </span>
-      ),
-    },
-    {
       accessorKey: 'quota',
       header: t('Cost'),
       cell: ({ row }) => {
@@ -807,6 +803,9 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
               onClick={() => setDialogOpen(true)}
               title={t('Click to view full details')}
             >
+              <span className='text-primary shrink-0 font-medium'>
+                {t('Details')}
+              </span>
               {detailPreview}
             </button>
             <DetailsDialog
@@ -823,9 +822,18 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
     }
   )
 
-  return showCosts
+  const visibleColumns = showCosts
     ? columns
     : columns.filter(
         (column) => !('accessorKey' in column && column.accessorKey === 'quota')
       )
+  const detailsColumn = visibleColumns.find(
+    (column) => 'accessorKey' in column && column.accessorKey === 'content'
+  )
+  if (!detailsColumn) return visibleColumns
+  return [
+    visibleColumns[0],
+    detailsColumn,
+    ...visibleColumns.slice(1).filter((column) => column !== detailsColumn),
+  ]
 }
