@@ -1,0 +1,1555 @@
+﻿2026-10-20T15:05:52.3473242Z Current runner version: '2.337.0'
+2026-10-20T15:05:52.3501771Z ##[group]Runner Image Provisioner
+2026-10-20T15:05:52.3502698Z Hosted Compute Agent
+2026-10-20T15:05:52.3503366Z Version: 20261015.610
+2026-10-20T15:05:52.3504046Z Commit: 267fdb4e8bbec4ab5ea31367f3a00d5c480c7656
+2026-10-20T15:05:52.3504845Z Build Date: 2026-10-14T17:06:54Z
+2026-10-20T15:05:52.3506075Z Worker ID: {fa75014a-7933-4c5e-8327-41e09bfb2d5c}
+2026-10-20T15:05:52.3506809Z Region: westus
+2026-10-20T15:05:52.3507344Z Cloud: Azure
+2026-10-20T15:05:52.3507966Z ##[endgroup]
+2026-10-20T15:05:52.3509614Z ##[group]Operating System
+2026-10-20T15:05:52.3510358Z Ubuntu
+2026-10-20T15:05:52.3510901Z 24.04.5
+2026-10-20T15:05:52.3511411Z LTS
+2026-10-20T15:05:52.3512016Z ##[endgroup]
+2026-10-20T15:05:52.3512623Z ##[group]Runner Image
+2026-10-20T15:05:52.3513281Z Image: ubuntu-24.04
+2026-10-20T15:05:52.3513879Z Version: 20261018.339.1
+2026-10-20T15:05:52.3515668Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261018.339/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-20T15:05:52.3517351Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261018.339
+2026-10-20T15:05:52.3518376Z ##[endgroup]
+2026-10-20T15:05:52.3519529Z ##[group]GITHUB_TOKEN Permissions
+2026-10-20T15:05:52.3521535Z Contents: read
+2026-10-20T15:05:52.3522223Z Metadata: read
+2026-10-20T15:05:52.3522802Z ##[endgroup]
+2026-10-20T15:05:52.3525056Z Secret source: Actions
+2026-10-20T15:05:52.3526484Z Cache mode: write
+2026-10-20T15:05:52.3527445Z Prepare workflow directory
+2026-10-20T15:05:52.3932040Z Prepare all required actions
+2026-10-20T15:05:52.3984610Z Getting action download info
+2026-10-20T15:05:52.7661167Z Download action repository 'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0' (SHA:9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0)
+2026-10-20T15:05:52.9893549Z Complete job name: Distribution and release contracts
+2026-10-20T15:05:53.0721084Z ##[group]Run actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+2026-10-20T15:05:53.0722236Z with:
+2026-10-20T15:05:53.0722700Z   repository: ForceMind/MyAPI
+2026-10-20T15:05:53.0723257Z   persist-credentials: false
+2026-10-20T15:05:53.0723791Z   ref: refs/pull/17/merge
+2026-10-20T15:05:53.0727762Z   token: ***
+2026-10-20T15:05:53.0728262Z   ssh-strict: true
+2026-10-20T15:05:53.0728718Z   ssh-user: git
+2026-10-20T15:05:53.0729163Z   clean: true
+2026-10-20T15:05:53.0729627Z   sparse-checkout-cone-mode: true
+2026-10-20T15:05:53.0730175Z   fetch-depth: 1
+2026-10-20T15:05:53.0730629Z   fetch-tags: false
+2026-10-20T15:05:53.0731095Z   show-progress: true
+2026-10-20T15:05:53.0731567Z   lfs: false
+2026-10-20T15:05:53.0732000Z   submodules: false
+2026-10-20T15:05:53.0732479Z   set-safe-directory: true
+2026-10-20T15:05:53.0733010Z   allow-unsafe-pr-checkout: false
+2026-10-20T15:05:53.0734011Z ##[endgroup]
+2026-10-20T15:05:53.1791425Z Syncing repository: ForceMind/MyAPI
+2026-10-20T15:05:53.1794474Z ##[group]Getting Git version info
+2026-10-20T15:05:53.1796026Z Working directory is '/home/runner/work/MyAPI/MyAPI'
+2026-10-20T15:05:53.1797784Z [command]/usr/bin/git version
+2026-10-20T15:05:53.1963484Z git version 2.55.0
+2026-10-20T15:05:53.1998068Z ##[endgroup]
+2026-10-20T15:05:53.2010654Z Temporarily overriding HOME='/home/runner/work/_temp/e0b243a9-dd92-4cf0-a6d0-9a6e6cbfce2f' before making global git config changes
+2026-10-20T15:05:53.2013056Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-20T15:05:53.2019013Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MyAPI/MyAPI
+2026-10-20T15:05:53.2076980Z Deleting the contents of '/home/runner/work/MyAPI/MyAPI'
+2026-10-20T15:05:53.2081267Z ##[group]Determining repository object format
+2026-10-20T15:05:53.5495044Z ##[endgroup]
+2026-10-20T15:05:53.5496286Z ##[group]Initializing the repository
+2026-10-20T15:05:53.5506072Z [command]/usr/bin/git init /home/runner/work/MyAPI/MyAPI
+2026-10-20T15:05:53.5661799Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-20T15:05:53.5664846Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-20T15:05:53.5666621Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-20T15:05:53.5667640Z hint: call:
+2026-10-20T15:05:53.5668188Z hint:
+2026-10-20T15:05:53.5668898Z hint: 	git config --global init.defaultBranch <name>
+2026-10-20T15:05:53.5669667Z hint:
+2026-10-20T15:05:53.5670485Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-20T15:05:53.5671731Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-20T15:05:53.5672734Z hint:
+2026-10-20T15:05:53.5673287Z hint: 	git branch -m <name>
+2026-10-20T15:05:53.5673936Z hint:
+2026-10-20T15:05:53.5674763Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-20T15:05:53.5676528Z Initialized empty Git repository in /home/runner/work/MyAPI/MyAPI/.git/
+2026-10-20T15:05:53.5678808Z [command]/usr/bin/git remote add origin https://github.com/ForceMind/MyAPI
+2026-10-20T15:05:53.5736431Z ##[endgroup]
+2026-10-20T15:05:53.5737852Z ##[group]Disabling automatic garbage collection
+2026-10-20T15:05:53.5741177Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-20T15:05:53.5802471Z ##[endgroup]
+2026-10-20T15:05:53.5803775Z ##[group]Setting up auth
+2026-10-20T15:05:53.5804787Z Removing SSH command configuration
+2026-10-20T15:05:53.5809515Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-20T15:05:53.5878944Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-20T15:05:53.6264191Z Removing HTTP extra header
+2026-10-20T15:05:53.6270578Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-20T15:05:53.6347618Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-20T15:05:53.6633636Z Removing includeIf entries pointing to credentials config files
+2026-10-20T15:05:53.6640520Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-20T15:05:53.6699020Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-20T15:05:53.6966903Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-1ff582f3-b7c6-445b-b406-6a9a44811712.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-20T15:05:53.7025968Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path /home/runner/work/_temp/git-credentials-1ff582f3-b7c6-445b-b406-6a9a44811712.config
+2026-10-20T15:05:53.7075093Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-1ff582f3-b7c6-445b-b406-6a9a44811712.config
+2026-10-20T15:05:53.7133683Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-1ff582f3-b7c6-445b-b406-6a9a44811712.config
+2026-10-20T15:05:53.7187542Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-1ff582f3-b7c6-445b-b406-6a9a44811712.config
+2026-10-20T15:05:53.7234352Z ##[endgroup]
+2026-10-20T15:05:53.7235968Z ##[group]Fetching the repository
+2026-10-20T15:05:53.7243844Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +refs/pull/17/merge:refs/remotes/pull/17/merge
+2026-10-20T15:05:58.8378110Z From https://github.com/ForceMind/MyAPI
+2026-10-20T15:05:58.8380511Z  * [new ref]         refs/pull/17/merge -> pull/17/merge
+2026-10-20T15:05:58.8383742Z ##[endgroup]
+2026-10-20T15:05:58.8384587Z ##[group]Determining the checkout info
+2026-10-20T15:05:58.8386648Z ##[endgroup]
+2026-10-20T15:05:58.8392276Z [command]/usr/bin/git sparse-checkout disable
+2026-10-20T15:05:58.8464700Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-20T15:05:58.8511972Z ##[group]Checking out the ref
+2026-10-20T15:05:58.8515315Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/17/merge
+2026-10-20T15:05:59.4043592Z Note: switching to 'refs/remotes/pull/17/merge'.
+2026-10-20T15:05:59.4044235Z 
+2026-10-20T15:05:59.4044680Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-20T15:05:59.4045955Z changes and commit them, and you can discard any commits you make in this
+2026-10-20T15:05:59.4046922Z state without impacting any branches by switching back to a branch.
+2026-10-20T15:05:59.4047488Z 
+2026-10-20T15:05:59.4048122Z If you want to create a new branch to retain commits you create, you may
+2026-10-20T15:05:59.4048918Z do so (now or later) by using -c with the switch command. Example:
+2026-10-20T15:05:59.4049396Z 
+2026-10-20T15:05:59.4049586Z   git switch -c <new-branch-name>
+2026-10-20T15:05:59.4049956Z 
+2026-10-20T15:05:59.4050152Z Or undo this operation with:
+2026-10-20T15:05:59.4050490Z 
+2026-10-20T15:05:59.4050666Z   git switch -
+2026-10-20T15:05:59.4050933Z 
+2026-10-20T15:05:59.4051444Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-20T15:05:59.4052064Z 
+2026-10-20T15:05:59.4052834Z HEAD is now at de034b2 Merge 7686ae9c8270a67dd3957031c91af156c77155e8 into c1beb07520f43c106b4406ba8a0b1227bc1cf67e
+2026-10-20T15:05:59.4148630Z ##[endgroup]
+2026-10-20T15:05:59.4153887Z [command]/usr/bin/git log -1 --format=%H
+2026-10-20T15:05:59.4206508Z de034b23669c5d85cd86b9b9ea9c3306c92a5128
+2026-10-20T15:05:59.4226876Z ##[group]Removing auth
+2026-10-20T15:05:59.4227369Z Removing SSH command configuration
+2026-10-20T15:05:59.4228266Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-20T15:05:59.4287993Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-20T15:05:59.4576714Z Removing HTTP extra header
+2026-10-20T15:05:59.4581341Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-20T15:05:59.4636453Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-20T15:05:59.4897721Z Removing includeIf entries pointing to credentials config files
+2026-10-20T15:05:59.4902288Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-20T15:05:59.4948242Z includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path
+2026-10-20T15:05:59.4949192Z includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path
+2026-10-20T15:05:59.4950015Z includeif.gitdir:/github/workspace/.git.path
+2026-10-20T15:05:59.4950708Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-20T15:05:59.4958546Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path
+2026-10-20T15:05:59.4999371Z /home/runner/work/_temp/git-credentials-1ff582f3-b7c6-445b-b406-6a9a44811712.config
+2026-10-20T15:05:59.5009832Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path /home/runner/work/_temp/git-credentials-1ff582f3-b7c6-445b-b406-6a9a44811712.config
+2026-10-20T15:05:59.5064212Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path
+2026-10-20T15:05:59.5106163Z /home/runner/work/_temp/git-credentials-1ff582f3-b7c6-445b-b406-6a9a44811712.config
+2026-10-20T15:05:59.5116088Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-1ff582f3-b7c6-445b-b406-6a9a44811712.config
+2026-10-20T15:05:59.5172406Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-20T15:05:59.5221702Z /github/runner_temp/git-credentials-1ff582f3-b7c6-445b-b406-6a9a44811712.config
+2026-10-20T15:05:59.5227947Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-1ff582f3-b7c6-445b-b406-6a9a44811712.config
+2026-10-20T15:05:59.5295733Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-20T15:05:59.5339555Z /github/runner_temp/git-credentials-1ff582f3-b7c6-445b-b406-6a9a44811712.config
+2026-10-20T15:05:59.5349264Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-1ff582f3-b7c6-445b-b406-6a9a44811712.config
+2026-10-20T15:05:59.5404391Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-20T15:05:59.5663717Z Removing credentials config '/home/runner/work/_temp/git-credentials-1ff582f3-b7c6-445b-b406-6a9a44811712.config'
+2026-10-20T15:05:59.5673538Z ##[endgroup]
+2026-10-20T15:05:59.5894124Z ##[group]Run npm test
+2026-10-20T15:05:59.5894500Z [36;1mnpm test[0m
+2026-10-20T15:05:59.5894737Z [36;1mnpm run brand:test[0m
+2026-10-20T15:05:59.5894999Z [36;1mnpm run brand:check[0m
+2026-10-20T15:05:59.5895597Z [36;1mnpm run website:check[0m
+2026-10-20T15:05:59.5895884Z [36;1mnpm run quota:openapi:check[0m
+2026-10-20T15:05:59.5896202Z [36;1mnpm run lan:check -- --skip-docker[0m
+2026-10-20T15:05:59.5896514Z [36;1mnpm run desktop:check[0m
+2026-10-20T15:05:59.5896765Z [36;1mnpm run upgrade:check[0m
+2026-10-20T15:05:59.5897030Z [36;1mnpm run release:workflow:check[0m
+2026-10-20T15:05:59.5897317Z [36;1mnpm run source:manifest[0m
+2026-10-20T15:05:59.5897571Z [36;1mnpm run pack:check[0m
+2026-10-20T15:05:59.6074692Z shell: /usr/bin/bash -e {0}
+2026-10-20T15:05:59.6075001Z ##[endgroup]
+2026-10-20T15:05:59.9606258Z 
+2026-10-20T15:05:59.9606811Z > @forcemind/myapi@0.2.0-beta.25 test
+2026-10-20T15:05:59.9607428Z > node --test cli/test/*.test.mjs
+2026-10-20T15:05:59.9607859Z 
+2026-10-20T15:06:00.0346593Z TAP version 13
+2026-10-20T15:06:00.1147470Z # Subtest: persists and reloads a validated fresh-install journal inside state
+2026-10-20T15:06:00.1176379Z ok 1 - persists and reloads a validated fresh-install journal inside state
+2026-10-20T15:06:00.1186863Z   ---
+2026-10-20T15:06:00.1187624Z   duration_ms: 19.820813
+2026-10-20T15:06:00.1188298Z   type: 'test'
+2026-10-20T15:06:00.1188880Z   ...
+2026-10-20T15:06:00.1211783Z # Subtest: serializes installation ownership and rejects a non-owner release
+2026-10-20T15:06:00.1213377Z ok 2 - serializes installation ownership and rejects a non-owner release
+2026-10-20T15:06:00.1214224Z   ---
+2026-10-20T15:06:00.1214735Z   duration_ms: 10.255549
+2026-10-20T15:06:00.1215754Z   type: 'test'
+2026-10-20T15:06:00.1216373Z   ...
+2026-10-20T15:06:00.1366440Z # Subtest: persists a declared effect before an installer can perform it
+2026-10-20T15:06:00.1367439Z ok 3 - persists a declared effect before an installer can perform it
+2026-10-20T15:06:00.1368033Z   ---
+2026-10-20T15:06:00.1368352Z   duration_ms: 15.264331
+2026-10-20T15:06:00.1368714Z   type: 'test'
+2026-10-20T15:06:00.1369088Z   ...
+2026-10-20T15:06:00.1476362Z # Subtest: completes only the persisted pending effect held by the installation owner
+2026-10-20T15:06:00.1477765Z ok 4 - completes only the persisted pending effect held by the installation owner
+2026-10-20T15:06:00.1478755Z   ---
+2026-10-20T15:06:00.1479268Z   duration_ms: 11.239659
+2026-10-20T15:06:00.1479824Z   type: 'test'
+2026-10-20T15:06:00.1480405Z   ...
+2026-10-20T15:06:00.1605920Z # Subtest: persists a known preflight failure without retrying the declared effect
+2026-10-20T15:06:00.1607385Z ok 5 - persists a known preflight failure without retrying the declared effect
+2026-10-20T15:06:00.1608762Z   ---
+2026-10-20T15:06:00.1609305Z   duration_ms: 13.063967
+2026-10-20T15:06:00.1609862Z   type: 'test'
+2026-10-20T15:06:00.1610364Z   ...
+2026-10-20T15:06:00.1867289Z # Subtest: persists an unknown outcome instead of retrying the declared effect
+2026-10-20T15:06:00.1974407Z ok 6 - persists an unknown outcome instead of retrying the declared effect
+2026-10-20T15:06:00.1986513Z   ---
+2026-10-20T15:06:00.1987921Z   duration_ms: 25.710527
+2026-10-20T15:06:00.1988864Z   type: 'test'
+2026-10-20T15:06:00.1989696Z   ...
+2026-10-20T15:06:00.1990789Z # Subtest: fails closed on a malformed persisted journal without reading outside state
+2026-10-20T15:06:00.1992127Z ok 7 - fails closed on a malformed persisted journal without reading outside state
+2026-10-20T15:06:00.1993745Z   ---
+2026-10-20T15:06:00.1994670Z   duration_ms: 9.233117
+2026-10-20T15:06:00.1995912Z   type: 'test'
+2026-10-20T15:06:00.1998573Z   ...
+2026-10-20T15:06:00.2072215Z # Subtest: stages only a hash-matching local artifact while the journal lock owns a declared stage effect
+2026-10-20T15:06:00.2096240Z ok 8 - stages only a hash-matching local artifact while the journal lock owns a declared stage effect
+2026-10-20T15:06:00.2121563Z   ---
+2026-10-20T15:06:00.2122535Z   duration_ms: 9.251451
+2026-10-20T15:06:00.2123223Z   type: 'test'
+2026-10-20T15:06:00.2123806Z   ...
+2026-10-20T15:06:00.2124512Z # Subtest: rejects a hash mismatch and leaves no staged artifact
+2026-10-20T15:06:00.2125768Z ok 9 - rejects a hash mismatch and leaves no staged artifact
+2026-10-20T15:06:00.2126764Z   ---
+2026-10-20T15:06:00.2127353Z   duration_ms: 6.960342
+2026-10-20T15:06:00.2127950Z   type: 'test'
+2026-10-20T15:06:00.2128453Z   ...
+2026-10-20T15:06:00.2297439Z # Subtest: durably records a completed staging effect only after the verified artifact is copied
+2026-10-20T15:06:00.2298976Z ok 10 - durably records a completed staging effect only after the verified artifact is copied
+2026-10-20T15:06:00.2300096Z   ---
+2026-10-20T15:06:00.2300736Z   duration_ms: 15.274518
+2026-10-20T15:06:00.2301429Z   type: 'test'
+2026-10-20T15:06:00.2302067Z   ...
+2026-10-20T15:06:00.2406339Z # Subtest: rejects proxies and accessors without executing caller code
+2026-10-20T15:06:00.2434941Z ok 11 - rejects proxies and accessors without executing caller code
+2026-10-20T15:06:00.2495992Z   ---
+2026-10-20T15:06:00.2501973Z   duration_ms: 10.587125
+2026-10-20T15:06:00.2515070Z   type: 'test'
+2026-10-20T15:06:00.2516013Z   ...
+2026-10-20T15:06:00.2516676Z # Subtest: rejects custom objects and hostile installation arrays
+2026-10-20T15:06:00.2517575Z ok 12 - rejects custom objects and hostile installation arrays
+2026-10-20T15:06:00.2518302Z   ---
+2026-10-20T15:06:00.2518766Z   duration_ms: 5.299192
+2026-10-20T15:06:00.2519339Z   type: 'test'
+2026-10-20T15:06:00.2519844Z   ...
+2026-10-20T15:06:00.2520609Z # Subtest: release identity validation detaches and deeply freezes bounded input
+2026-10-20T15:06:00.2521708Z ok 13 - release identity validation detaches and deeply freezes bounded input
+2026-10-20T15:06:00.2522577Z   ---
+2026-10-20T15:06:00.2523063Z   duration_ms: 0.901937
+2026-10-20T15:06:00.2523595Z   type: 'test'
+2026-10-20T15:06:00.2524076Z   ...
+2026-10-20T15:06:00.2524822Z # Subtest: release identity accepts only supported Full/Lite/Desktop artifact shapes
+2026-10-20T15:06:00.2526329Z ok 14 - release identity accepts only supported Full/Lite/Desktop artifact shapes
+2026-10-20T15:06:00.2527426Z   ---
+2026-10-20T15:06:00.2528002Z   duration_ms: 0.932965
+2026-10-20T15:06:00.2528543Z   type: 'test'
+2026-10-20T15:06:00.2529027Z   ...
+2026-10-20T15:06:00.2529716Z # Subtest: release identity refuses ambiguous OCI and mutable HTTPS references
+2026-10-20T15:06:00.2530745Z ok 15 - release identity refuses ambiguous OCI and mutable HTTPS references
+2026-10-20T15:06:00.2531539Z   ---
+2026-10-20T15:06:00.2532027Z   duration_ms: 0.763449
+2026-10-20T15:06:00.2532548Z   type: 'test'
+2026-10-20T15:06:00.2533021Z   ...
+2026-10-20T15:06:00.2533827Z # Subtest: release identity rejects prototype objects, unknown fields, malformed values, and bounds
+2026-10-20T15:06:00.2535796Z ok 16 - release identity rejects prototype objects, unknown fields, malformed values, and bounds
+2026-10-20T15:06:00.2536743Z   ---
+2026-10-20T15:06:00.2537271Z   duration_ms: 0.38771
+2026-10-20T15:06:00.2537811Z   type: 'test'
+2026-10-20T15:06:00.2538309Z   ...
+2026-10-20T15:06:00.2538986Z # Subtest: structure-only identity fails closed before artifact_verified
+2026-10-20T15:06:00.2539943Z ok 17 - structure-only identity fails closed before artifact_verified
+2026-10-20T15:06:00.2540698Z   ---
+2026-10-20T15:06:00.2541183Z   duration_ms: 0.709129
+2026-10-20T15:06:00.2541720Z   type: 'test'
+2026-10-20T15:06:00.2542200Z   ...
+2026-10-20T15:06:00.2542920Z # Subtest: fresh-install state advances through the one deterministic legal sequence
+2026-10-20T15:06:00.2544012Z ok 18 - fresh-install state advances through the one deterministic legal sequence
+2026-10-20T15:06:00.2544902Z   ---
+2026-10-20T15:06:00.2545598Z   duration_ms: 2.857843
+2026-10-20T15:06:00.2546149Z   type: 'test'
+2026-10-20T15:06:00.2546664Z   ...
+2026-10-20T15:06:00.2547408Z # Subtest: pending effect identity prevents mismatched completion and replay
+2026-10-20T15:06:00.2548890Z ok 19 - pending effect identity prevents mismatched completion and replay
+2026-10-20T15:06:00.2549716Z   ---
+2026-10-20T15:06:00.2550186Z   duration_ms: 1.523232
+2026-10-20T15:06:00.2550705Z   type: 'test'
+2026-10-20T15:06:00.2551173Z   ...
+2026-10-20T15:06:00.2551848Z # Subtest: known failure and outcome_unknown are fail-safe terminal outcomes
+2026-10-20T15:06:00.2552885Z ok 20 - known failure and outcome_unknown are fail-safe terminal outcomes
+2026-10-20T15:06:00.2553670Z   ---
+2026-10-20T15:06:00.2554153Z   duration_ms: 2.982205
+2026-10-20T15:06:00.2554711Z   type: 'test'
+2026-10-20T15:06:00.2555502Z   ...
+2026-10-20T15:06:00.2556335Z # Subtest: committed record is revision 1, artifact-bound, deeply frozen, and local-only
+2026-10-20T15:06:00.2557551Z ok 21 - committed record is revision 1, artifact-bound, deeply frozen, and local-only
+2026-10-20T15:06:00.2558408Z   ---
+2026-10-20T15:06:00.2558893Z   duration_ms: 2.812221
+2026-10-20T15:06:00.2559485Z   type: 'test'
+2026-10-20T15:06:00.2559986Z   ...
+2026-10-20T15:06:00.2560886Z # Subtest: lexical owned paths reject traversal, absolute forms, controls, and protected roots
+2026-10-20T15:06:00.2562106Z ok 22 - lexical owned paths reject traversal, absolute forms, controls, and protected roots
+2026-10-20T15:06:00.2563079Z   ---
+2026-10-20T15:06:00.2563568Z   duration_ms: 0.87086
+2026-10-20T15:06:00.2564159Z   type: 'test'
+2026-10-20T15:06:00.2564632Z   ...
+2026-10-20T15:06:00.2565630Z # Subtest: cleanup plan rejects case-fold duplicates, non-files, unknown fields, and prototypes
+2026-10-20T15:06:00.2566894Z ok 23 - cleanup plan rejects case-fold duplicates, non-files, unknown fields, and prototypes
+2026-10-20T15:06:00.2567819Z   ---
+2026-10-20T15:06:00.2568295Z   duration_ms: 21.361266
+2026-10-20T15:06:00.2568824Z   type: 'test'
+2026-10-20T15:06:00.2569312Z   ...
+2026-10-20T15:06:00.2570096Z # Subtest: cleanup plan refuses current/protected overlap and returns stable explicit file candidates
+2026-10-20T15:06:00.2571378Z ok 24 - cleanup plan refuses current/protected overlap and returns stable explicit file candidates
+2026-10-20T15:06:00.2572332Z   ---
+2026-10-20T15:06:00.2572820Z   duration_ms: 9.425115
+2026-10-20T15:06:00.2573350Z   type: 'test'
+2026-10-20T15:06:00.2573822Z   ...
+2026-10-20T15:06:00.2574506Z # Subtest: cleanup plan requires post-health commit and matching ownership authority
+2026-10-20T15:06:00.2575810Z ok 25 - cleanup plan requires post-health commit and matching ownership authority
+2026-10-20T15:06:00.2576636Z   ---
+2026-10-20T15:06:00.2577125Z   duration_ms: 25.07361
+2026-10-20T15:06:00.2577646Z   type: 'test'
+2026-10-20T15:06:00.2578102Z   ...
+2026-10-20T15:06:00.2578898Z # Subtest: maps explicit Legacy LAN loopback configuration to Lite local without changing access scope
+2026-10-20T15:06:00.2580392Z ok 26 - maps explicit Legacy LAN loopback configuration to Lite local without changing access scope
+2026-10-20T15:06:00.2581526Z   ---
+2026-10-20T15:06:00.2581977Z   duration_ms: 3.199639
+2026-10-20T15:06:00.2582477Z   type: 'test'
+2026-10-20T15:06:00.2582928Z   ...
+2026-10-20T15:06:00.2583503Z # Subtest: accepts only the Legacy localhost loopback hostname
+2026-10-20T15:06:00.2584317Z ok 27 - accepts only the Legacy localhost loopback hostname
+2026-10-20T15:06:00.2585003Z   ---
+2026-10-20T15:06:00.2585763Z   duration_ms: 0.406756
+2026-10-20T15:06:00.2586328Z   type: 'test'
+2026-10-20T15:06:00.2586881Z   ...
+2026-10-20T15:06:00.2587590Z # Subtest: maps explicit private Legacy LAN configuration to Lite LAN
+2026-10-20T15:06:00.2588524Z ok 28 - maps explicit private Legacy LAN configuration to Lite LAN
+2026-10-20T15:06:00.2589259Z   ---
+2026-10-20T15:06:00.2589724Z   duration_ms: 0.502745
+2026-10-20T15:06:00.2590256Z   type: 'test'
+2026-10-20T15:06:00.2590734Z   ...
+2026-10-20T15:06:00.2591438Z # Subtest: keeps Full as Full while classifying only explicit local access evidence
+2026-10-20T15:06:00.2592504Z ok 29 - keeps Full as Full while classifying only explicit local access evidence
+2026-10-20T15:06:00.2593302Z   ---
+2026-10-20T15:06:00.2593770Z   duration_ms: 5.894379
+2026-10-20T15:06:00.2594522Z   type: 'test'
+2026-10-20T15:06:00.2595045Z   ...
+2026-10-20T15:06:00.2596378Z # Subtest: never infers public access from broad, public, missing, ambiguous, or reverse-proxy inputs
+2026-10-20T15:06:00.2606585Z ok 30 - never infers public access from broad, public, missing, ambiguous, or reverse-proxy inputs
+2026-10-20T15:06:00.2607550Z   ---
+2026-10-20T15:06:00.2607993Z   duration_ms: 3.168963
+2026-10-20T15:06:00.2608491Z   type: 'test'
+2026-10-20T15:06:00.2608953Z   ...
+2026-10-20T15:06:00.2609812Z # Subtest: rejects unknown fields, prototypes, accessors, control characters, invalid values, and wrong types
+2026-10-20T15:06:00.2611206Z ok 31 - rejects unknown fields, prototypes, accessors, control characters, invalid values, and wrong types
+2026-10-20T15:06:00.2612188Z   ---
+2026-10-20T15:06:00.2612636Z   duration_ms: 1.378673
+2026-10-20T15:06:00.2613127Z   type: 'test'
+2026-10-20T15:06:00.2613529Z   ...
+2026-10-20T15:06:00.2614008Z # Subtest: returns a detached deeply frozen profile
+2026-10-20T15:06:00.2614703Z ok 32 - returns a detached deeply frozen profile
+2026-10-20T15:06:00.2615502Z   ---
+2026-10-20T15:06:00.2615921Z   duration_ms: 0.406065
+2026-10-20T15:06:00.2616469Z   type: 'test'
+2026-10-20T15:06:00.2616932Z   ...
+2026-10-20T15:06:03.6580434Z # MyAPI: --project-dir requires a value
+2026-10-20T15:06:03.6984658Z # MyAPI: unknown option --unknown
+2026-10-20T15:06:03.7377047Z # MyAPI: deployment preflight failed: MYAPI_PUBLIC_URL must be an exact non-placeholder HTTPS origin
+2026-10-20T15:06:04.8311551Z # MyAPI: --version must be a semantic version such as v0.2.0
+2026-10-20T15:06:08.2864340Z # MyAPI: --json is only supported with --dry-run
+2026-10-20T15:06:10.2547966Z # MyAPI: upgrade preflight failed: MYAPI_CPU_LIMIT must be a number greater than 0 and no more than 64
+2026-10-20T15:06:11.4502110Z # MyAPI: docker exited with status 42; previous image restored and health-checked
+2026-10-20T15:06:12.6621649Z # MyAPI: docker exited with status 42; target startup was attempted and the database may have changed; automatic image rollback was not attempted. Target configuration was retained. Inspect the deployment and restore a verified pre-upgrade database backup before starting the previous image. No database restore was performed. Original environment backup: /tmp/myapi-cli-6dHQsM/source/backups/myapi-upgrade-2026-10-20T15-06-12-650Z.env
+2026-10-20T15:06:14.9948980Z # MyAPI: pulled image did not expose a valid repository digest; previous image restored and health-checked
+2026-10-20T15:06:16.0793881Z # MyAPI: deployment preflight failed: MYAPI_CPU_LIMIT must be a number greater than 0 and no more than 64; MYAPI_MEMORY_LIMIT must be a positive Docker size such as 512m or 2g
+2026-10-20T15:06:17.3318073Z # MyAPI: deployment preflight failed: LAN binding is disabled by default; pass --allow-lan to share on a private network
+2026-10-20T15:06:18.4516745Z # MyAPI: upgrade preflight failed: LAN binding is disabled by default; pass --allow-lan to share on a private network
+2026-10-20T15:06:19.6316677Z # MyAPI: signature verification requires MYAPI_COSIGN_CERTIFICATE_IDENTITY in deploy/.env
+2026-10-20T15:06:23.5266652Z # MyAPI: LAN binding is disabled by default; pass --allow-lan to share on a private network
+2026-10-20T15:06:25.8259446Z # MyAPI: MYAPI_BIND_ADDRESS must be localhost, loopback, 0.0.0.0, or a private IPv4 address
+2026-10-20T15:06:25.8640411Z # MyAPI: --port must be an integer between 1 and 65535
+2026-10-20T15:06:25.9076720Z # MyAPI: MYAPI_BIND_ADDRESS must be localhost, loopback, 0.0.0.0, or a private IPv4 address
+2026-10-20T15:06:25.9535308Z # MyAPI: MYAPI_BIND_ADDRESS must be localhost, loopback, 0.0.0.0, or a private IPv4 address
+2026-10-20T15:06:25.9990220Z # MyAPI: MYAPI_BIND_ADDRESS must be localhost, loopback, 0.0.0.0, or a private IPv4 address
+2026-10-20T15:06:26.0381454Z # MyAPI: MYAPI_BIND_ADDRESS must be localhost, loopback, 0.0.0.0, or a private IPv4 address
+2026-10-20T15:06:26.0781188Z # MyAPI: MYAPI_BIND_ADDRESS must be localhost, loopback, 0.0.0.0, or a private IPv4 address
+2026-10-20T15:06:26.8278710Z # Pulling MyAPI image from ghcr.io/forcemind/myapi-lan:v0.2.0-beta.24.
+2026-10-20T15:06:28.0800197Z # Pulling MyAPI image from ghcr.io/forcemind/myapi-lan:v0.2.0-beta.24.
+2026-10-20T15:06:29.3262364Z # Pulling MyAPI image from ghcr.io/forcemind/myapi:v0.2.0-beta.24.
+2026-10-20T15:06:30.5014838Z # MyAPI: deployment preflight failed: full edition requires MYAPI_SESSION_COOKIE_SECURE=true
+2026-10-20T15:06:30.5260790Z # full edition requires MYAPI_SESSION_COOKIE_SECURE=true.
+2026-10-20T15:06:33.7554477Z # MyAPI: existing deployment configuration is preserved, including with --force; review BATCH_UPDATE_ENABLED and keep the original identities and accounting configuration
+2026-10-20T15:06:33.7970831Z # MyAPI: existing deployment configuration is preserved, including with --force; review BATCH_UPDATE_ENABLED and keep the original identities and accounting configuration
+2026-10-20T15:06:33.8379302Z # MyAPI: existing deployment configuration is preserved, including with --force; review BATCH_UPDATE_ENABLED and keep the original identities and accounting configuration
+2026-10-20T15:06:35.0004016Z # MyAPI: deployment preflight failed: BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; no accounting mode was changed
+2026-10-20T15:06:35.0448191Z # MyAPI: upgrade preflight failed: BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; no accounting mode was changed
+2026-10-20T15:06:35.0571511Z # BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; the running instance was not changed.
+2026-10-20T15:06:35.0980208Z # MyAPI: deployment preflight failed: BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; no accounting mode was changed
+2026-10-20T15:06:35.1388921Z # MyAPI: upgrade preflight failed: BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; no accounting mode was changed
+2026-10-20T15:06:35.1513412Z # BATCH_UPDATE_ENABLED needs review: set an explicit true or false in the existing deployment file; the running instance was not changed.
+2026-10-20T15:06:35.1960868Z # MyAPI: deployment preflight failed: BATCH_UPDATE_ENABLED=true needs review: this cache-free deployment helper cannot verify the existing writer mode or Redis accounting state; keep the running instance and review its original deployment, do not disable batching to bypass this check
+2026-10-20T15:06:35.2375949Z # MyAPI: upgrade preflight failed: BATCH_UPDATE_ENABLED=true needs review: this cache-free deployment helper cannot verify the existing writer mode or Redis accounting state; keep the running instance and review its original deployment, do not disable batching to bypass this check
+2026-10-20T15:06:35.2523562Z # BATCH_UPDATE_ENABLED=true needs review: this cache-free installer cannot verify the existing writer mode or Redis accounting state. Keep the running instance and review its original deployment; do not disable batching to bypass this check.
+2026-10-20T15:06:35.2926439Z # MyAPI: BATCH_UPDATE_ENABLED is duplicated and needs review; no accounting mode was changed
+2026-10-20T15:06:35.3335362Z # MyAPI: BATCH_UPDATE_ENABLED is duplicated and needs review; no accounting mode was changed
+2026-10-20T15:06:35.3406986Z # BATCH_UPDATE_ENABLED is duplicated and needs review; the running instance was not changed.
+2026-10-20T15:06:36.4361517Z # MyAPI: accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart
+2026-10-20T15:06:36.4844692Z # MyAPI: accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart
+2026-10-20T15:06:36.5106307Z # Accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart.
+2026-10-20T15:06:36.5580779Z # MyAPI: accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart
+2026-10-20T15:06:36.6064788Z # MyAPI: accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart
+2026-10-20T15:06:36.6315861Z # Accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart.
+2026-10-20T15:06:36.6784599Z # MyAPI: accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart
+2026-10-20T15:06:36.7273265Z # MyAPI: accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart
+2026-10-20T15:06:36.7531066Z # Accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart.
+2026-10-20T15:06:37.9480618Z # Pulling MyAPI image from ghcr.io/forcemind/myapi:v0.2.0-beta.24.
+2026-10-20T15:06:39.0498636Z # MyAPI: existing data or identity requires review; refusing to generate a fresh BATCH_UPDATE_ENABLED=false configuration
+2026-10-20T15:06:39.0576098Z # Existing data or identity needs review; refusing to generate a fresh BATCH_UPDATE_ENABLED=false configuration.
+2026-10-20T15:06:40.2147645Z # MyAPI: existing data or identity requires review; refusing to generate a fresh BATCH_UPDATE_ENABLED=false configuration
+2026-10-20T15:06:40.2400571Z # Existing data or identity needs review without a verified container; no container or accounting mode was changed.
+2026-10-20T15:06:41.3688124Z # Created /tmp/myapi-cli-lJXxck/project/deploy/.env. Set SESSION_SECRET and MYAPI_PUBLIC_URL, then run this script again.
+2026-10-20T15:06:42.5408978Z # MyAPI: adopting existing data needs accounting configuration review; preserve the original BATCH_UPDATE_ENABLED and Redis state before changing deployment paths
+2026-10-20T15:06:43.6470774Z # MyAPI: deployment preflight failed: MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1; do not copy the new marker into an old installation without reviewing its effective writer and cache accounting state
+2026-10-20T15:06:43.6887983Z # MyAPI: upgrade preflight failed: MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1; do not copy the new marker into an old installation without reviewing its effective writer and cache accounting state
+2026-10-20T15:06:43.7015730Z # MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1. Do not copy a new marker into an old installation without reviewing its effective writer and cache accounting state; the running instance was not changed.
+2026-10-20T15:06:43.7427417Z # MyAPI: existing deployment configuration is preserved, including with --force; review BATCH_UPDATE_ENABLED and keep the original identities and accounting configuration
+2026-10-20T15:06:43.7876911Z # MyAPI: deployment preflight failed: MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1; do not copy the new marker into an old installation without reviewing its effective writer and cache accounting state
+2026-10-20T15:06:43.8300841Z # MyAPI: upgrade preflight failed: MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1; do not copy the new marker into an old installation without reviewing its effective writer and cache accounting state
+2026-10-20T15:06:43.8438847Z # MYAPI_ACCOUNTING_CONFIG_VERSION needs review: supported version is 1. Do not copy a new marker into an old installation without reviewing its effective writer and cache accounting state; the running instance was not changed.
+2026-10-20T15:06:43.8866520Z # MyAPI: existing deployment configuration is preserved, including with --force; review BATCH_UPDATE_ENABLED and keep the original identities and accounting configuration
+2026-10-20T15:06:43.9257670Z # MyAPI: MYAPI_ACCOUNTING_CONFIG_VERSION is duplicated and needs review; no accounting mode was changed
+2026-10-20T15:06:43.9685589Z # MyAPI: MYAPI_ACCOUNTING_CONFIG_VERSION is duplicated and needs review; no accounting mode was changed
+2026-10-20T15:06:43.9760352Z # MYAPI_ACCOUNTING_CONFIG_VERSION is duplicated and needs review; the running instance was not changed.
+2026-10-20T15:06:44.0211966Z # MyAPI: existing deployment configuration is preserved, including with --force; review BATCH_UPDATE_ENABLED and keep the original identities and accounting configuration
+2026-10-20T15:06:44.4589592Z # Subtest: version exposes the MyAPI distribution identity
+2026-10-20T15:06:44.4592480Z ok 33 - version exposes the MyAPI distribution identity
+2026-10-20T15:06:44.4593698Z   ---
+2026-10-20T15:06:44.4594066Z   duration_ms: 64.854584
+2026-10-20T15:06:44.4594486Z   type: 'test'
+2026-10-20T15:06:44.4594841Z   ...
+2026-10-20T15:06:44.4605927Z # Subtest: generated deployment defaults follow the package release version
+2026-10-20T15:06:44.4610828Z not ok 34 - generated deployment defaults follow the package release version
+2026-10-20T15:06:44.4611926Z   ---
+2026-10-20T15:06:44.4612281Z   duration_ms: 1116.16192
+2026-10-20T15:06:44.4612692Z   type: 'test'
+2026-10-20T15:06:44.4613239Z   location: '/home/runner/work/MyAPI/MyAPI/cli/test/myapi.test.mjs:84:1'
+2026-10-20T15:06:44.4613956Z   failureType: 'testCodeFailure'
+2026-10-20T15:06:44.4614427Z   error: |-
+2026-10-20T15:06:44.4615534Z     The input did not match the regular expression /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi:v0.2.0-beta.25$/m. Input:
+2026-10-20T15:06:44.4616462Z     
+2026-10-20T15:06:44.4617095Z     '# MyAPI deployment settings. These MYAPI_* names are canonical for new installs.\n' +
+2026-10-20T15:06:44.4618202Z       '# beta.22 is an unpublished platform UI candidate; do not pull or deploy before publication.\n' +
+2026-10-20T15:06:44.4619537Z       '# The published beta.10 remains available; see docs/PERSONAL_CONSOLE_ACCEPTANCE_CONTROL_EXECUTION_20261019.md for scope.\n' +
+2026-10-20T15:06:44.4620862Z       '# Review the accounting preflight guide before upgrading an existing installation.\n' +
+2026-10-20T15:06:44.4622208Z       '# Existing deployments retain their explicit image and reviewed accounting settings.\n' +
+2026-10-20T15:06:44.4623999Z       'MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.24\n' +
+2026-10-20T15:06:44.4625759Z       '# Select full for the server edition or lan for the private LAN edition.\n' +
+2026-10-20T15:06:44.4626647Z       'MYAPI_EDITION=full\n' +
+2026-10-20T15:06:44.4627322Z       'MYAPI_BUILD_LOCAL=false\n' +
+2026-10-20T15:06:44.4628223Z       '# Fresh, cache-free installations only. Existing installations must preserve\n' +
+2026-10-20T15:06:44.4629304Z       '# their reviewed choice; never disable batching to bypass a Redis outage or\n' +
+2026-10-20T15:06:44.4630567Z       '# abandon outstanding quota generations. This template does not provide Redis.\n' +
+2026-10-20T15:06:44.4631591Z       'BATCH_UPDATE_ENABLED=false\n' +
+2026-10-20T15:06:44.4632549Z       '# Fresh configuration contract. Do not add this marker to an old installation\n' +
+2026-10-20T15:06:44.4633800Z       '# until its effective writer/cache state and outstanding quota work are reviewed.\n' +
+2026-10-20T15:06:44.4634862Z       'MYAPI_ACCOUNTING_CONFIG_VERSION=1\n' +
+2026-10-20T15:06:44.4636102Z       '# Keep the host binding private by default. Set to a private interface or\n' +
+2026-10-20T15:06:44.4637136Z       '# 0.0.0.0 only when intentionally sharing the LAN.\n' +
+2026-10-20T15:06:44.4638268Z       'MYAPI_BIND_ADDRESS=127.0.0.1\n' +
+2026-10-20T15:06:44.4639257Z       '# Sharing beyond this machine is opt-in. Keep false unless a private LAN\n' +
+2026-10-20T15:06:44.4640354Z       '# interface or 0.0.0.0 binding is intentionally required.\n' +
+2026-10-20T15:06:44.4641220Z       'MYAPI_ALLOW_LAN=false\n' +
+2026-10-20T15:06:44.4641921Z       'MYAPI_SESSION_COOKIE_SECURE=true\n' +
+2026-10-20T15:06:44.4642649Z       'MYAPI_PORT=3000\n' +
+2026-10-20T15:06:44.4643590Z       'MYAPI_PUBLIC_URL=https://myapi.example.test\n' +
+2026-10-20T15:06:44.4644537Z       'MYAPI_DATA_DIR=./data\n' +
+2026-10-20T15:06:44.4656052Z       'MYAPI_LOGS_DIR=./logs\n' +
+2026-10-20T15:06:44.4657006Z       '# Database names for new installs. For an existing legacy volume, set\n' +
+2026-10-20T15:06:44.4658258Z       '# MYAPI_DB_NAME to its current database name before starting; no implicit\n' +
+2026-10-20T15:06:44.4659247Z       '# database rename is performed.\n' +
+2026-10-20T15:06:44.4659960Z       'MYAPI_DB_NAME=myapi\n' +
+2026-10-20T15:06:44.4660645Z       'MYAPI_LOG_DB_NAME=myapi-log\n' +
+2026-10-20T15:06:44.4661335Z       'MYAPI_CLICKHOUSE_DB=myapi_logs\n' +
+2026-10-20T15:06:44.4662205Z       '# Resource guardrails for Docker Desktop and small servers. Increase only\n' +
+2026-10-20T15:06:44.4663273Z       '# after measuring the workload; values use Docker Compose syntax.\n' +
+2026-10-20T15:06:44.4664149Z       'MYAPI_CPU_LIMIT=2.0\n' +
+2026-10-20T15:06:44.4664755Z       'MYAPI_MEMORY_LIMIT=2g\n' +
+2026-10-20T15:06:44.4665675Z       '# Local Docker/Electron builds use at most this many Go package workers.\n' +
+2026-10-20T15:06:44.4666513Z       'MYAPI_BUILD_PARALLELISM=2\n' +
+2026-10-20T15:06:44.4667231Z       '# Provider account balance sampling is enabled by default in the service; leave\n' +
+2026-10-20T15:06:44.4668249Z       '# overrides empty to allow administrators to adjust them from the monitoring UI.\n' +
+2026-10-20T15:06:44.4668967Z       'CHANNEL_QUOTA_SYNC_ENABLED=\n' +
+2026-10-20T15:06:44.4669407Z       'CHANNEL_QUOTA_SYNC_INTERVAL=\n' +
+2026-10-20T15:06:44.4669702Z       'CHANNEL_QUOTA_SYNC_MAX_CHANNELS=\n' +
+2026-10-20T15:06:44.4670122Z       '# Stable multi-account quota identity keyring. Generate an independent 32-byte\n' +
+2026-10-20T15:06:44.4670690Z       '# base64url secret (without padding) for a new database; keep existing keys on\n' +
+2026-10-20T15:06:44.4671257Z       '# upgrade. Share it across instances using that database and back it up safely.\n' +
+2026-10-20T15:06:44.4671822Z       '# Never commit real values. Empty disables identity-dependent quota sampling.\n' +
+2026-10-20T15:06:44.4672324Z       '# CHANNEL_QUOTA_IDENTITY_KEYS=active:v1:<base64url-secret>\n' +
+2026-10-20T15:06:44.4672812Z       '# Threshold status is opt-in and read-only. Cooldown/recovery values are\n' +
+2026-10-20T15:06:44.4673598Z       '# notifier-neutral policy metadata; no outbound notification is sent yet.\n' +
+2026-10-20T15:06:44.4674020Z       'CHANNEL_QUOTA_ALERT_ENABLED=false\n' +
+2026-10-20T15:06:44.4674329Z       'CHANNEL_QUOTA_ALERT_WARNING_PERCENT=20\n' +
+2026-10-20T15:06:44.4674645Z       'CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT=10\n' +
+2026-10-20T15:06:44.4674962Z       'CHANNEL_QUOTA_ALERT_COOLDOWN_SECONDS=3600\n' +
+2026-10-20T15:06:44.4675658Z       'CHANNEL_QUOTA_ALERT_NOTIFY_ON_RECOVERY=false\n' +
+2026-10-20T15:06:44.4676465Z       '# Existing installations may still use the legacy NEW_API_* names. The MyAPI CLI\n' +
+2026-10-20T15:06:44.4677723Z       '# and deploy/install.sh read those names as a compatibility fallback; run\n' +
+2026-10-20T15:06:44.4678541Z       '# `myapi migrate --project-dir DIR` to write canonical MYAPI_* keys.\n' +
+2026-10-20T15:06:44.4678969Z       '# NEW_API_IMAGE=local/new-api:custom-rc25\n' +
+2026-10-20T15:06:44.4679271Z       '# NEW_API_PORT=3000\n' +
+2026-10-20T15:06:44.4679596Z       '# NEW_API_PUBLIC_URL=https://new-api.example.com\n' +
+2026-10-20T15:06:44.4679942Z       '# NEW_API_DATA_DIR=./data\n' +
+2026-10-20T15:06:44.4680210Z       '# NEW_API_LOGS_DIR=./logs\n' +
+2026-10-20T15:06:44.4680935Z       '# Optional build-time distribution branding. Runtime site settings still take precedence.\n' +
+2026-10-20T15:06:44.4681425Z       'MYAPI_BRAND_NAME=MyAPI\n' +
+2026-10-20T15:06:44.4681725Z       'MYAPI_BRAND_LOGO=/myapi-logo-v1.png\n' +
+2026-10-20T15:06:44.4682180Z       'SESSION_SECRET=9f3adb060686f076de6e89f4f06776744e884d848885539d42d97bcb2461c358\n' +
+2026-10-20T15:06:44.4682621Z       'FULL_CONTENT_LOG_ENABLED=true\n' +
+2026-10-20T15:06:44.4682893Z       'FULL_CONTENT_LOG_MAX_MB=100\n' +
+2026-10-20T15:06:44.4683158Z       'FULL_CONTENT_LOG_MAX_FILES=10\n' +
+2026-10-20T15:06:44.4683561Z       '# Optional quota history retention. 0 keeps all normalized snapshots; a\n' +
+2026-10-20T15:06:44.4684081Z       '# positive value enables a daily, bounded cleanup task (maximum 100 years).\n' +
+2026-10-20T15:06:44.4684519Z       'CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS=0\n' +
+2026-10-20T15:06:44.4684935Z       '# Optional keyless cosign verification for `myapi upgrade`. Keep disabled\n' +
+2026-10-20T15:06:44.4686052Z       '# unless cosign is installed and the expected workflow identity is configured.\n' +
+2026-10-20T15:06:44.4686859Z       '# MYAPI_VERIFY_IMAGE_SIGNATURE=false\n' +
+2026-10-20T15:06:44.4687580Z       '# Optional post-pull digest pinning for `myapi upgrade`; this resolves the\n' +
+2026-10-20T15:06:44.4688557Z       '# pulled tag once, then persists the immutable repository digest in `.env`.\n' +
+2026-10-20T15:06:44.4689320Z       '# MYAPI_PIN_IMAGE_DIGEST=false\n' +
+2026-10-20T15:06:44.4690425Z       '# MYAPI_COSIGN_CERTIFICATE_IDENTITY=https://github.com/ForceMind/MyAPI/.github/workflows/docker-build.yml@refs/tags/v<version>\n' +
+2026-10-20T15:06:44.4691886Z       '# MYAPI_COSIGN_CERTIFICATE_OIDC_ISSUER=https://token.actions.githubusercontent.com\n'
+2026-10-20T15:06:44.4692802Z     
+2026-10-20T15:06:44.4693133Z   code: 'ERR_ASSERTION'
+2026-10-20T15:06:44.4693537Z   name: 'AssertionError'
+2026-10-20T15:06:44.4693914Z   expected:
+2026-10-20T15:06:44.4694228Z   actual: |-
+2026-10-20T15:06:44.4694840Z     # MyAPI deployment settings. These MYAPI_* names are canonical for new installs.
+2026-10-20T15:06:44.4696454Z     # beta.22 is an unpublished platform UI candidate; do not pull or deploy before publication.
+2026-10-20T15:06:44.4697598Z     # The published beta.10 remains available; see docs/PERSONAL_CONSOLE_ACCEPTANCE_CONTROL_EXECUTION_20261019.md for scope.
+2026-10-20T15:06:44.4698669Z     # Review the accounting preflight guide before upgrading an existing installation.
+2026-10-20T15:06:44.4699624Z     # Existing deployments retain their explicit image and reviewed accounting settings.
+2026-10-20T15:06:44.4700425Z     MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.24
+2026-10-20T15:06:44.4701055Z     # Select full for the server edition or lan for the private LAN edition.
+2026-10-20T15:06:44.4701931Z     MYAPI_EDITION=full
+2026-10-20T15:06:44.4702298Z     MYAPI_BUILD_LOCAL=false
+2026-10-20T15:06:44.4702882Z     # Fresh, cache-free installations only. Existing installations must preserve
+2026-10-20T15:06:44.4703825Z     # their reviewed choice; never disable batching to bypass a Redis outage or
+2026-10-20T15:06:44.4704784Z     # abandon outstanding quota generations. This template does not provide Redis.
+2026-10-20T15:06:44.4766102Z     BATCH_UPDATE_ENABLED=false
+2026-10-20T15:06:44.4766818Z     # Fresh configuration contract. Do not add this marker to an old installation
+2026-10-20T15:06:44.4767758Z     # until its effective writer/cache state and outstanding quota work are reviewed.
+2026-10-20T15:06:44.4768498Z     MYAPI_ACCOUNTING_CONFIG_VERSION=1
+2026-10-20T15:06:44.4769146Z     # Keep the host binding private by default. Set to a private interface or
+2026-10-20T15:06:44.4769875Z     # 0.0.0.0 only when intentionally sharing the LAN.
+2026-10-20T15:06:44.4770409Z     MYAPI_BIND_ADDRESS=127.0.0.1
+2026-10-20T15:06:44.4771046Z     # Sharing beyond this machine is opt-in. Keep false unless a private LAN
+2026-10-20T15:06:44.4771798Z     # interface or 0.0.0.0 binding is intentionally required.
+2026-10-20T15:06:44.4772726Z     MYAPI_ALLOW_LAN=false
+2026-10-20T15:06:44.4773123Z     MYAPI_SESSION_COOKIE_SECURE=true
+2026-10-20T15:06:44.4773562Z     MYAPI_PORT=3000
+2026-10-20T15:06:44.4773994Z     MYAPI_PUBLIC_URL=https://myapi.example.test
+2026-10-20T15:06:44.4774508Z     MYAPI_DATA_DIR=./data
+2026-10-20T15:06:44.4774946Z     MYAPI_LOGS_DIR=./logs
+2026-10-20T15:06:44.4806790Z     # Database names for new installs. For an existing legacy volume, set
+2026-10-20T15:06:44.4807687Z     # MYAPI_DB_NAME to its current database name before starting; no implicit
+2026-10-20T15:06:44.4808374Z     # database rename is performed.
+2026-10-20T15:06:44.4808819Z     MYAPI_DB_NAME=myapi
+2026-10-20T15:06:44.4809224Z     MYAPI_LOG_DB_NAME=myapi-log
+2026-10-20T15:06:44.4809673Z     MYAPI_CLICKHOUSE_DB=myapi_logs
+2026-10-20T15:06:44.4810346Z     # Resource guardrails for Docker Desktop and small servers. Increase only
+2026-10-20T15:06:44.4811156Z     # after measuring the workload; values use Docker Compose syntax.
+2026-10-20T15:06:44.4811759Z     MYAPI_CPU_LIMIT=2.0
+2026-10-20T15:06:44.4812149Z     MYAPI_MEMORY_LIMIT=2g
+2026-10-20T15:06:44.4812729Z     # Local Docker/Electron builds use at most this many Go package workers.
+2026-10-20T15:06:44.4813396Z     MYAPI_BUILD_PARALLELISM=2
+2026-10-20T15:06:44.4814041Z     # Provider account balance sampling is enabled by default in the service; leave
+2026-10-20T15:06:44.4814963Z     # overrides empty to allow administrators to adjust them from the monitoring UI.
+2026-10-20T15:06:44.4815923Z     CHANNEL_QUOTA_SYNC_ENABLED=
+2026-10-20T15:06:44.4816340Z     CHANNEL_QUOTA_SYNC_INTERVAL=
+2026-10-20T15:06:44.4816772Z     CHANNEL_QUOTA_SYNC_MAX_CHANNELS=
+2026-10-20T15:06:44.4817438Z     # Stable multi-account quota identity keyring. Generate an independent 32-byte
+2026-10-20T15:06:44.4818350Z     # base64url secret (without padding) for a new database; keep existing keys on
+2026-10-20T15:06:44.4819255Z     # upgrade. Share it across instances using that database and back it up safely.
+2026-10-20T15:06:44.4820144Z     # Never commit real values. Empty disables identity-dependent quota sampling.
+2026-10-20T15:06:44.4820925Z     # CHANNEL_QUOTA_IDENTITY_KEYS=active:v1:<base64url-secret>
+2026-10-20T15:06:44.4821687Z     # Threshold status is opt-in and read-only. Cooldown/recovery values are
+2026-10-20T15:06:44.4822533Z     # notifier-neutral policy metadata; no outbound notification is sent yet.
+2026-10-20T15:06:44.4823211Z     CHANNEL_QUOTA_ALERT_ENABLED=false
+2026-10-20T15:06:44.4823694Z     CHANNEL_QUOTA_ALERT_WARNING_PERCENT=20
+2026-10-20T15:06:44.4824186Z     CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT=10
+2026-10-20T15:06:44.4824699Z     CHANNEL_QUOTA_ALERT_COOLDOWN_SECONDS=3600
+2026-10-20T15:06:44.4825475Z     CHANNEL_QUOTA_ALERT_NOTIFY_ON_RECOVERY=false
+2026-10-20T15:06:44.4826363Z     # Existing installations may still use the legacy NEW_API_* names. The MyAPI CLI
+2026-10-20T15:06:44.4826882Z     # and deploy/install.sh read those names as a compatibility fallback; run
+2026-10-20T15:06:44.4827367Z     # `myapi migrate --project-dir DIR` to write canonical MYAPI_* keys.
+2026-10-20T15:06:44.4827752Z     # NEW_API_IMAGE=local/new-api:custom-rc25
+2026-10-20T15:06:44.4828029Z     # NEW_API_PORT=3000
+2026-10-20T15:06:44.4828308Z     # NEW_API_PUBLIC_URL=https://new-api.example.com
+2026-10-20T15:06:44.4828628Z     # NEW_API_DATA_DIR=./data
+2026-10-20T15:06:44.4828869Z     # NEW_API_LOGS_DIR=./logs
+2026-10-20T15:06:44.4829290Z     # Optional build-time distribution branding. Runtime site settings still take precedence.
+2026-10-20T15:06:44.4829736Z     MYAPI_BRAND_NAME=MyAPI
+2026-10-20T15:06:44.4829982Z     MYAPI_BRAND_LOGO=/myapi-logo-v1.png
+2026-10-20T15:06:44.4830391Z     SESSION_SECRET=9f3adb060686f076de6e89f4f06776744e884d848885539d42d97bcb2461c358
+2026-10-20T15:06:44.4830804Z     FULL_CONTENT_LOG_ENABLED=true
+2026-10-20T15:06:44.4831063Z     FULL_CONTENT_LOG_MAX_MB=100
+2026-10-20T15:06:44.4831300Z     FULL_CONTENT_LOG_MAX_FILES=10
+2026-10-20T15:06:44.4831647Z     # Optional quota history retention. 0 keeps all normalized snapshots; a
+2026-10-20T15:06:44.4832258Z     # positive value enables a daily, bounded cleanup task (maximum 100 years).
+2026-10-20T15:06:44.4832661Z     CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS=0
+2026-10-20T15:06:44.4833047Z     # Optional keyless cosign verification for `myapi upgrade`. Keep disabled
+2026-10-20T15:06:44.4833540Z     # unless cosign is installed and the expected workflow identity is configured.
+2026-10-20T15:06:44.4833937Z     # MYAPI_VERIFY_IMAGE_SIGNATURE=false
+2026-10-20T15:06:44.4834317Z     # Optional post-pull digest pinning for `myapi upgrade`; this resolves the
+2026-10-20T15:06:44.4834800Z     # pulled tag once, then persists the immutable repository digest in `.env`.
+2026-10-20T15:06:44.4835694Z     # MYAPI_PIN_IMAGE_DIGEST=false
+2026-10-20T15:06:44.4836342Z     # MYAPI_COSIGN_CERTIFICATE_IDENTITY=https://github.com/ForceMind/MyAPI/.github/workflows/docker-build.yml@refs/tags/v<version>
+2026-10-20T15:06:44.4837527Z     # MYAPI_COSIGN_CERTIFICATE_OIDC_ISSUER=https://token.actions.githubusercontent.com
+2026-10-20T15:06:44.4838292Z     
+2026-10-20T15:06:44.4838587Z   operator: 'match'
+2026-10-20T15:06:44.4838909Z   stack: |-
+2026-10-20T15:06:44.4839583Z     TestContext.<anonymous> (file:///home/runner/work/MyAPI/MyAPI/cli/test/myapi.test.mjs:91:10)
+2026-10-20T15:06:44.4840449Z     Test.runInAsyncScope (node:async_hooks:214:14)
+2026-10-20T15:06:44.4841001Z     Test.run (node:internal/test_runner/test:1047:25)
+2026-10-20T15:06:44.4841652Z     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+2026-10-20T15:06:44.4842337Z     Test.postRun (node:internal/test_runner/test:1173:19)
+2026-10-20T15:06:44.4842928Z     Test.run (node:internal/test_runner/test:1101:12)
+2026-10-20T15:06:44.4843681Z     async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+2026-10-20T15:06:44.4844406Z   ...
+2026-10-20T15:06:44.4845005Z # Subtest: init copies source without runtime data and configure protects secrets
+2026-10-20T15:06:44.4846260Z not ok 35 - init copies source without runtime data and configure protects secrets
+2026-10-20T15:06:44.4846922Z   ---
+2026-10-20T15:06:44.4847262Z   duration_ms: 1141.787783
+2026-10-20T15:06:44.4847669Z   type: 'test'
+2026-10-20T15:06:44.4848223Z   location: '/home/runner/work/MyAPI/MyAPI/cli/test/myapi.test.mjs:97:1'
+2026-10-20T15:06:44.4848939Z   failureType: 'testCodeFailure'
+2026-10-20T15:06:44.4849384Z   error: |-
+2026-10-20T15:06:44.4850190Z     The input did not match the regular expression /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi:v0\.2\.0-beta\.25$/m. Input:
+2026-10-20T15:06:44.4851099Z     
+2026-10-20T15:06:44.4851703Z     '# MyAPI deployment settings. These MYAPI_* names are canonical for new installs.\n' +
+2026-10-20T15:06:44.4852872Z       '# beta.22 is an unpublished platform UI candidate; do not pull or deploy before publication.\n' +
+2026-10-20T15:06:44.4854731Z       '# The published beta.10 remains available; see docs/PERSONAL_CONSOLE_ACCEPTANCE_CONTROL_EXECUTION_20261019.md for scope.\n' +
+2026-10-20T15:06:44.4856319Z       '# Review the accounting preflight guide before upgrading an existing installation.\n' +
+2026-10-20T15:06:44.4857307Z       '# Existing deployments retain their explicit image and reviewed accounting settings.\n' +
+2026-10-20T15:06:44.4858146Z       'MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.24\n' +
+2026-10-20T15:06:44.4858878Z       '# Select full for the server edition or lan for the private LAN edition.\n' +
+2026-10-20T15:06:44.4859479Z       'MYAPI_EDITION=full\n' +
+2026-10-20T15:06:44.4859866Z       'MYAPI_BUILD_LOCAL=false\n' +
+2026-10-20T15:06:44.4860467Z       '# Fresh, cache-free installations only. Existing installations must preserve\n' +
+2026-10-20T15:06:44.4861317Z       '# their reviewed choice; never disable batching to bypass a Redis outage or\n' +
+2026-10-20T15:06:44.4862239Z       '# abandon outstanding quota generations. This template does not provide Redis.\n' +
+2026-10-20T15:06:44.4862957Z       'BATCH_UPDATE_ENABLED=false\n' +
+2026-10-20T15:06:44.4863886Z       '# Fresh configuration contract. Do not add this marker to an old installation\n' +
+2026-10-20T15:06:44.4864921Z       '# until its effective writer/cache state and outstanding quota work are reviewed.\n' +
+2026-10-20T15:06:44.4866002Z       'MYAPI_ACCOUNTING_CONFIG_VERSION=1\n' +
+2026-10-20T15:06:44.4866730Z       '# Keep the host binding private by default. Set to a private interface or\n' +
+2026-10-20T15:06:44.4867547Z       '# 0.0.0.0 only when intentionally sharing the LAN.\n' +
+2026-10-20T15:06:44.4868138Z       'MYAPI_BIND_ADDRESS=127.0.0.1\n' +
+2026-10-20T15:06:44.4868843Z       '# Sharing beyond this machine is opt-in. Keep false unless a private LAN\n' +
+2026-10-20T15:06:44.4869703Z       '# interface or 0.0.0.0 binding is intentionally required.\n' +
+2026-10-20T15:06:44.4870343Z       'MYAPI_ALLOW_LAN=false\n' +
+2026-10-20T15:06:44.4870835Z       'MYAPI_SESSION_COOKIE_SECURE=true\n' +
+2026-10-20T15:06:44.4871337Z       'MYAPI_PORT=3000\n' +
+2026-10-20T15:06:44.4871851Z       'MYAPI_PUBLIC_URL=https://myapi.example.test\n' +
+2026-10-20T15:06:44.4872464Z       'MYAPI_DATA_DIR=./data\n' +
+2026-10-20T15:06:44.4872915Z       'MYAPI_LOGS_DIR=./logs\n' +
+2026-10-20T15:06:44.4873553Z       '# Database names for new installs. For an existing legacy volume, set\n' +
+2026-10-20T15:06:44.4874460Z       '# MYAPI_DB_NAME to its current database name before starting; no implicit\n' +
+2026-10-20T15:06:44.4875473Z       '# database rename is performed.\n' +
+2026-10-20T15:06:44.4876004Z       'MYAPI_DB_NAME=myapi\n' +
+2026-10-20T15:06:44.4876481Z       'MYAPI_LOG_DB_NAME=myapi-log\n' +
+2026-10-20T15:06:44.4876997Z       'MYAPI_CLICKHOUSE_DB=myapi_logs\n' +
+2026-10-20T15:06:44.4877723Z       '# Resource guardrails for Docker Desktop and small servers. Increase only\n' +
+2026-10-20T15:06:44.4878638Z       '# after measuring the workload; values use Docker Compose syntax.\n' +
+2026-10-20T15:06:44.4879335Z       'MYAPI_CPU_LIMIT=2.0\n' +
+2026-10-20T15:06:44.4879757Z       'MYAPI_MEMORY_LIMIT=2g\n' +
+2026-10-20T15:06:44.4880427Z       '# Local Docker/Electron builds use at most this many Go package workers.\n' +
+2026-10-20T15:06:44.4881089Z       'MYAPI_BUILD_PARALLELISM=2\n' +
+2026-10-20T15:06:44.4881794Z       '# Provider account balance sampling is enabled by default in the service; leave\n' +
+2026-10-20T15:06:44.4882771Z       '# overrides empty to allow administrators to adjust them from the monitoring UI.\n' +
+2026-10-20T15:06:44.4883554Z       'CHANNEL_QUOTA_SYNC_ENABLED=\n' +
+2026-10-20T15:06:44.4884039Z       'CHANNEL_QUOTA_SYNC_INTERVAL=\n' +
+2026-10-20T15:06:44.4884543Z       'CHANNEL_QUOTA_SYNC_MAX_CHANNELS=\n' +
+2026-10-20T15:06:44.4885621Z       '# Stable multi-account quota identity keyring. Generate an independent 32-byte\n' +
+2026-10-20T15:06:44.4886661Z       '# base64url secret (without padding) for a new database; keep existing keys on\n' +
+2026-10-20T15:06:44.4887977Z       '# upgrade. Share it across instances using that database and back it up safely.\n' +
+2026-10-20T15:06:44.4888998Z       '# Never commit real values. Empty disables identity-dependent quota sampling.\n' +
+2026-10-20T15:06:44.4889902Z       '# CHANNEL_QUOTA_IDENTITY_KEYS=active:v1:<base64url-secret>\n' +
+2026-10-20T15:06:44.4890739Z       '# Threshold status is opt-in and read-only. Cooldown/recovery values are\n' +
+2026-10-20T15:06:44.4891692Z       '# notifier-neutral policy metadata; no outbound notification is sent yet.\n' +
+2026-10-20T15:06:44.4892556Z       'CHANNEL_QUOTA_ALERT_ENABLED=false\n' +
+2026-10-20T15:06:44.4893120Z       'CHANNEL_QUOTA_ALERT_WARNING_PERCENT=20\n' +
+2026-10-20T15:06:44.4893697Z       'CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT=10\n' +
+2026-10-20T15:06:44.4894292Z       'CHANNEL_QUOTA_ALERT_COOLDOWN_SECONDS=3600\n' +
+2026-10-20T15:06:44.4894902Z       'CHANNEL_QUOTA_ALERT_NOTIFY_ON_RECOVERY=false\n' +
+2026-10-20T15:06:44.4895974Z       '# Existing installations may still use the legacy NEW_API_* names. The MyAPI CLI\n' +
+2026-10-20T15:06:44.4897002Z       '# and deploy/install.sh read those names as a compatibility fallback; run\n' +
+2026-10-20T15:06:44.4898204Z       '# `myapi migrate --project-dir DIR` to write canonical MYAPI_* keys.\n' +
+2026-10-20T15:06:44.4898947Z       '# NEW_API_IMAGE=local/new-api:custom-rc25\n' +
+2026-10-20T15:06:44.4899454Z       '# NEW_API_PORT=3000\n' +
+2026-10-20T15:06:44.4899977Z       '# NEW_API_PUBLIC_URL=https://new-api.example.com\n' +
+2026-10-20T15:06:44.4900546Z       '# NEW_API_DATA_DIR=./data\n' +
+2026-10-20T15:06:44.4900999Z       '# NEW_API_LOGS_DIR=./logs\n' +
+2026-10-20T15:06:44.4901801Z       '# Optional build-time distribution branding. Runtime site settings still take precedence.\n' +
+2026-10-20T15:06:44.4902643Z       'MYAPI_BRAND_NAME=MyAPI\n' +
+2026-10-20T15:06:44.4903139Z       'MYAPI_BRAND_LOGO=/myapi-logo-v1.png\n' +
+2026-10-20T15:06:44.4903959Z       'SESSION_SECRET=60cfbbc759a9518ee4c98d56333819b2cfe4fbf67675d50c4c13009189a08788\n' +
+2026-10-20T15:06:44.4904808Z       'FULL_CONTENT_LOG_ENABLED=true\n' +
+2026-10-20T15:06:44.4905560Z       'FULL_CONTENT_LOG_MAX_MB=100\n' +
+2026-10-20T15:06:44.4906068Z       'FULL_CONTENT_LOG_MAX_FILES=10\n' +
+2026-10-20T15:06:44.4906779Z       '# Optional quota history retention. 0 keeps all normalized snapshots; a\n' +
+2026-10-20T15:06:44.4907753Z       '# positive value enables a daily, bounded cleanup task (maximum 100 years).\n' +
+2026-10-20T15:06:44.4908553Z       'CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS=0\n' +
+2026-10-20T15:06:44.4909327Z       '# Optional keyless cosign verification for `myapi upgrade`. Keep disabled\n' +
+2026-10-20T15:06:44.4910327Z       '# unless cosign is installed and the expected workflow identity is configured.\n' +
+2026-10-20T15:06:44.4911143Z       '# MYAPI_VERIFY_IMAGE_SIGNATURE=false\n' +
+2026-10-20T15:06:44.4911906Z       '# Optional post-pull digest pinning for `myapi upgrade`; this resolves the\n' +
+2026-10-20T15:06:44.4912881Z       '# pulled tag once, then persists the immutable repository digest in `.env`.\n' +
+2026-10-20T15:06:44.4913645Z       '# MYAPI_PIN_IMAGE_DIGEST=false\n' +
+2026-10-20T15:06:44.4914739Z       '# MYAPI_COSIGN_CERTIFICATE_IDENTITY=https://github.com/ForceMind/MyAPI/.github/workflows/docker-build.yml@refs/tags/v<version>\n' +
+2026-10-20T15:06:44.4916340Z       '# MYAPI_COSIGN_CERTIFICATE_OIDC_ISSUER=https://token.actions.githubusercontent.com\n'
+2026-10-20T15:06:44.4917080Z     
+2026-10-20T15:06:44.4917379Z   code: 'ERR_ASSERTION'
+2026-10-20T15:06:44.4917762Z   name: 'AssertionError'
+2026-10-20T15:06:44.4918127Z   expected:
+2026-10-20T15:06:44.4918427Z   actual: |-
+2026-10-20T15:06:44.4918969Z     # MyAPI deployment settings. These MYAPI_* names are canonical for new installs.
+2026-10-20T15:06:44.4919921Z     # beta.22 is an unpublished platform UI candidate; do not pull or deploy before publication.
+2026-10-20T15:06:44.4921060Z     # The published beta.10 remains available; see docs/PERSONAL_CONSOLE_ACCEPTANCE_CONTROL_EXECUTION_20261019.md for scope.
+2026-10-20T15:06:44.4921957Z     # Review the accounting preflight guide before upgrading an existing installation.
+2026-10-20T15:06:44.4922515Z     # Existing deployments retain their explicit image and reviewed accounting settings.
+2026-10-20T15:06:44.4922970Z     MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.24
+2026-10-20T15:06:44.4923378Z     # Select full for the server edition or lan for the private LAN edition.
+2026-10-20T15:06:44.4923745Z     MYAPI_EDITION=full
+2026-10-20T15:06:44.4923965Z     MYAPI_BUILD_LOCAL=false
+2026-10-20T15:06:44.4924324Z     # Fresh, cache-free installations only. Existing installations must preserve
+2026-10-20T15:06:44.4924821Z     # their reviewed choice; never disable batching to bypass a Redis outage or
+2026-10-20T15:06:44.4925735Z     # abandon outstanding quota generations. This template does not provide Redis.
+2026-10-20T15:06:44.4926466Z     BATCH_UPDATE_ENABLED=false
+2026-10-20T15:06:44.4927122Z     # Fresh configuration contract. Do not add this marker to an old installation
+2026-10-20T15:06:44.4927657Z     # until its effective writer/cache state and outstanding quota work are reviewed.
+2026-10-20T15:06:44.4928251Z     MYAPI_ACCOUNTING_CONFIG_VERSION=1
+2026-10-20T15:06:44.4928627Z     # Keep the host binding private by default. Set to a private interface or
+2026-10-20T15:06:44.4929032Z     # 0.0.0.0 only when intentionally sharing the LAN.
+2026-10-20T15:06:44.4929351Z     MYAPI_BIND_ADDRESS=127.0.0.1
+2026-10-20T15:06:44.4929711Z     # Sharing beyond this machine is opt-in. Keep false unless a private LAN
+2026-10-20T15:06:44.4930136Z     # interface or 0.0.0.0 binding is intentionally required.
+2026-10-20T15:06:44.4930452Z     MYAPI_ALLOW_LAN=false
+2026-10-20T15:06:44.4930686Z     MYAPI_SESSION_COOKIE_SECURE=true
+2026-10-20T15:06:44.4930940Z     MYAPI_PORT=3000
+2026-10-20T15:06:44.4931195Z     MYAPI_PUBLIC_URL=https://myapi.example.test
+2026-10-20T15:06:44.4931495Z     MYAPI_DATA_DIR=./data
+2026-10-20T15:06:44.4931715Z     MYAPI_LOGS_DIR=./logs
+2026-10-20T15:06:44.4932026Z     # Database names for new installs. For an existing legacy volume, set
+2026-10-20T15:06:44.4932478Z     # MYAPI_DB_NAME to its current database name before starting; no implicit
+2026-10-20T15:06:44.4932853Z     # database rename is performed.
+2026-10-20T15:06:44.4933100Z     MYAPI_DB_NAME=myapi
+2026-10-20T15:06:44.4933324Z     MYAPI_LOG_DB_NAME=myapi-log
+2026-10-20T15:06:44.4933574Z     MYAPI_CLICKHOUSE_DB=myapi_logs
+2026-10-20T15:06:44.4933931Z     # Resource guardrails for Docker Desktop and small servers. Increase only
+2026-10-20T15:06:44.4934775Z     # after measuring the workload; values use Docker Compose syntax.
+2026-10-20T15:06:44.4935682Z     MYAPI_CPU_LIMIT=2.0
+2026-10-20T15:06:44.4936053Z     MYAPI_MEMORY_LIMIT=2g
+2026-10-20T15:06:44.4936395Z     # Local Docker/Electron builds use at most this many Go package workers.
+2026-10-20T15:06:44.4936772Z     MYAPI_BUILD_PARALLELISM=2
+2026-10-20T15:06:44.4937147Z     # Provider account balance sampling is enabled by default in the service; leave
+2026-10-20T15:06:44.4937685Z     # overrides empty to allow administrators to adjust them from the monitoring UI.
+2026-10-20T15:06:44.4938084Z     CHANNEL_QUOTA_SYNC_ENABLED=
+2026-10-20T15:06:44.4938332Z     CHANNEL_QUOTA_SYNC_INTERVAL=
+2026-10-20T15:06:44.4938582Z     CHANNEL_QUOTA_SYNC_MAX_CHANNELS=
+2026-10-20T15:06:44.4938960Z     # Stable multi-account quota identity keyring. Generate an independent 32-byte
+2026-10-20T15:06:44.4939471Z     # base64url secret (without padding) for a new database; keep existing keys on
+2026-10-20T15:06:44.4939969Z     # upgrade. Share it across instances using that database and back it up safely.
+2026-10-20T15:06:44.4940471Z     # Never commit real values. Empty disables identity-dependent quota sampling.
+2026-10-20T15:06:44.4940912Z     # CHANNEL_QUOTA_IDENTITY_KEYS=active:v1:<base64url-secret>
+2026-10-20T15:06:44.4941332Z     # Threshold status is opt-in and read-only. Cooldown/recovery values are
+2026-10-20T15:06:44.4942002Z     # notifier-neutral policy metadata; no outbound notification is sent yet.
+2026-10-20T15:06:44.4942392Z     CHANNEL_QUOTA_ALERT_ENABLED=false
+2026-10-20T15:06:44.4942665Z     CHANNEL_QUOTA_ALERT_WARNING_PERCENT=20
+2026-10-20T15:06:44.4942954Z     CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT=10
+2026-10-20T15:06:44.4943240Z     CHANNEL_QUOTA_ALERT_COOLDOWN_SECONDS=3600
+2026-10-20T15:06:44.4943537Z     CHANNEL_QUOTA_ALERT_NOTIFY_ON_RECOVERY=false
+2026-10-20T15:06:44.4943945Z     # Existing installations may still use the legacy NEW_API_* names. The MyAPI CLI
+2026-10-20T15:06:44.4944443Z     # and deploy/install.sh read those names as a compatibility fallback; run
+2026-10-20T15:06:44.4944908Z     # `myapi migrate --project-dir DIR` to write canonical MYAPI_* keys.
+2026-10-20T15:06:44.4945616Z     # NEW_API_IMAGE=local/new-api:custom-rc25
+2026-10-20T15:06:44.4945889Z     # NEW_API_PORT=3000
+2026-10-20T15:06:44.4946162Z     # NEW_API_PUBLIC_URL=https://new-api.example.com
+2026-10-20T15:06:44.4946471Z     # NEW_API_DATA_DIR=./data
+2026-10-20T15:06:44.4946700Z     # NEW_API_LOGS_DIR=./logs
+2026-10-20T15:06:44.4947099Z     # Optional build-time distribution branding. Runtime site settings still take precedence.
+2026-10-20T15:06:44.4947687Z     MYAPI_BRAND_NAME=MyAPI
+2026-10-20T15:06:44.4947934Z     MYAPI_BRAND_LOGO=/myapi-logo-v1.png
+2026-10-20T15:06:44.4948346Z     SESSION_SECRET=60cfbbc759a9518ee4c98d56333819b2cfe4fbf67675d50c4c13009189a08788
+2026-10-20T15:06:44.4948772Z     FULL_CONTENT_LOG_ENABLED=true
+2026-10-20T15:06:44.4949027Z     FULL_CONTENT_LOG_MAX_MB=100
+2026-10-20T15:06:44.4949264Z     FULL_CONTENT_LOG_MAX_FILES=10
+2026-10-20T15:06:44.4949612Z     # Optional quota history retention. 0 keeps all normalized snapshots; a
+2026-10-20T15:06:44.4970437Z     # positive value enables a daily, bounded cleanup task (maximum 100 years).
+2026-10-20T15:06:44.4970950Z     CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS=0
+2026-10-20T15:06:44.4971387Z     # Optional keyless cosign verification for `myapi upgrade`. Keep disabled
+2026-10-20T15:06:44.4971971Z     # unless cosign is installed and the expected workflow identity is configured.
+2026-10-20T15:06:44.4972437Z     # MYAPI_VERIFY_IMAGE_SIGNATURE=false
+2026-10-20T15:06:44.4972856Z     # Optional post-pull digest pinning for `myapi upgrade`; this resolves the
+2026-10-20T15:06:44.4973414Z     # pulled tag once, then persists the immutable repository digest in `.env`.
+2026-10-20T15:06:44.4973807Z     # MYAPI_PIN_IMAGE_DIGEST=false
+2026-10-20T15:06:44.4974396Z     # MYAPI_COSIGN_CERTIFICATE_IDENTITY=https://github.com/ForceMind/MyAPI/.github/workflows/docker-build.yml@refs/tags/v<version>
+2026-10-20T15:06:44.4975503Z     # MYAPI_COSIGN_CERTIFICATE_OIDC_ISSUER=https://token.actions.githubusercontent.com
+2026-10-20T15:06:44.4975984Z     
+2026-10-20T15:06:44.4976168Z   operator: 'match'
+2026-10-20T15:06:44.4976382Z   stack: |-
+2026-10-20T15:06:44.4976758Z     TestContext.<anonymous> (file:///home/runner/work/MyAPI/MyAPI/cli/test/myapi.test.mjs:163:10)
+2026-10-20T15:06:44.4977436Z     Test.runInAsyncScope (node:async_hooks:214:14)
+2026-10-20T15:06:44.4978171Z     Test.run (node:internal/test_runner/test:1047:25)
+2026-10-20T15:06:44.4978921Z     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+2026-10-20T15:06:44.4979639Z     Test.postRun (node:internal/test_runner/test:1173:19)
+2026-10-20T15:06:44.4980029Z     Test.run (node:internal/test_runner/test:1101:12)
+2026-10-20T15:06:44.4980594Z     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+2026-10-20T15:06:44.4981026Z   ...
+2026-10-20T15:06:44.4981346Z # Subtest: argument validation and deployment preflight reject unsafe input
+2026-10-20T15:06:44.4981839Z ok 36 - argument validation and deployment preflight reject unsafe input
+2026-10-20T15:06:44.4982194Z   ---
+2026-10-20T15:06:44.4982379Z   duration_ms: 1652.720737
+2026-10-20T15:06:44.4982598Z   type: 'test'
+2026-10-20T15:06:44.4982785Z   ...
+2026-10-20T15:06:44.4983101Z # Subtest: upgrade validates the release version before touching deployment state
+2026-10-20T15:06:44.4983840Z not ok 37 - upgrade validates the release version before touching deployment state
+2026-10-20T15:06:44.4984219Z   ---
+2026-10-20T15:06:44.4984396Z   duration_ms: 1081.030094
+2026-10-20T15:06:44.4984626Z   type: 'test'
+2026-10-20T15:06:44.4984936Z   location: '/home/runner/work/MyAPI/MyAPI/cli/test/myapi.test.mjs:191:1'
+2026-10-20T15:06:44.4985590Z   failureType: 'testCodeFailure'
+2026-10-20T15:06:44.4985838Z   error: |-
+2026-10-20T15:06:44.4986284Z     The input did not match the regular expression /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi:v0\.2\.0-beta\.25$/m. Input:
+2026-10-20T15:06:44.4986781Z     
+2026-10-20T15:06:44.4987116Z     '# MyAPI deployment settings. These MYAPI_* names are canonical for new installs.\n' +
+2026-10-20T15:06:44.4988138Z       '# beta.22 is an unpublished platform UI candidate; do not pull or deploy before publication.\n' +
+2026-10-20T15:06:44.4989388Z       '# The published beta.10 remains available; see docs/PERSONAL_CONSOLE_ACCEPTANCE_CONTROL_EXECUTION_20261019.md for scope.\n' +
+2026-10-20T15:06:44.4990550Z       '# Review the accounting preflight guide before upgrading an existing installation.\n' +
+2026-10-20T15:06:44.4991691Z       '# Existing deployments retain their explicit image and reviewed accounting settings.\n' +
+2026-10-20T15:06:44.4992573Z       'MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.24\n' +
+2026-10-20T15:06:44.4993281Z       '# Select full for the server edition or lan for the private LAN edition.\n' +
+2026-10-20T15:06:44.4993917Z       'MYAPI_EDITION=full\n' +
+2026-10-20T15:06:44.4994310Z       'MYAPI_BUILD_LOCAL=false\n' +
+2026-10-20T15:06:44.4994944Z       '# Fresh, cache-free installations only. Existing installations must preserve\n' +
+2026-10-20T15:06:44.4996060Z       '# their reviewed choice; never disable batching to bypass a Redis outage or\n' +
+2026-10-20T15:06:44.4996952Z       '# abandon outstanding quota generations. This template does not provide Redis.\n' +
+2026-10-20T15:06:44.4997645Z       'BATCH_UPDATE_ENABLED=false\n' +
+2026-10-20T15:06:44.4998297Z       '# Fresh configuration contract. Do not add this marker to an old installation\n' +
+2026-10-20T15:06:44.4999232Z       '# until its effective writer/cache state and outstanding quota work are reviewed.\n' +
+2026-10-20T15:06:44.4999959Z       'MYAPI_ACCOUNTING_CONFIG_VERSION=1\n' +
+2026-10-20T15:06:44.5000621Z       '# Keep the host binding private by default. Set to a private interface or\n' +
+2026-10-20T15:06:44.5001340Z       '# 0.0.0.0 only when intentionally sharing the LAN.\n' +
+2026-10-20T15:06:44.5001917Z       'MYAPI_BIND_ADDRESS=127.0.0.1\n' +
+2026-10-20T15:06:44.5002570Z       '# Sharing beyond this machine is opt-in. Keep false unless a private LAN\n' +
+2026-10-20T15:06:44.5003387Z       '# interface or 0.0.0.0 binding is intentionally required.\n' +
+2026-10-20T15:06:44.5003966Z       'MYAPI_ALLOW_LAN=false\n' +
+2026-10-20T15:06:44.5004384Z       'MYAPI_SESSION_COOKIE_SECURE=true\n' +
+2026-10-20T15:06:44.5004805Z       'MYAPI_PORT=3000\n' +
+2026-10-20T15:06:44.5005480Z       'MYAPI_PUBLIC_URL=https://myapi.example.test\n' +
+2026-10-20T15:06:44.5005981Z       'MYAPI_DATA_DIR=./data\n' +
+2026-10-20T15:06:44.5006368Z       'MYAPI_LOGS_DIR=./logs\n' +
+2026-10-20T15:06:44.5006966Z       '# Database names for new installs. For an existing legacy volume, set\n' +
+2026-10-20T15:06:44.5007846Z       '# MYAPI_DB_NAME to its current database name before starting; no implicit\n' +
+2026-10-20T15:06:44.5008543Z       '# database rename is performed.\n' +
+2026-10-20T15:06:44.5009006Z       'MYAPI_DB_NAME=myapi\n' +
+2026-10-20T15:06:44.5009389Z       'MYAPI_LOG_DB_NAME=myapi-log\n' +
+2026-10-20T15:06:44.5009800Z       'MYAPI_CLICKHOUSE_DB=myapi_logs\n' +
+2026-10-20T15:06:44.5010396Z       '# Resource guardrails for Docker Desktop and small servers. Increase only\n' +
+2026-10-20T15:06:44.5011194Z       '# after measuring the workload; values use Docker Compose syntax.\n' +
+2026-10-20T15:06:44.5011800Z       'MYAPI_CPU_LIMIT=2.0\n' +
+2026-10-20T15:06:44.5012421Z       'MYAPI_MEMORY_LIMIT=2g\n' +
+2026-10-20T15:06:44.5013020Z       '# Local Docker/Electron builds use at most this many Go package workers.\n' +
+2026-10-20T15:06:44.5013695Z       'MYAPI_BUILD_PARALLELISM=2\n' +
+2026-10-20T15:06:44.5014353Z       '# Provider account balance sampling is enabled by default in the service; leave\n' +
+2026-10-20T15:06:44.5015421Z       '# overrides empty to allow administrators to adjust them from the monitoring UI.\n' +
+2026-10-20T15:06:44.5015951Z       'CHANNEL_QUOTA_SYNC_ENABLED=\n' +
+2026-10-20T15:06:44.5016228Z       'CHANNEL_QUOTA_SYNC_INTERVAL=\n' +
+2026-10-20T15:06:44.5016508Z       'CHANNEL_QUOTA_SYNC_MAX_CHANNELS=\n' +
+2026-10-20T15:06:44.5016929Z       '# Stable multi-account quota identity keyring. Generate an independent 32-byte\n' +
+2026-10-20T15:06:44.5017476Z       '# base64url secret (without padding) for a new database; keep existing keys on\n' +
+2026-10-20T15:06:44.5018017Z       '# upgrade. Share it across instances using that database and back it up safely.\n' +
+2026-10-20T15:06:44.5018577Z       '# Never commit real values. Empty disables identity-dependent quota sampling.\n' +
+2026-10-20T15:06:44.5019062Z       '# CHANNEL_QUOTA_IDENTITY_KEYS=active:v1:<base64url-secret>\n' +
+2026-10-20T15:06:44.5019709Z       '# Threshold status is opt-in and read-only. Cooldown/recovery values are\n' +
+2026-10-20T15:06:44.5020234Z       '# notifier-neutral policy metadata; no outbound notification is sent yet.\n' +
+2026-10-20T15:06:44.5020651Z       'CHANNEL_QUOTA_ALERT_ENABLED=false\n' +
+2026-10-20T15:06:44.5020956Z       'CHANNEL_QUOTA_ALERT_WARNING_PERCENT=20\n' +
+2026-10-20T15:06:44.5021274Z       'CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT=10\n' +
+2026-10-20T15:06:44.5021597Z       'CHANNEL_QUOTA_ALERT_COOLDOWN_SECONDS=3600\n' +
+2026-10-20T15:06:44.5021932Z       'CHANNEL_QUOTA_ALERT_NOTIFY_ON_RECOVERY=false\n' +
+2026-10-20T15:06:44.5022373Z       '# Existing installations may still use the legacy NEW_API_* names. The MyAPI CLI\n' +
+2026-10-20T15:06:44.5022903Z       '# and deploy/install.sh read those names as a compatibility fallback; run\n' +
+2026-10-20T15:06:44.5023410Z       '# `myapi migrate --project-dir DIR` to write canonical MYAPI_* keys.\n' +
+2026-10-20T15:06:44.5024192Z       '# NEW_API_IMAGE=local/new-api:custom-rc25\n' +
+2026-10-20T15:06:44.5024706Z       '# NEW_API_PORT=3000\n' +
+2026-10-20T15:06:44.5025390Z       '# NEW_API_PUBLIC_URL=https://new-api.example.com\n' +
+2026-10-20T15:06:44.5025943Z       '# NEW_API_DATA_DIR=./data\n' +
+2026-10-20T15:06:44.5026235Z       '# NEW_API_LOGS_DIR=./logs\n' +
+2026-10-20T15:06:44.5026831Z       '# Optional build-time distribution branding. Runtime site settings still take precedence.\n' +
+2026-10-20T15:06:44.5027316Z       'MYAPI_BRAND_NAME=MyAPI\n' +
+2026-10-20T15:06:44.5027596Z       'MYAPI_BRAND_LOGO=/myapi-logo-v1.png\n' +
+2026-10-20T15:06:44.5028060Z       'SESSION_SECRET=5f8406a37dc0f6e2e68365f0b8b9cc4edeedddf57a397a5f1537fb1371725e9b\n' +
+2026-10-20T15:06:44.5028508Z       'FULL_CONTENT_LOG_ENABLED=true\n' +
+2026-10-20T15:06:44.5028794Z       'FULL_CONTENT_LOG_MAX_MB=100\n' +
+2026-10-20T15:06:44.5029066Z       'FULL_CONTENT_LOG_MAX_FILES=10\n' +
+2026-10-20T15:06:44.5029447Z       '# Optional quota history retention. 0 keeps all normalized snapshots; a\n' +
+2026-10-20T15:06:44.5029976Z       '# positive value enables a daily, bounded cleanup task (maximum 100 years).\n' +
+2026-10-20T15:06:44.5030405Z       'CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS=0\n' +
+2026-10-20T15:06:44.5030841Z       '# Optional keyless cosign verification for `myapi upgrade`. Keep disabled\n' +
+2026-10-20T15:06:44.5031377Z       '# unless cosign is installed and the expected workflow identity is configured.\n' +
+2026-10-20T15:06:44.5031805Z       '# MYAPI_VERIFY_IMAGE_SIGNATURE=false\n' +
+2026-10-20T15:06:44.5032213Z       '# Optional post-pull digest pinning for `myapi upgrade`; this resolves the\n' +
+2026-10-20T15:06:44.5032724Z       '# pulled tag once, then persists the immutable repository digest in `.env`.\n' +
+2026-10-20T15:06:44.5033327Z       '# MYAPI_PIN_IMAGE_DIGEST=false\n' +
+2026-10-20T15:06:44.5033926Z       '# MYAPI_COSIGN_CERTIFICATE_IDENTITY=https://github.com/ForceMind/MyAPI/.github/workflows/docker-build.yml@refs/tags/v<version>\n' +
+2026-10-20T15:06:44.5034679Z       '# MYAPI_COSIGN_CERTIFICATE_OIDC_ISSUER=https://token.actions.githubusercontent.com\n'
+2026-10-20T15:06:44.5035426Z     
+2026-10-20T15:06:44.5035745Z   code: 'ERR_ASSERTION'
+2026-10-20T15:06:44.5036119Z   name: 'AssertionError'
+2026-10-20T15:06:44.5036476Z   expected:
+2026-10-20T15:06:44.5036777Z   actual: |-
+2026-10-20T15:06:44.5037322Z     # MyAPI deployment settings. These MYAPI_* names are canonical for new installs.
+2026-10-20T15:06:44.5038271Z     # beta.22 is an unpublished platform UI candidate; do not pull or deploy before publication.
+2026-10-20T15:06:44.5039469Z     # The published beta.10 remains available; see docs/PERSONAL_CONSOLE_ACCEPTANCE_CONTROL_EXECUTION_20261019.md for scope.
+2026-10-20T15:06:44.5040182Z     # Review the accounting preflight guide before upgrading an existing installation.
+2026-10-20T15:06:44.5040744Z     # Existing deployments retain their explicit image and reviewed accounting settings.
+2026-10-20T15:06:44.5041247Z     MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.24
+2026-10-20T15:06:44.5041973Z     # Select full for the server edition or lan for the private LAN edition.
+2026-10-20T15:06:44.5042501Z     MYAPI_EDITION=full
+2026-10-20T15:06:44.5042733Z     MYAPI_BUILD_LOCAL=false
+2026-10-20T15:06:44.5043091Z     # Fresh, cache-free installations only. Existing installations must preserve
+2026-10-20T15:06:44.5043600Z     # their reviewed choice; never disable batching to bypass a Redis outage or
+2026-10-20T15:06:44.5044107Z     # abandon outstanding quota generations. This template does not provide Redis.
+2026-10-20T15:06:44.5044509Z     BATCH_UPDATE_ENABLED=false
+2026-10-20T15:06:44.5044872Z     # Fresh configuration contract. Do not add this marker to an old installation
+2026-10-20T15:06:44.5045887Z     # until its effective writer/cache state and outstanding quota work are reviewed.
+2026-10-20T15:06:44.5046609Z     MYAPI_ACCOUNTING_CONFIG_VERSION=1
+2026-10-20T15:06:44.5047213Z     # Keep the host binding private by default. Set to a private interface or
+2026-10-20T15:06:44.5047899Z     # 0.0.0.0 only when intentionally sharing the LAN.
+2026-10-20T15:06:44.5048394Z     MYAPI_BIND_ADDRESS=127.0.0.1
+2026-10-20T15:06:44.5048968Z     # Sharing beyond this machine is opt-in. Keep false unless a private LAN
+2026-10-20T15:06:44.5049677Z     # interface or 0.0.0.0 binding is intentionally required.
+2026-10-20T15:06:44.5050204Z     MYAPI_ALLOW_LAN=false
+2026-10-20T15:06:44.5050571Z     MYAPI_SESSION_COOKIE_SECURE=true
+2026-10-20T15:06:44.5050830Z     MYAPI_PORT=3000
+2026-10-20T15:06:44.5051081Z     MYAPI_PUBLIC_URL=https://myapi.example.test
+2026-10-20T15:06:44.5051606Z     MYAPI_DATA_DIR=./data
+2026-10-20T15:06:44.5051974Z     MYAPI_LOGS_DIR=./logs
+2026-10-20T15:06:44.5052497Z     # Database names for new installs. For an existing legacy volume, set
+2026-10-20T15:06:44.5053270Z     # MYAPI_DB_NAME to its current database name before starting; no implicit
+2026-10-20T15:06:44.5053888Z     # database rename is performed.
+2026-10-20T15:06:44.5054299Z     MYAPI_DB_NAME=myapi
+2026-10-20T15:06:44.5054670Z     MYAPI_LOG_DB_NAME=myapi-log
+2026-10-20T15:06:44.5055085Z     MYAPI_CLICKHOUSE_DB=myapi_logs
+2026-10-20T15:06:44.5055880Z     # Resource guardrails for Docker Desktop and small servers. Increase only
+2026-10-20T15:06:44.5056576Z     # after measuring the workload; values use Docker Compose syntax.
+2026-10-20T15:06:44.5056922Z     MYAPI_CPU_LIMIT=2.0
+2026-10-20T15:06:44.5057139Z     MYAPI_MEMORY_LIMIT=2g
+2026-10-20T15:06:44.5057465Z     # Local Docker/Electron builds use at most this many Go package workers.
+2026-10-20T15:06:44.5057841Z     MYAPI_BUILD_PARALLELISM=2
+2026-10-20T15:06:44.5058207Z     # Provider account balance sampling is enabled by default in the service; leave
+2026-10-20T15:06:44.5058731Z     # overrides empty to allow administrators to adjust them from the monitoring UI.
+2026-10-20T15:06:44.5059363Z     CHANNEL_QUOTA_SYNC_ENABLED=
+2026-10-20T15:06:44.5059602Z     CHANNEL_QUOTA_SYNC_INTERVAL=
+2026-10-20T15:06:44.5059846Z     CHANNEL_QUOTA_SYNC_MAX_CHANNELS=
+2026-10-20T15:06:44.5060231Z     # Stable multi-account quota identity keyring. Generate an independent 32-byte
+2026-10-20T15:06:44.5060742Z     # base64url secret (without padding) for a new database; keep existing keys on
+2026-10-20T15:06:44.5061241Z     # upgrade. Share it across instances using that database and back it up safely.
+2026-10-20T15:06:44.5061753Z     # Never commit real values. Empty disables identity-dependent quota sampling.
+2026-10-20T15:06:44.5062202Z     # CHANNEL_QUOTA_IDENTITY_KEYS=active:v1:<base64url-secret>
+2026-10-20T15:06:44.5062626Z     # Threshold status is opt-in and read-only. Cooldown/recovery values are
+2026-10-20T15:06:44.5063120Z     # notifier-neutral policy metadata; no outbound notification is sent yet.
+2026-10-20T15:06:44.5063511Z     CHANNEL_QUOTA_ALERT_ENABLED=false
+2026-10-20T15:06:44.5063791Z     CHANNEL_QUOTA_ALERT_WARNING_PERCENT=20
+2026-10-20T15:06:44.5064077Z     CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT=10
+2026-10-20T15:06:44.5064376Z     CHANNEL_QUOTA_ALERT_COOLDOWN_SECONDS=3600
+2026-10-20T15:06:44.5064800Z     CHANNEL_QUOTA_ALERT_NOTIFY_ON_RECOVERY=false
+2026-10-20T15:06:44.5065531Z     # Existing installations may still use the legacy NEW_API_* names. The MyAPI CLI
+2026-10-20T15:06:44.5066419Z     # and deploy/install.sh read those names as a compatibility fallback; run
+2026-10-20T15:06:44.5067122Z     # `myapi migrate --project-dir DIR` to write canonical MYAPI_* keys.
+2026-10-20T15:06:44.5067517Z     # NEW_API_IMAGE=local/new-api:custom-rc25
+2026-10-20T15:06:44.5067793Z     # NEW_API_PORT=3000
+2026-10-20T15:06:44.5068064Z     # NEW_API_PUBLIC_URL=https://new-api.example.com
+2026-10-20T15:06:44.5068371Z     # NEW_API_DATA_DIR=./data
+2026-10-20T15:06:44.5068604Z     # NEW_API_LOGS_DIR=./logs
+2026-10-20T15:06:44.5069005Z     # Optional build-time distribution branding. Runtime site settings still take precedence.
+2026-10-20T15:06:44.5069456Z     MYAPI_BRAND_NAME=MyAPI
+2026-10-20T15:06:44.5069702Z     MYAPI_BRAND_LOGO=/myapi-logo-v1.png
+2026-10-20T15:06:44.5070123Z     SESSION_SECRET=5f8406a37dc0f6e2e68365f0b8b9cc4edeedddf57a397a5f1537fb1371725e9b
+2026-10-20T15:06:44.5070549Z     FULL_CONTENT_LOG_ENABLED=true
+2026-10-20T15:06:44.5070798Z     FULL_CONTENT_LOG_MAX_MB=100
+2026-10-20T15:06:44.5071039Z     FULL_CONTENT_LOG_MAX_FILES=10
+2026-10-20T15:06:44.5071380Z     # Optional quota history retention. 0 keeps all normalized snapshots; a
+2026-10-20T15:06:44.5071864Z     # positive value enables a daily, bounded cleanup task (maximum 100 years).
+2026-10-20T15:06:44.5072258Z     CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS=0
+2026-10-20T15:06:44.5072637Z     # Optional keyless cosign verification for `myapi upgrade`. Keep disabled
+2026-10-20T15:06:44.5073134Z     # unless cosign is installed and the expected workflow identity is configured.
+2026-10-20T15:06:44.5073540Z     # MYAPI_VERIFY_IMAGE_SIGNATURE=false
+2026-10-20T15:06:44.5073918Z     # Optional post-pull digest pinning for `myapi upgrade`; this resolves the
+2026-10-20T15:06:44.5074405Z     # pulled tag once, then persists the immutable repository digest in `.env`.
+2026-10-20T15:06:44.5074791Z     # MYAPI_PIN_IMAGE_DIGEST=false
+2026-10-20T15:06:44.5075638Z     # MYAPI_COSIGN_CERTIFICATE_IDENTITY=https://github.com/ForceMind/MyAPI/.github/workflows/docker-build.yml@refs/tags/v<version>
+2026-10-20T15:06:44.5076905Z     # MYAPI_COSIGN_CERTIFICATE_OIDC_ISSUER=https://token.actions.githubusercontent.com
+2026-10-20T15:06:44.5077333Z     
+2026-10-20T15:06:44.5077508Z   operator: 'match'
+2026-10-20T15:06:44.5077712Z   stack: |-
+2026-10-20T15:06:44.5078086Z     TestContext.<anonymous> (file:///home/runner/work/MyAPI/MyAPI/cli/test/myapi.test.mjs:202:10)
+2026-10-20T15:06:44.5078571Z     Test.runInAsyncScope (node:async_hooks:214:14)
+2026-10-20T15:06:44.5078904Z     Test.run (node:internal/test_runner/test:1047:25)
+2026-10-20T15:06:44.5079484Z     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+2026-10-20T15:06:44.5079966Z     Test.postRun (node:internal/test_runner/test:1173:19)
+2026-10-20T15:06:44.5080529Z     Test.run (node:internal/test_runner/test:1101:12)
+2026-10-20T15:06:44.5081029Z     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+2026-10-20T15:06:44.5081566Z   ...
+2026-10-20T15:06:44.5081835Z # Subtest: build forwards bounded CPU and memory limits to Docker
+2026-10-20T15:06:44.5082247Z ok 38 - build forwards bounded CPU and memory limits to Docker
+2026-10-20T15:06:44.5082596Z   ---
+2026-10-20T15:06:44.5082787Z   duration_ms: 1152.294944
+2026-10-20T15:06:44.5083005Z   type: 'test'
+2026-10-20T15:06:44.5083188Z   ...
+2026-10-20T15:06:44.5083591Z # Subtest: upgrade dry-run validates a copy without writing files or invoking Docker
+2026-10-20T15:06:44.5084125Z ok 39 - upgrade dry-run validates a copy without writing files or invoking Docker
+2026-10-20T15:06:44.5084503Z   ---
+2026-10-20T15:06:44.5084690Z   duration_ms: 1131.425725
+2026-10-20T15:06:44.5084908Z   type: 'test'
+2026-10-20T15:06:44.5085336Z   ...
+2026-10-20T15:06:44.5085750Z # Subtest: upgrade dry-run rejects JSON output without dry-run mode
+2026-10-20T15:06:44.5086402Z ok 40 - upgrade dry-run rejects JSON output without dry-run mode
+2026-10-20T15:06:44.5086786Z   ---
+2026-10-20T15:06:44.5086972Z   duration_ms: 1844.726609
+2026-10-20T15:06:44.5087215Z   type: 'test'
+2026-10-20T15:06:44.5087398Z   ...
+2026-10-20T15:06:44.5087699Z # Subtest: upgrade dry-run fails closed on invalid runtime configuration
+2026-10-20T15:06:44.5088175Z ok 41 - upgrade dry-run fails closed on invalid runtime configuration
+2026-10-20T15:06:44.5088530Z   ---
+2026-10-20T15:06:44.5088707Z   duration_ms: 1299.096652
+2026-10-20T15:06:44.5088941Z   type: 'test'
+2026-10-20T15:06:44.5089134Z   ...
+2026-10-20T15:06:44.5089494Z # Subtest: upgrade restores the environment and reruns the old deployment after a pull failure
+2026-10-20T15:06:44.5090153Z ok 42 - upgrade restores the environment and reruns the old deployment after a pull failure
+2026-10-20T15:06:44.5090599Z   ---
+2026-10-20T15:06:44.5090801Z   duration_ms: 1191.872779
+2026-10-20T15:06:44.5091041Z   type: 'test'
+2026-10-20T15:06:44.5091234Z   ...
+2026-10-20T15:06:44.5091621Z # Subtest: upgrade does not restart the old image after target startup may have migrated the database
+2026-10-20T15:06:44.5092283Z ok 43 - upgrade does not restart the old image after target startup may have migrated the database
+2026-10-20T15:06:44.5092775Z   ---
+2026-10-20T15:06:44.5092954Z   duration_ms: 1198.789419
+2026-10-20T15:06:44.5093190Z   type: 'test'
+2026-10-20T15:06:44.5093366Z   ...
+2026-10-20T15:06:44.5093659Z # Subtest: upgrade can pin the pulled image to its repository digest
+2026-10-20T15:06:44.5094129Z ok 44 - upgrade can pin the pulled image to its repository digest
+2026-10-20T15:06:44.5094470Z   ---
+2026-10-20T15:06:44.5094663Z   duration_ms: 1164.681497
+2026-10-20T15:06:44.5094872Z   type: 'test'
+2026-10-20T15:06:44.5095075Z   ...
+2026-10-20T15:06:44.5095750Z # Subtest: upgrade rejects a missing or malformed pulled image digest and rolls back
+2026-10-20T15:06:44.5096333Z ok 45 - upgrade rejects a missing or malformed pulled image digest and rolls back
+2026-10-20T15:06:44.5096738Z   ---
+2026-10-20T15:06:44.5096919Z   duration_ms: 1174.347633
+2026-10-20T15:06:44.5097159Z   type: 'test'
+2026-10-20T15:06:44.5097336Z   ...
+2026-10-20T15:06:44.5097642Z # Subtest: up rejects unsafe Docker resource limits before invoking Compose
+2026-10-20T15:06:44.5098150Z ok 46 - up rejects unsafe Docker resource limits before invoking Compose
+2026-10-20T15:06:44.5098494Z   ---
+2026-10-20T15:06:44.5098669Z   duration_ms: 1167.332255
+2026-10-20T15:06:44.5098879Z   type: 'test'
+2026-10-20T15:06:44.5099076Z   ...
+2026-10-20T15:06:44.5099353Z # Subtest: up rejects a non-loopback bind without explicit LAN opt-in
+2026-10-20T15:06:44.5099775Z ok 47 - up rejects a non-loopback bind without explicit LAN opt-in
+2026-10-20T15:06:44.5100297Z   ---
+2026-10-20T15:06:44.5100469Z   duration_ms: 1176.775197
+2026-10-20T15:06:44.5100768Z   type: 'test'
+2026-10-20T15:06:44.5101076Z   ...
+2026-10-20T15:06:44.5101722Z # Subtest: upgrade dry-run rejects a non-loopback bind without explicit LAN opt-in
+2026-10-20T15:06:44.5102732Z ok 48 - upgrade dry-run rejects a non-loopback bind without explicit LAN opt-in
+2026-10-20T15:06:44.5103162Z   ---
+2026-10-20T15:06:44.5103428Z   duration_ms: 1124.068254
+2026-10-20T15:06:44.5103693Z   type: 'test'
+2026-10-20T15:06:44.5103871Z   ...
+2026-10-20T15:06:44.5104175Z # Subtest: signature verification fails closed before changing deployment state
+2026-10-20T15:06:44.5104692Z not ok 49 - signature verification fails closed before changing deployment state
+2026-10-20T15:06:44.5105073Z   ---
+2026-10-20T15:06:44.5105530Z   duration_ms: 1219.082844
+2026-10-20T15:06:44.5105747Z   type: 'test'
+2026-10-20T15:06:44.5106046Z   location: '/home/runner/work/MyAPI/MyAPI/cli/test/myapi.test.mjs:553:1'
+2026-10-20T15:06:44.5106428Z   failureType: 'testCodeFailure'
+2026-10-20T15:06:44.5106675Z   error: |-
+2026-10-20T15:06:44.5107126Z     The input did not match the regular expression /^MYAPI_IMAGE=ghcr\.io\/forcemind\/myapi:v0\.2\.0-beta\.25$/m. Input:
+2026-10-20T15:06:44.5107627Z     
+2026-10-20T15:06:44.5108133Z     '# MyAPI deployment settings. These MYAPI_* names are canonical for new installs.\n' +
+2026-10-20T15:06:44.5108757Z       '# beta.22 is an unpublished platform UI candidate; do not pull or deploy before publication.\n' +
+2026-10-20T15:06:44.5109489Z       '# The published beta.10 remains available; see docs/PERSONAL_CONSOLE_ACCEPTANCE_CONTROL_EXECUTION_20261019.md for scope.\n' +
+2026-10-20T15:06:44.5110204Z       '# Review the accounting preflight guide before upgrading an existing installation.\n' +
+2026-10-20T15:06:44.5110804Z       '# Existing deployments retain their explicit image and reviewed accounting settings.\n' +
+2026-10-20T15:06:44.5111297Z       'MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.24\n' +
+2026-10-20T15:06:44.5111738Z       '# Select full for the server edition or lan for the private LAN edition.\n' +
+2026-10-20T15:06:44.5112129Z       'MYAPI_EDITION=full\n' +
+2026-10-20T15:06:44.5112373Z       'MYAPI_BUILD_LOCAL=false\n' +
+2026-10-20T15:06:44.5112777Z       '# Fresh, cache-free installations only. Existing installations must preserve\n' +
+2026-10-20T15:06:44.5113311Z       '# their reviewed choice; never disable batching to bypass a Redis outage or\n' +
+2026-10-20T15:06:44.5113849Z       '# abandon outstanding quota generations. This template does not provide Redis.\n' +
+2026-10-20T15:06:44.5114285Z       'BATCH_UPDATE_ENABLED=false\n' +
+2026-10-20T15:06:44.5114683Z       '# Fresh configuration contract. Do not add this marker to an old installation\n' +
+2026-10-20T15:06:44.5115586Z       '# until its effective writer/cache state and outstanding quota work are reviewed.\n' +
+2026-10-20T15:06:44.5116040Z       'MYAPI_ACCOUNTING_CONFIG_VERSION=1\n' +
+2026-10-20T15:06:44.5116438Z       '# Keep the host binding private by default. Set to a private interface or\n' +
+2026-10-20T15:06:44.5116905Z       '# 0.0.0.0 only when intentionally sharing the LAN.\n' +
+2026-10-20T15:06:44.5117225Z       'MYAPI_BIND_ADDRESS=127.0.0.1\n' +
+2026-10-20T15:06:44.5117614Z       '# Sharing beyond this machine is opt-in. Keep false unless a private LAN\n' +
+2026-10-20T15:06:44.5118089Z       '# interface or 0.0.0.0 binding is intentionally required.\n' +
+2026-10-20T15:06:44.5118441Z       'MYAPI_ALLOW_LAN=false\n' +
+2026-10-20T15:06:44.5118700Z       'MYAPI_SESSION_COOKIE_SECURE=true\n' +
+2026-10-20T15:06:44.5118967Z       'MYAPI_PORT=3000\n' +
+2026-10-20T15:06:44.5119253Z       'MYAPI_PUBLIC_URL=https://myapi.example.test\n' +
+2026-10-20T15:06:44.5119558Z       'MYAPI_DATA_DIR=./data\n' +
+2026-10-20T15:06:44.5119795Z       'MYAPI_LOGS_DIR=./logs\n' +
+2026-10-20T15:06:44.5120146Z       '# Database names for new installs. For an existing legacy volume, set\n' +
+2026-10-20T15:06:44.5120631Z       '# MYAPI_DB_NAME to its current database name before starting; no implicit\n' +
+2026-10-20T15:06:44.5121225Z       '# database rename is performed.\n' +
+2026-10-20T15:06:44.5121496Z       'MYAPI_DB_NAME=myapi\n' +
+2026-10-20T15:06:44.5121740Z       'MYAPI_LOG_DB_NAME=myapi-log\n' +
+2026-10-20T15:06:44.5122017Z       'MYAPI_CLICKHOUSE_DB=myapi_logs\n' +
+2026-10-20T15:06:44.5122402Z       '# Resource guardrails for Docker Desktop and small servers. Increase only\n' +
+2026-10-20T15:06:44.5122889Z       '# after measuring the workload; values use Docker Compose syntax.\n' +
+2026-10-20T15:06:44.5123258Z       'MYAPI_CPU_LIMIT=2.0\n' +
+2026-10-20T15:06:44.5123502Z       'MYAPI_MEMORY_LIMIT=2g\n' +
+2026-10-20T15:06:44.5123858Z       '# Local Docker/Electron builds use at most this many Go package workers.\n' +
+2026-10-20T15:06:44.5124251Z       'MYAPI_BUILD_PARALLELISM=2\n' +
+2026-10-20T15:06:44.5124656Z       '# Provider account balance sampling is enabled by default in the service; leave\n' +
+2026-10-20T15:06:44.5125454Z       '# overrides empty to allow administrators to adjust them from the monitoring UI.\n' +
+2026-10-20T15:06:44.5125926Z       'CHANNEL_QUOTA_SYNC_ENABLED=\n' +
+2026-10-20T15:06:44.5126194Z       'CHANNEL_QUOTA_SYNC_INTERVAL=\n' +
+2026-10-20T15:06:44.5126596Z       'CHANNEL_QUOTA_SYNC_MAX_CHANNELS=\n' +
+2026-10-20T15:06:44.5127014Z       '# Stable multi-account quota identity keyring. Generate an independent 32-byte\n' +
+2026-10-20T15:06:44.5127609Z       '# base64url secret (without padding) for a new database; keep existing keys on\n' +
+2026-10-20T15:06:44.5128184Z       '# upgrade. Share it across instances using that database and back it up safely.\n' +
+2026-10-20T15:06:44.5128729Z       '# Never commit real values. Empty disables identity-dependent quota sampling.\n' +
+2026-10-20T15:06:44.5129548Z       '# CHANNEL_QUOTA_IDENTITY_KEYS=active:v1:<base64url-secret>\n' +
+2026-10-20T15:06:44.5130355Z       '# Threshold status is opt-in and read-only. Cooldown/recovery values are\n' +
+2026-10-20T15:06:44.5131184Z       '# notifier-neutral policy metadata; no outbound notification is sent yet.\n' +
+2026-10-20T15:06:44.5131620Z       'CHANNEL_QUOTA_ALERT_ENABLED=false\n' +
+2026-10-20T15:06:44.5131927Z       'CHANNEL_QUOTA_ALERT_WARNING_PERCENT=20\n' +
+2026-10-20T15:06:44.5132248Z       'CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT=10\n' +
+2026-10-20T15:06:44.5132574Z       'CHANNEL_QUOTA_ALERT_COOLDOWN_SECONDS=3600\n' +
+2026-10-20T15:06:44.5132911Z       'CHANNEL_QUOTA_ALERT_NOTIFY_ON_RECOVERY=false\n' +
+2026-10-20T15:06:44.5133356Z       '# Existing installations may still use the legacy NEW_API_* names. The MyAPI CLI\n' +
+2026-10-20T15:06:44.5133890Z       '# and deploy/install.sh read those names as a compatibility fallback; run\n' +
+2026-10-20T15:06:44.5134385Z       '# `myapi migrate --project-dir DIR` to write canonical MYAPI_* keys.\n' +
+2026-10-20T15:06:44.5134787Z       '# NEW_API_IMAGE=local/new-api:custom-rc25\n' +
+2026-10-20T15:06:44.5135327Z       '# NEW_API_PORT=3000\n' +
+2026-10-20T15:06:44.5135694Z       '# NEW_API_PUBLIC_URL=https://new-api.example.com\n' +
+2026-10-20T15:06:44.5136021Z       '# NEW_API_DATA_DIR=./data\n' +
+2026-10-20T15:06:44.5136274Z       '# NEW_API_LOGS_DIR=./logs\n' +
+2026-10-20T15:06:44.5136721Z       '# Optional build-time distribution branding. Runtime site settings still take precedence.\n' +
+2026-10-20T15:06:44.5137187Z       'MYAPI_BRAND_NAME=MyAPI\n' +
+2026-10-20T15:06:44.5137459Z       'MYAPI_BRAND_LOGO=/myapi-logo-v1.png\n' +
+2026-10-20T15:06:44.5137900Z       'SESSION_SECRET=8a11615b5ee75877523c61014ab62e6495b088c6a81656911888aea2ba5df498\n' +
+2026-10-20T15:06:44.5138337Z       'FULL_CONTENT_LOG_ENABLED=true\n' +
+2026-10-20T15:06:44.5138607Z       'FULL_CONTENT_LOG_MAX_MB=100\n' +
+2026-10-20T15:06:44.5138874Z       'FULL_CONTENT_LOG_MAX_FILES=10\n' +
+2026-10-20T15:06:44.5139250Z       '# Optional quota history retention. 0 keeps all normalized snapshots; a\n' +
+2026-10-20T15:06:44.5139764Z       '# positive value enables a daily, bounded cleanup task (maximum 100 years).\n' +
+2026-10-20T15:06:44.5140189Z       'CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS=0\n' +
+2026-10-20T15:06:44.5140787Z       '# Optional keyless cosign verification for `myapi upgrade`. Keep disabled\n' +
+2026-10-20T15:06:44.5141641Z       '# unless cosign is installed and the expected workflow identity is configured.\n' +
+2026-10-20T15:06:44.5142076Z       '# MYAPI_VERIFY_IMAGE_SIGNATURE=false\n' +
+2026-10-20T15:06:44.5142678Z       '# Optional post-pull digest pinning for `myapi upgrade`; this resolves the\n' +
+2026-10-20T15:06:44.5143381Z       '# pulled tag once, then persists the immutable repository digest in `.env`.\n' +
+2026-10-20T15:06:44.5143800Z       '# MYAPI_PIN_IMAGE_DIGEST=false\n' +
+2026-10-20T15:06:44.5144396Z       '# MYAPI_COSIGN_CERTIFICATE_IDENTITY=https://github.com/ForceMind/MyAPI/.github/workflows/docker-build.yml@refs/tags/v<version>\n' +
+2026-10-20T15:06:44.5145536Z       '# MYAPI_COSIGN_CERTIFICATE_OIDC_ISSUER=https://token.actions.githubusercontent.com\n'
+2026-10-20T15:06:44.5146026Z     
+2026-10-20T15:06:44.5146219Z   code: 'ERR_ASSERTION'
+2026-10-20T15:06:44.5146454Z   name: 'AssertionError'
+2026-10-20T15:06:44.5146670Z   expected:
+2026-10-20T15:06:44.5146848Z   actual: |-
+2026-10-20T15:06:44.5147166Z     # MyAPI deployment settings. These MYAPI_* names are canonical for new installs.
+2026-10-20T15:06:44.5147896Z     # beta.22 is an unpublished platform UI candidate; do not pull or deploy before publication.
+2026-10-20T15:06:44.5148588Z     # The published beta.10 remains available; see docs/PERSONAL_CONSOLE_ACCEPTANCE_CONTROL_EXECUTION_20261019.md for scope.
+2026-10-20T15:06:44.5149266Z     # Review the accounting preflight guide before upgrading an existing installation.
+2026-10-20T15:06:44.5149817Z     # Existing deployments retain their explicit image and reviewed accounting settings.
+2026-10-20T15:06:44.5150273Z     MYAPI_IMAGE=ghcr.io/forcemind/myapi:v0.2.0-beta.24
+2026-10-20T15:06:44.5150661Z     # Select full for the server edition or lan for the private LAN edition.
+2026-10-20T15:06:44.5151021Z     MYAPI_EDITION=full
+2026-10-20T15:06:44.5151242Z     MYAPI_BUILD_LOCAL=false
+2026-10-20T15:06:44.5151602Z     # Fresh, cache-free installations only. Existing installations must preserve
+2026-10-20T15:06:44.5152113Z     # their reviewed choice; never disable batching to bypass a Redis outage or
+2026-10-20T15:06:44.5152616Z     # abandon outstanding quota generations. This template does not provide Redis.
+2026-10-20T15:06:44.5153014Z     BATCH_UPDATE_ENABLED=false
+2026-10-20T15:06:44.5153369Z     # Fresh configuration contract. Do not add this marker to an old installation
+2026-10-20T15:06:44.5153870Z     # until its effective writer/cache state and outstanding quota work are reviewed.
+2026-10-20T15:06:44.5154280Z     MYAPI_ACCOUNTING_CONFIG_VERSION=1
+2026-10-20T15:06:44.5154642Z     # Keep the host binding private by default. Set to a private interface or
+2026-10-20T15:06:44.5155048Z     # 0.0.0.0 only when intentionally sharing the LAN.
+2026-10-20T15:06:44.5155719Z     MYAPI_BIND_ADDRESS=127.0.0.1
+2026-10-20T15:06:44.5156076Z     # Sharing beyond this machine is opt-in. Keep false unless a private LAN
+2026-10-20T15:06:44.5156675Z     # interface or 0.0.0.0 binding is intentionally required.
+2026-10-20T15:06:44.5157015Z     MYAPI_ALLOW_LAN=false
+2026-10-20T15:06:44.5157258Z     MYAPI_SESSION_COOKIE_SECURE=true
+2026-10-20T15:06:44.5157517Z     MYAPI_PORT=3000
+2026-10-20T15:06:44.5157762Z     MYAPI_PUBLIC_URL=https://myapi.example.test
+2026-10-20T15:06:44.5158058Z     MYAPI_DATA_DIR=./data
+2026-10-20T15:06:44.5158274Z     MYAPI_LOGS_DIR=./logs
+2026-10-20T15:06:44.5158586Z     # Database names for new installs. For an existing legacy volume, set
+2026-10-20T15:06:44.5159046Z     # MYAPI_DB_NAME to its current database name before starting; no implicit
+2026-10-20T15:06:44.5159434Z     # database rename is performed.
+2026-10-20T15:06:44.5159689Z     MYAPI_DB_NAME=myapi
+2026-10-20T15:06:44.5159909Z     MYAPI_LOG_DB_NAME=myapi-log
+2026-10-20T15:06:44.5160153Z     MYAPI_CLICKHOUSE_DB=myapi_logs
+2026-10-20T15:06:44.5160505Z     # Resource guardrails for Docker Desktop and small servers. Increase only
+2026-10-20T15:06:44.5161147Z     # after measuring the workload; values use Docker Compose syntax.
+2026-10-20T15:06:44.5161487Z     MYAPI_CPU_LIMIT=2.0
+2026-10-20T15:06:44.5161705Z     MYAPI_MEMORY_LIMIT=2g
+2026-10-20T15:06:44.5162038Z     # Local Docker/Electron builds use at most this many Go package workers.
+2026-10-20T15:06:44.5162420Z     MYAPI_BUILD_PARALLELISM=2
+2026-10-20T15:06:44.5162790Z     # Provider account balance sampling is enabled by default in the service; leave
+2026-10-20T15:06:44.5163315Z     # overrides empty to allow administrators to adjust them from the monitoring UI.
+2026-10-20T15:06:44.5163715Z     CHANNEL_QUOTA_SYNC_ENABLED=
+2026-10-20T15:06:44.5163957Z     CHANNEL_QUOTA_SYNC_INTERVAL=
+2026-10-20T15:06:44.5164205Z     CHANNEL_QUOTA_SYNC_MAX_CHANNELS=
+2026-10-20T15:06:44.5164585Z     # Stable multi-account quota identity keyring. Generate an independent 32-byte
+2026-10-20T15:06:44.5165321Z     # base64url secret (without padding) for a new database; keep existing keys on
+2026-10-20T15:06:44.5165852Z     # upgrade. Share it across instances using that database and back it up safely.
+2026-10-20T15:06:44.5166484Z     # Never commit real values. Empty disables identity-dependent quota sampling.
+2026-10-20T15:06:44.5166936Z     # CHANNEL_QUOTA_IDENTITY_KEYS=active:v1:<base64url-secret>
+2026-10-20T15:06:44.5167368Z     # Threshold status is opt-in and read-only. Cooldown/recovery values are
+2026-10-20T15:06:44.5167853Z     # notifier-neutral policy metadata; no outbound notification is sent yet.
+2026-10-20T15:06:44.5168244Z     CHANNEL_QUOTA_ALERT_ENABLED=false
+2026-10-20T15:06:44.5168516Z     CHANNEL_QUOTA_ALERT_WARNING_PERCENT=20
+2026-10-20T15:06:44.5168808Z     CHANNEL_QUOTA_ALERT_CRITICAL_PERCENT=10
+2026-10-20T15:06:44.5169103Z     CHANNEL_QUOTA_ALERT_COOLDOWN_SECONDS=3600
+2026-10-20T15:06:44.5169413Z     CHANNEL_QUOTA_ALERT_NOTIFY_ON_RECOVERY=false
+2026-10-20T15:06:44.5169821Z     # Existing installations may still use the legacy NEW_API_* names. The MyAPI CLI
+2026-10-20T15:06:44.5170325Z     # and deploy/install.sh read those names as a compatibility fallback; run
+2026-10-20T15:06:44.5170792Z     # `myapi migrate --project-dir DIR` to write canonical MYAPI_* keys.
+2026-10-20T15:06:44.5171170Z     # NEW_API_IMAGE=local/new-api:custom-rc25
+2026-10-20T15:06:44.5171436Z     # NEW_API_PORT=3000
+2026-10-20T15:06:44.5171698Z     # NEW_API_PUBLIC_URL=https://new-api.example.com
+2026-10-20T15:06:44.5172001Z     # NEW_API_DATA_DIR=./data
+2026-10-20T15:06:44.5172236Z     # NEW_API_LOGS_DIR=./logs
+2026-10-20T15:06:44.5172637Z     # Optional build-time distribution branding. Runtime site settings still take precedence.
+2026-10-20T15:06:44.5173082Z     MYAPI_BRAND_NAME=MyAPI
+2026-10-20T15:06:44.5173326Z     MYAPI_BRAND_LOGO=/myapi-logo-v1.png
+2026-10-20T15:06:44.5173725Z     SESSION_SECRET=8a11615b5ee75877523c61014ab62e6495b088c6a81656911888aea2ba5df498
+2026-10-20T15:06:44.5174128Z     FULL_CONTENT_LOG_ENABLED=true
+2026-10-20T15:06:44.5174377Z     FULL_CONTENT_LOG_MAX_MB=100
+2026-10-20T15:06:44.5174618Z     FULL_CONTENT_LOG_MAX_FILES=10
+2026-10-20T15:06:44.5174961Z     # Optional quota history retention. 0 keeps all normalized snapshots; a
+2026-10-20T15:06:44.5175804Z     # positive value enables a daily, bounded cleanup task (maximum 100 years).
+2026-10-20T15:06:44.5176207Z     CHANNEL_QUOTA_SNAPSHOT_RETENTION_DAYS=0
+2026-10-20T15:06:44.5176588Z     # Optional keyless cosign verification for `myapi upgrade`. Keep disabled
+2026-10-20T15:06:44.5177081Z     # unless cosign is installed and the expected workflow identity is configured.
+2026-10-20T15:06:44.5177476Z     # MYAPI_VERIFY_IMAGE_SIGNATURE=false
+2026-10-20T15:06:44.5177851Z     # Optional post-pull digest pinning for `myapi upgrade`; this resolves the
+2026-10-20T15:06:44.5178337Z     # pulled tag once, then persists the immutable repository digest in `.env`.
+2026-10-20T15:06:44.5178719Z     # MYAPI_PIN_IMAGE_DIGEST=false
+2026-10-20T15:06:44.5179270Z     # MYAPI_COSIGN_CERTIFICATE_IDENTITY=https://github.com/ForceMind/MyAPI/.github/workflows/docker-build.yml@refs/tags/v<version>
+2026-10-20T15:06:44.5180146Z     # MYAPI_COSIGN_CERTIFICATE_OIDC_ISSUER=https://token.actions.githubusercontent.com
+2026-10-20T15:06:44.5180560Z     
+2026-10-20T15:06:44.5180738Z   operator: 'match'
+2026-10-20T15:06:44.5180939Z   stack: |-
+2026-10-20T15:06:44.5181304Z     TestContext.<anonymous> (file:///home/runner/work/MyAPI/MyAPI/cli/test/myapi.test.mjs:567:10)
+2026-10-20T15:06:44.5181781Z     Test.runInAsyncScope (node:async_hooks:214:14)
+2026-10-20T15:06:44.5182108Z     Test.run (node:internal/test_runner/test:1047:25)
+2026-10-20T15:06:44.5182501Z     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+2026-10-20T15:06:44.5182935Z     Test.postRun (node:internal/test_runner/test:1173:19)
+2026-10-20T15:06:44.5183276Z     Test.run (node:internal/test_runner/test:1101:12)
+2026-10-20T15:06:44.5183691Z     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+2026-10-20T15:06:44.5184063Z   ...
+2026-10-20T15:06:44.5184356Z # Subtest: adopt records existing absolute data paths without moving them
+2026-10-20T15:06:44.5184813Z ok 50 - adopt records existing absolute data paths without moving them
+2026-10-20T15:06:44.5185443Z   ---
+2026-10-20T15:06:44.5185910Z   duration_ms: 1137.06602
+2026-10-20T15:06:44.5186150Z   type: 'test'
+2026-10-20T15:06:44.5186334Z   ...
+2026-10-20T15:06:44.5186652Z # Subtest: legacy deployment variables are accepted and can be migrated explicitly
+2026-10-20T15:06:44.5187187Z ok 51 - legacy deployment variables are accepted and can be migrated explicitly
+2026-10-20T15:06:44.5187565Z   ---
+2026-10-20T15:06:44.5187743Z   duration_ms: 1162.193045
+2026-10-20T15:06:44.5187955Z   type: 'test'
+2026-10-20T15:06:44.5188132Z   ...
+2026-10-20T15:06:44.5188453Z # Subtest: lan init creates a loopback-only LAN deployment without exposing credentials
+2026-10-20T15:06:44.5188989Z ok 52 - lan init creates a loopback-only LAN deployment without exposing credentials
+2026-10-20T15:06:44.5189372Z   ---
+2026-10-20T15:06:44.5189545Z   duration_ms: 1086.751391
+2026-10-20T15:06:44.5189755Z   type: 'test'
+2026-10-20T15:06:44.5189932Z   ...
+2026-10-20T15:06:44.5190214Z # Subtest: lan init requires explicit opt-in for a private network address
+2026-10-20T15:06:44.5190684Z ok 53 - lan init requires explicit opt-in for a private network address
+2026-10-20T15:06:44.5191020Z   ---
+2026-10-20T15:06:44.5191195Z   duration_ms: 1247.021615
+2026-10-20T15:06:44.5191400Z   type: 'test'
+2026-10-20T15:06:44.5191575Z   ...
+2026-10-20T15:06:44.5191921Z # Subtest: lan wildcard binding advertises discovered RFC1918 endpoints without a placeholder
+2026-10-20T15:06:44.5192548Z ok 54 - lan wildcard binding advertises discovered RFC1918 endpoints without a placeholder
+2026-10-20T15:06:44.5192954Z   ---
+2026-10-20T15:06:44.5193126Z   duration_ms: 1055.322596
+2026-10-20T15:06:44.5193332Z   type: 'test'
+2026-10-20T15:06:44.5193504Z   ...
+2026-10-20T15:06:44.5193761Z # Subtest: lan init rejects public and invalid listener addresses
+2026-10-20T15:06:44.5194165Z ok 55 - lan init rejects public and invalid listener addresses
+2026-10-20T15:06:44.5194468Z   ---
+2026-10-20T15:06:44.5194642Z   duration_ms: 292.973109
+2026-10-20T15:06:44.5194849Z   type: 'test'
+2026-10-20T15:06:44.5195027Z   ...
+2026-10-20T15:06:44.5195525Z # Subtest: CLI and installer keep LAN HTTP cookie inputs consistent
+2026-10-20T15:06:44.5195941Z ok 56 - CLI and installer keep LAN HTTP cookie inputs consistent
+2026-10-20T15:06:44.5196252Z   ---
+2026-10-20T15:06:44.5196429Z   duration_ms: 1159.59395
+2026-10-20T15:06:44.5196638Z   type: 'test'
+2026-10-20T15:06:44.5196824Z   ...
+2026-10-20T15:06:44.5197083Z # Subtest: CLI and installer keep LAN HTTPS cookie inputs consistent
+2026-10-20T15:06:44.5197499Z ok 57 - CLI and installer keep LAN HTTPS cookie inputs consistent
+2026-10-20T15:06:44.5197812Z   ---
+2026-10-20T15:06:44.5197988Z   duration_ms: 1273.486461
+2026-10-20T15:06:44.5198200Z   type: 'test'
+2026-10-20T15:06:44.5198503Z   ...
+2026-10-20T15:06:44.5198937Z # Subtest: CLI and installer keep Full HTTPS cookie inputs consistent
+2026-10-20T15:06:44.5199755Z ok 58 - CLI and installer keep Full HTTPS cookie inputs consistent
+2026-10-20T15:06:44.5200465Z   ---
+2026-10-20T15:06:44.5200832Z   duration_ms: 1251.982763
+2026-10-20T15:06:44.5201064Z   type: 'test'
+2026-10-20T15:06:44.5201242Z   ...
+2026-10-20T15:06:44.5201558Z # Subtest: Full refuses non-Secure cookies before invoking Docker
+2026-10-20T15:06:44.5202030Z ok 59 - Full refuses non-Secure cookies before invoking Docker
+2026-10-20T15:06:44.5202360Z   ---
+2026-10-20T15:06:44.5202616Z   duration_ms: 1167.2628
+2026-10-20T15:06:44.5202906Z   type: 'test'
+2026-10-20T15:06:44.5203085Z   ...
+2026-10-20T15:06:44.5203397Z # Subtest: new Full and LAN configurations explicitly choose cache-free batch=false
+2026-10-20T15:06:44.5203910Z ok 60 - new Full and LAN configurations explicitly choose cache-free batch=false
+2026-10-20T15:06:44.5204288Z   ---
+2026-10-20T15:06:44.5204466Z   duration_ms: 2144.367444
+2026-10-20T15:06:44.5204682Z   type: 'test'
+2026-10-20T15:06:44.5204859Z   ...
+2026-10-20T15:06:44.5205471Z # Subtest: existing environment is preserved byte-for-byte even with configure --force
+2026-10-20T15:06:44.5206255Z ok 61 - existing environment is preserved byte-for-byte even with configure --force
+2026-10-20T15:06:44.5206653Z   ---
+2026-10-20T15:06:44.5206827Z   duration_ms: 1184.161399
+2026-10-20T15:06:44.5207036Z   type: 'test'
+2026-10-20T15:06:44.5207213Z   ...
+2026-10-20T15:06:44.5207618Z # Subtest: missing ambiguous and cache-backed choices refuse up upgrade and installer before Docker or writes
+2026-10-20T15:06:44.5208328Z ok 62 - missing ambiguous and cache-backed choices refuse up upgrade and installer before Docker or writes
+2026-10-20T15:06:44.5208790Z   ---
+2026-10-20T15:06:44.5208962Z   duration_ms: 1477.654551
+2026-10-20T15:06:44.5209168Z   type: 'test'
+2026-10-20T15:06:44.5209475Z   ...
+2026-10-20T15:06:44.5209978Z # Subtest: saved false cannot silently replace the old hardcoded true container
+2026-10-20T15:06:44.5210829Z ok 63 - saved false cannot silently replace the old hardcoded true container
+2026-10-20T15:06:44.5211439Z   ---
+2026-10-20T15:06:44.5211732Z   duration_ms: 1418.016489
+2026-10-20T15:06:44.5212088Z   type: 'test'
+2026-10-20T15:06:44.5212390Z   ...
+2026-10-20T15:06:44.5212988Z # Subtest: reviewed existing false overrides conflicting ambient batch choice in both helpers
+2026-10-20T15:06:44.5213969Z ok 64 - reviewed existing false overrides conflicting ambient batch choice in both helpers
+2026-10-20T15:06:44.5214638Z   ---
+2026-10-20T15:06:44.5214925Z   duration_ms: 1201.136965
+2026-10-20T15:06:44.5215473Z   type: 'test'
+2026-10-20T15:06:44.5215770Z   ...
+2026-10-20T15:06:44.5216292Z # Subtest: missing environment with existing database cannot be classified as fresh
+2026-10-20T15:06:44.5217171Z ok 65 - missing environment with existing database cannot be classified as fresh
+2026-10-20T15:06:44.5217794Z   ---
+2026-10-20T15:06:44.5218091Z   duration_ms: 1130.196423
+2026-10-20T15:06:44.5218442Z   type: 'test'
+2026-10-20T15:06:44.5218745Z   ...
+2026-10-20T15:06:44.5219271Z # Subtest: existing data without a verified container cannot use a fresh false choice
+2026-10-20T15:06:44.5220142Z ok 66 - existing data without a verified container cannot use a fresh false choice
+2026-10-20T15:06:44.5220768Z   ---
+2026-10-20T15:06:44.5221056Z   duration_ms: 1169.289217
+2026-10-20T15:06:44.5221412Z   type: 'test'
+2026-10-20T15:06:44.5221710Z   ...
+2026-10-20T15:06:44.5222295Z # Subtest: source installer seeds explicit false only when no prior data or environment exists
+2026-10-20T15:06:44.5223293Z ok 67 - source installer seeds explicit false only when no prior data or environment exists
+2026-10-20T15:06:44.5223973Z   ---
+2026-10-20T15:06:44.5224264Z   duration_ms: 1120.162653
+2026-10-20T15:06:44.5224606Z   type: 'test'
+2026-10-20T15:06:44.5224903Z   ...
+2026-10-20T15:06:44.5225663Z # Subtest: adoption of nonempty data cannot inherit the new installation accounting default
+2026-10-20T15:06:44.5226619Z ok 68 - adoption of nonempty data cannot inherit the new installation accounting default
+2026-10-20T15:06:44.5227547Z   ---
+2026-10-20T15:06:44.5227844Z   duration_ms: 1194.114872
+2026-10-20T15:06:44.5228200Z   type: 'test'
+2026-10-20T15:06:44.5228499Z   ...
+2026-10-20T15:06:44.5229129Z # Subtest: old missing and unknown accounting contract markers block before any deployment mutation
+2026-10-20T15:06:44.5230236Z ok 69 - old missing and unknown accounting contract markers block before any deployment mutation
+2026-10-20T15:06:44.5230961Z   ---
+2026-10-20T15:06:44.5231260Z   duration_ms: 1482.871754
+2026-10-20T15:06:44.5231622Z   type: 'test'
+2026-10-20T15:06:44.5231922Z   ...
+2026-10-20T15:06:44.5232448Z # Subtest: captures an offset Uint8Array view as detached, bounded untrusted evidence
+2026-10-20T15:06:44.5233332Z ok 70 - captures an offset Uint8Array view as detached, bounded untrusted evidence
+2026-10-20T15:06:44.5233959Z   ---
+2026-10-20T15:06:44.5234240Z   duration_ms: 5.729333
+2026-10-20T15:06:44.5234576Z   type: 'test'
+2026-10-20T15:06:44.5234878Z   ...
+2026-10-20T15:06:44.5235608Z # Subtest: validates a frozen detached snapshot and materializes a new copy every time
+2026-10-20T15:06:44.5236515Z ok 71 - validates a frozen detached snapshot and materializes a new copy every time
+2026-10-20T15:06:44.5237321Z   ---
+2026-10-20T15:06:44.5237621Z   duration_ms: 0.915212
+2026-10-20T15:06:44.5237962Z   type: 'test'
+2026-10-20T15:06:44.5238259Z   ...
+2026-10-20T15:06:44.5238849Z # Subtest: accepts only non-empty ArrayBuffer-backed Uint8Array bytes within the 4 MiB bound
+2026-10-20T15:06:44.5239842Z ok 72 - accepts only non-empty ArrayBuffer-backed Uint8Array bytes within the 4 MiB bound
+2026-10-20T15:06:44.5240527Z   ---
+2026-10-20T15:06:44.5240786Z   duration_ms: 13.944948
+2026-10-20T15:06:44.5241099Z   type: 'test'
+2026-10-20T15:06:44.5241426Z   ...
+2026-10-20T15:06:44.5241940Z # Subtest: uses genuine TypedArray internal slots instead of own shadow properties
+2026-10-20T15:06:44.5242819Z ok 73 - uses genuine TypedArray internal slots instead of own shadow properties
+2026-10-20T15:06:44.5243388Z   ---
+2026-10-20T15:06:44.5243648Z   duration_ms: 0.878753
+2026-10-20T15:06:44.5243952Z   type: 'test'
+2026-10-20T15:06:44.5244217Z   ...
+2026-10-20T15:06:44.5244727Z # Subtest: rejects SharedArrayBuffer views even when their own buffer field is shadowed
+2026-10-20T15:06:44.5245856Z ok 74 - rejects SharedArrayBuffer views even when their own buffer field is shadowed
+2026-10-20T15:06:44.5246529Z   ---
+2026-10-20T15:06:44.5246823Z   duration_ms: 0.30133
+2026-10-20T15:06:44.5247172Z   type: 'test'
+2026-10-20T15:06:44.5247474Z   ...
+2026-10-20T15:06:44.5248043Z # Subtest: rejects evidence with altered header fields, digest, length, or non-canonical base64
+2026-10-20T15:06:44.5248986Z ok 75 - rejects evidence with altered header fields, digest, length, or non-canonical base64
+2026-10-20T15:06:44.5249631Z   ---
+2026-10-20T15:06:44.5249897Z   duration_ms: 1.076302
+2026-10-20T15:06:44.5250207Z   type: 'test'
+2026-10-20T15:06:44.5250489Z   ...
+2026-10-20T15:06:44.5251011Z # Subtest: rejects extra, missing, inherited, accessor, non-enumerable, and symbol fields
+2026-10-20T15:06:44.5251951Z ok 76 - rejects extra, missing, inherited, accessor, non-enumerable, and symbol fields
+2026-10-20T15:06:44.5252642Z   ---
+2026-10-20T15:06:44.5252949Z   duration_ms: 0.615986
+2026-10-20T15:06:44.5253344Z   type: 'test'
+2026-10-20T15:06:44.5253766Z   ...
+2026-10-20T15:06:44.5254364Z # Subtest: rejects evidence proxies before invoking any proxy trap
+2026-10-20T15:06:44.5255585Z ok 77 - rejects evidence proxies before invoking any proxy trap
+2026-10-20T15:06:44.5256266Z   ---
+2026-10-20T15:06:44.5256588Z   duration_ms: 0.381289
+2026-10-20T15:06:44.5257000Z   type: 'test'
+2026-10-20T15:06:44.5257294Z   ...
+2026-10-20T15:06:44.5257792Z # Subtest: rejects non-plain objects and never treats fixtures as verified trust evidence
+2026-10-20T15:06:44.5312020Z ok 78 - rejects non-plain objects and never treats fixtures as verified trust evidence
+2026-10-20T15:06:44.5312656Z   ---
+2026-10-20T15:06:44.5313262Z   duration_ms: 0.61284
+2026-10-20T15:06:44.5313595Z   type: 'test'
+2026-10-20T15:06:44.5313883Z   ...
+2026-10-20T15:06:44.5314363Z # Subtest: rejects proxies and accessors without executing caller code
+2026-10-20T15:06:44.5315369Z ok 79 - rejects proxies and accessors without executing caller code
+2026-10-20T15:06:44.5315850Z   ---
+2026-10-20T15:06:44.5316052Z   duration_ms: 6.811715
+2026-10-20T15:06:44.5316284Z   type: 'test'
+2026-10-20T15:06:44.5316486Z   ...
+2026-10-20T15:06:44.5316746Z # Subtest: rejects custom objects and hostile data arrays
+2026-10-20T15:06:44.5317117Z ok 80 - rejects custom objects and hostile data arrays
+2026-10-20T15:06:44.5317404Z   ---
+2026-10-20T15:06:44.5317586Z   duration_ms: 1.560442
+2026-10-20T15:06:44.5317791Z   type: 'test'
+2026-10-20T15:06:44.5317971Z   ...
+2026-10-20T15:06:44.5318287Z # Subtest: validates a complete schema-1 manifest and selects its unique artifact
+2026-10-20T15:06:44.5318799Z ok 81 - validates a complete schema-1 manifest and selects its unique artifact
+2026-10-20T15:06:44.5319185Z   ---
+2026-10-20T15:06:44.5319368Z   duration_ms: 2.123399
+2026-10-20T15:06:44.5319579Z   type: 'test'
+2026-10-20T15:06:44.5319757Z   ...
+2026-10-20T15:06:44.5320298Z # Subtest: rejects unsupported schema versions, malformed hashes, and invalid platform fields
+2026-10-20T15:06:44.5320926Z ok 82 - rejects unsupported schema versions, malformed hashes, and invalid platform fields
+2026-10-20T15:06:44.5321348Z   ---
+2026-10-20T15:06:44.5321526Z   duration_ms: 0.490773
+2026-10-20T15:06:44.5321737Z   type: 'test'
+2026-10-20T15:06:44.5321919Z   ...
+2026-10-20T15:06:44.5322273Z # Subtest: rejects malformed portable artifact identities and OCI location/digest mismatches
+2026-10-20T15:06:44.5322879Z ok 83 - rejects malformed portable artifact identities and OCI location/digest mismatches
+2026-10-20T15:06:44.5323306Z   ---
+2026-10-20T15:06:44.5323479Z   duration_ms: 5.920719
+2026-10-20T15:06:44.5323690Z   type: 'test'
+2026-10-20T15:06:44.5323880Z   ...
+2026-10-20T15:06:44.5324159Z # Subtest: bounds schema-1 collection and semantic-version fields
+2026-10-20T15:06:44.5324583Z ok 84 - bounds schema-1 collection and semantic-version fields
+2026-10-20T15:06:44.5324894Z   ---
+2026-10-20T15:06:44.5325072Z   duration_ms: 7.421228
+2026-10-20T15:06:44.5325562Z   type: 'test'
+2026-10-20T15:06:44.5325752Z   ...
+2026-10-20T15:06:44.5326122Z # Subtest: compares arbitrarily large semantic version components without numeric precision loss
+2026-10-20T15:06:44.5326744Z ok 85 - compares arbitrarily large semantic version components without numeric precision loss
+2026-10-20T15:06:44.5327169Z   ---
+2026-10-20T15:06:44.5327342Z   duration_ms: 0.284489
+2026-10-20T15:06:44.5327542Z   type: 'test'
+2026-10-20T15:06:44.5327724Z   ...
+2026-10-20T15:06:44.5328057Z # Subtest: fails closed for every managed operation until a verified transition matrix exists
+2026-10-20T15:06:44.5328628Z ok 86 - fails closed for every managed operation until a verified transition matrix exists
+2026-10-20T15:06:44.5329038Z   ---
+2026-10-20T15:06:44.5329220Z   duration_ms: 0.637255
+2026-10-20T15:06:44.5329428Z   type: 'test'
+2026-10-20T15:06:44.5329610Z   ...
+2026-10-20T15:06:44.5329887Z # Subtest: reports all malformed selection fields as selection errors
+2026-10-20T15:06:44.5330334Z ok 87 - reports all malformed selection fields as selection errors
+2026-10-20T15:06:44.5330662Z   ---
+2026-10-20T15:06:44.5330841Z   duration_ms: 1.213547
+2026-10-20T15:06:44.5331051Z   type: 'test'
+2026-10-20T15:06:44.5331231Z   ...
+2026-10-20T15:06:44.5331535Z # Subtest: rejects a bootstrap version outside the declared compatibility range
+2026-10-20T15:06:44.5332037Z ok 88 - rejects a bootstrap version outside the declared compatibility range
+2026-10-20T15:06:44.5332400Z   ---
+2026-10-20T15:06:44.5332574Z   duration_ms: 0.686196
+2026-10-20T15:06:44.5332778Z   type: 'test'
+2026-10-20T15:06:44.5332965Z   ...
+2026-10-20T15:06:44.5333197Z # Subtest: allows canonical OCI registry port boundaries
+2026-10-20T15:06:44.5333557Z ok 89 - allows canonical OCI registry port boundaries
+2026-10-20T15:06:44.5333983Z   ---
+2026-10-20T15:06:44.5334159Z   duration_ms: 0.491614
+2026-10-20T15:06:44.5334359Z   type: 'test'
+2026-10-20T15:06:44.5334535Z   ...
+2026-10-20T15:06:44.5334826Z # Subtest: bounds an untrusted bootstrap version before semantic comparison
+2026-10-20T15:06:44.5335570Z ok 90 - bounds an untrusted bootstrap version before semantic comparison
+2026-10-20T15:06:44.5335921Z   ---
+2026-10-20T15:06:44.5336095Z   duration_ms: 0.454385
+2026-10-20T15:06:44.5336296Z   type: 'test'
+2026-10-20T15:06:44.5336472Z   ...
+2026-10-20T15:06:44.5336718Z # Subtest: fails closed for no matching or ambiguous artifacts
+2026-10-20T15:06:44.5337098Z ok 91 - fails closed for no matching or ambiguous artifacts
+2026-10-20T15:06:44.5337389Z   ---
+2026-10-20T15:06:44.5337562Z   duration_ms: 0.539794
+2026-10-20T15:06:44.5337761Z   type: 'test'
+2026-10-20T15:06:44.5337947Z   ...
+2026-10-20T15:06:44.5338111Z 1..91
+2026-10-20T15:06:44.5338279Z # tests 91
+2026-10-20T15:06:44.5338452Z # suites 0
+2026-10-20T15:06:44.5338630Z # pass 87
+2026-10-20T15:06:44.5338802Z # fail 4
+2026-10-20T15:06:44.5338973Z # cancelled 0
+2026-10-20T15:06:44.5339158Z # skipped 0
+2026-10-20T15:06:44.5339334Z # todo 0
+2026-10-20T15:06:44.5339513Z # duration_ms 44494.566754
+2026-10-20T15:06:44.5353118Z ##[error]Process completed with exit code 1.
+2026-10-20T15:06:44.5502975Z Post job cleanup.
+2026-10-20T15:06:44.6420815Z [command]/usr/bin/git version
+2026-10-20T15:06:44.6470306Z git version 2.55.0
+2026-10-20T15:06:44.6509584Z Temporarily overriding HOME='/home/runner/work/_temp/9dbe52d0-43fa-45cc-87d2-84ce95a5cfa4' before making global git config changes
+2026-10-20T15:06:44.6510915Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-20T15:06:44.6514523Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MyAPI/MyAPI
+2026-10-20T15:06:44.6557863Z Removing SSH command configuration
+2026-10-20T15:06:44.6566261Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-20T15:06:44.6610531Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-20T15:06:44.6895957Z Removing HTTP extra header
+2026-10-20T15:06:44.6902995Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-20T15:06:44.6973057Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-20T15:06:44.7399108Z Removing includeIf entries pointing to credentials config files
+2026-10-20T15:06:44.7406714Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-20T15:06:44.7449684Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-20T15:06:44.7979208Z Cleaning up orphan processes

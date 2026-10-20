@@ -1,0 +1,116 @@
+2026-10-20T15:26:04.4768189Z ##[group]Run make test
+2026-10-20T15:26:04.4768456Z [36;1mmake test[0m
+2026-10-20T15:26:04.4831013Z shell: /usr/bin/bash -e {0}
+2026-10-20T15:26:04.4831273Z env:
+2026-10-20T15:26:04.4831463Z   GOWORK: off
+2026-10-20T15:26:04.4831661Z   GOMAXPROCS: 1
+2026-10-20T15:26:04.4831863Z   GOMEMLIMIT: 768MiB
+2026-10-20T15:26:04.4832080Z   GOTOOLCHAIN: local
+2026-10-20T15:26:04.4832291Z ##[endgroup]
+2026-10-20T15:26:04.4945649Z Testing root Go module...
+2026-10-20T15:26:08.2822586Z ok  	github.com/ForceMind/MyAPI/common	0.908s
+2026-10-20T15:26:08.6885009Z ok  	github.com/ForceMind/MyAPI/common/limiter	0.010s
+2026-10-20T15:26:08.6885782Z ?   	github.com/ForceMind/MyAPI/constant	[no test files]
+2026-10-20T15:26:46.9051237Z ok  	github.com/ForceMind/MyAPI/controller	28.146s
+2026-10-20T15:26:46.9053238Z ?   	github.com/ForceMind/MyAPI/dto	[no test files]
+2026-10-20T15:26:46.9053777Z ?   	github.com/ForceMind/MyAPI/i18n	[no test files]
+2026-10-20T15:26:47.3692780Z ok  	github.com/ForceMind/MyAPI/logger	0.012s
+2026-10-20T15:26:49.8143974Z ok  	github.com/ForceMind/MyAPI/middleware	1.125s
+2026-10-20T15:28:13.0776869Z ok  	github.com/ForceMind/MyAPI/model	80.857s
+2026-10-20T15:28:14.4173771Z ok  	github.com/ForceMind/MyAPI/oauth	0.013s
+2026-10-20T15:28:14.9754210Z ok  	github.com/ForceMind/MyAPI/pkg/billingexpr	0.020s
+2026-10-20T15:28:15.4511426Z ok  	github.com/ForceMind/MyAPI/pkg/cachex	0.011s
+2026-10-20T15:28:16.1195350Z ok  	github.com/ForceMind/MyAPI/pkg/ionet	0.015s
+2026-10-20T15:28:16.4183666Z ?   	github.com/ForceMind/MyAPI/pkg/perf_metrics	[no test files]
+2026-10-20T15:28:16.4184445Z ok  	github.com/ForceMind/MyAPI/pkg/personalusage	0.072s
+2026-10-20T15:28:20.2617325Z ok  	github.com/ForceMind/MyAPI/relay	1.497s
+2026-10-20T15:28:24.8304215Z ok  	github.com/ForceMind/MyAPI/relay/channel	3.355s
+2026-10-20T15:28:26.3448125Z ok  	github.com/ForceMind/MyAPI/relay/channel/advancedcustom	0.016s
+2026-10-20T15:28:26.3449159Z ?   	github.com/ForceMind/MyAPI/relay/channel/ai360	[no test files]
+2026-10-20T15:28:27.6023560Z ok  	github.com/ForceMind/MyAPI/relay/channel/ali	0.014s
+2026-10-20T15:28:28.9438098Z ok  	github.com/ForceMind/MyAPI/relay/channel/aws	0.017s
+2026-10-20T15:28:30.2449436Z ok  	github.com/ForceMind/MyAPI/relay/channel/baidu	0.013s
+2026-10-20T15:28:30.2450177Z ?   	github.com/ForceMind/MyAPI/relay/channel/baidu_v2	[no test files]
+2026-10-20T15:28:31.5666148Z ok  	github.com/ForceMind/MyAPI/relay/channel/claude	0.016s
+2026-10-20T15:28:32.7673914Z ok  	github.com/ForceMind/MyAPI/relay/channel/cloudflare	0.013s
+2026-10-20T15:28:33.9092563Z ok  	github.com/ForceMind/MyAPI/relay/channel/codex	0.013s
+2026-10-20T15:28:33.9093259Z ?   	github.com/ForceMind/MyAPI/relay/channel/cohere	[no test files]
+2026-10-20T15:28:35.1086629Z ok  	github.com/ForceMind/MyAPI/relay/channel/coze	0.013s
+2026-10-20T15:28:35.1087352Z ?   	github.com/ForceMind/MyAPI/relay/channel/deepseek	[no test files]
+2026-10-20T15:28:36.3101874Z ok  	github.com/ForceMind/MyAPI/relay/channel/dify	0.016s
+2026-10-20T15:28:37.8879800Z ok  	github.com/ForceMind/MyAPI/relay/channel/gemini	0.076s
+2026-10-20T15:28:39.0669633Z ok  	github.com/ForceMind/MyAPI/relay/channel/jimeng	0.012s
+2026-10-20T15:28:39.0670367Z ?   	github.com/ForceMind/MyAPI/relay/channel/jina	[no test files]
+2026-10-20T15:28:39.0670882Z ?   	github.com/ForceMind/MyAPI/relay/channel/lingyiwanwu	[no test files]
+2026-10-20T15:28:40.4958244Z ok  	github.com/ForceMind/MyAPI/relay/channel/minimax	0.014s
+2026-10-20T15:28:40.4959161Z ?   	github.com/ForceMind/MyAPI/relay/channel/mistral	[no test files]
+2026-10-20T15:28:41.6502907Z ok  	github.com/ForceMind/MyAPI/relay/channel/mokaai	0.012s
+2026-10-20T15:28:42.7919896Z ok  	github.com/ForceMind/MyAPI/relay/channel/moonshot	0.013s
+2026-10-20T15:28:42.7921092Z ?   	github.com/ForceMind/MyAPI/relay/channel/newapi	[no test files]
+2026-10-20T15:28:44.0905383Z ok  	github.com/ForceMind/MyAPI/relay/channel/ollama	0.014s
+2026-10-20T15:28:46.5280600Z ok  	github.com/ForceMind/MyAPI/relay/channel/openai	0.080s
+2026-10-20T15:28:46.5281794Z ?   	github.com/ForceMind/MyAPI/relay/channel/openrouter	[no test files]
+2026-10-20T15:28:47.6525481Z ok  	github.com/ForceMind/MyAPI/relay/channel/palm	0.014s
+2026-10-20T15:28:47.6526232Z ?   	github.com/ForceMind/MyAPI/relay/channel/perplexity	[no test files]
+2026-10-20T15:28:48.8201193Z ok  	github.com/ForceMind/MyAPI/relay/channel/replicate	0.014s
+2026-10-20T15:28:49.9638803Z ok  	github.com/ForceMind/MyAPI/relay/channel/siliconflow	0.014s
+2026-10-20T15:28:51.0711570Z ok  	github.com/ForceMind/MyAPI/relay/channel/sub2api	0.013s
+2026-10-20T15:28:51.0712470Z ?   	github.com/ForceMind/MyAPI/relay/channel/submodel	[no test files]
+2026-10-20T15:28:52.3898784Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/ali	0.017s
+2026-10-20T15:28:53.6200650Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/doubao	0.015s
+2026-10-20T15:28:54.8160901Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/gemini	0.015s
+2026-10-20T15:28:56.0082542Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/hailuo	0.016s
+2026-10-20T15:28:57.2729690Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/jimeng	0.014s
+2026-10-20T15:28:58.7830980Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/kling	0.104s
+2026-10-20T15:28:59.9874929Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/sora	0.015s
+2026-10-20T15:29:01.1738830Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/suno	0.014s
+2026-10-20T15:29:02.1244141Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/taskcommon	0.013s
+2026-10-20T15:29:03.3529169Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/vertex	0.018s
+2026-10-20T15:29:04.5831519Z ok  	github.com/ForceMind/MyAPI/relay/channel/task/vidu	0.019s
+2026-10-20T15:29:05.9702011Z ok  	github.com/ForceMind/MyAPI/relay/channel/tencent	0.014s
+2026-10-20T15:29:06.4150599Z ok  	github.com/ForceMind/MyAPI/relay/channel/tokenhub	0.011s
+2026-10-20T15:29:07.6949278Z ok  	github.com/ForceMind/MyAPI/relay/channel/vertex	0.017s
+2026-10-20T15:29:08.9407681Z ok  	github.com/ForceMind/MyAPI/relay/channel/volcengine	0.014s
+2026-10-20T15:29:08.9408255Z ?   	github.com/ForceMind/MyAPI/relay/channel/xai	[no test files]
+2026-10-20T15:29:08.9409049Z ?   	github.com/ForceMind/MyAPI/relay/channel/xinference	[no test files]
+2026-10-20T15:29:10.1339746Z ok  	github.com/ForceMind/MyAPI/relay/channel/xunfei	0.013s
+2026-10-20T15:29:11.5378137Z ok  	github.com/ForceMind/MyAPI/relay/channel/zhipu	0.016s
+2026-10-20T15:29:11.5380076Z ?   	github.com/ForceMind/MyAPI/relay/channel/zhipu_4v	[no test files]
+2026-10-20T15:29:12.9673950Z ok  	github.com/ForceMind/MyAPI/relay/common	0.018s
+2026-10-20T15:29:12.9674478Z ?   	github.com/ForceMind/MyAPI/relay/common_handler	[no test files]
+2026-10-20T15:29:13.1864548Z ok  	github.com/ForceMind/MyAPI/relay/constant	0.003s
+2026-10-20T15:29:17.2992761Z ok  	github.com/ForceMind/MyAPI/relay/helper	2.628s
+2026-10-20T15:29:39.8802044Z ok  	github.com/ForceMind/MyAPI/router	18.766s
+2026-10-20T15:30:20.9899551Z ok  	github.com/ForceMind/MyAPI/service	39.270s
+2026-10-20T15:30:22.0514605Z ok  	github.com/ForceMind/MyAPI/service/accesspolicy	0.014s
+2026-10-20T15:30:23.2357258Z ok  	github.com/ForceMind/MyAPI/service/authz	0.034s
+2026-10-20T15:30:24.3128754Z ok  	github.com/ForceMind/MyAPI/service/passkey	0.013s
+2026-10-20T15:30:25.6960157Z ok  	github.com/ForceMind/MyAPI/service/promptlearning	0.029s
+2026-10-20T15:30:26.6200222Z ok  	github.com/ForceMind/MyAPI/setting	0.012s
+2026-10-20T15:30:27.1368507Z ok  	github.com/ForceMind/MyAPI/setting/billing_setting	0.015s
+2026-10-20T15:30:27.6332287Z ok  	github.com/ForceMind/MyAPI/setting/config	0.011s
+2026-10-20T15:30:28.0627714Z ok  	github.com/ForceMind/MyAPI/setting/console_setting	0.011s
+2026-10-20T15:30:28.6573127Z ok  	github.com/ForceMind/MyAPI/setting/model_setting	0.016s
+2026-10-20T15:30:29.3814701Z ok  	github.com/ForceMind/MyAPI/setting/operation_setting	0.021s
+2026-10-20T15:30:29.7515196Z ok  	github.com/ForceMind/MyAPI/setting/perf_metrics_setting	0.010s
+2026-10-20T15:30:30.1379067Z ok  	github.com/ForceMind/MyAPI/setting/performance_setting	0.010s
+2026-10-20T15:30:30.7989480Z ok  	github.com/ForceMind/MyAPI/setting/ratio_setting	0.011s
+2026-10-20T15:30:30.7990383Z ?   	github.com/ForceMind/MyAPI/setting/reasoning	[no test files]
+2026-10-20T15:30:31.3021841Z ok  	github.com/ForceMind/MyAPI/setting/system_setting	0.010s
+2026-10-20T15:30:31.7143896Z ok  	github.com/ForceMind/MyAPI/types	0.010s
+2026-10-20T15:30:31.7897889Z Testing relaykit Go module...
+2026-10-20T15:30:33.0591675Z ok  	github.com/ForceMind/MyAPI/relaykit/dto	0.006s
+2026-10-20T15:30:33.0639780Z ?   	github.com/ForceMind/MyAPI/relaykit/reasonmap	[no test files]
+2026-10-20T15:30:33.9363945Z ok  	github.com/ForceMind/MyAPI/relaykit/relayconvert	0.016s
+2026-10-20T15:30:34.1747888Z ok  	github.com/ForceMind/MyAPI/relaykit/relayconvert/convmeta	0.003s
+2026-10-20T15:30:34.1749177Z ?   	github.com/ForceMind/MyAPI/relaykit/relayconvert/internal/claude_messages	[no test files]
+2026-10-20T15:30:34.1750068Z ?   	github.com/ForceMind/MyAPI/relaykit/relayconvert/internal/gemini_chat	[no test files]
+2026-10-20T15:30:34.1750870Z ?   	github.com/ForceMind/MyAPI/relaykit/relayconvert/internal/jsonutil	[no test files]
+2026-10-20T15:30:34.1751478Z ?   	github.com/ForceMind/MyAPI/relaykit/relayconvert/internal/media	[no test files]
+2026-10-20T15:30:34.7549728Z ok  	github.com/ForceMind/MyAPI/relaykit/relayconvert/internal/oai_chat	0.003s
+2026-10-20T15:30:35.3278079Z ok  	github.com/ForceMind/MyAPI/relaykit/relayconvert/internal/oai_responses	0.004s
+2026-10-20T15:30:35.3279508Z ?   	github.com/ForceMind/MyAPI/relaykit/relayconvert/internal/shared/claude	[no test files]
+2026-10-20T15:30:35.3280693Z ?   	github.com/ForceMind/MyAPI/relaykit/relayconvert/internal/shared/gemini	[no test files]
+2026-10-20T15:30:35.5671294Z ok  	github.com/ForceMind/MyAPI/relaykit/relayconvert/kitutil	0.003s
+2026-10-20T15:30:35.5672096Z ?   	github.com/ForceMind/MyAPI/relaykit/relayconvert/reasoning	[no test files]
+2026-10-20T15:30:35.5672934Z ?   	github.com/ForceMind/MyAPI/relaykit/types	[no test files]

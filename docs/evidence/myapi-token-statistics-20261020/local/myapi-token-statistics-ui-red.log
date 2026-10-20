@@ -1,0 +1,705 @@
+$ vitest run --run src/features/usage-logs/components/__tests__/common-logs-stats.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+ ❯ src/features/usage-logs/components/__tests__/common-logs-stats.test.tsx (6 tests | 6 failed) 6118ms
+   × mixed usage shows known Token subtotals and unknown records while keeping money hidden 1059ms
+   × reported cache zero displays zero percent instead of unknown 1011ms
+   × all missing usage remains unknown rather than a zero total 1013ms
+   × statistics above the safe integer limit retain exact digits 1010ms
+   × a failed statistics read exposes retry and never fabricates zero usage 1011ms
+   × an older statistics API cannot manufacture Token or cache totals 1009ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/usage-logs/components/__tests__/common-logs-stats.test.tsx > mixed usage shows known Token subtotals and unknown records while keeping money hidden
+TestingLibraryElementError: Unable to find role="region" and name "Token usage statistics"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+      [33mtitle[39m=[32m"RPM and TPM cover consumption logs from the last 60 seconds, not all requests or complete token usage."[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"text-muted-foreground text-[11px]"[39m
+      [36m>[39m
+        [0mRecorded usage · last 60s[0m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-rose-500/65"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mRPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m1[0m
+        [36m</span>[39m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-slate-400/70"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mTPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m2[0m
+        [36m</span>[39m
+      [36m</span>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+      [33mtitle[39m=[32m"RPM and TPM cover consumption logs from the last 60 seconds, not all requests or complete token usage."[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"text-muted-foreground text-[11px]"[39m
+      [36m>[39m
+        [0mRecorded usage · last 60s[0m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-rose-500/65"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mRPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m1[0m
+        [36m</span>[39m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-slate-400/70"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mTPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m2[0m
+        [36m</span>[39m
+      [36m</span>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/usage-logs/components/__tests__/common-logs-stats.test.tsx:49:30
+     47|   vi.spyOn(api, 'get').mockResolvedValue({ data: { success: true, data…
+     48|   renderStats()
+     49|   const stats = await screen.findByRole('region', { name: 'Token usage…
+       |                              ^
+     50|   expect(within(stats).getByText('1,100')).toBeInTheDocument()
+     51|   expect(stats).toHaveTextContent('1 record with unknown usage')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  src/features/usage-logs/components/__tests__/common-logs-stats.test.tsx > reported cache zero displays zero percent instead of unknown
+TestingLibraryElementError: Unable to find role="region" and name "Token usage statistics"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+      [33mtitle[39m=[32m"RPM and TPM cover consumption logs from the last 60 seconds, not all requests or complete token usage."[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"text-muted-foreground text-[11px]"[39m
+      [36m>[39m
+        [0mRecorded usage · last 60s[0m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-rose-500/65"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mRPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-slate-400/70"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mTPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+      [33mtitle[39m=[32m"RPM and TPM cover consumption logs from the last 60 seconds, not all requests or complete token usage."[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"text-muted-foreground text-[11px]"[39m
+      [36m>[39m
+        [0mRecorded usage · last 60s[0m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-rose-500/65"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mRPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-slate-400/70"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mTPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/usage-logs/components/__tests__/common-logs-stats.test.tsx:66:30
+     64|   } } } })
+     65|   renderStats()
+     66|   const stats = await screen.findByRole('region', { name: 'Token usage…
+       |                              ^
+     67|   expect(stats).toHaveTextContent('0%')
+     68|   expect(stats).not.toHaveTextContent('Known subtotal')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  src/features/usage-logs/components/__tests__/common-logs-stats.test.tsx > all missing usage remains unknown rather than a zero total
+TestingLibraryElementError: Unable to find role="region" and name "Token usage statistics"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+      [33mtitle[39m=[32m"RPM and TPM cover consumption logs from the last 60 seconds, not all requests or complete token usage."[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"text-muted-foreground text-[11px]"[39m
+      [36m>[39m
+        [0mRecorded usage · last 60s[0m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-rose-500/65"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mRPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-slate-400/70"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mTPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+      [33mtitle[39m=[32m"RPM and TPM cover consumption logs from the last 60 seconds, not all requests or complete token usage."[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"text-muted-foreground text-[11px]"[39m
+      [36m>[39m
+        [0mRecorded usage · last 60s[0m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-rose-500/65"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mRPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-slate-400/70"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mTPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/usage-logs/components/__tests__/common-logs-stats.test.tsx:78:30
+     76|   } } } })
+     77|   renderStats()
+     78|   const stats = await screen.findByRole('region', { name: 'Token usage…
+       |                              ^
+     79|   expect(within(stats).getAllByText('Unknown')).toHaveLength(4)
+     80|   expect(stats).toHaveTextContent('2 records with unknown usage')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  src/features/usage-logs/components/__tests__/common-logs-stats.test.tsx > statistics above the safe integer limit retain exact digits
+TestingLibraryElementError: Unable to find an element with the text: 9,007,199,254,740,994. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+      [33mtitle[39m=[32m"RPM and TPM cover consumption logs from the last 60 seconds, not all requests or complete token usage."[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"text-muted-foreground text-[11px]"[39m
+      [36m>[39m
+        [0mRecorded usage · last 60s[0m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-rose-500/65"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mRPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-slate-400/70"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mTPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+      [33mtitle[39m=[32m"RPM and TPM cover consumption logs from the last 60 seconds, not all requests or complete token usage."[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"text-muted-foreground text-[11px]"[39m
+      [36m>[39m
+        [0mRecorded usage · last 60s[0m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-rose-500/65"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mRPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-slate-400/70"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mTPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/usage-logs/components/__tests__/common-logs-stats.test.tsx:91:23
+     89|   } } } })
+     90|   renderStats()
+     91|   expect(await screen.findByText('9,007,199,254,740,994')).toBeInTheDo…
+       |                       ^
+     92| })
+     93|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  src/features/usage-logs/components/__tests__/common-logs-stats.test.tsx > a failed statistics read exposes retry and never fabricates zero usage
+TestingLibraryElementError: Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+      [33mtitle[39m=[32m"RPM and TPM cover consumption logs from the last 60 seconds, not all requests or complete token usage."[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"text-muted-foreground text-[11px]"[39m
+      [36m>[39m
+        [0mRecorded usage · last 60s[0m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-rose-500/65"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mRPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-slate-400/70"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mTPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+      [33mtitle[39m=[32m"RPM and TPM cover consumption logs from the last 60 seconds, not all requests or complete token usage."[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"text-muted-foreground text-[11px]"[39m
+      [36m>[39m
+        [0mRecorded usage · last 60s[0m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-rose-500/65"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mRPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-slate-400/70"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mTPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/usage-logs/components/__tests__/common-logs-stats.test.tsx:97:23
+     95|   const get = vi.spyOn(api, 'get').mockRejectedValueOnce(new Error('sy…
+     96|   renderStats()
+     97|   expect(await screen.findByRole('alert')).toHaveTextContent('Failed t…
+       |                       ^
+     98|   expect(screen.queryByRole('region', { name: 'Token usage statistics'…
+     99|   await userEvent.setup().click(screen.getByRole('button', { name: 'Re…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  src/features/usage-logs/components/__tests__/common-logs-stats.test.tsx > an older statistics API cannot manufacture Token or cache totals
+TestingLibraryElementError: Unable to find an element with the text: Token statistics unavailable. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+      [33mtitle[39m=[32m"RPM and TPM cover consumption logs from the last 60 seconds, not all requests or complete token usage."[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"text-muted-foreground text-[11px]"[39m
+      [36m>[39m
+        [0mRecorded usage · last 60s[0m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-rose-500/65"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mRPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-slate-400/70"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mTPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-wrap items-center gap-2"[39m
+      [33mtitle[39m=[32m"RPM and TPM cover consumption logs from the last 60 seconds, not all requests or complete token usage."[39m
+    [36m>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"text-muted-foreground text-[11px]"[39m
+      [36m>[39m
+        [0mRecorded usage · last 60s[0m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-rose-500/65"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mRPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"border-border/60 bg-muted/25 inline-flex h-7 items-center gap-2 rounded-md border px-2.5 text-xs shadow-xs"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"h-3.5 w-0.5 rounded-full bg-slate-400/70"[39m
+        [36m/>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-muted-foreground"[39m
+        [36m>[39m
+          [0mTPM[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"text-foreground/85 font-mono font-semibold tabular-nums"[39m
+        [36m>[39m
+          [0m0[0m
+        [36m</span>[39m
+      [36m</span>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/usage-logs/components/__tests__/common-logs-stats.test.tsx:107:23
+    105|   vi.spyOn(api, 'get').mockResolvedValue({ data: { success: true, data…
+    106|   renderStats()
+    107|   expect(await screen.findByText('Token statistics unavailable')).toBe…
+       |                       ^
+    108| })
+    109|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed (6)
+   Start at  22:26:53
+   Duration  9.03s (transform 309ms, setup 470ms, import 802ms, tests 6.12s, environment 1.48s)
+
+error: script "test" exited with code 1

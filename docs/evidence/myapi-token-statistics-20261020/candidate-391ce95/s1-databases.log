@@ -1,0 +1,856 @@
+﻿2026-10-20T15:09:57.6505398Z Current runner version: '2.337.0'
+2026-10-20T15:09:57.6530239Z ##[group]Runner Image Provisioner
+2026-10-20T15:09:57.6531120Z Hosted Compute Agent
+2026-10-20T15:09:57.6531840Z Version: 20261012.601
+2026-10-20T15:09:57.6532816Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+2026-10-20T15:09:57.6533540Z Build Date: 2026-10-12T17:48:21Z
+2026-10-20T15:09:57.6534293Z Worker ID: {0d4926c9-853b-4c60-9226-16bcc0183181}
+2026-10-20T15:09:57.6534985Z Region: westus3
+2026-10-20T15:09:57.6535646Z Cloud: Azure
+2026-10-20T15:09:57.6536183Z ##[endgroup]
+2026-10-20T15:09:57.6537615Z ##[group]Operating System
+2026-10-20T15:09:57.6538365Z Ubuntu
+2026-10-20T15:09:57.6538894Z 24.04.5
+2026-10-20T15:09:57.6539486Z LTS
+2026-10-20T15:09:57.6540008Z ##[endgroup]
+2026-10-20T15:09:57.6540549Z ##[group]Runner Image
+2026-10-20T15:09:57.6541184Z Image: ubuntu-24.04
+2026-10-20T15:09:57.6541744Z Version: 20261012.334.1
+2026-10-20T15:09:57.6543318Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-20T15:09:57.6544891Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-20T15:09:57.6545908Z ##[endgroup]
+2026-10-20T15:09:57.6547054Z ##[group]GITHUB_TOKEN Permissions
+2026-10-20T15:09:57.6549033Z Contents: read
+2026-10-20T15:09:57.6549660Z Metadata: read
+2026-10-20T15:09:57.6550284Z ##[endgroup]
+2026-10-20T15:09:57.6552939Z Secret source: Actions
+2026-10-20T15:09:57.6553901Z Cache mode: write
+2026-10-20T15:09:57.6554738Z Prepare workflow directory
+2026-10-20T15:09:57.7062709Z Prepare all required actions
+2026-10-20T15:09:57.7111423Z Getting action download info
+2026-10-20T15:09:58.0219563Z Download action repository 'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0' (SHA:9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0)
+2026-10-20T15:09:58.1385181Z Download action repository 'actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16' (SHA:924ae3a1cded613372ab5595356fb5720e22ba16)
+2026-10-20T15:09:59.0164898Z Complete job name: S1 identity and options database regression
+2026-10-20T15:09:59.0756577Z ##[group]Checking docker version
+2026-10-20T15:09:59.0769609Z ##[command]/usr/bin/docker version --format '{{.Server.APIVersion}}'
+2026-10-20T15:09:59.1649362Z '1.48'
+2026-10-20T15:09:59.1665968Z Docker daemon API version: '1.48'
+2026-10-20T15:09:59.1667084Z ##[command]/usr/bin/docker version --format '{{.Client.APIVersion}}'
+2026-10-20T15:09:59.1835537Z '1.48'
+2026-10-20T15:09:59.1851178Z Docker client API version: '1.48'
+2026-10-20T15:09:59.1857734Z ##[endgroup]
+2026-10-20T15:09:59.1863414Z ##[group]Clean up resources from previous jobs
+2026-10-20T15:09:59.1870289Z ##[command]/usr/bin/docker ps --all --quiet --no-trunc --filter "label=f71bb6"
+2026-10-20T15:09:59.2023796Z ##[command]/usr/bin/docker network prune --force --filter "label=f71bb6"
+2026-10-20T15:09:59.2157736Z ##[endgroup]
+2026-10-20T15:09:59.2158319Z ##[group]Create local container network
+2026-10-20T15:09:59.2168790Z ##[command]/usr/bin/docker network create --label f71bb6 github_network_f9835f5b6c8f470e83f7207e0fb2f892
+2026-10-20T15:09:59.2675727Z e5b82a52e3e154a3c3a1e9bfbd4f2a5652f2e8b9a280c0a3f3bca8d1c7fc377e
+2026-10-20T15:09:59.2694327Z ##[endgroup]
+2026-10-20T15:09:59.2718713Z ##[group]Starting mysql service container
+2026-10-20T15:09:59.2740426Z ##[command]/usr/bin/docker pull mysql:5.7
+2026-10-20T15:10:00.1114046Z 5.7: Pulling from library/mysql
+2026-10-20T15:10:00.3715391Z 20e4dcae4c69: Pulling fs layer
+2026-10-20T15:10:00.3716922Z 1c56c3d4ce74: Pulling fs layer
+2026-10-20T15:10:00.3717994Z e9f03a1c24ce: Pulling fs layer
+2026-10-20T15:10:00.3719016Z 68c3898c2015: Pulling fs layer
+2026-10-20T15:10:00.3720037Z 6b95a940e7b6: Pulling fs layer
+2026-10-20T15:10:00.3721063Z 90986bb8de6e: Pulling fs layer
+2026-10-20T15:10:00.3722364Z ae71319cb779: Pulling fs layer
+2026-10-20T15:10:00.3723481Z ffc89e9dfd88: Pulling fs layer
+2026-10-20T15:10:00.3724550Z 43d05e938198: Pulling fs layer
+2026-10-20T15:10:00.3725662Z 064b2d298fba: Pulling fs layer
+2026-10-20T15:10:00.3726805Z df9a4d85569b: Pulling fs layer
+2026-10-20T15:10:00.3728265Z 90986bb8de6e: Waiting
+2026-10-20T15:10:00.3729243Z ae71319cb779: Waiting
+2026-10-20T15:10:00.3730218Z ffc89e9dfd88: Waiting
+2026-10-20T15:10:00.3731183Z 43d05e938198: Waiting
+2026-10-20T15:10:00.3732512Z 064b2d298fba: Waiting
+2026-10-20T15:10:00.3733846Z df9a4d85569b: Waiting
+2026-10-20T15:10:00.3735199Z 68c3898c2015: Waiting
+2026-10-20T15:10:00.3736588Z 6b95a940e7b6: Waiting
+2026-10-20T15:10:00.5355479Z 1c56c3d4ce74: Verifying Checksum
+2026-10-20T15:10:00.5357585Z 1c56c3d4ce74: Download complete
+2026-10-20T15:10:00.5446905Z e9f03a1c24ce: Verifying Checksum
+2026-10-20T15:10:00.5451445Z e9f03a1c24ce: Download complete
+2026-10-20T15:10:00.7171376Z 20e4dcae4c69: Verifying Checksum
+2026-10-20T15:10:00.7176700Z 20e4dcae4c69: Download complete
+2026-10-20T15:10:00.7221752Z 6b95a940e7b6: Download complete
+2026-10-20T15:10:00.7394984Z 68c3898c2015: Verifying Checksum
+2026-10-20T15:10:00.7404623Z 68c3898c2015: Download complete
+2026-10-20T15:10:00.9028310Z 90986bb8de6e: Verifying Checksum
+2026-10-20T15:10:00.9034425Z 90986bb8de6e: Download complete
+2026-10-20T15:10:00.9269096Z ffc89e9dfd88: Verifying Checksum
+2026-10-20T15:10:00.9274806Z ffc89e9dfd88: Download complete
+2026-10-20T15:10:00.9965952Z ae71319cb779: Verifying Checksum
+2026-10-20T15:10:00.9968418Z ae71319cb779: Download complete
+2026-10-20T15:10:01.1093951Z 064b2d298fba: Verifying Checksum
+2026-10-20T15:10:01.1096554Z 064b2d298fba: Download complete
+2026-10-20T15:10:01.1643081Z df9a4d85569b: Verifying Checksum
+2026-10-20T15:10:01.1646493Z df9a4d85569b: Download complete
+2026-10-20T15:10:01.3221604Z 43d05e938198: Verifying Checksum
+2026-10-20T15:10:01.3223089Z 43d05e938198: Download complete
+2026-10-20T15:10:03.1531294Z 20e4dcae4c69: Pull complete
+2026-10-20T15:10:05.9182890Z 1c56c3d4ce74: Pull complete
+2026-10-20T15:10:05.9422095Z e9f03a1c24ce: Pull complete
+2026-10-20T15:10:06.1187813Z 68c3898c2015: Pull complete
+2026-10-20T15:10:06.1292080Z 6b95a940e7b6: Pull complete
+2026-10-20T15:10:06.1373237Z 90986bb8de6e: Pull complete
+2026-10-20T15:10:06.5374123Z ae71319cb779: Pull complete
+2026-10-20T15:10:06.5461664Z ffc89e9dfd88: Pull complete
+2026-10-20T15:10:11.3690147Z 43d05e938198: Pull complete
+2026-10-20T15:10:11.3826229Z 064b2d298fba: Pull complete
+2026-10-20T15:10:11.3907607Z df9a4d85569b: Pull complete
+2026-10-20T15:10:11.3948365Z Digest: sha256:4bc6bc963e6d8443453676cae56536f4b8156d78bae03c0145cbe47c2aad73bb
+2026-10-20T15:10:11.3962311Z Status: Downloaded newer image for mysql:5.7
+2026-10-20T15:10:11.3987281Z docker.io/library/mysql:5.7
+2026-10-20T15:10:11.4036925Z ##[command]/usr/bin/docker create --name a937ee8be7c3415680d8efa421ef6282_mysql57_d64137 --label f71bb6 --network github_network_f9835f5b6c8f470e83f7207e0fb2f892 --network-alias mysql -p 3306/tcp --health-cmd="mysqladmin ping -h 127.0.0.1 -ps1-fixture-password" --health-interval=10s --health-timeout=5s --health-retries=12 -e "MYSQL_DATABASE=myapi_s1_test" -e "MYSQL_ROOT_PASSWORD=s1-fixture-password" -e "MYSQL_ROOT_HOST=%" -e GITHUB_ACTIONS=true -e CI=true mysql:5.7
+2026-10-20T15:10:11.4295483Z 0cfe2cd499a8e5baa379c1f571828cc6dc3cf19c79a2fba1606eb5878fd92f3f
+2026-10-20T15:10:11.4317501Z ##[command]/usr/bin/docker start 0cfe2cd499a8e5baa379c1f571828cc6dc3cf19c79a2fba1606eb5878fd92f3f
+2026-10-20T15:10:11.6457980Z 0cfe2cd499a8e5baa379c1f571828cc6dc3cf19c79a2fba1606eb5878fd92f3f
+2026-10-20T15:10:11.6478365Z ##[command]/usr/bin/docker ps --all --filter id=0cfe2cd499a8e5baa379c1f571828cc6dc3cf19c79a2fba1606eb5878fd92f3f --filter status=running --no-trunc --format "{{.ID}} {{.Status}}"
+2026-10-20T15:10:11.6608513Z 0cfe2cd499a8e5baa379c1f571828cc6dc3cf19c79a2fba1606eb5878fd92f3f Up Less than a second (health: starting)
+2026-10-20T15:10:11.6628664Z ##[command]/usr/bin/docker port 0cfe2cd499a8e5baa379c1f571828cc6dc3cf19c79a2fba1606eb5878fd92f3f
+2026-10-20T15:10:11.6772841Z 3306/tcp -> 0.0.0.0:32768
+2026-10-20T15:10:11.6773284Z 3306/tcp -> [::]:32768
+2026-10-20T15:10:11.6820782Z ##[endgroup]
+2026-10-20T15:10:11.6822496Z ##[group]Starting postgres service container
+2026-10-20T15:10:11.6824167Z ##[command]/usr/bin/docker pull postgres:9.6
+2026-10-20T15:10:12.4018177Z 9.6: Pulling from library/postgres
+2026-10-20T15:10:12.6421226Z 1cb79db8a9e7: Pulling fs layer
+2026-10-20T15:10:12.6421814Z f6bae7873dd7: Pulling fs layer
+2026-10-20T15:10:12.6423473Z 8f7722dc50a7: Pulling fs layer
+2026-10-20T15:10:12.6424281Z e8622b8cb6f3: Pulling fs layer
+2026-10-20T15:10:12.6424766Z d6d74bba3a57: Pulling fs layer
+2026-10-20T15:10:12.6425178Z 874d4d2a09fd: Pulling fs layer
+2026-10-20T15:10:12.6425556Z 2d87c3a4038c: Pulling fs layer
+2026-10-20T15:10:12.6425986Z f955a6cf127b: Pulling fs layer
+2026-10-20T15:10:12.6426415Z f62dc55c568d: Pulling fs layer
+2026-10-20T15:10:12.6426871Z 4e2c4902efbd: Pulling fs layer
+2026-10-20T15:10:12.6427949Z 01c676df543a: Pulling fs layer
+2026-10-20T15:10:12.6428851Z 1e3d335ef0b7: Pulling fs layer
+2026-10-20T15:10:12.6429537Z 11087f2b0d87: Pulling fs layer
+2026-10-20T15:10:12.6430240Z 4b9a74ac6ea0: Pulling fs layer
+2026-10-20T15:10:12.6430915Z f62dc55c568d: Waiting
+2026-10-20T15:10:12.6431577Z 4e2c4902efbd: Waiting
+2026-10-20T15:10:12.6432509Z 01c676df543a: Waiting
+2026-10-20T15:10:12.6433258Z 1e3d335ef0b7: Waiting
+2026-10-20T15:10:12.6433880Z 11087f2b0d87: Waiting
+2026-10-20T15:10:12.6434476Z 4b9a74ac6ea0: Waiting
+2026-10-20T15:10:12.6435095Z e8622b8cb6f3: Waiting
+2026-10-20T15:10:12.6435708Z d6d74bba3a57: Waiting
+2026-10-20T15:10:12.6436323Z 874d4d2a09fd: Waiting
+2026-10-20T15:10:12.6436956Z f955a6cf127b: Waiting
+2026-10-20T15:10:12.6437559Z 2d87c3a4038c: Waiting
+2026-10-20T15:10:12.8085477Z 8f7722dc50a7: Verifying Checksum
+2026-10-20T15:10:12.8085810Z 8f7722dc50a7: Download complete
+2026-10-20T15:10:12.8294376Z f6bae7873dd7: Verifying Checksum
+2026-10-20T15:10:12.8295027Z f6bae7873dd7: Download complete
+2026-10-20T15:10:12.8807861Z 1cb79db8a9e7: Verifying Checksum
+2026-10-20T15:10:12.8808697Z 1cb79db8a9e7: Download complete
+2026-10-20T15:10:12.9985979Z e8622b8cb6f3: Verifying Checksum
+2026-10-20T15:10:12.9986997Z e8622b8cb6f3: Download complete
+2026-10-20T15:10:13.0308855Z d6d74bba3a57: Verifying Checksum
+2026-10-20T15:10:13.0310730Z d6d74bba3a57: Download complete
+2026-10-20T15:10:13.0510711Z 874d4d2a09fd: Verifying Checksum
+2026-10-20T15:10:13.0511264Z 874d4d2a09fd: Download complete
+2026-10-20T15:10:13.1646685Z 2d87c3a4038c: Verifying Checksum
+2026-10-20T15:10:13.1647263Z 2d87c3a4038c: Download complete
+2026-10-20T15:10:13.1947156Z f955a6cf127b: Verifying Checksum
+2026-10-20T15:10:13.1947690Z f955a6cf127b: Download complete
+2026-10-20T15:10:13.3334416Z 4e2c4902efbd: Download complete
+2026-10-20T15:10:13.3477008Z f62dc55c568d: Verifying Checksum
+2026-10-20T15:10:13.3478501Z f62dc55c568d: Download complete
+2026-10-20T15:10:13.3738824Z 01c676df543a: Verifying Checksum
+2026-10-20T15:10:13.3739630Z 01c676df543a: Download complete
+2026-10-20T15:10:13.5126176Z 11087f2b0d87: Verifying Checksum
+2026-10-20T15:10:13.5126701Z 11087f2b0d87: Download complete
+2026-10-20T15:10:13.5128950Z 1e3d335ef0b7: Verifying Checksum
+2026-10-20T15:10:13.5129471Z 1e3d335ef0b7: Download complete
+2026-10-20T15:10:13.5527050Z 4b9a74ac6ea0: Verifying Checksum
+2026-10-20T15:10:13.5527974Z 4b9a74ac6ea0: Download complete
+2026-10-20T15:10:14.0038810Z 1cb79db8a9e7: Pull complete
+2026-10-20T15:10:14.2047397Z f6bae7873dd7: Pull complete
+2026-10-20T15:10:14.2244823Z 8f7722dc50a7: Pull complete
+2026-10-20T15:10:14.2779808Z e8622b8cb6f3: Pull complete
+2026-10-20T15:10:14.5382558Z d6d74bba3a57: Pull complete
+2026-10-20T15:10:14.5811315Z 874d4d2a09fd: Pull complete
+2026-10-20T15:10:14.5880564Z 2d87c3a4038c: Pull complete
+2026-10-20T15:10:14.5963498Z f955a6cf127b: Pull complete
+2026-10-20T15:10:16.0756662Z f62dc55c568d: Pull complete
+2026-10-20T15:10:16.0910466Z 4e2c4902efbd: Pull complete
+2026-10-20T15:10:16.1043554Z 01c676df543a: Pull complete
+2026-10-20T15:10:16.1163361Z 1e3d335ef0b7: Pull complete
+2026-10-20T15:10:16.2171778Z 11087f2b0d87: Pull complete
+2026-10-20T15:10:16.2284961Z 4b9a74ac6ea0: Pull complete
+2026-10-20T15:10:16.2326386Z Digest: sha256:caddd35b05cdd56c614ab1f674e63be778e0abdf54e71a7507ff3e28d4902698
+2026-10-20T15:10:16.2340929Z Status: Downloaded newer image for postgres:9.6
+2026-10-20T15:10:16.2353673Z docker.io/library/postgres:9.6
+2026-10-20T15:10:16.2372634Z ##[command]/usr/bin/docker create --name b6468c2b62594234b6e53fc740bfa844_postgres96_d9d361 --label f71bb6 --network github_network_f9835f5b6c8f470e83f7207e0fb2f892 --network-alias postgres -p 5432/tcp --health-cmd="pg_isready -U postgres -d myapi_s1_test" --health-interval=10s --health-timeout=5s --health-retries=12 -e "POSTGRES_DB=myapi_s1_test" -e "POSTGRES_PASSWORD=s1-fixture-password" -e GITHUB_ACTIONS=true -e CI=true postgres:9.6
+2026-10-20T15:10:16.2662625Z 2f8662e16d11cb4e9f127446c23da8c81effe67f235c619df6e18bb85ebd1f72
+2026-10-20T15:10:16.2678151Z ##[command]/usr/bin/docker start 2f8662e16d11cb4e9f127446c23da8c81effe67f235c619df6e18bb85ebd1f72
+2026-10-20T15:10:16.4245021Z 2f8662e16d11cb4e9f127446c23da8c81effe67f235c619df6e18bb85ebd1f72
+2026-10-20T15:10:16.4261464Z ##[command]/usr/bin/docker ps --all --filter id=2f8662e16d11cb4e9f127446c23da8c81effe67f235c619df6e18bb85ebd1f72 --filter status=running --no-trunc --format "{{.ID}} {{.Status}}"
+2026-10-20T15:10:16.4424478Z 2f8662e16d11cb4e9f127446c23da8c81effe67f235c619df6e18bb85ebd1f72 Up Less than a second (health: starting)
+2026-10-20T15:10:16.4440051Z ##[command]/usr/bin/docker port 2f8662e16d11cb4e9f127446c23da8c81effe67f235c619df6e18bb85ebd1f72
+2026-10-20T15:10:16.4598296Z 5432/tcp -> 0.0.0.0:32769
+2026-10-20T15:10:16.4598820Z 5432/tcp -> [::]:32769
+2026-10-20T15:10:16.4611101Z ##[endgroup]
+2026-10-20T15:10:16.4620634Z ##[group]Waiting for all services to be ready
+2026-10-20T15:10:16.4634368Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 0cfe2cd499a8e5baa379c1f571828cc6dc3cf19c79a2fba1606eb5878fd92f3f
+2026-10-20T15:10:16.4777078Z starting
+2026-10-20T15:10:16.4803232Z mysql service is starting, waiting 2 seconds before checking again.
+2026-10-20T15:10:18.4806029Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 0cfe2cd499a8e5baa379c1f571828cc6dc3cf19c79a2fba1606eb5878fd92f3f
+2026-10-20T15:10:18.4945448Z starting
+2026-10-20T15:10:18.4962945Z mysql service is starting, waiting 3 seconds before checking again.
+2026-10-20T15:10:22.1136458Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 0cfe2cd499a8e5baa379c1f571828cc6dc3cf19c79a2fba1606eb5878fd92f3f
+2026-10-20T15:10:22.1262428Z healthy
+2026-10-20T15:10:22.1277323Z mysql service is healthy.
+2026-10-20T15:10:22.1278174Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 2f8662e16d11cb4e9f127446c23da8c81effe67f235c619df6e18bb85ebd1f72
+2026-10-20T15:10:22.1392649Z starting
+2026-10-20T15:10:22.1405343Z postgres service is starting, waiting 2 seconds before checking again.
+2026-10-20T15:10:24.1414378Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 2f8662e16d11cb4e9f127446c23da8c81effe67f235c619df6e18bb85ebd1f72
+2026-10-20T15:10:24.1540508Z starting
+2026-10-20T15:10:24.1553300Z postgres service is starting, waiting 3 seconds before checking again.
+2026-10-20T15:10:27.7906441Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 2f8662e16d11cb4e9f127446c23da8c81effe67f235c619df6e18bb85ebd1f72
+2026-10-20T15:10:27.8031180Z healthy
+2026-10-20T15:10:27.8043223Z postgres service is healthy.
+2026-10-20T15:10:27.8043869Z ##[endgroup]
+2026-10-20T15:10:27.8349207Z ##[group]Run actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+2026-10-20T15:10:27.8349894Z with:
+2026-10-20T15:10:27.8350126Z   persist-credentials: false
+2026-10-20T15:10:27.8350390Z   repository: ForceMind/MyAPI
+2026-10-20T15:10:27.8353186Z   token: ***
+2026-10-20T15:10:27.8353401Z   ssh-strict: true
+2026-10-20T15:10:27.8353614Z   ssh-user: git
+2026-10-20T15:10:27.8353809Z   clean: true
+2026-10-20T15:10:27.8354022Z   sparse-checkout-cone-mode: true
+2026-10-20T15:10:27.8354500Z   fetch-depth: 1
+2026-10-20T15:10:27.8354701Z   fetch-tags: false
+2026-10-20T15:10:27.8354908Z   show-progress: true
+2026-10-20T15:10:27.8355120Z   lfs: false
+2026-10-20T15:10:27.8355309Z   submodules: false
+2026-10-20T15:10:27.8355518Z   set-safe-directory: true
+2026-10-20T15:10:27.8355763Z   allow-unsafe-pr-checkout: false
+2026-10-20T15:10:27.8356294Z env:
+2026-10-20T15:10:27.8356477Z   GOWORK: off
+2026-10-20T15:10:27.8356675Z   GOMAXPROCS: 1
+2026-10-20T15:10:27.8356875Z   GOMEMLIMIT: 768MiB
+2026-10-20T15:10:27.8357138Z   MYAPI_S1_DATABASE_TESTS: 1
+2026-10-20T15:10:27.8357369Z ##[endgroup]
+2026-10-20T15:10:27.9347578Z Syncing repository: ForceMind/MyAPI
+2026-10-20T15:10:27.9349364Z ##[group]Getting Git version info
+2026-10-20T15:10:27.9349948Z Working directory is '/home/runner/work/MyAPI/MyAPI'
+2026-10-20T15:10:27.9350808Z [command]/usr/bin/git version
+2026-10-20T15:10:27.9414376Z git version 2.55.0
+2026-10-20T15:10:27.9436489Z ##[endgroup]
+2026-10-20T15:10:27.9449569Z Temporarily overriding HOME='/home/runner/work/_temp/249a9b16-6710-46f6-89d7-e2cc94841c26' before making global git config changes
+2026-10-20T15:10:27.9451090Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-20T15:10:27.9456234Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MyAPI/MyAPI
+2026-10-20T15:10:27.9507840Z Deleting the contents of '/home/runner/work/MyAPI/MyAPI'
+2026-10-20T15:10:27.9511632Z ##[group]Determining repository object format
+2026-10-20T15:10:27.9513382Z ##[endgroup]
+2026-10-20T15:10:27.9514016Z ##[group]Initializing the repository
+2026-10-20T15:10:27.9519186Z [command]/usr/bin/git init /home/runner/work/MyAPI/MyAPI
+2026-10-20T15:10:27.9633770Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-20T15:10:27.9641837Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-20T15:10:27.9643315Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-20T15:10:27.9644259Z hint: call:
+2026-10-20T15:10:27.9644839Z hint:
+2026-10-20T15:10:27.9645346Z hint: 	git config --global init.defaultBranch <name>
+2026-10-20T15:10:27.9646303Z hint:
+2026-10-20T15:10:27.9646842Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-20T15:10:27.9647868Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-20T15:10:27.9648527Z hint:
+2026-10-20T15:10:27.9648863Z hint: 	git branch -m <name>
+2026-10-20T15:10:27.9649261Z hint:
+2026-10-20T15:10:27.9649821Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-20T15:10:27.9650779Z Initialized empty Git repository in /home/runner/work/MyAPI/MyAPI/.git/
+2026-10-20T15:10:27.9652626Z [command]/usr/bin/git remote add origin https://github.com/ForceMind/MyAPI
+2026-10-20T15:10:27.9706531Z ##[endgroup]
+2026-10-20T15:10:27.9707330Z ##[group]Disabling automatic garbage collection
+2026-10-20T15:10:27.9709175Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-20T15:10:27.9744861Z ##[endgroup]
+2026-10-20T15:10:27.9745542Z ##[group]Setting up auth
+2026-10-20T15:10:27.9746018Z Removing SSH command configuration
+2026-10-20T15:10:27.9751483Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-20T15:10:27.9785450Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-20T15:10:28.0172324Z Removing HTTP extra header
+2026-10-20T15:10:28.0177726Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-20T15:10:28.0214061Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-20T15:10:28.0434775Z Removing includeIf entries pointing to credentials config files
+2026-10-20T15:10:28.0439640Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-20T15:10:28.0475348Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-20T15:10:28.0706479Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-cafff1b9-daa4-4b4d-9663-94438c6a2ec0.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-20T15:10:28.0746364Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path /home/runner/work/_temp/git-credentials-cafff1b9-daa4-4b4d-9663-94438c6a2ec0.config
+2026-10-20T15:10:28.0779553Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-cafff1b9-daa4-4b4d-9663-94438c6a2ec0.config
+2026-10-20T15:10:28.0818175Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-cafff1b9-daa4-4b4d-9663-94438c6a2ec0.config
+2026-10-20T15:10:28.0855385Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-cafff1b9-daa4-4b4d-9663-94438c6a2ec0.config
+2026-10-20T15:10:28.0885530Z ##[endgroup]
+2026-10-20T15:10:28.0886157Z ##[group]Fetching the repository
+2026-10-20T15:10:28.0892323Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +427538734c242eb02273912698d8cb2e8635c374:refs/remotes/pull/17/merge
+2026-10-20T15:10:35.0743238Z From https://github.com/ForceMind/MyAPI
+2026-10-20T15:10:35.0744093Z  * [new ref]         427538734c242eb02273912698d8cb2e8635c374 -> pull/17/merge
+2026-10-20T15:10:35.0748351Z ##[endgroup]
+2026-10-20T15:10:35.0749094Z ##[group]Determining the checkout info
+2026-10-20T15:10:35.0749846Z ##[endgroup]
+2026-10-20T15:10:35.0754694Z [command]/usr/bin/git sparse-checkout disable
+2026-10-20T15:10:35.0808867Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-20T15:10:35.0842211Z ##[group]Checking out the ref
+2026-10-20T15:10:35.0846406Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/17/merge
+2026-10-20T15:10:35.6167886Z Note: switching to 'refs/remotes/pull/17/merge'.
+2026-10-20T15:10:35.6168343Z 
+2026-10-20T15:10:35.6168766Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-20T15:10:35.6169606Z changes and commit them, and you can discard any commits you make in this
+2026-10-20T15:10:35.6170187Z state without impacting any branches by switching back to a branch.
+2026-10-20T15:10:35.6170538Z 
+2026-10-20T15:10:35.6170795Z If you want to create a new branch to retain commits you create, you may
+2026-10-20T15:10:35.6171342Z do so (now or later) by using -c with the switch command. Example:
+2026-10-20T15:10:35.6171653Z 
+2026-10-20T15:10:35.6171780Z   git switch -c <new-branch-name>
+2026-10-20T15:10:35.6172526Z 
+2026-10-20T15:10:35.6172708Z Or undo this operation with:
+2026-10-20T15:10:35.6172915Z 
+2026-10-20T15:10:35.6173016Z   git switch -
+2026-10-20T15:10:35.6173179Z 
+2026-10-20T15:10:35.6173435Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-20T15:10:35.6173820Z 
+2026-10-20T15:10:35.6174240Z HEAD is now at 4275387 Merge 391ce9519835758b366eacc7defebc17387d916b into c1beb07520f43c106b4406ba8a0b1227bc1cf67e
+2026-10-20T15:10:35.6195648Z ##[endgroup]
+2026-10-20T15:10:35.6245882Z [command]/usr/bin/git log -1 --format=%H
+2026-10-20T15:10:35.6274991Z 427538734c242eb02273912698d8cb2e8635c374
+2026-10-20T15:10:35.6286278Z ##[group]Removing auth
+2026-10-20T15:10:35.6286746Z Removing SSH command configuration
+2026-10-20T15:10:35.6290388Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-20T15:10:35.6326823Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-20T15:10:35.6554105Z Removing HTTP extra header
+2026-10-20T15:10:35.6558680Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-20T15:10:35.6594119Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-20T15:10:35.6821828Z Removing includeIf entries pointing to credentials config files
+2026-10-20T15:10:35.6826220Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-20T15:10:35.6855547Z includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path
+2026-10-20T15:10:35.6856334Z includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path
+2026-10-20T15:10:35.6856821Z includeif.gitdir:/github/workspace/.git.path
+2026-10-20T15:10:35.6857192Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-20T15:10:35.6863919Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path
+2026-10-20T15:10:35.6890113Z /home/runner/work/_temp/git-credentials-cafff1b9-daa4-4b4d-9663-94438c6a2ec0.config
+2026-10-20T15:10:35.6901202Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path /home/runner/work/_temp/git-credentials-cafff1b9-daa4-4b4d-9663-94438c6a2ec0.config
+2026-10-20T15:10:35.6939822Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path
+2026-10-20T15:10:35.6965106Z /home/runner/work/_temp/git-credentials-cafff1b9-daa4-4b4d-9663-94438c6a2ec0.config
+2026-10-20T15:10:35.6973385Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-cafff1b9-daa4-4b4d-9663-94438c6a2ec0.config
+2026-10-20T15:10:35.7011833Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-20T15:10:35.7040452Z /github/runner_temp/git-credentials-cafff1b9-daa4-4b4d-9663-94438c6a2ec0.config
+2026-10-20T15:10:35.7048857Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-cafff1b9-daa4-4b4d-9663-94438c6a2ec0.config
+2026-10-20T15:10:35.7084175Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-20T15:10:35.7109863Z /github/runner_temp/git-credentials-cafff1b9-daa4-4b4d-9663-94438c6a2ec0.config
+2026-10-20T15:10:35.7121894Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-cafff1b9-daa4-4b4d-9663-94438c6a2ec0.config
+2026-10-20T15:10:35.7159301Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-20T15:10:35.7396607Z Removing credentials config '/home/runner/work/_temp/git-credentials-cafff1b9-daa4-4b4d-9663-94438c6a2ec0.config'
+2026-10-20T15:10:35.7407049Z ##[endgroup]
+2026-10-20T15:10:35.7630624Z ##[group]Run actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+2026-10-20T15:10:35.7631025Z with:
+2026-10-20T15:10:35.7631231Z   go-version-file: go.mod
+2026-10-20T15:10:35.7631514Z   cache-dependency-path: go.sum
+relaykit/go.sum
+
+2026-10-20T15:10:35.7631829Z   check-latest: false
+2026-10-20T15:10:35.7634524Z   token: ***
+2026-10-20T15:10:35.7634726Z   cache: true
+2026-10-20T15:10:35.7634913Z env:
+2026-10-20T15:10:35.7635086Z   GOWORK: off
+2026-10-20T15:10:35.7635274Z   GOMAXPROCS: 1
+2026-10-20T15:10:35.7635472Z   GOMEMLIMIT: 768MiB
+2026-10-20T15:10:35.7635695Z   MYAPI_S1_DATABASE_TESTS: 1
+2026-10-20T15:10:35.7635924Z ##[endgroup]
+2026-10-20T15:10:35.8896536Z Setup go version spec 1.25.1
+2026-10-20T15:10:35.8910147Z Attempting to download 1.25.1...
+2026-10-20T15:10:36.9284052Z matching 1.25.1...
+2026-10-20T15:10:36.9339415Z Acquiring 1.25.1 from https://github.com/actions/go-versions/releases/download/1.25.1-17451174567/go-1.25.1-linux-x64.tar.gz
+2026-10-20T15:10:37.5062555Z Extracting Go...
+2026-10-20T15:10:37.5173638Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/1f87f1bd-c99a-4f07-bd39-4c50851ae90f -f /home/runner/work/_temp/b52b507f-64ea-4069-bfb3-7a3e329ccc19
+2026-10-20T15:10:39.0017824Z Successfully extracted go to /home/runner/work/_temp/1f87f1bd-c99a-4f07-bd39-4c50851ae90f
+2026-10-20T15:10:39.0018359Z Adding to the cache ...
+2026-10-20T15:10:44.4083805Z Successfully cached go to /opt/hostedtoolcache/go/1.25.1/x64
+2026-10-20T15:10:44.4085257Z Added go to the path
+2026-10-20T15:10:44.4088345Z Successfully set up Go version 1.25.1
+2026-10-20T15:10:44.4314950Z [command]/opt/hostedtoolcache/go/1.25.1/x64/bin/go env GOMODCACHE
+2026-10-20T15:10:44.4349719Z [command]/opt/hostedtoolcache/go/1.25.1/x64/bin/go env GOCACHE
+2026-10-20T15:10:44.4391506Z /home/runner/go/pkg/mod
+2026-10-20T15:10:44.4409882Z /home/runner/.cache/go-build
+2026-10-20T15:10:44.6555969Z Cache hit for: setup-go-Linux-x64-ubuntu24-go-1.25.1-6d5e7a422ac7cc4529fbd9df01ec0b200929303e0fa2bb12bc04294bfe908406
+2026-10-20T15:10:45.7924479Z Received 33295291 of 33295291 (100.0%), 34.5 MBs/sec
+2026-10-20T15:10:45.7925740Z Cache Size: ~32 MB (33295291 B)
+2026-10-20T15:10:45.7964675Z [command]/usr/bin/tar -xf /home/runner/work/_temp/60cbe595-79e6-46a7-b30a-f6c5892a2c40/cache.tzst -P -C /home/runner/work/MyAPI/MyAPI --use-compress-program unzstd
+2026-10-20T15:10:46.1034785Z Cache restored successfully
+2026-10-20T15:10:46.1058234Z Cache restored from key: setup-go-Linux-x64-ubuntu24-go-1.25.1-6d5e7a422ac7cc4529fbd9df01ec0b200929303e0fa2bb12bc04294bfe908406
+2026-10-20T15:10:46.1083432Z go version go1.25.1 linux/amd64
+2026-10-20T15:10:46.1083749Z 
+2026-10-20T15:10:46.1084209Z ##[group]go env
+2026-10-20T15:10:46.1210595Z AR='ar'
+2026-10-20T15:10:46.1210981Z CC='gcc'
+2026-10-20T15:10:46.1211406Z CGO_CFLAGS='-O2 -g'
+2026-10-20T15:10:46.1211860Z CGO_CPPFLAGS=''
+2026-10-20T15:10:46.1212438Z CGO_CXXFLAGS='-O2 -g'
+2026-10-20T15:10:46.1212834Z CGO_ENABLED='1'
+2026-10-20T15:10:46.1213203Z CGO_FFLAGS='-O2 -g'
+2026-10-20T15:10:46.1213582Z CGO_LDFLAGS='-O2 -g'
+2026-10-20T15:10:46.1213943Z CXX='g++'
+2026-10-20T15:10:46.1214274Z GCCGO='gccgo'
+2026-10-20T15:10:46.1214614Z GO111MODULE=''
+2026-10-20T15:10:46.1214959Z GOAMD64='v1'
+2026-10-20T15:10:46.1215293Z GOARCH='amd64'
+2026-10-20T15:10:46.1215630Z GOAUTH='netrc'
+2026-10-20T15:10:46.1215958Z GOBIN=''
+2026-10-20T15:10:46.1216339Z GOCACHE='/home/runner/.cache/go-build'
+2026-10-20T15:10:46.1216826Z GOCACHEPROG=''
+2026-10-20T15:10:46.1217167Z GODEBUG=''
+2026-10-20T15:10:46.1217532Z GOENV='/home/runner/.config/go/env'
+2026-10-20T15:10:46.1217973Z GOEXE=''
+2026-10-20T15:10:46.1218304Z GOEXPERIMENT=''
+2026-10-20T15:10:46.1218655Z GOFIPS140='off'
+2026-10-20T15:10:46.1218993Z GOFLAGS=''
+2026-10-20T15:10:46.1220133Z GOGCCFLAGS='-fPIC -m64 -pthread -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=/tmp/go-build1172795924=/tmp/go-build -gno-record-gcc-switches'
+2026-10-20T15:10:46.1221353Z GOHOSTARCH='amd64'
+2026-10-20T15:10:46.1222198Z GOHOSTOS='linux'
+2026-10-20T15:10:46.1222624Z GOINSECURE=''
+2026-10-20T15:10:46.1223034Z GOMOD='/home/runner/work/MyAPI/MyAPI/go.mod'
+2026-10-20T15:10:46.1223585Z GOMODCACHE='/home/runner/go/pkg/mod'
+2026-10-20T15:10:46.1224044Z GONOPROXY=''
+2026-10-20T15:10:46.1224380Z GONOSUMDB=''
+2026-10-20T15:10:46.1224706Z GOOS='linux'
+2026-10-20T15:10:46.1225054Z GOPATH='/home/runner/go'
+2026-10-20T15:10:46.1225455Z GOPRIVATE=''
+2026-10-20T15:10:46.1225895Z GOPROXY='https://proxy.golang.org,direct'
+2026-10-20T15:10:46.1226514Z GOROOT='/opt/hostedtoolcache/go/1.25.1/x64'
+2026-10-20T15:10:46.1227037Z GOSUMDB='sum.golang.org'
+2026-10-20T15:10:46.1227456Z GOTELEMETRY='local'
+2026-10-20T15:10:46.1227956Z GOTELEMETRYDIR='/home/runner/.config/go/telemetry'
+2026-10-20T15:10:46.1228487Z GOTMPDIR=''
+2026-10-20T15:10:46.1228830Z GOTOOLCHAIN='local'
+2026-10-20T15:10:46.1229397Z GOTOOLDIR='/opt/hostedtoolcache/go/1.25.1/x64/pkg/tool/linux_amd64'
+2026-10-20T15:10:46.1230259Z GOVCS=''
+2026-10-20T15:10:46.1230599Z GOVERSION='go1.25.1'
+2026-10-20T15:10:46.1230975Z GOWORK='off'
+2026-10-20T15:10:46.1231336Z PKG_CONFIG='pkg-config'
+2026-10-20T15:10:46.1231586Z 
+2026-10-20T15:10:46.1232300Z ##[endgroup]
+2026-10-20T15:10:46.1478905Z ##[group]Run go test -p 1 ./model -run '^Test((AccessProfile|AssignedAccessPolicy)ConfiguredDatabases|LogTokenStatisticsConfiguredDatabases)$' -count=1 -timeout=180s -v
+2026-10-20T15:10:46.1481197Z [36;1mgo test -p 1 ./model -run '^Test((AccessProfile|AssignedAccessPolicy)ConfiguredDatabases|LogTokenStatisticsConfiguredDatabases)$' -count=1 -timeout=180s -v[0m
+2026-10-20T15:10:46.1705930Z shell: /usr/bin/bash -e {0}
+2026-10-20T15:10:46.1706242Z env:
+2026-10-20T15:10:46.1706479Z   GOWORK: off
+2026-10-20T15:10:46.1706724Z   GOMAXPROCS: 1
+2026-10-20T15:10:46.1706976Z   GOMEMLIMIT: 768MiB
+2026-10-20T15:10:46.1707251Z   MYAPI_S1_DATABASE_TESTS: 1
+2026-10-20T15:10:46.1707542Z   GOTOOLCHAIN: local
+2026-10-20T15:10:46.1708118Z   MYAPI_S1_MYSQL_DSN: root:s1-fixture-password@tcp(127.0.0.1:32768)/myapi_s1_test?charset=utf8mb4&parseTime=true
+2026-10-20T15:10:46.1709242Z   MYAPI_S1_POSTGRES_DSN: host=127.0.0.1 port=32769 user=postgres *** dbname=myapi_s1_test sslmode=disable
+2026-10-20T15:10:46.1709873Z ##[endgroup]
+2026-10-20T15:10:46.2226335Z go: downloading github.com/ClickHouse/clickhouse-go/v2 v2.32.0
+2026-10-20T15:10:46.4538584Z go: downloading github.com/bytedance/gopkg v0.1.3
+2026-10-20T15:10:46.5272590Z go: downloading github.com/gin-gonic/gin v1.9.1
+2026-10-20T15:10:46.5829876Z go: downloading github.com/glebarez/go-sqlite v1.21.2
+2026-10-20T15:10:46.6131167Z go: downloading github.com/glebarez/sqlite v1.9.0
+2026-10-20T15:10:46.6405191Z go: downloading github.com/go-sql-driver/mysql v1.7.0
+2026-10-20T15:10:46.6749733Z go: downloading github.com/go-webauthn/webauthn v0.14.0
+2026-10-20T15:10:46.7319320Z go: downloading github.com/google/uuid v1.6.0
+2026-10-20T15:10:46.7614635Z go: downloading github.com/jackc/pgx/v5 v5.9.2
+2026-10-20T15:10:46.8638583Z go: downloading github.com/samber/hot v0.11.0
+2026-10-20T15:10:46.9017503Z go: downloading github.com/samber/lo v1.53.0
+2026-10-20T15:10:46.9441700Z go: downloading github.com/shopspring/decimal v1.4.0
+2026-10-20T15:10:46.9697932Z go: downloading gorm.io/driver/clickhouse v0.6.0
+2026-10-20T15:10:46.9997582Z go: downloading gorm.io/driver/mysql v1.4.3
+2026-10-20T15:10:47.0254568Z go: downloading gorm.io/driver/postgres v1.5.4
+2026-10-20T15:10:47.0527693Z go: downloading gorm.io/gorm v1.25.5
+2026-10-20T15:10:47.1393916Z go: downloading github.com/DATA-DOG/go-sqlmock v1.5.2
+2026-10-20T15:10:47.2071095Z go: downloading github.com/ClickHouse/ch-go v0.65.0
+2026-10-20T15:10:47.3119142Z go: downloading go.opentelemetry.io/otel/trace v1.34.0
+2026-10-20T15:10:47.3280597Z go: downloading go.opentelemetry.io/otel v1.34.0
+2026-10-20T15:10:47.4629216Z go: downloading github.com/Azure/go-ntlmssp v0.1.1
+2026-10-20T15:10:47.4931373Z go: downloading github.com/abema/go-mp4 v1.4.1
+2026-10-20T15:10:47.5387272Z go: downloading github.com/gin-contrib/static v0.0.1
+2026-10-20T15:10:47.5640837Z go: downloading github.com/go-audio/aiff v1.1.0
+2026-10-20T15:10:47.9965845Z go: downloading github.com/go-audio/wav v1.1.0
+2026-10-20T15:10:48.1448368Z go: downloading github.com/go-playground/validator/v10 v10.20.0
+2026-10-20T15:10:48.1913049Z go: downloading github.com/grafana/pyroscope-go v1.2.7
+2026-10-20T15:10:48.2288895Z go: downloading github.com/jfreymuth/oggvorbis v1.0.5
+2026-10-20T15:10:48.2597205Z go: downloading github.com/jinzhu/copier v0.4.0
+2026-10-20T15:10:48.2830182Z go: downloading github.com/mewkiz/flac v1.0.13
+2026-10-20T15:10:48.3995069Z go: downloading github.com/pkg/errors v0.9.1
+2026-10-20T15:10:48.4268843Z go: downloading github.com/pquerna/otp v1.5.0
+2026-10-20T15:10:48.4532399Z go: downloading github.com/shirou/gopsutil v3.21.11+incompatible
+2026-10-20T15:10:48.5127771Z go: downloading github.com/tcolgate/mp3 v0.0.0-20170426193717-e79c5a46d300
+2026-10-20T15:10:48.5366678Z go: downloading github.com/yapingcat/gomedia v0.0.0-20240906162731-17feea57090c
+2026-10-20T15:10:48.6104983Z go: downloading golang.org/x/crypto v0.52.0
+2026-10-20T15:10:48.7524709Z go: downloading golang.org/x/sys v0.45.0
+2026-10-20T15:10:48.9471882Z go: downloading github.com/expr-lang/expr v1.17.8
+2026-10-20T15:10:49.0785495Z go: downloading github.com/tidwall/gjson v1.19.0
+2026-10-20T15:10:49.1069944Z go: downloading github.com/gorilla/websocket v1.5.0
+2026-10-20T15:10:49.1406084Z go: downloading github.com/tidwall/sjson v1.2.5
+2026-10-20T15:10:49.1689747Z go: downloading github.com/gin-contrib/sse v0.1.0
+2026-10-20T15:10:49.1946541Z go: downloading github.com/mattn/go-isatty v0.0.20
+2026-10-20T15:10:49.2190965Z go: downloading golang.org/x/net v0.55.0
+2026-10-20T15:10:49.4108978Z go: downloading modernc.org/libc v1.66.10
+2026-10-20T15:10:50.7409393Z go: downloading modernc.org/sqlite v1.40.1
+2026-10-20T15:10:52.8376423Z go: downloading github.com/golang-jwt/jwt/v5 v5.3.0
+2026-10-20T15:10:52.8777663Z go: downloading github.com/google/go-tpm v0.9.5
+2026-10-20T15:10:52.9558909Z go: downloading github.com/mitchellh/mapstructure v1.5.0
+2026-10-20T15:10:52.9865385Z go: downloading github.com/jackc/pgpassfile v1.0.0
+2026-10-20T15:10:53.0221009Z go: downloading github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761
+2026-10-20T15:10:53.0482559Z go: downloading golang.org/x/text v0.37.0
+2026-10-20T15:10:53.4755156Z go: downloading github.com/prometheus/client_golang v1.22.0
+2026-10-20T15:10:53.5374062Z go: downloading github.com/samber/go-singleflightx v0.3.2
+2026-10-20T15:10:53.5805596Z go: downloading github.com/hashicorp/go-version v1.7.0
+2026-10-20T15:10:53.6079330Z go: downloading github.com/jinzhu/now v1.1.5
+2026-10-20T15:10:53.6490288Z go: downloading github.com/jinzhu/inflection v1.0.0
+2026-10-20T15:10:53.6953116Z go: downloading github.com/go-faster/errors v0.7.1
+2026-10-20T15:10:53.7269063Z go: downloading github.com/segmentio/asm v1.2.0
+2026-10-20T15:10:53.7807086Z go: downloading github.com/paulmach/orb v0.11.1
+2026-10-20T15:10:53.9577260Z go: downloading github.com/go-audio/audio v1.0.0
+2026-10-20T15:10:53.9849504Z go: downloading github.com/go-audio/riff v1.0.0
+2026-10-20T15:10:54.0275194Z go: downloading github.com/gabriel-vasile/mimetype v1.4.3
+2026-10-20T15:10:54.6672851Z go: downloading github.com/go-playground/universal-translator v0.18.1
+2026-10-20T15:10:54.6947881Z go: downloading github.com/leodido/go-urn v1.4.0
+2026-10-20T15:10:54.7846744Z go: downloading github.com/grafana/pyroscope-go/godeltaprof v0.1.9
+2026-10-20T15:10:54.8108553Z go: downloading github.com/jfreymuth/vorbis v1.0.2
+2026-10-20T15:10:54.8418854Z go: downloading github.com/icza/bitio v1.1.0
+2026-10-20T15:10:54.8730869Z go: downloading github.com/mewkiz/pkg v0.0.0-20250417130911-3f050ff8c56d
+2026-10-20T15:10:54.9097200Z go: downloading github.com/boombuler/barcode v1.1.0
+2026-10-20T15:10:54.9496887Z go: downloading github.com/tklauser/go-sysconf v0.3.12
+2026-10-20T15:10:54.9893778Z go: downloading github.com/tidwall/match v1.1.1
+2026-10-20T15:10:55.0148053Z go: downloading github.com/tidwall/pretty v1.2.0
+2026-10-20T15:10:55.0399986Z go: downloading github.com/pelletier/go-toml/v2 v2.2.1
+2026-10-20T15:10:55.0887052Z go: downloading github.com/ugorji/go/codec v1.2.12
+2026-10-20T15:10:55.1395853Z go: downloading google.golang.org/protobuf v1.36.5
+2026-10-20T15:10:55.4000914Z go: downloading github.com/dustin/go-humanize v1.0.1
+2026-10-20T15:10:55.4294412Z go: downloading golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b
+2026-10-20T15:10:55.5232712Z go: downloading modernc.org/mathutil v1.7.1
+2026-10-20T15:10:55.5599080Z go: downloading modernc.org/memory v1.11.0
+2026-10-20T15:10:55.5913000Z go: downloading github.com/go-webauthn/x v0.1.25
+2026-10-20T15:10:55.6319524Z go: downloading github.com/fxamacker/cbor/v2 v2.9.0
+2026-10-20T15:10:55.6706596Z go: downloading github.com/jackc/puddle/v2 v2.2.2
+2026-10-20T15:10:55.6952698Z go: downloading github.com/beorn7/perks v1.0.1
+2026-10-20T15:10:55.7229403Z go: downloading github.com/prometheus/client_model v0.6.1
+2026-10-20T15:10:55.7469696Z go: downloading github.com/prometheus/common v0.62.0
+2026-10-20T15:10:55.7996256Z go: downloading github.com/prometheus/procfs v0.15.1
+2026-10-20T15:10:55.8606035Z go: downloading github.com/DmitriyVTitov/size v1.5.0
+2026-10-20T15:10:55.8887189Z go: downloading github.com/andybalholm/brotli v1.1.1
+2026-10-20T15:10:55.9648454Z go: downloading github.com/go-faster/city v1.0.1
+2026-10-20T15:10:56.0187373Z go: downloading github.com/klauspost/compress v1.18.0
+2026-10-20T15:10:56.7226892Z go: downloading github.com/pierrec/lz4/v4 v4.1.22
+2026-10-20T15:10:57.9242679Z go: downloading github.com/go-playground/locales v0.14.1
+2026-10-20T15:10:58.4706022Z go: downloading github.com/mewpkg/term v0.0.0-20241026122259-37a80af23985
+2026-10-20T15:10:58.4926389Z go: downloading github.com/tklauser/numcpus v0.6.1
+2026-10-20T15:10:58.5199730Z go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+2026-10-20T15:10:58.5452128Z go: downloading github.com/x448/float16 v0.8.4
+2026-10-20T15:10:58.5749728Z go: downloading golang.org/x/sync v0.20.0
+2026-10-20T15:10:58.6013859Z go: downloading github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
+2026-10-20T15:12:43.2931703Z === RUN   TestAccessProfileConfiguredDatabases
+2026-10-20T15:12:43.2933702Z === RUN   TestAccessProfileConfiguredDatabases/mysql
+2026-10-20T15:12:43.4303233Z === RUN   TestAccessProfileConfiguredDatabases/mysql/create-new
+2026-10-20T15:12:43.4316830Z === RUN   TestAccessProfileConfiguredDatabases/mysql/save-new
+2026-10-20T15:12:43.4338585Z === RUN   TestAccessProfileConfiguredDatabases/mysql/save-existing
+2026-10-20T15:12:43.4491998Z === RUN   TestAccessProfileConfiguredDatabases/mysql/group-ratio-alias-contract
+2026-10-20T15:12:43.4627395Z === RUN   TestAccessProfileConfiguredDatabases/mysql/group-ratio-alias-contract/create-rollback
+2026-10-20T15:12:43.4628624Z === RUN   TestAccessProfileConfiguredDatabases/mysql/group-ratio-alias-contract/create-rollback/mixed-existing-canonical-and-missing-alias
+2026-10-20T15:12:43.4712280Z === RUN   TestAccessProfileConfiguredDatabases/mysql/group-ratio-alias-contract/create-rollback/both-missing-second-create
+2026-10-20T15:12:43.4762010Z === RUN   TestAccessProfileConfiguredDatabases/postgres
+2026-10-20T15:12:43.6043047Z === RUN   TestAccessProfileConfiguredDatabases/postgres/create-new
+2026-10-20T15:12:43.6053259Z === RUN   TestAccessProfileConfiguredDatabases/postgres/save-new
+2026-10-20T15:12:43.6066691Z === RUN   TestAccessProfileConfiguredDatabases/postgres/save-existing
+2026-10-20T15:12:43.6338116Z === RUN   TestAccessProfileConfiguredDatabases/postgres/group-ratio-alias-contract
+2026-10-20T15:12:43.6436777Z === RUN   TestAccessProfileConfiguredDatabases/postgres/group-ratio-alias-contract/create-rollback
+2026-10-20T15:12:43.6438676Z === RUN   TestAccessProfileConfiguredDatabases/postgres/group-ratio-alias-contract/create-rollback/mixed-existing-canonical-and-missing-alias
+2026-10-20T15:12:43.6475398Z === RUN   TestAccessProfileConfiguredDatabases/postgres/group-ratio-alias-contract/create-rollback/both-missing-second-create
+2026-10-20T15:12:43.6514590Z --- PASS: TestAccessProfileConfiguredDatabases (0.36s)
+2026-10-20T15:12:43.6515819Z     --- PASS: TestAccessProfileConfiguredDatabases/mysql (0.18s)
+2026-10-20T15:12:43.6517188Z         --- PASS: TestAccessProfileConfiguredDatabases/mysql/create-new (0.00s)
+2026-10-20T15:12:43.6518462Z         --- PASS: TestAccessProfileConfiguredDatabases/mysql/save-new (0.00s)
+2026-10-20T15:12:43.6519778Z         --- PASS: TestAccessProfileConfiguredDatabases/mysql/save-existing (0.00s)
+2026-10-20T15:12:43.6521644Z         --- PASS: TestAccessProfileConfiguredDatabases/mysql/group-ratio-alias-contract (0.03s)
+2026-10-20T15:12:43.6524224Z             --- PASS: TestAccessProfileConfiguredDatabases/mysql/group-ratio-alias-contract/create-rollback (0.01s)
+2026-10-20T15:12:43.6527453Z                 --- PASS: TestAccessProfileConfiguredDatabases/mysql/group-ratio-alias-contract/create-rollback/mixed-existing-canonical-and-missing-alias (0.01s)
+2026-10-20T15:12:43.6530883Z                 --- PASS: TestAccessProfileConfiguredDatabases/mysql/group-ratio-alias-contract/create-rollback/both-missing-second-create (0.00s)
+2026-10-20T15:12:43.6534549Z     --- PASS: TestAccessProfileConfiguredDatabases/postgres (0.17s)
+2026-10-20T15:12:43.6536066Z         --- PASS: TestAccessProfileConfiguredDatabases/postgres/create-new (0.00s)
+2026-10-20T15:12:43.6537615Z         --- PASS: TestAccessProfileConfiguredDatabases/postgres/save-new (0.00s)
+2026-10-20T15:12:43.6539170Z         --- PASS: TestAccessProfileConfiguredDatabases/postgres/save-existing (0.00s)
+2026-10-20T15:12:43.6540986Z         --- PASS: TestAccessProfileConfiguredDatabases/postgres/group-ratio-alias-contract (0.02s)
+2026-10-20T15:12:43.6543142Z             --- PASS: TestAccessProfileConfiguredDatabases/postgres/group-ratio-alias-contract/create-rollback (0.01s)
+2026-10-20T15:12:43.6546128Z                 --- PASS: TestAccessProfileConfiguredDatabases/postgres/group-ratio-alias-contract/create-rollback/mixed-existing-canonical-and-missing-alias (0.00s)
+2026-10-20T15:12:43.6549186Z                 --- PASS: TestAccessProfileConfiguredDatabases/postgres/group-ratio-alias-contract/create-rollback/both-missing-second-create (0.00s)
+2026-10-20T15:12:43.6550293Z === RUN   TestAssignedAccessPolicyConfiguredDatabases
+2026-10-20T15:12:43.6551184Z === RUN   TestAssignedAccessPolicyConfiguredDatabases/mysql
+2026-10-20T15:12:43.6809796Z === RUN   TestAssignedAccessPolicyConfiguredDatabases/postgres
+2026-10-20T15:12:43.7350991Z --- PASS: TestAssignedAccessPolicyConfiguredDatabases (0.08s)
+2026-10-20T15:12:43.7352442Z     --- PASS: TestAssignedAccessPolicyConfiguredDatabases/mysql (0.03s)
+2026-10-20T15:12:43.7354106Z     --- PASS: TestAssignedAccessPolicyConfiguredDatabases/postgres (0.05s)
+2026-10-20T15:12:43.7356109Z === RUN   TestLogTokenStatisticsConfiguredDatabases
+2026-10-20T15:12:43.7357517Z === RUN   TestLogTokenStatisticsConfiguredDatabases/mysql
+2026-10-20T15:12:43.7726753Z === RUN   TestLogTokenStatisticsConfiguredDatabases/postgres
+2026-10-20T15:12:43.8217854Z --- PASS: TestLogTokenStatisticsConfiguredDatabases (0.09s)
+2026-10-20T15:12:43.8219881Z     --- PASS: TestLogTokenStatisticsConfiguredDatabases/mysql (0.04s)
+2026-10-20T15:12:43.8238150Z     --- PASS: TestLogTokenStatisticsConfiguredDatabases/postgres (0.05s)
+2026-10-20T15:12:43.8238917Z PASS
+2026-10-20T15:12:43.8239440Z ok  	github.com/ForceMind/MyAPI/model	0.588s
+2026-10-20T15:12:44.0633491Z Post job cleanup.
+2026-10-20T15:12:44.1817810Z [command]/opt/hostedtoolcache/go/1.25.1/x64/bin/go env GOMODCACHE
+2026-10-20T15:12:44.1865356Z [command]/opt/hostedtoolcache/go/1.25.1/x64/bin/go env GOCACHE
+2026-10-20T15:12:44.1912772Z /home/runner/go/pkg/mod
+2026-10-20T15:12:44.1925162Z /home/runner/.cache/go-build
+2026-10-20T15:12:44.1927281Z Cache hit occurred on the primary key setup-go-Linux-x64-ubuntu24-go-1.25.1-6d5e7a422ac7cc4529fbd9df01ec0b200929303e0fa2bb12bc04294bfe908406, not saving cache.
+2026-10-20T15:12:44.2125002Z Post job cleanup.
+2026-10-20T15:12:44.3002336Z [command]/usr/bin/git version
+2026-10-20T15:12:44.3045340Z git version 2.55.0
+2026-10-20T15:12:44.3083652Z Temporarily overriding HOME='/home/runner/work/_temp/bb8a4f95-a778-4d26-b424-1a47a3c79365' before making global git config changes
+2026-10-20T15:12:44.3085276Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-20T15:12:44.3090521Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MyAPI/MyAPI
+2026-10-20T15:12:44.3128405Z Removing SSH command configuration
+2026-10-20T15:12:44.3129536Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-20T15:12:44.3174261Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-20T15:12:44.3420246Z Removing HTTP extra header
+2026-10-20T15:12:44.3427202Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-20T15:12:44.3470651Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-20T15:12:44.3778284Z Removing includeIf entries pointing to credentials config files
+2026-10-20T15:12:44.3782762Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-20T15:12:44.3827917Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-20T15:12:44.4258508Z Print service container logs: a937ee8be7c3415680d8efa421ef6282_mysql57_d64137
+2026-10-20T15:12:44.4263829Z ##[command]/usr/bin/docker logs --details 0cfe2cd499a8e5baa379c1f571828cc6dc3cf19c79a2fba1606eb5878fd92f3f
+2026-10-20T15:12:44.4392877Z  2026-10-20T15:10:11.850898Z 0 [Warning] TIMESTAMP with implicit DEFAULT value is deprecated. Please use --explicit_defaults_for_timestamp server option (see documentation for more details).
+2026-10-20T15:12:44.4394593Z  2026-10-20 15:10:11+00:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 5.7.44-1.el7 started.
+2026-10-20T15:12:44.4395446Z  2026-10-20T15:10:11.935359Z 0 [Warning] InnoDB: New log files created, LSN=45790
+2026-10-20T15:12:44.4396253Z  2026-10-20T15:10:11.949411Z 0 [Warning] InnoDB: Creating foreign key constraint system tables.
+2026-10-20T15:12:44.4398024Z  2026-10-20T15:10:11.951753Z 0 [Warning] No existing UUID has been found, so we assume that this is the first time that this server has been started. Generating a new UUID: 58a5451b-cc98-11f1-bee0-4240088b71b4.
+2026-10-20T15:12:44.4399850Z  2026-10-20T15:10:11.952218Z 0 [Warning] Gtid table is not ready to be used. Table 'mysql.gtid_executed' cannot be opened.
+2026-10-20T15:12:44.4401024Z  2026-10-20T15:10:12.062651Z 0 [Warning] A deprecated TLS version TLSv1 is enabled. Please use TLSv1.2 or higher.
+2026-10-20T15:12:44.4402291Z  2026-10-20T15:10:12.062668Z 0 [Warning] A deprecated TLS version TLSv1.1 is enabled. Please use TLSv1.2 or higher.
+2026-10-20T15:12:44.4403367Z  2026-10-20T15:10:12.063140Z 0 [Warning] CA certificate ca.pem is self signed.
+2026-10-20T15:12:44.4404160Z  2026-10-20T15:10:12.100743Z 1 [Warning] root@localhost is created with an empty password ! Please consider switching off the --initialize-insecure option.
+2026-10-20T15:12:44.4405291Z  2026-10-20T15:10:13.987005Z 0 [Warning] TIMESTAMP with implicit DEFAULT value is deprecated. Please use --explicit_defaults_for_timestamp server option (see documentation for more details).
+2026-10-20T15:12:44.4406185Z  2026-10-20T15:10:13.988741Z 0 [Note] mysqld (mysqld 5.7.44) starting as process 126 ...
+2026-10-20T15:12:44.4406716Z  2026-10-20T15:10:13.992502Z 0 [Note] InnoDB: PUNCH HOLE support available
+2026-10-20T15:12:44.4407233Z  2026-10-20T15:10:13.992523Z 0 [Note] InnoDB: Mutexes and rw_locks use GCC atomic builtins
+2026-10-20T15:12:44.4407713Z  2026-10-20T15:10:13.992526Z 0 [Note] InnoDB: Uses event mutexes
+2026-10-20T15:12:44.4408240Z  2026-10-20T15:10:13.992528Z 0 [Note] InnoDB: GCC builtin __atomic_thread_fence() is used for memory barrier
+2026-10-20T15:12:44.4408812Z  2026-10-20T15:10:13.992534Z 0 [Note] InnoDB: Compressed tables use zlib 1.2.13
+2026-10-20T15:12:44.4409262Z  2026-10-20T15:10:13.992538Z 0 [Note] InnoDB: Using Linux native AIO
+2026-10-20T15:12:44.4409679Z  2026-10-20T15:10:13.992828Z 0 [Note] InnoDB: Number of pools: 1
+2026-10-20T15:12:44.4410100Z  2026-10-20T15:10:13.992954Z 0 [Note] InnoDB: Using CPU crc32 instructions
+2026-10-20T15:12:44.4410709Z  2026-10-20T15:10:13.994953Z 0 [Note] InnoDB: Initializing buffer pool, total size = 128M, instances = 1, chunk size = 128M
+2026-10-20T15:12:44.4411370Z  2026-10-20T15:10:14.001385Z 0 [Note] InnoDB: Completed initialization of buffer pool
+2026-10-20T15:12:44.4422244Z  2026-10-20T15:10:14.003627Z 0 [Note] InnoDB: If the mysqld execution user is authorized, page cleaner thread priority can be changed. See the man page of setpriority().
+2026-10-20T15:12:44.4423532Z  2026-10-20T15:10:14.015689Z 0 [Note] InnoDB: Highest supported file format is Barracuda.
+2026-10-20T15:12:44.4424154Z  2026-10-20T15:10:14.021869Z 0 [Note] InnoDB: Creating shared tablespace for temporary tables
+2026-10-20T15:12:44.4424858Z  2026-10-20T15:10:14.021986Z 0 [Note] InnoDB: Setting file './ibtmp1' size to 12 MB. Physically writing the file full; Please wait ...
+2026-10-20T15:12:44.4425527Z  2026-10-20T15:10:14.030754Z 0 [Note] InnoDB: File './ibtmp1' size is now 12 MB.
+2026-10-20T15:12:44.4426321Z  2026-10-20T15:10:14.031433Z 0 [Note] InnoDB: 96 redo rollback segment(s) found. 96 redo rollback segment(s) are active.
+2026-10-20T15:12:44.4426957Z  2026-10-20T15:10:14.031479Z 0 [Note] InnoDB: 32 non-redo rollback segment(s) are active.
+2026-10-20T15:12:44.4427517Z  2026-10-20T15:10:14.031948Z 0 [Note] InnoDB: 5.7.44 started; log sequence number 2768291
+2026-10-20T15:12:44.4428094Z  2026-10-20T15:10:14.032336Z 0 [Note] InnoDB: Loading buffer pool(s) from /var/lib/mysql/ib_buffer_pool
+2026-10-20T15:12:44.4428629Z  2026-10-20T15:10:14.032505Z 0 [Note] Plugin 'FEDERATED' is disabled.
+2026-10-20T15:12:44.4429109Z  2026-10-20T15:10:14.033335Z 0 [Note] InnoDB: Buffer pool(s) load completed at 261020 15:10:14
+2026-10-20T15:12:44.4429842Z  2026-10-20T15:10:14.037379Z 0 [Note] Found ca.pem, server-cert.pem and server-key.pem in data directory. Trying to enable SSL support using them.
+2026-10-20T15:12:44.4430707Z  2026-10-20T15:10:14.037432Z 0 [Note] Skipping generation of SSL certificates as certificate files are present in data directory.
+2026-10-20T15:12:44.4431466Z  2026-10-20T15:10:14.037465Z 0 [Warning] A deprecated TLS version TLSv1 is enabled. Please use TLSv1.2 or higher.
+2026-10-20T15:12:44.4432561Z  2026-10-20T15:10:14.037487Z 0 [Warning] A deprecated TLS version TLSv1.1 is enabled. Please use TLSv1.2 or higher.
+2026-10-20T15:12:44.4433349Z  2026-10-20T15:10:14.038117Z 0 [Warning] CA certificate ca.pem is self signed.
+2026-10-20T15:12:44.4434427Z  2026-10-20T15:10:14.038202Z 0 [Note] Skipping generation of RSA key pair as key files are present in data directory.
+2026-10-20T15:12:44.4435434Z  2026-10-20T15:10:14.039483Z 0 [Warning] Insecure configuration for --pid-file: Location '/var/run/mysqld' in the path is accessible to all OS users. Consider choosing a different directory.
+2026-10-20T15:12:44.4436261Z  2026-10-20T15:10:14.049172Z 0 [Note] Event Scheduler: Loaded 0 events
+2026-10-20T15:12:44.4436687Z  2026-10-20T15:10:14.049457Z 0 [Note] mysqld: ready for connections.
+2026-10-20T15:12:44.4437200Z  Version: '5.7.44'  socket: '/var/run/mysqld/mysqld.sock'  port: 0  MySQL Community Server (GPL)
+2026-10-20T15:12:44.4437703Z  2026-10-20T15:10:14.867863Z 3 [Note] InnoDB: Stopping purge
+2026-10-20T15:12:44.4438069Z  2026-10-20T15:10:14.869339Z 3 [Note] InnoDB: Resuming purge
+2026-10-20T15:12:44.4438425Z  2026-10-20T15:10:14.871124Z 3 [Note] InnoDB: Stopping purge
+2026-10-20T15:12:44.4438784Z  2026-10-20T15:10:14.884052Z 3 [Note] InnoDB: Resuming purge
+2026-10-20T15:12:44.4439135Z  2026-10-20T15:10:14.885138Z 3 [Note] InnoDB: Stopping purge
+2026-10-20T15:12:44.4439482Z  2026-10-20T15:10:14.886947Z 3 [Note] InnoDB: Resuming purge
+2026-10-20T15:12:44.4439851Z  2026-10-20T15:10:14.887710Z 3 [Note] InnoDB: Stopping purge
+2026-10-20T15:12:44.4440204Z  2026-10-20T15:10:14.899126Z 3 [Note] InnoDB: Resuming purge
+2026-10-20T15:12:44.4440652Z  Warning: Unable to load '/usr/share/zoneinfo/iso3166.tab' as time zone. Skipping it.
+2026-10-20T15:12:44.4441201Z  Warning: Unable to load '/usr/share/zoneinfo/leapseconds' as time zone. Skipping it.
+2026-10-20T15:12:44.4441737Z  Warning: Unable to load '/usr/share/zoneinfo/tzdata.zi' as time zone. Skipping it.
+2026-10-20T15:12:44.4442543Z  Warning: Unable to load '/usr/share/zoneinfo/zone.tab' as time zone. Skipping it.
+2026-10-20T15:12:44.4443072Z  Warning: Unable to load '/usr/share/zoneinfo/zone1970.tab' as time zone. Skipping it.
+2026-10-20T15:12:44.4443602Z  2026-10-20T15:10:16.413064Z 0 [Note] Giving 0 client threads a chance to die gracefully
+2026-10-20T15:12:44.4444246Z  2026-10-20T15:10:16.413090Z 0 [Note] Shutting down slave threads
+2026-10-20T15:12:44.4444686Z  2026-10-20T15:10:16.413094Z 0 [Note] Forcefully disconnecting 0 remaining clients
+2026-10-20T15:12:44.4445166Z  2026-10-20T15:10:16.413100Z 0 [Note] Event Scheduler: Purging the queue. 0 events
+2026-10-20T15:12:44.4445562Z  2026-10-20T15:10:16.413139Z 0 [Note] Binlog end
+2026-10-20T15:12:44.4445935Z  2026-10-20T15:10:16.413699Z 0 [Note] Shutting down plugin 'ngram'
+2026-10-20T15:12:44.4446357Z  2026-10-20T15:10:16.413712Z 0 [Note] Shutting down plugin 'partition'
+2026-10-20T15:12:44.4446910Z  2026-10-20T15:10:16.413716Z 0 [Note] Shutting down plugin 'BLACKHOLE'
+2026-10-20T15:12:44.4447330Z  2026-10-20T15:10:16.413720Z 0 [Note] Shutting down plugin 'ARCHIVE'
+2026-10-20T15:12:44.4447772Z  2026-10-20T15:10:16.413723Z 0 [Note] Shutting down plugin 'PERFORMANCE_SCHEMA'
+2026-10-20T15:12:44.4448230Z  2026-10-20T15:10:16.413757Z 0 [Note] Shutting down plugin 'MRG_MYISAM'
+2026-10-20T15:12:44.4448654Z  2026-10-20T15:10:16.413768Z 0 [Note] Shutting down plugin 'MyISAM'
+2026-10-20T15:12:44.4449086Z  2026-10-20T15:10:16.413775Z 0 [Note] Shutting down plugin 'INNODB_SYS_VIRTUAL'
+2026-10-20T15:12:44.4449563Z  2026-10-20T15:10:16.413778Z 0 [Note] Shutting down plugin 'INNODB_SYS_DATAFILES'
+2026-10-20T15:12:44.4450049Z  2026-10-20T15:10:16.413781Z 0 [Note] Shutting down plugin 'INNODB_SYS_TABLESPACES'
+2026-10-20T15:12:44.4450541Z  2026-10-20T15:10:16.413784Z 0 [Note] Shutting down plugin 'INNODB_SYS_FOREIGN_COLS'
+2026-10-20T15:12:44.4451029Z  2026-10-20T15:10:16.413787Z 0 [Note] Shutting down plugin 'INNODB_SYS_FOREIGN'
+2026-10-20T15:12:44.4451491Z  2026-10-20T15:10:16.413813Z 0 [Note] Shutting down plugin 'INNODB_SYS_FIELDS'
+2026-10-20T15:12:44.4452087Z  2026-10-20T15:10:16.413822Z 0 [Note] Shutting down plugin 'INNODB_SYS_COLUMNS'
+2026-10-20T15:12:44.4452552Z  2026-10-20T15:10:16.413825Z 0 [Note] Shutting down plugin 'INNODB_SYS_INDEXES'
+2026-10-20T15:12:44.4453030Z  2026-10-20T15:10:16.413828Z 0 [Note] Shutting down plugin 'INNODB_SYS_TABLESTATS'
+2026-10-20T15:12:44.4453502Z  2026-10-20T15:10:16.413831Z 0 [Note] Shutting down plugin 'INNODB_SYS_TABLES'
+2026-10-20T15:12:44.4453966Z  2026-10-20T15:10:16.413833Z 0 [Note] Shutting down plugin 'INNODB_FT_INDEX_TABLE'
+2026-10-20T15:12:44.4454445Z  2026-10-20T15:10:16.413835Z 0 [Note] Shutting down plugin 'INNODB_FT_INDEX_CACHE'
+2026-10-20T15:12:44.4454907Z  2026-10-20T15:10:16.413838Z 0 [Note] Shutting down plugin 'INNODB_FT_CONFIG'
+2026-10-20T15:12:44.4455379Z  2026-10-20T15:10:16.413840Z 0 [Note] Shutting down plugin 'INNODB_FT_BEING_DELETED'
+2026-10-20T15:12:44.4455860Z  2026-10-20T15:10:16.413843Z 0 [Note] Shutting down plugin 'INNODB_FT_DELETED'
+2026-10-20T15:12:44.4456345Z  2026-10-20T15:10:16.413845Z 0 [Note] Shutting down plugin 'INNODB_FT_DEFAULT_STOPWORD'
+2026-10-20T15:12:44.4456831Z  2026-10-20T15:10:16.413847Z 0 [Note] Shutting down plugin 'INNODB_METRICS'
+2026-10-20T15:12:44.4457303Z  2026-10-20T15:10:16.413850Z 0 [Note] Shutting down plugin 'INNODB_TEMP_TABLE_INFO'
+2026-10-20T15:12:44.4457817Z  2026-10-20T15:10:16.413852Z 0 [Note] Shutting down plugin 'INNODB_BUFFER_POOL_STATS'
+2026-10-20T15:12:44.4458313Z  2026-10-20T15:10:16.413855Z 0 [Note] Shutting down plugin 'INNODB_BUFFER_PAGE_LRU'
+2026-10-20T15:12:44.4458813Z  2026-10-20T15:10:16.413858Z 0 [Note] Shutting down plugin 'INNODB_BUFFER_PAGE'
+2026-10-20T15:12:44.4459311Z  2026-10-20T15:10:16.413860Z 0 [Note] Shutting down plugin 'INNODB_CMP_PER_INDEX_RESET'
+2026-10-20T15:12:44.4459822Z  2026-10-20T15:10:16.413862Z 0 [Note] Shutting down plugin 'INNODB_CMP_PER_INDEX'
+2026-10-20T15:12:44.4460311Z  2026-10-20T15:10:16.413865Z 0 [Note] Shutting down plugin 'INNODB_CMPMEM_RESET'
+2026-10-20T15:12:44.4460771Z  2026-10-20T15:10:16.413867Z 0 [Note] Shutting down plugin 'INNODB_CMPMEM'
+2026-10-20T15:12:44.4461225Z  2026-10-20T15:10:16.413869Z 0 [Note] Shutting down plugin 'INNODB_CMP_RESET'
+2026-10-20T15:12:44.4461675Z  2026-10-20T15:10:16.413872Z 0 [Note] Shutting down plugin 'INNODB_CMP'
+2026-10-20T15:12:44.4462489Z  2026-10-20T15:10:16.413874Z 0 [Note] Shutting down plugin 'INNODB_LOCK_WAITS'
+2026-10-20T15:12:44.4462960Z  2026-10-20T15:10:16.413876Z 0 [Note] Shutting down plugin 'INNODB_LOCKS'
+2026-10-20T15:12:44.4463400Z  2026-10-20T15:10:16.413878Z 0 [Note] Shutting down plugin 'INNODB_TRX'
+2026-10-20T15:12:44.4463817Z  2026-10-20T15:10:16.413881Z 0 [Note] Shutting down plugin 'InnoDB'
+2026-10-20T15:12:44.4464242Z  2026-10-20T15:10:16.413954Z 0 [Note] InnoDB: FTS optimize thread exiting.
+2026-10-20T15:12:44.4464676Z  2026-10-20T15:10:16.414095Z 0 [Note] InnoDB: Starting shutdown...
+2026-10-20T15:12:44.4465304Z  2026-10-20T15:10:16.514307Z 0 [Note] InnoDB: Dumping buffer pool(s) to /var/lib/mysql/ib_buffer_pool
+2026-10-20T15:12:44.4465896Z  2026-10-20T15:10:16.514740Z 0 [Note] InnoDB: Buffer pool(s) dump completed at 261020 15:10:16
+2026-10-20T15:12:44.4466460Z  2026-10-20T15:10:17.919730Z 0 [Note] InnoDB: Shutdown completed; log sequence number 12219253
+2026-10-20T15:12:44.4467022Z  2026-10-20T15:10:17.920555Z 0 [Note] InnoDB: Removed temporary tablespace data file: "ibtmp1"
+2026-10-20T15:12:44.4467520Z  2026-10-20T15:10:17.920571Z 0 [Note] Shutting down plugin 'MEMORY'
+2026-10-20T15:12:44.4467943Z  2026-10-20T15:10:17.920575Z 0 [Note] Shutting down plugin 'CSV'
+2026-10-20T15:12:44.4468377Z  2026-10-20T15:10:17.920578Z 0 [Note] Shutting down plugin 'sha256_password'
+2026-10-20T15:12:44.4468851Z  2026-10-20T15:10:17.920580Z 0 [Note] Shutting down plugin 'mysql_native_password'
+2026-10-20T15:12:44.4469308Z  2026-10-20T15:10:17.920710Z 0 [Note] Shutting down plugin 'binlog'
+2026-10-20T15:12:44.4469707Z  2026-10-20T15:10:17.921380Z 0 [Note] mysqld: Shutdown complete
+2026-10-20T15:12:44.4470024Z  
+2026-10-20T15:12:44.4470710Z  2026-10-20T15:10:18.572035Z 0 [Warning] TIMESTAMP with implicit DEFAULT value is deprecated. Please use --explicit_defaults_for_timestamp server option (see documentation for more details).
+2026-10-20T15:12:44.4471585Z  2026-10-20T15:10:18.573825Z 0 [Note] mysqld (mysqld 5.7.44) starting as process 1 ...
+2026-10-20T15:12:44.4472203Z  2026-10-20T15:10:18.577229Z 0 [Note] InnoDB: PUNCH HOLE support available
+2026-10-20T15:12:44.4472700Z  2026-10-20T15:10:18.577252Z 0 [Note] InnoDB: Mutexes and rw_locks use GCC atomic builtins
+2026-10-20T15:12:44.4473169Z  2026-10-20T15:10:18.577280Z 0 [Note] InnoDB: Uses event mutexes
+2026-10-20T15:12:44.4473682Z  2026-10-20T15:10:18.577288Z 0 [Note] InnoDB: GCC builtin __atomic_thread_fence() is used for memory barrier
+2026-10-20T15:12:44.4474255Z  2026-10-20T15:10:18.577299Z 0 [Note] InnoDB: Compressed tables use zlib 1.2.13
+2026-10-20T15:12:44.4474709Z  2026-10-20T15:10:18.577305Z 0 [Note] InnoDB: Using Linux native AIO
+2026-10-20T15:12:44.4475115Z  2026-10-20T15:10:18.577536Z 0 [Note] InnoDB: Number of pools: 1
+2026-10-20T15:12:44.4475531Z  2026-10-20T15:10:18.577671Z 0 [Note] InnoDB: Using CPU crc32 instructions
+2026-10-20T15:12:44.4476137Z  2026-10-20T15:10:18.579683Z 0 [Note] InnoDB: Initializing buffer pool, total size = 128M, instances = 1, chunk size = 128M
+2026-10-20T15:12:44.4476786Z  2026-10-20T15:10:18.587641Z 0 [Note] InnoDB: Completed initialization of buffer pool
+2026-10-20T15:12:44.4477588Z  2026-10-20T15:10:18.589509Z 0 [Note] InnoDB: If the mysqld execution user is authorized, page cleaner thread priority can be changed. See the man page of setpriority().
+2026-10-20T15:12:44.4478388Z  2026-10-20T15:10:18.601058Z 0 [Note] InnoDB: Highest supported file format is Barracuda.
+2026-10-20T15:12:44.4478943Z  2026-10-20T15:10:18.605965Z 0 [Note] InnoDB: Creating shared tablespace for temporary tables
+2026-10-20T15:12:44.4479641Z  2026-10-20T15:10:18.606024Z 0 [Note] InnoDB: Setting file './ibtmp1' size to 12 MB. Physically writing the file full; Please wait ...
+2026-10-20T15:12:44.4480284Z  2026-10-20T15:10:18.613720Z 0 [Note] InnoDB: File './ibtmp1' size is now 12 MB.
+2026-10-20T15:12:44.4480889Z  2026-10-20T15:10:18.614171Z 0 [Note] InnoDB: 96 redo rollback segment(s) found. 96 redo rollback segment(s) are active.
+2026-10-20T15:12:44.4481629Z  2026-10-20T15:10:18.614181Z 0 [Note] InnoDB: 32 non-redo rollback segment(s) are active.
+2026-10-20T15:12:44.4482393Z  2026-10-20T15:10:18.614602Z 0 [Note] InnoDB: 5.7.44 started; log sequence number 12219253
+2026-10-20T15:12:44.4482989Z  2026-10-20T15:10:18.614783Z 0 [Note] InnoDB: Loading buffer pool(s) from /var/lib/mysql/ib_buffer_pool
+2026-10-20T15:12:44.4483520Z  2026-10-20T15:10:18.614942Z 0 [Note] Plugin 'FEDERATED' is disabled.
+2026-10-20T15:12:44.4484002Z  2026-10-20T15:10:18.616370Z 0 [Note] InnoDB: Buffer pool(s) load completed at 261020 15:10:18
+2026-10-20T15:12:44.4484938Z  2026-10-20T15:10:18.618776Z 0 [Note] Found ca.pem, server-cert.pem and server-key.pem in data directory. Trying to enable SSL support using them.
+2026-10-20T15:12:44.4485817Z  2026-10-20T15:10:18.618787Z 0 [Note] Skipping generation of SSL certificates as certificate files are present in data directory.
+2026-10-20T15:12:44.4486574Z  2026-10-20T15:10:18.618789Z 0 [Warning] A deprecated TLS version TLSv1 is enabled. Please use TLSv1.2 or higher.
+2026-10-20T15:12:44.4487290Z  2026-10-20T15:10:18.618791Z 0 [Warning] A deprecated TLS version TLSv1.1 is enabled. Please use TLSv1.2 or higher.
+2026-10-20T15:12:44.4487896Z  2026-10-20T15:10:18.619310Z 0 [Warning] CA certificate ca.pem is self signed.
+2026-10-20T15:12:44.4488492Z  2026-10-20T15:10:18.619346Z 0 [Note] Skipping generation of RSA key pair as key files are present in data directory.
+2026-10-20T15:12:44.4489114Z  2026-10-20T15:10:18.619644Z 0 [Note] Server hostname (bind-address): '*'; port: 3306
+2026-10-20T15:12:44.4489547Z  2026-10-20T15:10:18.619685Z 0 [Note] IPv6 is available.
+2026-10-20T15:12:44.4489926Z  2026-10-20T15:10:18.619699Z 0 [Note]   - '::' resolves to '::';
+2026-10-20T15:12:44.4490357Z  2026-10-20T15:10:18.619715Z 0 [Note] Server socket created on IP: '::'.
+2026-10-20T15:12:44.4491192Z  2026-10-20T15:10:18.620455Z 0 [Warning] Insecure configuration for --pid-file: Location '/var/run/mysqld' in the path is accessible to all OS users. Consider choosing a different directory.
+2026-10-20T15:12:44.4492136Z  2026-10-20T15:10:18.626872Z 0 [Note] Event Scheduler: Loaded 0 events
+2026-10-20T15:12:44.4492568Z  2026-10-20T15:10:18.627088Z 0 [Note] mysqld: ready for connections.
+2026-10-20T15:12:44.4493082Z  Version: '5.7.44'  socket: '/var/run/mysqld/mysqld.sock'  port: 3306  MySQL Community Server (GPL)
+2026-10-20T15:12:44.4493635Z  2026-10-20 15:10:11+00:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+2026-10-20T15:12:44.4494180Z  2026-10-20 15:10:11+00:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 5.7.44-1.el7 started.
+2026-10-20T15:12:44.4494710Z  2026-10-20 15:10:11+00:00 [Note] [Entrypoint]: Initializing database files
+2026-10-20T15:12:44.4495138Z  2026-10-20 15:10:13+00:00 [Note] [Entrypoint]: Database files initialized
+2026-10-20T15:12:44.4495567Z  2026-10-20 15:10:13+00:00 [Note] [Entrypoint]: Starting temporary server
+2026-10-20T15:12:44.4495987Z  2026-10-20 15:10:13+00:00 [Note] [Entrypoint]: Waiting for server startup
+2026-10-20T15:12:44.4496405Z  2026-10-20 15:10:14+00:00 [Note] [Entrypoint]: Temporary server started.
+2026-10-20T15:12:44.4496831Z  '/var/lib/mysql/mysql.sock' -> '/var/run/mysqld/mysqld.sock'
+2026-10-20T15:12:44.4497265Z  2026-10-20 15:10:16+00:00 [Note] [Entrypoint]: Creating database myapi_s1_test
+2026-10-20T15:12:44.4497625Z  
+2026-10-20T15:12:44.4497897Z  2026-10-20 15:10:16+00:00 [Note] [Entrypoint]: Stopping temporary server
+2026-10-20T15:12:44.4498318Z  2026-10-20 15:10:18+00:00 [Note] [Entrypoint]: Temporary server stopped
+2026-10-20T15:12:44.4498653Z  
+2026-10-20T15:12:44.4498976Z  2026-10-20 15:10:18+00:00 [Note] [Entrypoint]: MySQL init process done. Ready for start up.
+2026-10-20T15:12:44.4499376Z  
+2026-10-20T15:12:44.4505323Z Stop and remove container: a937ee8be7c3415680d8efa421ef6282_mysql57_d64137
+2026-10-20T15:12:44.4509753Z ##[command]/usr/bin/docker rm --force 0cfe2cd499a8e5baa379c1f571828cc6dc3cf19c79a2fba1606eb5878fd92f3f
+2026-10-20T15:12:44.6081902Z 0cfe2cd499a8e5baa379c1f571828cc6dc3cf19c79a2fba1606eb5878fd92f3f
+2026-10-20T15:12:44.6106222Z Print service container logs: b6468c2b62594234b6e53fc740bfa844_postgres96_d9d361
+2026-10-20T15:12:44.6107932Z ##[command]/usr/bin/docker logs --details 2f8662e16d11cb4e9f127446c23da8c81effe67f235c619df6e18bb85ebd1f72
+2026-10-20T15:12:44.6231415Z  
+2026-10-20T15:12:44.6232626Z  WARNING: enabling "trust" authentication for local connections
+2026-10-20T15:12:44.6234252Z  You can change this by editing pg_hba.conf or using the option -A, or
+2026-10-20T15:12:44.6235967Z  --auth-local and --auth-host, the next time you run initdb.
+2026-10-20T15:12:44.6236762Z  LOG:  database system was shut down at 2026-10-20 15:10:18 UTC
+2026-10-20T15:12:44.6237225Z  LOG:  MultiXact member wraparound protections are now enabled
+2026-10-20T15:12:44.6237601Z  LOG:  autovacuum launcher started
+2026-10-20T15:12:44.6237932Z  LOG:  database system is ready to accept connections
+2026-10-20T15:12:44.6238460Z  ERROR:  duplicate key value violates unique constraint "uidx_assigned_access_policy_subject"
+2026-10-20T15:12:44.6239040Z  DETAIL:  Key (subject_type, subject_id)=(user, 7) already exists.
+2026-10-20T15:12:44.6240075Z  STATEMENT:  INSERT INTO "assigned_access_policies" ("subject_type","subject_id","revision","assigned","policy_json") VALUES ( 'user' , '7' , '1' , 't' , '{"enabled":true,"public_models":null,"upstream_models":[],"channel_ids":[7]}' ) RETURNING "id"
+2026-10-20T15:12:44.6241218Z  ERROR:  duplicate key value violates unique constraint "uidx_assigned_access_policy_subject"
+2026-10-20T15:12:44.6241787Z  DETAIL:  Key (subject_type, subject_id)=(user, 7) already exists.
+2026-10-20T15:12:44.6243164Z  STATEMENT:  INSERT INTO "assigned_access_policies" ("subject_type","subject_id","revision","assigned","policy_json") VALUES ( 'user' , '7' , '1' , 't' , '{"enabled":true,"public_models":null,"upstream_models":[],"channel_ids":[7]}' ) RETURNING "id"
+2026-10-20T15:12:44.6244282Z  ERROR:  duplicate key value violates unique constraint "uidx_assigned_access_policy_subject"
+2026-10-20T15:12:44.6245467Z  DETAIL:  Key (subject_type, subject_id)=(token, 11) already exists.
+2026-10-20T15:12:44.6246837Z  STATEMENT:  INSERT INTO "assigned_access_policies" ("subject_type","subject_id","revision","assigned","policy_json") VALUES ( 'token' , '11' , '1' , 't' , '{"enabled":true}' ) RETURNING "id"
+2026-10-20T15:12:44.6247732Z  The files belonging to this database system will be owned by user "postgres".
+2026-10-20T15:12:44.6248178Z  This user must also own the server process.
+2026-10-20T15:12:44.6248462Z  
+2026-10-20T15:12:44.6248771Z  The database cluster will be initialized with locale "en_US.utf8".
+2026-10-20T15:12:44.6249229Z  The default database encoding has accordingly been set to "UTF8".
+2026-10-20T15:12:44.6249661Z  The default text search configuration will be set to "english".
+2026-10-20T15:12:44.6249992Z  
+2026-10-20T15:12:44.6250195Z  Data page checksums are disabled.
+2026-10-20T15:12:44.6250444Z  
+2026-10-20T15:12:44.6250745Z  fixing permissions on existing directory /var/lib/postgresql/data ... ok
+2026-10-20T15:12:44.6251158Z  creating subdirectories ... ok
+2026-10-20T15:12:44.6251432Z  selecting default max_connections ... 100
+2026-10-20T15:12:44.6251734Z  selecting default shared_buffers ... 128MB
+2026-10-20T15:12:44.6252375Z  selecting default timezone ... Etc/UTC
+2026-10-20T15:12:44.6252734Z  selecting dynamic shared memory implementation ... posix
+2026-10-20T15:12:44.6253086Z  creating configuration files ... ok
+2026-10-20T15:12:44.6253365Z  running bootstrap script ... ok
+2026-10-20T15:12:44.6253676Z  performing post-bootstrap initialization ... ok
+2026-10-20T15:12:44.6253992Z  syncing data to disk ... ok
+2026-10-20T15:12:44.6254231Z  
+2026-10-20T15:12:44.6254473Z  Success. You can now start the database server using:
+2026-10-20T15:12:44.6254772Z  
+2026-10-20T15:12:44.6255021Z      pg_ctl -D /var/lib/postgresql/data -l logfile start
+2026-10-20T15:12:44.6255335Z  
+2026-10-20T15:12:44.6255677Z  waiting for server to start....LOG:  database system was shut down at 2026-10-20 15:10:17 UTC
+2026-10-20T15:12:44.6256363Z  LOG:  MultiXact member wraparound protections are now enabled
+2026-10-20T15:12:44.6256711Z  LOG:  autovacuum launcher started
+2026-10-20T15:12:44.6257024Z  LOG:  database system is ready to accept connections
+2026-10-20T15:12:44.6257337Z   done
+2026-10-20T15:12:44.6257544Z  server started
+2026-10-20T15:12:44.6257760Z  CREATE DATABASE
+2026-10-20T15:12:44.6257954Z  
+2026-10-20T15:12:44.6258124Z  
+2026-10-20T15:12:44.6258442Z  /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+2026-10-20T15:12:44.6258852Z  
+2026-10-20T15:12:44.6259048Z  LOG:  received fast shutdown request
+2026-10-20T15:12:44.6259443Z  LOG:  aborting any active transactions
+2026-10-20T15:12:44.6259837Z  waiting for server to shut down....LOG:  autovacuum launcher shutting down
+2026-10-20T15:12:44.6260233Z  LOG:  shutting down
+2026-10-20T15:12:44.6260465Z  LOG:  database system is shut down
+2026-10-20T15:12:44.6260722Z   done
+2026-10-20T15:12:44.6260912Z  server stopped
+2026-10-20T15:12:44.6261115Z  
+2026-10-20T15:12:44.6261360Z  PostgreSQL init process complete; ready for start up.
+2026-10-20T15:12:44.6261671Z  
+2026-10-20T15:12:44.6262910Z Stop and remove container: b6468c2b62594234b6e53fc740bfa844_postgres96_d9d361
+2026-10-20T15:12:44.6263815Z ##[command]/usr/bin/docker rm --force 2f8662e16d11cb4e9f127446c23da8c81effe67f235c619df6e18bb85ebd1f72
+2026-10-20T15:12:44.7332878Z 2f8662e16d11cb4e9f127446c23da8c81effe67f235c619df6e18bb85ebd1f72
+2026-10-20T15:12:44.7355819Z Remove container network: github_network_f9835f5b6c8f470e83f7207e0fb2f892
+2026-10-20T15:12:44.7361037Z ##[command]/usr/bin/docker network rm github_network_f9835f5b6c8f470e83f7207e0fb2f892
+2026-10-20T15:12:44.8466163Z github_network_f9835f5b6c8f470e83f7207e0fb2f892
+2026-10-20T15:12:44.8542719Z Cleaning up orphan processes

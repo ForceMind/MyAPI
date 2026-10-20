@@ -1,0 +1,50 @@
+{
+  "source": "391ce9519835758b366eacc7defebc17387d916b",
+  "checkout": "427538734c242eb02273912698d8cb2e8635c374",
+  "run": 39445757876,
+  "artifact": 12276123353,
+  "originals": [
+    {
+      "file": "browser/platform-token-statistics-en-1280.png",
+      "sha256": "78befdb244b098542a760fc1fe1be32ba7529c7fec4be745d21f0992e281eae2",
+      "reviewer": "primary agent visual self-review; not independent",
+      "finding": "PC四列，已知小计1100、20条未知，缓存250/1000=25%，金额隐藏，方法折叠。",
+      "result": "no blocker in changed statistics region"
+    },
+    {
+      "file": "browser/platform-token-statistics-fr-320.png",
+      "sha256": "5054cf81855491e4aef9ccfa248f6f015dbab1b03529e17396ee44c2ae5e8e81",
+      "reviewer": "primary agent visual self-review; not independent",
+      "finding": "法语320，两列、明确缓存0%、输出0，部分覆盖明确；记录区沿既有页面滚动。",
+      "result": "no blocker in changed statistics region"
+    },
+    {
+      "file": "browser/platform-token-statistics-zh-320.png",
+      "sha256": "233601687a5c5facbd21a8e7b67a3caa1a445609d23570cf98a5b4bb034f3c8f",
+      "reviewer": "primary agent visual self-review; not independent",
+      "finding": "中文320，四个未知、0/21用量与缓存覆盖；没有把缺失当零。",
+      "result": "no blocker in changed statistics region"
+    },
+    {
+      "file": "browser/platform-token-statistics-empty-en-1280.png",
+      "sha256": "165aea047e3ee6af245282f4b83e94dc7999235ee87e24a3187c10babbed334b",
+      "reviewer": "primary agent visual self-review; not independent",
+      "finding": "PC空范围，输入/输出/总量0，零分母命中率未知，空列表。",
+      "result": "no blocker in changed statistics region"
+    },
+    {
+      "file": "browser/platform-token-statistics-failed-en-1280.png",
+      "sha256": "8024f8a4b78a0e46f92291a3ef54d18e61968246dc9172f678d37cbdea47f5da",
+      "reviewer": "primary agent visual self-review; not independent",
+      "finding": "PC503，明确失败和Retry，统计卡不伪造零；浏览器已验证手动恢复。",
+      "result": "no blocker in changed statistics region"
+    },
+    {
+      "file": "browser/platform-token-statistics-ru-320.png",
+      "sha256": "d1135d098fe25d24c17012ef2ae1da1a49a2af040b792350714b1cac657f9af6",
+      "reviewer": "primary agent visual self-review; not independent",
+      "finding": "俄语320，两列长标签和值完整、未知清晰。",
+      "result": "no blocker in changed statistics region"
+    }
+  ]
+}

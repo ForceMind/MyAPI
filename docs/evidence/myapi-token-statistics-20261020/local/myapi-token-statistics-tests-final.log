@@ -1,0 +1,10 @@
+$ vitest run --run src/features/usage-logs/__tests__/statistics-cancellation.test.ts src/features/usage-logs/__tests__/api.test.ts src/features/usage-logs/components/__tests__/common-logs-stats.test.tsx src/features/usage-logs/components/__tests__/personal-call-logs.test.tsx src/features/usage-logs/lib/__tests__/request-outcome.test.ts
+
+ RUN  v4.1.10 /root/myapi/web
+
+
+ Test Files  5 passed (5)
+      Tests  31 passed (31)
+   Start at  22:59:25
+   Duration  15.41s (transform 1.21s, setup 1.26s, import 6.70s, tests 2.11s, environment 4.60s)
+

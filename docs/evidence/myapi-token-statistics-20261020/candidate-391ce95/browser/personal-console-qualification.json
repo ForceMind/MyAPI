@@ -1,0 +1,3318 @@
+{
+  "head": "427538734c242eb02273912698d8cb2e8635c374",
+  "version": "0.2.0-beta.25",
+  "workflowHead": "427538734c242eb02273912698d8cb2e8635c374",
+  "scope": "Platform call records and additive Token/cache statistics: scope, filters, known subtotals, unknown usage, explicit cached zero, empty range, retry, seven languages and PC/mobile. Synthetic APIs only; no providers or production.",
+  "result": "passed",
+  "journeys": [
+    {
+      "language": "en",
+      "width": 320,
+      "revision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "statisticsQueries": [
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "en",
+      "width": 1280,
+      "revision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "100",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "100",
+            "request_id": "STATS-EMPTY",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "100",
+            "request_id": "STATS-RETRY",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "statisticsQueries": [
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "request_id": "STATS-EMPTY",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "request_id": "STATS-RETRY",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "request_id": "STATS-RETRY",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "zh",
+      "width": 320,
+      "revision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "statisticsQueries": [
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "zh",
+      "width": 1280,
+      "revision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "100",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "statisticsQueries": [
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "zh-TW",
+      "width": 320,
+      "revision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "statisticsQueries": [
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "zh-TW",
+      "width": 1280,
+      "revision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "100",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "statisticsQueries": [
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "fr",
+      "width": 320,
+      "revision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "statisticsQueries": [
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "fr",
+      "width": 1280,
+      "revision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "100",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "statisticsQueries": [
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "ja",
+      "width": 320,
+      "revision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "statisticsQueries": [
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "ja",
+      "width": 1280,
+      "revision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "100",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "statisticsQueries": [
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "ru",
+      "width": 320,
+      "revision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "statisticsQueries": [
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "ru",
+      "width": 1280,
+      "revision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "100",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "statisticsQueries": [
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "vi",
+      "width": 320,
+      "revision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "statisticsQueries": [
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "vi",
+      "width": 1280,
+      "revision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "100",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "statisticsQueries": [
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "zh",
+      "width": 390,
+      "revision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "statisticsQueries": [
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "zh",
+      "width": 768,
+      "revision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "statisticsQueries": [
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "zh",
+      "width": 1024,
+      "revision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "100",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "statisticsQueries": [
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "zh",
+      "width": 1440,
+      "revision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "queries": [
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "100",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "1",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self",
+          "params": {
+            "p": "2",
+            "page_size": "20",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "statisticsQueries": [
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "model_name": "synthetic-text-model",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        },
+        {
+          "path": "/api/log/self/stat",
+          "params": {
+            "p": "1",
+            "page_size": "1",
+            "type": "0",
+            "model_name": "synthetic-text-model",
+            "request_id": "REQ-SYNTHETIC-",
+            "start_timestamp": "1791331200",
+            "end_timestamp": "1791356400"
+          }
+        }
+      ],
+      "result": "passed"
+    },
+    {
+      "name": "home-entry",
+      "role": 0,
+      "result": "passed"
+    },
+    {
+      "name": "home-entry",
+      "role": 100,
+      "result": "passed"
+    }
+  ],
+  "tokenStatistics": [
+    {
+      "language": "en",
+      "width": 320,
+      "mode": "unknown",
+      "values": [
+        "Unknown",
+        "Unknown",
+        "Unknown",
+        "Unknown"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "en",
+      "width": 1280,
+      "mode": "mixed",
+      "values": [
+        "1,000",
+        "100",
+        "1,100",
+        "25%"
+      ],
+      "result": "passed"
+    },
+    {
+      "name": "empty-and-retry",
+      "result": "passed"
+    },
+    {
+      "language": "zh",
+      "width": 320,
+      "mode": "unknown",
+      "values": [
+        "未知",
+        "未知",
+        "未知",
+        "未知"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "zh",
+      "width": 1280,
+      "mode": "unknown",
+      "values": [
+        "未知",
+        "未知",
+        "未知",
+        "未知"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "zh-TW",
+      "width": 320,
+      "mode": "unknown",
+      "values": [
+        "未知",
+        "未知",
+        "未知",
+        "未知"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "zh-TW",
+      "width": 1280,
+      "mode": "unknown",
+      "values": [
+        "未知",
+        "未知",
+        "未知",
+        "未知"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "fr",
+      "width": 320,
+      "mode": "zero-cache",
+      "values": [
+        "100",
+        "0",
+        "100",
+        "0 %"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "fr",
+      "width": 1280,
+      "mode": "unknown",
+      "values": [
+        "Inconnu",
+        "Inconnu",
+        "Inconnu",
+        "Inconnu"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "ja",
+      "width": 320,
+      "mode": "unknown",
+      "values": [
+        "不明",
+        "不明",
+        "不明",
+        "不明"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "ja",
+      "width": 1280,
+      "mode": "unknown",
+      "values": [
+        "不明",
+        "不明",
+        "不明",
+        "不明"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "ru",
+      "width": 320,
+      "mode": "unknown",
+      "values": [
+        "Неизвестно",
+        "Неизвестно",
+        "Неизвестно",
+        "Неизвестно"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "ru",
+      "width": 1280,
+      "mode": "unknown",
+      "values": [
+        "Неизвестно",
+        "Неизвестно",
+        "Неизвестно",
+        "Неизвестно"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "vi",
+      "width": 320,
+      "mode": "unknown",
+      "values": [
+        "Không rõ",
+        "Không rõ",
+        "Không rõ",
+        "Không rõ"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "vi",
+      "width": 1280,
+      "mode": "unknown",
+      "values": [
+        "Không rõ",
+        "Không rõ",
+        "Không rõ",
+        "Không rõ"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "zh",
+      "width": 390,
+      "mode": "unknown",
+      "values": [
+        "未知",
+        "未知",
+        "未知",
+        "未知"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "zh",
+      "width": 768,
+      "mode": "unknown",
+      "values": [
+        "未知",
+        "未知",
+        "未知",
+        "未知"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "zh",
+      "width": 1024,
+      "mode": "unknown",
+      "values": [
+        "未知",
+        "未知",
+        "未知",
+        "未知"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "zh",
+      "width": 1440,
+      "mode": "unknown",
+      "values": [
+        "未知",
+        "未知",
+        "未知",
+        "未知"
+      ],
+      "result": "passed"
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "platform-more-en-320.png",
+      "language": "en",
+      "width": 320,
+      "state": "more"
+    },
+    {
+      "file": "platform-token-statistics-en-320.png",
+      "language": "en",
+      "width": 320,
+      "state": "token-statistics"
+    },
+    {
+      "file": "platform-records-en-320.png",
+      "language": "en",
+      "width": 320,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-en-320.png",
+      "language": "en",
+      "width": 320,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-en-320.png",
+      "language": "en",
+      "width": 320,
+      "state": "saved-content"
+    },
+    {
+      "file": "platform-token-statistics-en-1280.png",
+      "language": "en",
+      "width": 1280,
+      "state": "token-statistics"
+    },
+    {
+      "file": "platform-records-en-1280.png",
+      "language": "en",
+      "width": 1280,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-en-1280.png",
+      "language": "en",
+      "width": 1280,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-en-1280.png",
+      "language": "en",
+      "width": 1280,
+      "state": "saved-content"
+    },
+    {
+      "file": "platform-token-statistics-empty-en-1280.png",
+      "language": "en",
+      "width": 1280,
+      "state": "token-statistics-empty"
+    },
+    {
+      "file": "platform-token-statistics-failed-en-1280.png",
+      "language": "en",
+      "width": 1280,
+      "state": "token-statistics-failed"
+    },
+    {
+      "file": "platform-more-zh-320.png",
+      "language": "zh",
+      "width": 320,
+      "state": "more"
+    },
+    {
+      "file": "platform-token-statistics-zh-320.png",
+      "language": "zh",
+      "width": 320,
+      "state": "token-statistics"
+    },
+    {
+      "file": "platform-records-zh-320.png",
+      "language": "zh",
+      "width": 320,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-zh-320.png",
+      "language": "zh",
+      "width": 320,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-zh-320.png",
+      "language": "zh",
+      "width": 320,
+      "state": "saved-content"
+    },
+    {
+      "file": "platform-token-statistics-zh-1280.png",
+      "language": "zh",
+      "width": 1280,
+      "state": "token-statistics"
+    },
+    {
+      "file": "platform-records-zh-1280.png",
+      "language": "zh",
+      "width": 1280,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-zh-1280.png",
+      "language": "zh",
+      "width": 1280,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-zh-1280.png",
+      "language": "zh",
+      "width": 1280,
+      "state": "saved-content"
+    },
+    {
+      "file": "platform-more-zh-TW-320.png",
+      "language": "zh-TW",
+      "width": 320,
+      "state": "more"
+    },
+    {
+      "file": "platform-token-statistics-zh-TW-320.png",
+      "language": "zh-TW",
+      "width": 320,
+      "state": "token-statistics"
+    },
+    {
+      "file": "platform-records-zh-TW-320.png",
+      "language": "zh-TW",
+      "width": 320,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-zh-TW-320.png",
+      "language": "zh-TW",
+      "width": 320,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-zh-TW-320.png",
+      "language": "zh-TW",
+      "width": 320,
+      "state": "saved-content"
+    },
+    {
+      "file": "platform-token-statistics-zh-TW-1280.png",
+      "language": "zh-TW",
+      "width": 1280,
+      "state": "token-statistics"
+    },
+    {
+      "file": "platform-records-zh-TW-1280.png",
+      "language": "zh-TW",
+      "width": 1280,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-zh-TW-1280.png",
+      "language": "zh-TW",
+      "width": 1280,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-zh-TW-1280.png",
+      "language": "zh-TW",
+      "width": 1280,
+      "state": "saved-content"
+    },
+    {
+      "file": "platform-more-fr-320.png",
+      "language": "fr",
+      "width": 320,
+      "state": "more"
+    },
+    {
+      "file": "platform-token-statistics-fr-320.png",
+      "language": "fr",
+      "width": 320,
+      "state": "token-statistics"
+    },
+    {
+      "file": "platform-records-fr-320.png",
+      "language": "fr",
+      "width": 320,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-fr-320.png",
+      "language": "fr",
+      "width": 320,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-fr-320.png",
+      "language": "fr",
+      "width": 320,
+      "state": "saved-content"
+    },
+    {
+      "file": "platform-token-statistics-fr-1280.png",
+      "language": "fr",
+      "width": 1280,
+      "state": "token-statistics"
+    },
+    {
+      "file": "platform-records-fr-1280.png",
+      "language": "fr",
+      "width": 1280,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-fr-1280.png",
+      "language": "fr",
+      "width": 1280,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-fr-1280.png",
+      "language": "fr",
+      "width": 1280,
+      "state": "saved-content"
+    },
+    {
+      "file": "platform-more-ja-320.png",
+      "language": "ja",
+      "width": 320,
+      "state": "more"
+    },
+    {
+      "file": "platform-token-statistics-ja-320.png",
+      "language": "ja",
+      "width": 320,
+      "state": "token-statistics"
+    },
+    {
+      "file": "platform-records-ja-320.png",
+      "language": "ja",
+      "width": 320,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-ja-320.png",
+      "language": "ja",
+      "width": 320,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-ja-320.png",
+      "language": "ja",
+      "width": 320,
+      "state": "saved-content"
+    },
+    {
+      "file": "platform-token-statistics-ja-1280.png",
+      "language": "ja",
+      "width": 1280,
+      "state": "token-statistics"
+    },
+    {
+      "file": "platform-records-ja-1280.png",
+      "language": "ja",
+      "width": 1280,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-ja-1280.png",
+      "language": "ja",
+      "width": 1280,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-ja-1280.png",
+      "language": "ja",
+      "width": 1280,
+      "state": "saved-content"
+    },
+    {
+      "file": "platform-more-ru-320.png",
+      "language": "ru",
+      "width": 320,
+      "state": "more"
+    },
+    {
+      "file": "platform-token-statistics-ru-320.png",
+      "language": "ru",
+      "width": 320,
+      "state": "token-statistics"
+    },
+    {
+      "file": "platform-records-ru-320.png",
+      "language": "ru",
+      "width": 320,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-ru-320.png",
+      "language": "ru",
+      "width": 320,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-ru-320.png",
+      "language": "ru",
+      "width": 320,
+      "state": "saved-content"
+    },
+    {
+      "file": "platform-token-statistics-ru-1280.png",
+      "language": "ru",
+      "width": 1280,
+      "state": "token-statistics"
+    },
+    {
+      "file": "platform-records-ru-1280.png",
+      "language": "ru",
+      "width": 1280,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-ru-1280.png",
+      "language": "ru",
+      "width": 1280,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-ru-1280.png",
+      "language": "ru",
+      "width": 1280,
+      "state": "saved-content"
+    },
+    {
+      "file": "platform-more-vi-320.png",
+      "language": "vi",
+      "width": 320,
+      "state": "more"
+    },
+    {
+      "file": "platform-token-statistics-vi-320.png",
+      "language": "vi",
+      "width": 320,
+      "state": "token-statistics"
+    },
+    {
+      "file": "platform-records-vi-320.png",
+      "language": "vi",
+      "width": 320,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-vi-320.png",
+      "language": "vi",
+      "width": 320,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-vi-320.png",
+      "language": "vi",
+      "width": 320,
+      "state": "saved-content"
+    },
+    {
+      "file": "platform-token-statistics-vi-1280.png",
+      "language": "vi",
+      "width": 1280,
+      "state": "token-statistics"
+    },
+    {
+      "file": "platform-records-vi-1280.png",
+      "language": "vi",
+      "width": 1280,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-vi-1280.png",
+      "language": "vi",
+      "width": 1280,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-vi-1280.png",
+      "language": "vi",
+      "width": 1280,
+      "state": "saved-content"
+    },
+    {
+      "file": "platform-more-zh-390.png",
+      "language": "zh",
+      "width": 390,
+      "state": "more"
+    },
+    {
+      "file": "platform-token-statistics-zh-390.png",
+      "language": "zh",
+      "width": 390,
+      "state": "token-statistics"
+    },
+    {
+      "file": "platform-records-zh-390.png",
+      "language": "zh",
+      "width": 390,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-zh-390.png",
+      "language": "zh",
+      "width": 390,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-zh-390.png",
+      "language": "zh",
+      "width": 390,
+      "state": "saved-content"
+    },
+    {
+      "file": "platform-more-zh-768.png",
+      "language": "zh",
+      "width": 768,
+      "state": "more"
+    },
+    {
+      "file": "platform-token-statistics-zh-768.png",
+      "language": "zh",
+      "width": 768,
+      "state": "token-statistics"
+    },
+    {
+      "file": "platform-records-zh-768.png",
+      "language": "zh",
+      "width": 768,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-zh-768.png",
+      "language": "zh",
+      "width": 768,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-zh-768.png",
+      "language": "zh",
+      "width": 768,
+      "state": "saved-content"
+    },
+    {
+      "file": "platform-token-statistics-zh-1024.png",
+      "language": "zh",
+      "width": 1024,
+      "state": "token-statistics"
+    },
+    {
+      "file": "platform-records-zh-1024.png",
+      "language": "zh",
+      "width": 1024,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-zh-1024.png",
+      "language": "zh",
+      "width": 1024,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-zh-1024.png",
+      "language": "zh",
+      "width": 1024,
+      "state": "saved-content"
+    },
+    {
+      "file": "platform-token-statistics-zh-1440.png",
+      "language": "zh",
+      "width": 1440,
+      "state": "token-statistics"
+    },
+    {
+      "file": "platform-records-zh-1440.png",
+      "language": "zh",
+      "width": 1440,
+      "state": "records"
+    },
+    {
+      "file": "platform-detail-zh-1440.png",
+      "language": "zh",
+      "width": 1440,
+      "state": "detail"
+    },
+    {
+      "file": "platform-saved-content-zh-1440.png",
+      "language": "zh",
+      "width": 1440,
+      "state": "saved-content"
+    },
+    {
+      "file": "platform-home-zh-1280.png",
+      "state": "public-home",
+      "width": 1280,
+      "language": "zh"
+    }
+  ],
+  "errors": []
+}

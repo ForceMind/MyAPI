@@ -1,0 +1,85 @@
+{
+  "source": "391ce9519835758b366eacc7defebc17387d916b",
+  "tree": "f66d30c6a7f6df5106776fc76a41e43f3a564b4a",
+  "checkout": "427538734c242eb02273912698d8cb2e8635c374",
+  "run": 39445757876,
+  "artifact": 12276581170,
+  "version": "0.2.0-beta.25",
+  "time": "2026-10-20T15:12:04.976493+00:00",
+  "origin": "http://127.0.0.1:4181",
+  "http": 200,
+  "htmlMatchesArtifactWithDeclaredSyntheticBanner": true,
+  "verifiedScripts": [
+    {
+      "path": "static/js/vendor-ui-primitives.58b39db179.js",
+      "sha256": "8ff74d840f89685eb4efcd80219517d0373a6e9b0b6a205200d93dfd6f54436e"
+    },
+    {
+      "path": "static/js/vendor-tanstack.581930b28b.js",
+      "sha256": "fd821024c58c7d0a63e32d0ec2f1f9011ccf6028a798a612d4e46df3e2dcbbff"
+    },
+    {
+      "path": "static/js/lib-react.85aeb5b438.js",
+      "sha256": "940d8842390f48570e4bbcfc281c172f7d0b2543854041c8683a3fbcbdb313ee"
+    },
+    {
+      "path": "static/js/5009.327dbd4ff6.js",
+      "sha256": "aa916334de073b08efcb6a13485e855d759ba63c9961c80244bcfe543fdec1d7"
+    },
+    {
+      "path": "static/js/index.70992e9546.js",
+      "sha256": "af9301a410a535f425551e2e437548fc92430c4c817032697498ac439db39447"
+    }
+  ],
+  "previewScriptSha256": "0087416493c6c4d92296dab9ef7165f10015cff7be9b9fadfa06ecb6ab6ed327",
+  "processSession": 20365,
+  "synthetic": true,
+  "syntheticStats": {
+    "records": 42,
+    "known_records": 2,
+    "unknown_records": 40,
+    "input_tokens": null,
+    "output_tokens": null,
+    "total_tokens": null,
+    "known_input_tokens": "1100",
+    "known_output_tokens": "120",
+    "known_total_tokens": "1220",
+    "cache_known_records": 2,
+    "cache_unknown_records": 40,
+    "cache_read_tokens": "250",
+    "cache_input_tokens": "1100",
+    "cache_hit_rate": 0.22727272727272727
+  },
+  "zeroCache": {
+    "records": 1,
+    "known_records": 1,
+    "unknown_records": 0,
+    "input_tokens": "100",
+    "output_tokens": "20",
+    "total_tokens": "120",
+    "known_input_tokens": "100",
+    "known_output_tokens": "20",
+    "known_total_tokens": "120",
+    "cache_known_records": 1,
+    "cache_unknown_records": 0,
+    "cache_read_tokens": "0",
+    "cache_input_tokens": "100",
+    "cache_hit_rate": 0
+  },
+  "emptyRange": {
+    "records": 0,
+    "known_records": 0,
+    "unknown_records": 0,
+    "input_tokens": "0",
+    "output_tokens": "0",
+    "total_tokens": "0",
+    "known_input_tokens": "0",
+    "known_output_tokens": "0",
+    "known_total_tokens": "0",
+    "cache_known_records": 0,
+    "cache_unknown_records": 0,
+    "cache_read_tokens": "0",
+    "cache_input_tokens": "0",
+    "cache_hit_rate": null
+  }
+}

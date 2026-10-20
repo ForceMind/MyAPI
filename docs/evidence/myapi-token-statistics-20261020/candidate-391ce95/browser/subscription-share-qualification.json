@@ -1,0 +1,1011 @@
+{
+  "synthetic": true,
+  "version": "0.2.0-beta.25",
+  "sourceHead": "427538734c242eb02273912698d8cb2e8635c374",
+  "fixtureTime": "2026-10-07T06:00:00.000Z",
+  "journeys": [
+    {
+      "name": "subscription-share-en-320-root",
+      "language": "en",
+      "width": 320,
+      "role": 100,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 1,
+      "closes": 1,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320,
+        "pageScrollWidth": 320
+      },
+      "geometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320
+      },
+      "actionGeometry": [
+        {
+          "x": 16,
+          "y": 714.25,
+          "width": 288,
+          "height": 40
+        },
+        {
+          "x": 16,
+          "y": 766.25,
+          "width": 288,
+          "height": 40
+        }
+      ],
+      "screenshots": [
+        "subscription-share-en-320-root-key-list.png",
+        "subscription-share-en-320-root-notice.png",
+        "subscription-share-en-320-root-pool.png",
+        "subscription-share-en-320-root-pool-actions.png",
+        "subscription-share-en-320-root-close-confirmation.png",
+        "subscription-share-en-320-root-closed.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-en-320-owner",
+      "language": "en",
+      "width": 320,
+      "role": 1,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 0,
+      "closes": 0,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320,
+        "pageScrollWidth": 320
+      },
+      "geometry": {
+        "left": 16,
+        "right": 304,
+        "viewport": 320,
+        "scrollWidth": 288,
+        "clientWidth": 288
+      },
+      "screenshots": [
+        "subscription-share-en-320-owner-key-list.png",
+        "subscription-share-en-320-owner-notice.png",
+        "subscription-share-en-320-owner-pool.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-en-1280-root",
+      "language": "en",
+      "width": 1280,
+      "role": 100,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 1,
+      "closes": 1,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022,
+        "pageScrollWidth": 1280
+      },
+      "geometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022
+      },
+      "screenshots": [
+        "subscription-share-en-1280-root-key-list.png",
+        "subscription-share-en-1280-root-notice.png",
+        "subscription-share-en-1280-root-pool.png",
+        "subscription-share-en-1280-root-close-confirmation.png",
+        "subscription-share-en-1280-root-closed.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-en-1280-owner",
+      "language": "en",
+      "width": 1280,
+      "role": 1,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 0,
+      "closes": 0,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022,
+        "pageScrollWidth": 1280
+      },
+      "geometry": {
+        "left": 304,
+        "right": 976,
+        "viewport": 1280,
+        "scrollWidth": 672,
+        "clientWidth": 672
+      },
+      "screenshots": [
+        "subscription-share-en-1280-owner-key-list.png",
+        "subscription-share-en-1280-owner-notice.png",
+        "subscription-share-en-1280-owner-pool.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-zh-320-root",
+      "language": "zh",
+      "width": 320,
+      "role": 100,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 1,
+      "closes": 1,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320,
+        "pageScrollWidth": 320
+      },
+      "geometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320
+      },
+      "actionGeometry": [
+        {
+          "x": 16,
+          "y": 721,
+          "width": 288,
+          "height": 40
+        },
+        {
+          "x": 16,
+          "y": 773,
+          "width": 288,
+          "height": 40
+        }
+      ],
+      "screenshots": [
+        "subscription-share-zh-320-root-key-list.png",
+        "subscription-share-zh-320-root-notice.png",
+        "subscription-share-zh-320-root-pool.png",
+        "subscription-share-zh-320-root-pool-actions.png",
+        "subscription-share-zh-320-root-close-confirmation.png",
+        "subscription-share-zh-320-root-closed.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-zh-320-owner",
+      "language": "zh",
+      "width": 320,
+      "role": 1,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 0,
+      "closes": 0,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320,
+        "pageScrollWidth": 320
+      },
+      "geometry": {
+        "left": 16,
+        "right": 304,
+        "viewport": 320,
+        "scrollWidth": 288,
+        "clientWidth": 288
+      },
+      "screenshots": [
+        "subscription-share-zh-320-owner-key-list.png",
+        "subscription-share-zh-320-owner-notice.png",
+        "subscription-share-zh-320-owner-pool.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-zh-1280-root",
+      "language": "zh",
+      "width": 1280,
+      "role": 100,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 1,
+      "closes": 1,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022,
+        "pageScrollWidth": 1280
+      },
+      "geometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022
+      },
+      "screenshots": [
+        "subscription-share-zh-1280-root-key-list.png",
+        "subscription-share-zh-1280-root-notice.png",
+        "subscription-share-zh-1280-root-pool.png",
+        "subscription-share-zh-1280-root-close-confirmation.png",
+        "subscription-share-zh-1280-root-closed.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-zh-1280-owner",
+      "language": "zh",
+      "width": 1280,
+      "role": 1,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 0,
+      "closes": 0,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022,
+        "pageScrollWidth": 1280
+      },
+      "geometry": {
+        "left": 304,
+        "right": 976,
+        "viewport": 1280,
+        "scrollWidth": 672,
+        "clientWidth": 672
+      },
+      "screenshots": [
+        "subscription-share-zh-1280-owner-key-list.png",
+        "subscription-share-zh-1280-owner-notice.png",
+        "subscription-share-zh-1280-owner-pool.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-zh-TW-320-root",
+      "language": "zh-TW",
+      "width": 320,
+      "role": 100,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 1,
+      "closes": 1,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320,
+        "pageScrollWidth": 320
+      },
+      "geometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320
+      },
+      "actionGeometry": [
+        {
+          "x": 16,
+          "y": 721,
+          "width": 288,
+          "height": 40
+        },
+        {
+          "x": 16,
+          "y": 773,
+          "width": 288,
+          "height": 40
+        }
+      ],
+      "screenshots": [
+        "subscription-share-zh-TW-320-root-key-list.png",
+        "subscription-share-zh-TW-320-root-notice.png",
+        "subscription-share-zh-TW-320-root-pool.png",
+        "subscription-share-zh-TW-320-root-pool-actions.png",
+        "subscription-share-zh-TW-320-root-close-confirmation.png",
+        "subscription-share-zh-TW-320-root-closed.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-zh-TW-320-owner",
+      "language": "zh-TW",
+      "width": 320,
+      "role": 1,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 0,
+      "closes": 0,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320,
+        "pageScrollWidth": 320
+      },
+      "geometry": {
+        "left": 16,
+        "right": 304,
+        "viewport": 320,
+        "scrollWidth": 288,
+        "clientWidth": 288
+      },
+      "screenshots": [
+        "subscription-share-zh-TW-320-owner-key-list.png",
+        "subscription-share-zh-TW-320-owner-notice.png",
+        "subscription-share-zh-TW-320-owner-pool.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-zh-TW-1280-root",
+      "language": "zh-TW",
+      "width": 1280,
+      "role": 100,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 1,
+      "closes": 1,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022,
+        "pageScrollWidth": 1280
+      },
+      "geometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022
+      },
+      "screenshots": [
+        "subscription-share-zh-TW-1280-root-key-list.png",
+        "subscription-share-zh-TW-1280-root-notice.png",
+        "subscription-share-zh-TW-1280-root-pool.png",
+        "subscription-share-zh-TW-1280-root-close-confirmation.png",
+        "subscription-share-zh-TW-1280-root-closed.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-zh-TW-1280-owner",
+      "language": "zh-TW",
+      "width": 1280,
+      "role": 1,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 0,
+      "closes": 0,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022,
+        "pageScrollWidth": 1280
+      },
+      "geometry": {
+        "left": 304,
+        "right": 976,
+        "viewport": 1280,
+        "scrollWidth": 672,
+        "clientWidth": 672
+      },
+      "screenshots": [
+        "subscription-share-zh-TW-1280-owner-key-list.png",
+        "subscription-share-zh-TW-1280-owner-notice.png",
+        "subscription-share-zh-TW-1280-owner-pool.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-fr-320-root",
+      "language": "fr",
+      "width": 320,
+      "role": 100,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 1,
+      "closes": 1,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320,
+        "pageScrollWidth": 320
+      },
+      "geometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320
+      },
+      "actionGeometry": [
+        {
+          "x": 16,
+          "y": 699.5,
+          "width": 288,
+          "height": 40
+        },
+        {
+          "x": 16,
+          "y": 751.5,
+          "width": 288,
+          "height": 40
+        }
+      ],
+      "screenshots": [
+        "subscription-share-fr-320-root-key-list.png",
+        "subscription-share-fr-320-root-notice.png",
+        "subscription-share-fr-320-root-pool.png",
+        "subscription-share-fr-320-root-pool-actions.png",
+        "subscription-share-fr-320-root-close-confirmation.png",
+        "subscription-share-fr-320-root-closed.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-fr-320-owner",
+      "language": "fr",
+      "width": 320,
+      "role": 1,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 0,
+      "closes": 0,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320,
+        "pageScrollWidth": 320
+      },
+      "geometry": {
+        "left": 16,
+        "right": 304,
+        "viewport": 320,
+        "scrollWidth": 288,
+        "clientWidth": 288
+      },
+      "screenshots": [
+        "subscription-share-fr-320-owner-key-list.png",
+        "subscription-share-fr-320-owner-notice.png",
+        "subscription-share-fr-320-owner-pool.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-fr-1280-root",
+      "language": "fr",
+      "width": 1280,
+      "role": 100,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 1,
+      "closes": 1,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022,
+        "pageScrollWidth": 1280
+      },
+      "geometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022
+      },
+      "screenshots": [
+        "subscription-share-fr-1280-root-key-list.png",
+        "subscription-share-fr-1280-root-notice.png",
+        "subscription-share-fr-1280-root-pool.png",
+        "subscription-share-fr-1280-root-close-confirmation.png",
+        "subscription-share-fr-1280-root-closed.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-fr-1280-owner",
+      "language": "fr",
+      "width": 1280,
+      "role": 1,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 0,
+      "closes": 0,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022,
+        "pageScrollWidth": 1280
+      },
+      "geometry": {
+        "left": 304,
+        "right": 976,
+        "viewport": 1280,
+        "scrollWidth": 672,
+        "clientWidth": 672
+      },
+      "screenshots": [
+        "subscription-share-fr-1280-owner-key-list.png",
+        "subscription-share-fr-1280-owner-notice.png",
+        "subscription-share-fr-1280-owner-pool.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-ru-320-root",
+      "language": "ru",
+      "width": 320,
+      "role": 100,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 1,
+      "closes": 1,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320,
+        "pageScrollWidth": 320
+      },
+      "geometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320
+      },
+      "actionGeometry": [
+        {
+          "x": 16,
+          "y": 699.5,
+          "width": 288,
+          "height": 40
+        },
+        {
+          "x": 16,
+          "y": 751.5,
+          "width": 288,
+          "height": 40
+        }
+      ],
+      "screenshots": [
+        "subscription-share-ru-320-root-key-list.png",
+        "subscription-share-ru-320-root-notice.png",
+        "subscription-share-ru-320-root-pool.png",
+        "subscription-share-ru-320-root-pool-actions.png",
+        "subscription-share-ru-320-root-close-confirmation.png",
+        "subscription-share-ru-320-root-closed.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-ru-320-owner",
+      "language": "ru",
+      "width": 320,
+      "role": 1,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 0,
+      "closes": 0,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320,
+        "pageScrollWidth": 320
+      },
+      "geometry": {
+        "left": 16,
+        "right": 304,
+        "viewport": 320,
+        "scrollWidth": 288,
+        "clientWidth": 288
+      },
+      "screenshots": [
+        "subscription-share-ru-320-owner-key-list.png",
+        "subscription-share-ru-320-owner-notice.png",
+        "subscription-share-ru-320-owner-pool.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-ru-1280-root",
+      "language": "ru",
+      "width": 1280,
+      "role": 100,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 1,
+      "closes": 1,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022,
+        "pageScrollWidth": 1280
+      },
+      "geometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022
+      },
+      "screenshots": [
+        "subscription-share-ru-1280-root-key-list.png",
+        "subscription-share-ru-1280-root-notice.png",
+        "subscription-share-ru-1280-root-pool.png",
+        "subscription-share-ru-1280-root-close-confirmation.png",
+        "subscription-share-ru-1280-root-closed.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-ru-1280-owner",
+      "language": "ru",
+      "width": 1280,
+      "role": 1,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 0,
+      "closes": 0,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022,
+        "pageScrollWidth": 1280
+      },
+      "geometry": {
+        "left": 304,
+        "right": 976,
+        "viewport": 1280,
+        "scrollWidth": 672,
+        "clientWidth": 672
+      },
+      "screenshots": [
+        "subscription-share-ru-1280-owner-key-list.png",
+        "subscription-share-ru-1280-owner-notice.png",
+        "subscription-share-ru-1280-owner-pool.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-ja-320-root",
+      "language": "ja",
+      "width": 320,
+      "role": 100,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 1,
+      "closes": 1,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320,
+        "pageScrollWidth": 320
+      },
+      "geometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320
+      },
+      "actionGeometry": [
+        {
+          "x": 16,
+          "y": 713.5,
+          "width": 288,
+          "height": 40
+        },
+        {
+          "x": 16,
+          "y": 765.5,
+          "width": 288,
+          "height": 40
+        }
+      ],
+      "screenshots": [
+        "subscription-share-ja-320-root-key-list.png",
+        "subscription-share-ja-320-root-notice.png",
+        "subscription-share-ja-320-root-pool.png",
+        "subscription-share-ja-320-root-pool-actions.png",
+        "subscription-share-ja-320-root-close-confirmation.png",
+        "subscription-share-ja-320-root-closed.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-ja-320-owner",
+      "language": "ja",
+      "width": 320,
+      "role": 1,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 0,
+      "closes": 0,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320,
+        "pageScrollWidth": 320
+      },
+      "geometry": {
+        "left": 16,
+        "right": 304,
+        "viewport": 320,
+        "scrollWidth": 288,
+        "clientWidth": 288
+      },
+      "screenshots": [
+        "subscription-share-ja-320-owner-key-list.png",
+        "subscription-share-ja-320-owner-notice.png",
+        "subscription-share-ja-320-owner-pool.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-ja-1280-root",
+      "language": "ja",
+      "width": 1280,
+      "role": 100,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 1,
+      "closes": 1,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022,
+        "pageScrollWidth": 1280
+      },
+      "geometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022
+      },
+      "screenshots": [
+        "subscription-share-ja-1280-root-key-list.png",
+        "subscription-share-ja-1280-root-notice.png",
+        "subscription-share-ja-1280-root-pool.png",
+        "subscription-share-ja-1280-root-close-confirmation.png",
+        "subscription-share-ja-1280-root-closed.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-ja-1280-owner",
+      "language": "ja",
+      "width": 1280,
+      "role": 1,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 0,
+      "closes": 0,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022,
+        "pageScrollWidth": 1280
+      },
+      "geometry": {
+        "left": 304,
+        "right": 976,
+        "viewport": 1280,
+        "scrollWidth": 672,
+        "clientWidth": 672
+      },
+      "screenshots": [
+        "subscription-share-ja-1280-owner-key-list.png",
+        "subscription-share-ja-1280-owner-notice.png",
+        "subscription-share-ja-1280-owner-pool.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-vi-320-root",
+      "language": "vi",
+      "width": 320,
+      "role": 100,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 1,
+      "closes": 1,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320,
+        "pageScrollWidth": 320
+      },
+      "geometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320
+      },
+      "actionGeometry": [
+        {
+          "x": 16,
+          "y": 700.25,
+          "width": 288,
+          "height": 40
+        },
+        {
+          "x": 16,
+          "y": 752.25,
+          "width": 288,
+          "height": 40
+        }
+      ],
+      "screenshots": [
+        "subscription-share-vi-320-root-key-list.png",
+        "subscription-share-vi-320-root-notice.png",
+        "subscription-share-vi-320-root-pool.png",
+        "subscription-share-vi-320-root-pool-actions.png",
+        "subscription-share-vi-320-root-close-confirmation.png",
+        "subscription-share-vi-320-root-closed.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-vi-320-owner",
+      "language": "vi",
+      "width": 320,
+      "role": 1,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 0,
+      "closes": 0,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 0,
+        "right": 320,
+        "viewport": 320,
+        "scrollWidth": 320,
+        "clientWidth": 320,
+        "pageScrollWidth": 320
+      },
+      "geometry": {
+        "left": 16,
+        "right": 304,
+        "viewport": 320,
+        "scrollWidth": 288,
+        "clientWidth": 288
+      },
+      "screenshots": [
+        "subscription-share-vi-320-owner-key-list.png",
+        "subscription-share-vi-320-owner-notice.png",
+        "subscription-share-vi-320-owner-pool.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-vi-1280-root",
+      "language": "vi",
+      "width": 1280,
+      "role": 100,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 1,
+      "closes": 1,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022,
+        "pageScrollWidth": 1280
+      },
+      "geometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022
+      },
+      "screenshots": [
+        "subscription-share-vi-1280-root-key-list.png",
+        "subscription-share-vi-1280-root-notice.png",
+        "subscription-share-vi-1280-root-pool.png",
+        "subscription-share-vi-1280-root-close-confirmation.png",
+        "subscription-share-vi-1280-root-closed.png"
+      ],
+      "passed": true
+    },
+    {
+      "name": "subscription-share-vi-1280-owner",
+      "language": "vi",
+      "width": 1280,
+      "role": 1,
+      "buildRevision": "rv.0.2.0-beta.25.427538734c242eb02273912698d8cb2e8635c374.2k6e8r7p",
+      "writes": 0,
+      "closes": 0,
+      "existingMenuKeyReads": 0,
+      "keyListGeometry": {
+        "left": 245,
+        "right": 1267,
+        "viewport": 1280,
+        "scrollWidth": 1022,
+        "clientWidth": 1022,
+        "pageScrollWidth": 1280
+      },
+      "geometry": {
+        "left": 304,
+        "right": 976,
+        "viewport": 1280,
+        "scrollWidth": 672,
+        "clientWidth": 672
+      },
+      "screenshots": [
+        "subscription-share-vi-1280-owner-key-list.png",
+        "subscription-share-vi-1280-owner-notice.png",
+        "subscription-share-vi-1280-owner-pool.png"
+      ],
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "passed": true
+}
