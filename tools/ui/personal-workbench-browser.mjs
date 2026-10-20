@@ -1154,6 +1154,14 @@ async function inspectWindowStates(scenario) {
     await connections.getByText('4', { exact: true }).waitFor()
     const list = connections.getByTestId(scenario.width >= 1024 ? 'connection-desktop-list' : 'connection-mobile-list')
     await list.getByRole(scenario.width >= 1024 ? 'row' : 'listitem').filter({ hasText: 'Synthetic standard API channel' }).waitFor()
+    if (scenario.width >= 1024) {
+      const statusLines = await list.getByText(tr('Enabled', scenario.language), { exact: true }).first().evaluate((element) => {
+        const range = document.createRange()
+        range.selectNodeContents(element)
+        return [...range.getClientRects()].filter((rect) => rect.height > 0).length
+      })
+      assert.equal(statusLines, 1, 'The desktop connection status retains enough room for its complete label')
+    }
     assert.equal(reads.get('/api/channel'), 1, 'Desktop and mobile connection presentations share one metadata read')
     await screenshot(page, scenario, 'overview-connections')
     await connections.getByRole('link', { name: tr('Manage connections', scenario.language), exact: true }).click()

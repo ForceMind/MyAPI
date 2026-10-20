@@ -9,6 +9,8 @@ import {
 import { render } from '@testing-library/react'
 import type { ReactNode } from 'react'
 
+import { DirectionProvider } from '@/context/direction-provider'
+import { ThemeProvider } from '@/context/theme-provider'
 import type { SystemStatus } from '@/features/auth/types'
 
 export async function renderShellRoute(
@@ -34,7 +36,11 @@ export async function renderShellRoute(
   await router.load()
   const rendered = render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <DirectionProvider>
+        <ThemeProvider>
+          <RouterProvider router={router} />
+        </ThemeProvider>
+      </DirectionProvider>
     </QueryClientProvider>
   )
   return { ...rendered, router, queryClient }

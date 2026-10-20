@@ -16,17 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { AnimatedOutlet } from '@/components/page-transition'
-import { SkipToMain } from '@/components/skip-to-main'
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import { SidebarProvider } from '@/components/ui/sidebar'
 import { LayoutProvider } from '@/context/layout-provider'
 import { SearchProvider } from '@/context/search-provider'
-import { usePersonalWorkbenchMode } from '@/hooks/use-personal-workbench-mode'
 import { getCookie } from '@/lib/cookies'
-import { cn } from '@/lib/utils'
 
-import { AppHeader } from './app-header'
-import { AppSidebar } from './app-sidebar'
 import { PersonalConsoleLayout } from './personal-console-layout'
 
 type AuthenticatedLayoutProps = {
@@ -35,43 +29,11 @@ type AuthenticatedLayoutProps = {
 
 export function AuthenticatedLayout(props: AuthenticatedLayoutProps) {
   const defaultOpen = getCookie('sidebar_state') !== 'false'
-  const personal = usePersonalWorkbenchMode()
-
-  if (personal) {
-    return (
-      <LayoutProvider>
-        <SearchProvider>
-          <SidebarProvider defaultOpen={defaultOpen} className='contents'>
-            <PersonalConsoleLayout>{props.children}</PersonalConsoleLayout>
-          </SidebarProvider>
-        </SearchProvider>
-      </LayoutProvider>
-    )
-  }
-
   return (
     <LayoutProvider>
       <SearchProvider>
-        <SidebarProvider
-          defaultOpen={defaultOpen}
-          data-myapi-shell='authenticated'
-          className='min-w-0 flex-col'
-        >
-          <SkipToMain />
-          <AppHeader />
-          <div className='flex min-h-0 w-full min-w-0 flex-1'>
-            <AppSidebar />
-            <SidebarInset
-              className={cn(
-                '@container/content',
-                'h-[calc(100svh-var(--app-header-height,0px))]',
-                'min-h-0 min-w-0 overflow-hidden',
-                'peer-data-[variant=inset]:h-[calc(100svh-var(--app-header-height,0px)-(var(--spacing)*4))]'
-              )}
-            >
-              {props.children ?? <AnimatedOutlet />}
-            </SidebarInset>
-          </div>
+        <SidebarProvider defaultOpen={defaultOpen} className='contents'>
+          <PersonalConsoleLayout>{props.children}</PersonalConsoleLayout>
         </SidebarProvider>
       </SearchProvider>
     </LayoutProvider>

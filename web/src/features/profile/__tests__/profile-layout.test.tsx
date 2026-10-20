@@ -51,7 +51,7 @@ afterEach(() => {
 })
 
 describe('profile task layout', () => {
-  it('waits for placeholder funding status confirmation before issuing one profile read', async () => {
+  it('loads the profile while funding status is pending and preserves one read when status confirms', async () => {
     const status = {
       user_funding_mode: 'disabled',
       user_funding_capabilities: { mode: 'disabled', epoch: 1, ready: true },
@@ -101,13 +101,17 @@ describe('profile task layout', () => {
     )
     await screen.findByRole('main', { name: 'Profile' })
     expect(
+      await screen.findByRole('heading', { name: 'Operations', level: 2 })
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Current Balance')).not.toBeInTheDocument()
+    expect(
       get.mock.calls.filter(([url]) => url === '/api/user/self')
-    ).toHaveLength(0)
+    ).toHaveLength(1)
     await act(async () =>
       resolveStatus({ data: { success: true, data: status } } as ReadResponse)
     )
     expect(
-      await screen.findByRole('heading', { name: 'Operations', level: 3 })
+      await screen.findByRole('heading', { name: 'Operations', level: 2 })
     ).toBeInTheDocument()
     expect(
       get.mock.calls.filter(([url]) => url === '/api/user/self')
@@ -205,7 +209,7 @@ describe('profile task layout', () => {
       expect(
         await screen.findByRole('heading', {
           name: 'Operations',
-          level: mode === 'disabled' ? 3 : 2,
+          level: 2,
         })
       ).toBeInTheDocument()
       if (mode === 'enabled') {
@@ -221,10 +225,13 @@ describe('profile task layout', () => {
         expect(screen.queryByText('Total Usage')).not.toBeInTheDocument()
       }
       if (mode === 'disabled') {
-        expect(screen.getByText('Only me')).toBeInTheDocument()
-        await user.click(
-          screen.getByRole('button', { name: /Manage login methods/ })
-        )
+        expect(
+          screen.getByText('Prompt learning workspace')
+        ).toBeInTheDocument()
+        expect(
+          screen.getByRole('link', { name: 'Open prompt learning' })
+        ).toHaveAttribute('href', '/prompt-learning')
+        expect(screen.queryByText('Console maintainer')).not.toBeInTheDocument()
       }
       await user.click(
         screen.getByRole('tab', { name: /Settings & Preferences/ })
@@ -248,7 +255,7 @@ describe('profile task layout', () => {
       expect(
         screen.getByRole('heading', {
           name: 'Operations',
-          level: mode === 'disabled' ? 3 : 2,
+          level: 2,
         })
       ).toBeInTheDocument()
     }

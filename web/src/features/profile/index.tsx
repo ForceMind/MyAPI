@@ -17,7 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Link } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ErrorState } from '@/components/error-state'
@@ -26,7 +25,7 @@ import {
   CardStaggerContainer,
   CardStaggerItem,
 } from '@/components/page-transition'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -43,7 +42,6 @@ import { CheckinCalendarCard } from './components/checkin-calendar-card'
 import { LanguagePreferencesCard } from './components/language-preferences-card'
 import { LoginSessionsCard } from './components/login-sessions-card'
 import { PasskeyCard } from './components/passkey-card'
-import { PersonalProfile } from './components/personal-profile'
 import { ProfileHeader } from './components/profile-header'
 import { ProfileSecurityCard } from './components/profile-security-card'
 import { ProfileSettingsCard } from './components/profile-settings-card'
@@ -53,26 +51,17 @@ import { useProfile } from './hooks'
 
 export function Profile() {
   const { t } = useTranslation()
-  const { status, confirmed: statusConfirmed, error: statusError } = useStatus()
-  const [profileReadEnabled, setProfileReadEnabled] = useState(
-    statusConfirmed || Boolean(statusError)
-  )
-  // Status observers mounted by loaded settings may retry a failed status
-  // query. That background retry must not restart an admitted profile read.
-  useEffect(() => {
-    if (statusConfirmed || statusError) setProfileReadEnabled(true)
-  }, [statusConfirmed, statusError])
+  const { status } = useStatus()
   const authUserId = useAuthStore((s) => s.auth.user?.id)
   const authRole = useAuthStore((s) => s.auth.user?.role)
   const sessionSid = useAuthStore((s) => s.auth.session?.sid)
   const profileIdentityKey = `${authUserId ?? 'anonymous'}:${authRole ?? 'no-role'}:${sessionSid ?? 'no-session'}`
   const { profile, loading, error, fetchProfile, refreshProfile } = useProfile(
-    profileReadEnabled,
+    true,
     profileIdentityKey
   )
   const { commercialEnabled } = useFundingPresentation()
   const fundingMode = useConfirmedFundingMode()
-  const personalMode = fundingMode === 'disabled'
   const permissions = useAuthStore((s) => s.auth.user?.permissions)
   const securityScopeKey = `${authUserId ?? profile?.id ?? 'anonymous'}:${authRole ?? profile?.role ?? 'no-role'}:${
     sessionSid ?? 'no-session'
@@ -86,18 +75,6 @@ export function Profile() {
   )
   const turnstileSiteKey = status?.turnstile_site_key || ''
   const canConfigureSidebar = permissions?.sidebar_settings !== false
-
-  if (personalMode) {
-    return (
-      <PersonalProfile
-        profile={profile}
-        loading={loading}
-        error={error}
-        onRetry={() => void fetchProfile()}
-        onRefresh={() => void refreshProfile()}
-      />
-    )
-  }
 
   return (
     <SectionPageLayout>
@@ -145,13 +122,12 @@ export function Profile() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <Button
-                        render={<Link to='/prompt-learning' />}
-                        nativeButton={false}
-                        variant='outline'
+                      <Link
+                        to='/prompt-learning'
+                        className={buttonVariants({ variant: 'outline' })}
                       >
                         {t('Open prompt learning')}
-                      </Button>
+                      </Link>
                     </CardContent>
                   </Card>
                   <LanguagePreferencesCard

@@ -103,7 +103,7 @@ export function PersonalUpstream() {
                     selectedAccount?.channel_id === account.channel_id
                   }
                   onClick={() => setChannelId(account.channel_id)}
-                  className='h-auto min-h-10 w-full min-w-0 justify-start py-2 text-left break-all whitespace-normal'
+                  className='h-auto min-h-10 w-full min-w-0 justify-start py-2 text-left wrap-anywhere whitespace-normal'
                 >
                   {account.account_label || account.name}
                 </Button>
@@ -128,7 +128,7 @@ export function PersonalUpstream() {
                 ))}
               </select>
             </div>
-            <h2 className='min-w-0 text-lg font-semibold break-all'>
+            <h2 className='min-w-0 text-lg font-semibold wrap-anywhere'>
               {selectedAccount?.account_label || selectedAccount?.name}
             </h2>
             {data.accountsQuery.data?.items_complete === false ||

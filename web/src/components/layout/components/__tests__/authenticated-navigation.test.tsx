@@ -88,7 +88,7 @@ describe('authenticated operator navigation', () => {
   test('daily tasks lead the navigation and administration precedes optional chat', async () => {
     await renderShellRoute(<OperatorWorkspace />)
     const navigation = await screen.findByRole('navigation', {
-      name: 'Navigation',
+      name: 'Personal console navigation',
     })
 
     expect(
@@ -148,10 +148,7 @@ describe('authenticated operator navigation', () => {
     expect(
       within(context).getByRole('link', { current: 'page' })
     ).toHaveTextContent('Flow')
-    expect(within(header).getByRole('button', { name: 'Search' })).toHaveClass(
-      'size-9',
-      'sm:w-9'
-    )
+    expect(within(header).getByRole('button', { name: 'Search' })).toBeEnabled()
     expect(
       within(header).getByRole('button', { name: 'Change language' })
     ).toBeInTheDocument()
@@ -190,7 +187,7 @@ describe('authenticated operator navigation', () => {
     setViewport(320)
     const user = userEvent.setup()
     await renderShellRoute(<OperatorWorkspace />)
-    const toggle = screen.getByRole('button', { name: 'Toggle sidebar' })
+    const toggle = screen.getByRole('button', { name: 'More' })
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
 
     await user.click(toggle)
@@ -211,7 +208,7 @@ describe('authenticated operator navigation', () => {
     const { router } = await renderShellRoute(<OperatorWorkspace />, {
       path: '/usage-logs/common?type=consume',
     })
-    await user.click(screen.getByRole('button', { name: 'Toggle sidebar' }))
+    await user.click(screen.getByRole('button', { name: 'More' }))
     const drawer = await screen.findByRole('dialog')
 
     await user.click(within(drawer).getByRole('button', { name: 'Close' }))
@@ -226,11 +223,11 @@ describe('authenticated operator navigation', () => {
     setViewport(320)
     const user = userEvent.setup()
     const { router } = await renderShellRoute(<OperatorWorkspace />)
-    const toggle = screen.getByRole('button', { name: 'Toggle sidebar' })
+    const toggle = screen.getByRole('button', { name: 'More' })
 
     await user.click(toggle)
-    const navigation = await screen.findByRole('navigation', {
-      name: 'Navigation',
+    const navigation = await screen.findByRole('dialog', {
+      name: 'All modules',
     })
     await user.click(within(navigation).getByRole('link', { name: 'API Keys' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/keys'))
@@ -249,10 +246,12 @@ describe('authenticated operator navigation', () => {
     await waitFor(() =>
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     )
-    const context = screen.getByRole('navigation', { name: 'Current page' })
+    const navigationAfterBack = screen.getByRole('navigation', {
+      name: 'Mobile console navigation',
+    })
     expect(
-      within(context).getByRole('link', { current: 'page' })
-    ).toHaveTextContent('Overview')
+      within(navigationAfterBack).getByRole('link', { name: 'Overview' })
+    ).toHaveAttribute('aria-current', 'page')
   })
 
   test('nested settings return to overview through the mobile back affordance', async () => {
@@ -261,13 +260,14 @@ describe('authenticated operator navigation', () => {
     const { router } = await renderShellRoute(<OperatorWorkspace />, {
       path: '/system-settings/operations/update-checker?check=latest',
     })
-    const context = screen.getByRole('navigation', { name: 'Current page' })
+    await user.click(screen.getByRole('button', { name: 'More' }))
+    const modules = await screen.findByRole('dialog', { name: 'All modules' })
     expect(
-      within(context).getByRole('link', { current: 'page' })
-    ).toHaveTextContent('System maintenance')
-
-    await user.click(screen.getByRole('button', { name: 'Toggle sidebar' }))
-    const back = await screen.findByRole('link', { name: 'Back to Dashboard' })
+      within(modules).getByRole('link', { name: 'System maintenance' })
+    ).toHaveAttribute('aria-current', 'page')
+    const back = within(modules).getByRole('link', {
+      name: 'Back to Dashboard',
+    })
     await user.click(back)
 
     await waitFor(() =>
@@ -284,7 +284,9 @@ describe('authenticated operator navigation', () => {
     const { router } = await renderShellRoute(<OperatorWorkspace />, {
       path: '/system-settings/site/system-info',
     })
-    const navigation = screen.getByRole('navigation', { name: 'Navigation' })
+    const navigation = screen.getByRole('navigation', {
+      name: 'Personal console navigation',
+    })
     const operations = within(navigation).getByRole('button', {
       name: 'Operations',
     })

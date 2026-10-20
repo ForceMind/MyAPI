@@ -1,7 +1,7 @@
 /* Approved personal-console visual-v0.2; original logo asset stays unchanged. */
-.personal-console,
-body:has(.personal-console) [data-slot='dialog-content'],
-body:has(.personal-console) [data-slot='sheet-content'] {
+:root:not([data-theme-preset]) .personal-console,
+:root:not([data-theme-preset]) body:has(.personal-console) [data-slot='dialog-content'],
+:root:not([data-theme-preset]) body:has(.personal-console) [data-slot='sheet-content'] {
   --background: #f7f8fc;
   --foreground: #182338;
   --card: #fff;
@@ -35,8 +35,7 @@ body:has(.personal-console) [data-slot='sheet-content'] {
   overflow: hidden;
   background: var(--background);
 }
-.pc-sidebar,
-.pc-desktop-header {
+.pc-sidebar {
   display: none;
 }
 .pc-workspace {
@@ -68,7 +67,7 @@ body:has(.personal-console) [data-slot='sheet-content'] {
   height: 32px;
   object-fit: contain;
 }
-.pc-mobile-header {
+.pc-header {
   display: flex;
   flex-shrink: 0;
   align-items: center;
@@ -78,8 +77,22 @@ body:has(.personal-console) [data-slot='sheet-content'] {
   background: var(--card);
   border-bottom: 1px solid var(--border);
 }
+.pc-header > .pc-brand {
+  gap: 6px;
+}
+.pc-header > .pc-brand img {
+  width: 24px;
+  height: 24px;
+}
+.pc-header > .pc-brand strong {
+  font-size: 18px;
+}
+.pc-header-actions > button {
+  min-width: 44px;
+  min-height: 44px;
+}
 .pc-mobile-version {
-  max-width: 200px;
+  max-width: 90px;
   overflow-wrap: anywhere;
 }
 .pc-route-content {
@@ -196,7 +209,7 @@ body:has(.personal-console) [data-slot='sheet-content'] {
 }
 .personal-console [data-slot='card'],
 .pc-card {
-  border-radius: 12px;
+  border-radius: var(--pc-card-radius, 12px);
   border: 1px solid var(--border);
   background: var(--card);
   box-shadow: none;
@@ -212,6 +225,16 @@ body:has(.personal-console) [data-slot='sheet-content'] {
   }
 }
 @media (min-width: 1024px) {
+  .personal-console[data-sidebar-variant='floating'] .pc-sidebar {
+    margin: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+  }
+  .personal-console[data-sidebar-variant='inset'] .pc-route-content {
+    margin: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+  }
   .pc-sidebar {
     display: flex;
     flex-direction: column;
@@ -256,7 +279,7 @@ body:has(.personal-console) [data-slot='sheet-content'] {
     line-height: 15px;
     overflow-wrap: anywhere;
   }
-  .pc-desktop-header {
+  .pc-header {
     display: flex;
     flex-shrink: 0;
     height: 56px;
@@ -266,7 +289,6 @@ body:has(.personal-console) [data-slot='sheet-content'] {
     background: var(--card);
     border-bottom: 1px solid var(--border);
   }
-  .pc-mobile-header,
   .pc-mobile-nav {
     display: none;
   }
@@ -284,6 +306,14 @@ body:has(.personal-console) [data-slot='sheet-content'] {
     width: 68px;
     padding-inline: 6px;
   }
+  .personal-console[data-collapsed='true'][data-collapse-mode='offcanvas'] .pc-sidebar {
+    visibility: hidden;
+    flex-basis: 0;
+    width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
   .personal-console[data-collapsed='true'] .pc-brand {
     padding-inline: 10px;
   }
@@ -299,9 +329,9 @@ body:has(.personal-console) [data-slot='sheet-content'] {
     padding-inline: 8px;
   }
 }
-.dark .personal-console,
-.dark body:has(.personal-console) [data-slot='dialog-content'],
-.dark body:has(.personal-console) [data-slot='sheet-content'] {
+.dark:not([data-theme-preset]) .personal-console,
+.dark:not([data-theme-preset]) body:has(.personal-console) [data-slot='dialog-content'],
+.dark:not([data-theme-preset]) body:has(.personal-console) [data-slot='sheet-content'] {
   --background: #131c2b;
   --foreground: #e6ebf5;
   --card: #1b2639;
@@ -326,4 +356,14 @@ body:has(.personal-console) [data-slot='sheet-content'] {
 
 .dark .pc-mobile-nav a[aria-current='page'] {
   color: #a9baff;
+}
+
+[data-theme-radius] .personal-console {
+  --pc-card-radius: var(--radius);
+}
+[data-theme-content-layout='centered'] .pc-route-content .myapi-page,
+[data-theme-content-layout='centered'] .pc-route-content .pc-page {
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
 }

@@ -112,7 +112,7 @@ export function OverviewConnections(props: {
             ) : (
               <>
                 <table
-                  className='hidden w-full text-left text-sm lg:table'
+                  className='hidden w-full table-fixed text-left text-sm lg:table'
                   data-testid='connection-desktop-list'
                 >
                   <caption className='sr-only'>
@@ -121,7 +121,7 @@ export function OverviewConnections(props: {
                   <thead className='text-muted-foreground text-xs'>
                     <tr>
                       <th className='pb-2 font-medium'>{t('Channels')}</th>
-                      <th className='pb-2 text-right font-medium'>
+                      <th className='w-24 pb-2 text-right font-medium'>
                         {t('Status')}
                       </th>
                     </tr>
@@ -134,7 +134,7 @@ export function OverviewConnections(props: {
                         ] ?? CHANNEL_STATUS_CONFIG[0]
                       return (
                         <tr key={item.id}>
-                          <td className='min-w-0 py-2 pr-3 break-all'>
+                          <td className='min-w-0 py-2 pr-3 wrap-anywhere'>
                             <span className='text-muted-foreground mr-2 font-mono text-xs'>
                               #{item.id}
                             </span>
@@ -169,7 +169,7 @@ export function OverviewConnections(props: {
                         key={item.id}
                         className='flex min-w-0 flex-wrap items-center justify-between gap-2 py-2'
                       >
-                        <span className='min-w-0 flex-1 break-all'>
+                        <span className='min-w-0 flex-1 wrap-anywhere'>
                           <span className='text-muted-foreground mr-2 font-mono text-xs'>
                             #{item.id}
                           </span>

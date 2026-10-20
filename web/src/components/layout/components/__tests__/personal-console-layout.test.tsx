@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test } from 'vitest'
 
 import { SidebarProvider } from '@/components/ui/sidebar'
+import { LayoutProvider } from '@/context/layout-provider'
+import { SearchProvider } from '@/context/search-provider'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -38,11 +40,15 @@ afterEach(() => {
 
 test('complete desktop navigation and mobile More retain diagnostic and maintenance modules', async () => {
   await renderShellRoute(
-    <SidebarProvider>
-      <PersonalConsoleLayout>
-        <main id='content'>Workspace</main>
-      </PersonalConsoleLayout>
-    </SidebarProvider>
+    <LayoutProvider>
+      <SearchProvider>
+        <SidebarProvider>
+          <PersonalConsoleLayout>
+            <main id='content'>Workspace</main>
+          </PersonalConsoleLayout>
+        </SidebarProvider>
+      </SearchProvider>
+    </LayoutProvider>
   )
   for (const label of [
     'Personal console navigation',
@@ -94,11 +100,15 @@ test('a lower role cannot use the upstream destination and sidebar narrowing sti
     .getState()
     .auth.setUser({ id: 2, username: 'key-owner', role: ROLE.USER })
   await renderShellRoute(
-    <SidebarProvider>
-      <PersonalConsoleLayout>
-        <main id='content'>Workspace</main>
-      </PersonalConsoleLayout>
-    </SidebarProvider>,
+    <LayoutProvider>
+      <SearchProvider>
+        <SidebarProvider>
+          <PersonalConsoleLayout>
+            <main id='content'>Workspace</main>
+          </PersonalConsoleLayout>
+        </SidebarProvider>
+      </SearchProvider>
+    </LayoutProvider>,
     {
       status: {
         SidebarModulesAdmin: JSON.stringify({
@@ -120,11 +130,15 @@ test('a lower role cannot use the upstream destination and sidebar narrowing sti
 
 test('channel management has its own destination instead of selecting the account window page', async () => {
   await renderShellRoute(
-    <SidebarProvider>
-      <PersonalConsoleLayout>
-        <main id='content'>Channel management</main>
-      </PersonalConsoleLayout>
-    </SidebarProvider>,
+    <LayoutProvider>
+      <SearchProvider>
+        <SidebarProvider>
+          <PersonalConsoleLayout>
+            <main id='content'>Channel management</main>
+          </PersonalConsoleLayout>
+        </SidebarProvider>
+      </SearchProvider>
+    </LayoutProvider>,
     { path: '/channels' }
   )
   for (const label of ['Personal console navigation']) {
@@ -141,13 +155,17 @@ test('channel management has its own destination instead of selecting the accoun
 test('keyboard users can reach the skip link before the navigation', async () => {
   const user = userEvent.setup()
   await renderShellRoute(
-    <SidebarProvider>
-      <PersonalConsoleLayout>
-        <main id='content' tabIndex={-1}>
-          Workspace
-        </main>
-      </PersonalConsoleLayout>
-    </SidebarProvider>
+    <LayoutProvider>
+      <SearchProvider>
+        <SidebarProvider>
+          <PersonalConsoleLayout>
+            <main id='content' tabIndex={-1}>
+              Workspace
+            </main>
+          </PersonalConsoleLayout>
+        </SidebarProvider>
+      </SearchProvider>
+    </LayoutProvider>
   )
   await user.tab()
   expect(screen.getByRole('link', { name: 'Skip to Main' })).toHaveFocus()

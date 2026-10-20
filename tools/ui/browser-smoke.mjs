@@ -117,7 +117,7 @@ async function open(page, path, { shell = true, title, headingLevel = 1, expecte
   await page.goto(`${origin}${path}`, { waitUntil: 'networkidle' })
   if (expectedPath) await page.waitForURL(url => url.pathname.replace(/\/$/, '') === expectedPath.replace(/\/$/, ''))
   if (shell) {
-    await page.locator(`[data-myapi-shell="${shell === 'personal' ? 'personal' : 'authenticated'}"]`).waitFor()
+    await page.locator('[data-myapi-shell="authenticated"][data-myapi-interface="platform"]').waitFor()
     await page.locator('main#content').waitFor()
     await page.locator(`main#content h${headingLevel}`).first().waitFor()
   }
@@ -138,7 +138,7 @@ async function screenshot(page, name, { shell = true, touch = false, headingLeve
     const title = main?.querySelector(`h${headingLevel}`)
     const controls = authenticated ? [...header.querySelectorAll('button')].filter(element => element.getBoundingClientRect().width > 0).map(element => ({ name: element.getAttribute('aria-label') || element.textContent, ...rect(element) })) : []
     const actions = authenticated ? [...document.querySelectorAll('.myapi-page-actions button')].filter(element => element.getBoundingClientRect().width > 0).map(element => ({ name: element.getAttribute('aria-label') || element.textContent, text: element.innerText.trim(), ...rect(element), whiteSpace: getComputedStyle(element).whiteSpace })) : []
-    const personalNavigation = [...document.querySelectorAll('[data-myapi-shell="personal"] nav')].find(element => element.getBoundingClientRect().width > 0 && element.getBoundingClientRect().height > 0)
+    const personalNavigation = [...document.querySelectorAll('[data-myapi-interface="platform"] nav')].find(element => element.getBoundingClientRect().width > 0 && element.getBoundingClientRect().height > 0)
     return { viewport: { width: innerWidth, height: innerHeight }, documentWidth: document.documentElement.scrollWidth, coarsePointer: matchMedia('(pointer: coarse)').matches, header: rect(header), main: rect(main), title: rect(title), controls, actions, personalNavigation: rect(personalNavigation), theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light' }
   }, { authenticated: shell === true, headingLevel })
   assert(geometry.documentWidth <= geometry.viewport.width + 1, `${name}: page-wide horizontal overflow: ${JSON.stringify(geometry)}`)
@@ -341,6 +341,42 @@ try {
   browser = await chromium.launch({ headless: true, executablePath: process.env.MYAPI_CHROMIUM_PATH || undefined, args: ['--disable-dev-shm-usage'] })
   report.browser = browser.version()
 
+  await run('platform-shell-layout-preferences', async () => {
+    const { page } = await session({ width: 1280 })
+    await open(page, '/keys')
+    const sidebar = page.locator('.pc-sidebar')
+    const expanded = await sidebar.boundingBox()
+    const chooseLayout = async (name) => {
+      await page.getByRole('button', { name: label('Open theme settings'), exact: true }).click()
+      const preferences = page.getByRole('dialog', { name: label('Theme Settings'), exact: true })
+      await preferences.getByRole('radiogroup', { name: label('Select layout style'), exact: true }).getByRole('radio', { name: label(name), exact: true }).click()
+      await preferences.getByRole('button', { name: label('Close'), exact: true }).click()
+      await preferences.waitFor({ state: 'hidden' })
+      await settled(page)
+    }
+    await chooseLayout('Compact')
+    const compact = await sidebar.boundingBox()
+    assert(expanded && compact && compact.width < expanded.width, 'The saved compact preference changes the actual desktop rail')
+    await screenshot(page, 'platform-compact-sidebar-1280')
+    await chooseLayout('Full layout')
+    assert.equal(await sidebar.isVisible(), false, 'Full layout releases the desktop sidebar space')
+    await page.getByRole('button', { name: label('Expand sidebar'), exact: true }).click()
+    const restored = await sidebar.boundingBox()
+    assert(restored && restored.width === expanded.width, 'The header restores navigation from full layout')
+    await page.setViewportSize({ width: 1920, height: 900 })
+    await page.getByRole('button', { name: label('Open theme settings'), exact: true }).click()
+    const preferences = page.getByRole('dialog', { name: label('Theme Settings'), exact: true })
+    await preferences.getByRole('radiogroup', { name: label('Select sidebar style'), exact: true }).getByRole('radio', { name: label('Floating'), exact: true }).click()
+    await preferences.getByRole('radiogroup', { name: label('Select content width'), exact: true }).getByRole('radio', { name: label('Centered'), exact: true }).click()
+    await preferences.getByRole('button', { name: label('Close'), exact: true }).click()
+    await preferences.waitFor({ state: 'hidden' })
+    await settled(page)
+    const floating = await sidebar.evaluate(element => ({ margin: parseFloat(getComputedStyle(element).marginTop), radius: parseFloat(getComputedStyle(element).borderTopLeftRadius) }))
+    const main = await page.locator('main#content').boundingBox()
+    assert(floating.margin > 0 && floating.radius > 0 && main && main.width <= 1280, 'Floating navigation and centered content apply to the visible platform')
+    await screenshot(page, 'platform-floating-centered-1920')
+  })
+
   await run('existing-page-families', async () => {
     const { page } = await session()
     const pages = [
@@ -443,26 +479,26 @@ try {
     await page.waitForFunction(() => document.activeElement?.id === 'content')
     // An open modal correctly removes the underlying trigger from the
     // accessibility tree; retain the element for its aria-expanded assertion.
-    const trigger = page.locator('[data-sidebar="trigger"]')
+    const trigger = page.locator('.pc-more')
     for (const closeWithEscape of [false, true]) {
       await trigger.click()
-      const drawer = page.getByRole('dialog', { name: label('Navigation'), exact: true })
+      const drawer = page.getByRole('dialog', { name: label('All modules'), exact: true })
       await drawer.waitFor()
       assert.equal(await trigger.getAttribute('aria-expanded'), 'true')
       if (closeWithEscape) await page.keyboard.press('Escape')
       else await drawer.getByRole('button', { name: label('Close'), exact: true }).click()
       await drawer.waitFor({ state: 'hidden' })
-      await page.waitForFunction(() => document.activeElement?.getAttribute('data-sidebar') === 'trigger')
+      await page.waitForFunction(() => document.activeElement?.classList.contains('pc-more'))
       assert.equal(await trigger.getAttribute('aria-expanded'), 'false')
     }
     await trigger.click()
-    await page.getByRole('dialog', { name: label('Navigation'), exact: true }).locator('a[href="/profile"]').click()
+    await page.getByRole('dialog', { name: label('All modules'), exact: true }).locator('a[href="/profile"]').click()
     await page.waitForURL(`${origin}/profile`)
-    await page.getByRole('dialog', { name: label('Navigation'), exact: true }).waitFor({ state: 'hidden' })
+    await page.getByRole('dialog', { name: label('All modules'), exact: true }).waitFor({ state: 'hidden' })
     await page.goBack({ waitUntil: 'networkidle' }); await page.waitForURL(url => url.pathname === '/keys')
     await trigger.click()
     await page.goForward({ waitUntil: 'networkidle' }); await page.waitForURL(`${origin}/profile`)
-    await page.getByRole('dialog', { name: label('Navigation'), exact: true }).waitFor({ state: 'hidden' })
+    await page.getByRole('dialog', { name: label('All modules'), exact: true }).waitFor({ state: 'hidden' })
     await open(page, '/keys')
     const search = page.getByRole('button', { name: label('Search'), exact: true })
     await search.focus(); await page.keyboard.press('Control+k')
@@ -535,8 +571,8 @@ try {
       await touchPage.keyboard.press('Escape')
       await command.waitFor({ state: 'hidden' })
       if (width === 320) {
-        await touchPage.getByRole('button', { name: label('Toggle sidebar', 'fr'), exact: true }).tap()
-        const drawer = touchPage.getByRole('dialog', { name: label('Navigation', 'fr'), exact: true })
+        await touchPage.getByRole('button', { name: label('More', 'fr'), exact: true }).tap()
+        const drawer = touchPage.getByRole('dialog', { name: label('All modules', 'fr'), exact: true })
         await drawer.getByRole('button', { name: label('Close', 'fr'), exact: true }).tap()
         await drawer.waitFor({ state: 'hidden' })
       }
@@ -597,7 +633,7 @@ try {
     await page.waitForURL(`${origin}/forgot-password`)
     await page.goBack({ waitUntil: 'networkidle' })
     await page.waitForURL(url => url.pathname === '/sign-in' && url.searchParams.get('redirect') === '/keys')
-    assert.equal(await page.locator('[data-myapi-shell="authenticated"]').count(), 0, 'interrupted authentication never exposes private shell')
+    assert.equal(await page.locator('[data-myapi-shell]').count(), 0, 'interrupted authentication never exposes private shell')
     const setup = await session({ role: 0, setupComplete: false, width: 320 })
     await open(setup.page, '/', { shell: false })
     await setup.page.waitForURL(`${origin}/setup`)

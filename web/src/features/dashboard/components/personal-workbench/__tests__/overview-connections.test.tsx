@@ -79,6 +79,9 @@ test('desktop and mobile lists share one metadata read, preserve the server tota
     </QueryClientProvider>
   )
   expect(await screen.findByText('9')).toBeInTheDocument()
+  expect(screen.getByRole('columnheader', { name: 'Status' })).toHaveClass(
+    'w-24'
+  )
   for (const id of ['connection-desktop-list', 'connection-mobile-list']) {
     const list = within(screen.getByTestId(id))
     expect(list.getByText('Synthetic subscription')).toBeInTheDocument()
