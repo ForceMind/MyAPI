@@ -216,7 +216,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
           request: () => ({ method: () => result.method || 'GET' }) }
       },
       submitLogSearch() {
-        const tokenName = this.fields['API Key']
+        const tokenName = this.fields['Token Name']
         assert(tokenName, 'the visible API Key input must be filled before Filter')
         assert.equal(this.logPeriod, 'all', 'the call lookup includes earlier persisted requests')
         const stored = [...logs.values()].find(log => log.token_name === tokenName)
@@ -282,6 +282,10 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
       },
       keyboard: { async press(key) {
         if (key === 'Escape' && page.logDetailsOpen) {
+          if (context.viewport.width === 320) {
+            assert.notEqual(corrupt, 'ui-log-detail-return')
+            page.closedLogDetails = (page.closedLogDetails || 0) + 1
+          }
           page.logDetailsOpen = false
           page.closedLogDialogs = (page.closedLogDialogs || 0) + 1
         }
@@ -308,6 +312,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         getByRole: (role, options) => locator(role, options?.name, chain),
         getByText: (text) => locator('text', text, chain),
         getByPlaceholder: (text) => locator('placeholder', text, chain),
+        getByTitle: (text) => locator('title', text, chain),
         locator: (selector) => locator('selector', selector, chain),
         and() { awaitingCheckedState = true; return this },
         filter(options) { if (options?.hasText) chain.push({ hasText: options.hasText }); if (options?.has) chain.push({ hasText: options.has.value }); return this },
@@ -414,7 +419,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             const text = chain.find(item => item?.hasText)?.hasText
             return (page.visibleRows || []).filter(item => (item.username || item.name) === text).length
           }
-          if (kind === 'button' && typeof value === 'string' && value.startsWith('View call ')) return corrupt === 'ui-log-ambiguous' ? 2 : 1
+          if (kind === 'title' && value === 'Click to view full details') return corrupt === 'ui-log-ambiguous' ? 2 : 1
           if (kind === 'button' && value === 'My usage policy') return corrupt === 'policy-ui-visible' ? 1 : 0
           if (kind === 'option' && value === 'smoke-model') return corrupt === 'ambiguous-model' ? 2 : Number(page.modelsCache.get(page.selected)?.includes(value))
           if (kind === 'selector' && value === '.is-assistant') return page.assistants || 0
@@ -423,12 +428,14 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         },
         async fill(text) {
           if (value === 'Key quota (internal units)') assert.equal(page.currency, 'TOKENS', 'the client must reload its USD system-config cache after the fixture PUT')
-          if (kind === 'textbox' && value === 'API Key') {
+          if (kind === 'placeholder' && value === 'Token Name') {
             assert.equal(new URL(page.current).pathname, '/usage-logs/common')
-            assert(parents.includes('Call logs'), 'personal filters belong to their named main')
+            assert(parents.includes(undefined) || parents.includes('Filter'), 'filters belong to the page or its mobile dialog')
             if (usageFailureRole === undefined || usageFailureRole === page.actor.role) assert.notEqual(corrupt, 'ui-log-hidden-filter')
             filterActions.push({ action: 'fill', role: page.actor.role, field: value })
           }
+          if (kind === 'selector' && value === 'input' && parents.includes('Start Time')) page.logStart = text
+          if (kind === 'selector' && value === 'input' && parents.includes('End Time')) page.logEnd = text
           page.fields[value] = text
           if (kind === 'placeholder' && value === 'Filter by username, name or email...') {
             const userSearch = true
@@ -518,14 +525,20 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
               'Key handoff must not send a generation request')
             return
           }
-          if (value === 'Filter' && kind === 'button') {
+          if (value === 'Confirm' && kind === 'button' && new URL(page.current).pathname === '/usage-logs/common') {
+            assert.equal(page.logStart, '1970-01-02T00:00')
+            assert.equal(page.logEnd, '2099-12-31T23:59')
+            page.logPeriod = 'all'
+          }
+          if (value === 'Only Mine' && kind === 'tab') page.logSelf = true
+          if (value === 'Search' && kind === 'button' && new URL(page.current).pathname === '/usage-logs/common') {
             assert.equal(new URL(page.current).pathname, '/usage-logs/common')
-            assert(parents.includes('Call logs'), 'Filter must belong to the personal log page')
+            assert(parents.includes(undefined) || parents.includes('Filter'), 'Search belongs to the page or its mobile dialog')
             if (usageFailureRole === undefined || usageFailureRole === page.actor.role) assert.notEqual(corrupt, 'ui-log-no-submission')
             logSearchMatches.push(1)
             page.submitLogSearch()
           }
-          if (value === 'Search' && kind === 'button') {
+          if (value === 'Search' && kind === 'button' && new URL(page.current).pathname === '/keys') {
             assert.equal(new URL(page.current).pathname, '/keys')
             assert.notEqual(corrupt, 'ui-key-search-submit')
             const text = page.fields['Search keys']
@@ -574,9 +587,8 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             page.emitResponse(response('/pg/keys?p=1&page_size=100', 'GET', { success: false }))
             page.emit(response('/pg/keys?p=1&page_size=100', 'GET', { success: true, data }))
           }
-          if (kind === 'button' && typeof value === 'string' && value.startsWith('View call ')) {
-            assert(parents.includes('Call logs') && parents.includes(undefined), 'detail choice belongs to the call list')
-            assert.equal(value, 'View call ' + page.visibleLog.request_id)
+          if (kind === 'title' && value === 'Click to view full details') {
+            assert(parents.includes(undefined) && parents.includes(page.visibleLog.request_id), 'detail choice belongs to the exact request row')
             if (corrupt === 'ui-log-open') throw new Error(base.password)
             page.logDetailsOpen = true
           }
@@ -705,6 +717,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
       }
     }
     page.getByRole = (role, options) => locator(role, options?.name)
+    page.getByText = (text) => locator('text', text)
     page.getByText = text => locator('text', text)
     page.getByPlaceholder = text => locator('placeholder', text)
     page.getByTitle = text => locator('title', text)
@@ -1577,11 +1590,11 @@ test('diagnostic caps are independent for Root and ordinary-owner sessions and l
   assert.equal(fixture.upstreamCount(), 4)
 })
 
-test('personal log filters use the visible named main and return mobile details explicitly', async () => {
+test('platform log filters use the visible main and explicit time range and close mobile details', async () => {
   const fixture = journeyBrowser()
   assert.equal((await probePersonalBrowserJourney({ ...base, ...fixture })).passed, true)
   assert.deepEqual(fixture.filterActions, [100, 1].flatMap(role => [
-    { action: 'fill', role, field: 'API Key' },
+    { action: 'fill', role, field: 'Token Name' },
     { action: 'filter', role, tokenName: role === 100 ? 'browser-root-finite' : 'browser-owner-finite' },
   ]))
   assert(fixture.contexts.every(context => !context.page.logDetailsOpen))

@@ -863,16 +863,27 @@ async function showPersistedUsage(session, key, requestId, options, screenshots)
   try {
     await open(session, '/usage-logs/common')
     session.scope.stage = 'usage-filter'
-    const main = session.page.getByRole('main', { name: session.label('Call logs'), exact: true })
-    await main.getByRole('combobox', { name: session.label('Time range'), exact: true }).selectOption('all')
-    await main.getByRole('textbox', { name: session.label('API Key'), exact: true }).fill(key.name)
+    const main = session.page.getByRole('main')
+    await main.getByRole('heading', { name: session.label('Call records'), exact: true }).waitFor()
+    if (session.user.role >= 10) await main.getByRole('tab', { name: session.label('Only Mine'), exact: true }).click()
+    // An explicit range spans midnight without relying on a removed preset.
+    await main.getByRole('button', { name: /^\d{4}-\d{2}-\d{2}/ }).click()
+    await session.page.getByText(session.label('Start Time'), { exact: true }).locator('..').locator('input').fill('1970-01-02T00:00')
+    await session.page.getByText(session.label('End Time'), { exact: true }).locator('..').locator('input').fill('2099-12-31T23:59')
+    await session.page.getByRole('button', { name: session.label('Confirm'), exact: true }).click()
+    let filters = main
+    if (session.width < 768) {
+      await main.getByRole('button', { name: new RegExp('^' + session.label('Filter')) }).click()
+      filters = session.page.getByRole('dialog', { name: session.label('Filter'), exact: true })
+    } else await main.getByRole('button', { name: session.label('Expand'), exact: true }).click()
+    await filters.getByPlaceholder(session.label('Token Name'), { exact: true }).fill(key.name)
     const received = session.page.waitForResponse(response => {
       const url = new URL(response.url())
       return url.origin === session.origin && url.pathname === '/api/log/self' && response.request().method() === 'GET' &&
         url.searchParams.get('token_name') === key.name && url.searchParams.get('page_size') === '20'
     })
     received.catch(() => {})
-    await main.getByRole('button', { name: session.label('Filter'), exact: true }).click()
+    await filters.getByRole('button', { name: session.label('Search'), exact: true }).click()
     session.scope.stage = 'usage-list'
     const data = await responseSuccess(session, await received, 'LOG_MISMATCH')
     requireThat(Number.isSafeInteger(data?.total) && Array.isArray(data.items) && data.total >= data.items.length &&
@@ -884,15 +895,16 @@ async function showPersistedUsage(session, key, requestId, options, screenshots)
       log.token_name === key.name && log.model_name === model && log.type === 2 &&
       log.prompt_tokens === 10 && log.completion_tokens === 5, 'LOG_MISMATCH')
     session.scope.stage = 'usage-list-visible'
-    const list = main.getByRole('list')
-    const details = list.getByRole('button', { name: session.label('View call {{id}}').replace('{{id}}', requestId), exact: true })
-    await details.getByText(key.name, { exact: true }).filter({ visible: true }).waitFor()
-    await details.getByText(model, { exact: true }).filter({ visible: true }).waitFor()
+    const row = main.getByText(requestId, { exact: true }).locator(
+      `xpath=ancestor::*[.//button[@title=${JSON.stringify(session.label('Click to view full details'))}]][1]`)
+    const details = row.getByTitle(session.label('Click to view full details'), { exact: true })
+    await row.getByText(key.name, { exact: true }).filter({ visible: true }).waitFor()
+    await row.getByText(model, { exact: true }).filter({ visible: true }).waitFor()
     session.scope.stage = 'usage-details-open'
     await details.waitFor({ state: 'visible' })
     requireThat(await details.count() === 1, 'LOG_MISMATCH')
     await details.click()
-    const detail = main.locator(`[aria-label=${JSON.stringify(session.label('Call details'))}]`)
+    const detail = session.page.getByRole('dialog', { name: new RegExp(session.label('Log Details')) })
     session.scope.stage = 'usage-details-request'
     await detail.getByText(requestId, { exact: true }).waitFor()
     session.scope.stage = 'usage-details-key'
@@ -1000,6 +1012,8 @@ export async function probePersonalBrowserJourney(options = {}) {
     await capture(root, options, 'fresh-success', screenshots)
     await showPersistedUsage(root, rootKey, rootRequest, options, screenshots)
     await capture(root, options, 'fresh-persisted-log', screenshots)
+    await root.page.keyboard.press('Escape')
+    await root.page.getByRole('dialog', { name: new RegExp(root.label('Log Details')) }).waitFor({ state: 'hidden' })
     checks.push({ name: 'real English desktop fresh Root selected-Key streaming request and persisted usage', ok: true, quota: usage, requests: 1 })
 
     // An ordinary pre-existing-style user starts with the existing stored-wallet
@@ -1080,8 +1094,9 @@ export async function probePersonalBrowserJourney(options = {}) {
     await capture(owner, options, 'existing-success', screenshots)
     await showPersistedUsage(owner, ownerKey, ownerRequest, options, screenshots)
     await capture(owner, options, 'existing-persisted-log', screenshots)
-    await owner.page.getByRole('button', { name: owner.label('Back to call list'), exact: true }).click()
-    await owner.page.getByRole('main', { name: owner.label('Call logs'), exact: true }).getByRole('list').waitFor({ state: 'visible' })
+    await owner.page.keyboard.press('Escape')
+    await owner.page.getByRole('dialog', { name: new RegExp(owner.label('Log Details')) }).waitFor({ state: 'hidden' })
+    await owner.page.getByRole('main').getByText(ownerRequest, { exact: true }).waitFor({ state: 'visible' })
     checks.push({ name: 'real Chinese mobile ordinary owner rejects until explicit Root policy choice', ok: true, role: 1, policyChanges: 1, requests: 1, quota: usage })
 
     const lowKey = await createKey(owner, api, 'browser-owner-low', 1)
