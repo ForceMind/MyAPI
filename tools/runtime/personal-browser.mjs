@@ -866,6 +866,8 @@ async function showPersistedUsage(session, key, requestId, options, screenshots)
     const main = session.page.getByRole('main')
     await main.getByRole('heading', { name: session.label('Call records'), exact: true }).waitFor()
     if (session.user.role >= 10) await main.getByRole('tab', { name: session.label('Only Mine'), exact: true }).click()
+    await main.getByRole('combobox').filter({ hasText: /^\d+$/ }).click()
+    await session.page.getByRole('option', { name: '20', exact: true }).click()
     // An explicit range spans midnight without relying on a removed preset.
     await main.getByRole('button', { name: /^\d{4}-\d{2}-\d{2}/ }).click()
     await session.page.getByText(session.label('Start Time'), { exact: true }).locator('..').locator('input').fill('1970-01-02T00:00')

@@ -219,6 +219,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         const tokenName = this.fields['Token Name']
         assert(tokenName, 'the visible API Key input must be filled before Filter')
         assert.equal(this.logPeriod, 'all', 'the call lookup includes earlier persisted requests')
+        assert.equal(this.logPageSize, 20, 'select the visible page size before filtering')
         const stored = [...logs.values()].find(log => log.token_name === tokenName)
         assert(stored)
         const requestId = stored.request_id
@@ -531,6 +532,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             page.logPeriod = 'all'
           }
           if (value === 'Only Mine' && kind === 'tab') page.logSelf = true
+          if (value === '20' && kind === 'option' && new URL(page.current).pathname === '/usage-logs/common') page.logPageSize = 20
           if (value === 'Search' && kind === 'button' && new URL(page.current).pathname === '/usage-logs/common') {
             assert.equal(new URL(page.current).pathname, '/usage-logs/common')
             assert(parents.includes(undefined) || parents.includes('Filter'), 'Search belongs to the page or its mobile dialog')
