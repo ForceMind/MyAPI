@@ -541,6 +541,7 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             page.submitLogSearch()
           }
           if (value === 'Search' && kind === 'button' && new URL(page.current).pathname === '/keys') {
+            assert(parents.includes(undefined), 'Key search belongs to main and cannot match the global search')
             assert.equal(new URL(page.current).pathname, '/keys')
             assert.notEqual(corrupt, 'ui-key-search-submit')
             const text = page.fields['Search keys']

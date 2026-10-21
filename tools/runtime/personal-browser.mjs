@@ -1124,7 +1124,7 @@ export async function probePersonalBrowserJourney(options = {}) {
     })
     keySearch.catch(() => {})
     await root.page.getByRole('textbox', { name: root.label('Search keys'), exact: true }).fill(strictKey.name)
-    await root.page.getByRole('button', { name: root.label('Search'), exact: true }).click()
+    await root.page.getByRole('main').getByRole('button', { name: root.label('Search'), exact: true }).click()
     const keySearchData = await responseSuccess(root, await keySearch, 'KEY_MISMATCH')
     requireThat(keySearchData?.total === 1 && Array.isArray(keySearchData.items) && keySearchData.items.length === 1, 'KEY_MISMATCH')
     const selectedKey = keySearchData.items[0]
