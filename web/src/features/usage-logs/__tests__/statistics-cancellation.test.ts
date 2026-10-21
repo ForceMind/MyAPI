@@ -7,7 +7,8 @@ the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
 import { CanceledError } from 'axios'
-import { afterEach, expect, test } from 'vitest'
+import { toast } from 'sonner'
+import { afterEach, expect, test, vi } from 'vitest'
 
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
@@ -22,6 +23,7 @@ afterEach(() => {
 })
 
 test('a new statistics observer does not reuse its cancelled predecessor in the same session', async () => {
+  const showError = vi.spyOn(toast, 'error')
   let firstSeen = () => {}
   const started = new Promise<void>((resolve) => {
     firstSeen = resolve
@@ -60,4 +62,5 @@ test('a new statistics observer does not reuse its cancelled predecessor in the 
   expect(response.data?.tpm).toBe(7)
   expect(await first).toHaveProperty('code', 'ERR_CANCELED')
   expect(dispatches).toBe(2)
+  expect(showError).not.toHaveBeenCalled()
 })

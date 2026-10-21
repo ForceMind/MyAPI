@@ -98,6 +98,9 @@ api.interceptors.response.use(
     return response
   },
   async (error) => {
+    // Canceling an observer is not a service failure. Keep the rejection intact.
+    if (axios.isCancel(error)) throw error
+
     const config = error?.config as ApiRequestConfig | undefined
     const skipErrorHandler = config?.skipErrorHandler
     const status = error?.response?.status
