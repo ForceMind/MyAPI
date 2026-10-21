@@ -1,0 +1,37 @@
+import json,hashlib,tarfile,subprocess,os,re
+from pathlib import Path
+root=Path('/tmp/myapi-beta25-deployable-image-bundle-20261021'); manifest=json.loads((root/'manifest.json').read_text())
+loader=json.loads(Path('/tmp/myapi-beta25-image-loader.log').read_text());assert loader.get('passed') is True or loader.get('code')=='IMAGE_BUNDLE_IMAGE_MISMATCH'
+assert hashlib.sha256((root/'manifest.json').read_bytes()).hexdigest()=='2823a00f7152763e0e2df1cde40de4eb47bbc16fabb8257129ce6d6ae7cbb398'
+assert manifest['sourceSha']=='f90e091e7f95d2beab27f21a7434a6948711b411' and manifest['treeSha']=='a92f4176e3f5681ac568f535f189edb63e7138a6' and manifest['runId']=='39539756860' and manifest['producerAttempt']=='1'
+env=dict(os.environ)
+for k in ['DOCKER_HOST','DOCKER_CONTEXT','DOCKER_TLS','DOCKER_TLS_VERIFY','DOCKER_CERT_PATH']: env.pop(k,None)
+verified=set()
+with tarfile.open(root/'images.tar','r') as archive:
+ def blob(digest,parse=False):
+  assert re.fullmatch('sha256:[a-f0-9]{64}',digest)
+  name='blobs/sha256/'+digest[7:];member=archive.getmember(name);assert member.isfile()
+  h=hashlib.sha256();data=[]
+  with archive.extractfile(member) as f:
+   while True:
+    b=f.read(1048576)
+    if not b:break
+    h.update(b)
+    if parse:data.append(b)
+  assert h.hexdigest()==digest[7:];verified.add(digest)
+  if parse:return json.loads(b''.join(data))
+ images=[]
+ for item in manifest['images']:
+  p=subprocess.run(['docker','--host=unix:///var/run/docker.sock','image','inspect',item['tag']],env=env,capture_output=True,text=True,check=True);i=json.loads(p.stdout)[0]
+  config=blob(item['id'],True)
+  if i['Id']!=item['id']:
+   descriptor=blob(i['Id'],True);assert descriptor['config']['digest']==item['id']
+   for layer in descriptor['layers']:blob(layer['digest'])
+  assert i['RootFS']['Layers']==config['rootfs']['diff_ids']
+  assert i['Architecture']==config['architecture']=='amd64' and i['Os']==config['os']=='linux'
+  for field in ['Env','Labels','Entrypoint','Cmd','WorkingDir','User']:assert i['Config'].get(field)==config['config'].get(field)
+  if item['role']=='app':
+   for k,v in {'io.myapi.smoke.source':manifest['sourceSha'],'io.myapi.smoke.head':manifest['headSha'],'io.myapi.smoke.tree':manifest['treeSha'],'io.myapi.edition':'full'}.items():assert i['Config']['Labels'][k]==v
+  images.append(dict(role=item['role'],bundle_config_digest=item['id'],local_image_id=i['Id'],manifest_config_layers_rootfs_and_runtime_config_verified=True))
+report=dict(source_sha=manifest['sourceSha'],source_tree=manifest['treeSha'],run=39539756860,artifact=12319340869,manifest_sha256='2823a00f7152763e0e2df1cde40de4eb47bbc16fabb8257129ce6d6ae7cbb398',tar_sha256=manifest['tar']['sha256'],images=images,verified_blobs=len(verified),loader_result=Path('/tmp/myapi-beta25-image-loader.log').read_text().strip(),fallback_image_used=False,product_or_verifier_source_changed=False)
+report.update(images[0]);Path('/tmp/myapi-beta25-image-identity.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report))

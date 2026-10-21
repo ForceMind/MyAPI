@@ -1,0 +1,15 @@
+{
+  "tested_source": "391ce9519835758b366eacc7defebc17387d916b",
+  "tested_ci": 39445757876,
+  "build_source": "f90e091e7f95d2beab27f21a7434a6948711b411",
+  "build_run": 39539756860,
+  "unchanged_tracked_inputs": 3214,
+  "input_sha256": "c0634746e3675efcfca3932ce394f04f5755266cbbe60dfd92c9d4fea6a37ade",
+  "excluded_paths": [
+    "docs/",
+    "tools/runtime/personal-browser.mjs",
+    "tools/runtime/personal-browser.test.mjs"
+  ],
+  "all_other_tracked_input_blobs_identical": true,
+  "compiled_build_revision_expected_to_differ": true
+}

@@ -1,0 +1,34 @@
+{
+  "verified_at": "2026-10-21T11:52:50.078383+08:00",
+  "deployed": true,
+  "version": "0.2.0-beta.25",
+  "container": "68c31d75627a5281b458ae1cb7ddb6959ea1b0f1880b8e8fcbe9cbbbe500efff",
+  "image": "sha256:cc4d34c65650bca04898a515348bff926a779b52408b1c3117ccd6bd4dcc9ad3",
+  "old_stopped": true,
+  "healthy": true,
+  "accounts": 1,
+  "keys": 8,
+  "channels": 3,
+  "history_unchanged": true,
+  "frozen_unknown": 6,
+  "background_same_account_credentials_changed": 0,
+  "preserved_files": {
+    "data-files": 0,
+    "logs": 1
+  },
+  "checks": {
+    "preflight_same_original_config_target_and_exact_images": true,
+    "old_service_gracefully_drained_exit_zero": true,
+    "original_docker_console_backed_up_privately": true,
+    "final_backup_and_starting_copy_integrity_and_digest": true,
+    "original_configuration_identity_port_resource_and_normal_mode_preserved": true,
+    "host_loopback_beta25_status_setup_and_frontend_assets": true,
+    "original_user_key_secrets_ids_channel_identity_and_policies_preserved": true,
+    "historical_accounting_and_frozen_unknown_usage_records_preserved": true,
+    "old_container_stopped_original_database_and_final_backup_unchanged": true,
+    "private_backup_permissions_and_original_restart_policy": true
+  },
+  "backup": "/root/new-api/backups/beta25-cutover-20261021-e84f72f25e3b",
+  "backup_sha256": "6fbb2d217c0c579d589e89cccc9572d8cd8198bee456ab6305b6401007c86d47",
+  "interruption_upper_bound_seconds": 4.276
+}

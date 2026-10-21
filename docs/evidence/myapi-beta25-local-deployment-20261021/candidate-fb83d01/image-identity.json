@@ -1,0 +1,36 @@
+{
+  "source_sha": "fb83d01f11ebd19449f3eeda353bd60f2c4d7505",
+  "source_tree": "35545931b2d72509a8370257e29f0981195f75bf",
+  "run": 39537196993,
+  "artifact": 12317881977,
+  "manifest_sha256": "b917e609c5b5ba402bcc03366bb109d987ca95648cee80be10286be1029e4b95",
+  "tar_sha256": "d154f26c40f97e0736a1dd8b5e4e46e7e7e74483cb5a7cd5402f031914374581",
+  "images": [
+    {
+      "role": "app",
+      "bundle_config_digest": "sha256:366abc70fe60639aafb22d73a91b006a04ce012aa2c2c7d428c4bd8a029deb1d",
+      "local_image_id": "sha256:5168d96c6dafd094feac5a7165480712205166b77eed5777508472f274a9cd52",
+      "manifest_config_layers_rootfs_and_runtime_config_verified": true
+    },
+    {
+      "role": "bun",
+      "bundle_config_digest": "sha256:d62d32ae5b2f0f1530043a409f2891dbe71ba133d4b0b690cfcbda8f5ec3657f",
+      "local_image_id": "sha256:465ce2e5310c9ad66b99fc13395027b3e01b00c4ab45d1d922a9cd6fd658b761",
+      "manifest_config_layers_rootfs_and_runtime_config_verified": true
+    },
+    {
+      "role": "redis",
+      "bundle_config_digest": "sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058",
+      "local_image_id": "sha256:d6d5ee5b4daa901c73eeb8d61a1565e9d2d327a7dd72f243eb6a4fbb9c81be7d",
+      "manifest_config_layers_rootfs_and_runtime_config_verified": true
+    }
+  ],
+  "verified_blobs": 24,
+  "loader_result": "{\"command\":\"smoke:image-bundle\",\"passed\":false,\"code\":\"IMAGE_BUNDLE_IMAGE_MISMATCH\"}",
+  "fallback_image_used": false,
+  "product_or_verifier_source_changed": false,
+  "role": "app",
+  "bundle_config_digest": "sha256:366abc70fe60639aafb22d73a91b006a04ce012aa2c2c7d428c4bd8a029deb1d",
+  "local_image_id": "sha256:5168d96c6dafd094feac5a7165480712205166b77eed5777508472f274a9cd52",
+  "manifest_config_layers_rootfs_and_runtime_config_verified": true
+}

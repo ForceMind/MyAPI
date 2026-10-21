@@ -1,0 +1,311 @@
+import os, json, sqlite3, secrets, hashlib, subprocess, time, shutil
+from pathlib import Path
+from datetime import datetime, timezone
+from collections import Counter
+
+os.umask(0o077)
+BASE = Path('/tmp/myapi-beta25-deployable-db-preflight-20261021')
+OUT = BASE / 'clones-result.json'
+assert not OUT.exists(), 'DO_NOT_REPLAY_CLONE_REHEARSAL'
+state = json.loads((BASE / 'state.json').read_text())
+backup = Path(state['backup_directory'])
+original = backup / 'original' / 'my-api.db'
+info = json.loads((backup / 'original' / 'container-inspect.private.json').read_text())
+identity = json.loads(Path('/tmp/myapi-beta25-image-identity.json').read_text())
+NEW = identity['local_image_id']
+ACTOR = 'sha256:465ce2e5310c9ad66b99fc13395027b3e01b00c4ab45d1d922a9cd6fd658b761'
+OLD = state['old_image']
+TARGET = state['target_id']
+nonce = secrets.token_hex(6)
+LABEL = 'io.myapi.actual-backup-rehearsal'
+docker_env = dict(os.environ)
+for key in ['DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_TLS', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH']:
+    docker_env.pop(key, None)
+DOCKER = ['docker', '--host=unix:///var/run/docker.sock']
+created = []
+report = {'started_at': datetime.now(timezone.utc).isoformat(), 'backup_directory': str(backup),
+          'backup_database_sha256': state['backup_sha256'], 'target_id': TARGET, 'old_image': OLD,
+          'candidate_image': NEW, 'candidate_source_config_digest': identity['bundle_config_digest'],
+          'deployed': False, 'production_container_stopped_or_modified': False, 'redis_contacted': False,
+          'supplier_http_invoked': 0, 'network_mode': 'none; API actor shares clone loopback namespace',
+          'operator_http': 'GET /api/status, /api/setup and candidate embedded frontend assets only', 'phases': {}, 'success': False}
+
+def require(ok, code):
+    if not ok:
+        raise RuntimeError(code)
+
+def docker(args, env=None, timeout=45):
+    p = subprocess.run(DOCKER + args, env=env or docker_env, text=True, capture_output=True, timeout=timeout)
+    require(p.returncode == 0, 'OWNED_DOCKER_ACTION_FAILED')
+    return p.stdout.strip()
+
+def digest(path):
+    h = hashlib.sha256()
+    with path.open('rb') as f:
+        for block in iter(lambda: f.read(1048576), b''):
+            h.update(block)
+    return h.hexdigest()
+
+def q(name):
+    return '"' + name.replace('"', '""') + '"'
+
+def inspect(name):
+    return json.loads(docker(['inspect', name]))[0]
+
+def owned(name):
+    return inspect(name)['Config']['Labels'].get(LABEL) == nonce
+
+def save():
+    OUT.write_text(json.dumps(report, indent=2) + '\n')
+
+def dbopen(path):
+    db = sqlite3.connect(path.as_uri() + '?mode=ro', uri=True, timeout=10)
+    db.execute('PRAGMA query_only=ON')
+    return db
+
+def accounting(path):
+    db = dbopen(path)
+    tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    summary = {}
+    for table in ['quota_writer_epochs', 'account_quota_execution_gates', 'quota_work_cursors']:
+        if table not in tables:
+            summary[table] = None
+            continue
+        db.row_factory = sqlite3.Row
+        summary[table] = [dict(r) for r in db.execute('SELECT * FROM ' + q(table))]
+        db.row_factory = None
+    for table in ['account_quota_execution_permits', 'account_quota_settlement_facts', 'account_quota_settlement_intents',
+                  'account_quota_refund_facts', 'legacy_usage_reservations', 'account_quota_terminal_recovery_obligations',
+                  'quota_projection_obligations', 'quota_balance_batch_drains', 'quota_balance_batch_subjects',
+                  'token_budget_reservations', 'relay_account_holds', 'user_subscriptions']:
+        if table not in tables:
+            summary[table] = None
+            continue
+        columns = {r[1] for r in db.execute('PRAGMA table_info(' + q(table) + ')')}
+        item = {'rows': db.execute('SELECT COUNT(*) FROM ' + q(table)).fetchone()[0]}
+        for column in ['state', 'status', 'kind']:
+            if column in columns:
+                values = db.execute('SELECT ' + q(column) + ',COUNT(*) FROM ' + q(table) + ' GROUP BY ' + q(column)).fetchall()
+                item[column + '_counts'] = {str(k): n for k, n in values}
+        summary[table] = item
+    db.close()
+    return summary
+
+def compare(path):
+    before, after = dbopen(original), dbopen(path)
+    tables = [r[0] for r in before.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")]
+    target_tables = {r[0] for r in after.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    result = {'table_comparisons': {}, 'all_identity_rows_unchanged': True, 'all_historical_accounting_rows_unchanged': True}
+    identities = {'users', 'tokens', 'channels', 'channel_quota_identity_aliases', 'channel_quota_identity_key_registries', 'channel_quota_identity_key_versions'}
+    accounting_tables = {'logs', 'legacy_usage_reservations', 'account_quota_execution_gates', 'account_quota_execution_permits',
+                         'account_quota_settlement_facts', 'account_quota_settlement_intents', 'account_quota_refund_facts',
+                         'quota_writer_epochs', 'quota_writer_mode_transitions', 'account_quota_mutation_receipts',
+                         'user_quota_mutation_receipts', 'quota_mutation_receipts', 'quota_projection_obligations',
+                         'account_quota_terminal_recovery_obligations', 'account_quota_reservation_heads',
+                         'quota_balance_batch_drains', 'quota_balance_batch_subjects', 'token_budgets',
+                         'token_budget_reservations', 'token_quota_adjustments', 'admin_quota_adjustments',
+                         'user_subscriptions', 'subscription_pre_consume_records', 'user_usage_policy_changes', 'quota_data'}
+    for table in tables:
+        columns = [r[1] for r in before.execute('PRAGMA table_info(' + q(table) + ')')]
+        after_columns = {r[1] for r in after.execute('PRAGMA table_info(' + q(table) + ')')} if table in target_tables else set()
+        missing = [c for c in columns if c not in after_columns]
+        if missing:
+            entry = {'missing_columns': missing, 'original_rows_preserved': False}
+        else:
+            query = 'SELECT ' + ','.join(map(q, columns)) + ' FROM ' + q(table)
+            old = Counter(before.execute(query).fetchall())
+            new = Counter(after.execute(query).fetchall())
+            entry = {'original_rows': sum(old.values()), 'working_copy_rows': sum(new.values()),
+                     'original_rows_preserved': not bool(old - new), 'same_rows_and_values': old == new,
+                     'compared_original_columns': len(columns)}
+        result['table_comparisons'][table] = entry
+        if table in identities and not entry.get('same_rows_and_values', False):
+            result['all_identity_rows_unchanged'] = False
+        if table in accounting_tables and not entry.get('same_rows_and_values', False):
+            result['all_historical_accounting_rows_unchanged'] = False
+    result['added_tables'] = sorted(target_tables - set(tables) - {'sqlite_sequence'})
+    result['integrity_ok'] = after.execute('PRAGMA integrity_check').fetchall() == [('ok',)]
+    result['foreign_key_violations'] = len(after.execute('PRAGMA foreign_key_check').fetchall())
+    before.close()
+    after.close()
+    return result
+
+def probe(name, path):
+    require(owned(name), 'API_TARGET_OWNER_MISMATCH')
+    script = """const p=JSON.parse(await Bun.stdin.text());try{const r=await fetch('http://127.0.0.1:3000'+p,{redirect:'error',signal:AbortSignal.timeout(2500)});const b=await r.arrayBuffer();if(b.byteLength>1048576)throw new Error('large');console.log(JSON.stringify({status:r.status,payload:JSON.parse(new TextDecoder().decode(b))}))}catch{console.log(JSON.stringify({unavailable:true}))}"""
+    p = subprocess.run(DOCKER + ['run', '--rm', '--pull=never', '--interactive', '--log-driver', 'none',
+                      '--cpus', '0.25', '--memory', '128m', '--pids-limit', '64', '--label', LABEL + '=' + nonce,
+                      '--network', 'container:' + name, '--entrypoint', 'bun', ACTOR, '--eval', script],
+                       env=docker_env, input=json.dumps(path), text=True, capture_output=True, timeout=15)
+    require(p.returncode == 0, 'LOOPBACK_PROBE_FAILED')
+    return json.loads(p.stdout)
+
+def asset_probe(name):
+    require(owned(name), 'ASSET_TARGET_OWNER_MISMATCH')
+    script = r"""const base='http://127.0.0.1:3000';const get=async p=>{const r=await fetch(base+p,{redirect:'error',signal:AbortSignal.timeout(3000)});if(r.status!==200)throw new Error('http');const b=await r.arrayBuffer();if(b.byteLength>20000000)throw new Error('size');return new Uint8Array(b)};try{const data=await get('/');const html=new TextDecoder().decode(data);const paths=[...html.matchAll(/<script[^>]*src=["']([^"']+)["']/g)].map(m=>m[1]);const hash=b=>new Bun.CryptoHasher('sha256').update(b).digest('hex');const files=[];let version=false,source=false;for(const path of paths){if(!path.startsWith('/')||path.startsWith('//'))throw new Error('scope');const b=await get(path);const t=new TextDecoder().decode(b);version ||= t.includes('0.2.0-beta.25');source ||= t.includes('12769cad4553430cd750e07ef62304c5f60cbc7e');files.push({path,sha256:hash(b)})};console.log(JSON.stringify({index_sha256:hash(data),scripts:files,version,source}))}catch{console.log(JSON.stringify({failure:true}))}"""
+    script = script.replace('12769cad4553430cd750e07ef62304c5f60cbc7e', identity['source_sha'])
+    p = subprocess.run(DOCKER + ['run', '--rm', '--pull=never', '--log-driver', 'none', '--cpus', '0.25', '--memory', '128m', '--pids-limit', '64', '--label', LABEL+'='+nonce, '--network', 'container:'+name, '--entrypoint', 'bun', ACTOR, '--eval', script], env=docker_env, text=True, capture_output=True, timeout=30)
+    require(p.returncode == 0, 'ASSET_PROBE_FAILED')
+    result = json.loads(p.stdout)
+    require(not result.get('failure') and len(result.get('scripts', [])) == 5 and result.get('version') and result.get('source'), 'ASSET_REVISION_MISMATCH')
+    return result
+
+def stop_clone(name):
+    p = subprocess.Popen(DOCKER + ['stop', '--time', '-1', name], env=docker_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    try:
+        p.communicate(timeout=30)
+    except subprocess.TimeoutExpired:
+        p.terminate()
+        p.communicate(timeout=5)
+        raise RuntimeError('CLONE_DRAIN_NOT_COMPLETED_NO_FORCE_KILL')
+    require(p.returncode == 0, 'CLONE_STOP_FAILED')
+
+def run_phase(key, image, expected_version):
+    folder = backup / (key + '-working-copy')
+    folder.mkdir(mode=0o700)
+    data, logs = folder / 'data', folder / 'logs'
+    data.mkdir(mode=0o700)
+    logs.mkdir(mode=0o700)
+    dbpath = data / 'my-api.db'
+    shutil.copy2(original, dbpath)
+    dbpath.chmod(0o600)
+    shutil.copytree(backup / 'original/data-files', data, dirs_exist_ok=True)
+    shutil.copytree(backup / 'original/logs', logs, dirs_exist_ok=True)
+    require(digest(dbpath) == state['backup_sha256'], 'WORKING_COPY_NOT_FROM_ORIGINAL_BACKUP')
+    result = {'image': image, 'expected_version': expected_version, 'working_directory': str(folder),
+              'copied_from_original_backup': True, 'network_mode_verified_none': False, 'success': False}
+    report['phases'][key] = result
+    save()
+    print(json.dumps({'phase': key, 'action': 'starting_network_none_copy'}), flush=True)
+    name = 'myapi-old-db-' + key + '-' + nonce
+    cfg = dict(item.split('=', 1) for item in info['Config']['Env'])
+    require(cfg.get('SQLITE_PATH') == '/data/my-api.db', 'UNREVIEWED_SQLITE_TARGET')
+    copied_env = dict(docker_env)
+    copied_env.update(cfg)
+    changes = {'GOMAXPROCS': '1', 'GOMEMLIMIT': '512MiB'}
+    require(cfg.get('MYAPI_UPSTREAM_ACCEPTANCE_ENABLED', '') in ['', 'false'], 'PRODUCTION_ACCEPTANCE_MUST_STAY_OFF')
+    copied_env.update(changes)
+    old_config = json.loads(docker(['image', 'inspect', OLD]))[0]['Config']
+    require(info['Config'].get('Entrypoint') == old_config.get('Entrypoint'), 'UNREVIEWED_CUSTOM_ENTRYPOINT')
+    args = ['run', '--detach', '--pull=never', '--name', name, '--label', LABEL + '=' + nonce,
+            '--network', 'none', '--restart', 'no', '--cpus', '1', '--memory', '768m', '--pids-limit', '256',
+            '--log-driver', 'none', '--mount', 'type=bind,src=' + str(data) + ',dst=/data',
+            '--mount', 'type=bind,src=' + str(logs) + ',dst=/app/logs']
+    # Capture stdout/stderr inside the private clone tree instead of Docker's shared logs.
+    image_config = json.loads(docker(['image', 'inspect', image]))[0]['Config']
+    entrypoint = image_config.get('Entrypoint') or []
+    require(len(entrypoint) == 1 and entrypoint[0].startswith('/'), 'UNREVIEWED_IMAGE_ENTRYPOINT')
+    cmd = info['Config'].get('Cmd') or []
+    require(cmd == ['--log-dir', '/app/logs'], 'UNREVIEWED_ORIGINAL_COMMAND')
+    args += ['--entrypoint', '/bin/sh']
+    if info['Config'].get('WorkingDir'):
+        args += ['--workdir', info['Config']['WorkingDir']]
+    for name_key in sorted(set(cfg) | set(changes)):
+        args += ['--env', name_key]
+    args += [image, '-c', 'exec "$@" > /app/logs/console.private.log 2>&1', 'private-startup-log', entrypoint[0]] + cmd
+    docker(args, env=copied_env)
+    created.append(name)
+    try:
+        runtime = inspect(name)
+        require(runtime['Image'] == image, 'CLONE_IMAGE_MISMATCH')
+        require(runtime['HostConfig']['NetworkMode'] == 'none' and not runtime['HostConfig'].get('PortBindings'), 'CLONE_NETWORK_ISOLATION_FAILED')
+        require({m['Source'] for m in runtime['Mounts']} == {str(data), str(logs)}, 'CLONE_MOUNT_NOT_OWNED')
+        result['network_mode_verified_none'] = True
+        result['original_config_and_keyring_preserved'] = all(
+            dict(item.split('=', 1) for item in runtime['Config']['Env']).get(k) == v for k, v in cfg.items() if k not in changes)
+        require(result['original_config_and_keyring_preserved'], 'CONFIG_IDENTITY_NOT_PRESERVED')
+        deadline = time.monotonic() + 50
+        status = None
+        while time.monotonic() < deadline:
+            current = inspect(name)
+            if not current['State']['Running']:
+                result['startup_exit_code'] = current['State']['ExitCode']
+                break
+            response = probe(name, '/api/status')
+            if response.get('status') == 200 and response.get('payload', {}).get('success') is True:
+                status = response['payload']['data']
+                break
+            time.sleep(0.3)
+        if status is not None:
+            result['public_version'] = status.get('version')
+            require(status.get('version') == expected_version, 'CLONE_PUBLIC_VERSION_MISMATCH')
+            setup = probe(name, '/api/setup')
+            require(setup.get('status') == 200 and setup['payload'].get('success') is True and setup['payload']['data'].get('status') is True, 'RESTORED_SETUP_NOT_INITIALIZED')
+            result['initialized_setup_preserved'] = True
+            result['startup_qualification_passed'] = True
+            if key == 'beta25': result['frontend'] = asset_probe(name)
+        else:
+            result['startup_qualification_passed'] = False
+            log_path = logs / 'console.private.log'
+            text = log_path.read_text(errors='replace') if log_path.exists() else ''
+            known = ['cannot verify quota writer mode for batch startup', 'cannot verify quota amount',
+                     'cannot verify account quota execution gate', 'legacy or bridge quota batching requires Redis',
+                     'database migration', 'channel quota identity', 'task recovery database identity']
+            result['safe_startup_diagnostics'] = [value for value in known if value in text]
+            result['failure_code'] = 'STARTUP_REFUSED' if 'startup_exit_code' in result else 'READINESS_TIMEOUT'
+        require(owned(name), 'CLONE_OWNER_MISMATCH')
+        if inspect(name)['State']['Running']:
+            stop_clone(name)
+        result['final_exit_code'] = inspect(name)['State']['ExitCode']
+        comparison = compare(dbpath)
+        result['comparison'] = comparison
+        result['accounting_after'] = accounting(dbpath)
+        result['working_db_sha256_after'] = digest(dbpath)
+        result['success'] = bool(result.get('startup_qualification_passed') and result['final_exit_code'] == 0
+                                and comparison['all_identity_rows_unchanged'] and comparison['all_historical_accounting_rows_unchanged']
+                                and comparison['integrity_ok'] and comparison['foreign_key_violations'] == 0)
+    finally:
+        if name in created and owned(name):
+            if inspect(name)['State']['Running']:
+                stop_clone(name)
+            docker(['rm', name])
+            created.remove(name)
+        # Keep original backup and both working copies private for audit/recovery.
+        for p in folder.rglob('*'):
+            require(not p.is_symlink(), 'UNEXPECTED_CLONE_SYMLINK')
+            p.chmod(0o700 if p.is_dir() else 0o600)
+        save()
+    print(json.dumps({'phase': key, 'success': result['success'],
+                      'startup_qualification_passed': result.get('startup_qualification_passed'),
+                      'identity_unchanged': result.get('comparison', {}).get('all_identity_rows_unchanged'),
+                      'historical_accounting_unchanged': result.get('comparison', {}).get('all_historical_accounting_rows_unchanged')}), flush=True)
+
+try:
+    require(digest(original) == state['backup_sha256'], 'ORIGINAL_BACKUP_CHANGED')
+    current = inspect(TARGET)
+    require(current['Image'] == OLD and current['State']['Running'] and current['State']['Health']['Status'] == 'healthy', 'ORIGINAL_NOT_HEALTHY')
+    report['accounting_before'] = accounting(original)
+    run_phase('beta25', NEW, '0.2.0-beta.25')
+    # A candidate gate refusal is preserved; this independent recovery check still uses the untouched original backup.
+    run_phase('beta21-restore', OLD, '0.2.0-beta.21')
+    report['success'] = all(v['success'] for v in report['phases'].values())
+except Exception as error:
+    code = str(error)
+    report['failure_code'] = code if code.isupper() and len(code) < 120 else type(error).__name__
+finally:
+    for name in list(created):
+        try:
+            require(owned(name), 'CLONE_OWNER_MISMATCH')
+            if inspect(name)['State']['Running']: stop_clone(name)
+            docker(['rm', name])
+            created.remove(name)
+        except Exception:
+            report['cleanup_error'] = True
+    report['owned_containers_removed'] = not created
+    report['original_backup_unchanged'] = digest(original) == state['backup_sha256']
+    end = inspect(TARGET)
+    report['original_target_unchanged_and_healthy'] = bool(end['Id'] == TARGET and end['Image'] == OLD
+        and end['State']['Running'] and end['State']['Health']['Status'] == 'healthy'
+        and end['Config'] == info['Config'] and end['HostConfig'] == info['HostConfig'])
+    report['private_permissions_correct'] = all(not p.is_symlink() and (p.stat().st_mode & 0o777) == (0o700 if p.is_dir() else 0o600)
+                                                  for p in [backup] + list(backup.rglob('*')))
+    report['success'] = bool(report['success'] and report['owned_containers_removed'] and report['original_backup_unchanged']
+        and report['original_target_unchanged_and_healthy'] and report['private_permissions_correct'])
+    report['finished_at'] = datetime.now(timezone.utc).isoformat()
+    save()
+    print(json.dumps({'success': report['success'], 'failure_code': report.get('failure_code'),
+                      'owned_containers_removed': report['owned_containers_removed'],
+                      'original_backup_unchanged': report['original_backup_unchanged'],
+                      'original_target_unchanged_and_healthy': report['original_target_unchanged_and_healthy'],
+                      'private_permissions_correct': report['private_permissions_correct'], 'result': str(OUT)}), flush=True)
+    raise SystemExit(0 if report['success'] else 1)

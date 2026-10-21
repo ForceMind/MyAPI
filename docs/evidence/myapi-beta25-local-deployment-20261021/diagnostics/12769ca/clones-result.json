@@ -1,0 +1,1917 @@
+{
+  "started_at": "2026-10-21T02:59:52.463378+00:00",
+  "backup_directory": "/root/new-api/backups/beta25-preflight-20261021-fcf6015570ad",
+  "backup_database_sha256": "f3f1d6494d3b99913f377b331f60f23137e275590608d90a5e0419d701ab2935",
+  "target_id": "82702a71f650a486c635a643d3c9bd01cc1c0a2cceffeae8e6b265d881dabde0",
+  "old_image": "sha256:5726995bf0a66bf2a125c9c69a90e7d5cea0e052151ff0aaf31b375d817893d6",
+  "candidate_image": "sha256:5e25cdf025aede2518485d356ebb8afe6e877d992d20eee27ac41b0fdd22ae0a",
+  "candidate_source_config_digest": "sha256:7a8b677d0d59a3b8cb06323503ec0990565f9ec89a93a19e0e84ec302d595fbe",
+  "deployed": false,
+  "production_container_stopped_or_modified": false,
+  "redis_contacted": false,
+  "supplier_http_invoked": 0,
+  "network_mode": "none; API actor shares clone loopback namespace",
+  "operator_http": "GET /api/status, /api/setup and candidate embedded frontend assets only",
+  "phases": {
+    "beta25": {
+      "image": "sha256:5e25cdf025aede2518485d356ebb8afe6e877d992d20eee27ac41b0fdd22ae0a",
+      "expected_version": "0.2.0-beta.25",
+      "working_directory": "/root/new-api/backups/beta25-preflight-20261021-fcf6015570ad/beta25-working-copy",
+      "copied_from_original_backup": true,
+      "network_mode_verified_none": true,
+      "success": true,
+      "original_config_and_keyring_preserved": true,
+      "public_version": "0.2.0-beta.25",
+      "initialized_setup_preserved": true,
+      "startup_qualification_passed": true,
+      "frontend": {
+        "index_sha256": "9a6160a4c21cfcf4a5c043ae2b2a94d654d597bd8109b7690b7a1bbba867de55",
+        "scripts": [
+          {
+            "path": "/static/js/vendor-ui-primitives.58b39db179.js",
+            "sha256": "8ff74d840f89685eb4efcd80219517d0373a6e9b0b6a205200d93dfd6f54436e"
+          },
+          {
+            "path": "/static/js/vendor-tanstack.581930b28b.js",
+            "sha256": "fd821024c58c7d0a63e32d0ec2f1f9011ccf6028a798a612d4e46df3e2dcbbff"
+          },
+          {
+            "path": "/static/js/lib-react.85aeb5b438.js",
+            "sha256": "940d8842390f48570e4bbcfc281c172f7d0b2543854041c8683a3fbcbdb313ee"
+          },
+          {
+            "path": "/static/js/5009.327dbd4ff6.js",
+            "sha256": "aa916334de073b08efcb6a13485e855d759ba63c9961c80244bcfe543fdec1d7"
+          },
+          {
+            "path": "/static/js/index.080c524049.js",
+            "sha256": "64417e806bc5c3387ae0f6f66e2c8aa733d9c4d3e58770f29b943b2b2c44745f"
+          }
+        ],
+        "version": true,
+        "source": true
+      },
+      "final_exit_code": 0,
+      "comparison": {
+        "table_comparisons": {
+          "abilities": {
+            "original_rows": 16,
+            "working_copy_rows": 16,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 7
+          },
+          "account_quota_execution_gates": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 5
+          },
+          "account_quota_execution_permits": {
+            "original_rows": 550,
+            "working_copy_rows": 550,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 26
+          },
+          "account_quota_mutation_receipts": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 25
+          },
+          "account_quota_refund_facts": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 24
+          },
+          "account_quota_reservation_heads": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 15
+          },
+          "account_quota_settlement_facts": {
+            "original_rows": 550,
+            "working_copy_rows": 550,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 25
+          },
+          "account_quota_settlement_intents": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 21
+          },
+          "account_quota_terminal_recovery_obligations": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 19
+          },
+          "admin_quota_adjustments": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 12
+          },
+          "aff_quota_transfers": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 7
+          },
+          "assigned_access_policies": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 6
+          },
+          "auth_flows": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 11
+          },
+          "authz_roles": {
+            "original_rows": 2,
+            "working_copy_rows": 2,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 9
+          },
+          "billing_log_projection_identities": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 6
+          },
+          "casbin_rule": {
+            "original_rows": 3,
+            "working_copy_rows": 3,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 8
+          },
+          "channel_model_discoveries": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 9
+          },
+          "channel_quota_alert_events": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 20
+          },
+          "channel_quota_alert_states": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 18
+          },
+          "channel_quota_identity_aliases": {
+            "original_rows": 9,
+            "working_copy_rows": 9,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 5
+          },
+          "channel_quota_identity_key_registries": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 5
+          },
+          "channel_quota_identity_key_versions": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 3
+          },
+          "channel_quota_sampling_targets": {
+            "original_rows": 6,
+            "working_copy_rows": 6,
+            "original_rows_preserved": false,
+            "same_rows_and_values": false,
+            "compared_original_columns": 12
+          },
+          "channel_quota_snapshots": {
+            "original_rows": 36641,
+            "working_copy_rows": 36644,
+            "original_rows_preserved": true,
+            "same_rows_and_values": false,
+            "compared_original_columns": 25
+          },
+          "channel_routing_epochs": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 4
+          },
+          "channel_routing_operations": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 6
+          },
+          "channels": {
+            "original_rows": 3,
+            "working_copy_rows": 3,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 32
+          },
+          "checkins": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 5
+          },
+          "custom_oauth_providers": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 21
+          },
+          "external_identity_claims": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 5
+          },
+          "invite_reward_grants": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 5
+          },
+          "legacy_usage_reservations": {
+            "original_rows": 557,
+            "working_copy_rows": 557,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 20
+          },
+          "log_projection_backfill_states": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 15
+          },
+          "logs": {
+            "original_rows": 558,
+            "working_copy_rows": 558,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 24
+          },
+          "midjourneys": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 25
+          },
+          "models": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 13
+          },
+          "official_price_versions": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 3
+          },
+          "option_remediation_backups": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 5
+          },
+          "option_remediations": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 11
+          },
+          "options": {
+            "original_rows": 13,
+            "working_copy_rows": 13,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 2
+          },
+          "passkey_credentials": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 18
+          },
+          "perf_metrics": {
+            "original_rows": 20,
+            "working_copy_rows": 20,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 11
+          },
+          "prefill_groups": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 8
+          },
+          "price_publications": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 9
+          },
+          "prompt_instruction_applications": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 16
+          },
+          "prompt_instruction_versions": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 10
+          },
+          "prompt_learning_policies": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 8
+          },
+          "prompt_learning_runs": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 19
+          },
+          "prompt_learning_samples": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 13
+          },
+          "quota_balance_batch_drains": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 17
+          },
+          "quota_balance_batch_subjects": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 4
+          },
+          "quota_data": {
+            "original_rows": 244,
+            "working_copy_rows": 244,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 12
+          },
+          "quota_mutation_receipts": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 35
+          },
+          "quota_projection_obligations": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 23
+          },
+          "quota_work_cursors": {
+            "original_rows": 6,
+            "working_copy_rows": 6,
+            "original_rows_preserved": false,
+            "same_rows_and_values": false,
+            "compared_original_columns": 5
+          },
+          "quota_writer_epochs": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 6
+          },
+          "quota_writer_mode_transitions": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 14
+          },
+          "redemptions": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 11
+          },
+          "relay_account_holds": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 4
+          },
+          "setups": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 3
+          },
+          "subscription_orders": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 12
+          },
+          "subscription_plans": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 23
+          },
+          "subscription_pre_consume_records": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 8
+          },
+          "subscription_share_account_gates": {
+            "original_rows": 3,
+            "working_copy_rows": 3,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 3
+          },
+          "subscription_share_allocation_usages": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 4
+          },
+          "subscription_share_allocations": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 7
+          },
+          "subscription_share_attempt_windows": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 7
+          },
+          "subscription_share_attempts": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 10
+          },
+          "subscription_share_audits": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 22
+          },
+          "subscription_share_generations": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 19
+          },
+          "subscription_share_pools": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 17
+          },
+          "subscription_share_sample_applications": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 13
+          },
+          "system_instances": {
+            "original_rows": 1,
+            "working_copy_rows": 2,
+            "original_rows_preserved": true,
+            "same_rows_and_values": false,
+            "compared_original_columns": 6
+          },
+          "system_task_locks": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 6
+          },
+          "system_tasks": {
+            "original_rows": 26449,
+            "working_copy_rows": 26451,
+            "original_rows_preserved": true,
+            "same_rows_and_values": false,
+            "compared_original_columns": 13
+          },
+          "task_billing_events": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 35
+          },
+          "task_billing_log_outboxes": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 15
+          },
+          "task_recovery_identities": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 4
+          },
+          "task_submission_attempts": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 17
+          },
+          "task_submission_operations": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 26
+          },
+          "task_terminal_observations": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 34
+          },
+          "tasks": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 23
+          },
+          "token_account_migration_receipts": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 14
+          },
+          "token_budget_policy_changes": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 7
+          },
+          "token_budget_reservations": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 28
+          },
+          "token_budgets": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 15
+          },
+          "token_credential_dispatch_admissions": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 14
+          },
+          "token_credential_rotation_receipts": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 12
+          },
+          "token_quota_adjustments": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 13
+          },
+          "tokens": {
+            "original_rows": 8,
+            "working_copy_rows": 8,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 21
+          },
+          "top_ups": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 17
+          },
+          "two_fa_backup_codes": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 7
+          },
+          "two_fas": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 10
+          },
+          "upstream_acceptance_runs": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 23
+          },
+          "usage_review_decisions": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 16
+          },
+          "user_oauth_bindings": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 5
+          },
+          "user_quota_mutation_receipts": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 17
+          },
+          "user_sessions": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 16
+          },
+          "user_subscriptions": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 18
+          },
+          "user_usage_policy_changes": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 7
+          },
+          "users": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 35
+          },
+          "vendors": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 8
+          }
+        },
+        "all_identity_rows_unchanged": true,
+        "all_historical_accounting_rows_unchanged": true,
+        "added_tables": [],
+        "integrity_ok": true,
+        "foreign_key_violations": 0
+      },
+      "accounting_after": {
+        "quota_writer_epochs": [
+          {
+            "id": 1,
+            "schema_version": 1,
+            "mode": "legacy",
+            "epoch": 1,
+            "lock_version": 1,
+            "updated_at": 1791954403
+          }
+        ],
+        "account_quota_execution_gates": [
+          {
+            "id": 1,
+            "schema_version": 1,
+            "state": "enforcing",
+            "created_at": 1791954403,
+            "updated_at": 1791954403
+          }
+        ],
+        "quota_work_cursors": [
+          {
+            "name": "account_quota_migration_v2",
+            "last_id": 0,
+            "high_watermark": 0,
+            "complete": 1,
+            "updated_at": 1791954403
+          },
+          {
+            "name": "quota_balance_migration_v2",
+            "last_id": 0,
+            "high_watermark": 0,
+            "complete": 1,
+            "updated_at": 1791954403
+          },
+          {
+            "name": "account_settlement_intent_v1",
+            "last_id": 0,
+            "high_watermark": 0,
+            "complete": 0,
+            "updated_at": 1792551596
+          },
+          {
+            "name": "account_refund_fact_v1",
+            "last_id": 0,
+            "high_watermark": 0,
+            "complete": 0,
+            "updated_at": 1792551596
+          },
+          {
+            "name": "account_settlement_fact_v1",
+            "last_id": 0,
+            "high_watermark": 0,
+            "complete": 0,
+            "updated_at": 1792551596
+          },
+          {
+            "name": "usage_review_projection_v1",
+            "last_id": 0,
+            "high_watermark": 0,
+            "complete": 0,
+            "updated_at": 1792551596
+          }
+        ],
+        "account_quota_execution_permits": {
+          "rows": 550,
+          "state_counts": {
+            "active": 550
+          },
+          "kind_counts": {
+            "legacy_self_use": 550
+          }
+        },
+        "account_quota_settlement_facts": {
+          "rows": 550,
+          "state_counts": {
+            "applied": 550
+          },
+          "kind_counts": {
+            "legacy_self_use": 550
+          }
+        },
+        "account_quota_settlement_intents": {
+          "rows": 0,
+          "state_counts": {},
+          "kind_counts": {}
+        },
+        "account_quota_refund_facts": {
+          "rows": 1,
+          "state_counts": {
+            "applied": 1
+          },
+          "kind_counts": {
+            "legacy_self_use": 1
+          }
+        },
+        "legacy_usage_reservations": {
+          "rows": 557,
+          "state_counts": {
+            "admission_failed": 1,
+            "settled": 550,
+            "usage_unknown": 6
+          }
+        },
+        "account_quota_terminal_recovery_obligations": {
+          "rows": 0,
+          "state_counts": {}
+        },
+        "quota_projection_obligations": {
+          "rows": 0,
+          "state_counts": {}
+        },
+        "quota_balance_batch_drains": {
+          "rows": 0,
+          "state_counts": {}
+        },
+        "quota_balance_batch_subjects": {
+          "rows": 0
+        },
+        "token_budget_reservations": {
+          "rows": 0,
+          "state_counts": {}
+        },
+        "relay_account_holds": {
+          "rows": 0
+        },
+        "user_subscriptions": {
+          "rows": 0,
+          "status_counts": {}
+        }
+      },
+      "working_db_sha256_after": "bfeb01b4f780a273f2ae0063f851fc3370e1e7c96b6ab420e6528f709be12ec8"
+    },
+    "beta21-restore": {
+      "image": "sha256:5726995bf0a66bf2a125c9c69a90e7d5cea0e052151ff0aaf31b375d817893d6",
+      "expected_version": "0.2.0-beta.21",
+      "working_directory": "/root/new-api/backups/beta25-preflight-20261021-fcf6015570ad/beta21-restore-working-copy",
+      "copied_from_original_backup": true,
+      "network_mode_verified_none": true,
+      "success": true,
+      "original_config_and_keyring_preserved": true,
+      "public_version": "0.2.0-beta.21",
+      "initialized_setup_preserved": true,
+      "startup_qualification_passed": true,
+      "final_exit_code": 0,
+      "comparison": {
+        "table_comparisons": {
+          "abilities": {
+            "original_rows": 16,
+            "working_copy_rows": 16,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 7
+          },
+          "account_quota_execution_gates": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 5
+          },
+          "account_quota_execution_permits": {
+            "original_rows": 550,
+            "working_copy_rows": 550,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 26
+          },
+          "account_quota_mutation_receipts": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 25
+          },
+          "account_quota_refund_facts": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 24
+          },
+          "account_quota_reservation_heads": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 15
+          },
+          "account_quota_settlement_facts": {
+            "original_rows": 550,
+            "working_copy_rows": 550,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 25
+          },
+          "account_quota_settlement_intents": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 21
+          },
+          "account_quota_terminal_recovery_obligations": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 19
+          },
+          "admin_quota_adjustments": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 12
+          },
+          "aff_quota_transfers": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 7
+          },
+          "assigned_access_policies": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 6
+          },
+          "auth_flows": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 11
+          },
+          "authz_roles": {
+            "original_rows": 2,
+            "working_copy_rows": 2,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 9
+          },
+          "billing_log_projection_identities": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 6
+          },
+          "casbin_rule": {
+            "original_rows": 3,
+            "working_copy_rows": 3,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 8
+          },
+          "channel_model_discoveries": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 9
+          },
+          "channel_quota_alert_events": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 20
+          },
+          "channel_quota_alert_states": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 18
+          },
+          "channel_quota_identity_aliases": {
+            "original_rows": 9,
+            "working_copy_rows": 9,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 5
+          },
+          "channel_quota_identity_key_registries": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 5
+          },
+          "channel_quota_identity_key_versions": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 3
+          },
+          "channel_quota_sampling_targets": {
+            "original_rows": 6,
+            "working_copy_rows": 6,
+            "original_rows_preserved": false,
+            "same_rows_and_values": false,
+            "compared_original_columns": 12
+          },
+          "channel_quota_snapshots": {
+            "original_rows": 36641,
+            "working_copy_rows": 36644,
+            "original_rows_preserved": true,
+            "same_rows_and_values": false,
+            "compared_original_columns": 25
+          },
+          "channel_routing_epochs": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 4
+          },
+          "channel_routing_operations": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 6
+          },
+          "channels": {
+            "original_rows": 3,
+            "working_copy_rows": 3,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 32
+          },
+          "checkins": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 5
+          },
+          "custom_oauth_providers": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 21
+          },
+          "external_identity_claims": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 5
+          },
+          "invite_reward_grants": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 5
+          },
+          "legacy_usage_reservations": {
+            "original_rows": 557,
+            "working_copy_rows": 557,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 20
+          },
+          "log_projection_backfill_states": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 15
+          },
+          "logs": {
+            "original_rows": 558,
+            "working_copy_rows": 558,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 24
+          },
+          "midjourneys": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 25
+          },
+          "models": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 13
+          },
+          "official_price_versions": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 3
+          },
+          "option_remediation_backups": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 5
+          },
+          "option_remediations": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 11
+          },
+          "options": {
+            "original_rows": 13,
+            "working_copy_rows": 13,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 2
+          },
+          "passkey_credentials": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 18
+          },
+          "perf_metrics": {
+            "original_rows": 20,
+            "working_copy_rows": 20,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 11
+          },
+          "prefill_groups": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 8
+          },
+          "price_publications": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 9
+          },
+          "prompt_instruction_applications": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 16
+          },
+          "prompt_instruction_versions": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 10
+          },
+          "prompt_learning_policies": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 8
+          },
+          "prompt_learning_runs": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 19
+          },
+          "prompt_learning_samples": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 13
+          },
+          "quota_balance_batch_drains": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 17
+          },
+          "quota_balance_batch_subjects": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 4
+          },
+          "quota_data": {
+            "original_rows": 244,
+            "working_copy_rows": 244,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 12
+          },
+          "quota_mutation_receipts": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 35
+          },
+          "quota_projection_obligations": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 23
+          },
+          "quota_work_cursors": {
+            "original_rows": 6,
+            "working_copy_rows": 6,
+            "original_rows_preserved": false,
+            "same_rows_and_values": false,
+            "compared_original_columns": 5
+          },
+          "quota_writer_epochs": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 6
+          },
+          "quota_writer_mode_transitions": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 14
+          },
+          "redemptions": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 11
+          },
+          "relay_account_holds": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 4
+          },
+          "setups": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 3
+          },
+          "subscription_orders": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 12
+          },
+          "subscription_plans": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 23
+          },
+          "subscription_pre_consume_records": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 8
+          },
+          "subscription_share_account_gates": {
+            "original_rows": 3,
+            "working_copy_rows": 3,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 3
+          },
+          "subscription_share_allocation_usages": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 4
+          },
+          "subscription_share_allocations": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 7
+          },
+          "subscription_share_attempt_windows": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 7
+          },
+          "subscription_share_attempts": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 10
+          },
+          "subscription_share_audits": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 22
+          },
+          "subscription_share_generations": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 19
+          },
+          "subscription_share_pools": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 17
+          },
+          "subscription_share_sample_applications": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 13
+          },
+          "system_instances": {
+            "original_rows": 1,
+            "working_copy_rows": 2,
+            "original_rows_preserved": true,
+            "same_rows_and_values": false,
+            "compared_original_columns": 6
+          },
+          "system_task_locks": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 6
+          },
+          "system_tasks": {
+            "original_rows": 26449,
+            "working_copy_rows": 26451,
+            "original_rows_preserved": true,
+            "same_rows_and_values": false,
+            "compared_original_columns": 13
+          },
+          "task_billing_events": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 35
+          },
+          "task_billing_log_outboxes": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 15
+          },
+          "task_recovery_identities": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 4
+          },
+          "task_submission_attempts": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 17
+          },
+          "task_submission_operations": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 26
+          },
+          "task_terminal_observations": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 34
+          },
+          "tasks": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 23
+          },
+          "token_account_migration_receipts": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 14
+          },
+          "token_budget_policy_changes": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 7
+          },
+          "token_budget_reservations": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 28
+          },
+          "token_budgets": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 15
+          },
+          "token_credential_dispatch_admissions": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 14
+          },
+          "token_credential_rotation_receipts": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 12
+          },
+          "token_quota_adjustments": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 13
+          },
+          "tokens": {
+            "original_rows": 8,
+            "working_copy_rows": 8,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 21
+          },
+          "top_ups": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 17
+          },
+          "two_fa_backup_codes": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 7
+          },
+          "two_fas": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 10
+          },
+          "upstream_acceptance_runs": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 23
+          },
+          "usage_review_decisions": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 16
+          },
+          "user_oauth_bindings": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 5
+          },
+          "user_quota_mutation_receipts": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 17
+          },
+          "user_sessions": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 16
+          },
+          "user_subscriptions": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 18
+          },
+          "user_usage_policy_changes": {
+            "original_rows": 0,
+            "working_copy_rows": 0,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 7
+          },
+          "users": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 35
+          },
+          "vendors": {
+            "original_rows": 1,
+            "working_copy_rows": 1,
+            "original_rows_preserved": true,
+            "same_rows_and_values": true,
+            "compared_original_columns": 8
+          }
+        },
+        "all_identity_rows_unchanged": true,
+        "all_historical_accounting_rows_unchanged": true,
+        "added_tables": [],
+        "integrity_ok": true,
+        "foreign_key_violations": 0
+      },
+      "accounting_after": {
+        "quota_writer_epochs": [
+          {
+            "id": 1,
+            "schema_version": 1,
+            "mode": "legacy",
+            "epoch": 1,
+            "lock_version": 1,
+            "updated_at": 1791954403
+          }
+        ],
+        "account_quota_execution_gates": [
+          {
+            "id": 1,
+            "schema_version": 1,
+            "state": "enforcing",
+            "created_at": 1791954403,
+            "updated_at": 1791954403
+          }
+        ],
+        "quota_work_cursors": [
+          {
+            "name": "account_quota_migration_v2",
+            "last_id": 0,
+            "high_watermark": 0,
+            "complete": 1,
+            "updated_at": 1791954403
+          },
+          {
+            "name": "quota_balance_migration_v2",
+            "last_id": 0,
+            "high_watermark": 0,
+            "complete": 1,
+            "updated_at": 1791954403
+          },
+          {
+            "name": "account_settlement_intent_v1",
+            "last_id": 0,
+            "high_watermark": 0,
+            "complete": 0,
+            "updated_at": 1792551602
+          },
+          {
+            "name": "account_refund_fact_v1",
+            "last_id": 0,
+            "high_watermark": 0,
+            "complete": 0,
+            "updated_at": 1792551602
+          },
+          {
+            "name": "account_settlement_fact_v1",
+            "last_id": 0,
+            "high_watermark": 0,
+            "complete": 0,
+            "updated_at": 1792551602
+          },
+          {
+            "name": "usage_review_projection_v1",
+            "last_id": 0,
+            "high_watermark": 0,
+            "complete": 0,
+            "updated_at": 1792551602
+          }
+        ],
+        "account_quota_execution_permits": {
+          "rows": 550,
+          "state_counts": {
+            "active": 550
+          },
+          "kind_counts": {
+            "legacy_self_use": 550
+          }
+        },
+        "account_quota_settlement_facts": {
+          "rows": 550,
+          "state_counts": {
+            "applied": 550
+          },
+          "kind_counts": {
+            "legacy_self_use": 550
+          }
+        },
+        "account_quota_settlement_intents": {
+          "rows": 0,
+          "state_counts": {},
+          "kind_counts": {}
+        },
+        "account_quota_refund_facts": {
+          "rows": 1,
+          "state_counts": {
+            "applied": 1
+          },
+          "kind_counts": {
+            "legacy_self_use": 1
+          }
+        },
+        "legacy_usage_reservations": {
+          "rows": 557,
+          "state_counts": {
+            "admission_failed": 1,
+            "settled": 550,
+            "usage_unknown": 6
+          }
+        },
+        "account_quota_terminal_recovery_obligations": {
+          "rows": 0,
+          "state_counts": {}
+        },
+        "quota_projection_obligations": {
+          "rows": 0,
+          "state_counts": {}
+        },
+        "quota_balance_batch_drains": {
+          "rows": 0,
+          "state_counts": {}
+        },
+        "quota_balance_batch_subjects": {
+          "rows": 0
+        },
+        "token_budget_reservations": {
+          "rows": 0,
+          "state_counts": {}
+        },
+        "relay_account_holds": {
+          "rows": 0
+        },
+        "user_subscriptions": {
+          "rows": 0,
+          "status_counts": {}
+        }
+      },
+      "working_db_sha256_after": "b1cc6f8c5f1e3905d773448b86cafadb24b2a3e07b74328523292fe0e9381c03"
+    }
+  },
+  "success": true,
+  "accounting_before": {
+    "quota_writer_epochs": [
+      {
+        "id": 1,
+        "schema_version": 1,
+        "mode": "legacy",
+        "epoch": 1,
+        "lock_version": 1,
+        "updated_at": 1791954403
+      }
+    ],
+    "account_quota_execution_gates": [
+      {
+        "id": 1,
+        "schema_version": 1,
+        "state": "enforcing",
+        "created_at": 1791954403,
+        "updated_at": 1791954403
+      }
+    ],
+    "quota_work_cursors": [
+      {
+        "name": "account_quota_migration_v2",
+        "last_id": 0,
+        "high_watermark": 0,
+        "complete": 1,
+        "updated_at": 1791954403
+      },
+      {
+        "name": "quota_balance_migration_v2",
+        "last_id": 0,
+        "high_watermark": 0,
+        "complete": 1,
+        "updated_at": 1791954403
+      },
+      {
+        "name": "account_settlement_intent_v1",
+        "last_id": 0,
+        "high_watermark": 0,
+        "complete": 0,
+        "updated_at": 1792551238
+      },
+      {
+        "name": "account_refund_fact_v1",
+        "last_id": 0,
+        "high_watermark": 0,
+        "complete": 0,
+        "updated_at": 1792551238
+      },
+      {
+        "name": "account_settlement_fact_v1",
+        "last_id": 0,
+        "high_watermark": 0,
+        "complete": 0,
+        "updated_at": 1792551238
+      },
+      {
+        "name": "usage_review_projection_v1",
+        "last_id": 0,
+        "high_watermark": 0,
+        "complete": 0,
+        "updated_at": 1792551238
+      }
+    ],
+    "account_quota_execution_permits": {
+      "rows": 550,
+      "state_counts": {
+        "active": 550
+      },
+      "kind_counts": {
+        "legacy_self_use": 550
+      }
+    },
+    "account_quota_settlement_facts": {
+      "rows": 550,
+      "state_counts": {
+        "applied": 550
+      },
+      "kind_counts": {
+        "legacy_self_use": 550
+      }
+    },
+    "account_quota_settlement_intents": {
+      "rows": 0,
+      "state_counts": {},
+      "kind_counts": {}
+    },
+    "account_quota_refund_facts": {
+      "rows": 1,
+      "state_counts": {
+        "applied": 1
+      },
+      "kind_counts": {
+        "legacy_self_use": 1
+      }
+    },
+    "legacy_usage_reservations": {
+      "rows": 557,
+      "state_counts": {
+        "admission_failed": 1,
+        "settled": 550,
+        "usage_unknown": 6
+      }
+    },
+    "account_quota_terminal_recovery_obligations": {
+      "rows": 0,
+      "state_counts": {}
+    },
+    "quota_projection_obligations": {
+      "rows": 0,
+      "state_counts": {}
+    },
+    "quota_balance_batch_drains": {
+      "rows": 0,
+      "state_counts": {}
+    },
+    "quota_balance_batch_subjects": {
+      "rows": 0
+    },
+    "token_budget_reservations": {
+      "rows": 0,
+      "state_counts": {}
+    },
+    "relay_account_holds": {
+      "rows": 0
+    },
+    "user_subscriptions": {
+      "rows": 0,
+      "status_counts": {}
+    }
+  },
+  "owned_containers_removed": true,
+  "original_backup_unchanged": true,
+  "original_target_unchanged_and_healthy": true,
+  "private_permissions_correct": true,
+  "finished_at": "2026-10-21T03:00:04.308819+00:00"
+}

@@ -1,0 +1,1034 @@
+﻿2026-10-21T02:58:01.3883083Z Current runner version: '2.338.0'
+2026-10-21T02:58:01.3903074Z ##[group]Runner Image Provisioner
+2026-10-21T02:58:01.3903640Z Hosted Compute Agent
+2026-10-21T02:58:01.3904002Z Version: 20261015.610
+2026-10-21T02:58:01.3904440Z Commit: 267fdb4e8bbec4ab5ea31367f3a00d5c480c7656
+2026-10-21T02:58:01.3904924Z Build Date: 2026-10-14T17:06:54Z
+2026-10-21T02:58:01.3905326Z Worker ID: {1b2179f1-4d1c-4c3a-bc78-4049505f9c77}
+2026-10-21T02:58:01.3905811Z Region: westus3
+2026-10-21T02:58:01.3906364Z Cloud: Azure
+2026-10-21T02:58:01.3906738Z ##[endgroup]
+2026-10-21T02:58:01.3907587Z ##[group]Operating System
+2026-10-21T02:58:01.3907954Z Ubuntu
+2026-10-21T02:58:01.3908346Z 24.04.5
+2026-10-21T02:58:01.3908666Z LTS
+2026-10-21T02:58:01.3909007Z ##[endgroup]
+2026-10-21T02:58:01.3909393Z ##[group]Runner Image
+2026-10-21T02:58:01.3909758Z Image: ubuntu-24.04
+2026-10-21T02:58:01.3910139Z Version: 20261018.339.1
+2026-10-21T02:58:01.3910929Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261018.339/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-21T02:58:01.3911887Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261018.339
+2026-10-21T02:58:01.3912457Z ##[endgroup]
+2026-10-21T02:58:01.3913176Z ##[group]GITHUB_TOKEN Permissions
+2026-10-21T02:58:01.3914568Z Contents: read
+2026-10-21T02:58:01.3915020Z Metadata: read
+2026-10-21T02:58:01.3915367Z ##[endgroup]
+2026-10-21T02:58:01.3917046Z Secret source: Actions
+2026-10-21T02:58:01.3917615Z Cache mode: write
+2026-10-21T02:58:01.3918352Z Prepare workflow directory
+2026-10-21T02:58:01.5042852Z Prepare all required actions
+2026-10-21T02:58:01.5078330Z Getting action download info
+2026-10-21T02:58:01.8075729Z Download action repository 'actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0' (SHA:9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0)
+2026-10-21T02:58:02.0712139Z Download action repository 'docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c' (SHA:bb05f3f5519dd87d3ba754cc423b652a5edd6d2c)
+2026-10-21T02:58:02.9987117Z Download action repository 'actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e' (SHA:48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e)
+2026-10-21T02:58:03.4806019Z Download action repository 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' (SHA:3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c)
+2026-10-21T02:58:04.1472493Z Download action repository 'docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a' (SHA:53b7df96c91f9c12dcc8a07bcb9ccacbed38856a)
+2026-10-21T02:58:04.8415722Z Download action repository 'actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08' (SHA:65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08)
+2026-10-21T02:58:05.1914675Z Complete job name: full fresh legacy image and SQLite smoke
+2026-10-21T02:58:05.2353038Z ##[group]Run actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+2026-10-21T02:58:05.2353361Z with:
+2026-10-21T02:58:05.2353488Z   persist-credentials: false
+2026-10-21T02:58:05.2353637Z   repository: ForceMind/MyAPI
+2026-10-21T02:58:05.2355272Z   token: ***
+2026-10-21T02:58:05.2355404Z   ssh-strict: true
+2026-10-21T02:58:05.2355519Z   ssh-user: git
+2026-10-21T02:58:05.2355637Z   clean: true
+2026-10-21T02:58:05.2355762Z   sparse-checkout-cone-mode: true
+2026-10-21T02:58:05.2355914Z   fetch-depth: 1
+2026-10-21T02:58:05.2356037Z   fetch-tags: false
+2026-10-21T02:58:05.2356287Z   show-progress: true
+2026-10-21T02:58:05.2356411Z   lfs: false
+2026-10-21T02:58:05.2356518Z   submodules: false
+2026-10-21T02:58:05.2356642Z   set-safe-directory: true
+2026-10-21T02:58:05.2356783Z   allow-unsafe-pr-checkout: false
+2026-10-21T02:58:05.2357006Z env:
+2026-10-21T02:58:05.2357115Z   MYAPI_SMOKE_EDITION: full
+2026-10-21T02:58:05.2357271Z   MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
+2026-10-21T02:58:05.2357494Z   MYAPI_ISOLATED_SMOKE: 1
+2026-10-21T02:58:05.2357621Z   BUNDLE_PERSONAL: 1
+2026-10-21T02:58:05.2357744Z   MYAPI_SMOKE_PERSONAL: 1
+2026-10-21T02:58:05.2357875Z   MYAPI_SMOKE_WRITER: legacy
+2026-10-21T02:58:05.2358089Z   SMOKE_NETWORK: myapi-personal-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:05.2358616Z   SMOKE_REDIS_CONTAINER: myapi-personal-redis-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:05.2358961Z   SMOKE_CONTAINER: myapi-smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:05.2359286Z   SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:05.2359643Z   SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:05.2359943Z   SMOKE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:05.2360206Z   SMOKE_SOURCE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:05.2360422Z ##[endgroup]
+2026-10-21T02:58:05.3024624Z Syncing repository: ForceMind/MyAPI
+2026-10-21T02:58:05.3025690Z ##[group]Getting Git version info
+2026-10-21T02:58:05.3026051Z Working directory is '/home/runner/work/MyAPI/MyAPI'
+2026-10-21T02:58:05.3026636Z [command]/usr/bin/git version
+2026-10-21T02:58:05.3091481Z git version 2.55.0
+2026-10-21T02:58:05.3105980Z ##[endgroup]
+2026-10-21T02:58:05.3115172Z Temporarily overriding HOME='/home/runner/work/_temp/c8fff0b4-daa1-4d04-b8c6-9261e75a916d' before making global git config changes
+2026-10-21T02:58:05.3120123Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-21T02:58:05.3120638Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MyAPI/MyAPI
+2026-10-21T02:58:05.3178193Z Deleting the contents of '/home/runner/work/MyAPI/MyAPI'
+2026-10-21T02:58:05.3180526Z ##[group]Determining repository object format
+2026-10-21T02:58:05.3181641Z ##[endgroup]
+2026-10-21T02:58:05.3182009Z ##[group]Initializing the repository
+2026-10-21T02:58:05.3184816Z [command]/usr/bin/git init /home/runner/work/MyAPI/MyAPI
+2026-10-21T02:58:05.3274397Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-21T02:58:05.3275068Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-21T02:58:05.3275906Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-21T02:58:05.3276387Z hint: call:
+2026-10-21T02:58:05.3276726Z hint:
+2026-10-21T02:58:05.3277046Z hint: 	git config --global init.defaultBranch <name>
+2026-10-21T02:58:05.3277522Z hint:
+2026-10-21T02:58:05.3277818Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-21T02:58:05.3278417Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-21T02:58:05.3279155Z hint:
+2026-10-21T02:58:05.3279507Z hint: 	git branch -m <name>
+2026-10-21T02:58:05.3279918Z hint:
+2026-10-21T02:58:05.3280656Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-21T02:58:05.3281415Z Initialized empty Git repository in /home/runner/work/MyAPI/MyAPI/.git/
+2026-10-21T02:58:05.3288780Z [command]/usr/bin/git remote add origin https://github.com/ForceMind/MyAPI
+2026-10-21T02:58:05.3339492Z ##[endgroup]
+2026-10-21T02:58:05.3340099Z ##[group]Disabling automatic garbage collection
+2026-10-21T02:58:05.3342470Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-21T02:58:05.3378109Z ##[endgroup]
+2026-10-21T02:58:05.3378457Z ##[group]Setting up auth
+2026-10-21T02:58:05.3378717Z Removing SSH command configuration
+2026-10-21T02:58:05.3383218Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-21T02:58:05.3419616Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-21T02:58:05.3745573Z Removing HTTP extra header
+2026-10-21T02:58:05.3750852Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-21T02:58:05.3791348Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-21T02:58:05.3986092Z Removing includeIf entries pointing to credentials config files
+2026-10-21T02:58:05.3991424Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-21T02:58:05.4031769Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-21T02:58:05.4236871Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-b42fd3f3-7d95-4656-8504-b5bea7bd8a77.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-21T02:58:05.4281333Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path /home/runner/work/_temp/git-credentials-b42fd3f3-7d95-4656-8504-b5bea7bd8a77.config
+2026-10-21T02:58:05.4321779Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-b42fd3f3-7d95-4656-8504-b5bea7bd8a77.config
+2026-10-21T02:58:05.4363759Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-b42fd3f3-7d95-4656-8504-b5bea7bd8a77.config
+2026-10-21T02:58:05.4405868Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-b42fd3f3-7d95-4656-8504-b5bea7bd8a77.config
+2026-10-21T02:58:05.4444708Z ##[endgroup]
+2026-10-21T02:58:05.4445055Z ##[group]Fetching the repository
+2026-10-21T02:58:05.4451144Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +12769cad4553430cd750e07ef62304c5f60cbc7e:refs/remotes/origin/codex/subscription-key-share-20261014
+2026-10-21T02:58:10.4820705Z From https://github.com/ForceMind/MyAPI
+2026-10-21T02:58:10.4821385Z  * [new ref]         12769cad4553430cd750e07ef62304c5f60cbc7e -> origin/codex/subscription-key-share-20261014
+2026-10-21T02:58:10.4842702Z [command]/usr/bin/git branch --list --remote origin/codex/subscription-key-share-20261014
+2026-10-21T02:58:10.4865485Z   origin/codex/subscription-key-share-20261014
+2026-10-21T02:58:10.4872496Z [command]/usr/bin/git rev-parse refs/remotes/origin/codex/subscription-key-share-20261014
+2026-10-21T02:58:10.4904450Z 12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:10.4917555Z ##[endgroup]
+2026-10-21T02:58:10.4917918Z ##[group]Determining the checkout info
+2026-10-21T02:58:10.4918286Z ##[endgroup]
+2026-10-21T02:58:10.4918512Z [command]/usr/bin/git sparse-checkout disable
+2026-10-21T02:58:10.4967792Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-21T02:58:10.5007238Z ##[group]Checking out the ref
+2026-10-21T02:58:10.5011210Z [command]/usr/bin/git checkout --progress --force -B codex/subscription-key-share-20261014 refs/remotes/origin/codex/subscription-key-share-20261014
+2026-10-21T02:58:10.9009445Z Switched to a new branch 'codex/subscription-key-share-20261014'
+2026-10-21T02:58:10.9016992Z branch 'codex/subscription-key-share-20261014' set up to track 'origin/codex/subscription-key-share-20261014'.
+2026-10-21T02:58:10.9039842Z ##[endgroup]
+2026-10-21T02:58:10.9117041Z [command]/usr/bin/git log -1 --format=%H
+2026-10-21T02:58:10.9129244Z 12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:10.9137395Z ##[group]Removing auth
+2026-10-21T02:58:10.9137723Z Removing SSH command configuration
+2026-10-21T02:58:10.9141307Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-21T02:58:10.9180432Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-21T02:58:10.9389513Z Removing HTTP extra header
+2026-10-21T02:58:10.9392260Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-21T02:58:10.9447614Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-21T02:58:10.9642650Z Removing includeIf entries pointing to credentials config files
+2026-10-21T02:58:10.9644660Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-21T02:58:10.9684989Z includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path
+2026-10-21T02:58:10.9685706Z includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path
+2026-10-21T02:58:10.9686028Z includeif.gitdir:/github/workspace/.git.path
+2026-10-21T02:58:10.9686481Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-21T02:58:10.9694336Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path
+2026-10-21T02:58:10.9729479Z /home/runner/work/_temp/git-credentials-b42fd3f3-7d95-4656-8504-b5bea7bd8a77.config
+2026-10-21T02:58:10.9737046Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git.path /home/runner/work/_temp/git-credentials-b42fd3f3-7d95-4656-8504-b5bea7bd8a77.config
+2026-10-21T02:58:10.9785103Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path
+2026-10-21T02:58:10.9816767Z /home/runner/work/_temp/git-credentials-b42fd3f3-7d95-4656-8504-b5bea7bd8a77.config
+2026-10-21T02:58:10.9827921Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/MyAPI/MyAPI/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-b42fd3f3-7d95-4656-8504-b5bea7bd8a77.config
+2026-10-21T02:58:10.9865662Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-21T02:58:10.9897840Z /github/runner_temp/git-credentials-b42fd3f3-7d95-4656-8504-b5bea7bd8a77.config
+2026-10-21T02:58:10.9903481Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-b42fd3f3-7d95-4656-8504-b5bea7bd8a77.config
+2026-10-21T02:58:10.9943936Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-21T02:58:10.9974284Z /github/runner_temp/git-credentials-b42fd3f3-7d95-4656-8504-b5bea7bd8a77.config
+2026-10-21T02:58:10.9979803Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-b42fd3f3-7d95-4656-8504-b5bea7bd8a77.config
+2026-10-21T02:58:11.0022876Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-21T02:58:11.0222516Z Removing credentials config '/home/runner/work/_temp/git-credentials-b42fd3f3-7d95-4656-8504-b5bea7bd8a77.config'
+2026-10-21T02:58:11.0230898Z ##[endgroup]
+2026-10-21T02:58:11.0411021Z ##[group]Run actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+2026-10-21T02:58:11.0411240Z with:
+2026-10-21T02:58:11.0411353Z   node-version: 22
+2026-10-21T02:58:11.0411487Z   check-latest: false
+2026-10-21T02:58:11.0412934Z   token: ***
+2026-10-21T02:58:11.0413061Z   package-manager-cache: true
+2026-10-21T02:58:11.0413197Z env:
+2026-10-21T02:58:11.0413307Z   MYAPI_SMOKE_EDITION: full
+2026-10-21T02:58:11.0413463Z   MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
+2026-10-21T02:58:11.0413626Z   MYAPI_ISOLATED_SMOKE: 1
+2026-10-21T02:58:11.0413749Z   BUNDLE_PERSONAL: 1
+2026-10-21T02:58:11.0413872Z   MYAPI_SMOKE_PERSONAL: 1
+2026-10-21T02:58:11.0414003Z   MYAPI_SMOKE_WRITER: legacy
+2026-10-21T02:58:11.0414215Z   SMOKE_NETWORK: myapi-personal-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:11.0414545Z   SMOKE_REDIS_CONTAINER: myapi-personal-redis-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:11.0414884Z   SMOKE_CONTAINER: myapi-smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:11.0415204Z   SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:11.0415552Z   SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:11.0415967Z   SMOKE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:11.0416442Z   SMOKE_SOURCE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:11.0416655Z ##[endgroup]
+2026-10-21T02:58:11.1479974Z Found in cache @ /opt/hostedtoolcache/node/22.23.3/x64
+2026-10-21T02:58:11.1481962Z ##[group]Environment details
+2026-10-21T02:58:11.4895326Z node: v22.23.3
+2026-10-21T02:58:11.4895523Z npm: 10.9.9
+2026-10-21T02:58:11.4895631Z yarn: 1.22.22
+2026-10-21T02:58:11.4896911Z ##[endgroup]
+2026-10-21T02:58:11.5215653Z ##[group]Run actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+2026-10-21T02:58:11.5216804Z with:
+2026-10-21T02:58:11.5217616Z   name: myapi-smoke-images-39535444563-1-12769cad4553430cd750e07ef62304c5f60cbc7e-full
+2026-10-21T02:58:11.5218140Z   path: /home/runner/work/_temp/smoke-image-bundle
+2026-10-21T02:58:11.5218422Z   merge-multiple: false
+2026-10-21T02:58:11.5218971Z   repository: ForceMind/MyAPI
+2026-10-21T02:58:11.5219281Z   run-id: 39535444563
+2026-10-21T02:58:11.5220010Z   skip-decompress: false
+2026-10-21T02:58:11.5220227Z   digest-mismatch: error
+2026-10-21T02:58:11.5220794Z env:
+2026-10-21T02:58:11.5220974Z   MYAPI_SMOKE_EDITION: full
+2026-10-21T02:58:11.5221356Z   MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
+2026-10-21T02:58:11.5221882Z   MYAPI_ISOLATED_SMOKE: 1
+2026-10-21T02:58:11.5222103Z   BUNDLE_PERSONAL: 1
+2026-10-21T02:58:11.5223213Z   MYAPI_SMOKE_PERSONAL: 1
+2026-10-21T02:58:11.5223726Z   MYAPI_SMOKE_WRITER: legacy
+2026-10-21T02:58:11.5224119Z   SMOKE_NETWORK: myapi-personal-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:11.5225061Z   SMOKE_REDIS_CONTAINER: myapi-personal-redis-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:11.5226668Z   SMOKE_CONTAINER: myapi-smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:11.5228815Z   SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:11.5229565Z   SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:11.5230102Z   SMOKE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:11.5231473Z   SMOKE_SOURCE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:11.5231975Z ##[endgroup]
+2026-10-21T02:58:11.6412788Z Downloading single artifact
+2026-10-21T02:58:11.8729982Z Preparing to download the following artifacts:
+2026-10-21T02:58:11.8730726Z - myapi-smoke-images-39535444563-1-12769cad4553430cd750e07ef62304c5f60cbc7e-full (ID: 12316359817, Size: 353717249, Expected Digest: sha256:f394a83a7fbe5cc6eaaa6c2ba5c37df0648059535c709628f687f6f7f4ee868d)
+2026-10-21T02:58:12.3382696Z Redirecting to blob download url: https://productionresultssa8.blob.core.windows.net/actions-results/a75189b6-ce06-4c71-928b-38e1356a0b7f/workflow-job-run-cefccf02-f9b3-5aca-95c0-b1a37c498016/artifacts/3a2e256b251e3b05be5aa6afde6aae2c305771398677e5bbb570d8217fdcf554.zip
+2026-10-21T02:58:12.3383475Z Starting download of artifact to: /home/runner/work/_temp/smoke-image-bundle
+2026-10-21T02:58:12.5856591Z (node:2229) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+2026-10-21T02:58:12.5857463Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-21T02:58:20.5661008Z SHA256 digest of downloaded artifact is f394a83a7fbe5cc6eaaa6c2ba5c37df0648059535c709628f687f6f7f4ee868d
+2026-10-21T02:58:20.5662042Z Artifact download completed successfully.
+2026-10-21T02:58:20.5662669Z Total of 1 artifact(s) downloaded
+2026-10-21T02:58:20.5665439Z Download artifact has finished successfully
+2026-10-21T02:58:20.5799048Z ##[group]Run set -euo pipefail
+2026-10-21T02:58:20.5799291Z [36;1mset -euo pipefail[0m
+2026-10-21T02:58:20.5799433Z [36;1mumask 077[0m
+2026-10-21T02:58:20.5799753Z [36;1m[[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]][0m
+2026-10-21T02:58:20.5800098Z [36;1mif [[ "$MYAPI_SMOKE_EDITION" == 'full' ]]; then BUNDLE_MANIFEST_SHA="$FULL_MANIFEST_SHA"; else BUNDLE_MANIFEST_SHA="$LAN_MANIFEST_SHA"; fi[0m
+2026-10-21T02:58:20.5800462Z [36;1mnode tools/runtime/smoke-image-bundle.mjs verify-load \[0m
+2026-10-21T02:58:20.5800811Z [36;1m  --directory "$RUNNER_TEMP/smoke-image-bundle" --edition "$MYAPI_SMOKE_EDITION" --personal "$BUNDLE_PERSONAL" \[0m
+2026-10-21T02:58:20.5801148Z [36;1m  --source-sha "$GITHUB_SHA" --head-sha "$BUNDLE_HEAD_SHA" \[0m
+2026-10-21T02:58:20.5801408Z [36;1m  --tree-sha "$(git rev-parse 'HEAD^{tree}')" --run-id "$GITHUB_RUN_ID" \[0m
+2026-10-21T02:58:20.5801636Z [36;1m  --producer-attempt "1" \[0m
+2026-10-21T02:58:20.5801881Z [36;1m  --manifest-sha256 "$BUNDLE_MANIFEST_SHA" --github-env "$GITHUB_ENV"[0m
+2026-10-21T02:58:20.5802156Z [36;1mexport MYAPI_SMOKE_REPORT_DIR="$RUNNER_TEMP/myapi-smoke-report"[0m
+2026-10-21T02:58:20.5802387Z [36;1mmkdir -m 700 "$MYAPI_SMOKE_REPORT_DIR"[0m
+2026-10-21T02:58:20.5802614Z [36;1mecho "MYAPI_SMOKE_REPORT_DIR=$MYAPI_SMOKE_REPORT_DIR" >> "$GITHUB_ENV"[0m
+2026-10-21T02:58:20.5802938Z [36;1mcp "$RUNNER_TEMP/smoke-image-bundle/manifest.json" "$MYAPI_SMOKE_REPORT_DIR/manifest.json"[0m
+2026-10-21T02:58:20.5803297Z [36;1mprintf '%s  manifest.json\n' "$BUNDLE_MANIFEST_SHA" > "$MYAPI_SMOKE_REPORT_DIR/manifest.sha256"[0m
+2026-10-21T02:58:20.5803588Z [36;1mexport SMOKE_TREE_SHA="$(git rev-parse 'HEAD^{tree}')"[0m
+2026-10-21T02:58:20.5803847Z [36;1mnode --input-type=module <<'JS' > "$MYAPI_SMOKE_REPORT_DIR/source.json"[0m
+2026-10-21T02:58:20.5804184Z [36;1mconsole.log(JSON.stringify({ source_sha: process.env.GITHUB_SHA, tree_sha: process.env.SMOKE_TREE_SHA,[0m
+2026-10-21T02:58:20.5804534Z [36;1m  run_id: process.env.GITHUB_RUN_ID, attempt: process.env.GITHUB_RUN_ATTEMPT,[0m
+2026-10-21T02:58:20.5804848Z [36;1m  edition: process.env.MYAPI_SMOKE_EDITION, writer: process.env.MYAPI_SMOKE_WRITER,[0m
+2026-10-21T02:58:20.5805123Z [36;1m  scenario: 'fresh', isolated: true, synthetic: true,[0m
+2026-10-21T02:58:20.5805336Z [36;1m  published: false, deployed: false }, null, 2))[0m
+2026-10-21T02:58:20.5805510Z [36;1mJS[0m
+2026-10-21T02:58:20.6204596Z shell: /usr/bin/bash -e {0}
+2026-10-21T02:58:20.6204778Z env:
+2026-10-21T02:58:20.6204906Z   MYAPI_SMOKE_EDITION: full
+2026-10-21T02:58:20.6205084Z   MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
+2026-10-21T02:58:20.6205262Z   MYAPI_ISOLATED_SMOKE: 1
+2026-10-21T02:58:20.6205402Z   BUNDLE_PERSONAL: 1
+2026-10-21T02:58:20.6205548Z   MYAPI_SMOKE_PERSONAL: 1
+2026-10-21T02:58:20.6205688Z   MYAPI_SMOKE_WRITER: legacy
+2026-10-21T02:58:20.6205912Z   SMOKE_NETWORK: myapi-personal-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:20.6206401Z   SMOKE_REDIS_CONTAINER: myapi-personal-redis-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:20.6206727Z   SMOKE_CONTAINER: myapi-smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:20.6207061Z   SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:20.6207421Z   SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:20.6207730Z   SMOKE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:20.6207996Z   SMOKE_SOURCE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:20.6208246Z   BUNDLE_HEAD_SHA: 12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:20.6208516Z   FULL_MANIFEST_SHA: 4d5efef8ce9d03ac9eafcb17891c3f4efde775a10c42eee69d6b0800d2a06e6e
+2026-10-21T02:58:20.6208833Z   LAN_MANIFEST_SHA: 8531ebf96e020682c6f518d19f4d5ae43f2e24fefa6c3119bf221ce7e936cb81
+2026-10-21T02:58:20.6209063Z ##[endgroup]
+2026-10-21T02:58:32.3133874Z {"passed":true,"sourceSha":"12769cad4553430cd750e07ef62304c5f60cbc7e","headSha":"12769cad4553430cd750e07ef62304c5f60cbc7e","treeSha":"85895f75a4fc194a028433cef2539e69c43f01c4","runId":"39535444563","producerAttempt":"1","edition":"full","personal":"1","platform":"linux/amd64","images":[{"role":"app","id":"sha256:7a8b677d0d59a3b8cb06323503ec0990565f9ec89a93a19e0e84ec302d595fbe"},{"role":"bun","id":"sha256:d62d32ae5b2f0f1530043a409f2891dbe71ba133d4b0b690cfcbda8f5ec3657f"},{"role":"redis","id":"sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058"}]}
+2026-10-21T02:58:32.3500195Z ##[group]Run set -euo pipefail
+2026-10-21T02:58:32.3500394Z [36;1mset -euo pipefail[0m
+2026-10-21T02:58:32.3500746Z [36;1mdocker network create --internal --label "io.myapi.smoke.sha=$GITHUB_SHA" --label "io.myapi.personal.run=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$SMOKE_NETWORK"[0m
+2026-10-21T02:58:32.3501147Z [36;1mif [[ "$MYAPI_SMOKE_WRITER" == 'authoritative' ]]; then[0m
+2026-10-21T02:58:32.3501349Z [36;1m  redis_password="$(openssl rand -hex 24)"[0m
+2026-10-21T02:58:32.3501533Z [36;1m  echo "::add-mask::$redis_password"[0m
+2026-10-21T02:58:32.3501749Z [36;1m  docker run --pull=never --detach --name "$SMOKE_REDIS_CONTAINER" \[0m
+2026-10-21T02:58:32.3502109Z [36;1m    --label "io.myapi.smoke.sha=$GITHUB_SHA" --label "io.myapi.personal.run=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \[0m
+2026-10-21T02:58:32.3502438Z [36;1m    --network "$SMOKE_NETWORK" --network-alias smoke-redis \[0m
+2026-10-21T02:58:32.3502741Z [36;1m    --read-only --tmpfs /data:rw,noexec,nodev,nosuid,size=32m,uid=999,gid=999,mode=700 \[0m
+2026-10-21T02:58:32.3503034Z [36;1m    --cap-drop ALL --security-opt no-new-privileges --user 999:999 \[0m
+2026-10-21T02:58:32.3503260Z [36;1m    --cpus 0.25 --memory 128m --pids-limit 64 \[0m
+2026-10-21T02:58:32.3503439Z [36;1m    "$SMOKE_REDIS_IMAGE_ID" \[0m
+2026-10-21T02:58:32.3503652Z [36;1m    redis-server --save '' --appendonly no --requirepass "$redis_password"[0m
+2026-10-21T02:58:32.3503979Z [36;1m  [[ "$(docker inspect --format '{{len .HostConfig.PortBindings}}' "$SMOKE_REDIS_CONTAINER")" == '0' ]][0m
+2026-10-21T02:58:32.3504320Z [36;1m  echo "REDIS_CONN_STRING=redis://:$redis_password@smoke-redis:6379/0" >> "$GITHUB_ENV"[0m
+2026-10-21T02:58:32.3504551Z [36;1m  ready=false[0m
+2026-10-21T02:58:32.3504685Z [36;1m  for attempt in $(seq 1 30); do[0m
+2026-10-21T02:58:32.3504997Z [36;1m    if [[ "$(docker exec -e REDISCLI_AUTH="$redis_password" "$SMOKE_REDIS_CONTAINER" redis-cli ping 2>/dev/null || true)" == 'PONG' ]]; then[0m
+2026-10-21T02:58:32.3505308Z [36;1m      ready=true[0m
+2026-10-21T02:58:32.3505432Z [36;1m      break[0m
+2026-10-21T02:58:32.3505545Z [36;1m    fi[0m
+2026-10-21T02:58:32.3505655Z [36;1m    sleep 1[0m
+2026-10-21T02:58:32.3505770Z [36;1m  done[0m
+2026-10-21T02:58:32.3505883Z [36;1m  [[ "$ready" == 'true' ]][0m
+2026-10-21T02:58:32.3506020Z [36;1mfi[0m
+2026-10-21T02:58:32.3547168Z shell: /usr/bin/bash -e {0}
+2026-10-21T02:58:32.3547328Z env:
+2026-10-21T02:58:32.3547442Z   MYAPI_SMOKE_EDITION: full
+2026-10-21T02:58:32.3547605Z   MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
+2026-10-21T02:58:32.3547767Z   MYAPI_ISOLATED_SMOKE: 1
+2026-10-21T02:58:32.3547906Z   BUNDLE_PERSONAL: 1
+2026-10-21T02:58:32.3548027Z   MYAPI_SMOKE_PERSONAL: 1
+2026-10-21T02:58:32.3548161Z   MYAPI_SMOKE_WRITER: legacy
+2026-10-21T02:58:32.3548381Z   SMOKE_NETWORK: myapi-personal-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:32.3548713Z   SMOKE_REDIS_CONTAINER: myapi-personal-redis-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:32.3549038Z   SMOKE_CONTAINER: myapi-smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:32.3549353Z   SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:32.3549696Z   SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:32.3550014Z   SMOKE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:32.3550275Z   SMOKE_SOURCE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:32.3550576Z   SMOKE_APP_IMAGE_ID: sha256:7a8b677d0d59a3b8cb06323503ec0990565f9ec89a93a19e0e84ec302d595fbe
+2026-10-21T02:58:32.3551023Z   SMOKE_BUN_IMAGE_ID: sha256:d62d32ae5b2f0f1530043a409f2891dbe71ba133d4b0b690cfcbda8f5ec3657f
+2026-10-21T02:58:32.3551345Z   SMOKE_REDIS_IMAGE_ID: sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058
+2026-10-21T02:58:32.3551760Z   MYAPI_SMOKE_REPORT_DIR: /home/runner/work/_temp/myapi-smoke-report
+2026-10-21T02:58:32.3551953Z ##[endgroup]
+2026-10-21T02:58:32.3861947Z 003f1af882ad38e04689403ac520394905007c0baef3637e0bd194a94b7f848d
+2026-10-21T02:58:32.3899811Z ##[group]Run set -euo pipefail
+2026-10-21T02:58:32.3900031Z [36;1mset -euo pipefail[0m
+2026-10-21T02:58:32.3900198Z [36;1mexport SESSION_SECRET="$(openssl rand -hex 32)"[0m
+2026-10-21T02:58:32.3900477Z [36;1mexport SMOKE_DATA_DIR="$RUNNER_TEMP/myapi-smoke-data-${MYAPI_SMOKE_EDITION}-${GITHUB_SHA}"[0m
+2026-10-21T02:58:32.3900729Z [36;1mmkdir -m 700 "$SMOKE_DATA_DIR"[0m
+2026-10-21T02:58:32.3900911Z [36;1mecho "SMOKE_DATA_DIR=$SMOKE_DATA_DIR" >> "$GITHUB_ENV"[0m
+2026-10-21T02:58:32.3901106Z [36;1mpersonal_args=()[0m
+2026-10-21T02:58:32.3901256Z [36;1mif [[ "$MYAPI_SMOKE_PERSONAL" == '1' ]]; then[0m
+2026-10-21T02:58:32.3901478Z [36;1m  # The external-origin guard disables browser cache. Bound the seven[0m
+2026-10-21T02:58:32.3901737Z [36;1m  # fixture document loads without changing production's 120/180s.[0m
+2026-10-21T02:58:32.3901978Z [36;1m  personal_web_limit="$(node --input-type=module <<'JS'[0m
+2026-10-21T02:58:32.3902263Z [36;1mimport { personalSmokeWebRateLimit } from './tools/runtime/docker-smoke.mjs'[0m
+2026-10-21T02:58:32.3902512Z [36;1mconsole.log(personalSmokeWebRateLimit({[0m
+2026-10-21T02:58:32.3902697Z [36;1m  baseUrl: process.env.MYAPI_SMOKE_BASE_URL,[0m
+2026-10-21T02:58:32.3902883Z [36;1m  edition: process.env.MYAPI_SMOKE_EDITION,[0m
+2026-10-21T02:58:32.3903053Z [36;1m  sha: process.env.GITHUB_SHA,[0m
+2026-10-21T02:58:32.3903235Z [36;1m  isolated: process.env.MYAPI_ISOLATED_SMOKE === '1',[0m
+2026-10-21T02:58:32.3903575Z [36;1m  personal: process.env.MYAPI_SMOKE_PERSONAL === '1',[0m
+2026-10-21T02:58:32.3903769Z [36;1m}))[0m
+2026-10-21T02:58:32.3903873Z [36;1mJS[0m
+2026-10-21T02:58:32.3903975Z [36;1m  )"[0m
+2026-10-21T02:58:32.3904142Z [36;1m  personal_args+=(--env "GLOBAL_WEB_RATE_LIMIT=$personal_web_limit")[0m
+2026-10-21T02:58:32.3904373Z [36;1m  if [[ "$MYAPI_SMOKE_WRITER" == 'authoritative' ]]; then[0m
+2026-10-21T02:58:32.3904567Z [36;1m    personal_args+=(--env REDIS_CONN_STRING)[0m
+2026-10-21T02:58:32.3904723Z [36;1m  fi[0m
+2026-10-21T02:58:32.3904830Z [36;1mfi[0m
+2026-10-21T02:58:32.3905017Z [36;1m# Preserve the established host-loopback bridge; Redis alone remains internal.[0m
+2026-10-21T02:58:32.3905272Z [36;1mdocker create --pull=never "${personal_args[@]}" \[0m
+2026-10-21T02:58:32.3905450Z [36;1m  --name "$SMOKE_CONTAINER" \[0m
+2026-10-21T02:58:32.3905621Z [36;1m  --label "io.myapi.smoke.sha=${GITHUB_SHA}" \[0m
+2026-10-21T02:58:32.3905849Z [36;1m  --label "io.myapi.personal.run=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \[0m
+2026-10-21T02:58:32.3906061Z [36;1m  --user "$(id -u):$(id -g)" \[0m
+2026-10-21T02:58:32.3906383Z [36;1m  --publish 127.0.0.1:18080:3000 \[0m
+2026-10-21T02:58:32.3906541Z [36;1m  --publish 127.0.0.1:19090:19090 \[0m
+2026-10-21T02:58:32.3906708Z [36;1m  --cpus 1 --memory 768m --pids-limit 256 \[0m
+2026-10-21T02:58:32.3906898Z [36;1m  --mount "type=bind,src=$SMOKE_DATA_DIR,dst=/data" \[0m
+2026-10-21T02:58:32.3907094Z [36;1m  --env MYAPI_EDITION="$MYAPI_SMOKE_EDITION" \[0m
+2026-10-21T02:58:32.3907268Z [36;1m  --env MEMORY_CACHE_ENABLED=false \[0m
+2026-10-21T02:58:32.3907434Z [36;1m  --env FULL_CONTENT_LOG_ENABLED=true \[0m
+2026-10-21T02:58:32.3907621Z [36;1m  --env FULL_CONTENT_LOG_DIR=/data/full-content \[0m
+2026-10-21T02:58:32.3907802Z [36;1m  --env FULL_CONTENT_LOG_MAX_FILES=2 \[0m
+2026-10-21T02:58:32.3907966Z [36;1m  --env FULL_CONTENT_LOG_MAX_MB=1 \[0m
+2026-10-21T02:58:32.3908126Z [36;1m  --env SESSION_COOKIE_SECURE=false \[0m
+2026-10-21T02:58:32.3908285Z [36;1m  --env TRUSTED_PROXIES=none \[0m
+2026-10-21T02:58:32.3908582Z [36;1m  --env SQL_MAX_OPEN_CONNS=1 --env SQL_MAX_IDLE_CONNS=1 \[0m
+2026-10-21T02:58:32.3908765Z [36;1m  --env GOMEMLIMIT=512MiB \[0m
+2026-10-21T02:58:32.3908910Z [36;1m  --env SESSION_SECRET \[0m
+2026-10-21T02:58:32.3909197Z [36;1m  --health-cmd='wget -q -O - http://127.0.0.1:3000/api/status | grep -q '"'"'"success"[[:space:]]*:[[:space:]]*true'"'"'' \[0m
+2026-10-21T02:58:32.3909678Z [36;1m  --health-interval=3s --health-timeout=2s --health-retries=10 --health-start-period=20s \[0m
+2026-10-21T02:58:32.3909926Z [36;1m  "$SMOKE_SOURCE_IMAGE"[0m
+2026-10-21T02:58:32.3910140Z [36;1mif [[ "$MYAPI_SMOKE_PERSONAL" == '1' && "$MYAPI_SMOKE_WRITER" == 'authoritative' ]]; then[0m
+2026-10-21T02:58:32.3910427Z [36;1m  # Attach before starting so Redis DNS is available during initialization.[0m
+2026-10-21T02:58:32.3910854Z [36;1m  [[ "$(docker inspect --format '{{index .Config.Labels "io.myapi.smoke.sha"}}' "$SMOKE_CONTAINER")" == "$GITHUB_SHA" ]][0m
+2026-10-21T02:58:32.3911304Z [36;1m  [[ "$(docker inspect --format '{{index .Config.Labels "io.myapi.personal.run"}}' "$SMOKE_CONTAINER")" == "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" ]][0m
+2026-10-21T02:58:32.3911663Z [36;1m  docker network connect "$SMOKE_NETWORK" "$SMOKE_CONTAINER"[0m
+2026-10-21T02:58:32.3911844Z [36;1mfi[0m
+2026-10-21T02:58:32.3911973Z [36;1mdocker start "$SMOKE_CONTAINER" >/dev/null[0m
+2026-10-21T02:58:32.3912190Z [36;1m[[ "$(docker port "$SMOKE_CONTAINER" 3000/tcp)" == '127.0.0.1:18080' ]][0m
+2026-10-21T02:58:32.3912433Z [36;1m[[ "$(docker port "$SMOKE_CONTAINER" 19090/tcp)" == '127.0.0.1:19090' ]][0m
+2026-10-21T02:58:32.3952851Z shell: /usr/bin/bash -e {0}
+2026-10-21T02:58:32.3952997Z env:
+2026-10-21T02:58:32.3953108Z   MYAPI_SMOKE_EDITION: full
+2026-10-21T02:58:32.3953267Z   MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
+2026-10-21T02:58:32.3953432Z   MYAPI_ISOLATED_SMOKE: 1
+2026-10-21T02:58:32.3953562Z   BUNDLE_PERSONAL: 1
+2026-10-21T02:58:32.3953683Z   MYAPI_SMOKE_PERSONAL: 1
+2026-10-21T02:58:32.3953828Z   MYAPI_SMOKE_WRITER: legacy
+2026-10-21T02:58:32.3954042Z   SMOKE_NETWORK: myapi-personal-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:32.3954364Z   SMOKE_REDIS_CONTAINER: myapi-personal-redis-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:32.3954671Z   SMOKE_CONTAINER: myapi-smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:32.3954982Z   SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:32.3955348Z   SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:32.3955643Z   SMOKE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:32.3955903Z   SMOKE_SOURCE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:32.3956346Z   SMOKE_APP_IMAGE_ID: sha256:7a8b677d0d59a3b8cb06323503ec0990565f9ec89a93a19e0e84ec302d595fbe
+2026-10-21T02:58:32.3956659Z   SMOKE_BUN_IMAGE_ID: sha256:d62d32ae5b2f0f1530043a409f2891dbe71ba133d4b0b690cfcbda8f5ec3657f
+2026-10-21T02:58:32.3956981Z   SMOKE_REDIS_IMAGE_ID: sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058
+2026-10-21T02:58:32.3957258Z   MYAPI_SMOKE_REPORT_DIR: /home/runner/work/_temp/myapi-smoke-report
+2026-10-21T02:58:32.3957450Z ##[endgroup]
+2026-10-21T02:58:32.4623540Z 2ccc38a85c8cf0139a67a19e234be52f0d9ce092796d09e0e1c5533416f3fed3
+2026-10-21T02:58:32.6748822Z ##[group]Run set -euo pipefail
+2026-10-21T02:58:32.6749025Z [36;1mset -euo pipefail[0m
+2026-10-21T02:58:32.6749167Z [36;1mfor attempt in $(seq 1 60); do[0m
+2026-10-21T02:58:32.6749388Z [36;1m  running="$(docker inspect --format '{{.State.Running}}' "$SMOKE_CONTAINER")"[0m
+2026-10-21T02:58:32.6749690Z [36;1m  health="$(docker inspect --format '{{.State.Health.Status}}' "$SMOKE_CONTAINER")"[0m
+2026-10-21T02:58:32.6749926Z [36;1m  if [[ "$running" != "true" ]]; then[0m
+2026-10-21T02:58:32.6750127Z [36;1m    echo 'Isolated smoke container exited before readiness' >&2[0m
+2026-10-21T02:58:32.6750463Z [36;1m    exit 1[0m
+2026-10-21T02:58:32.6750580Z [36;1m  fi[0m
+2026-10-21T02:58:32.6750702Z [36;1m  if [[ "$health" == "healthy" ]]; then[0m
+2026-10-21T02:58:32.6750854Z [36;1m    exit 0[0m
+2026-10-21T02:58:32.6750964Z [36;1m  fi[0m
+2026-10-21T02:58:32.6751091Z [36;1m  if [[ "$health" == "unhealthy" ]]; then[0m
+2026-10-21T02:58:32.6751339Z [36;1m    echo "Docker smoke container did not become healthy (state=$health)" >&2[0m
+2026-10-21T02:58:32.6751545Z [36;1m    exit 1[0m
+2026-10-21T02:58:32.6751655Z [36;1m  fi[0m
+2026-10-21T02:58:32.6751760Z [36;1m  sleep 2[0m
+2026-10-21T02:58:32.6751875Z [36;1mdone[0m
+2026-10-21T02:58:32.6752010Z [36;1mecho 'Docker smoke health check timed out' >&2[0m
+2026-10-21T02:58:32.6752171Z [36;1mexit 1[0m
+2026-10-21T02:58:32.6794787Z shell: /usr/bin/bash -e {0}
+2026-10-21T02:58:32.6794933Z env:
+2026-10-21T02:58:32.6795047Z   MYAPI_SMOKE_EDITION: full
+2026-10-21T02:58:32.6795205Z   MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
+2026-10-21T02:58:32.6795543Z   MYAPI_ISOLATED_SMOKE: 1
+2026-10-21T02:58:32.6795673Z   BUNDLE_PERSONAL: 1
+2026-10-21T02:58:32.6795792Z   MYAPI_SMOKE_PERSONAL: 1
+2026-10-21T02:58:32.6795923Z   MYAPI_SMOKE_WRITER: legacy
+2026-10-21T02:58:32.6796135Z   SMOKE_NETWORK: myapi-personal-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:32.6796591Z   SMOKE_REDIS_CONTAINER: myapi-personal-redis-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:32.6796901Z   SMOKE_CONTAINER: myapi-smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:32.6797211Z   SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:32.6797550Z   SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:32.6797849Z   SMOKE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:32.6798102Z   SMOKE_SOURCE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:32.6798399Z   SMOKE_APP_IMAGE_ID: sha256:7a8b677d0d59a3b8cb06323503ec0990565f9ec89a93a19e0e84ec302d595fbe
+2026-10-21T02:58:32.6798733Z   SMOKE_BUN_IMAGE_ID: sha256:d62d32ae5b2f0f1530043a409f2891dbe71ba133d4b0b690cfcbda8f5ec3657f
+2026-10-21T02:58:32.6799049Z   SMOKE_REDIS_IMAGE_ID: sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058
+2026-10-21T02:58:32.6799333Z   MYAPI_SMOKE_REPORT_DIR: /home/runner/work/_temp/myapi-smoke-report
+2026-10-21T02:58:32.6799641Z   SMOKE_DATA_DIR: /home/runner/work/_temp/myapi-smoke-data-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:32.6799897Z ##[endgroup]
+2026-10-21T02:58:38.7965072Z ##[group]Run set -euo pipefail
+2026-10-21T02:58:38.7965268Z [36;1mset -euo pipefail[0m
+2026-10-21T02:58:38.7965421Z [36;1mdocker run --pull=never --detach \[0m
+2026-10-21T02:58:38.7965603Z [36;1m  --name "$SMOKE_FAKE_UPSTREAM_CONTAINER" \[0m
+2026-10-21T02:58:38.7965797Z [36;1m  --label "io.myapi.smoke.sha=${GITHUB_SHA}" \[0m
+2026-10-21T02:58:38.7965999Z [36;1m  --network "container:$SMOKE_CONTAINER" \[0m
+2026-10-21T02:58:38.7966355Z [36;1m  --read-only \[0m
+2026-10-21T02:58:38.7966574Z [36;1m  --tmpfs /tmp:rw,noexec,nodev,nosuid,size=32m \[0m
+2026-10-21T02:58:38.7966753Z [36;1m  --cap-drop ALL \[0m
+2026-10-21T02:58:38.7966900Z [36;1m  --security-opt no-new-privileges \[0m
+2026-10-21T02:58:38.7967055Z [36;1m  --user 1000:1000 \[0m
+2026-10-21T02:58:38.7967210Z [36;1m  --cpus 0.25 --memory 128m --pids-limit 64 \[0m
+2026-10-21T02:58:38.7967549Z [36;1m  --mount "type=bind,src=$GITHUB_WORKSPACE/tools/runtime/fake-openai.mjs,dst=/fixture/fake-openai.mjs,readonly" \[0m
+2026-10-21T02:58:38.7967855Z [36;1m  --env BUN_RUNTIME_TRANSPILER_CACHE_PATH=0 \[0m
+2026-10-21T02:58:38.7968035Z [36;1m  --env FAKE_OPENAI_LISTEN_HOST=0.0.0.0 \[0m
+2026-10-21T02:58:38.7968196Z [36;1m  "$SMOKE_BUN_IMAGE_ID" \[0m
+2026-10-21T02:58:38.7968350Z [36;1m  bun /fixture/fake-openai.mjs[0m
+2026-10-21T02:58:38.8008856Z shell: /usr/bin/bash -e {0}
+2026-10-21T02:58:38.8009125Z env:
+2026-10-21T02:58:38.8009234Z   MYAPI_SMOKE_EDITION: full
+2026-10-21T02:58:38.8009397Z   MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
+2026-10-21T02:58:38.8009558Z   MYAPI_ISOLATED_SMOKE: 1
+2026-10-21T02:58:38.8009685Z   BUNDLE_PERSONAL: 1
+2026-10-21T02:58:38.8009804Z   MYAPI_SMOKE_PERSONAL: 1
+2026-10-21T02:58:38.8009936Z   MYAPI_SMOKE_WRITER: legacy
+2026-10-21T02:58:38.8010150Z   SMOKE_NETWORK: myapi-personal-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:38.8010471Z   SMOKE_REDIS_CONTAINER: myapi-personal-redis-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:38.8010780Z   SMOKE_CONTAINER: myapi-smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:38.8011094Z   SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:38.8011436Z   SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:38.8011722Z   SMOKE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:38.8011986Z   SMOKE_SOURCE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:38.8012277Z   SMOKE_APP_IMAGE_ID: sha256:7a8b677d0d59a3b8cb06323503ec0990565f9ec89a93a19e0e84ec302d595fbe
+2026-10-21T02:58:38.8012588Z   SMOKE_BUN_IMAGE_ID: sha256:d62d32ae5b2f0f1530043a409f2891dbe71ba133d4b0b690cfcbda8f5ec3657f
+2026-10-21T02:58:38.8012903Z   SMOKE_REDIS_IMAGE_ID: sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058
+2026-10-21T02:58:38.8013187Z   MYAPI_SMOKE_REPORT_DIR: /home/runner/work/_temp/myapi-smoke-report
+2026-10-21T02:58:38.8013494Z   SMOKE_DATA_DIR: /home/runner/work/_temp/myapi-smoke-data-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:38.8013746Z ##[endgroup]
+2026-10-21T02:58:38.8384487Z db41194a6c8fc420cb7d237e8d8e35f11ed2b06bb7e37fa4e0ff25f330dee68c
+2026-10-21T02:58:38.8989194Z ##[group]Run set -euo pipefail
+2026-10-21T02:58:38.8989492Z [36;1mset -euo pipefail[0m
+2026-10-21T02:58:38.8989721Z [36;1mfor attempt in $(seq 1 30); do[0m
+2026-10-21T02:58:38.8990167Z [36;1m  if curl --fail --silent --show-error --max-time 2 http://127.0.0.1:19090/__smoke__/health >/dev/null; then[0m
+2026-10-21T02:58:38.8990608Z [36;1m    exit 0[0m
+2026-10-21T02:58:38.8990789Z [36;1m  fi[0m
+2026-10-21T02:58:38.8990957Z [36;1m  sleep 1[0m
+2026-10-21T02:58:38.8991126Z [36;1mdone[0m
+2026-10-21T02:58:38.8991451Z [36;1m# A safe namespace-local comparison distinguishes listener readiness from host mapping.[0m
+2026-10-21T02:58:38.8992348Z [36;1mif docker exec "$SMOKE_FAKE_UPSTREAM_CONTAINER" bun -e 'const r = await fetch("http://127.0.0.1:19090/__smoke__/health", {signal: AbortSignal.timeout(2000)}).catch(() => null); process.exit(r?.ok ? 0 : 1)' >/dev/null 2>&1; then[0m
+2026-10-21T02:58:38.8993377Z [36;1m  echo 'Fake upstream responds inside its namespace but host-loopback readiness failed' >&2[0m
+2026-10-21T02:58:38.8993770Z [36;1melse[0m
+2026-10-21T02:58:38.8994034Z [36;1m  echo 'Fake upstream namespace-local readiness also failed' >&2[0m
+2026-10-21T02:58:38.8994354Z [36;1mfi[0m
+2026-10-21T02:58:38.8994588Z [36;1mecho 'Fake upstream fixture did not become ready' >&2[0m
+2026-10-21T02:58:38.8994871Z [36;1mexit 1[0m
+2026-10-21T02:58:38.9038440Z shell: /usr/bin/bash -e {0}
+2026-10-21T02:58:38.9038592Z env:
+2026-10-21T02:58:38.9038711Z   MYAPI_SMOKE_EDITION: full
+2026-10-21T02:58:38.9038867Z   MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
+2026-10-21T02:58:38.9039030Z   MYAPI_ISOLATED_SMOKE: 1
+2026-10-21T02:58:38.9039157Z   BUNDLE_PERSONAL: 1
+2026-10-21T02:58:38.9039278Z   MYAPI_SMOKE_PERSONAL: 1
+2026-10-21T02:58:38.9039408Z   MYAPI_SMOKE_WRITER: legacy
+2026-10-21T02:58:38.9039621Z   SMOKE_NETWORK: myapi-personal-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:38.9039963Z   SMOKE_REDIS_CONTAINER: myapi-personal-redis-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:38.9040274Z   SMOKE_CONTAINER: myapi-smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:38.9040762Z   SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:38.9041112Z   SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:38.9041408Z   SMOKE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:38.9041669Z   SMOKE_SOURCE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:38.9041969Z   SMOKE_APP_IMAGE_ID: sha256:7a8b677d0d59a3b8cb06323503ec0990565f9ec89a93a19e0e84ec302d595fbe
+2026-10-21T02:58:38.9042290Z   SMOKE_BUN_IMAGE_ID: sha256:d62d32ae5b2f0f1530043a409f2891dbe71ba133d4b0b690cfcbda8f5ec3657f
+2026-10-21T02:58:38.9042611Z   SMOKE_REDIS_IMAGE_ID: sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058
+2026-10-21T02:58:38.9042902Z   MYAPI_SMOKE_REPORT_DIR: /home/runner/work/_temp/myapi-smoke-report
+2026-10-21T02:58:38.9043211Z   SMOKE_DATA_DIR: /home/runner/work/_temp/myapi-smoke-data-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:38.9043477Z ##[endgroup]
+2026-10-21T02:58:38.9195581Z curl: (56) Recv failure: Connection reset by peer
+2026-10-21T02:58:39.9359372Z ##[group]Run npm install --prefix "$RUNNER_TEMP/myapi-smoke-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1
+2026-10-21T02:58:39.9359879Z [36;1mnpm install --prefix "$RUNNER_TEMP/myapi-smoke-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1[0m
+2026-10-21T02:58:39.9360285Z [36;1m"$RUNNER_TEMP/myapi-smoke-browser/node_modules/.bin/playwright" install --with-deps chromium[0m
+2026-10-21T02:58:39.9400573Z shell: /usr/bin/bash -e {0}
+2026-10-21T02:58:39.9400716Z env:
+2026-10-21T02:58:39.9400826Z   MYAPI_SMOKE_EDITION: full
+2026-10-21T02:58:39.9400988Z   MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
+2026-10-21T02:58:39.9401149Z   MYAPI_ISOLATED_SMOKE: 1
+2026-10-21T02:58:39.9401279Z   BUNDLE_PERSONAL: 1
+2026-10-21T02:58:39.9401401Z   MYAPI_SMOKE_PERSONAL: 1
+2026-10-21T02:58:39.9401530Z   MYAPI_SMOKE_WRITER: legacy
+2026-10-21T02:58:39.9401760Z   SMOKE_NETWORK: myapi-personal-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:39.9402116Z   SMOKE_REDIS_CONTAINER: myapi-personal-redis-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:39.9402432Z   SMOKE_CONTAINER: myapi-smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:39.9402747Z   SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:39.9403088Z   SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:39.9403384Z   SMOKE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:39.9403644Z   SMOKE_SOURCE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:39.9403937Z   SMOKE_APP_IMAGE_ID: sha256:7a8b677d0d59a3b8cb06323503ec0990565f9ec89a93a19e0e84ec302d595fbe
+2026-10-21T02:58:39.9404254Z   SMOKE_BUN_IMAGE_ID: sha256:d62d32ae5b2f0f1530043a409f2891dbe71ba133d4b0b690cfcbda8f5ec3657f
+2026-10-21T02:58:39.9404580Z   SMOKE_REDIS_IMAGE_ID: sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058
+2026-10-21T02:58:39.9404860Z   MYAPI_SMOKE_REPORT_DIR: /home/runner/work/_temp/myapi-smoke-report
+2026-10-21T02:58:39.9405165Z   SMOKE_DATA_DIR: /home/runner/work/_temp/myapi-smoke-data-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:39.9405422Z ##[endgroup]
+2026-10-21T02:58:42.3043845Z 
+2026-10-21T02:58:42.3044507Z added 2 packages in 2s
+2026-10-21T02:58:42.6498656Z Installing dependencies...
+2026-10-21T02:58:42.6551805Z Switching to root user to install dependencies...
+2026-10-21T02:58:42.7277833Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+2026-10-21T02:58:42.7548626Z Get:6 https://packages.microsoft.com/ubuntu/24.04/prod noble InRelease [3600 B]
+2026-10-21T02:58:42.7635800Z Hit:2 http://azure.archive.ubuntu.com/ubuntu noble InRelease
+2026-10-21T02:58:42.7658882Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+2026-10-21T02:58:42.7708465Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble-backports InRelease [126 kB]
+2026-10-21T02:58:42.7730582Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble-security InRelease [126 kB]
+2026-10-21T02:58:42.8114288Z Get:7 https://packages.microsoft.com/ubuntu/24.04/prod noble/main amd64 Packages [628 kB]
+2026-10-21T02:58:42.8286744Z Get:8 https://packages.microsoft.com/ubuntu/24.04/prod noble/main arm64 Packages [565 kB]
+2026-10-21T02:58:42.8949390Z Get:9 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 Packages [1397 kB]
+2026-10-21T02:58:42.9027749Z Get:10 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 Packages [1704 kB]
+2026-10-21T02:58:42.9740535Z Get:11 http://azure.archive.ubuntu.com/ubuntu noble-security/main amd64 Packages [1145 kB]
+2026-10-21T02:58:42.9790583Z Get:12 http://azure.archive.ubuntu.com/ubuntu noble-security/main Translation-en [231 kB]
+2026-10-21T02:58:42.9817475Z Get:13 http://azure.archive.ubuntu.com/ubuntu noble-security/universe amd64 Packages [1222 kB]
+2026-10-21T02:58:45.4750864Z Fetched 7274 kB in 1s (12.7 MB/s)
+2026-10-21T02:58:46.1520002Z Reading package lists...
+2026-10-21T02:58:46.1779261Z Reading package lists...
+2026-10-21T02:58:46.3636739Z Building dependency tree...
+2026-10-21T02:58:46.3641816Z Reading state information...
+2026-10-21T02:58:46.4920285Z libasound2t64 is already the newest version (1.2.11-1ubuntu0.3).
+2026-10-21T02:58:46.4921935Z libasound2t64 set to manually installed.
+2026-10-21T02:58:46.4922367Z libatk-bridge2.0-0t64 is already the newest version (2.52.0-1build1).
+2026-10-21T02:58:46.4922755Z libatk-bridge2.0-0t64 set to manually installed.
+2026-10-21T02:58:46.4923098Z libatk1.0-0t64 is already the newest version (2.52.0-1build1).
+2026-10-21T02:58:46.4923416Z libatk1.0-0t64 set to manually installed.
+2026-10-21T02:58:46.4923753Z libatspi2.0-0t64 is already the newest version (2.52.0-1build1).
+2026-10-21T02:58:46.4924078Z libatspi2.0-0t64 set to manually installed.
+2026-10-21T02:58:46.4924435Z libcairo2 is already the newest version (1.18.0-3build1).
+2026-10-21T02:58:46.4924736Z libcairo2 set to manually installed.
+2026-10-21T02:58:46.4925076Z libcups2t64 is already the newest version (2.4.7-1.2ubuntu7.14).
+2026-10-21T02:58:46.4925391Z libcups2t64 set to manually installed.
+2026-10-21T02:58:46.4925710Z libdbus-1-3 is already the newest version (1.14.10-4ubuntu4.1).
+2026-10-21T02:58:46.4926103Z libdbus-1-3 set to manually installed.
+2026-10-21T02:58:46.4926655Z libdrm2 is already the newest version (2.4.125-1ubuntu0.1~24.04.2).
+2026-10-21T02:58:46.4926982Z libdrm2 set to manually installed.
+2026-10-21T02:58:46.4927315Z libgbm1 is already the newest version (25.2.8-0ubuntu0.24.04.4).
+2026-10-21T02:58:46.4927637Z libgbm1 set to manually installed.
+2026-10-21T02:58:46.4927974Z libglib2.0-0t64 is already the newest version (2.80.0-6ubuntu3.9).
+2026-10-21T02:58:46.4928316Z libglib2.0-0t64 set to manually installed.
+2026-10-21T02:58:46.4928671Z libnspr4 is already the newest version (2:4.35-1.1build1).
+2026-10-21T02:58:46.4928995Z libnspr4 set to manually installed.
+2026-10-21T02:58:46.4929325Z libnss3 is already the newest version (2:3.98-1ubuntu0.2).
+2026-10-21T02:58:46.4929645Z libnss3 set to manually installed.
+2026-10-21T02:58:46.4929989Z libpango-1.0-0 is already the newest version (1.52.1+ds-1build1).
+2026-10-21T02:58:46.4930431Z libpango-1.0-0 set to manually installed.
+2026-10-21T02:58:46.4930778Z libx11-6 is already the newest version (2:1.8.7-1ubuntu0.1).
+2026-10-21T02:58:46.4931108Z libx11-6 set to manually installed.
+2026-10-21T02:58:46.4931424Z libxcb1 is already the newest version (1.15-1ubuntu2).
+2026-10-21T02:58:46.4931727Z libxcb1 set to manually installed.
+2026-10-21T02:58:46.4932080Z libxcomposite1 is already the newest version (1:0.4.5-1build3).
+2026-10-21T02:58:46.4932438Z libxcomposite1 set to manually installed.
+2026-10-21T02:58:46.4932795Z libxdamage1 is already the newest version (1:1.1.6-1build1).
+2026-10-21T02:58:46.4933142Z libxdamage1 set to manually installed.
+2026-10-21T02:58:46.4933873Z libxext6 is already the newest version (2:1.3.4-1build2).
+2026-10-21T02:58:46.4934196Z libxext6 set to manually installed.
+2026-10-21T02:58:46.4934539Z libxfixes3 is already the newest version (1:6.0.0-2build1).
+2026-10-21T02:58:46.4934866Z libxfixes3 set to manually installed.
+2026-10-21T02:58:46.4935215Z libxkbcommon0 is already the newest version (1.6.0-1build1).
+2026-10-21T02:58:46.4935561Z libxkbcommon0 set to manually installed.
+2026-10-21T02:58:46.4935914Z libxrandr2 is already the newest version (2:1.5.2-2build1).
+2026-10-21T02:58:46.4936478Z libxrandr2 set to manually installed.
+2026-10-21T02:58:46.4936895Z fonts-noto-color-emoji is already the newest version (2.047-0ubuntu0.24.04.1).
+2026-10-21T02:58:46.4937367Z libfontconfig1 is already the newest version (2.15.0-1.1ubuntu2).
+2026-10-21T02:58:46.4937716Z libfontconfig1 set to manually installed.
+2026-10-21T02:58:46.4938092Z libfreetype6 is already the newest version (2.13.2+dfsg-1ubuntu0.2).
+2026-10-21T02:58:46.4938455Z libfreetype6 set to manually installed.
+2026-10-21T02:58:46.4938805Z fonts-liberation is already the newest version (1:2.1.5-3).
+2026-10-21T02:58:46.4939383Z fonts-liberation set to manually installed.
+2026-10-21T02:58:46.4939738Z The following additional packages will be installed:
+2026-10-21T02:58:46.4940073Z   xfonts-encodings xfonts-utils xserver-common
+2026-10-21T02:58:46.4940431Z Recommended packages:
+2026-10-21T02:58:46.4940690Z   fonts-ipafont-mincho fonts-tlwg-loma xfonts-base
+2026-10-21T02:58:46.5101845Z The following NEW packages will be installed:
+2026-10-21T02:58:46.5102313Z   fonts-freefont-ttf fonts-ipafont-gothic fonts-tlwg-loma-otf fonts-unifont
+2026-10-21T02:58:46.5106779Z   fonts-wqy-zenhei xfonts-cyrillic xfonts-encodings xfonts-scalable
+2026-10-21T02:58:46.5107088Z   xfonts-utils
+2026-10-21T02:58:46.5111792Z The following packages will be upgraded:
+2026-10-21T02:58:46.5112037Z   xserver-common xvfb
+2026-10-21T02:58:46.5271575Z 2 upgraded, 9 newly installed, 0 to remove and 43 not upgraded.
+2026-10-21T02:58:46.5272728Z Need to get 22.0 MB of archives.
+2026-10-21T02:58:46.5273101Z After this operation, 79.5 MB of additional disk space will be used.
+2026-10-21T02:58:46.5273506Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+2026-10-21T02:58:46.6166014Z Get:2 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-ipafont-gothic all 00303-21ubuntu1 [3513 kB]
+2026-10-21T02:58:46.9181382Z Get:3 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 fonts-freefont-ttf all 20211204+svn4273-2 [5641 kB]
+2026-10-21T02:58:47.0842485Z Get:4 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-tlwg-loma-otf all 1:0.7.3-1 [107 kB]
+2026-10-21T02:58:47.1510514Z Get:5 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-unifont all 1:15.1.01-1build1 [2993 kB]
+2026-10-21T02:58:47.2391329Z Get:6 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 fonts-wqy-zenhei all 0.9.45-8 [7472 kB]
+2026-10-21T02:58:47.4452590Z Get:7 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-encodings all 1:1.0.5-0ubuntu2 [578 kB]
+2026-10-21T02:58:47.5151624Z Get:8 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-utils amd64 1:7.7+6build3 [94.4 kB]
+2026-10-21T02:58:47.5833307Z Get:9 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 xfonts-cyrillic all 1:1.0.5+nmu1 [384 kB]
+2026-10-21T02:58:47.6564595Z Get:10 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 xfonts-scalable all 1:1.0.3-1.3 [304 kB]
+2026-10-21T02:58:47.7275785Z Get:11 http://azure.archive.ubuntu.com/ubuntu noble-updates/main amd64 xserver-common all 2:21.1.12-1ubuntu1.9 [35.0 kB]
+2026-10-21T02:58:47.7940650Z Get:12 http://azure.archive.ubuntu.com/ubuntu noble-updates/universe amd64 xvfb amd64 2:21.1.12-1ubuntu1.9 [877 kB]
+2026-10-21T02:58:47.9938412Z Fetched 22.0 MB in 1s (17.1 MB/s)
+2026-10-21T02:58:48.0119728Z Selecting previously unselected package fonts-ipafont-gothic.
+2026-10-21T02:58:48.0357249Z (Reading database ... 
+2026-10-21T02:58:48.0357484Z (Reading database ... 5%
+2026-10-21T02:58:48.0358025Z (Reading database ... 10%
+2026-10-21T02:58:48.0358240Z (Reading database ... 15%
+2026-10-21T02:58:48.0358709Z (Reading database ... 20%
+2026-10-21T02:58:48.0358923Z (Reading database ... 25%
+2026-10-21T02:58:48.0359127Z (Reading database ... 30%
+2026-10-21T02:58:48.0359329Z (Reading database ... 35%
+2026-10-21T02:58:48.0359463Z (Reading database ... 40%
+2026-10-21T02:58:48.0359601Z (Reading database ... 45%
+2026-10-21T02:58:48.0359733Z (Reading database ... 50%
+2026-10-21T02:58:48.0417520Z (Reading database ... 55%
+2026-10-21T02:58:48.1687645Z (Reading database ... 60%
+2026-10-21T02:58:48.3715275Z (Reading database ... 65%
+2026-10-21T02:58:48.4703579Z (Reading database ... 70%
+2026-10-21T02:58:48.6202201Z (Reading database ... 75%
+2026-10-21T02:58:48.8241048Z (Reading database ... 80%
+2026-10-21T02:58:48.9878318Z (Reading database ... 85%
+2026-10-21T02:58:49.1797289Z (Reading database ... 90%
+2026-10-21T02:58:49.3737410Z (Reading database ... 95%
+2026-10-21T02:58:49.3737787Z (Reading database ... 100%
+2026-10-21T02:58:49.3738185Z (Reading database ... 214410 files and directories currently installed.)
+2026-10-21T02:58:49.3778481Z Preparing to unpack .../00-fonts-ipafont-gothic_00303-21ubuntu1_all.deb ...
+2026-10-21T02:58:49.3860279Z Unpacking fonts-ipafont-gothic (00303-21ubuntu1) ...
+2026-10-21T02:58:49.6101837Z Selecting previously unselected package fonts-freefont-ttf.
+2026-10-21T02:58:49.6211667Z Preparing to unpack .../01-fonts-freefont-ttf_20211204+svn4273-2_all.deb ...
+2026-10-21T02:58:49.6219928Z Unpacking fonts-freefont-ttf (20211204+svn4273-2) ...
+2026-10-21T02:58:49.7283479Z Selecting previously unselected package fonts-tlwg-loma-otf.
+2026-10-21T02:58:49.7393068Z Preparing to unpack .../02-fonts-tlwg-loma-otf_1%3a0.7.3-1_all.deb ...
+2026-10-21T02:58:49.7400345Z Unpacking fonts-tlwg-loma-otf (1:0.7.3-1) ...
+2026-10-21T02:58:49.7642940Z Selecting previously unselected package fonts-unifont.
+2026-10-21T02:58:49.7770833Z Preparing to unpack .../03-fonts-unifont_1%3a15.1.01-1build1_all.deb ...
+2026-10-21T02:58:49.7776792Z Unpacking fonts-unifont (1:15.1.01-1build1) ...
+2026-10-21T02:58:49.9916924Z Selecting previously unselected package fonts-wqy-zenhei.
+2026-10-21T02:58:50.0026726Z Preparing to unpack .../04-fonts-wqy-zenhei_0.9.45-8_all.deb ...
+2026-10-21T02:58:50.0123857Z Unpacking fonts-wqy-zenhei (0.9.45-8) ...
+2026-10-21T02:58:50.4758090Z Selecting previously unselected package xfonts-encodings.
+2026-10-21T02:58:50.4866964Z Preparing to unpack .../05-xfonts-encodings_1%3a1.0.5-0ubuntu2_all.deb ...
+2026-10-21T02:58:50.4873082Z Unpacking xfonts-encodings (1:1.0.5-0ubuntu2) ...
+2026-10-21T02:58:50.5117468Z Selecting previously unselected package xfonts-utils.
+2026-10-21T02:58:50.5224521Z Preparing to unpack .../06-xfonts-utils_1%3a7.7+6build3_amd64.deb ...
+2026-10-21T02:58:50.5229850Z Unpacking xfonts-utils (1:7.7+6build3) ...
+2026-10-21T02:58:50.5541767Z Selecting previously unselected package xfonts-cyrillic.
+2026-10-21T02:58:50.5647431Z Preparing to unpack .../07-xfonts-cyrillic_1%3a1.0.5+nmu1_all.deb ...
+2026-10-21T02:58:50.5653599Z Unpacking xfonts-cyrillic (1:1.0.5+nmu1) ...
+2026-10-21T02:58:50.5932010Z Selecting previously unselected package xfonts-scalable.
+2026-10-21T02:58:50.6038639Z Preparing to unpack .../08-xfonts-scalable_1%3a1.0.3-1.3_all.deb ...
+2026-10-21T02:58:50.6043797Z Unpacking xfonts-scalable (1:1.0.3-1.3) ...
+2026-10-21T02:58:50.6365066Z Preparing to unpack .../09-xserver-common_2%3a21.1.12-1ubuntu1.9_all.deb ...
+2026-10-21T02:58:50.6378130Z Unpacking xserver-common (2:21.1.12-1ubuntu1.9) over (2:21.1.12-1ubuntu1.8) ...
+2026-10-21T02:58:50.6859276Z Preparing to unpack .../10-xvfb_2%3a21.1.12-1ubuntu1.9_amd64.deb ...
+2026-10-21T02:58:50.6872009Z Unpacking xvfb (2:21.1.12-1ubuntu1.9) over (2:21.1.12-1ubuntu1.8) ...
+2026-10-21T02:58:50.7353147Z Setting up fonts-wqy-zenhei (0.9.45-8) ...
+2026-10-21T02:58:50.7446722Z Setting up fonts-freefont-ttf (20211204+svn4273-2) ...
+2026-10-21T02:58:50.7458718Z Setting up fonts-tlwg-loma-otf (1:0.7.3-1) ...
+2026-10-21T02:58:50.7471283Z Setting up xfonts-encodings (1:1.0.5-0ubuntu2) ...
+2026-10-21T02:58:50.7483315Z Setting up fonts-ipafont-gothic (00303-21ubuntu1) ...
+2026-10-21T02:58:50.7531926Z update-alternatives: using /usr/share/fonts/opentype/ipafont-gothic/ipag.ttf to provide /usr/share/fonts/truetype/fonts-japanese-gothic.ttf (fonts-japanese-gothic.ttf) in auto mode
+2026-10-21T02:58:50.7543823Z Setting up xserver-common (2:21.1.12-1ubuntu1.9) ...
+2026-10-21T02:58:50.7555891Z Setting up fonts-unifont (1:15.1.01-1build1) ...
+2026-10-21T02:58:50.7568509Z Setting up xvfb (2:21.1.12-1ubuntu1.9) ...
+2026-10-21T02:58:50.7581267Z Setting up xfonts-utils (1:7.7+6build3) ...
+2026-10-21T02:58:50.7613476Z Setting up xfonts-cyrillic (1:1.0.5+nmu1) ...
+2026-10-21T02:58:50.7847533Z Setting up xfonts-scalable (1:1.0.3-1.3) ...
+2026-10-21T02:58:50.8058469Z Processing triggers for man-db (2.12.0-4build2) ...
+2026-10-21T02:58:50.8076330Z Not building database; man-db/auto-update is not 'true'.
+2026-10-21T02:58:50.8087094Z Processing triggers for fontconfig (2.15.0-1.1ubuntu2) ...
+2026-10-21T02:58:51.4360198Z 
+2026-10-21T02:58:51.4360831Z Running kernel seems to be up-to-date.
+2026-10-21T02:58:51.4361341Z 
+2026-10-21T02:58:51.4361445Z No services need to be restarted.
+2026-10-21T02:58:51.4361545Z 
+2026-10-21T02:58:51.4361626Z No containers need to be restarted.
+2026-10-21T02:58:51.4361727Z 
+2026-10-21T02:58:51.4361821Z No user sessions are running outdated binaries.
+2026-10-21T02:58:51.4361943Z 
+2026-10-21T02:58:51.4362092Z No VM guests are running outdated hypervisor (qemu) binaries on this host.
+2026-10-21T02:58:52.2564225Z Downloading Chrome for Testing 149.0.7827.55 (playwright chromium v1228) from https://cdn.playwright.dev/builds/cft/149.0.7827.55/linux64/chrome-linux64.zip
+2026-10-21T02:58:53.1686262Z |                                                                                |   0% of 177 MiB
+2026-10-21T02:58:53.2442199Z |■■■■■■■■                                                                        |  10% of 177 MiB
+2026-10-21T02:58:53.3367101Z |■■■■■■■■■■■■■■■■                                                                |  20% of 177 MiB
+2026-10-21T02:58:53.4293493Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 177 MiB
+2026-10-21T02:58:53.5034230Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 177 MiB
+2026-10-21T02:58:53.5834729Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 177 MiB
+2026-10-21T02:58:53.7017935Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 177 MiB
+2026-10-21T02:58:53.7960509Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 177 MiB
+2026-10-21T02:58:53.8960216Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 177 MiB
+2026-10-21T02:58:53.9764352Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 177 MiB
+2026-10-21T02:58:54.0554448Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 177 MiB
+2026-10-21T02:58:55.5933673Z Chrome for Testing 149.0.7827.55 (playwright chromium v1228) downloaded to /home/runner/.cache/ms-playwright/chromium-1228
+2026-10-21T02:58:55.5935946Z Downloading FFmpeg (playwright ffmpeg v1011) from https://cdn.playwright.dev/dbazure/download/playwright/builds/ffmpeg/1011/ffmpeg-linux.zip
+2026-10-21T02:58:56.4544097Z |                                                                                |   0% of 2.3 MiB
+2026-10-21T02:58:56.4734214Z |■■■■■■■■                                                                        |  10% of 2.3 MiB
+2026-10-21T02:58:56.4817130Z |■■■■■■■■■■■■■■■■                                                                |  20% of 2.3 MiB
+2026-10-21T02:58:56.4874079Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 2.3 MiB
+2026-10-21T02:58:56.4915731Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 2.3 MiB
+2026-10-21T02:58:56.4942326Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 2.3 MiB
+2026-10-21T02:58:56.4955243Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 2.3 MiB
+2026-10-21T02:58:56.4967798Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 2.3 MiB
+2026-10-21T02:58:56.4996343Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 2.3 MiB
+2026-10-21T02:58:56.5006021Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 2.3 MiB
+2026-10-21T02:58:56.5013331Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 2.3 MiB
+2026-10-21T02:58:56.5402426Z FFmpeg (playwright ffmpeg v1011) downloaded to /home/runner/.cache/ms-playwright/ffmpeg-1011
+2026-10-21T02:58:56.5404426Z Downloading Chrome Headless Shell 149.0.7827.55 (playwright chromium-headless-shell v1228) from https://cdn.playwright.dev/builds/cft/149.0.7827.55/linux64/chrome-headless-shell-linux64.zip
+2026-10-21T02:58:57.4728770Z |                                                                                |   0% of 114.2 MiB
+2026-10-21T02:58:57.5373714Z |■■■■■■■■                                                                        |  10% of 114.2 MiB
+2026-10-21T02:58:57.5699897Z |■■■■■■■■■■■■■■■■                                                                |  20% of 114.2 MiB
+2026-10-21T02:58:57.5988715Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 114.2 MiB
+2026-10-21T02:58:57.6274602Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 114.2 MiB
+2026-10-21T02:58:57.6589796Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 114.2 MiB
+2026-10-21T02:58:57.6922464Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 114.2 MiB
+2026-10-21T02:58:57.7237736Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 114.2 MiB
+2026-10-21T02:58:57.7548441Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 114.2 MiB
+2026-10-21T02:58:57.7861011Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 114.2 MiB
+2026-10-21T02:58:57.8242429Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 114.2 MiB
+2026-10-21T02:58:58.9723506Z Chrome Headless Shell 149.0.7827.55 (playwright chromium-headless-shell v1228) downloaded to /home/runner/.cache/ms-playwright/chromium_headless_shell-1228
+2026-10-21T02:58:58.9938824Z ##[group]Run set -euo pipefail
+2026-10-21T02:58:58.9939015Z [36;1mset -euo pipefail[0m
+2026-10-21T02:58:58.9939147Z [36;1mumask 077[0m
+2026-10-21T02:58:58.9939288Z [36;1mmkdir -m 700 "$MYAPI_PERSONAL_ARTIFACT_DIR"[0m
+2026-10-21T02:58:58.9939550Z [36;1mnode tools/runtime/docker-smoke.mjs | tee "$MYAPI_SMOKE_REPORT_DIR/qualification.json"[0m
+2026-10-21T02:58:58.9980091Z shell: /usr/bin/bash -e {0}
+2026-10-21T02:58:58.9980239Z env:
+2026-10-21T02:58:58.9980350Z   MYAPI_SMOKE_EDITION: full
+2026-10-21T02:58:58.9980512Z   MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
+2026-10-21T02:58:58.9980673Z   MYAPI_ISOLATED_SMOKE: 1
+2026-10-21T02:58:58.9980802Z   BUNDLE_PERSONAL: 1
+2026-10-21T02:58:58.9980922Z   MYAPI_SMOKE_PERSONAL: 1
+2026-10-21T02:58:58.9981051Z   MYAPI_SMOKE_WRITER: legacy
+2026-10-21T02:58:58.9981262Z   SMOKE_NETWORK: myapi-personal-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:58.9981644Z   SMOKE_REDIS_CONTAINER: myapi-personal-redis-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:58:58.9981960Z   SMOKE_CONTAINER: myapi-smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:58.9982274Z   SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:58.9982622Z   SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:58.9982930Z   SMOKE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:58.9983189Z   SMOKE_SOURCE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:58.9983484Z   SMOKE_APP_IMAGE_ID: sha256:7a8b677d0d59a3b8cb06323503ec0990565f9ec89a93a19e0e84ec302d595fbe
+2026-10-21T02:58:58.9983796Z   SMOKE_BUN_IMAGE_ID: sha256:d62d32ae5b2f0f1530043a409f2891dbe71ba133d4b0b690cfcbda8f5ec3657f
+2026-10-21T02:58:58.9984116Z   SMOKE_REDIS_IMAGE_ID: sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058
+2026-10-21T02:58:58.9984407Z   MYAPI_SMOKE_REPORT_DIR: /home/runner/work/_temp/myapi-smoke-report
+2026-10-21T02:58:58.9984717Z   SMOKE_DATA_DIR: /home/runner/work/_temp/myapi-smoke-data-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:58:58.9985084Z   MYAPI_PLAYWRIGHT_MODULE: /home/runner/work/_temp/myapi-smoke-browser/node_modules/playwright/index.mjs
+2026-10-21T02:58:58.9985357Z   MYAPI_FAKE_UPSTREAM_URL: http://127.0.0.1:19090
+2026-10-21T02:58:58.9985525Z   MYAPI_SMOKE_FULL_CONTENT: 1
+2026-10-21T02:58:58.9985660Z   MYAPI_SMOKE_RESTORE: 0
+2026-10-21T02:58:58.9985851Z   MYAPI_PERSONAL_ARTIFACT_DIR: /home/runner/work/_temp/myapi-personal-artifacts
+2026-10-21T02:58:58.9986058Z ##[endgroup]
+2026-10-21T02:58:59.0569020Z {"command":"personal:browser","phase":"setup","event":"stage","stage":"launch","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:00.4083151Z {"command":"personal:browser","phase":"setup","event":"stage","stage":"setup-session","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:00.4548972Z {"command":"personal:browser","phase":"setup","event":"stage","stage":"setup-open","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:00.7878722Z {"command":"personal:browser","phase":"setup","event":"stage","stage":"setup-database","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:00.9592000Z {"command":"personal:browser","phase":"setup","event":"stage","stage":"setup-credentials","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:01.0252094Z {"command":"personal:browser","phase":"setup","event":"stage","stage":"setup-mode","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:01.1044684Z {"command":"personal:browser","phase":"setup","event":"stage","stage":"setup-review","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:01.1071868Z {"command":"personal:browser","phase":"setup","event":"stage","stage":"setup-submit","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:01.1336794Z {"command":"personal:browser","phase":"setup","event":"stage","stage":"setup-response","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:01.1948983Z {"command":"personal:browser","phase":"setup","event":"stage","stage":"browser-close","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:01.8353243Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"launch","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:01.9386551Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"login-open","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:02.2798203Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"login","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:02.3104528Z {"command":"personal:browser","phase":"journey","event":"diagnostic-response","stage":"login","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy","httpStatus":401,"category":"auth"}
+2026-10-21T02:59:02.3107265Z {"command":"personal:browser","phase":"journey","event":"diagnostic-console","stage":"login","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy","errorClass":"other"}
+2026-10-21T02:59:02.4054785Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"login-response","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:02.4686359Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"login-keys","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:02.6449825Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"writer-check","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:02.6504330Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"fixture-config","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:02.6570137Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"fixture-config-refresh","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:02.9054394Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"policy-view","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:03.0718023Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"key-create-open","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:03.3530610Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"key-create-ready","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:03.3955216Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"key-create-profile","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:03.9107654Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"key-create-cap","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:03.9980999Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"key-create-quota","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:04.0159219Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"key-create-submit","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:04.0830614Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"key-create-payload","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:04.0833312Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"key-create-response","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:04.4089159Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"key-create-readback","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:04.4119805Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"screenshot","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:04.4636034Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"key-create-readback","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:04.4691414Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"workbench-open","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:04.5120556Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"workbench-key-selection","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:05.3597396Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"workbench-playground-open","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:05.4137791Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"key-handoff-readback","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:05.4987846Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"key-selection","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:05.5436684Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"key-selection-model","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:06.2641823Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"screenshot","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:06.3199344Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"key-selection-model","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:06.3201245Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"playground-send","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:06.3902810Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"playground-response","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:06.3991487Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"playground-complete","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:06.4792990Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"ledger-check","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:06.4870090Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"screenshot","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:06.5527182Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"ledger-check","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:06.5528619Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"usage-open","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:06.5906074Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"usage-filter","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:26.5929510Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"screenshot","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:26.6546502Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"usage-filter","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:26.6547248Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"usage-filter","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:26.6548209Z {"command":"personal:browser","phase":"journey","event":"stage","stage":"browser-close","sha":"12769cad4553430cd750e07ef62304c5f60cbc7e","writer":"legacy"}
+2026-10-21T02:59:26.6860273Z {"command":"docker:smoke","passed":false,"code":"SMOKE_PERSONAL_BROWSER_FAILED","stage":"usage-filter"}
+2026-10-21T02:59:26.7014018Z ##[error]Process completed with exit code 1.
+2026-10-21T02:59:26.7063818Z ##[group]Run actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+2026-10-21T02:59:26.7064051Z with:
+2026-10-21T02:59:26.7064235Z   name: myapi-personal-legacy-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:26.7064483Z   path: /home/runner/work/_temp/myapi-personal-artifacts
+2026-10-21T02:59:26.7064666Z   if-no-files-found: warn
+2026-10-21T02:59:26.7064797Z   retention-days: 30
+2026-10-21T02:59:26.7064919Z   compression-level: 6
+2026-10-21T02:59:26.7065044Z   overwrite: false
+2026-10-21T02:59:26.7065163Z   include-hidden-files: false
+2026-10-21T02:59:26.7065296Z env:
+2026-10-21T02:59:26.7065406Z   MYAPI_SMOKE_EDITION: full
+2026-10-21T02:59:26.7065570Z   MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
+2026-10-21T02:59:26.7065730Z   MYAPI_ISOLATED_SMOKE: 1
+2026-10-21T02:59:26.7065854Z   BUNDLE_PERSONAL: 1
+2026-10-21T02:59:26.7065976Z   MYAPI_SMOKE_PERSONAL: 1
+2026-10-21T02:59:26.7066107Z   MYAPI_SMOKE_WRITER: legacy
+2026-10-21T02:59:26.7066630Z   SMOKE_NETWORK: myapi-personal-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:59:26.7066958Z   SMOKE_REDIS_CONTAINER: myapi-personal-redis-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:59:26.7067273Z   SMOKE_CONTAINER: myapi-smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:26.7067595Z   SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:26.7067948Z   SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:26.7068246Z   SMOKE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:26.7068512Z   SMOKE_SOURCE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:26.7068817Z   SMOKE_APP_IMAGE_ID: sha256:7a8b677d0d59a3b8cb06323503ec0990565f9ec89a93a19e0e84ec302d595fbe
+2026-10-21T02:59:26.7069142Z   SMOKE_BUN_IMAGE_ID: sha256:d62d32ae5b2f0f1530043a409f2891dbe71ba133d4b0b690cfcbda8f5ec3657f
+2026-10-21T02:59:26.7069470Z   SMOKE_REDIS_IMAGE_ID: sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058
+2026-10-21T02:59:26.7069776Z   MYAPI_SMOKE_REPORT_DIR: /home/runner/work/_temp/myapi-smoke-report
+2026-10-21T02:59:26.7070082Z   SMOKE_DATA_DIR: /home/runner/work/_temp/myapi-smoke-data-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:26.7070344Z ##[endgroup]
+2026-10-21T02:59:26.8202026Z (node:3842) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-21T02:59:26.8202525Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-21T02:59:26.8244119Z With the provided path, there will be 4 files uploaded
+2026-10-21T02:59:26.8247340Z Artifact name is valid!
+2026-10-21T02:59:26.8247734Z Root directory input is valid!
+2026-10-21T02:59:27.1861585Z Beginning upload of artifact content to blob storage
+2026-10-21T02:59:27.2115496Z (node:3842) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-21T02:59:27.6580024Z Uploaded bytes 443488
+2026-10-21T02:59:27.7133075Z Finished uploading artifact content to blob storage!
+2026-10-21T02:59:27.7133762Z SHA256 hash of uploaded artifact zip is 435a9151d11c1918b8c86f0ba43573dd0cb5f3a801c9562e041ac9f7f4b2aed7
+2026-10-21T02:59:27.7134244Z Finalizing artifact upload
+2026-10-21T02:59:27.9918673Z Artifact myapi-personal-legacy-12769cad4553430cd750e07ef62304c5f60cbc7e.zip successfully finalized. Artifact ID 12317114499
+2026-10-21T02:59:27.9919380Z Artifact myapi-personal-legacy-12769cad4553430cd750e07ef62304c5f60cbc7e has been successfully uploaded! Final size is 443488 bytes. Artifact ID is 12317114499
+2026-10-21T02:59:27.9919937Z Artifact download URL: https://github.com/ForceMind/MyAPI/actions/runs/39535444563/artifacts/12317114499
+2026-10-21T02:59:28.0060497Z ##[group]Run actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+2026-10-21T02:59:28.0060743Z with:
+2026-10-21T02:59:28.0060967Z   name: myapi-smoke-report-full-fresh-legacy-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:28.0061253Z   path: /home/runner/work/_temp/myapi-smoke-report/
+2026-10-21T02:59:28.0061426Z   if-no-files-found: error
+2026-10-21T02:59:28.0061557Z   retention-days: 30
+2026-10-21T02:59:28.0061680Z   compression-level: 6
+2026-10-21T02:59:28.0061801Z   overwrite: false
+2026-10-21T02:59:28.0061922Z   include-hidden-files: false
+2026-10-21T02:59:28.0062053Z env:
+2026-10-21T02:59:28.0062159Z   MYAPI_SMOKE_EDITION: full
+2026-10-21T02:59:28.0062316Z   MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
+2026-10-21T02:59:28.0062478Z   MYAPI_ISOLATED_SMOKE: 1
+2026-10-21T02:59:28.0062601Z   BUNDLE_PERSONAL: 1
+2026-10-21T02:59:28.0062721Z   MYAPI_SMOKE_PERSONAL: 1
+2026-10-21T02:59:28.0062849Z   MYAPI_SMOKE_WRITER: legacy
+2026-10-21T02:59:28.0063085Z   SMOKE_NETWORK: myapi-personal-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:59:28.0063418Z   SMOKE_REDIS_CONTAINER: myapi-personal-redis-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:59:28.0063735Z   SMOKE_CONTAINER: myapi-smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:28.0064051Z   SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:28.0064405Z   SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:28.0064708Z   SMOKE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:28.0064974Z   SMOKE_SOURCE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:28.0065278Z   SMOKE_APP_IMAGE_ID: sha256:7a8b677d0d59a3b8cb06323503ec0990565f9ec89a93a19e0e84ec302d595fbe
+2026-10-21T02:59:28.0065606Z   SMOKE_BUN_IMAGE_ID: sha256:d62d32ae5b2f0f1530043a409f2891dbe71ba133d4b0b690cfcbda8f5ec3657f
+2026-10-21T02:59:28.0065930Z   SMOKE_REDIS_IMAGE_ID: sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058
+2026-10-21T02:59:28.0066381Z   MYAPI_SMOKE_REPORT_DIR: /home/runner/work/_temp/myapi-smoke-report
+2026-10-21T02:59:28.0066694Z   SMOKE_DATA_DIR: /home/runner/work/_temp/myapi-smoke-data-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:28.0066950Z ##[endgroup]
+2026-10-21T02:59:28.1177016Z (node:3854) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-21T02:59:28.1177520Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-21T02:59:28.1213879Z With the provided path, there will be 4 files uploaded
+2026-10-21T02:59:28.1247016Z Artifact name is valid!
+2026-10-21T02:59:28.1247358Z Root directory input is valid!
+2026-10-21T02:59:28.4533836Z Beginning upload of artifact content to blob storage
+2026-10-21T02:59:28.4667304Z (node:3854) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-21T02:59:28.6646538Z Uploaded bytes 1388
+2026-10-21T02:59:28.7204811Z Finished uploading artifact content to blob storage!
+2026-10-21T02:59:28.7205889Z SHA256 hash of uploaded artifact zip is 55026974b05185a99c53679c7ea7142a10d79e0e9b1843f08ccbd4baaa5babe4
+2026-10-21T02:59:28.7206332Z Finalizing artifact upload
+2026-10-21T02:59:28.9822531Z Artifact myapi-smoke-report-full-fresh-legacy-12769cad4553430cd750e07ef62304c5f60cbc7e.zip successfully finalized. Artifact ID 12316904598
+2026-10-21T02:59:28.9823694Z Artifact myapi-smoke-report-full-fresh-legacy-12769cad4553430cd750e07ef62304c5f60cbc7e has been successfully uploaded! Final size is 1388 bytes. Artifact ID is 12316904598
+2026-10-21T02:59:28.9826854Z Artifact download URL: https://github.com/ForceMind/MyAPI/actions/runs/39535444563/artifacts/12316904598
+2026-10-21T02:59:28.9959259Z ##[group]Run docker inspect --format 'status={{.State.Status}} exit_code={{.State.ExitCode}} oom_killed={{.State.OOMKilled}}' "$SMOKE_CONTAINER" 2>/dev/null || true
+2026-10-21T02:59:28.9959834Z [36;1mdocker inspect --format 'status={{.State.Status}} exit_code={{.State.ExitCode}} oom_killed={{.State.OOMKilled}}' "$SMOKE_CONTAINER" 2>/dev/null || true[0m
+2026-10-21T02:59:28.9960369Z [36;1mdocker inspect --format 'status={{.State.Status}} exit_code={{.State.ExitCode}} oom_killed={{.State.OOMKilled}}' "$SMOKE_FAKE_UPSTREAM_CONTAINER" 2>/dev/null || true[0m
+2026-10-21T02:59:28.9960905Z [36;1mdocker inspect --format 'status={{.State.Status}} exit_code={{.State.ExitCode}} oom_killed={{.State.OOMKilled}}' "$SMOKE_RESTORE_CONTAINER" 2>/dev/null || true[0m
+2026-10-21T02:59:29.0001887Z shell: /usr/bin/bash -e {0}
+2026-10-21T02:59:29.0002170Z env:
+2026-10-21T02:59:29.0002376Z   MYAPI_SMOKE_EDITION: full
+2026-10-21T02:59:29.0002657Z   MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
+2026-10-21T02:59:29.0003010Z   MYAPI_ISOLATED_SMOKE: 1
+2026-10-21T02:59:29.0003220Z   BUNDLE_PERSONAL: 1
+2026-10-21T02:59:29.0023669Z   MYAPI_SMOKE_PERSONAL: 1
+2026-10-21T02:59:29.0023814Z   MYAPI_SMOKE_WRITER: legacy
+2026-10-21T02:59:29.0024058Z   SMOKE_NETWORK: myapi-personal-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:59:29.0024413Z   SMOKE_REDIS_CONTAINER: myapi-personal-redis-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:59:29.0024742Z   SMOKE_CONTAINER: myapi-smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:29.0025080Z   SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:29.0025424Z   SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:29.0025723Z   SMOKE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:29.0025978Z   SMOKE_SOURCE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:29.0026455Z   SMOKE_APP_IMAGE_ID: sha256:7a8b677d0d59a3b8cb06323503ec0990565f9ec89a93a19e0e84ec302d595fbe
+2026-10-21T02:59:29.0026776Z   SMOKE_BUN_IMAGE_ID: sha256:d62d32ae5b2f0f1530043a409f2891dbe71ba133d4b0b690cfcbda8f5ec3657f
+2026-10-21T02:59:29.0027093Z   SMOKE_REDIS_IMAGE_ID: sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058
+2026-10-21T02:59:29.0027373Z   MYAPI_SMOKE_REPORT_DIR: /home/runner/work/_temp/myapi-smoke-report
+2026-10-21T02:59:29.0027678Z   SMOKE_DATA_DIR: /home/runner/work/_temp/myapi-smoke-data-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:29.0027930Z ##[endgroup]
+2026-10-21T02:59:29.0187747Z status=running exit_code=0 oom_killed=false
+2026-10-21T02:59:29.0301012Z status=running exit_code=0 oom_killed=false
+2026-10-21T02:59:29.0529298Z 
+2026-10-21T02:59:29.0568155Z ##[group]Run if [[ "$(docker inspect --format '{{index .Config.Labels "io.myapi.smoke.sha"}}' "$SMOKE_RESTORE_CONTAINER" 2>/dev/null)" == "$GITHUB_SHA" ]]; then
+2026-10-21T02:59:29.0568724Z [36;1mif [[ "$(docker inspect --format '{{index .Config.Labels "io.myapi.smoke.sha"}}' "$SMOKE_RESTORE_CONTAINER" 2>/dev/null)" == "$GITHUB_SHA" ]]; then[0m
+2026-10-21T02:59:29.0569219Z [36;1m  docker rm --force "$SMOKE_RESTORE_CONTAINER" >/dev/null[0m
+2026-10-21T02:59:29.0569405Z [36;1mfi[0m
+2026-10-21T02:59:29.0569703Z [36;1mif [[ "$(docker inspect --format '{{index .Config.Labels "io.myapi.smoke.sha"}}' "$SMOKE_FAKE_UPSTREAM_CONTAINER" 2>/dev/null)" == "$GITHUB_SHA" ]]; then[0m
+2026-10-21T02:59:29.0570081Z [36;1m  docker rm --force "$SMOKE_FAKE_UPSTREAM_CONTAINER" >/dev/null[0m
+2026-10-21T02:59:29.0570274Z [36;1mfi[0m
+2026-10-21T02:59:29.0570575Z [36;1mif [[ "$(docker inspect --format '{{index .Config.Labels "io.myapi.smoke.sha"}}' "$SMOKE_CONTAINER" 2>/dev/null)" == "$GITHUB_SHA" ]]; then[0m
+2026-10-21T02:59:29.0570915Z [36;1m  docker rm --force "$SMOKE_CONTAINER" >/dev/null[0m
+2026-10-21T02:59:29.0571211Z [36;1m  if [[ "$SMOKE_DATA_DIR" == "$RUNNER_TEMP/myapi-smoke-data-${MYAPI_SMOKE_EDITION}-${GITHUB_SHA}" ]]; then[0m
+2026-10-21T02:59:29.0571481Z [36;1m    rm -rf -- "$SMOKE_DATA_DIR"[0m
+2026-10-21T02:59:29.0571632Z [36;1m  fi[0m
+2026-10-21T02:59:29.0571737Z [36;1mfi[0m
+2026-10-21T02:59:29.0612885Z shell: /usr/bin/bash -e {0}
+2026-10-21T02:59:29.0613035Z env:
+2026-10-21T02:59:29.0613150Z   MYAPI_SMOKE_EDITION: full
+2026-10-21T02:59:29.0613317Z   MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
+2026-10-21T02:59:29.0613485Z   MYAPI_ISOLATED_SMOKE: 1
+2026-10-21T02:59:29.0613619Z   BUNDLE_PERSONAL: 1
+2026-10-21T02:59:29.0613744Z   MYAPI_SMOKE_PERSONAL: 1
+2026-10-21T02:59:29.0613881Z   MYAPI_SMOKE_WRITER: legacy
+2026-10-21T02:59:29.0614102Z   SMOKE_NETWORK: myapi-personal-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:59:29.0614453Z   SMOKE_REDIS_CONTAINER: myapi-personal-redis-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:59:29.0614774Z   SMOKE_CONTAINER: myapi-smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:29.0615099Z   SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:29.0615462Z   SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:29.0615769Z   SMOKE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:29.0616040Z   SMOKE_SOURCE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:29.0616487Z   SMOKE_APP_IMAGE_ID: sha256:7a8b677d0d59a3b8cb06323503ec0990565f9ec89a93a19e0e84ec302d595fbe
+2026-10-21T02:59:29.0616819Z   SMOKE_BUN_IMAGE_ID: sha256:d62d32ae5b2f0f1530043a409f2891dbe71ba133d4b0b690cfcbda8f5ec3657f
+2026-10-21T02:59:29.0617152Z   SMOKE_REDIS_IMAGE_ID: sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058
+2026-10-21T02:59:29.0617443Z   MYAPI_SMOKE_REPORT_DIR: /home/runner/work/_temp/myapi-smoke-report
+2026-10-21T02:59:29.0617764Z   SMOKE_DATA_DIR: /home/runner/work/_temp/myapi-smoke-data-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:29.0618025Z ##[endgroup]
+2026-10-21T02:59:32.0003993Z ##[group]Run cleanup_failed=0
+2026-10-21T02:59:32.0004324Z [36;1mcleanup_failed=0[0m
+2026-10-21T02:59:32.0005278Z [36;1mif [[ "$(docker inspect --format '{{index .Config.Labels "io.myapi.smoke.sha"}}' "$SMOKE_REDIS_CONTAINER" 2>/dev/null)" == "$GITHUB_SHA" && "$(docker inspect --format '{{index .Config.Labels "io.myapi.personal.run"}}' "$SMOKE_REDIS_CONTAINER" 2>/dev/null)" == "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" ]]; then[0m
+2026-10-21T02:59:32.0006616Z [36;1m  docker rm --force "$SMOKE_REDIS_CONTAINER" >/dev/null || cleanup_failed=1[0m
+2026-10-21T02:59:32.0006974Z [36;1mfi[0m
+2026-10-21T02:59:32.0007832Z [36;1mif [[ "$(docker network inspect --format '{{index .Labels "io.myapi.smoke.sha"}}' "$SMOKE_NETWORK" 2>/dev/null)" == "$GITHUB_SHA" && "$(docker network inspect --format '{{index .Labels "io.myapi.personal.run"}}' "$SMOKE_NETWORK" 2>/dev/null)" == "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" ]]; then[0m
+2026-10-21T02:59:32.0008899Z [36;1m  docker network rm "$SMOKE_NETWORK" >/dev/null || cleanup_failed=1[0m
+2026-10-21T02:59:32.0009245Z [36;1mfi[0m
+2026-10-21T02:59:32.0009665Z [36;1mexit "$cleanup_failed"[0m
+2026-10-21T02:59:32.0068101Z shell: /usr/bin/bash -e {0}
+2026-10-21T02:59:32.0068342Z env:
+2026-10-21T02:59:32.0068531Z   MYAPI_SMOKE_EDITION: full
+2026-10-21T02:59:32.0068799Z   MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
+2026-10-21T02:59:32.0069079Z   MYAPI_ISOLATED_SMOKE: 1
+2026-10-21T02:59:32.0069293Z   BUNDLE_PERSONAL: 1
+2026-10-21T02:59:32.0069499Z   MYAPI_SMOKE_PERSONAL: 1
+2026-10-21T02:59:32.0069715Z   MYAPI_SMOKE_WRITER: legacy
+2026-10-21T02:59:32.0070067Z   SMOKE_NETWORK: myapi-personal-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:59:32.0070630Z   SMOKE_REDIS_CONTAINER: myapi-personal-redis-12769cad4553430cd750e07ef62304c5f60cbc7e-legacy
+2026-10-21T02:59:32.0071177Z   SMOKE_CONTAINER: myapi-smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:32.0071727Z   SMOKE_FAKE_UPSTREAM_CONTAINER: myapi-smoke-fake-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:32.0072606Z   SMOKE_RESTORE_CONTAINER: myapi-smoke-restore-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:32.0073135Z   SMOKE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:32.0073583Z   SMOKE_SOURCE_IMAGE: myapi:smoke-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:32.0074098Z   SMOKE_APP_IMAGE_ID: sha256:7a8b677d0d59a3b8cb06323503ec0990565f9ec89a93a19e0e84ec302d595fbe
+2026-10-21T02:59:32.0074636Z   SMOKE_BUN_IMAGE_ID: sha256:d62d32ae5b2f0f1530043a409f2891dbe71ba133d4b0b690cfcbda8f5ec3657f
+2026-10-21T02:59:32.0075187Z   SMOKE_REDIS_IMAGE_ID: sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058
+2026-10-21T02:59:32.0075682Z   MYAPI_SMOKE_REPORT_DIR: /home/runner/work/_temp/myapi-smoke-report
+2026-10-21T02:59:32.0076418Z   SMOKE_DATA_DIR: /home/runner/work/_temp/myapi-smoke-data-full-12769cad4553430cd750e07ef62304c5f60cbc7e
+2026-10-21T02:59:32.0076856Z ##[endgroup]
+2026-10-21T02:59:32.1114014Z Post job cleanup.
+2026-10-21T02:59:32.1696454Z [command]/usr/bin/git version
+2026-10-21T02:59:32.1739694Z git version 2.55.0
+2026-10-21T02:59:32.1764609Z Temporarily overriding HOME='/home/runner/work/_temp/d65157fd-31c7-4716-97fd-f20ee7c16f1c' before making global git config changes
+2026-10-21T02:59:32.1765406Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-21T02:59:32.1768925Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MyAPI/MyAPI
+2026-10-21T02:59:32.1802085Z Removing SSH command configuration
+2026-10-21T02:59:32.1807232Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-21T02:59:32.1839302Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-21T02:59:32.2054191Z Removing HTTP extra header
+2026-10-21T02:59:32.2060783Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-21T02:59:32.2107720Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-21T02:59:32.2315146Z Removing includeIf entries pointing to credentials config files
+2026-10-21T02:59:32.2321399Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-21T02:59:32.2361813Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-21T02:59:32.2690173Z Cleaning up orphan processes
+2026-10-21T02:59:32.2905506Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

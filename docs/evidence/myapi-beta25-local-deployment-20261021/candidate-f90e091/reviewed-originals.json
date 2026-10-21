@@ -1,0 +1,20 @@
+[
+  {
+    "file": "legacy/fresh-persisted-log-en-1280.png",
+    "sha256": "2c1ef6bc164b618fe64d626b1104f95d5f6a835ca616a9f90170a7082b60724a",
+    "reviewer": "primary agent self-review",
+    "finding": "真实隔离调用详情用量10/5或严格预算错误与协议一致。成功详情原图顶部仍有canceled读取取消提示，作为不阻断数据部署的界面待办记录，未扩展本批修改。"
+  },
+  {
+    "file": "legacy/existing-persisted-log-zh-320.png",
+    "sha256": "f409724473b919c71f39295d442f72154f89167eb6c36d89def7b1d94b5f5407",
+    "reviewer": "primary agent self-review",
+    "finding": "真实隔离调用详情用量10/5或严格预算错误与协议一致。成功详情原图顶部仍有canceled读取取消提示，作为不阻断数据部署的界面待办记录，未扩展本批修改。"
+  },
+  {
+    "file": "legacy/unqualified-strict-rejection-en-1280.png",
+    "sha256": "aeb62cfd3977838864fbf5f581f3de109353f9a88d13719c4910c97603a1ddd8",
+    "reviewer": "primary agent self-review",
+    "finding": "真实隔离调用详情用量10/5或严格预算错误与协议一致。成功详情原图顶部仍有canceled读取取消提示，作为不阻断数据部署的界面待办记录，未扩展本批修改。"
+  }
+]
