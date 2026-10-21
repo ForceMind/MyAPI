@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { runInNewContext } from 'node:vm'
 import { browserSetup, probePersonalBrowserJourney } from './personal-browser.mjs'
 
 // These doubles protect driver orchestration and artifact hygiene only. They do
@@ -8,7 +9,7 @@ const base = { baseUrl: 'http://127.0.0.1:18080', upstreamBaseUrl: 'http://127.0
   sha: 'a'.repeat(40), edition: 'full', isolated: true,
   username: 'synthetic-root', password: 'synthetic-password-never-report', writer: 'legacy', onProgress() {} }
 
-function setupBrowser({ failAt, responseSuccess = true, closeFails = false, documentResponses = [], onNavigate } = {}) {
+function setupBrowser({ failAt, responseSuccess = true, closeFails = false, documentResponses = [], onNavigate, onInitScript } = {}) {
   const calls = []
   let route
   const locator = (kind, value) => ({
@@ -46,7 +47,7 @@ function setupBrowser({ failAt, responseSuccess = true, closeFails = false, docu
   }
   const context = {
     async route(pattern, handler) { assert.equal(pattern, '**/*'); route = handler },
-    async addInitScript() {},
+    async addInitScript(fn, options) { onInitScript?.(fn, options) },
     async newPage() { return page },
     async close() { calls.push(['context-close']) },
   }
@@ -135,7 +136,7 @@ import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, deferAssistantRendering = false, forbidStreamReads = false, hangAt, closeHangs = false, documentResponses = [], reloadAlreadyCurrent = false, savedPlaygroundKeyId, unsafeUsageScreenshot = false, failUsageScreenshot = false, usageFailureRole, onNavigate } = {}) {
+function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, deferAssistantRendering = false, forbidStreamReads = false, hangAt, closeHangs = false, documentResponses = [], reloadAlreadyCurrent = false, savedPlaygroundKeyId, unsafeUsageScreenshot = false, failUsageScreenshot = false, usageFailureRole, onNavigate, wireCapture } = {}) {
   const zh = JSON.parse(readFileSync(new URL('../../web/src/i18n/locales/zh.json', import.meta.url))).translation
   const reverse = Object.fromEntries(Object.entries(zh).map(([key, value]) => [value, key]))
   const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
@@ -263,7 +264,14 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
           this.waiters.splice(this.waiters.indexOf(waiter), 1); waiter.resolve(result)
         })
       },
-      async evaluate(fn) {
+      async evaluate(fn, requestId) {
+        if (String(fn).includes('__MYAPI_SMOKE_REJECTIONS__')) {
+          if (!wireCapture) return null
+          const reply = emitted.filter(item => new URL(item.url()).pathname === '/pg/chat/completions').at(-1)
+          const payload = await reply.json()
+          if (wireCapture === 'bad-code') payload.error.code = 'wrong-code'
+          return { requestId: wireCapture === 'bad-id' ? 'wrong-request' : requestId, status: wireCapture === 'bad-status' ? 200 : reply.status(), text: wireCapture === 'bad-json' ? 'invalid' : JSON.stringify(payload) }
+        }
         if (hangAt === 'evaluate') return hang()
         if (String(fn).includes('__APP_BUILD__')) {
           const revision = `rv.${version}.${base.sha}.${corrupt === 'frontend-revision-owner' && context.locale === 'zh-CN' ? 'owner' : 'test'}`
@@ -1679,3 +1687,42 @@ test('the mobile persisted detail must return explicitly before continuing the j
     error.message === 'SMOKE_PERSONAL_BROWSER_FAILED' && error.stage === 'usage-details-key')
   assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 3)
 })
+
+// Wire evidence is from the same actual response; CDP loss never permits a UI substitute.
+test('observed rejection body survives CDP loss without another relay request', async () => {
+  const fixture = journeyBrowser({ writer: 'authoritative', corrupt: 'strict-body-unavailable', wireCapture: true })
+  assert.equal((await probePersonalBrowserJourney({ ...base, ...fixture, writer: 'authoritative' })).passed, true)
+  assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 5)
+  assert.equal(fixture.upstreamCount(), 4)
+})
+for (const wireCapture of ['bad-id', 'bad-status', 'bad-code', 'bad-json']) {
+  test(`observed rejection ${wireCapture} still fails the original protocol contract`, async () => {
+    const fixture = journeyBrowser({ writer: 'authoritative', wireCapture })
+    await assert.rejects(probePersonalBrowserJourney({ ...base, ...fixture, writer: 'authoritative' }), /SMOKE_PERSONAL_RELAY_MISMATCH/)
+    assert.equal(fixture.upstreamCount(), 3, 'two fixture baselines plus one accepted Root request; rejection never reaches upstream')
+    assert.equal(fixture.emitted.filter(response => new URL(response.url()).pathname === '/pg/chat/completions').length, 2)
+  })
+}
+
+for (const item of [{ status: 400, capture: true }, { status: 200, capture: false }, { status: 400, capture: false, foreign: true }]) {
+  test(`native fetch observer keeps the actual response object and ${item.capture ? 'captures its raw rejection' : 'leaves streaming or foreign responses untouched'} (${item.status}/${Boolean(item.foreign)})`, async () => {
+    let initialize, options
+    const fixture = setupBrowser({ onInitScript(fn, args) { initialize = fn; options = args } })
+    await browserSetup({ ...base, playwrightModule: fixture.module })
+    const body = '{"error":{"code":"token_budget_unsupported_request","message":"synthetic"}}'
+    const response = new Response(body, { status: item.status, headers: { 'x-oneapi-request-id': 'observed-request' } })
+    Object.defineProperty(response, 'url', { value: (item.foreign ? 'https://example.invalid' : base.baseUrl) + '/pg/chat/completions' })
+    if (!item.capture) response.clone = () => assert.fail('successful streaming and foreign bodies must not be buffered')
+    const window = { fetch: async () => response }
+    runInNewContext(`(${initialize.toString()})(options)`, { window, location: { origin: base.baseUrl }, localStorage: { setItem() {} }, options, URL, Map })
+    assert.equal(await window.fetch(base.baseUrl + '/pg/chat/completions'), response)
+    assert.equal(response.bodyUsed, false, 'the application receives its original readable body')
+    const captured = window.__MYAPI_SMOKE_REJECTIONS__.get('observed-request')
+    if (item.capture) {
+      assert.equal(captured.text, body)
+      assert.equal(captured.status, 400)
+      assert.equal(captured.requestId, 'observed-request')
+    } else assert.equal(captured, undefined)
+    assert.equal(await response.text(), body)
+  })
+}

@@ -192,10 +192,33 @@ async function newSession(browser, origin, language = 'en', width = 1280, scope 
   const context = await bounded(scope, () => browser.newContext({ locale: language === 'zh' ? 'zh-CN' : 'en-US',
     viewport: { width, height: 900 }, serviceWorkers: 'block' }))
   scope.contexts.add(context)
-  // The only initialization is the user's ordinary language preference. No
-  // synthetic API/auth state, selected Key or Playground config is injected.
+  // Set the ordinary language preference and observe actual rejected fetches.
+  // No API/auth state, Key selection, response replacement or relay replay.
   await bounded(scope, () => context.addInitScript(({ origin, language }) => {
     if (location.origin === origin) localStorage.setItem('i18nextLng', language === 'zh' ? 'zhCN' : language)
+    if (location.origin !== origin) return
+    const nativeFetch = window.fetch.bind(window)
+    const rejected = new Map()
+    window.__MYAPI_SMOKE_REJECTIONS__ = rejected
+    window.fetch = async (...args) => {
+      const response = await nativeFetch(...args)
+      const target = new URL(response.url)
+      if (target.origin !== origin || target.pathname !== '/pg/chat/completions' || response.status < 400) return response
+      const requestId = response.headers.get('x-oneapi-request-id')
+      if (!/^[A-Za-z0-9._:-]{1,160}$/.test(requestId || '')) return response
+      // The SSE client may abort on rejection before CDP can retain its body.
+      // Read a clone of this same real response first; return the original
+      // response object unchanged. Successful streaming responses are untouched.
+      try {
+        const text = await response.clone().text()
+        if (text.length <= 128 * 1024) {
+          if (rejected.size >= 8) rejected.delete(rejected.keys().next().value)
+          rejected.set(requestId, { requestId, status: response.status, text })
+        }
+      } catch {} // Missing raw evidence remains a failure, never a UI substitute.
+      return response
+    }
+
   }, { origin, language }))
   await bounded(scope, () => context.route('**/*', (route) => {
     let allowed = false
@@ -570,8 +593,19 @@ async function sendPlayground(session, key, expectedCode) {
     session.scope.stage = 'playground-rejection'
     requireThat(response.status() === (expectedCode === 'token_budget_unsupported_request' ? 400 : 403), 'RELAY_MISMATCH')
     session.scope.diagnostic('rejection-evidence', { rejectionStep: 'body-read', httpStatus: response.status() })
+    // The observer finishes before the application's error handler sees the
+    // response. Waiting for the actual alert synchronizes that observation.
+    await currentAssistant.waitFor({ state: 'attached' })
+    await currentAssistant.getByRole('alert').filter({ hasText: session.label('Error') }).waitFor({ state: 'visible' })
+    const captured = await bounded(session.scope, () => session.page.evaluate(id => {
+      const entries = globalThis.__MYAPI_SMOKE_REJECTIONS__
+      const entry = entries?.get(id) || null
+      entries?.delete(id)
+      return entry
+    }, requestId))
+    if (captured) requireThat(captured.requestId === requestId && captured.status === response.status() && typeof captured.text === 'string', 'RELAY_MISMATCH')
     let text
-    try { text = await bounded(session.scope, () => response.text()) } catch (error) {
+    try { text = captured ? captured.text : await bounded(session.scope, () => response.text()) } catch (error) {
       session.scope.diagnostic('rejection-evidence', { rejectionStep: 'body-unavailable', httpStatus: response.status(),
         errorClass: browserErrorClass(error?.name, error?.message) })
       throw error
