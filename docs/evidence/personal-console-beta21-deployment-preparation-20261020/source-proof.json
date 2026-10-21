@@ -1,0 +1,23 @@
+{
+  "candidate_sha": "c5e44f6140eccf83679d65ed94b9337319cfdf5b",
+  "candidate_tree": "db5e63575787de004fbed11f4d9baca5a1c78c90",
+  "build_sha": "c6641b9d01e04c5ad3ff0434e613612a21e0b10e",
+  "build_tree": "9be0004d19fa8c0135e391d0c5d56744f9827f75",
+  "same_repository_tree": false,
+  "all_non_docs_tracked_files_identical": true,
+  "non_docs_tracked_file_count": 3195,
+  "inventory_method": "git ls-tree -rz REF; exclude names beginning docs/; preserve git order; JSON UTF-8 compact [path, mode/type/blob metadata] records; SHA256",
+  "non_docs_inventory_sha256": "da5450d2006ae2d13a7075347c6e57aa4d0c9212523ea8ee9bd20880ef62b0f9",
+  "changed_docs_count": 94,
+  "workflow": ".github/workflows/docker-smoke.yml",
+  "workflow_ref": "codex/subscription-key-share-20261014",
+  "workflow_inputs": {
+    "personal": true
+  },
+  "run_id": 39361636750,
+  "run_url": "https://github.com/ForceMind/MyAPI/actions/runs/39361636750",
+  "uncommitted_changes_included": false,
+  "published": false,
+  "deployed": false,
+  "real_account_used": false
+}

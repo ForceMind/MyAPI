@@ -1,0 +1,110 @@
+{
+  "started_at": "2026-10-20T03:24:40.024870+00:00",
+  "build_sha": "c6641b9d01e04c5ad3ff0434e613612a21e0b10e",
+  "binary_sha256": "daa88e4c33f7050cff93a3e864faf55ef86aa002065c1a52bba8a2e366e556c9",
+  "model": "gpt-6-luna",
+  "phase": "native_usage_after",
+  "success": true,
+  "private_directory": "/tmp/myapi-beta21-real-so_4c16w",
+  "limits": {
+    "duration_seconds": 1200,
+    "max_total": 3,
+    "max_auth": 0,
+    "max_refresh": 0,
+    "max_sample": 2,
+    "max_models": 0,
+    "max_generation": 1
+  },
+  "samples": [
+    {
+      "label": "native_usage_before",
+      "local_http": 200,
+      "upstream_http": 200,
+      "plan_type": "pro",
+      "windows": {
+        "primary_window": {
+          "used_percent": 18,
+          "limit_window_seconds": 604800,
+          "reset_at": 1792947202
+        }
+      }
+    },
+    {
+      "label": "native_usage_after",
+      "local_http": 200,
+      "upstream_http": 200,
+      "plan_type": "pro",
+      "windows": {
+        "primary_window": {
+          "used_percent": 18,
+          "limit_window_seconds": 604800,
+          "reset_at": 1792947202
+        }
+      }
+    }
+  ],
+  "local_requests": 35,
+  "provider_requests_planned": 3,
+  "oauth_executed": false,
+  "refresh_token_copied": false,
+  "original_auth_written": false,
+  "deployed": false,
+  "published": false,
+  "loopback_origin": "http://127.0.0.1:57101",
+  "automatic_root_setup_and_login": true,
+  "run_id": "112775c1-ade7-4da5-9639-fe5df3ee3e4f",
+  "run_counters": {
+    "status": "active",
+    "total": 3,
+    "auth": 0,
+    "refresh": 0,
+    "sample": 2,
+    "models": 0,
+    "generation": 1,
+    "generation_in_flight": 0,
+    "owner_current": true,
+    "operations": 0,
+    "http_in_flight": 0,
+    "drain_error": false
+  },
+  "generation": {
+    "local_http": 200,
+    "response_completed": true,
+    "usage_reported": true,
+    "output_exact_ok": true,
+    "input_tokens": 9,
+    "output_tokens": 5,
+    "total_tokens": 14,
+    "stream_bytes": 7136
+  },
+  "local_accounting": {
+    "user_balance_stayed_zero": true,
+    "user_request_count": 1,
+    "user_used_quota": 713,
+    "key_used_quota": 713
+  },
+  "cleanup": {
+    "run_drained": true,
+    "key_disabled": true,
+    "session_revoked": true,
+    "server_stopped": true,
+    "sensitive_directory_removed": true
+  },
+  "final_run_counters": {
+    "status": "stopped",
+    "total": 3,
+    "auth": 0,
+    "refresh": 0,
+    "sample": 2,
+    "models": 0,
+    "generation": 1,
+    "generation_in_flight": 0,
+    "owner_current": true,
+    "operations": 0,
+    "http_in_flight": 0,
+    "drain_error": false
+  },
+  "server_exit_code": 0,
+  "original_auth_unchanged": true,
+  "finished_at": "2026-10-20T03:24:45.377522+00:00"
+}

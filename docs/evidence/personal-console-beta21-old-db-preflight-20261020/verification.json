@@ -1,0 +1,28 @@
+{
+  "method": "primary agent structured self-review; no new independent review or unchanged-input CI rerun",
+  "checks": {
+    "approved_actual_database_backup_complete": true,
+    "candidate_actual_old_database_startup_and_comparison_passed": true,
+    "original_backup_with_exact_original_image_restore_passed": true,
+    "original_backup_unchanged": true,
+    "both_clones_network_none_no_host_ports": true,
+    "original_production_target_unchanged_and_healthy": true,
+    "private_backup_permissions_0700_0600": true,
+    "temporary_containers_removed": true,
+    "private_values_absent_from_this_public_delivery": true,
+    "protected_user_file_hashes_unchanged": true,
+    "production_deployment_not_executed": true,
+    "no_writer_change_or_historical_rewrite": true
+  },
+  "protected_sha256": {
+    "docs/MYAPI_MASTER_PLAN.md": "e058e179a828c752b5b389cde5a88d05c5999c61029948a88e270aad7131b243",
+    "docs/NEXT_SESSION_HANDOFF.md": "4e21c1e847db911b9143f580778ca63650337d7a330b658f8556aa1f499f1c39"
+  },
+  "limits": [
+    "Existing 5 usage_unknown rows remain frozen; advanced rotation/migration qualification remains enforced.",
+    "No new real OAuth/refresh, generation, 429, reset or share-change verification.",
+    "Network none prevents supplier egress; background dispatch attempts were not instrumented.",
+    "Cutover requires final stopped/drained backup and separate deployment approval."
+  ],
+  "deployment_proposal": "docs/PERSONAL_CONSOLE_BETA21_LOCAL_DEPLOYMENT_20261020.md"
+}

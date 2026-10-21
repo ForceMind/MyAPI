@@ -1,0 +1,29 @@
+{
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 2033,
+      "sha256": "7ecad68639102de4ff59782202782dfc63dc0f8790bdc53bf48964feac2e172a"
+    },
+    {
+      "path": "control-node.tap",
+      "bytes": 726,
+      "sha256": "002213276d5dfa4189415ffde1bb2ffb905e2df76415e2b556d6073f9a2dd423"
+    },
+    {
+      "path": "offline-node.tap",
+      "bytes": 3343,
+      "sha256": "081fc0b5ec5a018ddd2713d3153c9bf01ceac7c7ba671736f0b58de727a02a02"
+    },
+    {
+      "path": "router-go.jsonl",
+      "bytes": 10552,
+      "sha256": "831e69b75911a3cd78040c429282c9867fdd3a5730f8841117dc92cd59b589c6"
+    },
+    {
+      "path": "verification.json",
+      "bytes": 2267,
+      "sha256": "54ad7c1a6723f1c3c854a8357887d3cc5d70cbcf59d9d129165961b24186541b"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "edition": "full",
+  "artifact_id": 12237971923,
+  "github_artifact_sha256": "026928dbbca3fb5cc79707648270dbdad7a79512bfa101ca687117f7d7e090d1",
+  "download_digest_matches_github": true,
+  "manifest_sha256": "39e9d092d9edce95c9a0a1e97c98990103a1b8cbebced57113506cbb6299d8a0",
+  "images_tar_sha256": "93c0c9605c56e5fb0d9c99cfbadc735c08297f54ade1ca0bfb05d519ec729a40",
+  "images_tar_bytes": 353654272,
+  "images_tar_matches_manifest": true,
+  "source_identity_verified": true,
+  "image_configs": [
+    {
+      "role": "app",
+      "id": "sha256:510f266ab14831a072495e9edf00342420dadf46bb53d9fc41c15c9295021912",
+      "config_digest_verified": true,
+      "platform_verified": true
+    },
+    {
+      "role": "bun",
+      "id": "sha256:d62d32ae5b2f0f1530043a409f2891dbe71ba133d4b0b690cfcbda8f5ec3657f",
+      "config_digest_verified": true,
+      "platform_verified": true
+    },
+    {
+      "role": "redis",
+      "id": "sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058",
+      "config_digest_verified": true,
+      "platform_verified": true
+    }
+  ],
+  "docker_loaded_locally": false,
+  "containers_started_locally": false
+}

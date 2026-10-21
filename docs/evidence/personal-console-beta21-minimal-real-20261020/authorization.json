@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-20",
+  "source": "Maintainer explicitly confirmed the pending minimal real acceptance request in this thread.",
+  "scope": "Existing local access token read-only; new private SQLite, automatic temporary Root and normal login, single Codex channel and restricted Key.",
+  "model": "gpt-6-luna",
+  "prompt": "只回复 OK",
+  "limits": {
+    "duration_seconds": 1200,
+    "max_total": 3,
+    "max_auth": 0,
+    "max_refresh": 0,
+    "max_sample": 2,
+    "max_models": 0,
+    "max_generation": 1
+  },
+  "refresh_token_copy_allowed": false,
+  "oauth_allowed": false,
+  "refresh_allowed": false,
+  "models_query_allowed": false,
+  "retries_allowed": false,
+  "original_auth_writes_allowed": false,
+  "deploy_allowed": false,
+  "budget_consumed": {
+    "total": 3,
+    "sample": 2,
+    "generation": 1,
+    "auth": 0,
+    "refresh": 0,
+    "models": 0
+  },
+  "further_requests_authorized": false
+}

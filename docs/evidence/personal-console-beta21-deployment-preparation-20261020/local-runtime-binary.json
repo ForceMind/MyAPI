@@ -1,0 +1,13 @@
+{
+  "source_run": 39361636750,
+  "source_image_id": "sha256:510f266ab14831a072495e9edf00342420dadf46bb53d9fc41c15c9295021912",
+  "source_tar_sha256": "93c0c9605c56e5fb0d9c99cfbadc735c08297f54ade1ca0bfb05d519ec729a40",
+  "binary_path": "/tmp/myapi-beta21-deployment-39361636750/my-api-beta21",
+  "bytes": 81207458,
+  "sha256": "daa88e4c33f7050cff93a3e864faf55ef86aa002065c1a52bba8a2e366e556c9",
+  "version_ldflag_verified": "0.2.0-beta.21",
+  "platform": "linux/amd64",
+  "cgo_enabled": false,
+  "binary_executed": false,
+  "frontend_embedded_from_image": true
+}

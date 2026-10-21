@@ -1,0 +1,88 @@
+TAP version 13
+# Subtest: rejects remote or ambiguous targets and missing opt-in before any request or file creation
+ok 1 - rejects remote or ambiguous targets and missing opt-in before any request or file creation
+  ---
+  duration_ms: 3.749308
+  type: 'test'
+  ...
+# Subtest: refuses an initialized server before generating an account or writing private files
+ok 2 - refuses an initialized server before generating an account or writing private files
+  ---
+  duration_ms: 25.396478
+  type: 'test'
+  ...
+# Subtest: generates a local Root and synthetic channel, disables every dispatch category and cleans only owned files
+ok 3 - generates a local Root and synthetic channel, disables every dispatch category and cleans only owned files
+  ---
+  duration_ms: 12.027369
+  type: 'test'
+  ...
+# Subtest: an unknown channel write is not retried and retains recovery state without leaking server errors
+ok 4 - an unknown channel write is not retried and retains recovery state without leaking server errors
+  ---
+  duration_ms: 3.847777
+  type: 'test'
+  ...
+# Subtest: stopping with an outstanding operation preserves credentials and skips key mutation and logout
+ok 5 - stopping with an outstanding operation preserves credentials and skips key mutation and logout
+  ---
+  duration_ms: 5.889342
+  type: 'test'
+  ...
+# Subtest: foreign files, symlinked state and changed identities refuse cleanup before destructive writes
+ok 6 - foreign files, symlinked state and changed identities refuse cleanup before destructive writes
+  ---
+  duration_ms: 7.091627
+  type: 'test'
+  ...
+# Subtest: a committed channel returning ID zero is read back exactly once without repeating creation
+ok 7 - a committed channel returning ID zero is read back exactly once without repeating creation
+  ---
+  duration_ms: 3.604393
+  type: 'test'
+  ...
+# Subtest: ambiguous channel readback leaves private state and refuses token or run creation
+ok 8 - ambiguous channel readback leaves private state and refuses token or run creation
+  ---
+  duration_ms: 2.817129
+  type: 'test'
+  ...
+# Subtest: a non-Root login cannot preseed a channel even when setup and login succeeded
+ok 9 - a non-Root login cannot preseed a channel even when setup and login succeeded
+  ---
+  duration_ms: 2.393318
+  type: 'test'
+  ...
+# Subtest: a wrong logout receipt retains local credentials instead of claiming cleanup succeeded
+ok 10 - a wrong logout receipt retains local credentials instead of claiming cleanup succeeded
+  ---
+  duration_ms: 7.208204
+  type: 'test'
+  ...
+# Subtest: group-readable session state is rejected without sending credentials or modifying server state
+ok 11 - group-readable session state is rejected without sending credentials or modifying server state
+  ---
+  duration_ms: 7.092996
+  type: 'test'
+  ...
+# Subtest: a mismatched run is never stopped and leaves all private files intact
+ok 12 - a mismatched run is never stopped and leaves all private files intact
+  ---
+  duration_ms: 4.250187
+  type: 'test'
+  ...
+# Subtest: a fresh server without enabled acceptance mode never receives a channel or token write
+ok 13 - a fresh server without enabled acceptance mode never receives a channel or token write
+  ---
+  duration_ms: 2.094225
+  type: 'test'
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 109.788067

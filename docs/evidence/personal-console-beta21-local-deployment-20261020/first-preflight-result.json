@@ -1,0 +1,29 @@
+{
+  "started_at": "2026-10-20T04:35:01.497859+00:00",
+  "approved_window_seconds": 600,
+  "target_old_container_id": "181acea8b1a34db66744fb7410baa98f9a502cf3aa95c10074f3473c6a703d4c",
+  "old_image": "sha256:e05ae0cce3236b54b244d8162b441054151ec99773052f5be77b79eb1a3611e2",
+  "new_image": "sha256:5726995bf0a66bf2a125c9c69a90e7d5cea0e052151ff0aaf31b375d817893d6",
+  "new_source_config_digest": "sha256:510f266ab14831a072495e9edf00342420dadf46bb53d9fc41c15c9295021912",
+  "build_source_sha": "c6641b9d01e04c5ad3ff0434e613612a21e0b10e",
+  "build_actions_run": "39361636750",
+  "final_backup_directory": "/root/new-api/backups/beta21-cutover-20261020-d808b09da047",
+  "new_runtime_directory": "/root/new-api/beta21-20261020-d808b09da047",
+  "manual_supplier_http": 0,
+  "manual_oauth_or_refresh": 0,
+  "manual_generation": 0,
+  "normal_existing_background_tasks_authorized": true,
+  "redis_contacted": false,
+  "deployed": false,
+  "success": false,
+  "events": [
+    {
+      "phase": "preflight",
+      "at": "2026-10-20T04:35:01.497886+00:00"
+    }
+  ],
+  "checks": {},
+  "failure_code": "ACTIVE_CLIENT_CONNECTIONS_PRESENT",
+  "new_container_created": false,
+  "finished_at": "2026-10-20T04:35:01.921460+00:00"
+}

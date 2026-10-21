@@ -1,0 +1,61 @@
+{
+  "baseline_head": "c6641b9d01e04c5ad3ff0434e613612a21e0b10e",
+  "status": "local uncommitted synthetic-only tooling; no new Actions or deployment",
+  "node": "v22.23.2",
+  "go": "go version go1.25.1 linux/amd64",
+  "source_files": [
+    {
+      "path": "tools/runtime/upstream-acceptance-offline.mjs",
+      "bytes": 14420,
+      "sha256": "1c4ebf5abf7ca51fa2529e40f8113f1b1aca49383ccf1238c483387eea8a4381"
+    },
+    {
+      "path": "tools/runtime/upstream-acceptance-offline.test.mjs",
+      "bytes": 13538,
+      "sha256": "cc030a6a1d7493b9c3d09716bfc52710063ad931c60341d884d4aa3c0f4a7524"
+    },
+    {
+      "path": "router/upstream_acceptance_offline_test.go",
+      "bytes": 8313,
+      "sha256": "2aa6d673b075c206669185ca7957e0d91468111e28def337795e728e355f325c"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "bytes": 52644,
+      "sha256": "7cde64e05701827b6cc27ba16ef024738d9b725bd176a3a213a359d41759f939"
+    }
+  ],
+  "protected_files": {
+    "docs/MYAPI_MASTER_PLAN.md": "e058e179a828c752b5b389cde5a88d05c5999c61029948a88e270aad7131b243",
+    "docs/NEXT_SESSION_HANDOFF.md": "4e21c1e847db911b9143f580778ca63650337d7a330b658f8556aa1f499f1c39"
+  },
+  "checks": [
+    {
+      "command": "node tools/runtime/upstream-acceptance-offline.test.mjs",
+      "exit_code": 0,
+      "passed": 13,
+      "skipped": 0
+    },
+    {
+      "command": "node tools/runtime/upstream-acceptance.test.mjs",
+      "exit_code": 0,
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "command": "GOCACHE=/tmp/myapi-go-cache GOMAXPROCS=2 GOMEMLIMIT=768MiB GOPROXY=off go test -json -p 1 ./router -run '^TestUpstreamAcceptance' -count=1 -timeout=90s",
+      "exit_code": 0,
+      "top_level_tests": [
+        "TestUpstreamAcceptanceOfflineScript",
+        "TestUpstreamAcceptanceRelayRetainsOperationThroughControllerReturn",
+        "TestUpstreamAcceptanceRuntimeAPI"
+      ],
+      "environment": "approved local loopback execution after sandbox socket denial"
+    },
+    {
+      "command": "node --check tools/runtime/upstream-acceptance-offline.mjs",
+      "exit_code": 0
+    }
+  ],
+  "outbound_evidence": "Real CLI lifecycle test asserts zero server HTTP outbound dial attempts after a deny-all tripwire positive control; not an OS firewall assertion."
+}

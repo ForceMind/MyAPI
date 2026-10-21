@@ -1,0 +1,115 @@
+{
+  "run_id": 39361636750,
+  "attempt": 1,
+  "status": "completed",
+  "conclusion": "success",
+  "jobs_passed": 6,
+  "jobs_total": 6,
+  "owned_container_cleanup_steps_passed": [
+    {
+      "job": "LAN source installer and fresh SQLite",
+      "step": "Remove only this installer instance",
+      "conclusion": "success"
+    },
+    {
+      "job": "full fresh legacy image and SQLite smoke",
+      "step": "Remove smoke containers",
+      "conclusion": "success"
+    },
+    {
+      "job": "full fresh legacy image and SQLite smoke",
+      "step": "Remove only owned personal Redis and network",
+      "conclusion": "success"
+    },
+    {
+      "job": "full handoff legacy image and SQLite smoke",
+      "step": "Remove smoke containers",
+      "conclusion": "success"
+    },
+    {
+      "job": "lan fresh legacy image and SQLite smoke",
+      "step": "Remove smoke containers",
+      "conclusion": "success"
+    },
+    {
+      "job": "full fresh authoritative image and SQLite smoke",
+      "step": "Remove smoke containers",
+      "conclusion": "success"
+    },
+    {
+      "job": "full fresh authoritative image and SQLite smoke",
+      "step": "Remove only owned personal Redis and network",
+      "conclusion": "success"
+    }
+  ],
+  "version": "0.2.0-beta.21",
+  "platform": "linux/amd64",
+  "artifacts_verified": [
+    {
+      "id": 12237971923,
+      "name": "myapi-smoke-images-39361636750-1-c6641b9d01e04c5ad3ff0434e613612a21e0b10e-full",
+      "sha256": "026928dbbca3fb5cc79707648270dbdad7a79512bfa101ca687117f7d7e090d1",
+      "bytes": 353655809,
+      "digest_matches_github": true
+    },
+    {
+      "id": 12237906881,
+      "name": "myapi-installer-report-c6641b9d01e04c5ad3ff0434e613612a21e0b10e",
+      "sha256": "5257b3f4be62f1558c6c4d5efe7dda8089f40f2f9751ce5613bc964156f4e0cf",
+      "bytes": 495,
+      "digest_matches_github": true
+    },
+    {
+      "id": 12237797751,
+      "name": "myapi-smoke-images-39361636750-1-c6641b9d01e04c5ad3ff0434e613612a21e0b10e-lan",
+      "sha256": "9becdf5148a43d4141cb273757b80eb901a5b72030ae9a70d376603f63caed84",
+      "bytes": 353258493,
+      "digest_matches_github": true
+    },
+    {
+      "id": 12237627748,
+      "name": "myapi-smoke-report-full-handoff-legacy-c6641b9d01e04c5ad3ff0434e613612a21e0b10e",
+      "sha256": "8c4892c9bca40156c40eab607524065d696bc8e0fd8a0c86c358ee06299eda23",
+      "bytes": 1890,
+      "digest_matches_github": true
+    },
+    {
+      "id": 12237413018,
+      "name": "myapi-smoke-report-lan-fresh-legacy-c6641b9d01e04c5ad3ff0434e613612a21e0b10e",
+      "sha256": "4b8b0819bc245d887e2b0ba68b51a0e44161c7ca5d19a70ce4f7f0a62c42f1bb",
+      "bytes": 2071,
+      "digest_matches_github": true
+    },
+    {
+      "id": 12237407839,
+      "name": "myapi-smoke-report-full-fresh-legacy-c6641b9d01e04c5ad3ff0434e613612a21e0b10e",
+      "sha256": "ed9a467132b99720d84c7cab4563e29a094849f0266d0f659db37f9cc2a87a02",
+      "bytes": 2807,
+      "digest_matches_github": true
+    },
+    {
+      "id": 12236984997,
+      "name": "myapi-smoke-report-full-fresh-authoritative-c6641b9d01e04c5ad3ff0434e613612a21e0b10e",
+      "sha256": "18c47952645b10c4ef8c46516f4f3cdfaeface8d19a9e38b5b32c49878ca6a8f",
+      "bytes": 2814,
+      "digest_matches_github": true
+    }
+  ],
+  "local_bundles": {
+    "full": "/tmp/myapi-beta21-deployment-39361636750/full",
+    "lan": "/tmp/myapi-beta21-deployment-39361636750/lan"
+  },
+  "local_docker_loads": 0,
+  "local_containers_started": 0,
+  "real_account_requests_this_batch": 0,
+  "real_credentials_imported": false,
+  "production_data_accessed": false,
+  "published": false,
+  "deployed": false,
+  "review_method": "Primary-agent structured source/artifact/report checks; no new independent visual review.",
+  "protected_user_files_sha256_unchanged": {
+    "docs/MYAPI_MASTER_PLAN.md": "e058e179a828c752b5b389cde5a88d05c5999c61029948a88e270aad7131b243",
+    "docs/NEXT_SESSION_HANDOFF.md": "4e21c1e847db911b9143f580778ca63650337d7a330b658f8556aa1f499f1c39"
+  },
+  "staged_files_added_by_this_batch": false
+}

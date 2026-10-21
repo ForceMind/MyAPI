@@ -1,0 +1,140 @@
+{
+  "run_id": 39361636750,
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 4524,
+      "sha256": "90e44c6c276f65674fb1899101bf507700822e32e0eea6d3ece789963dcaf96b"
+    },
+    {
+      "path": "artifact-inventory.json",
+      "bytes": 5880,
+      "sha256": "14eab2981343af03db0ed961dfe6d479a702d352823313e4ee822146a070126b"
+    },
+    {
+      "path": "full-byte-verification.json",
+      "bytes": 1153,
+      "sha256": "2f7a62e92742a5ba56f8eba4b1e6fb6fc5ec1526b973c04068bd4487367a9480"
+    },
+    {
+      "path": "full-manifest.json",
+      "bytes": 1285,
+      "sha256": "39e9d092d9edce95c9a0a1e97c98990103a1b8cbebced57113506cbb6299d8a0"
+    },
+    {
+      "path": "installer-qualification.json",
+      "bytes": 968,
+      "sha256": "eeb4fd60005c16b15dae5b0fe5135648559646d94cf60e8ba7d1deb78ccaa169"
+    },
+    {
+      "path": "lan-byte-verification.json",
+      "bytes": 1152,
+      "sha256": "89135a7c56717afbdecd5e71f8cb6af61b5f039d02fc529a070a35b71c7eedec"
+    },
+    {
+      "path": "lan-manifest.json",
+      "bytes": 1281,
+      "sha256": "25abb9873f72ad74fce26b97e56027e47aeb563c5f68f7dae250bb5b3431d3e3"
+    },
+    {
+      "path": "local-runtime-binary.json",
+      "bytes": 562,
+      "sha256": "ae05868ff67d88c0ff3e14786538a6c164fdc9896d5170d35d943954edc0d240"
+    },
+    {
+      "path": "reports/full-fresh-authoritative/manifest.json",
+      "bytes": 1285,
+      "sha256": "39e9d092d9edce95c9a0a1e97c98990103a1b8cbebced57113506cbb6299d8a0"
+    },
+    {
+      "path": "reports/full-fresh-authoritative/manifest.sha256",
+      "bytes": 80,
+      "sha256": "049ba6ee7ad6189b8c90cf2c86c0be9306c50afa0170f9926cc3b4f1b4df1acf"
+    },
+    {
+      "path": "reports/full-fresh-authoritative/qualification.json",
+      "bytes": 6325,
+      "sha256": "babeaaefa19b7f33e70ae57f49f88f9dbf33fed2d2536d4c3da4dc8137e425f6"
+    },
+    {
+      "path": "reports/full-fresh-authoritative/source.json",
+      "bytes": 323,
+      "sha256": "553f5492b033dc688e75b129b68b6ceeb0eff8ba9dab6b53a391f4a582edff9d"
+    },
+    {
+      "path": "reports/full-fresh-legacy/manifest.json",
+      "bytes": 1285,
+      "sha256": "39e9d092d9edce95c9a0a1e97c98990103a1b8cbebced57113506cbb6299d8a0"
+    },
+    {
+      "path": "reports/full-fresh-legacy/manifest.sha256",
+      "bytes": 80,
+      "sha256": "049ba6ee7ad6189b8c90cf2c86c0be9306c50afa0170f9926cc3b4f1b4df1acf"
+    },
+    {
+      "path": "reports/full-fresh-legacy/qualification.json",
+      "bytes": 6311,
+      "sha256": "43c71346560260337c4b65da5adcf88ca8154e197fc1bbdfaf1625b79f33fe7c"
+    },
+    {
+      "path": "reports/full-fresh-legacy/source.json",
+      "bytes": 316,
+      "sha256": "c7c0e9d0454cfcad9b154b6ee8c04dcb2370813776bc5c5b4a131727a68db3a8"
+    },
+    {
+      "path": "reports/full-handoff-legacy/manifest.json",
+      "bytes": 1285,
+      "sha256": "39e9d092d9edce95c9a0a1e97c98990103a1b8cbebced57113506cbb6299d8a0"
+    },
+    {
+      "path": "reports/full-handoff-legacy/manifest.sha256",
+      "bytes": 80,
+      "sha256": "049ba6ee7ad6189b8c90cf2c86c0be9306c50afa0170f9926cc3b4f1b4df1acf"
+    },
+    {
+      "path": "reports/full-handoff-legacy/qualification.json",
+      "bytes": 1163,
+      "sha256": "e3ba4312e0071e8ef0335857114b0d889db520eed5e079aeef4f076c151bf7b3"
+    },
+    {
+      "path": "reports/full-handoff-legacy/source.json",
+      "bytes": 318,
+      "sha256": "a9ccb5872d5fa1038fb7650ad4ab3880420c8a76606204be3b662002c896d8bb"
+    },
+    {
+      "path": "reports/lan-fresh-legacy/manifest.json",
+      "bytes": 1281,
+      "sha256": "25abb9873f72ad74fce26b97e56027e47aeb563c5f68f7dae250bb5b3431d3e3"
+    },
+    {
+      "path": "reports/lan-fresh-legacy/manifest.sha256",
+      "bytes": 80,
+      "sha256": "548e9c2f0117f7ee216ad770d8cca18d02a720fef3790600b09447100ced62fb"
+    },
+    {
+      "path": "reports/lan-fresh-legacy/qualification.json",
+      "bytes": 2209,
+      "sha256": "e2b4ce04bf67b0f047de31ae57dc1cbded395fc0c50c11bf17bb9e77c735fbd0"
+    },
+    {
+      "path": "reports/lan-fresh-legacy/source.json",
+      "bytes": 315,
+      "sha256": "bc2886e9f24b2fd645f673f55d3b9ab19af1d2b9422c3d356d35b021e4f59707"
+    },
+    {
+      "path": "run-final.json",
+      "bytes": 25036,
+      "sha256": "81143b7adbb0130c3f562783db8f22e42e6652dde698a2d64927bb3d012dc774"
+    },
+    {
+      "path": "source-proof.json",
+      "bytes": 1035,
+      "sha256": "a6c624829449504d40b998e02ec3ad5dd4dd1d4d62472a1e05fce51aa66af8ff"
+    },
+    {
+      "path": "verification.json",
+      "bytes": 4022,
+      "sha256": "2fee7c7491e77c7c274c70da8723b875179b00d31be6b25aa8a8858c445f157b"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "sourceSha": "c6641b9d01e04c5ad3ff0434e613612a21e0b10e",
+  "headSha": "c6641b9d01e04c5ad3ff0434e613612a21e0b10e",
+  "treeSha": "9be0004d19fa8c0135e391d0c5d56744f9827f75",
+  "runId": "39361636750",
+  "producerAttempt": "1",
+  "edition": "full",
+  "personal": "1",
+  "platform": "linux/amd64",
+  "tar": {
+    "file": "images.tar",
+    "bytes": 353654272,
+    "sha256": "93c0c9605c56e5fb0d9c99cfbadc735c08297f54ade1ca0bfb05d519ec729a40"
+  },
+  "images": [
+    {
+      "role": "app",
+      "tag": "myapi:smoke-full-c6641b9d01e04c5ad3ff0434e613612a21e0b10e",
+      "id": "sha256:510f266ab14831a072495e9edf00342420dadf46bb53d9fc41c15c9295021912",
+      "registryRef": null
+    },
+    {
+      "role": "bun",
+      "tag": "myapi-smoke-fixture:bun-full-39361636750-1",
+      "id": "sha256:d62d32ae5b2f0f1530043a409f2891dbe71ba133d4b0b690cfcbda8f5ec3657f",
+      "registryRef": "oven/bun:1@sha256:0733e50325078969732ebe3b15ce4c4be5082f18c4ac1a0f0ca4839c2e4e42a7"
+    },
+    {
+      "role": "redis",
+      "tag": "myapi-smoke-fixture:redis-full-39361636750-1",
+      "id": "sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058",
+      "registryRef": "redis:7-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499"
+    }
+  ]
+}

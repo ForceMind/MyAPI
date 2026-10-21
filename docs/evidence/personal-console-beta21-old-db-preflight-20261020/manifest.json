@@ -1,0 +1,44 @@
+{
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 5329,
+      "sha256": "6506544b5f51fd8638a72c210ea32341eb176d925b9d2ba94f30f20a2bb0db46"
+    },
+    {
+      "path": "authorization.md",
+      "bytes": 1539,
+      "sha256": "2ccc8d3bcc21ac8148f989f81cd8589be700204bb85011143452ceb03080e046"
+    },
+    {
+      "path": "backup-operator.py.txt",
+      "bytes": 6364,
+      "sha256": "074ff4f00dfcf2a6537806242f0379899d41870def837e52a90525cd666bedb7"
+    },
+    {
+      "path": "backup-result.json",
+      "bytes": 3945,
+      "sha256": "f0f4d3380d049f5704b1358ba00bef6ac8246bd7aaa1e9b48098106fc9d904fc"
+    },
+    {
+      "path": "clone-operator.py.txt",
+      "bytes": 17659,
+      "sha256": "ec3ceacf35eaf36ce70db2dec98d4a66e596d929483bccee9cde3950e6b5acea"
+    },
+    {
+      "path": "clones-result.json",
+      "bytes": 57590,
+      "sha256": "97940b1f9d50ef3acb4c6728bee7f5f995e92c6739a42b39d6742963dd8319db"
+    },
+    {
+      "path": "limitations.json",
+      "bytes": 597,
+      "sha256": "fbe18ad88b4b77379a72dfa104f1bdf6dc95d882a4e2f7a62a8011dd468faba9"
+    },
+    {
+      "path": "verification.json",
+      "bytes": 1502,
+      "sha256": "e16428efa0d3274c055e452d0fb5bab2791df9d8aa8547dfe1b3c1893de17680"
+    }
+  ]
+}

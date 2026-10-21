@@ -1,0 +1,30 @@
+{
+  "transaction": "beta21-minimal-real-20261020",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 4545,
+      "sha256": "f2f47d9e835da66bad78e675c383c4428488035d2344602ab40f16616bc1e4be"
+    },
+    {
+      "path": "authorization.json",
+      "bytes": 913,
+      "sha256": "66ad9b0c0e077bb36f9749a6ccd78431fc57d78dd103d115667b7b2c4b426c63"
+    },
+    {
+      "path": "execution-result.json",
+      "bytes": 2699,
+      "sha256": "ec1198ac3e85e17cf859eb1ffcc9144af53861d30c39a5ccb4c93e863582eea0"
+    },
+    {
+      "path": "operator.py.txt",
+      "bytes": 19337,
+      "sha256": "d881a0c6a390f9adcc11068a37cde878fdcee6258fc8fe533f8f9b39946287d1"
+    },
+    {
+      "path": "verification.json",
+      "bytes": 1328,
+      "sha256": "87dc8605b9dfb78fe1c4c4c0f16f0fb009995ec5cd24187395f35a4577bc060a"
+    }
+  ]
+}

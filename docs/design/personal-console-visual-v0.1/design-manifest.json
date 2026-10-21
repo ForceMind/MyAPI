@@ -1,0 +1,118 @@
+{
+  "version": "visual-v0.1",
+  "date": "2026-10-15",
+  "approval": {
+    "requirements": "approved",
+    "prototype": "approved",
+    "visual": "rejected-color-and-temporary-mark-direction"
+  },
+  "generator": "Built-in image_gen; no CLI/API fallback",
+  "implementation": "No application code, build, application tests, publication, deployment or historical accounting work",
+  "assets": [
+    {
+      "title": "概览",
+      "file": "01-overview-desktop-mobile.png",
+      "status": "selected",
+      "width": 1586,
+      "height": 992,
+      "bytes": 1310547,
+      "sha256": "d256e28644930de7788d854ef09271f947ad5f6bf6c126f3b5ae5018db02471e",
+      "pdf_page": 1
+    },
+    {
+      "title": "上游账号",
+      "file": "02-upstream-account-desktop-mobile.png",
+      "status": "selected",
+      "width": 1586,
+      "height": 992,
+      "bytes": 1420695,
+      "sha256": "d342cb7c2c4255c1f6a023beceac5bda727b43206e3845cbe63937eb4e9a30e5",
+      "pdf_page": 2
+    },
+    {
+      "title": "Key 窗口分额",
+      "file": "03-key-share-desktop-mobile-v2.png",
+      "status": "selected",
+      "width": 1586,
+      "height": 992,
+      "bytes": 1609893,
+      "sha256": "8a7e3abe299cdadb37c36d38100c27bcd4a40b2c0545f26eaf51c3e22d4df4ca",
+      "pdf_page": 3
+    },
+    {
+      "title": "调用记录与详情",
+      "file": "04-call-log-desktop-mobile-v4.png",
+      "status": "selected",
+      "width": 1586,
+      "height": 992,
+      "bytes": 1627877,
+      "sha256": "5fcbd4993e9e5b3a5e7ca9061bb7c7afb13cd09937c81e4ac1a56712325fe4f4",
+      "pdf_page": 4
+    },
+    {
+      "title": "个人资料",
+      "file": "05-profile-desktop-mobile-v2.png",
+      "status": "selected",
+      "width": 1586,
+      "height": 992,
+      "bytes": 1593616,
+      "sha256": "41637a18e15c601c9d319f71165dd88b5cc4f8b73ef3d81618fb4330962d19e9",
+      "pdf_page": 5
+    },
+    {
+      "title": "资料读取失败",
+      "file": "06-profile-error-desktop-mobile.png",
+      "status": "selected",
+      "width": 1586,
+      "height": 992,
+      "bytes": 1265237,
+      "sha256": "c60d5d9a43513f4a19d162a137ee8fb904e4217e58f5c2bebe2463297a902c5c",
+      "pdf_page": 6
+    },
+    {
+      "title": "视觉规范与状态",
+      "file": "07-visual-system-states.png",
+      "status": "selected",
+      "width": 1586,
+      "height": 992,
+      "bytes": 1376629,
+      "sha256": "6fd593dc496be73bb12265da5572baa81c1f7288f1e708e1a26819ac36177790",
+      "pdf_page": 7
+    }
+  ],
+  "independent_review": {
+    "agent": "visual_design_review_20261015",
+    "requested_configuration": "gpt-5.6-sol/high",
+    "result": "passed",
+    "scope": "Selected actual images and product semantics only"
+  },
+  "references": [
+    {
+      "url": "https://github.com/astaxie/TokenHub/blob/main/docs/assets/screenshots/admin-management/routes.png",
+      "blob_sha": "ac9c31a7acde7cdf60fd9fc94f953a06a0de19c2"
+    },
+    {
+      "url": "https://github.com/astaxie/TokenHub/blob/main/docs/assets/screenshots/admin-management/providers.png",
+      "blob_sha": "816e45c4623f061f05704c64d4d99604813d7796"
+    },
+    {
+      "url": "https://github.com/astaxie/TokenHub/blob/main/docs/assets/screenshots/admin-management/mobile-routes.png",
+      "blob_sha": "e03ed1379ecc71c56683a2be96e1a53558ddc594"
+    }
+  ],
+  "drafts": "Excluded from selected assets and PDF",
+  "pdf": {
+    "file": "MyAPI-personal-console-visual-v0.1.pdf",
+    "pages": 8,
+    "bytes": 9198182,
+    "sha256": "e10b513c7bf4be3764b9affc6fc1fb66e65b89dbaffe2687e6ff5d9acde9dd06",
+    "checks": [
+      "PDF reopened",
+      "All 8 pages rendered",
+      "7 internal review links resolve",
+      "7 selected PNGs have valid dimensions and hashes"
+    ]
+  },
+  "superseded_by": "../personal-console-visual-v0.2/REVIEW.txt",
+  "historical_review_note": "Prior static review retained as historical evidence; maintainer rejected teal/temporary-mark direction. Not current implementation authority."
+}

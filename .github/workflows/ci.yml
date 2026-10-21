@@ -929,6 +929,7 @@ jobs:
           tools/runtime/sqlite-restore-smoke.test.mjs
           tools/runtime/handoff-upgrade-smoke.test.mjs
           tools/runtime/upstream-acceptance.test.mjs
+          tools/runtime/upstream-acceptance-offline.test.mjs
 
   credential-maintenance:
     name: Isolated credential maintenance browser and real API

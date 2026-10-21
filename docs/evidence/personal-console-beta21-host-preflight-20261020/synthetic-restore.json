@@ -1,0 +1,72 @@
+{
+  "started_at": "2026-10-20T03:51:13.970181+00:00",
+  "scope": "new synthetic Full SQLite only; original instance metadata only",
+  "image_config_digest": "sha256:510f266ab14831a072495e9edf00342420dadf46bb53d9fc41c15c9295021912",
+  "runtime_manifest_digest": "sha256:5726995bf0a66bf2a125c9c69a90e7d5cea0e052151ff0aaf31b375d817893d6",
+  "success": true,
+  "supplier_business_http_invoked": 0,
+  "real_credentials_read": false,
+  "production_database_opened": false,
+  "production_backup_created": false,
+  "deployed": false,
+  "checks": {
+    "normal_setup_login_and_synthetic_preseed": true,
+    "sqlite_native_backup_integrity_and_copy_digest": true,
+    "restored_full_normal_login": true,
+    "user_key_channel_ids_policies_counters_preserved": true,
+    "key_secret_preserved": true,
+    "old_run_not_adopted_after_restore": true,
+    "restored_integrity_ok": true,
+    "original_backup_unchanged": true,
+    "temporary_keys_disabled_and_sessions_revoked": true,
+    "original_instance_identity_and_health_unchanged": true
+  },
+  "private_workspace": "/tmp/myapi-beta21-synthetic-restore-tf1ihr4h",
+  "backup_sha256": "a69e7975f1a479750b5f6dfca73e0c04a03946c3f0743ab89f51477532266161",
+  "restored_metadata": {
+    "user": {
+      "id": 1,
+      "role": 100,
+      "status": 1,
+      "quota": 0,
+      "used_quota": 0,
+      "request_count": 0,
+      "self_use_no_balance": true
+    },
+    "key": {
+      "id": 1,
+      "status": 1,
+      "remain_quota": 1000,
+      "used_quota": 0,
+      "unlimited_quota": false,
+      "model_limits_enabled": true,
+      "model_limits": "synthetic-offline-model",
+      "group": "default",
+      "expired_time": 1792469478
+    },
+    "channel": {
+      "id": 1,
+      "status": 1,
+      "models": "synthetic-offline-model",
+      "group": "default",
+      "used_quota": 0
+    }
+  },
+  "original_instance_metadata": {
+    "id": "181acea8b1a34db66744fb7410baa98f9a502cf3aa95c10074f3473c6a703d4c",
+    "image": "sha256:e05ae0cce3236b54b244d8162b441054151ec99773052f5be77b79eb1a3611e2",
+    "state": "running",
+    "health": "healthy",
+    "ports": {
+      "3000/tcp": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "3000"
+        }
+      ]
+    }
+  },
+  "owned_containers_and_network_removed": true,
+  "private_workspace_removed": true,
+  "finished_at": "2026-10-20T03:51:28.806742+00:00"
+}

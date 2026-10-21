@@ -1,0 +1,19 @@
+{
+  "target_identified": true,
+  "old_service_unchanged_and_healthy": true,
+  "synthetic_full_native_restore_passed": true,
+  "first_host_port_probe_failed": true,
+  "revised_probe": "Pinned Bun fixture in the isolated container network namespace; no host port published.",
+  "first_workspace_removed_after_diagnosis": true,
+  "final_workspace_removed": true,
+  "product_or_verifier_source_changed": false,
+  "provider_business_http_this_batch": 0,
+  "production_database_opened": false,
+  "production_backup_created": false,
+  "old_auth_or_keyring_value_printed": false,
+  "protected_user_files_sha256_unchanged": {
+    "docs/MYAPI_MASTER_PLAN.md": "e058e179a828c752b5b389cde5a88d05c5999c61029948a88e270aad7131b243",
+    "docs/NEXT_SESSION_HANDOFF.md": "4e21c1e847db911b9143f580778ca63650337d7a330b658f8556aa1f499f1c39"
+  },
+  "production_deployed": false
+}

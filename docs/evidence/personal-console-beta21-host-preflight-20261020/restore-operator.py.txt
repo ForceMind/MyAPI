@@ -1,0 +1,218 @@
+import os,json,secrets,tempfile,subprocess,socket,time,sqlite3,hashlib,shutil,urllib.request,urllib.error
+from pathlib import Path
+from datetime import datetime,timezone
+
+os.umask(0o077)
+base=Path('/tmp/myapi-beta21-local-restore-20261020')
+out=base/'restore-result.json'
+assert not out.exists(), 'DO_NOT_REPLAY_THIS_REHEARSAL'
+identity=json.loads((base/'image-identity.json').read_text())
+assert identity['local_manifest_exactly_present_in_authenticated_archive'] and identity['all_layer_blob_digests_verified']
+image=identity['local_runtime_manifest_id']
+assert image=='sha256:5726995bf0a66bf2a125c9c69a90e7d5cea0e052151ff0aaf31b375d817893d6'
+workspace=Path(tempfile.mkdtemp(prefix='myapi-beta21-synthetic-restore-',dir='/tmp'))
+workspace.chmod(0o700)
+nonce=secrets.token_hex(6)
+network='myapi-restore-'+nonce
+source='myapi-restore-source-'+nonce
+restored='myapi-restore-copy-'+nonce
+label='io.myapi.local-recovery'
+docker_env=dict(os.environ)
+for k in ['DOCKER_HOST','DOCKER_CONTEXT','DOCKER_TLS','DOCKER_TLS_VERIFY','DOCKER_CERT_PATH']: docker_env.pop(k,None)
+docker_env.update({'SESSION_SECRET':secrets.token_hex(32),'CRYPTO_SECRET':secrets.token_hex(32),
+                  'CHANNEL_QUOTA_IDENTITY_KEYS':'active:restore:'+secrets.token_urlsafe(32)})
+docker=['docker','--host=unix:///var/run/docker.sock']
+report={'started_at':datetime.now(timezone.utc).isoformat(),'scope':'new synthetic Full SQLite only; original instance metadata only',
+        'image_config_digest':identity['source_config_digest'],'runtime_manifest_digest':image,'success':False,
+        'supplier_business_http_invoked':0,'real_credentials_read':False,'production_database_opened':False,
+        'production_backup_created':False,'deployed':False,'checks':{},'private_workspace':str(workspace)}
+created=[]
+net_created=False
+phase='initializing'
+
+def d(args):
+    p=subprocess.run(docker+args,env=docker_env,text=True,capture_output=True,timeout=45)
+    if p.returncode: raise RuntimeError('OWNED_DOCKER_ACTION_FAILED')
+    return p.stdout.strip()
+
+def require(ok,code):
+    if not ok: raise RuntimeError(code)
+
+def checkpoint(name):
+    global phase
+    phase=name
+    out.write_text(json.dumps(report,indent=2)+'\n')
+    print(json.dumps({'phase':name}),flush=True)
+
+def owned(name):
+    return d(['inspect','--format','{{index .Config.Labels "'+label+'"}}',name])==nonce
+
+def target_metadata():
+    return d(['inspect','181acea8b1a3','--format','{"id":{{json .Id}},"image":{{json .Image}},"state":{{json .State.Status}},"health":{{json .State.Health.Status}},"ports":{{json .NetworkSettings.Ports}}}'])
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self,*args): return None
+
+class API:
+    def __init__(self,container):
+        self.container=container; self.origin='http://127.0.0.1:3000'; self.access=''; self.sid=''
+    def call(self,method,path,body=None,rejected=False):
+        headers={'Origin':self.origin,'Content-Type':'application/json','Accept-Encoding':'identity'}
+        if self.access: headers.update({'Authorization':'Bearer '+self.access,'X-Auth-Session':self.sid})
+        require(owned(self.container),'API_TARGET_OWNER_MISMATCH')
+        actor=identity['api_actor_fixture']['runtime_manifest_id']
+        script="""const v=JSON.parse(await Bun.stdin.text());try{const r=await fetch('http://127.0.0.1:3000'+v.path,{method:v.method,headers:v.headers,body:v.body===null?undefined:JSON.stringify(v.body),redirect:'error',signal:AbortSignal.timeout(10000)});const b=await r.arrayBuffer();if(b.byteLength>1048576)throw new Error('large');console.log(JSON.stringify({status:r.status,payload:JSON.parse(new TextDecoder().decode(b))}))}catch{console.log(JSON.stringify({unavailable:true}))}"""
+        args=docker+['run','--rm','--pull=never','--interactive','--log-driver','none','--cpus','0.25','--memory','128m','--pids-limit','64',
+                     '--label',label+'='+nonce,'--network','container:'+self.container,'--entrypoint','bun',actor,'--eval',script]
+        p=subprocess.run(args,env=docker_env,input=json.dumps({'method':method,'path':path,'headers':headers,'body':body}),
+                         text=True,capture_output=True,timeout=20)
+        require(p.returncode==0,'API_ACTOR_FAILED')
+        response=json.loads(p.stdout)
+        if response.get('unavailable'):raise urllib.error.URLError('not-ready')
+        payload=response['payload']
+        if rejected:
+            require(response['status'] in [401,403],'LOCAL_SESSION_NOT_REVOKED');return
+        require(response['status']==200 and payload.get('success') is True,'LOCAL_API_REFUSED')
+        return payload.get('data')
+    def login(self,username,password):
+        login=self.call('POST','/api/user/login',{'username':username,'password':password})
+        self.access=login['access_token']; self.sid=login['session']['sid']
+        require(login['user']['role']==100,'ROOT_ROLE_MISMATCH')
+    def revoke(self,token_id):
+        self.call('PUT','/api/token/?status_only=true',{'id':token_id,'status':2})
+        require(self.call('GET','/api/token/'+str(token_id))['status']==2,'KEY_DISABLE_FAILED')
+        require(self.call('POST','/api/user/auth/logout')['revoked_sid']==self.sid,'LOGOUT_FAILED')
+        self.call('GET','/api/user/self',rejected=True)
+
+def start(name,folder):
+    args=['run','--detach','--pull=never','--name',name,'--label',label+'='+nonce,'--network',network,
+          '--cpus','1','--memory','768m','--pids-limit','256',
+          '--mount','type=bind,src='+str(folder)+',dst=/data']
+    for value in ['MYAPI_EDITION=full','MYAPI_BIND_ADDRESS=0.0.0.0','MYAPI_UPSTREAM_ACCEPTANCE_ENABLED=true',
+                  'SQLITE_PATH=/data/main.sqlite','BATCH_UPDATE_ENABLED=false','MYAPI_ACCOUNTING_CONFIG_VERSION=1',
+                  'CHANNEL_QUOTA_SYNC_ENABLED=false','CHANNEL_QUOTA_ALERT_ENABLED=false','MEMORY_CACHE_ENABLED=false',
+                  'FULL_CONTENT_LOG_ENABLED=false','DEBUG=false','GIN_MODE=release','GOMAXPROCS=1','GOMEMLIMIT=512MiB',
+                  'MYAPI_SESSION_COOKIE_SECURE=false','SHUTDOWN_TIMEOUT_SECONDS=15','SESSION_SECRET','CRYPTO_SECRET','CHANNEL_QUOTA_IDENTITY_KEYS']:
+        args+=['--env',value]
+    d(args+[image,'--log-dir','/data/logs'])
+    created.append(name)
+    api=API(name)
+    deadline=time.monotonic()+40
+    while True:
+        require(owned(name),'CONTAINER_OWNER_MISMATCH')
+        try:
+            setup=api.call('GET','/api/setup'); break
+        except urllib.error.URLError:
+            require(time.monotonic()<deadline,'READINESS_TIMEOUT')
+            time.sleep(0.2)
+    require(d(['inspect',name,'--format','{{.Image}}'])==image,'RUNNING_IMAGE_ID_MISMATCH')
+    return api,setup
+
+def stop_remove(name):
+    require(owned(name),'CONTAINER_OWNER_MISMATCH')
+    d(['stop','--time','15',name])
+    require(d(['inspect',name,'--format','{{.State.ExitCode}}'])=='0','OWNED_CONTAINER_EXIT_NOT_CLEAN')
+    d(['rm',name]); created.remove(name)
+
+def snapshot(api,token_id,channel_id):
+    user=api.call('GET','/api/user/self')
+    token=api.call('GET','/api/token/'+str(token_id))
+    channel=api.call('GET','/api/channel/'+str(channel_id))
+    secret=api.call('POST','/api/token/'+str(token_id)+'/key')['key']
+    state={'user':{k:user.get(k) for k in ['id','role','status','quota','used_quota','request_count','self_use_no_balance']},
+           'key':{k:token.get(k) for k in ['id','status','remain_quota','used_quota','unlimited_quota','model_limits_enabled','model_limits','group','expired_time']},
+           'channel':{k:channel.get(k) for k in ['id','status','models','group','used_quota']}}
+    return state,hashlib.sha256(secret.encode()).hexdigest()
+
+try:
+    original=target_metadata()
+    require(json.loads(original)['image']=='sha256:e05ae0cce3236b54b244d8162b441054151ec99773052f5be77b79eb1a3611e2','BASELINE_CHANGED')
+    d(['network','create','--internal','--label',label+'='+nonce,network]); net_created=True
+    require(d(['network','inspect',network,'--format','{{.Internal}}'])=='true','NETWORK_NOT_INTERNAL')
+    for name in ['source','backup','restored']: (workspace/name).mkdir(mode=0o700)
+    checkpoint('new_full_source_start')
+    api,setup=start(source,workspace/'source')
+    require(setup['status'] is False and setup['root_init'] is False,'SOURCE_NOT_FRESH')
+    username='at'+nonce[:10]; password=secrets.token_urlsafe(15)
+    api.call('POST','/api/setup',{'username':username,'password':password,'confirmPassword':password,'SelfUseModeEnabled':True,'DemoSiteEnabled':False})
+    api.login(username,password)
+    name='restore-'+nonce
+    api.call('POST','/api/channel/',{'mode':'single','channel':{'type':57,'name':name,'status':1,'base_url':'https://chatgpt.com',
+        'key':json.dumps({'access_token':'synthetic-restore-'+nonce,'account_id':'synthetic-account-'+nonce,'type':'codex'}),
+        'models':'synthetic-offline-model','group':'default'}})
+    channels=api.call('GET','/api/channel/search?keyword='+name+'&p=1&page_size=10')
+    require(channels['total']==1,'CHANNEL_AMBIGUOUS'); channel_id=channels['items'][0]['id']
+    api.call('POST','/api/token/',{'name':name,'remain_quota':1000,'unlimited_quota':False,'model_limits_enabled':True,
+        'model_limits':'synthetic-offline-model','group':'default','expired_time':int(time.time())+1200})
+    tokens=api.call('GET','/api/token/search?keyword='+name+'&p=1&page_size=10')
+    require(tokens['total']==1,'TOKEN_AMBIGUOUS'); token_id=tokens['items'][0]['id']
+    limits={'duration_seconds':1200,'max_total':1,'max_auth':0,'max_refresh':0,'max_sample':0,'max_models':0,'max_generation':0}
+    run=api.call('POST','/api/upstream-acceptance/runs',{'channel_id':channel_id,'limits':limits})
+    initial=api.call('GET','/api/upstream-acceptance/runs/'+run['id'])
+    require(initial['owner_current'] and initial['run']['total']==0,'SOURCE_RUN_MISMATCH')
+    before,secret_hash=snapshot(api,token_id,channel_id)
+    report['checks']['normal_setup_login_and_synthetic_preseed']=True
+    checkpoint('native_sqlite_backup')
+    src=sqlite3.connect('file:'+str(workspace/'source/main.sqlite')+'?mode=ro',uri=True)
+    dst=sqlite3.connect(workspace/'backup/original.sqlite')
+    src.backup(dst,pages=256)
+    require(dst.execute('PRAGMA integrity_check').fetchone()[0]=='ok','BACKUP_INTEGRITY_FAILED')
+    dst.close(); src.close()
+    backup_hash=hashlib.sha256((workspace/'backup/original.sqlite').read_bytes()).hexdigest()
+    shutil.copy2(workspace/'backup/original.sqlite',workspace/'restored/main.sqlite')
+    require(hashlib.sha256((workspace/'restored/main.sqlite').read_bytes()).hexdigest()==backup_hash,'WORKING_COPY_DIGEST_MISMATCH')
+    report['checks']['sqlite_native_backup_integrity_and_copy_digest']=True
+    stopped=api.call('POST','/api/upstream-acceptance/runs/'+run['id']+'/stop')
+    require(stopped['run']['status']=='stopped' and stopped['operations']==0 and stopped['http_in_flight']==0 and not stopped['drain_error'],'SOURCE_NOT_DRAINED')
+    api.revoke(token_id)
+    stop_remove(source)
+    checkpoint('restored_full_start_and_identity_check')
+    recovered,setup=start(restored,workspace/'restored')
+    require(setup['status'] is True,'RESTORE_NOT_INITIALIZED')
+    recovered.login(username,password); password=None
+    after,recovered_secret_hash=snapshot(recovered,token_id,channel_id)
+    require(before==after and secret_hash==recovered_secret_hash,'RESTORED_IDENTITY_OR_POLICY_MISMATCH')
+    require(after['user']['quota']==0 and after['user']['self_use_no_balance'] is True,'RESTORED_USER_POLICY_CHANGED')
+    status=recovered.call('GET','/api/upstream-acceptance/runs/'+run['id'])
+    require(status['owner_current'] is False and status['can_dispatch'] is False and status['run']['total']==0,
+            'OLD_RUN_AUTOMATICALLY_RESUMED')
+    check=sqlite3.connect('file:'+str(workspace/'restored/main.sqlite')+'?mode=ro',uri=True)
+    require(check.execute('PRAGMA integrity_check').fetchone()[0]=='ok','RESTORED_INTEGRITY_FAILED'); check.close()
+    require(hashlib.sha256((workspace/'backup/original.sqlite').read_bytes()).hexdigest()==backup_hash,'ORIGINAL_BACKUP_CHANGED')
+    report['checks'].update({'restored_full_normal_login':True,'user_key_channel_ids_policies_counters_preserved':True,
+       'key_secret_preserved':True,'old_run_not_adopted_after_restore':True,'restored_integrity_ok':True,'original_backup_unchanged':True})
+    report['backup_sha256']=backup_hash
+    report['restored_metadata']=after
+    recovered.revoke(token_id)
+    stop_remove(restored)
+    report['checks']['temporary_keys_disabled_and_sessions_revoked']=True
+    require(target_metadata()==original,'ORIGINAL_INSTANCE_METADATA_CHANGED')
+    report['checks']['original_instance_identity_and_health_unchanged']=True
+    report['original_instance_metadata']=json.loads(original)
+    report['success']=True
+except Exception as e:
+    report['failure_phase']=phase
+    text=str(e)
+    report['failure_code']=text if text.isupper() and len(text)<100 else type(e).__name__
+finally:
+    cleanup=True
+    for name in list(created):
+        try:
+            require(owned(name),'CONTAINER_OWNER_MISMATCH')
+            d(['rm','--force',name]); created.remove(name)
+        except Exception: cleanup=False
+    if net_created:
+        try:
+            require(d(['network','inspect',network,'--format','{{index .Labels "'+label+'"}}'])==nonce,'NETWORK_OWNER_MISMATCH')
+            d(['network','rm',network])
+        except Exception: cleanup=False
+    report['owned_containers_and_network_removed']=cleanup
+    if report['success'] and cleanup:
+        require(not any(p.is_symlink() for p in workspace.rglob('*')),'UNKNOWN_SYMLINK_PRESERVED')
+        shutil.rmtree(workspace)
+    report['private_workspace_removed']=not workspace.exists()
+    report['success']=report['success'] and cleanup and report['private_workspace_removed']
+    report['finished_at']=datetime.now(timezone.utc).isoformat()
+    out.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+    print(json.dumps(report,ensure_ascii=False),flush=True)
+    raise SystemExit(0 if report['success'] else 1)

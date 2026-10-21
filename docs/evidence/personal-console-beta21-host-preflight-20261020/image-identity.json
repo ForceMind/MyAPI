@@ -1,0 +1,18 @@
+{
+  "loader_result": "IMAGE_BUNDLE_IMAGE_MISMATCH",
+  "observed_reason": "Local image inspect Id equals the OCI manifest descriptor digest, while the existing bundle verifier expects the config digest.",
+  "source_config_digest": "sha256:510f266ab14831a072495e9edf00342420dadf46bb53d9fc41c15c9295021912",
+  "local_runtime_manifest_id": "sha256:5726995bf0a66bf2a125c9c69a90e7d5cea0e052151ff0aaf31b375d817893d6",
+  "local_manifest_exactly_present_in_authenticated_archive": true,
+  "manifest_config_digest_matches_source": true,
+  "all_layer_blob_digests_verified": true,
+  "runtime_rootfs_matches_config": true,
+  "runtime_labels_match_config": true,
+  "product_or_verifier_source_changed": false,
+  "fallback_image_used": false,
+  "api_actor_fixture": {
+    "runtime_manifest_id": "sha256:465ce2e5310c9ad66b99fc13395027b3e01b00c4ab45d1d922a9cd6fd658b761",
+    "config_digest": "sha256:d62d32ae5b2f0f1530043a409f2891dbe71ba133d4b0b690cfcbda8f5ec3657f",
+    "manifest_config_and_runtime_rootfs_verified": true
+  }
+}

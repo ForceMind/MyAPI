@@ -1,0 +1,101 @@
+import os, json, sqlite3, secrets, hashlib, subprocess, stat, shutil, time
+from pathlib import Path
+from datetime import datetime, timezone
+
+os.umask(0o077)
+BASE = Path('/tmp/myapi-beta21-old-db-preflight-20261020')
+BASE.mkdir(mode=0o700, exist_ok=True)
+STATE = BASE / 'state.json'
+assert not STATE.exists(), 'DO_NOT_REPEAT_OR_OVERWRITE_ACTUAL_BACKUP'
+TARGET = '181acea8b1a34db66744fb7410baa98f9a502cf3aa95c10074f3473c6a703d4c'
+OLD_IMAGE = 'sha256:e05ae0cce3236b54b244d8162b441054151ec99773052f5be77b79eb1a3611e2'
+SOURCE = Path('/root/new-api/fresh-beta12-20261014/data/my-api.db')
+env = dict(os.environ)
+for key in ['DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_TLS', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH']:
+    env.pop(key, None)
+DOCKER = ['docker', '--host=unix:///var/run/docker.sock']
+
+def docker(args):
+    p = subprocess.run(DOCKER + args, env=env, capture_output=True, timeout=45)
+    if p.returncode:
+        raise RuntimeError('LOCAL_DOCKER_READ_FAILED')
+    return p.stdout
+
+def require(ok, code):
+    if not ok:
+        raise RuntimeError(code)
+
+def digest(path):
+    h = hashlib.sha256()
+    with path.open('rb') as f:
+        for block in iter(lambda: f.read(1048576), b''):
+            h.update(block)
+    return h.hexdigest()
+
+def quoted(name):
+    return '"' + name.replace('"', '""') + '"'
+
+report = {'started_at': datetime.now(timezone.utc).isoformat(), 'deployed': False,
+          'supplier_http_invoked': 0, 'production_database_open_mode': 'SQLite mode=ro; native backup API',
+          'original_container_stopped_or_modified': False, 'redis_contacted': False, 'success': False}
+try:
+    info = json.loads(docker(['inspect', TARGET]))[0]
+    require(info['Id'] == TARGET and info['Image'] == OLD_IMAGE, 'ORIGINAL_TARGET_CHANGED')
+    require(info['State']['Running'] and info['State'].get('Health', {}).get('Status') == 'healthy', 'ORIGINAL_NOT_HEALTHY')
+    require(info['HostConfig']['PortBindings'] == {'3000/tcp': [{'HostIp': '127.0.0.1', 'HostPort': '3000'}]}, 'TARGET_BINDINGS_CHANGED')
+    mounts = {m['Destination']: m for m in info['Mounts']}
+    require(set(mounts) == {'/data', '/app/logs'}, 'UNREVIEWED_ORIGINAL_MOUNTS')
+    require(mounts['/data']['Type'] == 'bind' and mounts['/data']['Source'] == str(SOURCE.parent), 'ORIGINAL_DATABASE_MOUNT_CHANGED')
+    cfg_env = dict(item.split('=', 1) for item in info['Config']['Env'])
+    require(not any(cfg_env.get(k) for k in ['SQL_DSN', 'LOG_SQL_DSN', 'REDIS_CONN_STRING']), 'UNREVIEWED_EXTERNAL_DATABASE_OR_REDIS')
+    require(cfg_env.get('BATCH_UPDATE_ENABLED') == 'false' and cfg_env.get('MYAPI_ACCOUNTING_CONFIG_VERSION') == '1', 'ORIGINAL_ACCOUNTING_CONFIG_CHANGED')
+    require(bool(cfg_env.get('CHANNEL_QUOTA_IDENTITY_KEYS')), 'ORIGINAL_IDENTITY_KEYRING_MISSING')
+    require(SOURCE.is_file() and not SOURCE.is_symlink(), 'SOURCE_DATABASE_NOT_REGULAR_FILE')
+    backup = Path('/root/new-api/backups') / ('beta21-preflight-20261020-' + secrets.token_hex(6))
+    require(backup.parent.is_dir() and not backup.parent.is_symlink(), 'BACKUP_PARENT_NOT_READY')
+    backup.mkdir(mode=0o700)
+    (backup / 'original').mkdir(mode=0o700)
+    (backup / 'original' / 'container-inspect.private.json').write_text(json.dumps(info, indent=2) + '\n')
+    original = backup / 'original' / 'my-api.db'
+    src = sqlite3.connect(SOURCE.as_uri() + '?mode=ro', uri=True, timeout=10)
+    src.execute('PRAGMA query_only=ON')
+    dst = sqlite3.connect(original)
+    started = time.monotonic()
+    def progress(status, remaining, total):
+        require(time.monotonic() - started < 90, 'CONSISTENT_BACKUP_TIMEOUT')
+    src.backup(dst, pages=256, progress=progress, sleep=0.05)
+    require(dst.execute('PRAGMA integrity_check').fetchall() == [('ok',)], 'BACKUP_INTEGRITY_FAILED')
+    require(not dst.execute('PRAGMA foreign_key_check').fetchall(), 'BACKUP_FOREIGN_KEY_CHECK_FAILED')
+    dst.close()
+    src.close()
+    original.chmod(0o600)
+    db = sqlite3.connect(original.as_uri() + '?mode=ro', uri=True)
+    db.execute('PRAGMA query_only=ON')
+    tables = [r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")]
+    inventory = {}
+    for table in tables:
+        inventory[table] = {'rows': db.execute('SELECT COUNT(*) FROM ' + quoted(table)).fetchone()[0],
+                            'columns': [r[1] for r in db.execute('PRAGMA table_info(' + quoted(table) + ')')]}
+    writer = [dict(zip(['id', 'schema_version', 'mode', 'epoch', 'lock_version'], row)) for row in db.execute(
+        'SELECT id,schema_version,mode,epoch,lock_version FROM quota_writer_epochs')] if 'quota_writer_epochs' in tables else None
+    db.close()
+    (backup / 'original' / 'schema-inventory.private.json').write_text(json.dumps(inventory, indent=2) + '\n')
+    manifest = {p.name: {'sha256': digest(p), 'bytes': p.stat().st_size} for p in (backup / 'original').iterdir() if p.is_file()}
+    (backup / 'original' / 'manifest.private.json').write_text(json.dumps(manifest, indent=2) + '\n')
+    final = json.loads(docker(['inspect', TARGET]))[0]
+    require(final['Id'] == TARGET and final['Image'] == OLD_IMAGE and final['State']['Running'] and final['State']['Health']['Status'] == 'healthy', 'ORIGINAL_TARGET_CHANGED_DURING_BACKUP')
+    report.update({'success': True, 'backup_directory': str(backup), 'backup_database_sha256': digest(original),
+                   'backup_integrity': 'ok', 'foreign_key_violations': 0, 'original_image': OLD_IMAGE,
+                   'target_id': TARGET, 'writer': writer, 'table_counts': {k: v['rows'] for k, v in inventory.items()},
+                   'accounting_config': {'batch_update_enabled': False, 'config_version': 1, 'identity_keyring_present': True},
+                   'private_config_captured': True, 'original_still_healthy': True})
+    STATE.write_text(json.dumps({'backup_directory': str(backup), 'target_id': TARGET, 'old_image': OLD_IMAGE,
+                                'backup_sha256': digest(original)}, indent=2) + '\n')
+except Exception as error:
+    code = str(error)
+    report['failure_code'] = code if code.isupper() and len(code) < 120 else type(error).__name__
+finally:
+    report['finished_at'] = datetime.now(timezone.utc).isoformat()
+    (BASE / 'backup-result.json').write_text(json.dumps(report, indent=2) + '\n')
+    print(json.dumps(report), flush=True)
+    raise SystemExit(0 if report['success'] else 1)

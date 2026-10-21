@@ -1,0 +1,44 @@
+{
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 6128,
+      "sha256": "e29ee8fba2170e0b548c560d64594b3a2703cedb505e4b015ffb4f962e58ef80"
+    },
+    {
+      "path": "authorization.md",
+      "bytes": 936,
+      "sha256": "a0f79a097b99c87c1da5043064bc40bb858415a9e5d95030761c6f660c2835ea"
+    },
+    {
+      "path": "deployment-operator.py.txt",
+      "bytes": 21988,
+      "sha256": "a11c1b83543b402cc170a8f279f8f3531f488af610bc111c0a980e007fd62c06"
+    },
+    {
+      "path": "deployment-result.json",
+      "bytes": 29853,
+      "sha256": "943b6e46d5e55b029e8971868730ecf15e3b84b62913e3fff768a56ed92bae8e"
+    },
+    {
+      "path": "final-status.json",
+      "bytes": 1407,
+      "sha256": "19ce81785ad9a6f0e70288903fc486acc966b4ba95b53a703d695e1437e462c2"
+    },
+    {
+      "path": "first-preflight-operator.py.txt",
+      "bytes": 21835,
+      "sha256": "364958dcf824fb346791b8efd2be50f9a19f1ae65e69f82d1b0f51a272d124b9"
+    },
+    {
+      "path": "first-preflight-result.json",
+      "bytes": 1213,
+      "sha256": "3c8258bab23cdd5180176338c6307e04b62345142d76bd383374594172b996aa"
+    },
+    {
+      "path": "verification.json",
+      "bytes": 2132,
+      "sha256": "3c37b4becc84ad61f075a478b4fb1b51fb19c4579bd446ba604c9ec7a2fb1bd2"
+    }
+  ]
+}

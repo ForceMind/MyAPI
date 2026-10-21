@@ -1,0 +1,37 @@
+{
+  "method": "primary agent structured self-review; immutable image tests reused; no new independent review or provider tests",
+  "checks": {
+    "preflight_same_original_config_target_and_exact_images": true,
+    "old_service_gracefully_drained_exit_zero": true,
+    "final_backup_and_starting_copy_integrity_and_digest": true,
+    "original_configuration_identity_port_resource_and_normal_mode_preserved": true,
+    "host_loopback_beta21_status_setup_and_frontend_assets": true,
+    "original_user_key_secrets_ids_channel_identity_and_policies_preserved": true,
+    "historical_accounting_and_five_unknown_usage_records_preserved": true,
+    "old_container_stopped_original_database_and_final_backup_unchanged": true,
+    "private_backup_permissions_and_original_restart_policy": true,
+    "actual_deployment_success": true,
+    "separate_later_http_readback_beta21_healthy": true,
+    "normal_mode_acceptance_disabled": true,
+    "no_manual_supplier_test_added": true,
+    "first_preflight_failure_retained_no_cutover": true,
+    "final_backup_hash_unchanged": true,
+    "old_stopped_original_database_unchanged": true,
+    "private_backup_permissions_0700_0600": true,
+    "protected_user_sha256_unchanged": true,
+    "no_private_values_in_public_delivery": true,
+    "staging_still_empty": true
+  },
+  "protected_sha256": {
+    "docs/MYAPI_MASTER_PLAN.md": "e058e179a828c752b5b389cde5a88d05c5999c61029948a88e270aad7131b243",
+    "docs/NEXT_SESSION_HANDOFF.md": "4e21c1e847db911b9143f580778ca63650337d7a330b658f8556aa1f499f1c39"
+  },
+  "comparison_helper_dependency_sha256": "ec3ceacf35eaf36ce70db2dec98d4a66e596d929483bccee9cde3950e6b5acea",
+  "limits": [
+    "Existing 5 usage_unknown rows remain frozen; rotation/migration eligibility remains enforced.",
+    "No new real password login, OAuth/refresh or generation specialization.",
+    "No browser interaction rerun; actual public HTTP and frontend entry assets verified.",
+    "Final backup is a cutover snapshot; future rollback must inspect new business and credential changes."
+  ],
+  "git_sync": "No commit/staging/push/merge/tag/release in this deployment batch."
+}

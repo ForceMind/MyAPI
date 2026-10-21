@@ -1,0 +1,22 @@
+[SYS] 2026/10/20 - 03:46:14 | initializing token encoders 
+[SYS] 2026/10/20 - 03:46:14 | token encoders initialized 
+[SYS] 2026/10/20 - 03:46:14 | REDIS_CONN_STRING not set, Redis is not enabled 
+[SYS] 2026/10/20 - 03:46:14 | SQL_DSN not set, using SQLite as database 
+[SYS] 2026/10/20 - 03:46:14 | database migration started 
+[SYS] 2026/10/20 - 03:46:16 | system is not initialized and no root user exists 
+[SYS] 2026/10/20 - 03:46:16 | i18n initialized with languages: zh-CN, zh-TW, en 
+[SYS] 2026/10/20 - 03:46:16 | Loaded 0 custom OAuth providers 
+[SYS] 2026/10/20 - 03:46:16 | MyAPI 0.2.0-beta.21 started 
+[SYS] 2026/10/20 - 03:46:16 | upstream acceptance mode pauses the legacy channel updater 
+[SYS] 2026/10/20 - 03:46:16 | 正在更新数据看板数据... 
+[SYS] 2026/10/20 - 03:46:16 | 保存数据看板数据成功，共保存0条数据 
+[INFO] 2026/10/20 - 03:46:16 | SYSTEM | subscription quota reset task started: tick=1m0s 
+[INFO] 2026/10/20 - 03:46:16 | SYSTEM | system task runner started: runner=2a2822e63ffa-G8EUfHee idle_interval=15s 
+
+  [33mWarning: Refresh cookie is not secure and refresh/logout Origin validation is disabled. Please set SESSION_COOKIE_SECURE=true in production.[0m
+
+
+  [32mMyAPI 0.2.0-beta.21[0m  ready in 2325 ms
+
+  ➜  [1mNetwork:[0m http://172.21.0.2:3000/
+

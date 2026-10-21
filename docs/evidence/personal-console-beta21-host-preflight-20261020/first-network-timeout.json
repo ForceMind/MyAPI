@@ -1,0 +1,19 @@
+{
+  "started_at": "2026-10-20T03:46:13.002590+00:00",
+  "scope": "new synthetic Full SQLite only; original instance metadata only",
+  "image_config_digest": "sha256:510f266ab14831a072495e9edf00342420dadf46bb53d9fc41c15c9295021912",
+  "runtime_manifest_digest": "sha256:5726995bf0a66bf2a125c9c69a90e7d5cea0e052151ff0aaf31b375d817893d6",
+  "success": false,
+  "supplier_business_http_invoked": 0,
+  "real_credentials_read": false,
+  "production_database_opened": false,
+  "production_backup_created": false,
+  "deployed": false,
+  "checks": {},
+  "private_workspace": "/tmp/myapi-beta21-synthetic-restore-dol05w35",
+  "failure_phase": "new_full_source_start",
+  "failure_code": "READINESS_TIMEOUT",
+  "owned_containers_and_network_removed": true,
+  "private_workspace_removed": false,
+  "finished_at": "2026-10-20T03:46:54.261175+00:00"
+}

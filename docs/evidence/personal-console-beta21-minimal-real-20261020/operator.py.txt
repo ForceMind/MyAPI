@@ -1,0 +1,345 @@
+import os, sys, json, secrets, hashlib, stat, socket, subprocess, tempfile, time, signal, re
+from pathlib import Path
+from datetime import datetime, timezone
+import urllib.request, urllib.error
+
+# One authorized transaction. No CLI credential arguments, retries or model fallback.
+os.umask(0o077)
+binary = Path('/tmp/myapi-beta21-deployment-39361636750/my-api-beta21')
+assert hashlib.sha256(binary.read_bytes()).hexdigest() == 'daa88e4c33f7050cff93a3e864faf55ef86aa002065c1a52bba8a2e366e556c9'
+result_file = Path('/tmp/myapi-beta21-approved-operator-20261020/result.json')
+assert not result_file.exists(), 'THIS_TRANSACTION_MUST_NOT_BE_REPLAYED'
+root = Path(tempfile.mkdtemp(prefix='myapi-beta21-real-', dir='/tmp'))
+root.chmod(0o700)
+result = {'started_at': datetime.now(timezone.utc).isoformat(), 'build_sha': 'c6641b9d01e04c5ad3ff0434e613612a21e0b10e',
+          'binary_sha256': 'daa88e4c33f7050cff93a3e864faf55ef86aa002065c1a52bba8a2e366e556c9',
+          'model': 'gpt-6-luna', 'phase': 'initializing', 'success': False, 'private_directory': str(root),
+          'limits': {'duration_seconds': 1200, 'max_total': 3, 'max_auth': 0, 'max_refresh': 0,
+                     'max_sample': 2, 'max_models': 0, 'max_generation': 1},
+          'samples': [], 'local_requests': 0, 'provider_requests_planned': 3,
+          'oauth_executed': False, 'refresh_token_copied': False, 'original_auth_written': False,
+          'deployed': False, 'published': False}
+control = {'directory': str(root)}
+proc = None
+access = sid = key = ''
+run_id = None
+auth_path = None
+auth_digest = None
+local_opener = None
+origin = None
+
+def save():
+    result_file.write_text(json.dumps(result, ensure_ascii=False, indent=2)+'\n')
+    (root/'control.json').write_text(json.dumps(control))
+
+def phase(name):
+    result['phase'] = name
+    save()
+    print(json.dumps({'phase': name}, ensure_ascii=False), flush=True)
+
+def require(value, code):
+    if not value:
+        raise RuntimeError(code)
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+def request(method, path, body=None, credential=None, timeout=20):
+    require(path.startswith('/') and not path.startswith('//'), 'LOCAL_PATH_INVALID')
+    headers = {'Origin': origin, 'Content-Type': 'application/json', 'Accept-Encoding': 'identity'}
+    credential = access if credential is None else credential
+    if credential:
+        headers['Authorization'] = 'Bearer '+credential
+    if credential == access and sid:
+        headers['X-Auth-Session'] = sid
+    data = None if body is None else json.dumps(body).encode()
+    req = urllib.request.Request(origin+path, method=method, headers=headers, data=data)
+    result['local_requests'] += 1
+    try:
+        response = local_opener.open(req, timeout=timeout)
+    except urllib.error.HTTPError as e:
+        response = e
+    with response:
+        raw = response.read(2*1024*1024+1)
+        require(len(raw) <= 2*1024*1024, 'LOCAL_RESPONSE_TOO_LARGE')
+        try: payload = json.loads(raw)
+        except (ValueError, UnicodeDecodeError): raise RuntimeError('LOCAL_RESPONSE_NOT_JSON')
+        return response.status, payload
+
+def api(method, path, body=None):
+    status, payload = request(method, path, body)
+    if status != 200 or payload.get('success') is not True:
+        result['local_refusal'] = {'http_status': status, 'phase': result['phase']}
+        raise RuntimeError('LOCAL_API_REFUSED')
+    return payload.get('data')
+
+def status():
+    value = api('GET', '/api/upstream-acceptance/runs/'+run_id)
+    require(value['owner_current'] and value['run']['id'] == run_id and value['run']['channel_id'] == control['channel_id'], 'RUN_IDENTITY_MISMATCH')
+    return value
+
+def counters(value):
+    r = value['run']
+    return {**{n:r[n] for n in ['status','total','auth','refresh','sample','models','generation','generation_in_flight']},
+            **{n:value[n] for n in ['owner_current','operations','http_in_flight','drain_error']}}
+
+def checkpoint(total, samples, generations):
+    value = status()
+    snapshot = counters(value)
+    result['run_counters'] = snapshot
+    save()
+    require(value['run']['total'] == total and value['run']['sample'] == samples and value['run']['generation'] == generations,
+            'RUN_COUNTER_MISMATCH')
+    require(all(value['run'][n] == 0 for n in ['auth','refresh','models','generation_in_flight']) and
+            value['operations'] == 0 and value['http_in_flight'] == 0 and not value['drain_error'], 'RUN_NOT_IDLE')
+    print(json.dumps({'run_counters': snapshot}), flush=True)
+
+def usage(label):
+    phase(label)
+    status_code, payload = request('GET', '/api/channel/'+str(control['channel_id'])+'/codex/usage')
+    sample = {'label': label, 'local_http': status_code, 'upstream_http': payload.get('upstream_status')}
+    result['samples'].append(sample)
+    require(status_code == 200 and payload.get('success') is True and payload.get('upstream_status') == 200,
+            'USAGE_QUERY_FAILED_STOP_NO_RETRY')
+    data = payload.get('data')
+    require(isinstance(data, dict), 'USAGE_PAYLOAD_INVALID')
+    sample['plan_type'] = data.get('plan_type') if data.get('plan_type') in ['free','plus','pro','team','business','enterprise','edu'] else 'other'
+    windows = data.get('rate_limit') or {}
+    sample['windows'] = {}
+    for name in ['primary_window','secondary_window']:
+        window = windows.get(name)
+        if isinstance(window, dict):
+            sample['windows'][name] = {k:window[k] for k in ['used_percent','limit_window_seconds','reset_at']
+                                       if type(window.get(k)) in [int,float]}
+    require(sample['windows'], 'NO_NATIVE_WINDOW_STOP')
+    save()
+    print(json.dumps({'sample': sample}), flush=True)
+
+def generate():
+    phase('single_generation')
+    body = {'model':'gpt-6-luna', 'instructions':'', 'input':[{'role':'user','content':[{'type':'input_text','text':'只回复 OK'}]}],
+            'stream':True, 'store':False}
+    req = urllib.request.Request(origin+'/v1/responses', method='POST', data=json.dumps(body).encode(),
+            headers={'Authorization':'Bearer '+key,'Content-Type':'application/json','Accept':'text/event-stream','Accept-Encoding':'identity'})
+    result['local_requests'] += 1
+    try: response = local_opener.open(req, timeout=100)
+    except urllib.error.HTTPError as e: response = e
+    generation = {'local_http':response.status, 'response_completed':False, 'usage_reported':False, 'output_exact_ok':False}
+    result['generation'] = generation
+    with response:
+        if response.status != 200:
+            raw = response.read(65537)
+            try:
+                err = json.loads(raw).get('error') or {}
+                safe_codes = {'insufficient_quota','model_not_found','invalid_api_key','invalid_request_error','upstream_acceptance_denied','usage_dispatch_unresolved'}
+                generation['error_code'] = err.get('code') if err.get('code') in safe_codes else 'unspecified'
+            except (ValueError, AttributeError): generation['error_code'] = 'unspecified'
+            raise RuntimeError('GENERATION_REFUSED_STOP_NO_RETRY')
+        text = []
+        byte_count = 0
+        for line in response:
+            byte_count += len(line)
+            require(byte_count <= 2*1024*1024, 'GENERATION_STREAM_TOO_LARGE')
+            if not line.startswith(b'data:'): continue
+            item = line[5:].strip()
+            if item == b'[DONE]': continue
+            try: event = json.loads(item)
+            except ValueError: raise RuntimeError('GENERATION_STREAM_INVALID')
+            kind = event.get('type')
+            if kind == 'response.output_text.delta' and isinstance(event.get('delta'),str): text.append(event['delta'])
+            if kind in ['error','response.failed','response.incomplete']:
+                raise RuntimeError('GENERATION_TERMINAL_FAILURE_STOP_NO_RETRY')
+            if kind == 'response.completed':
+                completed = event.get('response') or {}
+                generation['response_completed'] = completed.get('status') == 'completed'
+                usage_data = completed.get('usage')
+                if isinstance(usage_data,dict):
+                    generation['usage_reported'] = True
+                    for name in ['input_tokens','output_tokens','total_tokens']:
+                        if type(usage_data.get(name)) is int and 0 <= usage_data[name] <= 2147483647:
+                            generation[name] = usage_data[name]
+        generation['stream_bytes'] = byte_count
+        generation['output_exact_ok'] = ''.join(text).strip() == 'OK'
+        text.clear()
+        require(generation['response_completed'], 'GENERATION_COMPLETION_NOT_PROVEN')
+        require(generation['output_exact_ok'], 'GENERATION_OUTPUT_UNEXPECTED_STOP')
+    save()
+    print(json.dumps({'generation': generation}), flush=True)
+
+try:
+    # Select a fresh port before starting the one owned server.
+    probe = socket.socket()
+    probe.bind(('127.0.0.1',0))
+    port = probe.getsockname()[1]
+    probe.close()
+    origin = 'http://127.0.0.1:'+str(port)
+    control['origin'] = origin
+    result['loopback_origin'] = origin
+    local_opener = urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
+    (root/'logs').mkdir(mode=0o700)
+    server_log = (root/'server.log').open('xb')
+    env = dict(os.environ)
+    env.update({'SQL_DSN':'','LOG_SQL_DSN':'','SQLITE_PATH':str(root/'main.sqlite'),'REDIS_CONN_STRING':'',
+      'BATCH_UPDATE_ENABLED':'false','MYAPI_ACCOUNTING_CONFIG_VERSION':'1','MYAPI_UPSTREAM_ACCEPTANCE_ENABLED':'true',
+      'MYAPI_BIND_ADDRESS':'127.0.0.1','PORT':str(port),'MYAPI_EDITION':'full','VERSION':'0.2.0-beta.21',
+      'SESSION_SECRET':secrets.token_hex(32),'CRYPTO_SECRET':secrets.token_hex(32),
+      'CHANNEL_QUOTA_IDENTITY_KEYS':'active:temporary:'+secrets.token_urlsafe(32),
+      'CHANNEL_QUOTA_SYNC_ENABLED':'false','CHANNEL_QUOTA_ALERT_ENABLED':'false','DEBUG':'false','GIN_MODE':'release',
+      'TLS_INSECURE_SKIP_VERIFY':'false','ENABLE_PPROF':'false','MEMORY_CACHE_ENABLED':'false',
+      'FULL_CONTENT_LOG_ENABLED':'false','TASK_RECOVERY_ENABLED':'false','GOMAXPROCS':'2','GOMEMLIMIT':'768MiB',
+      'SHUTDOWN_TIMEOUT_SECONDS':'15','MYAPI_SESSION_COOKIE_SECURE':'false'})
+    proc = subprocess.Popen([str(binary),'--port',str(port),'--log-dir',str(root/'logs')],cwd=root,env=env,
+                            stdout=server_log,stderr=subprocess.STDOUT,start_new_session=True)
+    control['server_pid'] = proc.pid
+    phase('server_starting')
+    deadline = time.monotonic()+45
+    while True:
+        require(proc.poll() is None, 'SERVER_EXITED_BEFORE_READY')
+        try:
+            setup = api('GET','/api/setup')
+            break
+        except urllib.error.URLError:
+            require(time.monotonic() < deadline,'SERVER_READINESS_TIMEOUT')
+            time.sleep(0.2)
+    require(setup.get('status') is False and setup.get('root_init') is False,'SERVER_NOT_FRESH')
+    phase('local_setup')
+    nonce = secrets.token_hex(5)
+    username = 'at'+nonce
+    password = secrets.token_urlsafe(15)
+    api('POST','/api/setup',{'username':username,'password':password,'confirmPassword':password,'SelfUseModeEnabled':True,'DemoSiteEnabled':False})
+    phase('local_login')
+    login = api('POST','/api/user/login',{'username':username,'password':password})
+    password = None
+    require(login['user']['role'] == 100 and login['user']['username'] == username, 'ROOT_IDENTITY_MISMATCH')
+    access = login['access_token']; sid = login['session']['sid']
+    control.update({'access_token':access,'sid':sid,'user_id':login['user']['id'],'username':username})
+    result['automatic_root_setup_and_login'] = True
+    phase('account_metadata_read')
+    auth_path = Path(os.environ.get('CODEX_HOME', str(Path.home()/'.codex')))/'auth.json'
+    fd = os.open(auth_path,os.O_RDONLY|os.O_NOFOLLOW)
+    try:
+        s = os.fstat(fd)
+        require(stat.S_ISREG(s.st_mode) and s.st_uid == os.getuid() and s.st_mode&0o077 == 0 and s.st_size <= 262144,'AUTH_FILE_UNSAFE')
+        raw = os.read(fd,262145)
+    finally: os.close(fd)
+    auth_digest = hashlib.sha256(raw).hexdigest()
+    auth = json.loads(raw)
+    require(auth.get('auth_mode') == 'chatgpt', 'AUTH_MODE_MISMATCH')
+    tokens = auth.get('tokens') or {}
+    credential = {'access_token':tokens.get('access_token'),'account_id':tokens.get('account_id'),'type':'codex'}
+    require(all(isinstance(credential[k],str) and credential[k] for k in ['access_token','account_id']),'ACCESS_CREDENTIAL_MISSING')
+    auth = tokens = raw = None
+    phase('single_channel_preseed')
+    name = 'real-'+nonce
+    created = api('POST','/api/channel/',{'mode':'single','channel':{'type':57,'name':name,'status':1,
+                  'base_url':'https://chatgpt.com','key':json.dumps(credential),'models':'gpt-6-luna','group':'default'}})
+    credential = None
+    require(isinstance(created.get('ids'),list) and len(created['ids']) == 1, 'CHANNEL_CREATE_UNKNOWN')
+    channels = api('GET','/api/channel/search?keyword='+name+'&p=1&page_size=10')
+    require(channels.get('total') == 1 and len(channels.get('items',[])) == 1,'CHANNEL_LOOKUP_AMBIGUOUS')
+    ch = channels['items'][0]
+    require(ch['name'] == name and ch['type'] == 57 and ch['id'] > 0 and created['ids'][0] in [0,ch['id']],'CHANNEL_IDENTITY_MISMATCH')
+    control['channel_id'] = ch['id']
+    phase('restricted_key_preseed')
+    api('POST','/api/token/',{'name':name,'remain_quota':100000,'unlimited_quota':False,'model_limits_enabled':True,
+        'model_limits':'gpt-6-luna','group':'default','expired_time':int(time.time())+1200,'cross_group_retry':False})
+    found = api('GET','/api/token/search?keyword='+name+'&p=1&page_size=10')
+    require(found.get('total') == 1 and len(found.get('items',[])) == 1,'KEY_LOOKUP_AMBIGUOUS')
+    token = found['items'][0]
+    require(token['name'] == name and token['id'] > 0,'KEY_IDENTITY_MISMATCH')
+    control['token_id'] = token['id']
+    key = api('POST','/api/token/'+str(token['id'])+'/key')['key']
+    phase('single_run_create')
+    run = api('POST','/api/upstream-acceptance/runs',{'channel_id':ch['id'],'limits':result['limits']})
+    run_id = run['id']; control['run_id'] = run_id
+    result['run_id'] = run_id
+    checkpoint(0,0,0)
+    phase('pre_dispatch_verified')
+    user = api('GET','/api/user/self')
+    require(user['id'] == control['user_id'] and user['self_use_no_balance'] is True and user['quota'] == 0,'SELF_USE_POLICY_MISMATCH')
+    require(all(run[k] == v for k,v in result['limits'].items() if k != 'duration_seconds'),'RUN_LIMIT_MISMATCH')
+    usage('native_usage_before')
+    checkpoint(1,1,0)
+    generate()
+    checkpoint(2,1,1)
+    usage('native_usage_after')
+    checkpoint(3,2,1)
+    user_after = api('GET','/api/user/self')
+    token_after = api('GET','/api/token/'+str(control['token_id']))
+    require(user_after['quota'] == 0 and user_after['self_use_no_balance'] is True,'WALLET_POLICY_CHANGED')
+    result['local_accounting'] = {'user_balance_stayed_zero':True,'user_request_count':user_after.get('request_count'),
+                                 'user_used_quota':user_after.get('used_quota'),'key_used_quota':token_after.get('used_quota')}
+    result['success'] = True
+except Exception as e:
+    # Only local fixed error codes reach output; no body, token or exception cause.
+    code = str(e)
+    result['failure_code'] = code if re.fullmatch('[A-Z][A-Z0-9_]{1,100}',code) else type(e).__name__
+    result['success'] = False
+    print(json.dumps({'phase':result['phase'],'failure_code':result['failure_code']}),flush=True)
+finally:
+    cleanup = {'run_drained':False,'key_disabled':False,'session_revoked':False,'server_stopped':False,'sensitive_directory_removed':False}
+    result['cleanup'] = cleanup
+    try:
+        if run_id:
+            stopped = api('POST','/api/upstream-acceptance/runs/'+run_id+'/stop')
+            deadline = time.monotonic()+20
+            while stopped['operations'] or stopped['http_in_flight'] or stopped['run']['generation_in_flight']:
+                require(time.monotonic() < deadline,'DRAIN_TIMEOUT')
+                time.sleep(0.2)
+                stopped = status()
+            require(stopped['owner_current'] and stopped['run']['status'] in ['stopped','expired'] and not stopped['drain_error'],'DRAIN_NOT_PROVEN')
+            cleanup['run_drained'] = True
+            result['final_run_counters'] = counters(stopped)
+        if control.get('token_id') and access:
+            api('PUT','/api/token/?status_only=true',{'id':control['token_id'],'status':2})
+            cleanup['key_disabled'] = api('GET','/api/token/'+str(control['token_id']))['status'] == 2
+            require(cleanup['key_disabled'],'KEY_DISABLE_NOT_PROVEN')
+        if access:
+            logout = api('POST','/api/user/auth/logout')
+            require(logout.get('revoked_sid') == sid,'SID_REVOKE_NOT_PROVEN')
+            rejected,_ = request('GET','/api/user/self')
+            cleanup['session_revoked'] = rejected in [401,403]
+            require(cleanup['session_revoked'],'SESSION_STILL_ACCEPTED')
+    except Exception as e:
+        result['success'] = False
+        result['cleanup_failure'] = str(e) if re.fullmatch('[A-Z][A-Z0-9_]{1,100}',str(e)) else type(e).__name__
+    if proc is not None:
+        try:
+            if proc.poll() is None: proc.terminate()
+            proc.wait(timeout=25)
+            cleanup['server_stopped'] = True
+            result['server_exit_code'] = proc.returncode
+        except Exception:
+            result['success'] = False
+            result['cleanup_failure'] = 'OWNED_SERVER_EXIT_NOT_PROVEN'
+    if auth_digest is not None:
+        try:
+            fd = os.open(auth_path,os.O_RDONLY|os.O_NOFOLLOW)
+            try: current = os.read(fd,262145)
+            finally: os.close(fd)
+            result['original_auth_unchanged'] = hashlib.sha256(current).hexdigest() == auth_digest
+            current = None
+        except Exception: result['original_auth_unchanged'] = None
+    result['finished_at'] = datetime.now(timezone.utc).isoformat()
+    save()
+    if result['success'] and all(cleanup[k] for k in ['run_drained','key_disabled','session_revoked','server_stopped']):
+        # This brand-new directory is owned by this transaction; reject symlinks
+        # and files outside the known database/log/control scope before removing.
+        permitted = {'control.json','server.log','main.sqlite','main.sqlite-wal','main.sqlite-shm','main.sqlite-journal'}
+        safe = True
+        for p in root.rglob('*'):
+            st = p.lstat()
+            if p.is_symlink() or st.st_uid != os.getuid(): safe = False
+            if p.parent == root and p.name not in permitted and p.name != 'logs': safe = False
+            if p.parent != root and p.parent != root/'logs': safe = False
+        if safe:
+            import shutil
+            shutil.rmtree(root)
+            cleanup['sensitive_directory_removed'] = not root.exists()
+        else:
+            result['success'] = False
+            result['cleanup_failure'] = 'UNKNOWN_LOCAL_FILES_PRESERVED'
+    result_file.write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+    print(json.dumps({'transaction_result':result},ensure_ascii=False),flush=True)
+    sys.exit(0 if result['success'] else 1)

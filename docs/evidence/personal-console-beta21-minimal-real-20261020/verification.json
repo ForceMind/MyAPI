@@ -1,0 +1,34 @@
+{
+  "scope": "This one authorized real transaction, observed directly by the primary agent. No independent review claimed.",
+  "result_success": true,
+  "run_total": 3,
+  "run_sample": 2,
+  "run_generation": 1,
+  "run_other_dispatches": 0,
+  "run_status": "stopped",
+  "operations": 0,
+  "http_in_flight": 0,
+  "generation_in_flight": 0,
+  "drain_error": false,
+  "cleanup_api_assertions": {
+    "run_drained": true,
+    "key_disabled": true,
+    "session_revoked": true,
+    "server_stopped": true,
+    "sensitive_directory_removed": true
+  },
+  "fresh_private_directory_absent_on_independent_readback": true,
+  "binary_not_running_in_visible_proc_namespace": true,
+  "temporary_port_not_listening_in_visible_namespace": true,
+  "original_auth_byte_identical": true,
+  "operator_sha256": "d881a0c6a390f9adcc11068a37cde878fdcee6258fc8fe533f8f9b39946287d1",
+  "result_sha256": "ec1198ac3e85e17cf859eb1ffcc9144af53861d30c39a5ccb4c93e863582eea0",
+  "protected_user_files_sha256_unchanged": {
+    "docs/MYAPI_MASTER_PLAN.md": "e058e179a828c752b5b389cde5a88d05c5999c61029948a88e270aad7131b243",
+    "docs/NEXT_SESSION_HANDOFF.md": "4e21c1e847db911b9143f580778ca63650337d7a330b658f8556aa1f499f1c39"
+  },
+  "no_provider_payload_or_secrets_archived": true,
+  "product_source_changed": false,
+  "published": false,
+  "deployed": false
+}

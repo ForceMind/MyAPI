@@ -1,0 +1,41 @@
+{
+  "container_name": "my-api-beta12",
+  "container_id": "181acea8b1a34db66744fb7410baa98f9a502cf3aa95c10074f3473c6a703d4c",
+  "version": "0.2.0-beta.12",
+  "image_id": "sha256:e05ae0cce3236b54b244d8162b441054151ec99773052f5be77b79eb1a3611e2",
+  "health": "healthy",
+  "port_binding": "127.0.0.1:3000 -> 3000/tcp",
+  "restart_policy": "unless-stopped",
+  "memory_bytes": 1073741824,
+  "nano_cpus": 1000000000,
+  "mounts": [
+    {
+      "source": "/root/new-api/fresh-beta12-20261014/data",
+      "target": "/data"
+    },
+    {
+      "source": "/root/new-api/fresh-beta12-20261014/logs",
+      "target": "/app/logs"
+    }
+  ],
+  "database_file_metadata": {
+    "path": "/root/new-api/fresh-beta12-20261014/data/my-api.db",
+    "bytes": 35028992,
+    "symlink": false,
+    "contents_read": false
+  },
+  "nonsecret_env": {
+    "BATCH_UPDATE_ENABLED": "false",
+    "MYAPI_EDITION": "full",
+    "MYAPI_ACCOUNTING_CONFIG_VERSION": "1",
+    "CHANNEL_QUOTA_IDENTITY_KEYS_present": true
+  },
+  "SQL_DSN_key_present": false,
+  "LOG_SQL_DSN_key_present": false,
+  "REDIS_CONN_STRING_key_present": false,
+  "current_writer_from_persisted_state": "not_read",
+  "real_credentials_read": false,
+  "production_database_opened": false,
+  "production_backup_created": false,
+  "old_service_modified": false
+}

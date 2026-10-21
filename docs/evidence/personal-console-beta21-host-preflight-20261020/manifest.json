@@ -1,0 +1,45 @@
+{
+  "scope": "beta21-local-host-preflight-20261020",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 4041,
+      "sha256": "e2d504e2c63e99fb99a40a4c821dbc5cb6cd3efd12152c3e131427a70908a0e8"
+    },
+    {
+      "path": "first-network-timeout.json",
+      "bytes": 837,
+      "sha256": "36314fce8c8451eb1778871bd8613d31dc081f847f44d51b0a0339bcc3835ab9"
+    },
+    {
+      "path": "first-startup.log",
+      "bytes": 1310,
+      "sha256": "96fc652043f5e8b5b3280c71d91321df4de5c583da37ccd92b52e5343560680e"
+    },
+    {
+      "path": "image-identity.json",
+      "bytes": 1014,
+      "sha256": "ca569d7b8a6686d595507f1dbdd758192ac27380b17267d564e1bb06930d605f"
+    },
+    {
+      "path": "restore-operator.py.txt",
+      "bytes": 14063,
+      "sha256": "b149d5defab0a8772a0fe7d61203b572b57d920464feae0e5adf29484436307a"
+    },
+    {
+      "path": "synthetic-restore.json",
+      "bytes": 2350,
+      "sha256": "b289fad1e930ac78b4e726e771dbe25a2c0f91c2171cef1d68f50fd696e3864c"
+    },
+    {
+      "path": "target-metadata.json",
+      "bytes": 1291,
+      "sha256": "3857471071f104f96feab3b841f302e8e644e2cee68d66330172dcf9f5a4dfbf"
+    },
+    {
+      "path": "verification.json",
+      "bytes": 859,
+      "sha256": "5d86332c8d4222b3863a7ee8c7cff292afaf68f190986ee8c4bda00a38d43841"
+    }
+  ]
+}

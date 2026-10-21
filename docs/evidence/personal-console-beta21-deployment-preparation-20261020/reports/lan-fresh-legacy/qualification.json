@@ -1,0 +1,95 @@
+{
+  "command": "docker:smoke",
+  "sha": "c6641b9d01e04c5ad3ff0434e613612a21e0b10e",
+  "edition": "lan",
+  "database": "fresh-sqlite",
+  "passed": true,
+  "checks": [
+    {
+      "name": "fresh SQLite initialization",
+      "ok": true
+    },
+    {
+      "name": "anonymous self rejected",
+      "ok": true,
+      "status": 401
+    },
+    {
+      "name": "runtime self-use mode",
+      "ok": true
+    },
+    {
+      "name": "server status",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "name": "password login",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "name": "user self",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "name": "channel quota changes",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "name": "admin logs",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "name": "synthetic ordinary user wallet, key and channel usage",
+      "ok": true
+    },
+    {
+      "name": "single associated consume log hides admin metadata",
+      "ok": true
+    },
+    {
+      "name": "ordinary user full-content log access rejected",
+      "ok": true,
+      "status": 403
+    },
+    {
+      "name": "full-content request/header redaction and fixed response-body contract",
+      "ok": true,
+      "covered": true
+    },
+    {
+      "name": "anonymous relay rejected without upstream request",
+      "ok": true,
+      "status": 401
+    },
+    {
+      "name": "synthetic upstream request contract",
+      "ok": true
+    },
+    {
+      "name": "fresh Root uses explicit zero-wallet policy with commercial funding disabled",
+      "ok": true
+    },
+    {
+      "name": "zero-wallet relay keeps user balance zero and debits finite Key allowance once",
+      "ok": true
+    },
+    {
+      "name": "one self-use consume log and one additional synthetic upstream request",
+      "ok": true
+    },
+    {
+      "name": "paused SQLite and WAL snapshot restores identities, finite limits, status, settlement proofs and exact usage in a separate same-image container",
+      "ok": true
+    },
+    {
+      "name": "real frontend sign-in form and revision",
+      "ok": true,
+      "revision": "rv.0.2.0-beta.21.c6641b9d01e04c5ad3ff0434e613612a21e0b10e.2k6e8r7p"
+    }
+  ]
+}
