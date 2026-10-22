@@ -1,0 +1,9 @@
+{
+  "bundle_sha256": "c9ffa1f68ae9fd6dc0e3e4bab28d51244db1cce4ac187bb9f78f1a1b941ed2ef",
+  "bundle_bytes": 858362,
+  "archived_unique_commit_count": 24,
+  "checked_branch_snapshots": 33,
+  "checked_distinct_names": 24,
+  "restore_method": "fresh bare repository fetched only main/dev baseline; verified bundle prerequisites; restored 3 archived refs; resolved every original branch tip",
+  "result": "pass"
+}

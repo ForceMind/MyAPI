@@ -1,0 +1,338 @@
+{
+  "repository": "ForceMind/MyAPI",
+  "audit_date": "2026-10-22",
+  "dev_baseline": "ea4ea6b7d11f4af99e341816eec370f57eddbd82",
+  "main": "92fa1182e265924312d70917a0a637965aebc617",
+  "branches": [
+    {
+      "scope": "local",
+      "name": "codex/cloud-platform-flow-20261022",
+      "ref": "refs/heads/codex/cloud-platform-flow-20261022",
+      "sha": "ea4ea6b7d11f4af99e341816eec370f57eddbd82",
+      "included_in_dev_baseline": true,
+      "included_in_main": false,
+      "unique_commits": 0,
+      "tip_subject": "docs: establish a single development branch [skip ci]"
+    },
+    {
+      "scope": "local",
+      "name": "codex/deploy-0.1.4-actions",
+      "ref": "refs/heads/codex/deploy-0.1.4-actions",
+      "sha": "7525e539863b3daab595f82fce9c17af50240640",
+      "included_in_dev_baseline": false,
+      "included_in_main": false,
+      "unique_commits": 16,
+      "tip_subject": "docs: record verified 0.1.5 production deployment"
+    },
+    {
+      "scope": "local",
+      "name": "codex/deploy-0.2.0-beta.1",
+      "ref": "refs/heads/codex/deploy-0.2.0-beta.1",
+      "sha": "e8ad900b10abba1844dcdbaf7127916b16b905b0",
+      "included_in_dev_baseline": false,
+      "included_in_main": false,
+      "unique_commits": 7,
+      "tip_subject": "fix: repair cross-database prerelease checks"
+    },
+    {
+      "scope": "local",
+      "name": "codex/deploy-0.2.0-beta.3",
+      "ref": "refs/heads/codex/deploy-0.2.0-beta.3",
+      "sha": "2f2717bffe580baf23820480a7d40d54e676199e",
+      "included_in_dev_baseline": true,
+      "included_in_main": true,
+      "unique_commits": 0,
+      "tip_subject": "release: prepare 0.2.0-beta.3 R1 images"
+    },
+    {
+      "scope": "local",
+      "name": "codex/deploy-0.2.0-beta.7",
+      "ref": "refs/heads/codex/deploy-0.2.0-beta.7",
+      "sha": "7492ec36edf68716953cc81c304f4c902d392751",
+      "included_in_dev_baseline": true,
+      "included_in_main": true,
+      "unique_commits": 0,
+      "tip_subject": "docs: record verified beta.9 production deployment"
+    },
+    {
+      "scope": "local",
+      "name": "codex/historical-accounting-compat-20261010",
+      "ref": "refs/heads/codex/historical-accounting-compat-20261010",
+      "sha": "0b51bb4e176326c37daa129caaf1bd542623a492",
+      "included_in_dev_baseline": true,
+      "included_in_main": false,
+      "unique_commits": 0,
+      "tip_subject": "docs: clarify accounting audit evidence and startup scope"
+    },
+    {
+      "scope": "local",
+      "name": "codex/historical-accounting-native-20261011",
+      "ref": "refs/heads/codex/historical-accounting-native-20261011",
+      "sha": "c8e7bbc04676e46f2ad0c806a9ac78562923a4ef",
+      "included_in_dev_baseline": false,
+      "included_in_main": false,
+      "unique_commits": 1,
+      "tip_subject": "ci: validate historical accounting on isolated native databases"
+    },
+    {
+      "scope": "local",
+      "name": "codex/personal-core-20261014",
+      "ref": "refs/heads/codex/personal-core-20261014",
+      "sha": "c1beb07520f43c106b4406ba8a0b1227bc1cf67e",
+      "included_in_dev_baseline": true,
+      "included_in_main": false,
+      "unique_commits": 0,
+      "tip_subject": "docs: close verified personal core candidate and record remaining scope"
+    },
+    {
+      "scope": "local",
+      "name": "codex/personal-restart-20261014",
+      "ref": "refs/heads/codex/personal-restart-20261014",
+      "sha": "963fabe521e9905c450b2e45968d0d7402488594",
+      "included_in_dev_baseline": true,
+      "included_in_main": false,
+      "unique_commits": 0,
+      "tip_subject": "docs: record isolated beta.12 deployment and remaining validation"
+    },
+    {
+      "scope": "local",
+      "name": "codex/subscription-key-share-20261014",
+      "ref": "refs/heads/codex/subscription-key-share-20261014",
+      "sha": "6e7aadeb16dc06a192298ec9b13aac5ff4c6e28c",
+      "included_in_dev_baseline": true,
+      "included_in_main": false,
+      "unique_commits": 0,
+      "tip_subject": "chore: archive remaining workspace and hand off platform gaps [skip ci]"
+    },
+    {
+      "scope": "local",
+      "name": "codex/ui-stability-20261012",
+      "ref": "refs/heads/codex/ui-stability-20261012",
+      "sha": "0000e8654660c01b6418313d09cae71ff933f243",
+      "included_in_dev_baseline": true,
+      "included_in_main": false,
+      "unique_commits": 0,
+      "tip_subject": "docs: record verified personal workbench and archive UI evidence"
+    },
+    {
+      "scope": "local",
+      "name": "main",
+      "ref": "refs/heads/main",
+      "sha": "f6536ca96126415f74d239165fd688589bd54af9",
+      "included_in_dev_baseline": true,
+      "included_in_main": true,
+      "unique_commits": 0,
+      "tip_subject": "test(promptlearning): shorten the API key fixture below the publish scan"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/beta11-release-candidate-20261010",
+      "ref": "refs/remotes/origin/codex/beta11-release-candidate-20261010",
+      "sha": "28bc16cd4efee628ca689058c3c91ffbf3d15016",
+      "included_in_dev_baseline": true,
+      "included_in_main": true,
+      "unique_commits": 0,
+      "tip_subject": "chore: prepare beta.11 personal-core release candidate"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/beta8-full-ui-20261007",
+      "ref": "refs/remotes/origin/codex/beta8-full-ui-20261007",
+      "sha": "5c995e9062283c35ad459775b6b06f626f6f6c64",
+      "included_in_dev_baseline": true,
+      "included_in_main": true,
+      "unique_commits": 0,
+      "tip_subject": "docs: record final beta.8 UI qualification evidence"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/beta9-chat-api-20261009",
+      "ref": "refs/remotes/origin/codex/beta9-chat-api-20261009",
+      "sha": "ba2a4181440b4a8aa6f5fdb351add4c65518ab72",
+      "included_in_dev_baseline": true,
+      "included_in_main": true,
+      "unique_commits": 0,
+      "tip_subject": "fix(playground): fit empty chat guidance in mobile panes"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/cloud-cancel-errors-20261021",
+      "ref": "refs/remotes/origin/codex/cloud-cancel-errors-20261021",
+      "sha": "002bb033924488d7fd7333409ca1d101c43fae35",
+      "included_in_dev_baseline": true,
+      "included_in_main": false,
+      "unique_commits": 0,
+      "tip_subject": "fix(web): preserve canceled requests without error notifications"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/cloud-platform-flow-20261022",
+      "ref": "refs/remotes/origin/codex/cloud-platform-flow-20261022",
+      "sha": "ea4ea6b7d11f4af99e341816eec370f57eddbd82",
+      "included_in_dev_baseline": true,
+      "included_in_main": false,
+      "unique_commits": 0,
+      "tip_subject": "docs: establish a single development branch [skip ci]"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/deploy-0.1.4-actions",
+      "ref": "refs/remotes/origin/codex/deploy-0.1.4-actions",
+      "sha": "7525e539863b3daab595f82fce9c17af50240640",
+      "included_in_dev_baseline": false,
+      "included_in_main": false,
+      "unique_commits": 16,
+      "tip_subject": "docs: record verified 0.1.5 production deployment"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/docker-smoke-image-reuse-20261010",
+      "ref": "refs/remotes/origin/codex/docker-smoke-image-reuse-20261010",
+      "sha": "8aece4e622512dfe83f31d6e70042e6d2652c13d",
+      "included_in_dev_baseline": true,
+      "included_in_main": true,
+      "unique_commits": 0,
+      "tip_subject": "test(runtime): scope log filters away from global header search"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/historical-accounting-compat-20261010",
+      "ref": "refs/remotes/origin/codex/historical-accounting-compat-20261010",
+      "sha": "0b51bb4e176326c37daa129caaf1bd542623a492",
+      "included_in_dev_baseline": true,
+      "included_in_main": false,
+      "unique_commits": 0,
+      "tip_subject": "docs: clarify accounting audit evidence and startup scope"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/historical-accounting-native-20261011",
+      "ref": "refs/remotes/origin/codex/historical-accounting-native-20261011",
+      "sha": "c8e7bbc04676e46f2ad0c806a9ac78562923a4ef",
+      "included_in_dev_baseline": false,
+      "included_in_main": false,
+      "unique_commits": 1,
+      "tip_subject": "ci: validate historical accounting on isolated native databases"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/mac-durable-accounting",
+      "ref": "refs/remotes/origin/codex/mac-durable-accounting",
+      "sha": "e8ad900b10abba1844dcdbaf7127916b16b905b0",
+      "included_in_dev_baseline": false,
+      "included_in_main": false,
+      "unique_commits": 7,
+      "tip_subject": "fix: repair cross-database prerelease checks"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/personal-app-journey-20261009",
+      "ref": "refs/remotes/origin/codex/personal-app-journey-20261009",
+      "sha": "b96744f52c4178ae1eed362e8ee6630cc5a77190",
+      "included_in_dev_baseline": true,
+      "included_in_main": true,
+      "unique_commits": 0,
+      "tip_subject": "Merge pull request #9 from ForceMind/codex/docker-smoke-image-reuse-20261010"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/personal-core-20261014",
+      "ref": "refs/remotes/origin/codex/personal-core-20261014",
+      "sha": "c1beb07520f43c106b4406ba8a0b1227bc1cf67e",
+      "included_in_dev_baseline": true,
+      "included_in_main": false,
+      "unique_commits": 0,
+      "tip_subject": "docs: close verified personal core candidate and record remaining scope"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/personal-core-clarity-20261009",
+      "ref": "refs/remotes/origin/codex/personal-core-clarity-20261009",
+      "sha": "a17a8e11b7600b8c3091f80047eef6cbcfa87f11",
+      "included_in_dev_baseline": true,
+      "included_in_main": true,
+      "unique_commits": 0,
+      "tip_subject": "fix: keep personal policy headings and Key actions readable"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/personal-restart-20261014",
+      "ref": "refs/remotes/origin/codex/personal-restart-20261014",
+      "sha": "963fabe521e9905c450b2e45968d0d7402488594",
+      "included_in_dev_baseline": true,
+      "included_in_main": false,
+      "unique_commits": 0,
+      "tip_subject": "docs: record isolated beta.12 deployment and remaining validation"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/r1-handoff-20261002",
+      "ref": "refs/remotes/origin/codex/r1-handoff-20261002",
+      "sha": "71277bf6055ce68b8cd1d11f1d10f1907d7696fd",
+      "included_in_dev_baseline": true,
+      "included_in_main": true,
+      "unique_commits": 0,
+      "tip_subject": "docs: confirm GitHub handoff branch synchronization"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/r1-usage-review-20261002",
+      "ref": "refs/remotes/origin/codex/r1-usage-review-20261002",
+      "sha": "4f9699bca18ae6d7de564baf87ea7f103f55d84e",
+      "included_in_dev_baseline": true,
+      "included_in_main": true,
+      "unique_commits": 0,
+      "tip_subject": "chore(release): align deploy template with beta.7"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/settlement-review-status-20261009",
+      "ref": "refs/remotes/origin/codex/settlement-review-status-20261009",
+      "sha": "09e587d46493f68569434e8506e3893c1a6fb804",
+      "included_in_dev_baseline": true,
+      "included_in_main": true,
+      "unique_commits": 0,
+      "tip_subject": "chore: prepare beta.10 incident-fix candidate metadata"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/subscription-admission-errors-20261009",
+      "ref": "refs/remotes/origin/codex/subscription-admission-errors-20261009",
+      "sha": "026905e1cc9a3197c51bc6e80f81b07bdeac170d",
+      "included_in_dev_baseline": true,
+      "included_in_main": true,
+      "unique_commits": 0,
+      "tip_subject": "fix: classify subscription admission failures by identity"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/subscription-key-share-20261014",
+      "ref": "refs/remotes/origin/codex/subscription-key-share-20261014",
+      "sha": "6e7aadeb16dc06a192298ec9b13aac5ff4c6e28c",
+      "included_in_dev_baseline": true,
+      "included_in_main": false,
+      "unique_commits": 0,
+      "tip_subject": "chore: archive remaining workspace and hand off platform gaps [skip ci]"
+    },
+    {
+      "scope": "remote",
+      "name": "codex/ui-stability-20261012",
+      "ref": "refs/remotes/origin/codex/ui-stability-20261012",
+      "sha": "0000e8654660c01b6418313d09cae71ff933f243",
+      "included_in_dev_baseline": true,
+      "included_in_main": false,
+      "unique_commits": 0,
+      "tip_subject": "docs: record verified personal workbench and archive UI evidence"
+    },
+    {
+      "scope": "remote",
+      "name": "main",
+      "ref": "refs/remotes/origin/main",
+      "sha": "92fa1182e265924312d70917a0a637965aebc617",
+      "included_in_dev_baseline": true,
+      "included_in_main": true,
+      "unique_commits": 0,
+      "tip_subject": "Merge pull request #10 from ForceMind/codex/beta11-release-candidate-20261010"
+    }
+  ]
+}

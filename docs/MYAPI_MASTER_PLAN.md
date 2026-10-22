@@ -1,3 +1,7 @@
+## 最新分支约定：main / dev（2026-10-22）
+
+开发统一使用 `dev`，稳定分支为 `main`；维护者已明确要求清理其余分支。最新入口为[交接顶部](NEXT_SESSION_HANDOFF.md)，逐分支核对和独有提交恢复材料见[清理记录](evidence/branch-cleanup-20261022/README.md)。下方原 `codex/cloud-platform-flow-20261022` 等分支名仅作为历史来源，不再作为当前开发入口。本批不改变产品范围、不合入 main、不发布或部署。
+
 ## 最新开发入口：统一平台开发分支（2026-10-22）
 
 维护者已要求统一开发分支，后续同一平台目标沿用 `codex/cloud-platform-flow-20261022`；最新业务代码基线为 `e4580454021369448fac9da09b6faa1cff2096e6`，当前增量审阅为 [Draft PR #19](https://github.com/ForceMind/MyAPI/pull/19)。分支关系、历史待审查提交、准确验证和未完成范围统一记录在[接手入口](NEXT_SESSION_HANDOFF.md)顶部，产品实施沿用[平台方案](MYAPI_PLATFORM_REBUILD_PLAN_20261020.md)。

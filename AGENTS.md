@@ -10,6 +10,14 @@ A more specific `AGENTS.md` located in a subdirectory applies to files within th
 
 Repository-wide safety, billing, database compatibility, and module-independence requirements remain applicable unless a more specific rule explicitly strengthens them.
 
+## Git Branch Policy
+
+- Keep exactly two active branches: `main` and `dev`.
+- Continue normal development on `dev`; keep `main` as the stable integration branch.
+- Do not create another branch for a new chat, date, or routine iteration unless the maintainer explicitly requests it.
+- Merge into `main`, publish, and deploy only within explicit authorization.
+- Historical branch tips and unique commits from the 2026-10-22 cleanup are recoverable through `docs/evidence/branch-cleanup-20261022/`.
+
 ## Overview
 
 MyAPI is an AI API gateway/proxy built with Go. It aggregates 40+ upstream AI providers, including OpenAI, Claude, Gemini, Azure, and AWS Bedrock, behind a unified API with user management, billing, rate limiting, authentication, and an administrative dashboard.

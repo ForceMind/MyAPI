@@ -3,7 +3,7 @@ run-name: ${{ inputs.security_evidence && 'Advanced security evidence recheck' |
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - 'website/**'
       - 'tools/website/browser-smoke.mjs'

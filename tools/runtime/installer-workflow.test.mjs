@@ -17,11 +17,9 @@ test('settlement patch keeps bounded Docker acceptance and durable race coverage
   const docker = readFileSync(new URL('../../.github/workflows/docker-smoke.yml', import.meta.url), 'utf8')
   const gates = docker.split('\n').filter(line => line.startsWith('    if:'))
   assert.equal(gates.length, 3)
-  for (const [index, gate] of gates.entries()) {
+  for (const gate of gates) {
     assert.match(gate, /github\.event_name == 'workflow_dispatch'/)
-    assert.match(gate, /head\.repo\.full_name == github\.repository && contains/)
-    const allowed = JSON.parse(gate.match(/fromJSON\('([^']+)'\)/)[1])
-    assert.deepEqual(allowed, ['codex/r1-usage-review-20261002', 'codex/settlement-review-status-20261009', 'codex/beta11-release-candidate-20261010', ...(index !== 1 ? ['codex/personal-app-journey-20261009', 'codex/docker-smoke-image-reuse-20261010'] : [])])
+    assert.match(gate, /head\.repo\.full_name == github\.repository && !github\.event\.pull_request\.draft && github\.event\.pull_request\.head\.ref == 'dev'/)
   }
   assert.doesNotMatch(docker, /packages: write|contents: write|id-token: write|push: true|secrets\./)
   assert.match(docker, /push: false/)
@@ -64,7 +62,8 @@ test('source installer smoke exercises the real script without publishing or bor
   assert.ok(job)
   assert.match(job, /persist-credentials: false/)
   assert.match(job, /head\.repo\.full_name == github\.repository/)
-  assert.match(job, /codex\/r1-usage-review-20261002/)
+  assert.match(job, /head\.ref == 'dev'/)
+  assert.match(job, /!github\.event\.pull_request\.draft/)
   assert.match(job, /timeout-minutes: 25/)
   assert.match(job, /\[\[ ! -e deploy\/\.env \]\]/)
   assert.match(job, /Refusing to replace an existing installer target/)
@@ -123,7 +122,7 @@ test('startup publishes validated batch configuration before business workers an
 test('personal application smoke stays on an exact trusted branch with two owned writer fixtures', () => {
   const workflow = readFileSync(new URL('../../.github/workflows/docker-smoke.yml', import.meta.url), 'utf8')
   const job = workflow.split('  build-and-healthcheck:\n')[1]
-  assert.match(job, /head\.repo\.full_name == github\.repository && contains/)
+  assert.match(job, /head\.repo\.full_name == github\.repository && !github\.event\.pull_request\.draft && github\.event\.pull_request\.head\.ref == 'dev'/)
   assert.match(job, /writer: \[legacy\]/)
   assert.match(job, /"scenario":"fresh","writer":"authoritative"/)
   assert.match(job, /matrix\.writer/)
@@ -175,20 +174,20 @@ test('personal candidates keep both writers, historical restore and the source i
   const evaluate = (line, github, matrix = {}, inputs = {}) => Function('github', 'matrix', 'inputs', 'fromJSON', 'contains', 'always', 'cancelled',
     `return (${expression(line)})`)(github, matrix, inputs, JSON.parse, (items, value) => items.includes(value), () => true, () => false)
   const line = (section, name) => section.split('\n').find(value => value.trim().startsWith(name + ':'))
-  const branch = 'codex/beta11-release-candidate-20261010'
-  const event = (head, sameRepo = true, type = 'pull_request') => ({ event_name: type, repository: 'ForceMind/MyAPI',
-    event: { pull_request: { head: { ref: head, repo: { full_name: sameRepo ? 'ForceMind/MyAPI' : 'foreign/fork' } } } } })
+  const branch = 'dev'
+  const event = (head, sameRepo = true, type = 'pull_request', draft = false) => ({ event_name: type, repository: 'ForceMind/MyAPI',
+    event: { pull_request: { draft, head: { ref: head, repo: { full_name: sameRepo ? 'ForceMind/MyAPI' : 'foreign/fork' } } } } })
   for (const section of [producer, installer]) {
     assert.equal(evaluate(line(section, 'if'), event(branch)), true)
     assert.equal(evaluate(line(section, 'if'), event(branch, false)), false)
     assert.equal(evaluate(line(section, 'if'), event('untrusted-branch')), false)
+    assert.equal(evaluate(line(section, 'if'), event('main')), false)
+    assert.equal(evaluate(line(section, 'if'), event('codex/beta11-release-candidate-20261010')), false)
+    assert.equal(evaluate(line(section, 'if'), event(branch, true, 'pull_request', true)), false)
     assert.equal(evaluate(line(section, 'if'), event('', true, 'workflow_dispatch')), true)
   }
   const cases = [
     [event(branch), ['full'], ['authoritative:fresh:full', 'legacy:handoff:full']],
-    [event('codex/personal-app-journey-20261009'), ['full'], ['authoritative:fresh:full']],
-    [event('codex/docker-smoke-image-reuse-20261010'), ['full'], ['authoritative:fresh:full']],
-    [event('codex/settlement-review-status-20261009'), ['full'], ['legacy:handoff:full']],
     [event('', true, 'workflow_dispatch'), ['full', 'lan'], ['legacy:handoff:full'], { personal: false }],
     [event('', true, 'workflow_dispatch'), ['full', 'lan'], ['authoritative:fresh:full', 'legacy:handoff:full'], { personal: true }],
   ]

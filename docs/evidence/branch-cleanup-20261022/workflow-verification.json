@@ -1,0 +1,12 @@
+{
+  "baseline": "ea4ea6b7d11f4af99e341816eec370f57eddbd82",
+  "baseline_exit": 1,
+  "candidate_exit": 1,
+  "same_preexisting_failures": [
+    "candidate metadata and fresh image defaults name the same immutable version",
+    "source installer smoke exercises the real script without publishing or borrowing an existing instance"
+  ],
+  "candidate_passed_cases": 6,
+  "new_failures": [],
+  "scope": "branch gating and personal matrix changed; existing image fallback and safe-report upload assertions remain outside this cleanup"
+}

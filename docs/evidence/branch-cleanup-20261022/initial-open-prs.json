@@ -1,0 +1,107 @@
+[
+  {
+    "base": {
+      "ref": "codex/cloud-cancel-errors-20261021",
+      "sha": "002bb033924488d7fd7333409ca1d101c43fae35"
+    },
+    "draft": true,
+    "head": {
+      "ref": "codex/cloud-platform-flow-20261022",
+      "sha": "ea4ea6b7d11f4af99e341816eec370f57eddbd82"
+    },
+    "html_url": "https://github.com/ForceMind/MyAPI/pull/19",
+    "number": 19,
+    "state": "open",
+    "title": "feat(console): connect accounts, connections, Key shares and troubleshooting"
+  },
+  {
+    "base": {
+      "ref": "codex/subscription-key-share-20261014",
+      "sha": "6e7aadeb16dc06a192298ec9b13aac5ff4c6e28c"
+    },
+    "draft": true,
+    "head": {
+      "ref": "codex/cloud-cancel-errors-20261021",
+      "sha": "002bb033924488d7fd7333409ca1d101c43fae35"
+    },
+    "html_url": "https://github.com/ForceMind/MyAPI/pull/18",
+    "number": 18,
+    "state": "open",
+    "title": "fix(web): suppress error notifications for canceled reads"
+  },
+  {
+    "base": {
+      "ref": "codex/personal-core-20261014",
+      "sha": "c1beb07520f43c106b4406ba8a0b1227bc1cf67e"
+    },
+    "draft": true,
+    "head": {
+      "ref": "codex/subscription-key-share-20261014",
+      "sha": "6e7aadeb16dc06a192298ec9b13aac5ff4c6e28c"
+    },
+    "html_url": "https://github.com/ForceMind/MyAPI/pull/17",
+    "number": 17,
+    "state": "open",
+    "title": "feat: MyAPI platform workflows, usage statistics and guarded Key maintenance"
+  },
+  {
+    "base": {
+      "ref": "codex/personal-restart-20261014",
+      "sha": "963fabe521e9905c450b2e45968d0d7402488594"
+    },
+    "draft": true,
+    "head": {
+      "ref": "codex/personal-core-20261014",
+      "sha": "c1beb07520f43c106b4406ba8a0b1227bc1cf67e"
+    },
+    "html_url": "https://github.com/ForceMind/MyAPI/pull/16",
+    "number": 16,
+    "state": "open",
+    "title": "修复个人工作台 Key 交接与窄屏错误显示"
+  },
+  {
+    "base": {
+      "ref": "codex/ui-stability-20261012",
+      "sha": "0000e8654660c01b6418313d09cae71ff933f243"
+    },
+    "draft": true,
+    "head": {
+      "ref": "codex/personal-restart-20261014",
+      "sha": "963fabe521e9905c450b2e45968d0d7402488594"
+    },
+    "html_url": "https://github.com/ForceMind/MyAPI/pull/13",
+    "number": 13,
+    "state": "open",
+    "title": "修复核对渠道归因并拆分个人准入策略"
+  },
+  {
+    "base": {
+      "ref": "codex/historical-accounting-compat-20261010",
+      "sha": "0b51bb4e176326c37daa129caaf1bd542623a492"
+    },
+    "draft": true,
+    "head": {
+      "ref": "codex/ui-stability-20261012",
+      "sha": "0000e8654660c01b6418313d09cae71ff933f243"
+    },
+    "html_url": "https://github.com/ForceMind/MyAPI/pull/12",
+    "number": 12,
+    "state": "open",
+    "title": "实现个人工作台并修正生成请求派送边界"
+  },
+  {
+    "base": {
+      "ref": "main",
+      "sha": "92fa1182e265924312d70917a0a637965aebc617"
+    },
+    "draft": true,
+    "head": {
+      "ref": "codex/historical-accounting-compat-20261010",
+      "sha": "0b51bb4e176326c37daa129caaf1bd542623a492"
+    },
+    "html_url": "https://github.com/ForceMind/MyAPI/pull/11",
+    "number": 11,
+    "state": "open",
+    "title": "修复历史额度兼容与个人资料加载，接入云端验收"
+  }
+]

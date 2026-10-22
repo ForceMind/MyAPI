@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
     types: [opened, synchronize, closed]
   workflow_dispatch:
@@ -597,7 +597,7 @@ jobs:
         run: VITE_REACT_APP_VERSION="$(cat ../VERSION)" VITE_BUILD_ID="$GITHUB_SHA" bun run build
 
       - name: Verify pre-fix Key maintenance session regressions
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'codex/subscription-key-share-20261014'
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'dev'
         run: |
           set -euo pipefail
           baseline=7166e7922daeef0b53069610e9ff766105b51d61
@@ -636,7 +636,7 @@ jobs:
           git diff --exit-code -- "${targets[@]}"
 
       - name: Prove remaining maintenance authentication regressions on the pre-fix source
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'codex/subscription-key-share-20261014'
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'dev'
         run: |
           set -euo pipefail
           baseline=6ca9cce1b12e6b2061b429ab64c793d6cb8b343d

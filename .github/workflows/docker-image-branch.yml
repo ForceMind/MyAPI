@@ -12,8 +12,7 @@ on:
         type: choice
         options:
           - main
-          - alpha
-          - nightly
+          - dev
       confirm:
         description: "Type PUBLISH only after maintainer approval and GHCR review"
         required: true
@@ -40,10 +39,10 @@ jobs:
           BRANCH_NAME: ${{ inputs.branch }}
         run: |
           case "$BRANCH_NAME" in
-            main|alpha|nightly)
+            main|dev)
               ;;
             *)
-              echo "::error::branch must be one of the approved release branches: main, alpha, nightly"
+              echo "::error::branch must be one of the approved release branches: main, dev"
               exit 1
               ;;
           esac
