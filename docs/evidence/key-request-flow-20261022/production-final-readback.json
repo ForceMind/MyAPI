@@ -1,0 +1,11 @@
+{
+  "running": true,
+  "health": "healthy",
+  "version": "0.2.0-beta.25",
+  "image_unchanged": true,
+  "logging": {
+    "FULL_CONTENT_LOG_ENABLED": "true",
+    "FULL_CONTENT_LOG_MAX_MB": "100",
+    "FULL_CONTENT_LOG_MAX_FILES": "5"
+  }
+}

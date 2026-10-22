@@ -1,0 +1,609 @@
+{
+  "headSha": "85b5af4d0e7d6563d5fb1c21115c9377a5910807",
+  "status": "in_progress",
+  "conclusion": "",
+  "jobs": [
+    {
+      "name": "S2-C09 Redis limiter lifecycle regression",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify limiter lifecycle on disposable Redis",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Go",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "S1 identity and options database regression",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify identity migration and option persistence on disposable databases",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Go",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Frontend typecheck and test",
+      "status": "in_progress",
+      "conclusion": "",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Bun",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install dependencies",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify pre-fix personal Key handoff regression",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Build real quota UI for browser regression",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify pre-fix Key maintenance session regressions",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Prove remaining maintenance authentication regressions on the pre-fix source",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Retain runnable personal console build",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Typecheck",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Lint",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Test",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Retain frontend test results before browser qualification",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install isolated browser test dependencies",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Qualify advanced personal maintenance in Chromium",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Upload advanced maintenance screenshots and reports",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify real quota charts and responsive interactions",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify model discovery and routing workflow in real Chromium",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "B2 durable submission database regression",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify durable submissions on disposable databases",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify quota identity migration and account projection on disposable databases",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Go",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "S2-C quota script Redis regression",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify quota scripts on disposable Redis",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Prove credential rotation cache fences on disposable Redis",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Go",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "S2-A payment and subscription database regression",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify payment transactions on disposable databases",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Go",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Isolated credential maintenance browser and real API",
+      "status": "in_progress",
+      "conclusion": "",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout qualified source",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Node",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Wait for this run's exact production build",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Download this run's exact production build",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Distribution and release contracts",
+      "status": "completed",
+      "conclusion": "failure",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate CLI and distribution contracts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify Docker smoke fixture and restore contracts",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Post Checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Backend vet, build, and test",
+      "status": "in_progress",
+      "conclusion": "",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Create frontend embed placeholder",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify connection relationship Go formatting",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Vet root module",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify approximate subscription share boundaries",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Vet relaykit independently",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build root module",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build root module for linux/386",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify historical amount behavior on linux/386",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify root JSON wrapper policy",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Build relaykit independently",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "B2 ClickHouse log migration regression",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Initialize containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Set up Go",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify ClickHouse logs migration on a disposable database",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Set up Go",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Stop containers",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Desktop cross-platform contract",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Validate macOS and Windows desktop contract",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run Electron runtime tests",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ]
+}

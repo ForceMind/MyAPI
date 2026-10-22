@@ -1,0 +1,27 @@
+Source: https://github.com/ForceMind/MyAPI/actions/runs/39806328204/job/119920781973
+not ok 36 - workflow pins the handoff baseline without publishing and keeps fresh install checks separate
+2026-10-22T15:37:57.4211783Z   ---
+2026-10-22T15:37:57.4212128Z   duration_ms: 1.519417
+2026-10-22T15:37:57.4212528Z   type: 'test'
+2026-10-22T15:37:57.4213281Z   location: '/home/runner/work/MyAPI/MyAPI/tools/runtime/handoff-upgrade-smoke.test.mjs:117:1'
+2026-10-22T15:37:57.4214202Z   failureType: 'testCodeFailure'
+2026-10-22T15:37:57.4214692Z   error: |-
+2026-10-22T15:37:57.4216171Z     The input did not match the regular expression /contains\(fromJSON\('\["codex\/personal-app-journey-20261009","codex\/docker-smoke-image-reuse-20261010"\]'/. Input:
+2026-10-22T15:37:57.4217511Z     
+2026-10-22T15:37:57.4219820Z     '        include: ${{ fromJSON((github.event_name == \'workflow_dispatch\' && inputs.personal || github.event_name == \'pull_request\' && github.event.pull_request.head.ref == \'dev\') && \'[{"edition":"full","scenario":"fresh","writer":"authoritative"},{"edition":"full","scenario":"handoff","writer":"legacy"}]\' || \'[{"edition":"full","scenario":"handoff","writer":"legacy"}]\') }}'
+2026-10-22T15:37:57.4222299Z     
+2026-10-22T15:37:57.4222639Z   code: 'ERR_ASSERTION'
+2026-10-22T15:37:57.4223038Z   name: 'AssertionError'
+2026-10-22T15:37:57.4223392Z   expected:
+2026-10-22T15:37:57.4226636Z   actual: '        include: ${{ fromJSON((github.event_name == \'workflow_dispatch\' && inputs.personal || github.event_name == \'pull_request\' && github.event.pull_request.head.ref == \'dev\') && \'[{"edition":"full","scenario":"fresh","writer":"authoritative"},{"edition":"full","scenario":"handoff","writer":"legacy"}]\' || \'[{"edition":"full","scenario":"handoff","writer":"legacy"}]\') }}'
+2026-10-22T15:37:57.4229234Z   operator: 'match'
+2026-10-22T15:37:57.4229615Z   stack: |-
+2026-10-22T15:37:57.4230596Z     TestContext.<anonymous> (file:///home/runner/work/MyAPI/MyAPI/tools/runtime/handoff-upgrade-smoke.test.mjs:122:10)
+2026-10-22T15:37:57.4231774Z     Test.runInAsyncScope (node:async_hooks:214:14)
+2026-10-22T15:37:57.4232449Z     Test.run (node:internal/test_runner/test:1047:25)
+2026-10-22T15:37:57.4233262Z     Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+2026-10-22T15:37:57.4234110Z     Test.postRun (node:internal/test_runner/test:1173:19)
+2026-10-22T15:37:57.4234803Z     Test.run (node:internal/test_runner/test:1101:12)
+2026-10-22T15:37:57.4235938Z     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+2026-10-22T15:37:57.4237035Z   ...
+2026-10-22T15:37:57.4237769Z 

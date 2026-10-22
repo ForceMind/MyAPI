@@ -1,0 +1,10 @@
+$ vitest run src/features/usage-logs/components/__tests__/personal-call-logs.test.tsx src/features/full-content-logs/components/__tests__/stale-content-state.test.tsx "--maxWorkers=1"
+
+ RUN  v4.1.10 /root/myapi/web
+
+
+ Test Files  2 passed (2)
+      Tests  11 passed (11)
+   Start at  23:34:51
+   Duration  20.33s (transform 3.01s, setup 1.28s, import 8.43s, tests 5.70s, environment 4.22s)
+

@@ -1,0 +1,217 @@
+not ok 4 - source installer smoke exercises the real script without publishing or borrowing an existing instance
+  ---
+  duration_ms: 1.354441
+  type: 'test'
+  location: '/root/myapi/tools/runtime/installer-workflow.test.mjs:59:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input was expected to not match the regular expression /docker (?:push|login)|packages: write|upload-artifact|--privileged|--network[= ]host/. Input:
+    
+    '    # Exercise the actual source installer, separately from the direct-run probe.\n' +
+      "    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft && github.event.pull_request.head.ref == 'dev')\n" +
+      '    name: LAN source installer and fresh SQLite\n' +
+      '    runs-on: ubuntu-latest\n' +
+      '    timeout-minutes: 25\n' +
+      '    env:\n' +
+      '      COMPOSE_PROJECT_NAME: myapi-install-${{ github.sha }}\n' +
+      '    steps:\n' +
+      '      - name: Check out\n' +
+      '        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0\n' +
+      '        with:\n' +
+      '          persist-credentials: false\n' +
+      '\n' +
+      '      - name: Set up Node\n' +
+      '        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0\n' +
+      '        with:\n' +
+      "          node-version: '22'\n" +
+      '\n' +
+      '      - name: Prepare isolated installer configuration\n' +
+      '        run: |\n' +
+      '          set -euo pipefail\n' +
+      '          umask 077\n' +
+      '          [[ ! -e deploy/.env ]]\n' +
+      '          if docker container inspect my-api >/dev/null 2>&1; then\n' +
+      "            echo 'Refusing to replace an existing installer target' >&2\n" +
+      '            exit 1\n' +
+      '          fi\n' +
+      '          docker compose version\n' +
+      '          export MYAPI_INSTALLER_ROOT="$RUNNER_TEMP/myapi-install-${GITHUB_SHA}"\n' +
+      '          mkdir -m 700 "$MYAPI_INSTALLER_ROOT"\n' +
+      '          echo "MYAPI_INSTALLER_ROOT=$MYAPI_INSTALLER_ROOT" >> "$GITHUB_ENV"\n' +
+      '          mkdir -m 700 "$RUNNER_TEMP/myapi-installer-report"\n' +
+      '          {\n' +
+      `            printf 'MYAPI_IMAGE=local/myapi:install-%s\\n' "$GITHUB_SHA"\n` +
+      "            printf 'MYAPI_EDITION=lan\\nMYAPI_BUILD_LOCAL=true\\nBATCH_UPDATE_ENABLED=false\\nMYAPI_ACCOUNTING_CONFIG_VERSION=1\\n'\n" +
+      "            printf 'MYAPI_PORT=18082\\nMYAPI_BIND_ADDRESS=127.0.0.1\\nMYAPI_ALLOW_LAN=false\\n'\n" +
+      "            printf 'MYAPI_PUBLIC_URL=http://127.0.0.1:18082\\nMYAPI_SESSION_COOKIE_SECURE=false\\n'\n" +
+      `            printf 'MYAPI_DATA_DIR=%s/data\\nMYAPI_LOGS_DIR=%s/logs\\n' "$MYAPI_INSTALLER_ROOT" "$MYAPI_INSTALLER_ROOT"\n` +
+      "            printf 'MYAPI_CPU_LIMIT=2\\nMYAPI_MEMORY_LIMIT=2g\\nMYAPI_BUILD_PARALLELISM=2\\n'\n" +
+      `            printf 'SESSION_SECRET=%s\\n' "$(openssl rand -hex 32)"\n` +
+      `            printf 'CHANNEL_QUOTA_IDENTITY_KEYS=active:installer:%s\\n' "$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\\n')"\n` +
+      '          } > deploy/.env\n' +
+      '\n' +
+      '      - name: Run the source installer\n' +
+      '        run: bash deploy/install.sh\n' +
+      '\n' +
+      '      - name: Verify installed image, isolation and fresh setup\n' +
+      '        run: |\n' +
+      '          set -euo pipefail\n' +
+      '          umask 077\n' +
+      `          [[ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' my-api)" == "$COMPOSE_PROJECT_NAME" ]]\n` +
+      `          [[ "$(docker inspect --format '{{.Image}}' my-api)" == "$(docker image inspect --format '{{.Id}}' "local/myapi:install-$GITHUB_SHA")" ]]\n` +
+      `          [[ "$(docker inspect --format '{{.State.Health.Status}}' my-api)" == 'healthy' ]]\n` +
+      `          [[ "$(docker inspect --format '{{(index (index .NetworkSettings.Ports "3000/tcp") 0).HostIp}}' my-api)" == '127.0.0.1' ]]\n` +
+      `          [[ "$(docker inspect --format '{{.HostConfig.Memory}}' my-api)" == '2147483648' ]]\n` +
+      `          [[ "$(docker inspect --format '{{.HostConfig.NanoCpus}}' my-api)" == '2000000000' ]]\n` +
+      `          node --input-type=module <<'JS' | tee "$RUNNER_TEMP/myapi-installer-report/qualification.json"\n` +
+      "          import { execFileSync } from 'node:child_process'\n" +
+      "          import { readFileSync } from 'node:fs'\n" +
+      "          import { probeFreshSQLite } from './tools/runtime/docker-smoke.mjs'\n" +
+      '          try {\n' +
+      "            const expected = readFileSync('deploy/.env', 'utf8').split('\\n').find(line => line.startsWith('CHANNEL_QUOTA_IDENTITY_KEYS='))\n" +
+      "            const installed = JSON.parse(execFileSync('docker', ['inspect', '--format', '{{json .Config.Env}}', 'my-api'], { encoding: 'utf8' }))\n" +
+      "            if (!expected || !installed.includes(expected)) throw new Error('INSTALLER_IDENTITY_KEY_NOT_FORWARDED')\n" +
+      "            const report = await probeFreshSQLite({ baseUrl: 'http://127.0.0.1:18082', edition: 'lan', sha: process.env.GITHUB_SHA, isolated: true })\n" +
+      '            console.log(JSON.stringify({ source_sha: process.env.GITHUB_SHA,\n' +
+      "              image_id: execFileSync('docker', ['image', 'inspect', '--format', '{{.Id}}', `local/myapi:install-${process.env.GITHUB_SHA}`], { encoding: 'utf8' }).trim(),\n" +
+      '              ...report }, null, 2))\n' +
+      '            if (!report.passed) process.exitCode = 1\n' +
+      '          } catch {\n' +
+      "            console.error('INSTALLER_FRESH_SETUP_PROBE_FAILED')\n" +
+      '            process.exitCode = 1\n' +
+      '          }\n' +
+      '          JS\n' +
+      '\n' +
+      '      - name: Preserve safe source installer report\n' +
+      '        if: always()\n' +
+      '        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0\n' +
+      '        with:\n' +
+      '          name: myapi-installer-report-${{ github.sha }}\n' +
+      '          path: ${{ runner.temp }}/myapi-installer-report/*.json\n' +
+      '          if-no-files-found: warn\n' +
+      '          retention-days: 30\n' +
+      '\n' +
+      '      - name: Safe installer diagnostics\n' +
+      '        if: failure()\n' +
+      '        run: |\n' +
+      "          docker inspect --format 'status={{.State.Status}} exit_code={{.State.ExitCode}} oom_killed={{.State.OOMKilled}}' my-api 2>/dev/null || true\n" +
+      '\n' +
+      '      - name: Remove only this installer instance\n' +
+      '        if: always()\n' +
+      '        run: |\n' +
+      `          if [[ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' my-api 2>/dev/null)" == "$COMPOSE_PROJECT_NAME" ]]; then\n` +
+      '            docker compose --env-file deploy/.env -f deploy/docker-compose.yml down\n' +
+      '          fi\n' +
+      '\n'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+        # Exercise the actual source installer, separately from the direct-run probe.
+        if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft && github.event.pull_request.head.ref == 'dev')
+        name: LAN source installer and fresh SQLite
+        runs-on: ubuntu-latest
+        timeout-minutes: 25
+        env:
+          COMPOSE_PROJECT_NAME: myapi-install-${{ github.sha }}
+        steps:
+          - name: Check out
+            uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+            with:
+              persist-credentials: false
+    
+          - name: Set up Node
+            uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+            with:
+              node-version: '22'
+    
+          - name: Prepare isolated installer configuration
+            run: |
+              set -euo pipefail
+              umask 077
+              [[ ! -e deploy/.env ]]
+              if docker container inspect my-api >/dev/null 2>&1; then
+                echo 'Refusing to replace an existing installer target' >&2
+                exit 1
+              fi
+              docker compose version
+              export MYAPI_INSTALLER_ROOT="$RUNNER_TEMP/myapi-install-${GITHUB_SHA}"
+              mkdir -m 700 "$MYAPI_INSTALLER_ROOT"
+              echo "MYAPI_INSTALLER_ROOT=$MYAPI_INSTALLER_ROOT" >> "$GITHUB_ENV"
+              mkdir -m 700 "$RUNNER_TEMP/myapi-installer-report"
+              {
+                printf 'MYAPI_IMAGE=local/myapi:install-%s\n' "$GITHUB_SHA"
+                printf 'MYAPI_EDITION=lan\nMYAPI_BUILD_LOCAL=true\nBATCH_UPDATE_ENABLED=false\nMYAPI_ACCOUNTING_CONFIG_VERSION=1\n'
+                printf 'MYAPI_PORT=18082\nMYAPI_BIND_ADDRESS=127.0.0.1\nMYAPI_ALLOW_LAN=false\n'
+                printf 'MYAPI_PUBLIC_URL=http://127.0.0.1:18082\nMYAPI_SESSION_COOKIE_SECURE=false\n'
+                printf 'MYAPI_DATA_DIR=%s/data\nMYAPI_LOGS_DIR=%s/logs\n' "$MYAPI_INSTALLER_ROOT" "$MYAPI_INSTALLER_ROOT"
+                printf 'MYAPI_CPU_LIMIT=2\nMYAPI_MEMORY_LIMIT=2g\nMYAPI_BUILD_PARALLELISM=2\n'
+                printf 'SESSION_SECRET=%s\n' "$(openssl rand -hex 32)"
+                printf 'CHANNEL_QUOTA_IDENTITY_KEYS=active:installer:%s\n' "$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')"
+              } > deploy/.env
+    
+          - name: Run the source installer
+            run: bash deploy/install.sh
+    
+          - name: Verify installed image, isolation and fresh setup
+            run: |
+              set -euo pipefail
+              umask 077
+              [[ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' my-api)" == "$COMPOSE_PROJECT_NAME" ]]
+              [[ "$(docker inspect --format '{{.Image}}' my-api)" == "$(docker image inspect --format '{{.Id}}' "local/myapi:install-$GITHUB_SHA")" ]]
+              [[ "$(docker inspect --format '{{.State.Health.Status}}' my-api)" == 'healthy' ]]
+              [[ "$(docker inspect --format '{{(index (index .NetworkSettings.Ports "3000/tcp") 0).HostIp}}' my-api)" == '127.0.0.1' ]]
+              [[ "$(docker inspect --format '{{.HostConfig.Memory}}' my-api)" == '2147483648' ]]
+              [[ "$(docker inspect --format '{{.HostConfig.NanoCpus}}' my-api)" == '2000000000' ]]
+              node --input-type=module <<'JS' | tee "$RUNNER_TEMP/myapi-installer-report/qualification.json"
+              import { execFileSync } from 'node:child_process'
+              import { readFileSync } from 'node:fs'
+              import { probeFreshSQLite } from './tools/runtime/docker-smoke.mjs'
+              try {
+                const expected = readFileSync('deploy/.env', 'utf8').split('\n').find(line => line.startsWith('CHANNEL_QUOTA_IDENTITY_KEYS='))
+                const installed = JSON.parse(execFileSync('docker', ['inspect', '--format', '{{json .Config.Env}}', 'my-api'], { encoding: 'utf8' }))
+                if (!expected || !installed.includes(expected)) throw new Error('INSTALLER_IDENTITY_KEY_NOT_FORWARDED')
+                const report = await probeFreshSQLite({ baseUrl: 'http://127.0.0.1:18082', edition: 'lan', sha: process.env.GITHUB_SHA, isolated: true })
+                console.log(JSON.stringify({ source_sha: process.env.GITHUB_SHA,
+                  image_id: execFileSync('docker', ['image', 'inspect', '--format', '{{.Id}}', `local/myapi:install-${process.env.GITHUB_SHA}`], { encoding: 'utf8' }).trim(),
+                  ...report }, null, 2))
+                if (!report.passed) process.exitCode = 1
+              } catch {
+                console.error('INSTALLER_FRESH_SETUP_PROBE_FAILED')
+                process.exitCode = 1
+              }
+              JS
+    
+          - name: Preserve safe source installer report
+            if: always()
+            uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+            with:
+              name: myapi-installer-report-${{ github.sha }}
+              path: ${{ runner.temp }}/myapi-installer-report/*.json
+              if-no-files-found: warn
+              retention-days: 30
+    
+          - name: Safe installer diagnostics
+            if: failure()
+            run: |
+              docker inspect --format 'status={{.State.Status}} exit_code={{.State.ExitCode}} oom_killed={{.State.OOMKilled}}' my-api 2>/dev/null || true
+    
+          - name: Remove only this installer instance
+            if: always()
+            run: |
+              if [[ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' my-api 2>/dev/null)" == "$COMPOSE_PROJECT_NAME" ]]; then
+                docker compose --env-file deploy/.env -f deploy/docker-compose.yml down
+              fi
+    
+    
+  operator: 'doesNotMatch'
+  stack: |-
+    TestContext.<anonymous> (file:///root/myapi/tools/runtime/installer-workflow.test.mjs:81:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...

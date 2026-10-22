@@ -1,0 +1,10 @@
+$ vitest run src/features/usage-logs/__tests__/platform-workflow.test.tsx "--maxWorkers=1"
+
+ RUN  v4.1.10 /root/myapi/web
+
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  23:43:37
+   Duration  10.02s (transform 1.80s, setup 209ms, import 4.10s, tests 4.74s, environment 830ms)
+

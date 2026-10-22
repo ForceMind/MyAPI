@@ -1,0 +1,28 @@
+Source: https://github.com/ForceMind/MyAPI/actions/runs/39806328204/job/119920781770
+Services: mysql:5.7; postgres:9.6; SQLite in test process.
+2026-10-22T15:37:20.7687120Z ##[group]Run go test -p 1 ./model -run '^Test((AccessProfile|AssignedAccessPolicy)ConfiguredDatabases|LogTokenStatisticsConfiguredDatabases)$' -count=1 -timeout=180s -v
+2026-10-22T15:37:20.7688431Z go test -p 1 ./model -run '^Test((AccessProfile|AssignedAccessPolicy)ConfiguredDatabases|LogTokenStatisticsConfiguredDatabases)$' -count=1 -timeout=180s -v
+2026-10-22T15:39:31.0978634Z     --- PASS: TestAccessProfileConfiguredDatabases/mysql (0.19s)
+2026-10-22T15:39:31.0980213Z         --- PASS: TestAccessProfileConfiguredDatabases/mysql/create-new (0.00s)
+2026-10-22T15:39:31.0981896Z         --- PASS: TestAccessProfileConfiguredDatabases/mysql/save-new (0.00s)
+2026-10-22T15:39:31.0983401Z         --- PASS: TestAccessProfileConfiguredDatabases/mysql/save-existing (0.00s)
+2026-10-22T15:39:31.0985222Z         --- PASS: TestAccessProfileConfiguredDatabases/mysql/group-ratio-alias-contract (0.02s)
+2026-10-22T15:39:31.0987833Z             --- PASS: TestAccessProfileConfiguredDatabases/mysql/group-ratio-alias-contract/create-rollback (0.01s)
+2026-10-22T15:39:31.0991215Z                 --- PASS: TestAccessProfileConfiguredDatabases/mysql/group-ratio-alias-contract/create-rollback/mixed-existing-canonical-and-missing-alias (0.01s)
+2026-10-22T15:39:31.0994198Z                 --- PASS: TestAccessProfileConfiguredDatabases/mysql/group-ratio-alias-contract/create-rollback/both-missing-second-create (0.01s)
+2026-10-22T15:39:31.0996280Z     --- PASS: TestAccessProfileConfiguredDatabases/postgres (0.18s)
+2026-10-22T15:39:31.0997646Z         --- PASS: TestAccessProfileConfiguredDatabases/postgres/create-new (0.00s)
+2026-10-22T15:39:31.0999090Z         --- PASS: TestAccessProfileConfiguredDatabases/postgres/save-new (0.00s)
+2026-10-22T15:39:31.1000671Z         --- PASS: TestAccessProfileConfiguredDatabases/postgres/save-existing (0.00s)
+2026-10-22T15:39:31.1002202Z         --- PASS: TestAccessProfileConfiguredDatabases/postgres/group-ratio-alias-contract (0.02s)
+2026-10-22T15:39:31.1004043Z             --- PASS: TestAccessProfileConfiguredDatabases/postgres/group-ratio-alias-contract/create-rollback (0.01s)
+2026-10-22T15:39:31.1007133Z                 --- PASS: TestAccessProfileConfiguredDatabases/postgres/group-ratio-alias-contract/create-rollback/mixed-existing-canonical-and-missing-alias (0.00s)
+2026-10-22T15:39:31.1009804Z                 --- PASS: TestAccessProfileConfiguredDatabases/postgres/group-ratio-alias-contract/create-rollback/both-missing-second-create (0.00s)
+2026-10-22T15:39:31.1853342Z     --- PASS: TestAssignedAccessPolicyConfiguredDatabases/mysql (0.03s)
+2026-10-22T15:39:31.1856239Z     --- PASS: TestAssignedAccessPolicyConfiguredDatabases/postgres (0.05s)
+2026-10-22T15:39:31.1857655Z === RUN   TestLogTokenStatisticsConfiguredDatabases
+2026-10-22T15:39:31.1858608Z === RUN   TestLogTokenStatisticsConfiguredDatabases/mysql
+2026-10-22T15:39:31.2251487Z === RUN   TestLogTokenStatisticsConfiguredDatabases/postgres
+2026-10-22T15:39:31.2693460Z --- PASS: TestLogTokenStatisticsConfiguredDatabases (0.08s)
+2026-10-22T15:39:31.2695115Z     --- PASS: TestLogTokenStatisticsConfiguredDatabases/mysql (0.04s)
+2026-10-22T15:39:31.2696102Z     --- PASS: TestLogTokenStatisticsConfiguredDatabases/postgres (0.04s)
