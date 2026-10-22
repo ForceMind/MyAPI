@@ -7,7 +7,7 @@ import { createServer } from 'node:http'
 import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createUIFixture, FIXTURE_TIME } from './browser-fixtures.mjs'
-import { createConnectionKeyFixture } from './connection-key-browser-fixtures.mjs'
+import { connectionLocation, createConnectionKeyFixture } from './connection-key-browser-fixtures.mjs'
 
 const repo = fileURLToPath(new URL('../../', import.meta.url))
 const root = resolve(repo, 'web/dist')
@@ -159,7 +159,7 @@ try {
       assert.equal(JSON.parse(new URL(page.url()).searchParams.get('connectionContext')).poolPage, 2)
       await page.getByRole('link', { name: t('Back to connections'), exact: true }).click()
       await detail.getByRole('heading', { name: longName, exact: true }).waitFor()
-      assert.deepEqual(Object.fromEntries(new URL(page.url()).searchParams), Object.fromEntries(new URL(selectedUrl).searchParams), 'Key workflow returns to original selected connection and inventory filters')
+      assert.deepEqual(connectionLocation(page.url()), connectionLocation(selectedUrl), 'Key workflow returns to original selected connection and inventory filters')
 
       const logs = detail.getByRole('link', { name: t('View connection requests'), exact: true })
       assert.equal(JSON.parse(new URL(await logs.getAttribute('href'), origin).searchParams.get('channel')), '1', 'TanStack preserves a numeric-looking channel ID as a string')
@@ -170,7 +170,7 @@ try {
       await page.getByRole('heading', { name: t('Call records'), level: 1, exact: true }).waitFor()
       assert(requests.some(request => request.path === '/api/log' && request.params.channel === '1'), 'Backend reads are scoped to the selected connection')
       await page.goBack({ waitUntil: 'networkidle' })
-      assert.equal(page.url(), selectedUrl, 'Returning from requests preserves selection and filters')
+      assert.deepEqual(connectionLocation(page.url()), connectionLocation(selectedUrl), 'Returning from requests preserves selection and filters')
       await detail.getByRole('heading', { name: longName, exact: true }).waitFor()
       await detail.getByRole('button', { name: t('Back to connections'), exact: true }).click()
       await first.waitFor()

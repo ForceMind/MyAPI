@@ -1,8 +1,24 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createConnectionKeyFixture } from './connection-key-browser-fixtures.mjs'
+import { connectionLocation, createConnectionKeyFixture } from './connection-key-browser-fixtures.mjs'
 
 const url = path => new URL(path, 'http://synthetic.invalid')
+
+test('connection return ignores query ordering without dropping identity, filters or duplicate values', () => {
+  const origin = 'http://synthetic.invalid'
+  const expected = connectionLocation('/connections?filter=Synthetic&page=2&status=enabled&connection=1', origin)
+  assert.deepEqual(connectionLocation('/connections?page=2&filter=Synthetic&status=enabled&connection=1', origin), expected)
+  for (const path of [
+    '/connections?filter=Synthetic&page=2&status=enabled&connection=2',
+    '/connections?filter=Other&page=2&status=enabled&connection=1',
+    '/connections?filter=Synthetic&page=3&status=enabled&connection=1',
+    '/connections?filter=Synthetic&page=2&status=disabled&connection=1',
+    '/connections?filter=Synthetic&page=2&status=enabled&connection=1&connection=2',
+    '/connections?filter=Synthetic&page=2&status=enabled&connection=1#different',
+    '/keys?filter=Synthetic&page=2&status=enabled&connection=1',
+    'https://other.invalid/connections?filter=Synthetic&page=2&status=enabled&connection=1',
+  ]) assert.notDeepEqual(connectionLocation(path, origin), expected, path)
+})
 
 test('association pages retain channel and pool identities rather than display names', () => {
   const fixture = createConnectionKeyFixture()

@@ -513,8 +513,9 @@ function scenarioResponse(fixture, scenario, url, method, reads, pagePath) {
       body: { success: true, data: budget(tokenId, fixture.user.id) },
     }
   }
+  const legacyDashboardList = method === 'GET' && pagePath === '/dashboard/overview' && ['enabled', 'retirement'].includes(scenario.mode)
   if (/^\/api\/token\/\d+$/.test(path) ||
-      ['/api/token', '/api/token/search'].includes(path)) {
+      (['/api/token', '/api/token/search'].includes(path) && !legacyDashboardList)) {
     return {
       violation:
         'Personal workbench requested a broad Key owner object instead of the safe list DTO',

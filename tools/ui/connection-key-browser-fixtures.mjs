@@ -4,6 +4,13 @@ import { FIXTURE_TIME } from './browser-fixtures.mjs'
 
 export const ASSOCIATED_KEY_NAME = 'Same display name · 同名但不同稳定身份 · long-associated-key-name-for-responsive-layout'
 
+// Navigation may serialize validated search keys in a different order. Preserve
+// every value (including duplicates), path and fragment, not incidental order.
+export function connectionLocation(href, origin) {
+  const url = new URL(href, origin)
+  return { origin: url.origin, pathname: url.pathname, hash: url.hash, search: [...url.searchParams].sort(([key, value], [otherKey, otherValue]) => key.localeCompare(otherKey) || value.localeCompare(otherValue)) }
+}
+
 export function createConnectionKeyFixture() {
   const state = { pools: 'ready', usage: 'ready', closed: false, deleted: false }
   const now = FIXTURE_TIME / 1000
