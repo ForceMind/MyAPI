@@ -162,21 +162,6 @@ function UsageLogsContent() {
             </Link>
           )}
         </SectionPageLayout.Breadcrumb>
-        {contextSearch.tokenId && (
-          <div
-            className='bg-muted/30 space-y-1 rounded-lg border p-3 text-sm'
-            role='status'
-          >
-            <p className='font-medium'>
-              {t('Requests for Key #{{id}}', { id: contextSearch.tokenId })}
-            </p>
-            <p className='text-muted-foreground'>
-              {t(
-                'Requests are matched by the saved Key ID, including before a rename.'
-              )}
-            </p>
-          </div>
-        )}
         <SectionPageLayout.Description>
           {t('Inspect requests, routing and usage evidence.')}
         </SectionPageLayout.Description>
@@ -199,6 +184,21 @@ function UsageLogsContent() {
                 : 'flex h-full min-h-0 flex-col gap-4'
             }
           >
+            {contextSearch.tokenId && (
+              <div
+                className='bg-muted/30 space-y-1 rounded-lg border p-3 text-sm'
+                role='status'
+              >
+                <p className='font-medium'>
+                  {t('Requests for Key #{{id}}', { id: contextSearch.tokenId })}
+                </p>
+                <p className='text-muted-foreground'>
+                  {t(
+                    'Requests are matched by the saved Key ID, including before a rename.'
+                  )}
+                </p>
+              </div>
+            )}
             {showTaskSwitcher && (
               <Tabs value={activeCategory} onValueChange={handleSectionChange}>
                 <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>

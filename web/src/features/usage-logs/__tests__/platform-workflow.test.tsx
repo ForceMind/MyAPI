@@ -354,6 +354,7 @@ test('selected Key identity survives filter apply/reset and scopes both list and
     `/usage-logs/common?tokenId=21&pageSize=1&keyReturn=${encodeURIComponent(JSON.stringify(back))}`
   )
   expect(await screen.findByText('REQ-SYNTHETIC-1')).toBeInTheDocument()
+  expect(screen.getByText('Requests for Key #21')).toBeVisible()
   await waitFor(() => {
     expect(
       fixture.requests.some(
