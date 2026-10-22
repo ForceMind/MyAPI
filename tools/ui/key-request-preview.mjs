@@ -133,6 +133,10 @@ export function createKeyRequestPreview({ dist = resolve(repo, 'web/dist') } = {
       if (extname(pathname)) { response.writeHead(404); response.end(); return }
       file = resolve(root, 'index.html')
     }
+    if (!existsSync(file)) {
+      response.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' })
+      response.end('The synthetic preview build is not ready. Build web/ first.'); return
+    }
     if (file === resolve(root, 'index.html') && request.method !== 'HEAD') {
       response.writeHead(200, { 'Content-Type': mime['.html'] })
       response.end(readFileSync(file, 'utf8').replace('</head>', `<script>if(!localStorage.getItem('i18nextLng'))localStorage.setItem('i18nextLng','zh')</script></head>`))
