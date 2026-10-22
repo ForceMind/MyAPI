@@ -272,6 +272,72 @@ func subscriptionShareConfiguredDatabaseContract(t *testing.T, db *gorm.DB, dial
 	assert.Equal(t, "pool_close", closeAudit.Action)
 	assert.Equal(t, closeInput.ExpectedRevision, closeAudit.BeforeRevision)
 	assert.Equal(t, closeInput.ExpectedRevision+1, closeAudit.AfterRevision)
+
+	t.Run("connection index retains saved identity across native databases", func(t *testing.T) {
+		// Use isolated channels after the existing lifecycle contract so this
+		// read-only index cannot accidentally pass by matching display names.
+		connections := []Channel{
+			{Name: "same connection name", Key: "synthetic-index-a", Status: common.ChannelStatusEnabled},
+			{Name: "same connection name", Key: "synthetic-index-b", Status: common.ChannelStatusEnabled},
+		}
+		require.NoError(t, db.Create(&connections).Error)
+		var pools []SubscriptionSharePool
+		for index := 0; index < 21; index++ {
+			pool := SubscriptionSharePool{DescriptorKey: fmt.Sprintf("%s-index-%d", namespace, index), SubjectRef: subject, ChannelID: connections[0].Id, Enabled: index != 0}
+			require.NoError(t, db.Create(&pool).Error)
+			pools = append(pools, pool)
+			require.NoError(t, db.Create(&SubscriptionShareAllocation{PoolID: pool.ID, TokenID: tokens[0].Id, UserID: owner.Id, ShareBPS: 0}).Error)
+		}
+		// Two allocations in a pool still produce one index entry.
+		require.NoError(t, db.Create(&SubscriptionShareAllocation{PoolID: pools[20].ID, TokenID: tokens[1].Id, UserID: owner.Id, ShareBPS: 1000}).Error)
+		candidate := SubscriptionSharePool{DescriptorKey: namespace + "-index-candidate", SubjectRef: subject, ChannelID: connections[0].Id, Enabled: true}
+		other := SubscriptionSharePool{DescriptorKey: namespace + "-index-other", SubjectRef: subject, ChannelID: connections[1].Id, Enabled: true}
+		require.NoError(t, db.Create(&candidate).Error)
+		require.NoError(t, db.Create(&other).Error)
+		require.NoError(t, db.Create(&SubscriptionShareAllocation{PoolID: other.ID, TokenID: tokens[0].Id, UserID: owner.Id, ShareBPS: 0}).Error)
+		require.NoError(t, db.Model(&tokens[0]).Update("expired_time", 1).Error)
+		require.NoError(t, db.Delete(&tokens[1]).Error)
+		var before []SubscriptionSharePool
+		require.NoError(t, db.Where("channel_id = ?", connections[0].Id).Order("id").Find(&before).Error)
+
+		first, err := ReadSubscriptionShareConnectionPools(ctx, db, root.Id, connections[0].Id, 1)
+		require.NoError(t, err)
+		require.Equal(t, connections[0].Id, first.ChannelID)
+		require.Len(t, first.Items, 20)
+		require.True(t, first.HasMore)
+		for index, item := range first.Items {
+			require.Equal(t, pools[20-index].ID, item.PoolID)
+			require.Equal(t, connections[0].Id, item.ChannelID)
+		}
+		second, err := ReadSubscriptionShareConnectionPools(ctx, db, root.Id, connections[0].Id, 2)
+		require.NoError(t, err)
+		require.Len(t, second.Items, 1)
+		require.Equal(t, pools[0].ID, second.Items[0].PoolID)
+		require.False(t, second.Items[0].Enabled, "closed pools and zero shares retain saved history")
+		require.False(t, second.HasMore)
+		empty, err := ReadSubscriptionShareConnectionPools(ctx, db, root.Id, connections[0].Id, 3)
+		require.NoError(t, err)
+		require.Empty(t, empty.Items)
+		foreign, err := ReadSubscriptionShareConnectionPools(ctx, db, root.Id, connections[1].Id, 1)
+		require.NoError(t, err)
+		require.Len(t, foreign.Items, 1)
+		require.Equal(t, other.ID, foreign.Items[0].PoolID)
+		_, err = ReadSubscriptionShareConnectionPools(ctx, db, owner.Id, connections[0].Id, 1)
+		require.ErrorIs(t, err, ErrSubscriptionShareDenied)
+		var after []SubscriptionSharePool
+		require.NoError(t, db.Where("channel_id = ?", connections[0].Id).Order("id").Find(&after).Error)
+		require.Equal(t, before, after, "listing must not advance or rewrite pool state")
+
+		t.Cleanup(func() {
+			require.NoError(t, db.Model(&root).Updates(map[string]any{"role": common.RoleRootUser, "status": common.UserStatusEnabled}).Error)
+		})
+		require.NoError(t, db.Model(&root).Update("role", common.RoleAdminUser).Error)
+		_, err = ReadSubscriptionShareConnectionPools(ctx, db, root.Id, connections[0].Id, 1)
+		require.ErrorIs(t, err, ErrSubscriptionShareDenied)
+		require.NoError(t, db.Model(&root).Updates(map[string]any{"role": common.RoleRootUser, "status": common.UserStatusDisabled}).Error)
+		_, err = ReadSubscriptionShareConnectionPools(ctx, db, root.Id, connections[0].Id, 1)
+		require.ErrorIs(t, err, ErrSubscriptionShareDenied)
+	})
 }
 
 func subscriptionShareSQLiteVariableLimitLifecycle(t *testing.T, db *gorm.DB, root, owner User, channel Channel, namespace string, now int64) {

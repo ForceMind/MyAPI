@@ -513,13 +513,8 @@ function scenarioResponse(fixture, scenario, url, method, reads, pagePath) {
       body: { success: true, data: budget(tokenId, fixture.user.id) },
     }
   }
-  if (scenario.poolManageNavigation && pagePath === '/keys' && method === 'GET' && path === '/api/token' && url.searchParams.get('p') === '1' && url.searchParams.get('size') === '10' && [...url.searchParams.keys()].every((key) => ['p', 'size'].includes(key))) {
-    // The existing Keys management page owns this masked list DTO. This narrow
-    // allowance does not permit broad Key reads in the workbench or Playground.
-    return fixture.response(url, method)
-  }
   if (/^\/api\/token\/\d+$/.test(path) ||
-      ((scenario.mode === 'disabled' || scenario.mode === 'unknown') && ['/api/token', '/api/token/search'].includes(path))) {
+      ['/api/token', '/api/token/search'].includes(path)) {
     return {
       violation:
         'Personal workbench requested a broad Key owner object instead of the safe list DTO',
@@ -1080,18 +1075,21 @@ async function populated(scenario) {
         assert.equal(await page.getByTestId('pool-key-21').getByText(safeKeys[0].name, { exact: true }).count(), 0, 'Old session allocation names do not populate the new view')
         await screenshot(page, scenario, 'pool-session-isolated')
         await screenshotPoolUsage(page, scenario, 'session-isolated')
-        scenario.poolManageNavigation = true
-        const managementRead = page.waitForResponse((response) => new URL(response.url()).pathname.replace(/\/$/, '') === '/api/token' && response.request().method() === 'GET' && response.status() === 200)
+        const managementRead = page.waitForResponse((response) => new URL(response.url()).pathname === poolPath && response.request().method() === 'GET' && response.status() === 200)
         const manage = page.getByTestId('pool-key-allocations').getByText(tr('Manage Key shares', scenario.language), { exact: true })
-        assert.equal(await manage.getAttribute('href'), '/keys', 'Pool management targets the existing Key page')
+        const managementUrl = new URL(await manage.getAttribute('href'), origin)
+        const expectedContext = { connection: { connection: 1 }, pool: 7 }
+        assert.equal(managementUrl.pathname, '/keys', 'Pool management targets the associated Key workspace')
+        assert.deepEqual(JSON.parse(managementUrl.searchParams.get('connectionContext')), expectedContext, 'Pool management preserves saved connection and pool identity')
         await manage.focus()
         assert(await manage.evaluate((element) => document.activeElement === element), 'Pool management is keyboard focused')
         await page.keyboard.press('Enter')
-        await page.waitForURL(`${origin}/keys`)
+        await page.waitForURL((url) => url.pathname === '/keys' && url.searchParams.has('connectionContext'))
         await managementRead
-        await page.locator('#personal-keys-title').waitFor({ state: 'visible' })
-        await page.getByText('synthetic-key', { exact: true }).waitFor()
-        assert.equal(audit.requests.filter((request) => request.path === '/api/token').length, 1, 'Keyboard navigation reads exactly the existing masked management list')
+        await page.getByRole('heading', { name: `${tr('Associated Key shares', scenario.language)} · #1`, exact: true }).waitFor()
+        await page.getByTestId('pool-key-21').getByText('Synthetic new session Key', { exact: true }).waitFor()
+        assert.deepEqual(JSON.parse(new URL(page.url()).searchParams.get('connectionContext')), expectedContext, 'Keyboard navigation retains the scoped relationship')
+        assert.equal(audit.requests.filter((request) => request.path === '/api/token' || request.path === '/api/token/search').length, 0, 'Associated navigation never reads a broad Key management list')
         await screenshot(page, scenario, 'pool-manage-keyboard')
       }
       } else {

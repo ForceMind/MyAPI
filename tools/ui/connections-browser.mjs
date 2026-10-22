@@ -7,6 +7,7 @@ import { createServer } from 'node:http'
 import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createUIFixture, FIXTURE_TIME } from './browser-fixtures.mjs'
+import { createConnectionKeyFixture } from './connection-key-browser-fixtures.mjs'
 
 const repo = fileURLToPath(new URL('../../', import.meta.url))
 const root = resolve(repo, 'web/dist')
@@ -14,7 +15,7 @@ const output = resolve(process.env.MYAPI_BROWSER_ARTIFACTS || '.local-tests/conn
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim()
 const codes = { en: 'en', zh: 'zhCN', 'zh-TW': 'zhTW', fr: 'fr', ja: 'ja', ru: 'ru', vi: 'vi' }
 const translations = Object.fromEntries(Object.keys(codes).map(lang => [lang, JSON.parse(readFileSync(resolve(repo, `web/src/i18n/locales/${lang}.json`))).translation]))
-const report = { head, workflowHead: process.env.GITHUB_SHA || null, scope: 'Connection list/detail, server filters, scoped requests, back/forward, edit cancellation, saved observations and failure boundaries. Synthetic APIs only.', result: 'running', journeys: [], screenshots: [], errors: [] }
+const report = { head, workflowHead: process.env.GITHUB_SHA || null, scope: 'Connection list/detail, persisted Key identity, pool pagination, scoped edit cancellation, Apply/Reset request return context and failure boundaries. Six widths by seven locales, synthetic APIs only.', result: 'running', journeys: [], screenshots: [], errors: [] }
 const persist = () => writeFileSync(resolve(output, 'connections-qualification.json'), JSON.stringify(report, null, 2))
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' }
 const server = createServer((request, response) => {
@@ -34,12 +35,12 @@ try {
   const origin = `http://127.0.0.1:${server.address().port}`
   const { chromium } = await import(process.env.MYAPI_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MYAPI_PLAYWRIGHT_MODULE).href : 'playwright')
   browser = await chromium.launch({ headless: true })
-  const cases = Object.keys(codes).flatMap(language => [320, 1280].map(width => ({ language, width })))
-  cases.push(...[390, 768, 1024, 1440].map(width => ({ language: 'zh', width })))
+  const cases = Object.keys(codes).flatMap(language => [320, 390, 768, 1024, 1280, 1440].map(width => ({ language, width })))
   for (const item of cases) {
     const t = key => { assert(translations[item.language][key], `Missing ${item.language}: ${key}`); return translations[item.language][key] }
     const mobile = item.width < 1024
     const fixture = createUIFixture({ role: 100, language: codes[item.language], personalPolicy: true })
+    const associations = createConnectionKeyFixture()
     const context = await browser.newContext({ viewport: { width: item.width, height: 960 }, reducedMotion: 'reduce', colorScheme: 'light', serviceWorkers: 'block' })
     await context.addInitScript(language => localStorage.setItem('i18nextLng', language), codes[item.language])
     const errors = [], violations = [], external = [], requests = []
@@ -51,6 +52,11 @@ try {
       requests.push({ method: request.method(), path, params: Object.fromEntries(url.searchParams) })
       if (request.method() !== 'GET' && path !== '/api/user/auth/refresh') { violations.push(`Unexpected write ${request.method()} ${path}`); return route.abort('blockedbyclient') }
       if (path === '/api/user/self' && deny) return route.fulfill({ status: 403, json: { success: false } })
+      const association = associations.response(url, request.method())
+      if (association) {
+        if (association.violation) { violations.push(association.violation); return route.fulfill({ status: 503, json: { success: false } }) }
+        return route.fulfill({ status: association.status, json: association.body })
+      }
       if (path === '/api/channel' || path === '/api/channel/search') return route.fulfill({ json: { success: true, data: { total: empty ? 0 : 22, page: Number(url.searchParams.get('p') || 1), page_size: 20, items: empty ? [] : [connection(1), connection(2)] } } })
       if (/^\/api\/channel\/[12]$/.test(path)) return route.fulfill({ status: failDetail ? 503 : 200, json: failDetail ? { success: false } : { success: true, data: connection(Number(path.split('/').at(-1))) } })
       if (path === '/api/channel/quota/changes') {
@@ -87,8 +93,76 @@ try {
       await detail.getByText(t('No saved subscription windows for this connection. This does not mean the connection is unavailable.'), { exact: true }).waitFor()
       const selectedUrl = page.url()
       await capture('detail')
+
+      await detail.getByRole('link', { name: t('Associated Key shares'), exact: true }).click()
+      await page.getByRole('heading', { name: `${t('Associated Key shares')} · #1`, level: 1, exact: true }).waitFor()
+      await page.getByRole('link', { name: `${t('Pool #{{id}}').replace('{{id}}', '8')} · five_hour`, exact: true }).waitFor()
+      assert.equal(await page.getByRole('region', { name: t('All saved share windows'), exact: true }).getByRole('listitem').count(), 20, 'A full saved-pool page retains the server page boundary')
+      await capture('key-pools-full-page')
+      await page.getByRole('button', { name: t('Next'), exact: true }).click()
+      const savedPool = page.getByRole('link', { name: `${t('Pool #{{id}}').replace('{{id}}', '7')} · five_hour`, exact: true })
+      await savedPool.waitFor()
+      assert.equal(JSON.parse(new URL(page.url()).searchParams.get('connectionContext')).poolPage, 2)
+      await capture('key-pools')
+      await savedPool.click()
+      const allocations = page.getByTestId('pool-key-allocations')
+      await allocations.getByTestId('pool-key-21').waitFor()
+      const keyLink = id => allocations.getByRole('link', { name: t('Key #{{id}}').replace('{{id}}', String(id)), exact: true })
+      assert.notEqual(await keyLink(21).getAttribute('href'), await keyLink(22).getAttribute('href'), 'Same-name Keys retain different stable identities')
+      await keyLink(21).click()
+      await page.getByRole('heading', { name: t('Key #{{id}}').replace('{{id}}', '21'), level: 3, exact: true }).waitFor()
+      const keyUrl = page.url()
+      await capture('associated-key')
+      await page.getByRole('button', { name: t('Manage Key shares'), exact: true }).click()
+      const shareEditor = page.getByRole('dialog', { name: t('Subscription shares'), exact: true })
+      await shareEditor.waitFor()
+      await page.getByRole('dialog').getByText(t('Approximate usage allocation'), { exact: true }).waitFor()
+      await capture('key-edit')
+      await page.keyboard.press('Escape')
+      await shareEditor.waitFor({ state: 'hidden' })
+      assert.equal(page.url(), keyUrl, 'Cancel preserves the exact Key and pool context')
+      await page.getByText(t('Call records are filtered by connection, not by Key. Key names are not stable identities.'), { exact: true }).waitFor()
+      await page.getByRole('link', { name: t('View connection requests'), exact: true }).click()
+      await page.getByRole('heading', { name: t('Call records'), level: 1, exact: true }).waitFor()
+      const keyReturn = page.getByRole('link', { name: t('Associated Key shares'), exact: true })
+      await keyReturn.waitFor()
+      const expectedContext = JSON.parse(new URL(keyUrl).searchParams.get('connectionContext'))
+      const assertKeyReturn = async () => {
+        const href = new URL(await keyReturn.getAttribute('href'), origin)
+        assert.deepEqual(JSON.parse(href.searchParams.get('connectionContext')), expectedContext, 'Visible return retains connection filter/page, pool page, pool and Key')
+      }
+      await assertKeyReturn()
+      let filterArea = page
+      if (mobile) {
+        await page.getByRole('button', { name: t('Filter'), exact: false }).click()
+        filterArea = page.getByRole('dialog', { name: t('Filter'), exact: true })
+        await filterArea.waitFor()
+      }
+      await filterArea.getByPlaceholder(t('Model Name'), { exact: true }).fill('synthetic-text-model')
+      await filterArea.getByRole('button', { name: t('Search'), exact: true }).click()
+      await page.waitForURL(url => url.searchParams.get('model') === 'synthetic-text-model')
+      await assertKeyReturn()
+      if (mobile) {
+        await page.getByRole('button', { name: t('Filter'), exact: false }).click()
+        filterArea = page.getByRole('dialog', { name: t('Filter'), exact: true })
+        await filterArea.waitFor()
+      }
+      await filterArea.getByRole('button', { name: t('Reset'), exact: true }).click()
+      await page.waitForURL(url => !url.searchParams.has('model') && !url.searchParams.has('channel'))
+      await assertKeyReturn()
+      await capture('key-request-return')
+      await keyReturn.click()
+      await page.getByRole('heading', { name: t('Key #{{id}}').replace('{{id}}', '21'), level: 3, exact: true }).waitFor()
+      assert.equal(await shareEditor.count(), 0, 'Returning from logs must not reopen an editor')
+      await page.getByRole('link', { name: t('All saved share windows'), exact: true }).click()
+      await savedPool.waitFor()
+      assert.equal(JSON.parse(new URL(page.url()).searchParams.get('connectionContext')).poolPage, 2)
+      await page.getByRole('link', { name: t('Back to connections'), exact: true }).click()
+      await detail.getByRole('heading', { name: longName, exact: true }).waitFor()
+      assert.deepEqual(Object.fromEntries(new URL(page.url()).searchParams), Object.fromEntries(new URL(selectedUrl).searchParams), 'Key workflow returns to original selected connection and inventory filters')
+
       const logs = detail.getByRole('link', { name: t('View connection requests'), exact: true })
-      assert(new URL(await logs.getAttribute('href'), origin).searchParams.get('channel') === '1')
+      assert.equal(JSON.parse(new URL(await logs.getAttribute('href'), origin).searchParams.get('channel')), '1', 'TanStack preserves a numeric-looking channel ID as a string')
       await Promise.all([
         page.waitForResponse(response => { const url = new URL(response.url()); return url.pathname === '/api/log' && url.searchParams.get('channel') === '1' }),
         logs.click(),
@@ -108,6 +182,39 @@ try {
       assert.equal(await detail.getByText('55%', { exact: true }).count(), 0, 'Failed observations do not invent current usage')
       await capture('failed-observation')
       if ((item.language === 'en' && item.width === 1280) || (item.language === 'zh' && item.width === 390)) {
+        associations.state.closed = true
+        associations.state.deleted = true
+        await page.goto(keyUrl, { waitUntil: 'networkidle' })
+        const historicalEdit = page.getByRole('button', { name: t('Manage Key shares'), exact: true })
+        await historicalEdit.waitFor()
+        assert(await historicalEdit.isDisabled(), 'Closed-pool/deleted-Key history cannot be edited')
+        await capture('key-history')
+        associations.state.closed = false
+        associations.state.deleted = false
+        associations.state.usage = 'error'
+        await page.goto(keyUrl, { waitUntil: 'networkidle' })
+        await page.getByText(t('Unable to load window usage'), { exact: true }).waitFor()
+        associations.state.usage = 'ready'
+        await page.getByRole('button', { name: t('Retry'), exact: true }).click()
+        await historicalEdit.waitFor()
+        await page.getByRole('link', { name: t('All saved share windows'), exact: true }).click()
+        const poolListUrl = page.url()
+        associations.state.pools = 'empty'
+        await page.goto(poolListUrl, { waitUntil: 'networkidle' })
+        await page.getByText(t('No saved Key allocations for this connection.'), { exact: true }).waitFor()
+        await capture('key-empty')
+        associations.state.pools = 'error'
+        await page.goto(poolListUrl, { waitUntil: 'networkidle' })
+        await page.getByText(t('Unable to load Key shares'), { exact: true }).waitFor()
+        associations.state.pools = 'ready'
+        await page.getByRole('button', { name: t('Retry'), exact: true }).click()
+        await savedPool.waitFor()
+        deny = true
+        await page.goto(keyUrl, { waitUntil: 'networkidle' })
+        await page.getByText(t('Root access is required to match Key shares to this account.'), { exact: true }).waitFor()
+        assert.equal(await allocations.count(), 0, 'Fresh permission denial hides saved allocation data')
+        await capture('key-permission-error')
+        deny = false
         await page.goto(`${origin}/connections?connection=1`, { waitUntil: 'networkidle' })
         await detail.getByRole('button', { name: t('Edit connection'), exact: true }).click()
         const editor = page.getByRole('dialog').filter({ hasText: t('Edit Channel') })
@@ -129,6 +236,7 @@ try {
         await page.getByText(t('Connection access could not be verified.'), { exact: true }).waitFor(); await capture('permission-error')
       }
       assert.deepEqual(errors, [], 'No runtime errors')
+      assert.equal(requests.filter(request => /^\/api\/token(?:\/search|\/\d+(?:\/key)?)?$/.test(request.path)).length, 0, 'Saved relationships never fall back to a broad Key list, owner object or secret read')
       assert.deepEqual(violations, [], 'No unconfigured reads or mutations')
       assert.deepEqual(external, [], 'No provider/external requests')
       report.journeys.push({ ...item, result: 'passed', requests })

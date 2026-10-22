@@ -54,6 +54,16 @@ jobs:
           mkdir -p web/dist
           touch web/dist/index.html
 
+      - name: Verify connection relationship Go formatting
+        run: |
+          files=(controller/subscription_share.go controller/subscription_share_connections_test.go model/subscription_share_connections.go model/subscription_share_connections_test.go model/subscription_share_database_test.go router/api-router.go)
+          unformatted="$(gofmt -l "${files[@]}")"
+          if [ -n "$unformatted" ]; then
+            printf '%s\n' "$unformatted"
+            gofmt -d "${files[@]}"
+            exit 1
+          fi
+
       - name: Vet root module
         run: go vet ./...
 
@@ -791,7 +801,7 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=768'
         run: |
           failed=0
-          node --test tools/ui/browser-fixtures.test.mjs || failed=1
+          node --test tools/ui/browser-fixtures.test.mjs tools/ui/connection-key-browser-fixtures.test.mjs || failed=1
           for script in \
             tools/ui/personal-workbench-browser.mjs \
             tools/ui/subscription-share-browser.mjs \
