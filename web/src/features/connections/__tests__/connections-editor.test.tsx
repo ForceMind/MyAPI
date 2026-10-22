@@ -147,7 +147,8 @@ test.each([false, true])(
     ).toBeVisible()
     const name = await within(dialog).findByDisplayValue(channel.name)
     await interaction.clear(name)
-    await interaction.type(name, 'Unsaved synthetic name')
+    await interaction.paste('Unsaved synthetic name')
+    expect(name).toHaveValue('Unsaved synthetic name')
     await interaction.keyboard('{Escape}')
     await waitFor(() =>
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -175,5 +176,8 @@ test.each([false, true])(
           !request.path.endsWith('/passkey')
       )
     ).toBe(false)
-  }
+  },
+  // Two real heavy forms are mounted per case; keep a bounded integration
+  // budget under the full suite rather than relying on the 5s unit default.
+  15_000
 )

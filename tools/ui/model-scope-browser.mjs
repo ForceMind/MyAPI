@@ -174,6 +174,7 @@ const report = {
 }
 
 let browser
+let captureFailedCase
 try {
   await new Promise((done) => server.listen(0, '127.0.0.1', done))
   const origin = `http://127.0.0.1:${server.address().port}`
@@ -263,6 +264,10 @@ try {
     const catalogModels = ['synthetic-text-model', 'gpt-5-codex']
     const writes = []
     const unexpected = []
+    const requests = [],
+      responses = [],
+      consoleErrors = []
+    let stage = 'opening'
     let scopeReads = 0
     let catalogReads = 0
     let keySecretReads = 0
@@ -279,6 +284,12 @@ try {
           return
         }
         const path = url.pathname.replace(/\/$/, '')
+        if (path.startsWith('/api/') || path.startsWith('/pg/'))
+          requests.push({
+            method: request.method(),
+            path,
+            params: Object.fromEntries(url.searchParams),
+          })
         if (path === '/api/token/21/key') {
           keySecretReads += 1
           throw new Error('Model-scope journey attempted to read a Key secret')
@@ -398,6 +409,44 @@ try {
 
     const page = await context.newPage()
     page.setDefaultTimeout(15000)
+    page.on('console', (message) => {
+      if (message.type() === 'error') consoleErrors.push(message.text())
+    })
+    page.on('response', (response) => {
+      const url = new URL(response.url())
+      if (
+        url.origin === origin &&
+        (url.pathname.startsWith('/api/') || url.pathname.startsWith('/pg/'))
+      )
+        responses.push({ path: url.pathname, status: response.status() })
+    })
+    captureFailedCase = async () => {
+      report.failedCase = {
+        name,
+        ...item,
+        stage,
+        url: page.url(),
+        scopeReads,
+        catalogReads,
+        keySecretReads,
+        writes,
+        currentScope: scopeView(),
+        requests,
+        responses,
+        consoleErrors,
+        unexpected,
+      }
+      try {
+        const screenshot = `${name}-failed.png`
+        await page.screenshot({
+          path: resolve(output, screenshot),
+          animations: 'disabled',
+        })
+        report.failedCase.screenshot = screenshot
+      } catch (captureError) {
+        report.failedCase.captureError = String(captureError)
+      }
+    }
     page.on('pageerror', (error) =>
       report.errors.push(`${name}: page error: ${error.message}`)
     )
@@ -641,6 +690,7 @@ try {
       exact: true,
     })
     if (item.action === 'restricted-save' || item.action === 'unknown-save') {
+      stage = 'selecting-model'
       await radios.restricted.click()
       const search = dialog.getByPlaceholder(t('Search current model catalog'))
       await search.fill('codex')
@@ -656,10 +706,24 @@ try {
         `${name}: a catalog result receives keyboard focus`
       )
       await page.keyboard.press('Enter')
-      await dialog.getByText('gpt-5-codex', { exact: true }).first().waitFor()
+      await dialog
+        .getByRole('button', {
+          name: t('Remove {{model}}').replace('{{model}}', 'gpt-5-codex'),
+          exact: true,
+        })
+        .waitFor({ state: 'visible' })
+      await candidate.waitFor({ state: 'hidden' })
+      stage = 'submitting-model-scope'
+      await save.click({ trial: true })
+      assert(await save.isEnabled(), `${name}: selected scope is ready to save`)
       await save.focus()
+      assert(
+        await save.evaluate((element) => document.activeElement === element),
+        `${name}: save receives keyboard focus`
+      )
       await page.keyboard.press('Enter')
       if (item.action === 'unknown-save') {
+        stage = 'awaiting-unknown-save-result'
         await dialog
           .getByText(t('The save result could not be confirmed'), {
             exact: true,
@@ -839,6 +903,7 @@ try {
       passed: true,
     })
     await context.close()
+    captureFailedCase = undefined
   }
 
   assert.equal(report.journeys.length, 17)
@@ -853,6 +918,7 @@ try {
   )
   report.result = 'passed'
 } catch (error) {
+  await captureFailedCase?.()
   report.result = 'failed'
   report.failure = String(error.stack || error)
   throw error

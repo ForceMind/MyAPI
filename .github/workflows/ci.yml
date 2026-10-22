@@ -26,8 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     # Main CI 38022171765 used 18m36s before the added linux/386 build;
     # candidate CI 38124726661 spent another 2m28s on that build alone.
-    # Keep every test deadline and allow bounded time for the serial suite.
-    timeout-minutes: 30
+    # f83f027d CI39738004066 reached the final 180s race command at 29m49s;
+    # the job was cancelled just after its 30m limit, before completion.
+    # Keep every individual test deadline and bound the entire serial suite.
+    timeout-minutes: 35
     env:
       GOWORK: 'off'
       GOMAXPROCS: '1'
@@ -531,7 +533,9 @@ jobs:
     # margin for the added real browser journeys and runner/install variation.
     # The existing compatibility matrix alone exceeded ten minutes in
     # credential candidate 38902455293; keep all checks and their deadlines.
-    timeout-minutes: 30
+    # f83f027d needed 29m27s with the 42 connection locale/width journeys.
+    # Preserve every assertion and per-action deadline with bounded job margin.
+    timeout-minutes: 35
     defaults:
       run:
         working-directory: web
