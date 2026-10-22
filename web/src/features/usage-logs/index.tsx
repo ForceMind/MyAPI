@@ -137,6 +137,15 @@ function UsageLogsContent() {
           {t(pageMeta.titleKey)}
         </SectionPageLayout.Title>
         <SectionPageLayout.Breadcrumb>
+          {contextSearch.keyReturn && !connectionContext && (
+            <Link
+              to='/keys'
+              search={contextSearch.keyReturn}
+              className='text-primary underline'
+            >
+              {t('Back to Keys')}
+            </Link>
+          )}
           {connectionContext && (
             <Link
               to={contextSearch.returnToKeys ? '/keys' : '/connections'}
@@ -153,6 +162,21 @@ function UsageLogsContent() {
             </Link>
           )}
         </SectionPageLayout.Breadcrumb>
+        {contextSearch.tokenId && (
+          <div
+            className='bg-muted/30 space-y-1 rounded-lg border p-3 text-sm'
+            role='status'
+          >
+            <p className='font-medium'>
+              {t('Requests for Key #{{id}}', { id: contextSearch.tokenId })}
+            </p>
+            <p className='text-muted-foreground'>
+              {t(
+                'Requests are matched by the saved Key ID, including before a rename.'
+              )}
+            </p>
+          </div>
+        )}
         <SectionPageLayout.Description>
           {t('Inspect requests, routing and usage evidence.')}
         </SectionPageLayout.Description>

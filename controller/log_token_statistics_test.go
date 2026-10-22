@@ -26,7 +26,7 @@ func TestLogTokenStatisticsHandlersPreserveScopeFiltersAndUnknown(t *testing.T) 
 	model.LOG_DB = db
 	t.Cleanup(func() { model.LOG_DB = previous; require.NoError(t, sqlDB.Close()) })
 	for _, row := range []model.Log{
-		{UserId: 1, Username: "alice", Type: model.LogTypeConsume, CreatedAt: 100, PromptTokens: 10, CompletionTokens: 5, RequestId: "owner-request", UpstreamRequestId: "up-owner", Other: `{"usage_accuracy":"reported","cache_tokens":2}`, Content: "private prompt"},
+		{UserId: 1, Username: "alice", Type: model.LogTypeConsume, CreatedAt: 100, Quota: 15, PromptTokens: 10, CompletionTokens: 5, RequestId: "owner-request", UpstreamRequestId: "up-owner", Other: `{"usage_accuracy":"reported","cache_tokens":2}`, Content: "private prompt"},
 		{UserId: 1, Username: "alice", Type: model.LogTypeError, CreatedAt: 101, Other: `{"request_outcome":"completed","usage_outcome":"missing"}`},
 		{UserId: 2, Username: "bob", Type: model.LogTypeConsume, CreatedAt: 100, PromptTokens: 999, Other: `{"usage_accuracy":"reported"}`},
 	} {
@@ -35,29 +35,33 @@ func TestLogTokenStatisticsHandlersPreserveScopeFiltersAndUnknown(t *testing.T) 
 	for _, item := range []struct {
 		name, path string
 		handler    gin.HandlerFunc
+		actorName  string
 		records    int64
 	}{
-		{"self", "/api/log/self/stat?username=bob&channel=999", GetLogsSelfStat, 2},
-		{"self-request", "/api/log/self/stat?request_id=owner-request&upstream_request_id=up-owner", GetLogsSelfStat, 1},
-		{"admin", "/api/log/stat?request_id=owner-request", GetLogsStat, 1},
+		{"self", "/api/log/self/stat?username=bob&channel=999", GetLogsSelfStat, "alice", 2},
+		{"self-request", "/api/log/self/stat?request_id=owner-request&upstream_request_id=up-owner", GetLogsSelfStat, "alice", 1},
+		{"admin", "/api/log/stat?request_id=owner-request", GetLogsStat, "alice", 1},
+		{"renamed-self", "/api/log/self/stat", GetLogsSelfStat, "renamed-alice", 2},
 	} {
 		t.Run(item.name, func(t *testing.T) {
 			r := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(r)
 			c.Request = httptest.NewRequest(http.MethodGet, item.path, nil)
 			c.Set("id", 1)
-			c.Set("username", "alice")
+			c.Set("username", item.actorName)
 			item.handler(c)
 			require.Equal(t, http.StatusOK, r.Code)
 			var response struct {
 				Success bool `json:"success"`
 				Data    struct {
 					Tokens model.LogTokenStatistics `json:"token_usage"`
+					Quota  int                      `json:"quota"`
 				} `json:"data"`
 			}
 			require.NoError(t, common.Unmarshal(r.Body.Bytes(), &response))
 			require.True(t, response.Success)
 			assert.Equal(t, item.records, response.Data.Tokens.Records)
+			assert.Equal(t, 15, response.Data.Quota)
 			assert.Equal(t, "15", response.Data.Tokens.KnownTotalTokens)
 			if item.records == 2 {
 				assert.Nil(t, response.Data.Tokens.TotalTokens)

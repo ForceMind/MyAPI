@@ -117,13 +117,13 @@ try {
       if (mobile) {
         await nav.getByRole('button', { name: t('More'), exact: true }).click()
         const more = page.getByRole('dialog', { name: t('All modules') })
-        for (const [key, href] of [['API Request Logs', '/full-content-logs'], ['Task Logs', '/usage-logs/task'], ['Drawing Logs', '/usage-logs/drawing'], ['System Info', '/system-info'], ['System Settings', '/system-settings/site']]) {
+        for (const [key, href] of [['Request bodies & SSE', '/full-content-logs'], ['Task Logs', '/usage-logs/task'], ['Drawing Logs', '/usage-logs/drawing'], ['System Info', '/system-info'], ['System Settings', '/system-settings/site']]) {
           assert.equal(await more.getByRole('link', { name: t(key), exact: true }).getAttribute('href'), href)
         }
         await capture('more')
         await page.keyboard.press('Escape')
       } else {
-        assert.equal(await nav.getByRole('link', { name: t('API Request Logs'), exact: true }).getAttribute('href'), '/full-content-logs')
+        assert.equal(await nav.getByRole('link', { name: t('Request bodies & SSE'), exact: true }).getAttribute('href'), '/full-content-logs')
         await assertTextContrast(nav.getByRole('link', { name: t('Profile'), exact: true }).locator('span'), 'active platform navigation', 'light')
       }
       await nav.getByRole('link', { name: t('Call records'), exact: true }).click()

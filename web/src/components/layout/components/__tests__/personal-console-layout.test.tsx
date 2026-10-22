@@ -71,7 +71,7 @@ test('complete desktop navigation and mobile More retain diagnostic and maintena
     name: 'Personal console navigation',
   })
   for (const [name, href] of [
-    ['API Request Logs', '/full-content-logs'],
+    ['Request bodies & SSE', '/full-content-logs'],
     ['Task Logs', '/usage-logs/task'],
     ['Drawing Logs', '/usage-logs/drawing'],
     ['Connections', '/connections'],
@@ -85,7 +85,7 @@ test('complete desktop navigation and mobile More retain diagnostic and maintena
   await userEvent.setup().click(screen.getByRole('button', { name: 'More' }))
   const more = await screen.findByRole('dialog', { name: 'All modules' })
   expect(
-    within(more).getByRole('link', { name: 'API Request Logs' })
+    within(more).getByRole('link', { name: 'Request bodies & SSE' })
   ).toHaveAttribute('href', '/full-content-logs')
   expect(
     within(more).getByRole('link', { name: 'System Settings' })

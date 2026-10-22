@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-
 import { api } from '@/lib/api'
 
 import type {
@@ -35,9 +34,11 @@ function localTimeToUnix(value: string): number | undefined {
 }
 
 export async function getFullContentLogs(
-  params: FullContentLogListParams
+  params: FullContentLogListParams,
+  signal?: AbortSignal
 ): Promise<ApiEnvelope<FullContentLogList>> {
   const response = await api.get('/api/full-content-logs', {
+    signal,
     params: {
       p: params.page,
       page_size: params.pageSize,
@@ -52,11 +53,17 @@ export async function getFullContentLogs(
 }
 
 export async function getFullContentLogDetail(
-  requestId: string
+  requestId: string,
+  signal?: AbortSignal
 ): Promise<ApiEnvelope<FullContentLogDetail>> {
   const response = await api.get(
     `/api/full-content-logs/${encodeURIComponent(requestId)}`,
-    { params: { max_response_bytes: 1024 * 1024 } }
+    {
+      signal,
+      skipErrorHandler: true,
+      skipBusinessError: true,
+      params: { max_response_bytes: 1024 * 1024 },
+    }
   )
   return response.data as ApiEnvelope<FullContentLogDetail>
 }

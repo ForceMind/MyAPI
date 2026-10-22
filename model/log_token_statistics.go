@@ -19,7 +19,7 @@ type LogTokenUsageEvidence struct {
 }
 
 type LogTokenStatisticsFilter struct {
-	UserID, Type, Channel                                       int
+	UserID, Type, Channel, TokenID                              int
 	Start, End                                                  int64
 	Model, Username, Token, Group, RequestID, UpstreamRequestID string
 }
@@ -51,7 +51,7 @@ func GetLogTokenStatistics(ctx context.Context, db *gorm.DB, filter LogTokenStat
 	if db == nil {
 		return result, gorm.ErrInvalidDB
 	}
-	if filter.UserID < 0 {
+	if filter.UserID < 0 || filter.TokenID < 0 {
 		return result, gorm.ErrInvalidData
 	}
 	query := deduplicatedLogs(db).WithContext(ctx)
@@ -64,6 +64,9 @@ func GetLogTokenStatistics(ctx context.Context, db *gorm.DB, filter LogTokenStat
 	}
 	if filter.UserID > 0 {
 		query = query.Where("logs.user_id = ?", filter.UserID)
+	}
+	if filter.TokenID > 0 {
+		query = query.Where("logs.token_id = ?", filter.TokenID)
 	}
 	var err error
 	if query, err = applyExplicitLogTextFilter(query, "logs.model_name", filter.Model); err != nil {

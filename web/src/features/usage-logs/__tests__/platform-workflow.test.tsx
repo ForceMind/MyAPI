@@ -27,7 +27,8 @@ afterEach(() => {
 async function renderWorkflow(
   role = 100,
   holdSelf = false,
-  initialEntry = '/usage-logs/common?pageSize=1&model=fixture-model'
+  initialEntry = '/usage-logs/common?pageSize=1&model=fixture-model',
+  holdKeyId?: number
 ) {
   let releaseSelf = () => {}
   const selfResponse = new Promise<void>((resolve) => {
@@ -41,6 +42,13 @@ async function renderWorkflow(
     const url = new URL(String(path), 'http://synthetic.invalid')
     requests.push(url)
     if (holdSelf && url.pathname === '/api/log/self') await selfResponse
+    if (
+      holdKeyId &&
+      url.pathname === '/api/log' &&
+      url.searchParams.get('token_id') === String(holdKeyId)
+    ) {
+      await selfResponse
+    }
     let data: unknown = {}
     if (url.pathname === '/api/status') {
       data = {
@@ -337,3 +345,67 @@ for (const action of ['Search', 'Reset']) {
     }
   })
 }
+
+test('selected Key identity survives filter apply/reset and scopes both list and statistics', async () => {
+  const back = { page: 3, pageSize: 20, filter: 'same-name', focusKeyId: 21 }
+  const fixture = await renderWorkflow(
+    100,
+    false,
+    `/usage-logs/common?tokenId=21&pageSize=1&keyReturn=${encodeURIComponent(JSON.stringify(back))}`
+  )
+  expect(await screen.findByText('REQ-SYNTHETIC-1')).toBeInTheDocument()
+  await waitFor(() => {
+    expect(
+      fixture.requests.some(
+        (url) =>
+          url.pathname === '/api/log' &&
+          url.searchParams.get('token_id') === '21'
+      )
+    ).toBe(true)
+    expect(
+      fixture.requests.some(
+        (url) =>
+          url.pathname === '/api/log/stat' &&
+          url.searchParams.get('token_id') === '21'
+      )
+    ).toBe(true)
+  })
+  expect(screen.getByRole('link', { name: 'Back to Keys' })).toBeInTheDocument()
+  const main = screen.getByRole('main', { name: 'Call records' })
+  await fixture.user.click(
+    within(main).getByRole('button', { name: /^Search$/ })
+  )
+  expect(fixture.router.state.location.search).toMatchObject({
+    tokenId: 21,
+    keyReturn: back,
+  })
+  await fixture.user.click(
+    within(main).getByRole('button', { name: /^Reset$/ })
+  )
+  expect(fixture.router.state.location.search).toMatchObject({
+    tokenId: 21,
+    keyReturn: back,
+  })
+})
+
+test('changing the selected Key hides the previous Key rows while its request is pending', async () => {
+  const fixture = await renderWorkflow(
+    100,
+    false,
+    '/usage-logs/common?tokenId=21&pageSize=1',
+    22
+  )
+  expect(await screen.findByText('REQ-SYNTHETIC-1')).toBeInTheDocument()
+  await act(async () => {
+    await fixture.router.navigate({
+      to: '/usage-logs/$section',
+      params: { section: 'common' },
+      search: { tokenId: 22, pageSize: 1 },
+    })
+  })
+  await waitFor(() =>
+    expect(screen.queryByText('REQ-SYNTHETIC-1')).not.toBeInTheDocument()
+  )
+  await act(async () => fixture.releaseSelf())
+  expect(await screen.findByText('REQ-SYNTHETIC-1')).toBeInTheDocument()
+})

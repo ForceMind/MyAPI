@@ -197,11 +197,15 @@ test('same-name Keys use allocation IDs and preserve the exact connection contex
     screen.getByRole('button', { name: 'Manage Key shares' })
   ).toBeEnabled()
   expect(fixture.requests.some((path) => path.includes('/key'))).toBe(false)
-  const calls = screen.getByRole('link', { name: 'View connection requests' })
+  const calls = screen.getByRole('link', { name: 'View Key requests' })
   const search = JSON.parse(
     decodeURIComponent((calls.getAttribute('href') ?? '').split('?')[1])
   )
-  expect(search).toMatchObject({ channel: '1', connectionContext: context })
+  expect(search).toMatchObject({
+    channel: '1',
+    tokenId: 21,
+    connectionContext: context,
+  })
   expect(search.token).toBeUndefined()
   expect(search.returnToKeys).toBe(true)
   const windows = screen.getByRole('link', { name: 'All saved share windows' })

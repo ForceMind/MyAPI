@@ -13,6 +13,11 @@ import (
 )
 
 func GetAllLogs(c *gin.Context) {
+	identity, valid := logIdentityFilter(c, 0)
+	if !valid {
+		return
+	}
+
 	pageInfo := common.GetPageQuery(c)
 	logType, _ := strconv.Atoi(c.Query("type"))
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
@@ -24,7 +29,7 @@ func GetAllLogs(c *gin.Context) {
 	group := c.Query("group")
 	requestId := c.Query("request_id")
 	upstreamRequestId := c.Query("upstream_request_id")
-	logs, total, err := model.GetAllLogs(logType, startTimestamp, endTimestamp, modelName, username, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), channel, group, requestId, upstreamRequestId)
+	logs, total, err := model.GetAllLogs(logType, startTimestamp, endTimestamp, modelName, username, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), channel, group, requestId, upstreamRequestId, identity)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -36,6 +41,11 @@ func GetAllLogs(c *gin.Context) {
 }
 
 func GetUserLogs(c *gin.Context) {
+	identity, valid := logIdentityFilter(c, c.GetInt("id"))
+	if !valid {
+		return
+	}
+
 	pageInfo := common.GetPageQuery(c)
 	userId := c.GetInt("id")
 	logType, _ := strconv.Atoi(c.Query("type"))
@@ -46,7 +56,7 @@ func GetUserLogs(c *gin.Context) {
 	group := c.Query("group")
 	requestId := c.Query("request_id")
 	upstreamRequestId := c.Query("upstream_request_id")
-	logs, total, err := model.GetUserLogs(userId, logType, startTimestamp, endTimestamp, modelName, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), group, requestId, upstreamRequestId)
+	logs, total, err := model.GetUserLogs(userId, logType, startTimestamp, endTimestamp, modelName, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), group, requestId, upstreamRequestId, identity)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -121,6 +131,11 @@ func GetLogByKey(c *gin.Context) {
 }
 
 func GetLogsStat(c *gin.Context) {
+	identity, valid := logIdentityFilter(c, 0)
+	if !valid {
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
 	c.Request = c.Request.WithContext(ctx)
@@ -132,12 +147,12 @@ func GetLogsStat(c *gin.Context) {
 	modelName := c.Query("model_name")
 	channel, _ := strconv.Atoi(c.Query("channel"))
 	group := c.Query("group")
-	stat, err := model.SumUsedQuotaContext(ctx, logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group)
+	stat, err := model.SumUsedQuotaContext(ctx, logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group, identity)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	tokens, err := logTokenStatistics(c, 0)
+	tokens, err := logTokenStatistics(c, 0, identity.TokenID)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -157,6 +172,11 @@ func GetLogsStat(c *gin.Context) {
 }
 
 func GetLogsSelfStat(c *gin.Context) {
+	identity, valid := logIdentityFilter(c, c.GetInt("id"))
+	if !valid {
+		return
+	}
+
 	userID := c.GetInt("id")
 	if userID <= 0 || c.GetString("username") == "" {
 		c.AbortWithStatus(http.StatusUnauthorized)
@@ -165,20 +185,18 @@ func GetLogsSelfStat(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
 	c.Request = c.Request.WithContext(ctx)
-	username := c.GetString("username")
 	logType, _ := strconv.Atoi(c.Query("type"))
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
 	tokenName := c.Query("token_name")
 	modelName := c.Query("model_name")
-	channel, _ := strconv.Atoi(c.Query("channel"))
 	group := c.Query("group")
-	quotaNum, err := model.SumUsedQuotaContext(ctx, logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group)
+	quotaNum, err := model.SumUsedQuotaContext(ctx, logType, startTimestamp, endTimestamp, modelName, "", tokenName, 0, group, identity)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	tokens, err := logTokenStatistics(c, userID)
+	tokens, err := logTokenStatistics(c, userID, identity.TokenID)
 	if err != nil {
 		common.ApiError(c, err)
 		return

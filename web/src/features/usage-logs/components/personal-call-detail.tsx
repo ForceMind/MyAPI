@@ -149,20 +149,24 @@ export function PersonalCallDetail(props: { log: UsageLog }) {
               </AlertDescription>
             </Alert>
           )}
-          <Button
-            className='h-11 w-full whitespace-normal'
-            variant='outline'
-            render={
-              <Link
-                to='/keys'
-                search={{ filter: props.log.token_name || '' }}
-              />
-            }
-            nativeButton={false}
-          >
-            <KeyRound aria-hidden='true' className='size-4 shrink-0' />
-            {t('View this Key')}
-          </Button>
+          {props.log.token_id > 0 && (
+            <Button
+              className='h-11 w-full whitespace-normal'
+              variant='outline'
+              render={
+                <Link
+                  to='/keys'
+                  search={{
+                    keyId: props.log.token_id,
+                  }}
+                />
+              }
+              nativeButton={false}
+            >
+              <KeyRound aria-hidden='true' className='size-4 shrink-0' />
+              {t('View this Key')}
+            </Button>
+          )}
         </CardContent>
       </Card>
     </div>

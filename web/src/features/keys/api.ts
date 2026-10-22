@@ -66,8 +66,11 @@ export async function searchApiKeys(
 }
 
 // Get single API key by ID
-export async function getApiKey(id: number): Promise<ApiResponse<ApiKey>> {
-  const res = await api.get(`/api/token/${id}`)
+export async function getApiKey(
+  id: number,
+  signal?: AbortSignal
+): Promise<ApiResponse<ApiKey>> {
+  const res = await api.get(`/api/token/${id}`, { signal })
   const response = res.data as ApiResponse<ApiKey>
   if (response.data !== undefined) {
     response.data = apiKeySchema.parse(response.data)

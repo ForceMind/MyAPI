@@ -28,6 +28,8 @@ import { useKeyMaintenanceSession } from '../hooks/use-key-maintenance-session'
 import type { ApiKey, ApiKeysDialogType } from '../types'
 
 type ApiKeysContextType = {
+  viewRequests?: (key: ApiKey) => void
+  requestFocusId?: number
   open: ApiKeysDialogType | null
   setOpen: (str: ApiKeysDialogType | null) => void
   currentRow: ApiKey | null
@@ -46,7 +48,11 @@ type ApiKeysContextType = {
 
 const ApiKeysContext = React.createContext<ApiKeysContextType | null>(null)
 
-export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
+export function ApiKeysProvider(props: {
+  children: React.ReactNode
+  viewRequests?: (key: ApiKey) => void
+  requestFocusId?: number
+}) {
   const { t } = useTranslation()
   const isCurrentSession = useKeyMaintenanceSession()
   const [open, setOpen] = useDialogState<ApiKeysDialogType>(null)
@@ -175,6 +181,8 @@ export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
   return (
     <ApiKeysContext
       value={{
+        viewRequests: props.viewRequests,
+        requestFocusId: props.requestFocusId,
         open,
         setOpen,
         currentRow,
@@ -191,7 +199,7 @@ export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
         markKeyCopied,
       }}
     >
-      {children}
+      {props.children}
     </ApiKeysContext>
   )
 }

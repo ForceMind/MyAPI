@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-
 export function formatLogBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
   const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB']
@@ -195,6 +194,50 @@ function responseDeltaText(value: unknown): string[] {
     }
   }
   return pieces
+}
+
+/** Only explicit protocol errors are diagnostic evidence, never assistant text. */
+export function extractLogResponseErrors(
+  body: string,
+  encoding?: string,
+  contentType?: string
+): string[] {
+  if (!body || encoding === 'base64') return []
+  const stream =
+    contentType?.toLowerCase().includes('text/event-stream') ||
+    /(^|\n)data:/.test(body)
+  const messages = new Set<string>()
+  const events = stream ? body.split(/\r?\n\r?\n/) : [body]
+  for (const event of events) {
+    let data = event
+    let explicitError = false
+    if (stream) {
+      const lines = event.split(/\r?\n/)
+      explicitError = lines.some((line) => /^event:\s*error\s*$/.test(line))
+      data = lines
+        .filter((line) => line.startsWith('data:'))
+        .map((line) => line.slice(5).trimStart())
+        .join('\n')
+    }
+    const payload = parseLogJson(data)
+    if (!isLogJsonObject(payload)) continue
+    let error = payload.error
+    if (
+      payload.type === 'response.failed' &&
+      isLogJsonObject(payload.response)
+    ) {
+      error = payload.response.error
+    } else if (!error && (explicitError || payload.type === 'error')) {
+      error = payload
+    }
+    let message: unknown = error
+    if (isLogJsonObject(error)) message = error.message
+    if (typeof message === 'string' && message.trim()) {
+      messages.add(message.trim().slice(0, 2000))
+    }
+    if (messages.size === 5) break
+  }
+  return [...messages]
 }
 
 export function extractLogResponseText(

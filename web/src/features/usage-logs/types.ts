@@ -348,6 +348,7 @@ export interface GetLogsParams {
   type?: number
   username?: string
   token_name?: string
+  token_id?: number
   model_name?: string
   start_timestamp?: number
   end_timestamp?: number
@@ -372,6 +373,7 @@ export interface GetLogStatsParams {
   type?: number
   username?: string
   token_name?: string
+  token_id?: number
   model_name?: string
   start_timestamp?: number
   end_timestamp?: number

@@ -144,6 +144,7 @@ function ConnectionKeySession(props: { context: ConnectionKeyContext }) {
             params={{ section: 'common' }}
             search={{
               channel: String(channelId),
+              tokenId: props.context.key,
               returnToKeys: true,
               connectionContext: props.context,
               page: 1,
@@ -151,14 +152,20 @@ function ConnectionKeySession(props: { context: ConnectionKeyContext }) {
             }}
             className={`${buttonVariants({ variant: 'outline' })} h-auto min-h-11 whitespace-normal`}
           >
-            {t('View connection requests')}
+            {t(
+              props.context.key
+                ? 'View Key requests'
+                : 'View connection requests'
+            )}
           </Link>
         )}
       </div>
       {showLogs && allowed && (
         <p className='text-muted-foreground text-xs'>
           {t(
-            'Call records are filtered by connection, not by Key. Key names are not stable identities.'
+            props.context.key
+              ? 'Requests are matched by the saved Key ID, including before a rename.'
+              : 'Call records are filtered by connection, not by Key. Key names are not stable identities.'
           )}
         </p>
       )}

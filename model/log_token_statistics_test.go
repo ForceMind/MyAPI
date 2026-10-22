@@ -20,7 +20,7 @@ func logTokenStatisticsContract(t *testing.T, db *gorm.DB) {
 		"usage_accuracy": "reported", "token_usage_evidence": LogTokenUsageEvidence{1, &input, &output, &cached},
 	})
 	require.NoError(t, err)
-	first := Log{UserId: 1, Username: "alice", Type: LogTypeConsume, CreatedAt: 100, ModelName: "model_1", TokenName: "owner'key", Group: "vip", ChannelId: 7, RequestId: "req-1", UpstreamRequestId: "up-1", BillingEventID: "statistics-event", Other: string(encoded)}
+	first := Log{TokenId: 7, UserId: 1, Username: "alice", Type: LogTypeConsume, CreatedAt: 100, ModelName: "model_1", TokenName: "owner'key", Group: "vip", ChannelId: 7, RequestId: "req-1", UpstreamRequestId: "up-1", BillingEventID: "statistics-event", Other: string(encoded)}
 	require.NoError(t, CreateLog(db, &first))
 	replay := first
 	replay.Id, replay.LogRowKey = 0, ""
@@ -35,8 +35,17 @@ func logTokenStatisticsContract(t *testing.T, db *gorm.DB) {
 		{UserId: 1, Username: "alice", Type: LogTypeTopup, CreatedAt: 103, Quota: 99},
 		{UserId: 1, Username: "alice", Type: LogTypeConsume, CreatedAt: 200, PromptTokens: 8000, Other: `{"usage_accuracy":"reported"}`},
 	} {
+		if row.UserId == 1 && row.CreatedAt >= 100 && row.CreatedAt <= 105 {
+			row.TokenId = 7
+		}
 		require.NoError(t, CreateLog(db, &row))
 	}
+	identityStats, identityErr := GetLogTokenStatistics(t.Context(), db, LogTokenStatisticsFilter{UserID: 1, TokenID: 7, Start: 100, End: 105})
+	require.NoError(t, identityErr)
+	assert.EqualValues(t, 6, identityStats.Records)
+	foreignStats, foreignErr := GetLogTokenStatistics(t.Context(), db, LogTokenStatisticsFilter{UserID: 2, TokenID: 7})
+	require.NoError(t, foreignErr)
+	assert.Zero(t, foreignStats.Records)
 	filter := LogTokenStatisticsFilter{UserID: 1, Start: 100, End: 105}
 	stat, err := GetLogTokenStatistics(t.Context(), db, filter)
 	require.NoError(t, err)

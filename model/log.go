@@ -919,8 +919,13 @@ func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
 	}
 }
 
-func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string, upstreamRequestId string) (logs []*Log, total int64, err error) {
+func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string, upstreamRequestId string, identity ...LogIdentityFilter) (logs []*Log, total int64, err error) {
 	tx := deduplicatedLogs(LOG_DB)
+	tx, err = applyLogIdentityFilter(tx, identity)
+	if err != nil {
+		return nil, 0, err
+	}
+
 	if logType != LogTypeUnknown {
 		tx = tx.Where("logs.type = ?", logType)
 	}
@@ -1009,8 +1014,13 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 
 const logSearchCountLimit = 10000
 
-func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, startIdx int, num int, group string, requestId string, upstreamRequestId string) (logs []*Log, total int64, err error) {
+func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, startIdx int, num int, group string, requestId string, upstreamRequestId string, identity ...LogIdentityFilter) (logs []*Log, total int64, err error) {
 	tx := deduplicatedLogs(LOG_DB).Where("logs.user_id = ?", userId)
+	tx, err = applyLogIdentityFilter(tx, identity)
+	if err != nil {
+		return nil, 0, err
+	}
+
 	if logType != LogTypeUnknown {
 		tx = tx.Where("logs.type = ?", logType)
 	}
@@ -1061,11 +1071,20 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	return SumUsedQuotaContext(context.Background(), logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group)
 }
 
-func SumUsedQuotaContext(ctx context.Context, logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string) (stat Stat, err error) {
+func SumUsedQuotaContext(ctx context.Context, logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string, identity ...LogIdentityFilter) (stat Stat, err error) {
 	tx := deduplicatedLogs(LOG_DB.WithContext(ctx)).Select("COALESCE(sum(quota), 0) quota")
 
 	// 为rpm和tpm创建单独的查询
 	rpmTpmQuery := deduplicatedLogs(LOG_DB.WithContext(ctx)).Select("count(*) rpm, COALESCE(sum(prompt_tokens), 0) + COALESCE(sum(completion_tokens), 0) tpm")
+
+	tx, err = applyLogIdentityFilter(tx, identity)
+	if err != nil {
+		return stat, err
+	}
+	rpmTpmQuery, err = applyLogIdentityFilter(rpmTpmQuery, identity)
+	if err != nil {
+		return stat, err
+	}
 
 	if tx, err = applyExplicitLogTextFilter(tx, "username", username); err != nil {
 		return stat, err

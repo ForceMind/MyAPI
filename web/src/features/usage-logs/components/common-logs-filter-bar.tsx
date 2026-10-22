@@ -195,6 +195,8 @@ export function CommonLogsFilterBar<TData>(
         type: [logType],
         page: 1,
         pageSize: searchParams.pageSize,
+        tokenId: searchParams.tokenId,
+        keyReturn: searchParams.keyReturn,
         connectionContext: searchParams.connectionContext,
         returnToKeys: searchParams.returnToKeys,
       },
@@ -207,6 +209,8 @@ export function CommonLogsFilterBar<TData>(
     navigate,
     queryClient,
     searchParams.pageSize,
+    searchParams.tokenId,
+    searchParams.keyReturn,
     searchParams.connectionContext,
     searchParams.returnToKeys,
   ])
@@ -231,6 +235,8 @@ export function CommonLogsFilterBar<TData>(
       search: {
         page: 1,
         pageSize: searchParams.pageSize,
+        tokenId: searchParams.tokenId,
+        keyReturn: searchParams.keyReturn,
         connectionContext: searchParams.connectionContext,
         returnToKeys: searchParams.returnToKeys,
         ...resetSearch,
@@ -242,6 +248,8 @@ export function CommonLogsFilterBar<TData>(
     navigate,
     queryClient,
     searchParams.pageSize,
+    searchParams.tokenId,
+    searchParams.keyReturn,
     searchParams.connectionContext,
     searchParams.returnToKeys,
   ])

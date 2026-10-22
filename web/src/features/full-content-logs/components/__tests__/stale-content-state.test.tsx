@@ -34,9 +34,15 @@ vi.mock('@/hooks/use-media-query', () => ({
   useMediaQuery: vi.fn(() => true),
 }))
 
+const actor = vi.hoisted(() => ({ role: 100 }))
 vi.mock('@/stores/auth-store', () => ({
   useAuthStore: (selector: (state: unknown) => unknown) =>
-    selector({ auth: { user: null, session: null } }),
+    selector({
+      auth: {
+        user: { id: 1, role: actor.role },
+        session: { sid: 'synthetic-body-session' },
+      },
+    }),
 }))
 
 vi.mock('@/components/layout', () => {
@@ -180,8 +186,37 @@ const LOG_DETAIL = {
 
 describe('full content logs stale error state', () => {
   beforeEach(() => {
+    actor.role = 100
     vi.clearAllMocks()
     vi.mocked(useMediaQuery).mockReturnValue(true)
+  })
+
+  test('a demoted actor cannot see a cached request body', () => {
+    vi.mocked(useQuery).mockReturnValue(
+      queryState({ data: LOG_DETAIL }) as never
+    )
+    const view = render(
+      <FullContentLogDetailsDialog
+        requestId='stale-request-1'
+        open
+        onOpenChange={() => undefined}
+      />
+    )
+    expect(screen.getByText('sensitive response body')).toBeInTheDocument()
+    actor.role = 1
+    view.rerender(
+      <FullContentLogDetailsDialog
+        requestId='stale-request-1'
+        open
+        onOpenChange={() => undefined}
+      />
+    )
+    expect(
+      screen.queryByText('sensitive response body')
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByText('Request content is available to administrators only.')
+    ).toBeInTheDocument()
   })
 
   test('hides previously loaded mobile rows when list refetch fails', () => {

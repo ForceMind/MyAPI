@@ -715,15 +715,11 @@ export function DetailsDialog(props: DetailsDialogProps) {
             )}
           </div>
         )}
-        {props.log.token_name && (
+        {props.log.token_id > 0 && (
           <Button
             size='sm'
             variant='ghost'
-            render={
-              <a
-                href={`/keys?filter=${encodeURIComponent(props.log.token_name)}`}
-              />
-            }
+            render={<a href={`/keys?keyId=${props.log.token_id}`} />}
           >
             {t('View this Key')}
           </Button>

@@ -107,7 +107,7 @@ export function useSidebarData(): SidebarData {
       items: [
         { title: t('Call records'), url: '/usage-logs/common', icon: FileText },
         {
-          title: t('API Request Logs'),
+          title: t('Request bodies & SSE'),
           url: '/full-content-logs',
           icon: FileSearch,
           requiredRole: ROLE.ADMIN,

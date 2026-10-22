@@ -94,6 +94,8 @@ export function DataTableRowActions<TData = ApiKey>(
   const isCurrentSession = useKeyMaintenanceSession()
   const apiKey = apiKeySchema.parse(props.apiKey ?? props.row?.original)
   const {
+    viewRequests,
+    requestFocusId,
     setOpen,
     setCurrentRow,
     triggerRefresh,
@@ -274,6 +276,20 @@ export function DataTableRowActions<TData = ApiKey>(
           {t('Usage budgets')}
         </span>
       </Button>
+
+      {viewRequests && (
+        <Button
+          variant='outline'
+          size='sm'
+          className='min-h-9 max-w-full whitespace-normal pointer-coarse:min-h-11'
+          autoFocus={requestFocusId === apiKey.id}
+          onClick={() => {
+            if (isCurrentSession()) viewRequests(apiKey)
+          }}
+        >
+          {t('View Key requests')}
+        </Button>
+      )}
 
       <DataTableRowActionMenu
         ariaLabel={t('Open menu')}

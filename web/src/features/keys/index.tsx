@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { getRouteApi } from '@tanstack/react-router'
+import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
@@ -28,7 +29,9 @@ import { ApiKeysPrimaryButtons } from './components/api-keys-primary-buttons'
 import { ApiKeysProvider } from './components/api-keys-provider'
 import { ApiKeysTable } from './components/api-keys-table'
 import { ConnectionKeyWorkspace } from './components/connection-key-workspace'
+import { KeyRequestDetail } from './components/key-request-detail'
 import { PersonalApiKeys } from './components/personal-api-keys'
+import type { ApiKey } from './types'
 
 export function ApiKeys() {
   const { t } = useTranslation()
@@ -37,11 +40,60 @@ export function ApiKeys() {
   const role = useAuthStore((state) => state.auth.user?.role)
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const search = getRouteApi('/_authenticated/keys/').useSearch()
+  const navigate = getRouteApi('/_authenticated/keys/').useNavigate()
+  const viewRequests = useCallback(
+    (key: ApiKey) => {
+      void navigate({
+        to: '/usage-logs/$section',
+        params: { section: 'common' },
+        search: {
+          tokenId: key.id,
+          page: 1,
+          pageSize: 20,
+          keyReturn: {
+            page: search.page,
+            pageSize: search.pageSize,
+            filter: search.filter,
+            status: search.status,
+            keyId: search.keyId,
+            focusKeyId: key.id,
+          },
+        },
+      })
+    },
+    [
+      navigate,
+      search.page,
+      search.pageSize,
+      search.filter,
+      search.status,
+      search.keyId,
+    ]
+  )
+  if (search.keyId) {
+    return (
+      <KeyRequestDetail
+        key={`${userId}:${sessionId}:${search.keyId}`}
+        keyId={search.keyId}
+        onViewRequests={viewRequests}
+        onBack={() =>
+          void navigate({
+            to: '/keys',
+            search: { ...search, keyId: undefined },
+          })
+        }
+      />
+    )
+  }
   if (search.connectionContext) {
     return <ConnectionKeyWorkspace context={search.connectionContext} />
   }
   return (
-    <ApiKeysProvider key={`${userId}:${role}:${sessionId}`}>
+    <ApiKeysProvider
+      key={`${userId}:${role}:${sessionId}`}
+      viewRequests={viewRequests}
+      requestFocusId={search.focusKeyId}
+    >
       {personal ? (
         <PersonalApiKeys />
       ) : (

@@ -805,12 +805,13 @@ jobs:
           NODE_OPTIONS: '--max-old-space-size=768'
         run: |
           failed=0
-          node --test tools/ui/browser-fixtures.test.mjs tools/ui/connection-key-browser-fixtures.test.mjs || failed=1
+          node --test tools/ui/browser-fixtures.test.mjs tools/ui/connection-key-browser-fixtures.test.mjs tools/ui/key-request-preview.test.mjs || failed=1
           for script in \
             tools/ui/personal-workbench-browser.mjs \
             tools/ui/subscription-share-browser.mjs \
             tools/ui/personal-console-browser.mjs \
-            tools/ui/connections-browser.mjs; do
+            tools/ui/connections-browser.mjs \
+            tools/ui/key-request-browser.mjs; do
             if ! node "$script"; then
               echo "::error file=$script::Personal console qualification failed"
               failed=1

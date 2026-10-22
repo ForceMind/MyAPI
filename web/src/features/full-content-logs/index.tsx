@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-
 import { useQuery } from '@tanstack/react-query'
 import { Database, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
@@ -35,6 +34,7 @@ import {
 } from '@/components/ui/table'
 import { useMediaQuery } from '@/hooks'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
+import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { getFullContentLogs } from './api'
@@ -70,6 +70,8 @@ export function FullContentLogs() {
   const { t } = useTranslation()
   const isMobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
   const userId = useAuthStore((state) => state.auth.user?.id ?? null)
+  const role = useAuthStore((state) => state.auth.user?.role ?? 0)
+  const canRead = userId !== null && role >= ROLE.ADMIN
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const [page, setPage] = useState(1)
   const [draftFilters, setDraftFilters] =
@@ -86,12 +88,16 @@ export function FullContentLogs() {
       userId,
       sessionId
     ),
-    queryFn: async () => {
-      const response = await getFullContentLogs({
-        page,
-        pageSize: PAGE_SIZE,
-        filters: appliedFilters,
-      })
+    enabled: canRead,
+    queryFn: async ({ signal }) => {
+      const response = await getFullContentLogs(
+        {
+          page,
+          pageSize: PAGE_SIZE,
+          filters: appliedFilters,
+        },
+        signal
+      )
       if (!response.success || !response.data) {
         throw new Error(
           response.message || t('Failed to load full content logs')
@@ -99,11 +105,10 @@ export function FullContentLogs() {
       }
       return response.data
     },
-    placeholderData: (previousData) => previousData,
     retry: false,
   })
 
-  const data = logsQuery.data
+  const data = canRead && !logsQuery.isError ? logsQuery.data : undefined
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE))
 
   const applyFilters = () => {
@@ -121,7 +126,7 @@ export function FullContentLogs() {
     <>
       <SectionPageLayout fixedContent={!isMobile}>
         <SectionPageLayout.Title>
-          {t('API Request Logs')}
+          {t('Request bodies & SSE')}
         </SectionPageLayout.Title>
         <SectionPageLayout.Actions>
           <Button variant='outline' onClick={() => setFilesOpen(true)}>
@@ -149,11 +154,23 @@ export function FullContentLogs() {
               <div className='font-medium'>{t('Online request explorer')}</div>
               <div className='text-muted-foreground mt-1'>
                 {t(
-                  'Filter by API key, time, model or request ID, then click any row to inspect the complete request and response online.'
+                  'Saved request and response bodies, including streaming events. Opening a record never resends it.'
                 )}
               </div>
             </div>
 
+            {!canRead && (
+              <p role='alert'>
+                {t('Request content is available to administrators only.')}
+              </p>
+            )}
+            {data?.enabled && (
+              <p className='rounded-lg border p-3 text-sm' role='status'>
+                {t(
+                  'Body capture is enabled for new requests. Earlier content cannot be recovered.'
+                )}
+              </p>
+            )}
             {data && !data.enabled && (
               <div className='border-warning/40 bg-warning/10 text-warning rounded-lg border p-3 text-sm'>
                 {t(
@@ -168,7 +185,7 @@ export function FullContentLogs() {
                   {t('Matching Requests')}
                 </div>
                 <div className='mt-1 text-xl font-semibold tabular-nums'>
-                  {data?.total ?? 0}
+                  {data?.total ?? '—'}
                 </div>
               </div>
               <div className='rounded-lg border p-3'>
@@ -176,7 +193,7 @@ export function FullContentLogs() {
                   {t('Log Files')}
                 </div>
                 <div className='mt-1 text-xl font-semibold tabular-nums'>
-                  {data?.files.count ?? 0}
+                  {data?.files.count ?? '—'}
                 </div>
               </div>
               <div className='rounded-lg border p-3'>
@@ -184,7 +201,7 @@ export function FullContentLogs() {
                   {t('Disk Usage')}
                 </div>
                 <div className='mt-1 text-xl font-semibold tabular-nums'>
-                  {formatLogBytes(data?.files.total_size ?? 0)}
+                  {data ? formatLogBytes(data.files.total_size) : '—'}
                 </div>
               </div>
             </div>

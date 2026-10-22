@@ -16,17 +16,50 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-
 import { describe, expect, test } from 'vitest'
 
 import {
   extractLogRequestText,
   extractLogResponseText,
+  extractLogResponseErrors,
   formatLogBody,
   formatLogBytes,
 } from '../format'
 
 describe('full content log formatting', () => {
+  test('surfaces explicit stream failures even when an earlier response used HTTP 200', () => {
+    const message = 'Your input exceeds the context window of this model.'
+    expect(
+      extractLogResponseErrors(
+        `data: {"choices":[{"delta":{"content":"Partial answer"}}]}\n\nevent: error\ndata: {"error":{"code":"context_length_exceeded","message":"${message}"}}\n\ndata: [DONE]\n\n`,
+        undefined,
+        'text/event-stream'
+      )
+    ).toEqual([message])
+    expect(
+      extractLogResponseErrors(
+        '{"type":"response.failed","response":{"error":{"message":"Upstream rejected the request"}}}'
+      )
+    ).toEqual(['Upstream rejected the request'])
+  })
+
+  test('ordinary assistant text, incomplete events and binary bodies do not establish an error', () => {
+    expect(
+      extractLogResponseErrors(
+        '{"choices":[{"message":{"content":"An error is just a word here"}}]}'
+      )
+    ).toEqual([])
+    expect(
+      extractLogResponseErrors(
+        'data: {"error":\n\n',
+        undefined,
+        'text/event-stream'
+      )
+    ).toEqual([])
+    expect(
+      extractLogResponseErrors('{"error":{"message":"not decoded"}}', 'base64')
+    ).toEqual([])
+  })
   test('formats JSON request bodies without changing their values', () => {
     expect(
       formatLogBody('{"model":"gpt-5.6-luna","stream":true}', 'json')

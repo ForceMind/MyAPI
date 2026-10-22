@@ -41,6 +41,7 @@ const missingUsage = usageLogSchema.parse({
   type: 5,
   content: 'completed without usage',
   token_name: 'desktop-key',
+  token_id: 21,
   model_name: 'gpt-test',
   request_id: 'req-complete',
   other: JSON.stringify({
@@ -125,7 +126,7 @@ describe('personal call list and detail', () => {
     expect(within(detail).getAllByText('Unknown')).toHaveLength(4)
     expect(
       within(detail).getByRole('button', { name: 'View this Key' })
-    ).toHaveAttribute('href', '/keys?filter=desktop-key')
+    ).toHaveAttribute('href', '/keys?keyId=21')
     expect(screen.queryByText('Current Balance')).not.toBeInTheDocument()
     expect(screen.queryByText('Usage pending review')).not.toBeInTheDocument()
     expect(String(get.mock.calls[0][0])).toContain('/api/log/self?')

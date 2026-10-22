@@ -20,6 +20,10 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import z from 'zod'
 
 import { connectionKeyContextSchema } from '@/features/connections/key-context'
+import {
+  keyRequestContextSchema,
+  savedKeyIdSchema,
+} from '@/features/keys/key-request-context'
 import { UsageLogs } from '@/features/usage-logs'
 import {
   isUsageLogsSectionId,
@@ -35,6 +39,8 @@ const logTypeSearchSchema = z
   .catch([])
 
 const usageLogsSearchSchema = z.object({
+  tokenId: savedKeyIdSchema.optional(),
+  keyReturn: keyRequestContextSchema.optional().catch(undefined),
   returnToKeys: z.boolean().optional().catch(undefined),
   connectionContext: connectionKeyContextSchema.optional().catch(undefined),
   page: z.number().optional().catch(1),

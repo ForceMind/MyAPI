@@ -159,11 +159,19 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
       return result.data || DEFAULT_LOGS_DATA
     },
     placeholderData: (previousData, previousQuery) => {
+      const previousSearch = previousQuery?.queryKey[8]
+      const previousKeyId =
+        previousSearch &&
+        typeof previousSearch === 'object' &&
+        'tokenId' in previousSearch
+          ? previousSearch.tokenId
+          : undefined
       if (
         previousQuery?.queryKey[1] === logCategory &&
         previousQuery.queryKey[2] === isAdmin &&
         previousQuery.queryKey[3] === userId &&
-        previousQuery.queryKey[4] === sessionId
+        previousQuery.queryKey[4] === sessionId &&
+        previousKeyId === searchParams.tokenId
       ) {
         return previousData
       }

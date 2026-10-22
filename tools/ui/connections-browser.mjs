@@ -132,14 +132,15 @@ try {
       await page.keyboard.press('Escape')
       await shareEditor.waitFor({ state: 'hidden' })
       assert.equal(page.url(), keyUrl, 'Cancel preserves the exact Key and pool context')
-      await page.getByText(t('Call records are filtered by connection, not by Key. Key names are not stable identities.'), { exact: true }).waitFor()
-      await page.getByRole('link', { name: t('View connection requests'), exact: true }).click()
+      await page.getByText(t('Requests are matched by the saved Key ID, including before a rename.'), { exact: true }).waitFor()
+      await page.getByRole('link', { name: t('View Key requests'), exact: true }).click()
       await page.getByRole('heading', { name: t('Call records'), level: 1, exact: true }).waitFor()
       const logsMain = page.getByRole('main', { name: t('Call records'), exact: true })
       const keyReturn = logsMain.getByRole('link', { name: t('Associated Key shares'), exact: true })
       await keyReturn.waitFor()
       const expectedContext = JSON.parse(new URL(keyUrl).searchParams.get('connectionContext'))
       const assertKeyReturn = async () => {
+        assert.equal(new URL(page.url()).searchParams.get('tokenId'), '21', 'Selected Key ID remains pinned after Apply/Reset')
         const href = new URL(await keyReturn.getAttribute('href'), origin)
         assert.deepEqual(JSON.parse(href.searchParams.get('connectionContext')), expectedContext, 'Visible return retains connection filter/page, pool page, pool and Key')
       }

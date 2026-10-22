@@ -89,6 +89,10 @@ export function PersonalApiKeys() {
       role={role}
       sessionId={sessionId}
       filter={search.filter ?? ''}
+      page={search.page ?? 1}
+      onPageChange={(page) =>
+        void navigate({ search: (previous) => ({ ...previous, page }) })
+      }
       onSearch={(filter) =>
         void navigate({
           search: (previous) => ({
@@ -107,10 +111,12 @@ function PersonalApiKeysSession(props: {
   role?: number
   sessionId: string | null
   filter: string
+  page: number
+  onPageChange: (page: number) => void
   onSearch: (filter: string) => void
 }) {
   const { t } = useTranslation()
-  const [page, setPage] = useState(1)
+  const page = props.page
   const [searchInput, setSearchInput] = useState(props.filter)
   const keyword = props.filter
   const [editingKey, setEditingKey] = useState<ApiKey | null>(null)
@@ -261,7 +267,7 @@ function PersonalApiKeysSession(props: {
           <Button
             variant='outline'
             disabled={page === 1 || query.isFetching}
-            onClick={() => setPage(page - 1)}
+            onClick={() => props.onPageChange(page - 1)}
           >
             {t('Previous')}
           </Button>
@@ -271,7 +277,7 @@ function PersonalApiKeysSession(props: {
           <Button
             variant='outline'
             disabled={page * 10 >= query.data.total || query.isFetching}
-            onClick={() => setPage(page + 1)}
+            onClick={() => props.onPageChange(page + 1)}
           >
             {t('Next')}
           </Button>
@@ -296,7 +302,7 @@ function PersonalApiKeyCard(props: {
   onMaintain: () => void
 }) {
   const { t } = useTranslation()
-  const { setCurrentRow, setOpen } = useApiKeys()
+  const { setCurrentRow, setOpen, viewRequests, requestFocusId } = useApiKeys()
   const client = useQueryClient()
   const [copying, setCopying] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
@@ -519,6 +525,16 @@ function PersonalApiKeyCard(props: {
         )}
       </CardContent>
       <CardFooter className='flex min-w-0 flex-wrap gap-2'>
+        {viewRequests && (
+          <Button
+            className='h-auto min-h-10 whitespace-normal'
+            variant='outline'
+            autoFocus={requestFocusId === props.apiKey.id}
+            onClick={() => viewRequests(props.apiKey)}
+          >
+            {t('View Key requests')}
+          </Button>
+        )}
         <Button
           className='h-auto min-h-10 whitespace-normal'
           variant='outline'

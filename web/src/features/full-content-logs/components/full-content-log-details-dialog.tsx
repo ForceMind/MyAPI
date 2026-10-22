@@ -16,8 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-
 import { useQuery } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 import { Check, Copy } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -30,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
+import { ROLE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -37,6 +38,7 @@ import { getFullContentLogDetail } from '../api'
 import {
   extractLogRequestText,
   extractLogResponseText,
+  extractLogResponseErrors,
   formatLogBody,
   formatLogBytes,
 } from '../lib/format'
@@ -120,6 +122,8 @@ export function FullContentLogDetailsDialog(
   const { t } = useTranslation()
   const isMobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
   const userId = useAuthStore((state) => state.auth.user?.id ?? null)
+  const role = useAuthStore((state) => state.auth.user?.role ?? 0)
+  const canRead = userId !== null && role >= ROLE.ADMIN
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const [showRaw, setShowRaw] = useState(false)
   const detailQuery = useQuery({
@@ -131,18 +135,40 @@ export function FullContentLogDetailsDialog(
       props.requestId,
       userId,
       sessionId,
+      role,
     ],
-    queryFn: async () => {
-      const response = await getFullContentLogDetail(props.requestId || '')
-      if (!response.success || !response.data) {
+    queryFn: async ({ signal }) => {
+      const response = await getFullContentLogDetail(
+        props.requestId || '',
+        signal
+      )
+      if (
+        !response.success ||
+        !response.data ||
+        response.data.request_id !== props.requestId
+      ) {
         throw new Error(response.message || t('Failed to load log detail'))
       }
       return response.data
     },
-    enabled: props.open && Boolean(props.requestId),
+    enabled: props.open && Boolean(props.requestId) && canRead,
     retry: false,
   })
-  const detail = detailQuery.data
+  const detail = canRead && !detailQuery.isError ? detailQuery.data : undefined
+  const status = isAxiosError(detailQuery.error)
+    ? detailQuery.error.response?.status
+    : undefined
+  let contentError =
+    detailQuery.error instanceof Error
+      ? detailQuery.error.message
+      : t('Failed to load log detail')
+  if (status === 404) {
+    contentError = t(
+      'No saved request content. It may not have been recorded or may have expired.'
+    )
+  } else if (status === 401 || status === 403) {
+    contentError = t('Request content is available to administrators only.')
+  }
   const requestText = useMemo(
     () =>
       detail
@@ -165,6 +191,22 @@ export function FullContentLogDetailsDialog(
         : '',
     [detail]
   )
+  const responseErrors = useMemo(
+    () =>
+      detail
+        ? [
+            ...new Set([
+              ...(detail.error ? [detail.error] : []),
+              ...extractLogResponseErrors(
+                detail.response_body,
+                detail.response_encoding,
+                detail.response_content_type
+              ),
+            ]),
+          ]
+        : [],
+    [detail]
+  )
 
   return (
     <Dialog
@@ -176,6 +218,11 @@ export function FullContentLogDetailsDialog(
       contentHeight={isMobile ? 'min(88dvh, 900px)' : 'min(82vh, 900px)'}
       bodyClassName='pb-[env(safe-area-inset-bottom,0px)]'
     >
+      {!canRead && (
+        <p role='alert'>
+          {t('Request content is available to administrators only.')}
+        </p>
+      )}
       {detailQuery.isLoading && (
         <div className='space-y-3' aria-label={t('Loading')}>
           <Skeleton className='h-16 w-full' />
@@ -185,11 +232,7 @@ export function FullContentLogDetailsDialog(
 
       {detailQuery.isError && (
         <div className='border-destructive/30 bg-destructive/5 rounded-lg border p-4 text-sm'>
-          <div className='text-destructive'>
-            {detailQuery.error instanceof Error
-              ? detailQuery.error.message
-              : t('Failed to load log detail')}
-          </div>
+          <div className='text-destructive'>{contentError}</div>
           <Button
             className='mt-3'
             size='sm'
@@ -203,13 +246,18 @@ export function FullContentLogDetailsDialog(
 
       {detail && !detailQuery.isError && (
         <div className='space-y-4'>
+          <p className='text-muted-foreground rounded-lg border p-3 text-sm'>
+            {t(
+              'HTTP status describes the transport. Streaming failures may appear inside the response body.'
+            )}
+          </p>
           <div className='grid gap-2 rounded-lg border p-3 text-xs sm:grid-cols-2 lg:grid-cols-4'>
             <div>
               <span className='text-muted-foreground'>{t('Model')}</span>
               <div className='mt-1 font-medium'>{detail.model || '-'}</div>
             </div>
             <div>
-              <span className='text-muted-foreground'>{t('Status')}</span>
+              <span className='text-muted-foreground'>{t('HTTP status')}</span>
               <div className='mt-1 font-medium'>{detail.status || '-'}</div>
             </div>
             <div>
@@ -242,9 +290,15 @@ export function FullContentLogDetailsDialog(
             </div>
           </div>
 
-          {detail.error && (
-            <div className='border-destructive/30 bg-destructive/5 text-destructive rounded-lg border p-3 text-sm break-all'>
-              {detail.error}
+          {responseErrors.length > 0 && (
+            <div
+              role='alert'
+              className='border-destructive/30 bg-destructive/5 text-destructive space-y-1 rounded-lg border p-3 text-sm break-words'
+            >
+              <p className='font-medium'>{t('Error')}</p>
+              {responseErrors.map((message) => (
+                <p key={message}>{message}</p>
+              ))}
             </div>
           )}
 
