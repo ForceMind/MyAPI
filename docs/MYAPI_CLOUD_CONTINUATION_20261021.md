@@ -148,3 +148,15 @@ Apply/Reset 仅显式保留经路由校验的 `connectionContext` 与 `returnToK
 账号浏览器27个旅程通过后，新增的过宽token列表禁读规则误拦旧商业dashboard门禁案例。修订只允许GET、`/dashboard/overview`、`enabled`/`retirement`三个条件同时成立时沿用原列表DTO；普通个人模式、未知模式、关联Key页及单个Key owner/secret读取仍拒绝，关联导航的零宽泛列表读取断言保留。没有改变产品权限或API。
 
 2c2ff34a整轮最终为10个job成功、1个前端job失败，唯一失败步骤为上述personal-console浏览器；后端全套/race及其余全UI步骤通过。失败结果完整保留，没有取消运行来隐藏结果。本次修订的27个Node测试、两驱动语法和差异检查通过，独立复核未发现阻断；真实浏览器修订仍需下一准确head执行。当前只补驱动和验收说明，不改产品代码，不更改Draft/Docker跳过条件，不合并或部署。
+
+## C3 浏览器区域定位修订（2026-10-22）
+
+验收提交 `8acf4c9d5c2d1315dfcfecb22008f1ab3fbfb290` 的 tree 为 `130c811558bbad6e77340026dd908c9e30e0195e`，已核与 [CI39731516625](https://github.com/ForceMind/MyAPI/actions/runs/39731516625) 的合成merge tree一致。准确前端工件 `12405670586` 的SHA256为 `4f77c3dbbed9025d41c19858feaaf27ad780897f76ceb4d74fde9c8289d54e8c`，259文件/1671测试通过，179.99秒，typecheck、lint和生产构建通过。新增索引在一次性SQLite、MySQL、Postgres再次分别PASS（0.02秒、0.07秒、0.04秒），无skip。
+
+该轮账号浏览器30个旅程全部通过，前两轮URL顺序和列表读取边界问题已解决；连接主流程仅完成英语320、390、768三个组合，1024px在调用记录页因全局header与页面筛选均有“Search”按钮触发严格定位歧义。原始报告及1024px失败PNG已核对，属于浏览器驱动作用域错误，不将它写成产品故障，也不将3个组合写成42个组合通过。
+
+修订将调用记录返回链接、桌面Search/Reset与移动Filter入口限定到名为Call records的main区域，移动筛选字段仍限定Filter dialog；下一页限定到All saved share windows region，编辑提示复用具名Subscription shares dialog。保留所有数量、稳定身份、完整返回参数、读写权限及错误零计数断言，未使用任取第一个元素来掩盖歧义。全部后续定位器及七语言文案已静态复核，未发现另一个确定性同名碰撞；27个Node测试、语法及差异检查通过。静态复核不是实际浏览器42组合结果，仍须新准确head验证。
+
+本次仅修改浏览器驱动及验收说明，产品实现、Draft边界和Docker smoke跳过条件保持不变。
+
+8acf4c9d整轮终态为10个job成功、1个前端job失败；后端全套与全部race门禁、其余全UI步骤均通过，唯一失败步骤仍是上述Search定位歧义。原运行未取消，失败证据保留。新作用域修订经独立增量复核无阻断，但尚无新head浏览器结果。

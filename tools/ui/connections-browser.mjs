@@ -99,7 +99,7 @@ try {
       await page.getByRole('link', { name: `${t('Pool #{{id}}').replace('{{id}}', '8')} · five_hour`, exact: true }).waitFor()
       assert.equal(await page.getByRole('region', { name: t('All saved share windows'), exact: true }).getByRole('listitem').count(), 20, 'A full saved-pool page retains the server page boundary')
       await capture('key-pools-full-page')
-      await page.getByRole('button', { name: t('Next'), exact: true }).click()
+      await page.getByRole('region', { name: t('All saved share windows'), exact: true }).getByRole('button', { name: t('Next'), exact: true }).click()
       const savedPool = page.getByRole('link', { name: `${t('Pool #{{id}}').replace('{{id}}', '7')} · five_hour`, exact: true })
       await savedPool.waitFor()
       assert.equal(JSON.parse(new URL(page.url()).searchParams.get('connectionContext')).poolPage, 2)
@@ -116,7 +116,7 @@ try {
       await page.getByRole('button', { name: t('Manage Key shares'), exact: true }).click()
       const shareEditor = page.getByRole('dialog', { name: t('Subscription shares'), exact: true })
       await shareEditor.waitFor()
-      await page.getByRole('dialog').getByText(t('Approximate usage allocation'), { exact: true }).waitFor()
+      await shareEditor.getByText(t('Approximate usage allocation'), { exact: true }).waitFor()
       await capture('key-edit')
       await page.keyboard.press('Escape')
       await shareEditor.waitFor({ state: 'hidden' })
@@ -124,7 +124,8 @@ try {
       await page.getByText(t('Call records are filtered by connection, not by Key. Key names are not stable identities.'), { exact: true }).waitFor()
       await page.getByRole('link', { name: t('View connection requests'), exact: true }).click()
       await page.getByRole('heading', { name: t('Call records'), level: 1, exact: true }).waitFor()
-      const keyReturn = page.getByRole('link', { name: t('Associated Key shares'), exact: true })
+      const logsMain = page.getByRole('main', { name: t('Call records'), exact: true })
+      const keyReturn = logsMain.getByRole('link', { name: t('Associated Key shares'), exact: true })
       await keyReturn.waitFor()
       const expectedContext = JSON.parse(new URL(keyUrl).searchParams.get('connectionContext'))
       const assertKeyReturn = async () => {
@@ -132,9 +133,9 @@ try {
         assert.deepEqual(JSON.parse(href.searchParams.get('connectionContext')), expectedContext, 'Visible return retains connection filter/page, pool page, pool and Key')
       }
       await assertKeyReturn()
-      let filterArea = page
+      let filterArea = logsMain
       if (mobile) {
-        await page.getByRole('button', { name: t('Filter'), exact: false }).click()
+        await logsMain.getByRole('button', { name: t('Filter'), exact: false }).click()
         filterArea = page.getByRole('dialog', { name: t('Filter'), exact: true })
         await filterArea.waitFor()
       }
@@ -143,7 +144,7 @@ try {
       await page.waitForURL(url => url.searchParams.get('model') === 'synthetic-text-model')
       await assertKeyReturn()
       if (mobile) {
-        await page.getByRole('button', { name: t('Filter'), exact: false }).click()
+        await logsMain.getByRole('button', { name: t('Filter'), exact: false }).click()
         filterArea = page.getByRole('dialog', { name: t('Filter'), exact: true })
         await filterArea.waitFor()
       }
