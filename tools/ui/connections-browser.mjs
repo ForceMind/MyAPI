@@ -27,8 +27,11 @@ const server = createServer((request, response) => {
 })
 assert(existsSync(resolve(root, 'index.html')), 'Build frontend first')
 mkdirSync(output, { recursive: true })
-const longName = 'Synthetic API connection · 用于验证中英文长名称与模型标识自动换行 · a-very-long-provider-connection-name-that-must-not-push-actions-off-screen'
-const connection = id => ({ id, type: id === 1 ? 1 : 57, name: id === 1 ? longName : 'Synthetic subscription connection', status: 1, models: 'synthetic-text-model,a-very-long-model-identifier-that-must-remain-readable-at-mobile-width', group: 'default', priority: 0, weight: 0, key: '', created_time: 1, test_time: 0, response_time: 0, balance_updated_time: 0 })
+// Match the real GetChannel DTO, including non-optional channel_info. The same
+// fixture drives an unmocked workspace + editor integration regression.
+const editorFixture = JSON.parse(readFileSync(resolve(repo, 'tools/ui/connection-editor-fixture.json')))
+const longName = editorFixture.name
+const connection = id => ({ ...editorFixture, id, type: id === 1 ? 1 : 57, name: id === 1 ? longName : 'Synthetic subscription connection' })
 let browser
 try {
   await new Promise(done => server.listen(0, '127.0.0.1', done))
@@ -43,7 +46,7 @@ try {
     const associations = createConnectionKeyFixture()
     const context = await browser.newContext({ viewport: { width: item.width, height: 960 }, reducedMotion: 'reduce', colorScheme: 'light', serviceWorkers: 'block' })
     await context.addInitScript(language => localStorage.setItem('i18nextLng', language), codes[item.language])
-    const errors = [], violations = [], external = [], requests = []
+    const errors = [], violations = [], external = [], requests = [], consoleErrors = [], responses = []
     let failDetail = false, empty = false, deny = false
     await context.route('**/*', async route => {
       const request = route.request(), url = new URL(request.url()), path = url.pathname.replace(/\/$/, '')
@@ -57,6 +60,7 @@ try {
         if (association.violation) { violations.push(association.violation); return route.fulfill({ status: 503, json: { success: false } }) }
         return route.fulfill({ status: association.status, json: association.body })
       }
+      if (path === '/api/channel/models') return route.fulfill({ json: { success: true, data: [{ id: 'synthetic-text-model' }] } })
       if (path === '/api/channel' || path === '/api/channel/search') return route.fulfill({ json: { success: true, data: { total: empty ? 0 : 22, page: Number(url.searchParams.get('p') || 1), page_size: 20, items: empty ? [] : [connection(1), connection(2)] } } })
       if (/^\/api\/channel\/[12]$/.test(path)) return route.fulfill({ status: failDetail ? 503 : 200, json: failDetail ? { success: false } : { success: true, data: connection(Number(path.split('/').at(-1))) } })
       if (path === '/api/channel/quota/changes') {
@@ -72,6 +76,13 @@ try {
     page.setDefaultTimeout(15000)
     await page.clock.setFixedTime(FIXTURE_TIME)
     page.on('pageerror', error => errors.push(error.message))
+    // React/router boundaries can render an error page without pageerror. Keep
+    // console and response evidence (including deliberate 403/503 fixtures).
+    page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()) })
+    page.on('response', response => {
+      const url = new URL(response.url())
+      if (url.origin === origin && (url.pathname.startsWith('/api/') || url.pathname.startsWith('/pg/'))) responses.push({ path: url.pathname, status: response.status() })
+    })
     const capture = async state => {
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'No horizontal viewport overflow')
       const file = `connections-${state}-${item.language}-${item.width}.png`
@@ -241,7 +252,7 @@ try {
       assert.deepEqual(violations, [], 'No unconfigured reads or mutations')
       assert.deepEqual(external, [], 'No provider/external requests')
       report.journeys.push({ ...item, result: 'passed', requests })
-    } catch (error) { await capture('failed').catch(() => {}); report.errors.push({ ...item, error: String(error), violations, external, runtime: errors }); throw error }
+    } catch (error) { await capture('failed').catch(() => {}); report.errors.push({ ...item, error: String(error), url: page.url(), requests, responses, consoleErrors, violations, external, runtime: errors }); throw error }
     finally { await context.close(); persist() }
   }
   report.result = 'passed'

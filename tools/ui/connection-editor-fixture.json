@@ -1,0 +1,21 @@
+{
+  "id": 1,
+  "type": 1,
+  "name": "Synthetic API connection · 用于验证中英文长名称与模型标识自动换行 · a-very-long-provider-connection-name-that-must-not-push-actions-off-screen",
+  "status": 1,
+  "models": "synthetic-text-model,a-very-long-model-identifier-that-must-remain-readable-at-mobile-width",
+  "group": "default",
+  "priority": 0,
+  "weight": 0,
+  "key": "",
+  "created_time": 1,
+  "test_time": 0,
+  "response_time": 0,
+  "balance_updated_time": 0,
+  "channel_info": {
+    "is_multi_key": false,
+    "multi_key_size": 0,
+    "multi_key_polling_index": 0,
+    "multi_key_mode": "random"
+  }
+}

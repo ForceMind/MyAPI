@@ -160,3 +160,17 @@ Apply/Reset 仅显式保留经路由校验的 `connectionContext` 与 `returnToK
 本次仅修改浏览器驱动及验收说明，产品实现、Draft边界和Docker smoke跳过条件保持不变。
 
 8acf4c9d整轮终态为10个job成功、1个前端job失败；后端全套与全部race门禁、其余全UI步骤均通过，唯一失败步骤仍是上述Search定位歧义。原运行未取消，失败证据保留。新作用域修订经独立增量复核无阻断，但尚无新head浏览器结果。
+
+## C3 真实编辑器合成DTO合同修订（2026-10-22）
+
+验收提交 `6363c56db16ceb8268b453406a6872fa67180391` 与 [CI39734755602](https://github.com/ForceMind/MyAPI/actions/runs/39734755602) 合成merge的tree均为 `d7278db6b58c3275a62ec4c0ba9522310120cd5c`。新前端工件 `12407410510` 的SHA256 `2d8a50657651c1cadfee57364c908716e2f978f3ddacf22b0e3f76c9e8975240` 已核对，259文件/1671测试通过，313.06秒；typecheck、lint、构建及新索引原生三库再次通过（SQLite0.02秒/MySQL0.07秒/Postgres0.05秒，无skip，完整三库合同4.85秒）。
+
+真实连接流程通过英语320/390/768/1024四组，确认Search作用域修订有效；英语1280额外边界点击编辑连接时实际出现500错误页。个人工件 `12406933705` 的SHA256 `f5581c6f7f8126db9e310e753d35cdece96f9ec7c0f60aa6ead50b80729ea3cf` 已核对，原始PNG与失败报告保留。该轮账号30、个人20、分额28个旅程通过，但不能把四组及部分1280流程写成42组全过。
+
+未mock的真实ConnectionsWorkspace与ChannelMutateDrawer本地回归复现了准确异常：旧合成连接DTO缺少channel_info，表单转换读取multi_key_mode时抛错。真实model.Channel的channel_info字段没有omitempty，GetChannel直接返回该对象；ChannelsProvider本已存在，无需修改。仅补此服务端必含结构后，同一真实编辑器回归转绿。新的共享JSON由浏览器与组件集成测试共同读取，仅包含被测路径所需的最小有效字段，不代表逐字段完整DTO合同；另将此驱动的models响应改为真实{id}对象列表，不再沿用旧quota夹具的字符串列表。
+
+新增桌面/移动真实编辑、改名后Escape取消、保留连接选择、筛选、分页与焦点、重开恢复原名的回归；适配器禁止业务写入、密钥读取及供应商操作。新集成与既有连接测试共2文件27测试通过（10.47秒），Node夹具28/28、typecheck、相关lint/format、生产构建及diff检查通过。浏览器失败报告额外保留当前URL、请求/响应状态和console错误，以捕获React/router错误边界而不仅依赖pageerror；原错误零计数和权限断言不变。
+
+本次仅夹具、验收驱动、回归与本说明，没有产品实现、provider、权限或生产数据变更。真实Chromium修订仍须下一准确head验证，Draft及不合并/不部署边界保持。
+
+6363c56d整轮最终为10个job成功、1个前端job失败；后端全部race及其余全UI通过，唯一失败步骤为上述编辑器合成DTO缺项。未取消原运行；失败PNG、真实组件先红后绿日志保留。最终五文件增量独立复核无阻断，未宣称新浏览器结果。

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFileSync } from 'node:fs'
 import { connectionLocation, createConnectionKeyFixture } from './connection-key-browser-fixtures.mjs'
 
 const url = path => new URL(path, 'http://synthetic.invalid')
@@ -65,4 +66,11 @@ test('explicit empty, failure and historical states do not invent current alloca
   assert.equal(view.state, 'closed')
   assert.equal(view.allocations[0].token_state, 'deleted')
   assert.equal(view.allocations[0].estimated_used_micro, 5000000)
+})
+
+test('connection editor fixture retains the native channel metadata needed by the real form', () => {
+  const channel = JSON.parse(readFileSync(new URL('./connection-editor-fixture.json', import.meta.url)))
+  assert.equal(channel.id, 1)
+  assert.equal(channel.key, '')
+  assert.deepEqual(channel.channel_info, { is_multi_key: false, multi_key_size: 0, multi_key_polling_index: 0, multi_key_mode: 'random' })
 })
