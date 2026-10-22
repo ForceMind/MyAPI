@@ -8,8 +8,8 @@
 - `dev` 完整接续原开发线 `ea4ea6b7d11f4af99e341816eec370f57eddbd82`；业务代码基线为 `e4580454021369448fac9da09b6faa1cff2096e6`。本批整理提交由 Git 历史确认。
 - 清理前远端21个分支、本地12个分支，名称去重后24个；完整33条引用快照见 [initial-branches.json](initial-branches.json)。逐一核对了 tip、祖先关系和独有提交；3条分叉线另检查提交说明、变更范围和合并冲突。没有声称对历史各版本做重新业务验收。
 - 远端20个旧开发名称中，最新开发线1个、已被该线包含16个、仍有独有提交3个。3条独有历史线分别是旧0.1.4/0.1.5部署与渠道UI、历史原生数据库CI、旧预发布与跨库修订；不强行混入当前代码。
-- 7个开放旧PR的原始head/base及链接见 [initial-open-prs.json](initial-open-prs.json)。分支删除后检查并关闭仍开放的旧PR，审阅记录保留；不把它们标为已合并，不新建PR。
-- 完成后的远端/本地分支、PR状态、准确开发提交与主分支指针写入 `cleanup-result.json`；该文件由实际清理回读生成。
+- 7个开放旧PR的原始head/base及链接见 [initial-open-prs.json](initial-open-prs.json)。7个旧PR已随head分支删除自动关闭且均未合并，审阅记录保留；未新建PR。
+- [cleanup-result.json](cleanup-result.json)记录实际清理回读：远端和本地均只剩main/dev，默认分支main不变；该快照在最后证据提交前取得，最终dev HEAD以Git和远端回读为准。
 
 ## 可恢复的历史归档
 

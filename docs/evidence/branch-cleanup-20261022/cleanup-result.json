@@ -1,0 +1,96 @@
+{
+  "repository": "ForceMind/MyAPI",
+  "verified_at": "2026-10-22T18:58:24.873130+08:00",
+  "result": "complete",
+  "cleanup_commit": "a0bd14a020dfa1edec865a3f764506417b5f0b3c",
+  "default_branch": "main",
+  "remote_verified_after_push": {
+    "dev": "a0bd14a020dfa1edec865a3f764506417b5f0b3c",
+    "main": "92fa1182e265924312d70917a0a637965aebc617"
+  },
+  "local_verified_after_cleanup": {
+    "dev": "a0bd14a020dfa1edec865a3f764506417b5f0b3c",
+    "main": "92fa1182e265924312d70917a0a637965aebc617"
+  },
+  "remote_branch_count": 2,
+  "local_branch_count": 2,
+  "deleted_remote_branches": 20,
+  "deleted_local_branches": 11,
+  "main_remote_unchanged": true,
+  "unique_history_bundle": "legacy-unique-commits.bundle",
+  "bundle_restore_verified": true,
+  "former_open_prs": [
+    {
+      "base": "codex/cloud-cancel-errors-20261021",
+      "closed_at": "2026-10-22T10:56:52Z",
+      "head": "codex/cloud-platform-flow-20261022",
+      "html_url": "https://github.com/ForceMind/MyAPI/pull/19",
+      "merged_at": null,
+      "number": 19,
+      "state": "closed"
+    },
+    {
+      "base": "codex/subscription-key-share-20261014",
+      "closed_at": "2026-10-22T10:56:50Z",
+      "head": "codex/cloud-cancel-errors-20261021",
+      "html_url": "https://github.com/ForceMind/MyAPI/pull/18",
+      "merged_at": null,
+      "number": 18,
+      "state": "closed"
+    },
+    {
+      "base": "codex/personal-core-20261014",
+      "closed_at": "2026-10-22T10:56:55Z",
+      "head": "codex/subscription-key-share-20261014",
+      "html_url": "https://github.com/ForceMind/MyAPI/pull/17",
+      "merged_at": null,
+      "number": 17,
+      "state": "closed"
+    },
+    {
+      "base": "codex/personal-restart-20261014",
+      "closed_at": "2026-10-22T10:56:54Z",
+      "head": "codex/personal-core-20261014",
+      "html_url": "https://github.com/ForceMind/MyAPI/pull/16",
+      "merged_at": null,
+      "number": 16,
+      "state": "closed"
+    },
+    {
+      "base": "codex/ui-stability-20261012",
+      "closed_at": "2026-10-22T10:56:56Z",
+      "head": "codex/personal-restart-20261014",
+      "html_url": "https://github.com/ForceMind/MyAPI/pull/13",
+      "merged_at": null,
+      "number": 13,
+      "state": "closed"
+    },
+    {
+      "base": "codex/historical-accounting-compat-20261010",
+      "closed_at": "2026-10-22T10:56:53Z",
+      "head": "codex/ui-stability-20261012",
+      "html_url": "https://github.com/ForceMind/MyAPI/pull/12",
+      "merged_at": null,
+      "number": 12,
+      "state": "closed"
+    },
+    {
+      "base": "main",
+      "closed_at": "2026-10-22T10:56:53Z",
+      "head": "codex/historical-accounting-compat-20261010",
+      "html_url": "https://github.com/ForceMind/MyAPI/pull/11",
+      "merged_at": null,
+      "number": 11,
+      "state": "closed"
+    }
+  ],
+  "open_pr_count_after_cleanup": 0,
+  "evidence_note": "Snapshot taken after cleanup and before this evidence-only commit; final dev HEAD is recorded by Git and final remote readback.",
+  "validation": {
+    "workflow_yaml": "parsed",
+    "branch_gate_and_personal_matrix": "passed",
+    "image_bundle_and_restore_drivers": "passed",
+    "full_installer_workflow": "same two preexisting failures; see workflow-verification.json",
+    "full_application_ci": "not rerun for branch/config housekeeping"
+  }
+}
