@@ -196,7 +196,7 @@ export function OverviewConnections(props: {
           </>
         ) : null}
         <div className='flex flex-wrap gap-2'>
-          <Link to='/channels' className={buttonVariants()}>
+          <Link to='/connections' className={buttonVariants()}>
             {t('Manage connections')}
           </Link>
           {props.showModels ? (

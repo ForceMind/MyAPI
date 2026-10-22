@@ -242,7 +242,22 @@ export function WindowShareObservation(props: {
                   'Upstream account usage is not exact per-Key attribution. Windows are observed separately.'
                 )}
               </p>
-              <Button nativeButton={false} render={<Link to='/keys' />}>
+              <Button
+                nativeButton={false}
+                render={
+                  <Link
+                    to='/keys'
+                    search={{
+                      connectionContext:
+                        role === ROLE.SUPER_ADMIN
+                          ? {
+                              connection: { connection: props.channelId },
+                            }
+                          : undefined,
+                    }}
+                  />
+                }
+              >
                 {t('Manage Key shares')}
               </Button>
             </>

@@ -118,6 +118,7 @@ function currentManagedPool(
 export function SubscriptionShareDialog(props: {
   tokenId: number
   personalKey?: ApiKey
+  scope?: { poolId: number; channelId: number }
   onClose: () => void
 }) {
   const userId = useAuthStore((state) => state.auth.user?.id)
@@ -127,9 +128,10 @@ export function SubscriptionShareDialog(props: {
 
   return (
     <SubscriptionShareSession
-      key={`${userId}:${role}:${sessionId ?? 'local'}:${props.tokenId}`}
+      key={`${userId}:${role}:${sessionId ?? 'local'}:${props.tokenId}:${props.scope?.poolId}:${props.scope?.channelId}`}
       tokenId={props.tokenId}
       personalKey={props.personalKey}
+      scope={props.scope}
       userId={userId}
       role={role}
       sessionId={sessionId}
@@ -140,6 +142,7 @@ export function SubscriptionShareDialog(props: {
 
 function SubscriptionShareSession(props: {
   personalKey?: ApiKey
+  scope?: { poolId: number; channelId: number }
   tokenId: number
   userId: number
   role: number
@@ -191,7 +194,12 @@ function SubscriptionShareSession(props: {
   })
   const view = query.isError ? undefined : query.data
   const selectedPool = view?.pools.find(
-    (pool) => pool.state !== 'closed' && poolSelectionValue(pool) === selection
+    (pool) =>
+      pool.state !== 'closed' &&
+      poolSelectionValue(pool) === selection &&
+      (!props.scope ||
+        (pool.pool_id === props.scope.poolId &&
+          pool.channel_id === props.scope.channelId))
   )
   const previousPool = currentManagedPool(view?.pools ?? [], selectedPool)
   const requiresWindowChangeConfirmation = Boolean(
@@ -353,9 +361,15 @@ function SubscriptionShareSession(props: {
   }
 
   const root = props.role === ROOT_ROLE
+  const permittedPools = (view?.pools ?? []).filter(
+    (pool) =>
+      !props.scope ||
+      (pool.pool_id === props.scope.poolId &&
+        pool.channel_id === props.scope.channelId)
+  )
   const visiblePools = root
-    ? (view?.pools ?? [])
-    : (view?.pools ?? []).filter(
+    ? permittedPools
+    : permittedPools.filter(
         (pool) => pool.pool_id > 0 && pool.state !== 'candidate'
       )
   const closablePools = visiblePools.filter(

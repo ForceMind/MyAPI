@@ -74,7 +74,7 @@ test('complete desktop navigation and mobile More retain diagnostic and maintena
     ['API Request Logs', '/full-content-logs'],
     ['Task Logs', '/usage-logs/task'],
     ['Drawing Logs', '/usage-logs/drawing'],
-    ['Channels', '/channels'],
+    ['Connections', '/connections'],
     ['System Info', '/system-info'],
   ]) {
     expect(within(desktop).getByRole('link', { name })).toHaveAttribute(
@@ -144,7 +144,7 @@ test('channel management has its own destination instead of selecting the accoun
   for (const label of ['Personal console navigation']) {
     const navigation = screen.getByRole('navigation', { name: label })
     expect(
-      within(navigation).getByRole('link', { name: 'Channels' })
+      within(navigation).getByRole('link', { name: 'Connections' })
     ).toHaveAttribute('aria-current', 'page')
     expect(
       within(navigation).getByRole('link', { name: 'Upstream accounts' })

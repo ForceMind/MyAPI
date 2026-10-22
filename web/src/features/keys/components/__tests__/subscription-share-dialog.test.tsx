@@ -41,6 +41,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn() } }))
 
 const now = 1_797_000_000
 const activePool = {
+  channel_id: 1,
   pool_id: 7,
   snapshot_id: 70,
   revision: 4,
@@ -971,4 +972,39 @@ test('critical approximation copy remains accessible in a 320px viewport with lo
   expect(
     await within(dialog).findByRole('radio', { name: 'Personal Codex' })
   ).toBeVisible()
+})
+
+test('connection-scoped management excludes same-pool wrong-channel and unrelated candidate windows', async () => {
+  vi.mocked(api.get).mockResolvedValue(
+    response([
+      { ...activePool, channel_id: 1 },
+      { ...candidatePool, channel_id: 1 },
+      { ...activePool, pool_id: 8, channel_id: 1, channel_name: 'Other pool' },
+      {
+        ...activePool,
+        snapshot_id: 74,
+        channel_id: 2,
+        channel_name: 'Wrong connection',
+      },
+    ] as Array<typeof activePool>)
+  )
+  const onClose = vi.fn()
+  render(
+    <QueryClientProvider client={client}>
+      <SubscriptionShareDialog
+        tokenId={21}
+        scope={{ poolId: 7, channelId: 1 }}
+        onClose={onClose}
+      />
+    </QueryClientProvider>
+  )
+  await screen.findByRole('radio', { name: 'Personal Codex' })
+  expect(screen.queryByText('Fresh candidate')).not.toBeInTheDocument()
+  expect(screen.queryByText('Other pool')).not.toBeInTheDocument()
+  expect(screen.queryByText('Wrong connection')).not.toBeInTheDocument()
+  expect(screen.getAllByRole('radio')).toHaveLength(1)
+  expect(screen.getByRole('radio')).not.toBeChecked()
+  await userEvent.keyboard('{Escape}')
+  expect(onClose).toHaveBeenCalledOnce()
+  expect(api.put).not.toHaveBeenCalled()
 })

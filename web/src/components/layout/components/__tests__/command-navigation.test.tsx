@@ -58,7 +58,7 @@ describe('command navigation follows sidebar access', () => {
       await screen.findByRole('option', { name: 'API Keys' })
     ).toBeInTheDocument()
     expect(
-      screen.queryByRole('option', { name: 'Channels' })
+      screen.queryByRole('option', { name: 'Connections' })
     ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('option', { name: 'System Settings' })

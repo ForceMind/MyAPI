@@ -71,7 +71,12 @@ export function PersonalUpstream() {
             <Button
               variant='outline'
               nativeButton={false}
-              render={<Link to='/channels' />}
+              render={
+                <Link
+                  to='/connections'
+                  search={{ connection: selectedAccount?.channel_id }}
+                />
+              }
             >
               {t('Manage account connection')}
             </Button>

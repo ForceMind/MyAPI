@@ -85,8 +85,9 @@ export function useSidebarData(): SidebarData {
           requiredRole: ROLE.ADMIN,
         },
         {
-          title: t('Channels'),
-          url: '/channels',
+          title: t('Connections'),
+          url: '/connections',
+          activeUrls: ['/channels'],
           icon: Radio,
           requiredRole: ROLE.ADMIN,
         },

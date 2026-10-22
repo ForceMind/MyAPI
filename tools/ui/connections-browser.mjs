@@ -1,0 +1,140 @@
+// Synthetic browser qualification of connection tasks. No real providers,
+// credentials, business mutations or production data are used by this runner.
+import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
+import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { createServer } from 'node:http'
+import { extname, resolve, sep } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { createUIFixture, FIXTURE_TIME } from './browser-fixtures.mjs'
+
+const repo = fileURLToPath(new URL('../../', import.meta.url))
+const root = resolve(repo, 'web/dist')
+const output = resolve(process.env.MYAPI_BROWSER_ARTIFACTS || '.local-tests/connections')
+const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim()
+const codes = { en: 'en', zh: 'zhCN', 'zh-TW': 'zhTW', fr: 'fr', ja: 'ja', ru: 'ru', vi: 'vi' }
+const translations = Object.fromEntries(Object.keys(codes).map(lang => [lang, JSON.parse(readFileSync(resolve(repo, `web/src/i18n/locales/${lang}.json`))).translation]))
+const report = { head, workflowHead: process.env.GITHUB_SHA || null, scope: 'Connection list/detail, server filters, scoped requests, back/forward, edit cancellation, saved observations and failure boundaries. Synthetic APIs only.', result: 'running', journeys: [], screenshots: [], errors: [] }
+const persist = () => writeFileSync(resolve(output, 'connections-qualification.json'), JSON.stringify(report, null, 2))
+const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' }
+const server = createServer((request, response) => {
+  let file = resolve(root, `.${new URL(request.url, 'http://localhost').pathname}`)
+  if (!file.startsWith(root + sep) && file !== root) return response.writeHead(403).end()
+  if (!existsSync(file) || statSync(file).isDirectory()) file = resolve(root, 'index.html')
+  response.writeHead(200, { 'content-type': mime[extname(file)] || 'application/octet-stream', 'cache-control': 'no-store' })
+  createReadStream(file).pipe(response)
+})
+assert(existsSync(resolve(root, 'index.html')), 'Build frontend first')
+mkdirSync(output, { recursive: true })
+const longName = 'Synthetic API connection · 用于验证中英文长名称与模型标识自动换行 · a-very-long-provider-connection-name-that-must-not-push-actions-off-screen'
+const connection = id => ({ id, type: id === 1 ? 1 : 57, name: id === 1 ? longName : 'Synthetic subscription connection', status: 1, models: 'synthetic-text-model,a-very-long-model-identifier-that-must-remain-readable-at-mobile-width', group: 'default', priority: 0, weight: 0, key: '', created_time: 1, test_time: 0, response_time: 0, balance_updated_time: 0 })
+let browser
+try {
+  await new Promise(done => server.listen(0, '127.0.0.1', done))
+  const origin = `http://127.0.0.1:${server.address().port}`
+  const { chromium } = await import(process.env.MYAPI_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MYAPI_PLAYWRIGHT_MODULE).href : 'playwright')
+  browser = await chromium.launch({ headless: true })
+  const cases = Object.keys(codes).flatMap(language => [320, 1280].map(width => ({ language, width })))
+  cases.push(...[390, 768, 1024, 1440].map(width => ({ language: 'zh', width })))
+  for (const item of cases) {
+    const t = key => { assert(translations[item.language][key], `Missing ${item.language}: ${key}`); return translations[item.language][key] }
+    const mobile = item.width < 1024
+    const fixture = createUIFixture({ role: 100, language: codes[item.language], personalPolicy: true })
+    const context = await browser.newContext({ viewport: { width: item.width, height: 960 }, reducedMotion: 'reduce', colorScheme: 'light', serviceWorkers: 'block' })
+    await context.addInitScript(language => localStorage.setItem('i18nextLng', language), codes[item.language])
+    const errors = [], violations = [], external = [], requests = []
+    let failDetail = false, empty = false, deny = false
+    await context.route('**/*', async route => {
+      const request = route.request(), url = new URL(request.url()), path = url.pathname.replace(/\/$/, '')
+      if (url.origin !== origin) { external.push(url.origin); return route.abort('blockedbyclient') }
+      if (!path.startsWith('/api/') && !path.startsWith('/pg/')) return route.continue()
+      requests.push({ method: request.method(), path, params: Object.fromEntries(url.searchParams) })
+      if (request.method() !== 'GET' && path !== '/api/user/auth/refresh') { violations.push(`Unexpected write ${request.method()} ${path}`); return route.abort('blockedbyclient') }
+      if (path === '/api/user/self' && deny) return route.fulfill({ status: 403, json: { success: false } })
+      if (path === '/api/channel' || path === '/api/channel/search') return route.fulfill({ json: { success: true, data: { total: empty ? 0 : 22, page: Number(url.searchParams.get('p') || 1), page_size: 20, items: empty ? [] : [connection(1), connection(2)] } } })
+      if (/^\/api\/channel\/[12]$/.test(path)) return route.fulfill({ status: failDetail ? 503 : 200, json: failDetail ? { success: false } : { success: true, data: connection(Number(path.split('/').at(-1))) } })
+      if (path === '/api/channel/quota/changes') {
+        const id = Number(url.searchParams.get('channel_ids'))
+        assert([1, 2].includes(id), 'Saved observations are scoped by connection ID')
+        return route.fulfill({ json: { success: true, data: { items: id === 1 ? [] : [{ channel_id: 2, name: 'Synthetic subscription connection', metric_type: 'codex_rate_limit', unit: 'percent', status: 'error', observed_at: FIXTURE_TIME / 1000, source: 'codex_wham_usage_primary', window_seconds: 18000, current_available: 45 }] } } })
+      }
+      const response = fixture.response(url, request.method())
+      if (response.violation) { violations.push(response.violation); return route.fulfill({ status: 503, json: { success: false } }) }
+      await route.fulfill({ status: response.status, json: response.body })
+    })
+    const page = await context.newPage()
+    page.setDefaultTimeout(15000)
+    await page.clock.setFixedTime(FIXTURE_TIME)
+    page.on('pageerror', error => errors.push(error.message))
+    const capture = async state => {
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'No horizontal viewport overflow')
+      const file = `connections-${state}-${item.language}-${item.width}.png`
+      await page.screenshot({ path: resolve(output, file), animations: 'disabled' })
+      report.screenshots.push({ file, state, ...item }); persist()
+    }
+    try {
+      await page.goto(`${origin}/connections?filter=Synthetic&page=2&status=enabled`, { waitUntil: 'networkidle' })
+      const inventory = page.getByTestId('connections-inventory')
+      const first = inventory.locator('[data-connection-id="1"]')
+      await first.waitFor()
+      assert(requests.some(request => request.path === '/api/channel/search' && request.params.keyword === 'Synthetic' && request.params.p === '2' && request.params.status === 'enabled'))
+      await capture('list')
+      await first.focus(); await page.keyboard.press('Enter')
+      const detail = page.getByTestId('connection-detail')
+      await detail.getByRole('heading', { name: longName, exact: true }).waitFor()
+      assert.equal(await inventory.count(), mobile ? 0 : 1, 'Mobile detail is a separate composition')
+      assert(await detail.getByRole('heading', { level: 2 }).evaluate(node => node === document.activeElement), 'Detail heading receives keyboard focus')
+      await detail.getByText(t('No saved subscription windows for this connection. This does not mean the connection is unavailable.'), { exact: true }).waitFor()
+      const selectedUrl = page.url()
+      await capture('detail')
+      const logs = detail.getByRole('link', { name: t('View connection requests'), exact: true })
+      assert(new URL(await logs.getAttribute('href'), origin).searchParams.get('channel') === '1')
+      await Promise.all([
+        page.waitForResponse(response => { const url = new URL(response.url()); return url.pathname === '/api/log' && url.searchParams.get('channel') === '1' }),
+        logs.click(),
+      ])
+      await page.getByRole('heading', { name: t('Call records'), level: 1, exact: true }).waitFor()
+      assert(requests.some(request => request.path === '/api/log' && request.params.channel === '1'), 'Backend reads are scoped to the selected connection')
+      await page.goBack({ waitUntil: 'networkidle' })
+      assert.equal(page.url(), selectedUrl, 'Returning from requests preserves selection and filters')
+      await detail.getByRole('heading', { name: longName, exact: true }).waitFor()
+      await detail.getByRole('button', { name: t('Back to connections'), exact: true }).click()
+      await first.waitFor()
+      assert(await first.evaluate(node => node === document.activeElement), 'Return restores selected-row focus')
+      assert.equal(new URL(page.url()).searchParams.get('filter'), 'Synthetic')
+      assert.equal(new URL(page.url()).searchParams.get('page'), '2')
+      await inventory.locator('[data-connection-id="2"]').click()
+      await detail.getByText(t('Usage sample failed'), { exact: true }).waitFor()
+      assert.equal(await detail.getByText('55%', { exact: true }).count(), 0, 'Failed observations do not invent current usage')
+      await capture('failed-observation')
+      if ((item.language === 'en' && item.width === 1280) || (item.language === 'zh' && item.width === 390)) {
+        await page.goto(`${origin}/connections?connection=1`, { waitUntil: 'networkidle' })
+        await detail.getByRole('button', { name: t('Edit connection'), exact: true }).click()
+        const editor = page.getByRole('dialog').filter({ hasText: t('Edit Channel') })
+        await editor.waitFor(); await capture('edit')
+        await page.keyboard.press('Escape'); await editor.waitFor({ state: 'hidden' })
+        assert.equal(new URL(page.url()).searchParams.get('connection'), '1', 'Cancel edit retains selection')
+        failDetail = true
+        await page.goto(`${origin}/connections?connection=1`, { waitUntil: 'networkidle' })
+        await detail.getByText(t('Unable to load this connection. It may have been removed or access may have changed.'), { exact: true }).waitFor()
+        await capture('service-error')
+        failDetail = false
+        await detail.getByRole('button', { name: t('Retry'), exact: true }).click()
+        await detail.getByRole('heading', { name: longName, exact: true }).waitFor()
+        empty = true
+        await page.goto(`${origin}/connections`, { waitUntil: 'networkidle' })
+        await page.getByText(t('No channels found'), { exact: true }).waitFor(); await capture('empty')
+        deny = true
+        await page.goto(`${origin}/connections?connection=1`, { waitUntil: 'networkidle' })
+        await page.getByText(t('Connection access could not be verified.'), { exact: true }).waitFor(); await capture('permission-error')
+      }
+      assert.deepEqual(errors, [], 'No runtime errors')
+      assert.deepEqual(violations, [], 'No unconfigured reads or mutations')
+      assert.deepEqual(external, [], 'No provider/external requests')
+      report.journeys.push({ ...item, result: 'passed', requests })
+    } catch (error) { await capture('failed').catch(() => {}); report.errors.push({ ...item, error: String(error), violations, external, runtime: errors }); throw error }
+    finally { await context.close(); persist() }
+  }
+  report.result = 'passed'
+} catch (error) { report.result = 'failed'; report.errors.push(error.stack || String(error)); throw error }
+finally { persist(); if (browser) await browser.close(); await new Promise(done => server.close(done)); console.log(JSON.stringify({ result: report.result, journeys: report.journeys.length, output })) }

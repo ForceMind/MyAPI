@@ -12,12 +12,16 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import type { ConnectionKeyContext } from '@/features/connections/key-context'
 import { toIntlLocale } from '@/i18n/languages'
 
 import type { PoolKeyAllocation, PoolUsage } from '../pool-usage-api'
 import { WindowPoints } from './window-points'
 
-function AllocationRow(props: { allocation: PoolKeyAllocation }) {
+function AllocationRow(props: {
+  allocation: PoolKeyAllocation
+  context: ConnectionKeyContext
+}) {
   const { t, i18n } = useTranslation()
   const item = props.allocation
   const percent = new Intl.NumberFormat(toIntlLocale(i18n.language), {
@@ -50,6 +54,13 @@ function AllocationRow(props: { allocation: PoolKeyAllocation }) {
           {percent.format(item.share_bps / 100)}%
         </span>
       </div>
+      <Link
+        to='/keys'
+        search={{ connectionContext: { ...props.context, key: item.token_id } }}
+        className='text-primary self-start underline'
+      >
+        {t('Key #{{id}}', { id: item.token_id })}
+      </Link>
       <Progress
         value={item.share_bps / 100}
         aria-label={t('Allocated native window share')}
@@ -94,7 +105,10 @@ function AllocationRow(props: { allocation: PoolKeyAllocation }) {
   )
 }
 
-export function PoolKeyAllocations(props: { usage: PoolUsage }) {
+export function PoolKeyAllocations(props: {
+  usage: PoolUsage
+  connectionContext?: ConnectionKeyContext
+}) {
   const { t, i18n } = useTranslation()
   const percent = new Intl.NumberFormat(toIntlLocale(i18n.language), {
     maximumFractionDigits: 2,
@@ -112,7 +126,16 @@ export function PoolKeyAllocations(props: { usage: PoolUsage }) {
         ) : null}
         <ul className='min-w-0'>
           {props.usage.allocations.map((allocation) => (
-            <AllocationRow key={allocation.token_id} allocation={allocation} />
+            <AllocationRow
+              key={allocation.token_id}
+              allocation={allocation}
+              context={
+                props.connectionContext ?? {
+                  connection: { connection: props.usage.channel_id },
+                  pool: props.usage.pool_id,
+                }
+              }
+            />
           ))}
         </ul>
         <dl className='grid grid-cols-[minmax(0,1fr)_auto] gap-3 text-sm [&_dd]:text-right'>
@@ -126,13 +149,25 @@ export function PoolKeyAllocations(props: { usage: PoolUsage }) {
             'Shares are approximate and do not reserve upstream capacity. Concurrent requests and sampling delays can exceed the share.'
           )}
         </p>
-        <Button
-          nativeButton={false}
-          render={<Link to='/keys' />}
-          className='h-auto min-h-11 max-w-full whitespace-normal'
-        >
-          {t('Manage Key shares')}
-        </Button>
+        {!props.connectionContext && (
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                to='/keys'
+                search={{
+                  connectionContext: props.connectionContext ?? {
+                    connection: { connection: props.usage.channel_id },
+                    pool: props.usage.pool_id,
+                  },
+                }}
+              />
+            }
+            className='h-auto min-h-11 max-w-full whitespace-normal'
+          >
+            {t('Manage Key shares')}
+          </Button>
+        )}
       </CardContent>
     </Card>
   )

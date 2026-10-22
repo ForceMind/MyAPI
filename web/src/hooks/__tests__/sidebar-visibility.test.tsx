@@ -54,7 +54,7 @@ describe('sidebar role and module visibility', () => {
   test('an administrator cannot see the root-only System Settings entry', async () => {
     await renderShellRoute(<NavigationProbe />)
 
-    expect(screen.getByRole('link', { name: 'Channels' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Connections' })).toBeInTheDocument()
     expect(
       screen.queryByRole('link', { name: 'System Settings' })
     ).not.toBeInTheDocument()
@@ -162,7 +162,7 @@ describe('sidebar role and module visibility', () => {
       within(console)
         .getAllByRole('link')
         .map((link) => link.textContent)
-    ).toEqual(['Upstream accounts', 'Channels', 'Models', 'API Keys'])
+    ).toEqual(['Upstream accounts', 'Connections', 'Models', 'API Keys'])
   })
 
   test('ordinary users do not receive upstream or settings destinations in the console', async () => {
@@ -170,7 +170,7 @@ describe('sidebar role and module visibility', () => {
       .getState()
       .auth.setUser({ id: 2, username: 'owner', role: ROLE.USER })
     await renderShellRoute(<NavigationProbe />)
-    for (const name of ['Channels', 'Models', 'System Settings']) {
+    for (const name of ['Connections', 'Models', 'System Settings']) {
       expect(screen.queryByRole('link', { name })).not.toBeInTheDocument()
     }
   })

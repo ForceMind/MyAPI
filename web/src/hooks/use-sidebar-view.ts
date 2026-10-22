@@ -65,7 +65,11 @@ export function useSidebarView(
           if (item.requiredRole !== undefined && role < item.requiredRole) {
             return false
           }
-          if (item.url === '/channels' || item.url === '/upstream-accounts') {
+          if (
+            item.url === '/connections' ||
+            item.url === '/channels' ||
+            item.url === '/upstream-accounts'
+          ) {
             return hasPermission(user, 'channel', 'read')
           }
           return true

@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { getRouteApi, useNavigate } from '@tanstack/react-router'
+import { Link, getRouteApi, useNavigate } from '@tanstack/react-router'
 import { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -65,6 +65,8 @@ function UsageLogsContent() {
   const isMobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
   const navigate = useNavigate()
   const params = route.useParams()
+  const contextSearch = route.useSearch()
+  const connectionContext = contextSearch.connectionContext
   const activeCategory: UsageLogsSectionId =
     params.section && isUsageLogsSectionId(params.section)
       ? params.section
@@ -134,6 +136,23 @@ function UsageLogsContent() {
         <SectionPageLayout.Title>
           {t(pageMeta.titleKey)}
         </SectionPageLayout.Title>
+        <SectionPageLayout.Breadcrumb>
+          {connectionContext && (
+            <Link
+              to={contextSearch.returnToKeys ? '/keys' : '/connections'}
+              search={
+                contextSearch.returnToKeys
+                  ? { connectionContext }
+                  : connectionContext.connection
+              }
+              className='text-primary underline'
+            >
+              {contextSearch.returnToKeys
+                ? t('Associated Key shares')
+                : t('Back to connections')}
+            </Link>
+          )}
+        </SectionPageLayout.Breadcrumb>
         <SectionPageLayout.Description>
           {t('Inspect requests, routing and usage evidence.')}
         </SectionPageLayout.Description>

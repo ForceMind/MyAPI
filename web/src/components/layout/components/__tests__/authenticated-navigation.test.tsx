@@ -101,7 +101,7 @@ describe('authenticated operator navigation', () => {
       'Overview',
       'Model Call Analytics',
       'Upstream accounts',
-      'Channels',
+      'Connections',
       'Models',
       'API Keys',
     ])

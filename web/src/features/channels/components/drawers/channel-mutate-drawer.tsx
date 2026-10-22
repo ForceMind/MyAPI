@@ -204,7 +204,7 @@ import {
 type ChannelMutateDrawerProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  currentRow?: Channel | null
+  currentRow?: Pick<Channel, 'id'> | null
 }
 
 type ModelMappingGuardrail = {

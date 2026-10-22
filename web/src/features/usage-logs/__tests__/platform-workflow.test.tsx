@@ -12,6 +12,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 
 import { api } from '@/lib/api'
+import { Route as usageLogsRoute } from '@/routes/_authenticated/usage-logs/$section'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { UsageLogs } from '../index'
@@ -23,7 +24,11 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-async function renderWorkflow(role = 100, holdSelf = false) {
+async function renderWorkflow(
+  role = 100,
+  holdSelf = false,
+  initialEntry = '/usage-logs/common?pageSize=1&model=fixture-model'
+) {
   let releaseSelf = () => {}
   const selfResponse = new Promise<void>((resolve) => {
     releaseSelf = resolve
@@ -135,12 +140,12 @@ async function renderWorkflow(role = 100, holdSelf = false) {
     getParentRoute: () => auth,
     path: 'usage-logs/$section',
     component: UsageLogs,
-    validateSearch: (search: Record<string, unknown>) => search,
+    validateSearch: usageLogsRoute.options.validateSearch,
   })
   const router = createRouter({
     routeTree: root.addChildren([auth.addChildren([logs])]),
     history: createMemoryHistory({
-      initialEntries: ['/usage-logs/common?pageSize=1&model=fixture-model'],
+      initialEntries: [initialEntry],
     }),
   })
   await router.load()
@@ -254,3 +259,81 @@ test('changing the signed-in actor closes request details from the previous acto
   )
   expect(screen.queryByRole('tab', { name: 'All' })).not.toBeInTheDocument()
 })
+
+for (const action of ['Search', 'Reset']) {
+  test(`${action} keeps the validated Key return context without retaining cleared log filters`, async () => {
+    const context = {
+      connection: {
+        connection: 7,
+        page: 4,
+        filter: 'saved connection',
+        status: 'disabled',
+      },
+      pool: 19,
+      poolPage: 2,
+      key: 31,
+    }
+    const query = new URLSearchParams({
+      pageSize: '1',
+      model: 'fixture-model',
+      channel: JSON.stringify('7'),
+      token: 'same-name',
+      username: 'operator',
+      group: 'group-name',
+      requestId: 'original-request',
+      upstreamRequestId: 'original-upstream',
+      connectionContext: JSON.stringify(context),
+      returnToKeys: 'true',
+      untrustedReturnUrl: 'https://example.invalid',
+    })
+    const { router, user } = await renderWorkflow(
+      100,
+      false,
+      `/usage-logs/common?${query}`
+    )
+    await screen.findByText('REQ-SYNTHETIC-1')
+    const originalReturn = screen
+      .getByRole('link', { name: 'Associated Key shares' })
+      .getAttribute('href')
+    if (action === 'Search') {
+      await user.clear(screen.getByPlaceholderText('Model Name'))
+      await user.type(
+        screen.getByPlaceholderText('Model Name'),
+        'changed-model'
+      )
+    }
+    await user.click(screen.getByRole('button', { name: action }))
+    await waitFor(() =>
+      expect(router.state.location.search).toMatchObject({
+        connectionContext: context,
+        returnToKeys: true,
+        page: 1,
+        pageSize: 1,
+      })
+    )
+    expect(
+      screen
+        .getByRole('link', { name: 'Associated Key shares' })
+        .getAttribute('href')
+    ).toBe(originalReturn)
+    const search = router.state.location.search as Record<string, unknown>
+    expect(search.untrustedReturnUrl).toBeUndefined()
+    if (action === 'Reset') {
+      for (const key of [
+        'model',
+        'channel',
+        'token',
+        'username',
+        'group',
+        'requestId',
+        'upstreamRequestId',
+      ]) {
+        expect(search[key] || undefined).toBeUndefined()
+      }
+    } else {
+      expect(search.model).toBe('changed-model')
+      expect(search.channel).toBe('7')
+      expect(search.requestId).toBe('original-request')
+    }
+  })
+}

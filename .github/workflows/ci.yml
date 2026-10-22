@@ -795,7 +795,8 @@ jobs:
           for script in \
             tools/ui/personal-workbench-browser.mjs \
             tools/ui/subscription-share-browser.mjs \
-            tools/ui/personal-console-browser.mjs; do
+            tools/ui/personal-console-browser.mjs \
+            tools/ui/connections-browser.mjs; do
             if ! node "$script"; then
               echo "::error file=$script::Personal console qualification failed"
               failed=1

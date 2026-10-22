@@ -457,21 +457,21 @@ try {
       await open(page, '/dashboard/overview')
       const sidebar = page.locator('[data-myapi-sidebar]')
       for (const href of ['/system-settings/site', '/system-info']) assert.equal(await sidebar.locator(`a[href="${href}"]`).count(), 0, 'Root destinations hidden from lower roles')
-      if (options.role === 1) for (const href of ['/channels', '/users', '/models/metadata']) assert.equal(await sidebar.locator(`a[href="${href}"]`).count(), 0, 'ordinary users see no admin destinations')
+      if (options.role === 1) for (const href of ['/connections', '/channels', '/users', '/models/metadata']) assert.equal(await sidebar.locator(`a[href="${href}"]`).count(), 0, 'ordinary users see no admin destinations')
       await page.getByRole('button', { name: label('Search'), exact: true }).click()
       const command = page.getByRole('dialog')
       await command.getByRole('combobox').waitFor()
-      for (const title of ['System Settings', 'System Info', ...(options.role === 1 ? ['Channels', 'Users', 'Models'] : []), ...(options.sidebar ? ['API Keys', 'Call records'] : [])]) {
+      for (const title of ['System Settings', 'System Info', ...(options.role === 1 ? ['Connections', 'Channels', 'Users', 'Models'] : []), ...(options.sidebar ? ['API Keys', 'Call records'] : [])]) {
         assert.equal(await command.getByRole('option', { name: label(title), exact: true }).count(), 0, `command honors role/sidebar narrowing: ${title}`)
       }
       if (options.sidebar) {
         assert.equal(await sidebar.locator('a[href="/keys"], a[href="/usage-logs/common"]').count(), 0, 'both admin and user sidebar preferences narrow navigation')
-        assert.equal(await command.getByRole('option', { name: label('Channels'), exact: true }).count(), 1, 'allowed admin commands remain available')
+        assert.equal(await command.getByRole('option', { name: label('Connections'), exact: true }).count(), 1, 'allowed admin commands remain available')
       }
       await screenshot(page, `navigation-role-${options.role}${options.sidebar ? '-narrowed' : ''}`)
       await page.keyboard.press('Escape')
       await command.waitFor({ state: 'hidden' })
-      for (const path of ['/system-settings/site/system-info', '/system-info', ...(options.role === 1 ? ['/channels', '/users', '/models/metadata'] : [])]) {
+      for (const path of ['/system-settings/site/system-info', '/system-info', ...(options.role === 1 ? ['/connections', '/channels', '/users', '/models/metadata'] : [])]) {
         await open(page, path, { shell: false })
         await page.waitForURL(`${origin}/403`)
         await page.getByRole('heading', { name: label('Access Forbidden'), exact: true }).waitFor()

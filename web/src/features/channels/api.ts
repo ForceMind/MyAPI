@@ -173,9 +173,10 @@ export type CodexLocalAuthImportResponse = {
  * Get paginated list of channels
  */
 export async function getChannels(
-  params: GetChannelsParams = {}
+  params: GetChannelsParams = {},
+  requestConfig: ApiRequestConfig = {}
 ): Promise<GetChannelsResponse> {
-  const res = await api.get('/api/channel', { params })
+  const res = await api.get('/api/channel', { ...requestConfig, params })
   return res.data
 }
 
@@ -183,17 +184,21 @@ export async function getChannels(
  * Search channels with filters
  */
 export async function searchChannels(
-  params: SearchChannelsParams
+  params: SearchChannelsParams,
+  requestConfig: ApiRequestConfig = {}
 ): Promise<SearchChannelsResponse> {
-  const res = await api.get('/api/channel/search', { params })
+  const res = await api.get('/api/channel/search', { ...requestConfig, params })
   return res.data
 }
 
 /**
  * Get single channel by ID
  */
-export async function getChannel(id: number): Promise<GetChannelResponse> {
-  const res = await api.get(`/api/channel/${id}`)
+export async function getChannel(
+  id: number,
+  requestConfig: ApiRequestConfig = {}
+): Promise<GetChannelResponse> {
+  const res = await api.get(`/api/channel/${id}`, requestConfig)
   return res.data
 }
 

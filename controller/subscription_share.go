@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -115,4 +116,21 @@ func CloseSubscriptionSharePool(c *gin.Context) {
 		return
 	}
 	common.ApiSuccess(c, nil)
+}
+
+func GetSubscriptionShareConnectionPools(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	channelID, err := strconv.Atoi(c.Param("channel_id"))
+	page, pageErr := strconv.Atoi(c.DefaultQuery("page", "1"))
+	query, queryErr := url.ParseQuery(c.Request.URL.RawQuery)
+	if queryErr != nil || err != nil || pageErr != nil || channelID <= 0 || page < 1 || page > 1000000 || len(query) > 1 || len(query["page"]) > 1 || len(query) == 1 && query.Get("page") == "" {
+		subscriptionShareError(c, model.ErrSubscriptionShareInvalid)
+		return
+	}
+	view, err := model.ReadSubscriptionShareConnectionPools(c.Request.Context(), model.DB, c.GetInt("id"), channelID, page)
+	if err != nil {
+		subscriptionShareError(c, err)
+		return
+	}
+	common.ApiSuccess(c, view)
 }

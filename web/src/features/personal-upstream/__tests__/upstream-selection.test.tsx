@@ -25,14 +25,22 @@ vi.mock('@tanstack/react-router', () => ({
   Link: (
     props: AnchorHTMLAttributes<HTMLAnchorElement> & {
       to: string
-      search?: { quotaChannelId: number }
+      search?: { quotaChannelId?: number; connection?: number }
     }
   ) => {
     const { to, search, children, ...attributes } = props
     return (
       <a
         {...attributes}
-        href={search ? `${to}?quotaChannelId=${search.quotaChannelId}` : to}
+        href={
+          search
+            ? `${to}?${new URLSearchParams(
+                Object.entries(search)
+                  .filter(([, value]) => value !== undefined)
+                  .map(([key, value]) => [key, String(value)])
+              )}`
+            : to
+        }
       >
         {children}
       </a>
@@ -153,6 +161,9 @@ test('desktop account buttons and the mobile picker select the same saved eviden
       screen.getByRole('heading', { name: 'Second account' })
     ).toBeInTheDocument()
     expect(screen.getByText('100%')).toBeInTheDocument()
+    expect(
+      screen.getByText('Manage account connection').closest('a')
+    ).toHaveAttribute('href', '/connections?connection=8')
     expect(screen.queryByText('Usage sample failed')).not.toBeInTheDocument()
     await user.selectOptions(
       screen.getByRole('combobox', {

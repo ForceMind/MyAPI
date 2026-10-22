@@ -134,7 +134,7 @@ test('retains zero-share and deleted Key usage without division by zero', async 
   vi.mocked(getPoolUsage).mockResolvedValue(usage)
   observe(usage)
   const row = await screen.findByTestId('pool-key-23')
-  expect(within(row).getByText('Key #23')).toBeVisible()
+  expect(within(row).getByRole('link', { name: 'Key #23' })).toBeVisible()
   expect(
     within(row).getByTestId('allocation-estimated-usage')
   ).toHaveTextContent('3 percentage points')

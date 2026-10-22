@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { getRouteApi } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
@@ -26,6 +27,7 @@ import { ApiKeysDialogs } from './components/api-keys-dialogs'
 import { ApiKeysPrimaryButtons } from './components/api-keys-primary-buttons'
 import { ApiKeysProvider } from './components/api-keys-provider'
 import { ApiKeysTable } from './components/api-keys-table'
+import { ConnectionKeyWorkspace } from './components/connection-key-workspace'
 import { PersonalApiKeys } from './components/personal-api-keys'
 
 export function ApiKeys() {
@@ -34,6 +36,10 @@ export function ApiKeys() {
   const userId = useAuthStore((state) => state.auth.user?.id)
   const role = useAuthStore((state) => state.auth.user?.role)
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
+  const search = getRouteApi('/_authenticated/keys/').useSearch()
+  if (search.connectionContext) {
+    return <ConnectionKeyWorkspace context={search.connectionContext} />
+  }
   return (
     <ApiKeysProvider key={`${userId}:${role}:${sessionId}`}>
       {personal ? (

@@ -41,7 +41,7 @@ import { isModelRouteConfigChanged } from '../lib/channel-form-errors'
 import type { Channel, ChannelMutationResponse } from '../types'
 
 type UseChannelMutateFormParams = {
-  currentRow?: Channel | null
+  currentRow?: Pick<Channel, 'id'> | null
   isEditing: boolean
   isMultiKeyChannel: boolean
   onSuccess: () => void
