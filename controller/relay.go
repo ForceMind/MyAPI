@@ -179,7 +179,6 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	}
 
 	relayInfo.SetEstimatePromptTokens(tokens)
-	relayInfo.InitChannelMeta(c)
 	service.PrepareRequestInputEstimate(c, relayInfo)
 	if inputErr := service.EnforceRequestInputLimit(c, relayInfo); inputErr != nil {
 		newAPIError = inputErr
@@ -243,7 +242,9 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		// Strict eligibility is checked before entering the protocol helper.
 		// Capture the already-selected channel here; the helper will refresh the
 		// same context before model conversion and final outbound qualification.
-		relayInfo.InitChannelMeta(c)
+		if relayInfo.StrictTokenBudget {
+			relayInfo.InitChannelMeta(c)
+		}
 		addUsedChannel(c, channel.Id)
 		if attempt > 0 {
 			service.PrepareRequestInputEstimate(c, relayInfo)

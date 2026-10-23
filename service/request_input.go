@@ -20,6 +20,23 @@ import (
 
 var requestInputEncoder = codec.NewO200kBase()
 
+// Read the already-selected channel without initializing RelayInfo.ChannelMeta.
+// That initialization marks the first channel as consumed for retry selection
+// and must remain owned by the dispatch path, after the initial billing hold.
+func requestInputChannel(c *gin.Context, info *relaycommon.RelayInfo) *relaycommon.ChannelMeta {
+	if c != nil {
+		if channelID, ok := common.GetContextKeyType[int](c, constant.ContextKeyChannelId); ok {
+			settings, _ := common.GetContextKeyType[dto.ChannelSettings](c, constant.ContextKeyChannelSetting)
+			return &relaycommon.ChannelMeta{
+				ChannelId:      channelID,
+				ChannelType:    common.GetContextKeyInt(c, constant.ContextKeyChannelType),
+				ChannelSetting: settings,
+			}
+		}
+	}
+	return info.ChannelMeta
+}
+
 // Count text locally even when billing estimation is disabled. Never fetch
 // media, contact a provider or change the estimate used for billing.
 func PrepareRequestInputEstimate(c *gin.Context, info *relaycommon.RelayInfo) {
@@ -53,11 +70,12 @@ func PrepareRequestInputEstimate(c *gin.Context, info *relaycommon.RelayInfo) {
 			text = string(request.Input) + "\n" + withoutInput.GetTokenCountMeta().CombineText
 		}
 	}
-	if info.ChannelMeta != nil && info.ChannelSetting.SystemPrompt != "" {
-		text += "\n" + info.ChannelSetting.SystemPrompt
+	channel := requestInputChannel(c, info)
+	if channel != nil && channel.ChannelSetting.SystemPrompt != "" {
+		text += "\n" + channel.ChannelSetting.SystemPrompt
 	}
 	var count int64
-	if (info.ChannelMeta != nil && info.ChannelType == constant.ChannelTypeCodex) || strings.HasPrefix(info.OriginModelName, "gpt-5") || strings.HasPrefix(info.OriginModelName, "gpt-6") {
+	if (channel != nil && channel.ChannelType == constant.ChannelTypeCodex) || strings.HasPrefix(info.OriginModelName, "gpt-5") || strings.HasPrefix(info.OriginModelName, "gpt-6") {
 		tokens, err := requestInputEncoder.Count(text)
 		if err != nil {
 			return
@@ -127,10 +145,14 @@ func AppendRequestInputDiagnostics(c *gin.Context, info *relaycommon.RelayInfo, 
 // Run before initial billing and before each retry's dispatch. An absent model
 // entry preserves existing admission. Catalog metadata is not a trusted bound.
 func EnforceRequestInputLimit(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIError {
-	if info == nil || info.ChannelMeta == nil {
+	if info == nil {
 		return nil
 	}
-	limit := info.ChannelSetting.InputTokenLimits[info.OriginModelName]
+	channel := requestInputChannel(c, info)
+	if channel == nil {
+		return nil
+	}
+	limit := channel.ChannelSetting.InputTokenLimits[info.OriginModelName]
 	if info.RequestInputEstimate != nil {
 		info.RequestInputEstimate.LimitTokens = limit
 	}
@@ -159,7 +181,7 @@ func EnforceRequestInputLimit(c *gin.Context, info *relaycommon.RelayInfo) *type
 		if !info.StartTime.IsZero() {
 			elapsed = int(time.Since(info.StartTime).Seconds())
 		}
-		model.RecordErrorLog(c, info.UserId, info.ChannelId, info.OriginModelName, c.GetString("token_name"), message, info.TokenId, elapsed, info.IsStream, info.UsingGroup, other)
+		model.RecordErrorLog(c, info.UserId, channel.ChannelId, info.OriginModelName, c.GetString("token_name"), message, info.TokenId, elapsed, info.IsStream, info.UsingGroup, other)
 	}
 	return apiErr
 }

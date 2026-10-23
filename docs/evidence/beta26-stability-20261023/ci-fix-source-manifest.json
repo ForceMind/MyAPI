@@ -1,0 +1,18 @@
+{
+  "base_commit": "f99aef811c3707b0f5f1e4e4a532c78e9f288163",
+  "first_ci_run": 39936836364,
+  "files": [
+    {
+      "path": "controller/relay.go",
+      "sha256": "7b0af878f1310766af8ffb658ae3ef6d902ee581577b0b7ac54cea88230f9f89"
+    },
+    {
+      "path": "service/request_input.go",
+      "sha256": "332c201624f5b723027f378c3b4e25f03513c99578ed38c907c24ca887bb5002"
+    },
+    {
+      "path": "service/request_input_test.go",
+      "sha256": "49d6b2bd314bafff7768292c1eebfb79b3c873678e8f2d922d23a0149a8810dd"
+    }
+  ]
+}

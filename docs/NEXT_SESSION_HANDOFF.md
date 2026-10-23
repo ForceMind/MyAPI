@@ -3,6 +3,7 @@
 维护者已明确授权将下方两轮成果合并提交并推送到 `ForceMind/MyAPI` 的 `dev`，运行并跟进 CI；禁止部署生产。同步基线 `6efd467255c5637277dbaffc1584c682503b056b` 与远端一致。提交标题为 `Complete input diagnostics and unify console layouts`，涵盖请求输入估算/显式渠道上限、日志诊断、控制台UI及发行合同修正。
 
 - [CI 入口](https://github.com/ForceMind/MyAPI/actions/workflows/ci.yml?query=branch%3Adev)：结论须按该源码提交关联的实际运行判断，不能复用旧失败运行或仅凭本地验证称云端绿色。执行时记录在 `.local-tests/dev-sync-20261023/progress.json`。
+- 首次同步提交 `f99aef811c3707b0f5f1e4e4a532c78e9f288163`，CI39936836364的后端完整测试暴露提前初始化渠道元数据的回归；修复为只读选中渠道配置，不改动路由及账务生命周期。[失败和定向复测证据](evidence/beta26-stability-20261023/README.md)。后续修复提交与对应CI才是最终验收对象。
 - 两轮验收证据：[beta.26 收口](evidence/beta26-stability-20261023/README.md)、[其余页面UI统一](evidence/ui-unification-20261023/README.md)。其中“未提交/未推送/未运行新CI”描述各轮本地验收时点，后续同步以本次提交历史和 Actions 为准。
 - 下方源码/构建manifest保留验收输入；旧真实压测目录 `docs/evidence/geekmind-context-myapi-20261023/` 不属于本次两轮提交，继续本地保留。
 - 不新建开发分支，不合入main，不运行发布、镜像推送或生产部署工作流。

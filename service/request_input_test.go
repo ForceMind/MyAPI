@@ -40,6 +40,35 @@ func TestRequestInputEstimateDoesNotBecomeBillingUsage(t *testing.T) {
 	assert.NotContains(t, other, "usage_outcome")
 }
 
+func TestRequestInputChecksSelectedContextWithoutChangingRoutingState(t *testing.T) {
+	require.NoError(t, i18n.Init())
+	old := constant.ErrorLogEnabled
+	constant.ErrorLogEnabled = false
+	t.Cleanup(func() { constant.ErrorLogEnabled = old })
+	for _, existing := range []*relaycommon.ChannelMeta{nil, {
+		ChannelId:      1,
+		ChannelSetting: dto.ChannelSettings{InputTokenLimits: map[string]int64{"gpt-6.1-sol": 100}},
+	}} {
+		request := &dto.OpenAIResponsesRequest{}
+		require.NoError(t, common.UnmarshalJsonStr(`{"model":"client-alias","input":"hello world"}`, request))
+		info := &relaycommon.RelayInfo{OriginModelName: "gpt-6.1-sol", Request: request, RelayMode: relayconstant.RelayModeResponses, ChannelMeta: existing}
+		ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+		ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+		common.SetContextKey(ctx, constant.ContextKeyChannelId, 2)
+		common.SetContextKey(ctx, constant.ContextKeyChannelType, constant.ChannelTypeCodex)
+		common.SetContextKey(ctx, constant.ContextKeyChannelSetting, dto.ChannelSettings{InputTokenLimits: map[string]int64{"gpt-6.1-sol": 8}})
+
+		PrepareRequestInputEstimate(ctx, info)
+		inputErr := EnforceRequestInputLimit(ctx, info)
+		require.NotNil(t, inputErr)
+		assert.Equal(t, types.ErrorCode("request_input_limit_exceeded"), inputErr.GetErrorCode())
+		require.NotNil(t, info.RequestInputEstimate)
+		assert.EqualValues(t, 8, info.RequestInputEstimate.LimitTokens, "use the selected channel, including retries")
+		assert.Equal(t, existing, info.ChannelMeta, "diagnostics must not advance channel selection or change the initial hold")
+		assert.Equal(t, "client-alias", request.Model, "preflight must not initialize protocol conversion")
+	}
+}
+
 func TestRequestInputLimitExactPolicyAndRetryChannel(t *testing.T) {
 	require.NoError(t, i18n.Init())
 	old := constant.ErrorLogEnabled

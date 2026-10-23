@@ -1,0 +1,73 @@
+2026-10-23T10:20:48.9959988Z [INFO] 2026/10/23 - 10:20:30 | chat-flow-6 | record error log: userId=1, channelId=1, modelName=chat-alias, tokenName=responsesrestartauthoritative3, content=usage_pending_review 
+2026-10-23T10:20:48.9960542Z --- FAIL: TestAssignedAccessStrictResponsesUnknownReopenRecoveryBothWriters (0.56s)
+2026-10-23T10:20:48.9961067Z     --- FAIL: TestAssignedAccessStrictResponsesUnknownReopenRecoveryBothWriters/legacy (0.28s)
+2026-10-23T10:20:48.9961485Z         assigned_budget_flow_test.go:299: 
+2026-10-23T10:20:48.9961977Z             	Error Trace:	/home/runner/work/MyAPI/MyAPI/router/assigned_budget_flow_test.go:64
+2026-10-23T10:20:48.9962740Z             	            				/home/runner/work/MyAPI/MyAPI/router/assigned_budget_flow_test.go:299
+2026-10-23T10:20:48.9963057Z             	Error:      	Should be zero, but was 1
+2026-10-23T10:20:48.9963557Z             	Test:       	TestAssignedAccessStrictResponsesUnknownReopenRecoveryBothWriters/legacy
+2026-10-23T10:20:48.9964118Z             	Messages:   	legacy pre-hold is frozen before final channel selection
+2026-10-23T10:20:48.9964536Z     --- FAIL: TestAssignedAccessStrictResponsesUnknownReopenRecoveryBothWriters/authoritative (0.28s)
+2026-10-23T10:20:48.9964974Z         assigned_budget_flow_test.go:299: 
+2026-10-23T10:20:48.9965371Z             	Error Trace:	/home/runner/work/MyAPI/MyAPI/router/assigned_budget_flow_test.go:83
+2026-10-23T10:20:48.9966076Z             	            				/home/runner/work/MyAPI/MyAPI/router/assigned_budget_flow_test.go:299
+2026-10-23T10:20:48.9966458Z             	Error:      	Should be zero, but was 1
+2026-10-23T10:20:48.9966912Z             	Test:       	TestAssignedAccessStrictResponsesUnknownReopenRecoveryBothWriters/authoritative
+2026-10-23T10:20:48.9967472Z             	Messages:   	authoritative pre-hold is frozen before final channel selection
+2026-10-23T10:20:48.9967655Z 
+2026-10-23T10:20:48.9967929Z 2026/10/23 10:20:30 [31;1m/home/runner/work/MyAPI/MyAPI/model/channel.go:673 [35;1mrecord not found
+2026-10-23T10:20:48.9968475Z [0m[33m[0.049ms] [34;1m[rows:0][0m SELECT * FROM `channels` WHERE id = 999999 AND `channels`.`id` = 999999 ORDER BY `channels`.`id` LIMIT 1
+2026-10-23T10:20:48.9968798Z 
+2026-10-23T10:20:49.0286442Z [ERR] 2026/10/23 - 10:20:39 | failover-request | relay error: Invalid parameters 
+2026-10-23T10:20:49.0286691Z --- FAIL: TestRelayFailoverActualDispatch (6.80s)
+2026-10-23T10:20:49.0287070Z     --- FAIL: TestRelayFailoverActualDispatch/dispatch_settings_changed_after_selection_stop_dispatch (0.25s)
+2026-10-23T10:20:49.0287428Z         relay_failover_test.go:241: 
+2026-10-23T10:20:49.0287816Z             	Error Trace:	/home/runner/work/MyAPI/MyAPI/router/relay_failover_test.go:241
+2026-10-23T10:20:49.0288104Z             	Error:      	Not equal: 
+2026-10-23T10:20:49.0288353Z             	            	expected: int(0)
+2026-10-23T10:20:49.0288615Z             	            	actual  : int32(1)
+2026-10-23T10:20:49.0289062Z             	Test:       	TestRelayFailoverActualDispatch/dispatch_settings_changed_after_selection_stop_dispatch
+2026-10-23T10:20:49.0290014Z             	Messages:   	{"error":{"message":"upstream error: do request failed (request id: failover-request)","type":"new_api_error","param":"","code":"do_request_failed"}}
+2026-10-23T10:20:49.0290683Z     --- FAIL: TestRelayFailoverActualDispatch/success_account_affinity_follows_identity_and_retires_replacement (0.22s)
+2026-10-23T10:20:49.0291039Z         relay_failover_test.go:241: 
+2026-10-23T10:20:49.0291417Z             	Error Trace:	/home/runner/work/MyAPI/MyAPI/router/relay_failover_test.go:241
+2026-10-23T10:20:49.0291702Z             	Error:      	Not equal: 
+2026-10-23T10:20:49.0291945Z             	            	expected: int(2)
+2026-10-23T10:20:49.0292201Z             	            	actual  : int32(1)
+2026-10-23T10:20:49.0292678Z             	Test:       	TestRelayFailoverActualDispatch/success_account_affinity_follows_identity_and_retires_replacement
+2026-10-23T10:20:49.0293702Z             	Messages:   	{"id":"ok","object":"chat.completion","model":"actual","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}
+2026-10-23T10:20:49.0294340Z     --- FAIL: TestRelayFailoverActualDispatch/cooldown_retains_healthy_sibling_eligibility (0.26s)
+2026-10-23T10:20:49.0294654Z         relay_failover_test.go:241: 
+2026-10-23T10:20:49.0295027Z             	Error Trace:	/home/runner/work/MyAPI/MyAPI/router/relay_failover_test.go:241
+2026-10-23T10:20:49.0295310Z             	Error:      	Not equal: 
+2026-10-23T10:20:49.0295552Z             	            	expected: int(2)
+2026-10-23T10:20:49.0295802Z             	            	actual  : int32(1)
+2026-10-23T10:20:49.0296200Z             	Test:       	TestRelayFailoverActualDispatch/cooldown_retains_healthy_sibling_eligibility
+2026-10-23T10:20:49.0297143Z             	Messages:   	{"id":"ok","object":"chat.completion","model":"actual","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}
+2026-10-23T10:20:49.0297772Z     --- FAIL: TestRelayFailoverActualDispatch/healthy_credential_in_same_channel_remains_usable (0.30s)
+2026-10-23T10:20:49.0298095Z         relay_failover_test.go:241: 
+2026-10-23T10:20:49.0298468Z             	Error Trace:	/home/runner/work/MyAPI/MyAPI/router/relay_failover_test.go:241
+2026-10-23T10:20:49.0298759Z             	Error:      	Not equal: 
+2026-10-23T10:20:49.0299111Z             	            	expected: int(2)
+2026-10-23T10:20:49.0299510Z             	            	actual  : int32(1)
+2026-10-23T10:20:49.0299946Z             	Test:       	TestRelayFailoverActualDispatch/healthy_credential_in_same_channel_remains_usable
+2026-10-23T10:20:49.0300983Z             	Messages:   	{"id":"ok","object":"chat.completion","model":"actual","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}
+2026-10-23T10:20:49.0301622Z     --- FAIL: TestRelayFailoverActualDispatch/credential_replaced_after_selection_stops_dispatch (0.25s)
+2026-10-23T10:20:49.0301953Z         relay_failover_test.go:241: 
+2026-10-23T10:20:49.0302327Z             	Error Trace:	/home/runner/work/MyAPI/MyAPI/router/relay_failover_test.go:241
+2026-10-23T10:20:49.0302607Z             	Error:      	Not equal: 
+2026-10-23T10:20:49.0302848Z             	            	expected: int(0)
+2026-10-23T10:20:49.0303101Z             	            	actual  : int32(1)
+2026-10-23T10:20:49.0303523Z             	Test:       	TestRelayFailoverActualDispatch/credential_replaced_after_selection_stops_dispatch
+2026-10-23T10:20:49.0304270Z             	Messages:   	{"error":{"message":"upstream error: do request failed (request id: failover-request)","type":"new_api_error","param":"","code":"do_request_failed"}}
+2026-10-23T10:20:49.0304833Z     --- FAIL: TestRelayFailoverActualDispatch/organization_replaced_after_selection_stops_dispatch (0.27s)
+2026-10-23T10:20:49.0305160Z         relay_failover_test.go:241: 
+2026-10-23T10:20:49.0305534Z             	Error Trace:	/home/runner/work/MyAPI/MyAPI/router/relay_failover_test.go:241
+2026-10-23T10:20:49.0305816Z             	Error:      	Not equal: 
+2026-10-23T10:20:49.0306233Z             	            	expected: int(0)
+2026-10-23T10:20:49.0306632Z             	            	actual  : int32(1)
+2026-10-23T10:20:49.0307121Z             	Test:       	TestRelayFailoverActualDispatch/organization_replaced_after_selection_stops_dispatch
+2026-10-23T10:20:49.0307868Z             	Messages:   	{"error":{"message":"upstream error: do request failed (request id: failover-request)","type":"new_api_error","param":"","code":"do_request_failed"}}
+2026-10-23T10:20:49.0308369Z [INFO] 2026/10/23 - 10:20:39 | group-reservation-request | 模型 public 免费，跳过预扣费 
+2026-10-23T10:20:49.0308740Z [ERR] 2026/10/23 - 10:20:39 | group-reservation-request | channel error (channel #1, status code: 429): synthetic refusal 
+2026-10-23T10:20:49.0309182Z [INFO] 2026/10/23 - 10:20:39 | group-reservation-request | 用户 1 需要预扣费 ＄0.001020 (funding=wallet)
