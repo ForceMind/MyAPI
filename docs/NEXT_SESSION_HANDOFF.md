@@ -4,6 +4,7 @@
 
 - [CI 入口](https://github.com/ForceMind/MyAPI/actions/workflows/ci.yml?query=branch%3Adev)：结论须按该源码提交关联的实际运行判断，不能复用旧失败运行或仅凭本地验证称云端绿色。执行时记录在 `.local-tests/dev-sync-20261023/progress.json`。
 - 首次同步提交 `f99aef811c3707b0f5f1e4e4a532c78e9f288163`，CI39936836364的后端完整测试暴露提前初始化渠道元数据的回归；修复为只读选中渠道配置，不改动路由及账务生命周期。[失败和定向复测证据](evidence/beta26-stability-20261023/README.md)。后续修复提交与对应CI才是最终验收对象。
+- 修复提交 `167c8c2bc026eacb3e6a4ecc743db8ba7940617c` 的 CI39939372941 后端及其余9个作业通过，最后UI检查发现渠道菜单触发器40px、低于原44px合同；最小选择器修复及24项触屏通过证据见[UI入口](evidence/ui-unification-20261023/README.md)。既有44px断言未放宽，后续修复提交的CI才是最终结果。
 - 两轮验收证据：[beta.26 收口](evidence/beta26-stability-20261023/README.md)、[其余页面UI统一](evidence/ui-unification-20261023/README.md)。其中“未提交/未推送/未运行新CI”描述各轮本地验收时点，后续同步以本次提交历史和 Actions 为准。
 - 下方源码/构建manifest保留验收输入；旧真实压测目录 `docs/evidence/geekmind-context-myapi-20261023/` 不属于本次两轮提交，继续本地保留。
 - 不新建开发分支，不合入main，不运行发布、镜像推送或生产部署工作流。

@@ -1,0 +1,1328 @@
+{
+  "synthetic": true,
+  "providerRequests": 0,
+  "baseline": false,
+  "journeys": [
+    {
+      "name": "models",
+      "language": "zh",
+      "width": 1280,
+      "theme": "light",
+      "screenshot": "models-zh-1280.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 800,
+          "height": 32
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 91
+        },
+        "content": {
+          "x": 253,
+          "y": 168,
+          "width": 1014,
+          "height": 654
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "按模型名称筛选...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 1097,
+            "y": 101,
+            "width": 98,
+            "height": 36,
+            "text": "添加模型"
+          },
+          {
+            "x": 1203,
+            "y": 101,
+            "width": 40,
+            "height": 36,
+            "text": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "channels",
+      "language": "zh",
+      "width": 1280,
+      "theme": "light",
+      "screenshot": "channels-zh-1280.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 314.1875,
+          "height": 32
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 91
+        },
+        "content": {
+          "x": 253,
+          "y": 168,
+          "width": 1014,
+          "height": 654
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "按名称、ID 或密钥筛选...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "按模型筛选...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": "路由预览分组",
+            "placeholder": "明确的分组名称",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": "路由预览模型",
+            "placeholder": "模型名称",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": "路由预览请求路径",
+            "placeholder": "可选请求路径",
+            "minHeight": "40px"
+          },
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 1097,
+            "y": 101,
+            "width": 98,
+            "height": 36,
+            "text": "创建渠道新建"
+          },
+          {
+            "x": 1203,
+            "y": 101,
+            "width": 40,
+            "height": 36,
+            "text": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "accounts-empty",
+      "language": "zh",
+      "width": 1280,
+      "result": "passed"
+    },
+    {
+      "name": "accounts-error",
+      "language": "zh",
+      "width": 1280,
+      "result": "passed"
+    },
+    {
+      "name": "models",
+      "language": "zh",
+      "width": 390,
+      "theme": "light",
+      "screenshot": "models-zh-390.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 358,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 147
+        },
+        "content": {
+          "x": 0,
+          "y": 211,
+          "width": 390,
+          "height": 561
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "按模型名称筛选...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 16,
+            "y": 159,
+            "width": 98,
+            "height": 44,
+            "text": "添加模型"
+          },
+          {
+            "x": 122,
+            "y": 159,
+            "width": 40,
+            "height": 44,
+            "text": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "channels",
+      "language": "zh",
+      "width": 390,
+      "theme": "light",
+      "screenshot": "channels-zh-390.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 358,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 147
+        },
+        "content": {
+          "x": 0,
+          "y": 211,
+          "width": 390,
+          "height": 561
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 0,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 0,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 0,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "按名称、ID 或密钥筛选...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "按模型筛选...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": "路由预览分组",
+            "placeholder": "明确的分组名称",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": "路由预览模型",
+            "placeholder": "模型名称",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": "路由预览请求路径",
+            "placeholder": "可选请求路径",
+            "minHeight": "40px"
+          },
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 16,
+            "y": 159,
+            "width": 72,
+            "height": 44,
+            "text": "创建渠道新建"
+          },
+          {
+            "x": 96,
+            "y": 159,
+            "width": 40,
+            "height": 44,
+            "text": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "accounts-empty",
+      "language": "zh",
+      "width": 390,
+      "result": "passed"
+    },
+    {
+      "name": "accounts-error",
+      "language": "zh",
+      "width": 390,
+      "result": "passed"
+    },
+    {
+      "name": "models",
+      "language": "ru",
+      "width": 320,
+      "theme": "light",
+      "screenshot": "models-ru-320.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 288,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 752
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 168
+        },
+        "content": {
+          "x": 0,
+          "y": 232,
+          "width": 320,
+          "height": 519
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "Фильтр по имени модели...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 16,
+            "y": 180,
+            "width": 164.421875,
+            "height": 44,
+            "text": "Добавить модель"
+          },
+          {
+            "x": 188.421875,
+            "y": 180,
+            "width": 40,
+            "height": 44,
+            "text": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "channels",
+      "language": "ru",
+      "width": 320,
+      "theme": "light",
+      "screenshot": "channels-ru-320.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 288,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 752
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 189
+        },
+        "content": {
+          "x": 0,
+          "y": 253,
+          "width": 320,
+          "height": 498
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 0,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 0,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 0,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "Фильтровать по имени, ID или ключу...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "Фильтровать по модели...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": "Группа просмотра маршрутизации",
+            "placeholder": "Явное имя группы",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": "Модель просмотра маршрутизации",
+            "placeholder": "Имя модели",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": "Путь запроса просмотра маршрутизации",
+            "placeholder": "Необязательный путь запроса",
+            "minHeight": "40px"
+          },
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 16,
+            "y": 201,
+            "width": 101.265625,
+            "height": 44,
+            "text": "Создать каналСоздать"
+          },
+          {
+            "x": 125.265625,
+            "y": 201,
+            "width": 40,
+            "height": 44,
+            "text": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "accounts-empty",
+      "language": "ru",
+      "width": 320,
+      "result": "passed"
+    },
+    {
+      "name": "accounts-error",
+      "language": "ru",
+      "width": 320,
+      "result": "passed"
+    },
+    {
+      "name": "models",
+      "language": "fr",
+      "width": 320,
+      "theme": "light",
+      "screenshot": "models-fr-320.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 288,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 752
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 168
+        },
+        "content": {
+          "x": 0,
+          "y": 232,
+          "width": 320,
+          "height": 519
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "Filtrer par nom du modèle...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 16,
+            "y": 180,
+            "width": 164.484375,
+            "height": 44,
+            "text": "Ajouter un modèle"
+          },
+          {
+            "x": 188.484375,
+            "y": 180,
+            "width": 40,
+            "height": 44,
+            "text": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "channels",
+      "language": "fr",
+      "width": 320,
+      "theme": "light",
+      "screenshot": "channels-fr-320.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 288,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 752
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 168
+        },
+        "content": {
+          "x": 0,
+          "y": 232,
+          "width": 320,
+          "height": 519
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 0,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 0,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 0,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "Filtrer par nom, ID ou clé...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "Filtrer par modèle...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": "Groupe de l’aperçu du routage",
+            "placeholder": "Nom de groupe explicite",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": "Modèle de l’aperçu du routage",
+            "placeholder": "Nom du modèle",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": "Chemin de requête de l’aperçu du routage",
+            "placeholder": "Chemin de requête facultatif",
+            "minHeight": "40px"
+          },
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 16,
+            "y": 180,
+            "width": 80.9375,
+            "height": 44,
+            "text": "Créer un canalCréer"
+          },
+          {
+            "x": 104.9375,
+            "y": 180,
+            "width": 40,
+            "height": 44,
+            "text": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "accounts-empty",
+      "language": "fr",
+      "width": 320,
+      "result": "passed"
+    },
+    {
+      "name": "accounts-error",
+      "language": "fr",
+      "width": 320,
+      "result": "passed"
+    },
+    {
+      "name": "models",
+      "language": "en",
+      "width": 768,
+      "theme": "light",
+      "screenshot": "models-en-768.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 736,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 147
+        },
+        "content": {
+          "x": 0,
+          "y": 211,
+          "width": 768,
+          "height": 561
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "Filter by model name...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 16,
+            "y": 159,
+            "width": 113.265625,
+            "height": 44,
+            "text": "Add Model"
+          },
+          {
+            "x": 137.265625,
+            "y": 159,
+            "width": 40,
+            "height": 44,
+            "text": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "channels",
+      "language": "en",
+      "width": 768,
+      "theme": "light",
+      "screenshot": "channels-en-768.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 736,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 199
+        },
+        "content": {
+          "x": 0,
+          "y": 263,
+          "width": 768,
+          "height": 509
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "Filter by name, ID, or key...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "Filter by model...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": "Routing preview group",
+            "placeholder": "Explicit group name",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": "Routing preview model",
+            "placeholder": "Model name",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": "Routing preview request path",
+            "placeholder": "Optional request path",
+            "minHeight": "40px"
+          },
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 567.65625,
+            "y": 159,
+            "width": 145.140625,
+            "height": 44,
+            "text": "Create ChannelCreate"
+          },
+          {
+            "x": 16,
+            "y": 211,
+            "width": 40,
+            "height": 44,
+            "text": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "accounts-empty",
+      "language": "en",
+      "width": 768,
+      "result": "passed"
+    },
+    {
+      "name": "accounts-error",
+      "language": "en",
+      "width": 768,
+      "result": "passed"
+    },
+    {
+      "name": "models",
+      "language": "zh",
+      "width": 1024,
+      "theme": "dark",
+      "screenshot": "models-zh-1024.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 544,
+          "height": 32
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 91
+        },
+        "content": {
+          "x": 253,
+          "y": 168,
+          "width": 758,
+          "height": 654
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "按模型名称筛选...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 841,
+            "y": 101,
+            "width": 98,
+            "height": 36,
+            "text": "添加模型"
+          },
+          {
+            "x": 947,
+            "y": 101,
+            "width": 40,
+            "height": 36,
+            "text": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "channels",
+      "language": "zh",
+      "width": 1024,
+      "theme": "dark",
+      "screenshot": "channels-zh-1024.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 710,
+          "height": 32
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 139
+        },
+        "content": {
+          "x": 253,
+          "y": 216,
+          "width": 758,
+          "height": 606
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "按名称、ID 或密钥筛选...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "按模型筛选...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": "路由预览分组",
+            "placeholder": "明确的分组名称",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": "路由预览模型",
+            "placeholder": "模型名称",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": "路由预览请求路径",
+            "placeholder": "可选请求路径",
+            "minHeight": "40px"
+          },
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 841,
+            "y": 172,
+            "width": 98,
+            "height": 36,
+            "text": "创建渠道新建"
+          },
+          {
+            "x": 947,
+            "y": 172,
+            "width": 40,
+            "height": 36,
+            "text": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "accounts-empty",
+      "language": "zh",
+      "width": 1024,
+      "result": "passed"
+    },
+    {
+      "name": "accounts-error",
+      "language": "zh",
+      "width": 1024,
+      "result": "passed"
+    }
+  ],
+  "result": "passed"
+}

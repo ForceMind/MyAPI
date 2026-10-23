@@ -230,7 +230,7 @@
 .personal-console .myapi-page-actions:has(> div:empty) {
   display: none;
 }
-.personal-console .myapi-page-actions [data-slot='button'] {
+.personal-console .myapi-page-actions :is(button, [data-slot='button']) {
   min-width: 0;
   max-width: 100%;
   height: auto;
@@ -272,7 +272,7 @@
   line-height: 21px;
 }
 .personal-console .pc-page > header [data-slot='button'],
-.personal-console .myapi-page-actions [data-slot='button'] {
+.personal-console .myapi-page-actions :is(button, [data-slot='button']) {
   min-height: 36px;
 }
 .personal-console .pc-page form [data-slot='input'],
@@ -285,7 +285,7 @@
   .personal-console [data-slot='button'] {
     min-height: 40px;
   }
-  .personal-console .myapi-page-actions [data-slot='button'],
+  .personal-console .myapi-page-actions :is(button, [data-slot='button']),
   .personal-console .pc-page > header [data-slot='button'] {
     min-height: 44px;
   }

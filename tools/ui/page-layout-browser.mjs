@@ -14,6 +14,7 @@ const pages = [
   ['overview', '/dashboard/overview'],
   ['accounts', '/upstream-accounts'],
   ['models', '/models/metadata'],
+  ['channels', '/channels'],
   ['analytics', '/dashboard/models'],
   ['content', '/full-content-logs'],
   ['profile', '/profile'],
@@ -26,11 +27,11 @@ try {
   await new Promise(done => server.listen(0, '127.0.0.1', done))
   const origin = `http://127.0.0.1:${server.address().port}`
   browser = await chromium.launch({ headless: true })
-  const cases = baseline ? [['zh', 1280], ['zh', 390]] : [['zh', 1280], ['zh', 390], ['ru', 320], ['en', 768], ['zh', 1024, 'dark']]
+  const cases = baseline ? [['zh', 1280], ['zh', 390]] : [['zh', 1280], ['zh', 390], ['ru', 320], ['fr', 320], ['en', 768], ['zh', 1024, 'dark']]
   for (const [language, width, theme = 'light'] of cases) {
     const translations = JSON.parse(readFileSync(`web/src/i18n/locales/${language}.json`)).translation
     const t = key => translations[key] || key
-    const context = await browser.newContext({ viewport: { width, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+    const context = await browser.newContext({ viewport: { width, height: 900 }, hasTouch: width < 1024, isMobile: width < 640, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
     await context.addCookies([{ name: 'vite-ui-theme', value: theme, url: origin }])
     await context.addInitScript(lang => localStorage.setItem('i18nextLng', lang), language)
     const errors = [], blocked = []
@@ -45,7 +46,7 @@ try {
     const page = await context.newPage()
     page.setDefaultTimeout(15000)
     page.on('pageerror', error => errors.push(error.message))
-    for (const [name, path] of pages.filter(([name]) => !process.env.MYAPI_UI_PAGE || name === process.env.MYAPI_UI_PAGE)) {
+    for (const [name, path] of pages.filter(([name]) => !process.env.MYAPI_UI_PAGE || process.env.MYAPI_UI_PAGE.split(',').includes(name))) {
       await page.goto(origin + path, { waitUntil: 'networkidle' })
       await page.getByRole('heading', { level: 1 }).waitFor()
       await page.waitForFunction(() => Array.from(document.querySelectorAll('.myapi-navigation-progress')).every(e => !e.firstElementChild || e.firstElementChild.getBoundingClientRect().width === 0 || getComputedStyle(e.firstElementChild).opacity === '0'))
@@ -75,7 +76,7 @@ try {
         })), name + ' visible text controls share a 40px minimum height')
         for (const control of geometry.controls) {
           assert(control.x >= geometry.main.x && control.x + control.width <= geometry.main.x + geometry.main.width + 1, name + ' header actions stay in the page')
-          if (width < 1024) assert(control.height >= 40, name + ' mobile header actions are touch sized')
+          if (width < 1024) assert(control.height >= 44, name + ' mobile header actions are at least 44px, including menu triggers')
         }
         if (name === 'accounts') {
           if (width < 1024) {

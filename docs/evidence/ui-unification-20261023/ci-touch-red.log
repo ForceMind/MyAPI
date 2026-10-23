@@ -1,0 +1,4 @@
+2026-10-23T10:51:22.1528284Z responsive-themes-and-seven-languages: AssertionError [ERR_ASSERTION]: touch-channels-320: page action touch target must be at least 44px high: {"name":"Ouvrir le menu","text":"","x":102,"y":182,"right":146,"bottom":222,"width":44,"height":40,"scroll":42,"client":42,"whiteSpace":"normal"}
+2026-10-23T10:51:22.1530568Z     at screenshot (file:///home/runner/work/MyAPI/MyAPI/tools/ui/browser-smoke.mjs:157:46)
+2026-10-23T10:51:22.1531217Z     at async file:///home/runner/work/MyAPI/MyAPI/tools/ui/browser-smoke.mjs:577:7
+2026-10-23T10:56:41.4241592Z ##[error]Browser qualification failed
