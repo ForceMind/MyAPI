@@ -91,6 +91,29 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 			return
 		}
 		sendResponsesStreamData(c, streamResponse, data)
+		// Preserve a safe machine code for diagnosis without storing upstream
+		// free text, credentials, or treating a failed stream as zero usage.
+		if info.UpstreamErrorCode == "" || info.UpstreamErrorCode == "unknown_error" {
+			var envelope struct {
+				Error any `json:"error"`
+			}
+			var upstreamErr *types.OpenAIError
+			if streamResponse.Response != nil {
+				upstreamErr = streamResponse.Response.GetOpenAIError()
+			}
+			if upstreamErr == nil && streamResponse.Type == "error" && common.UnmarshalJsonStr(data, &envelope) == nil {
+				upstreamErr = dto.GetOpenAIError(envelope.Error)
+			}
+			if upstreamErr != nil {
+				code := common.SafeDiagnosticIdentifier(fmt.Sprint(upstreamErr.Code))
+				switch code {
+				case "context_length_exceeded", "context_window_exceeded", "rate_limit_exceeded", "usage_limit_reached", "insufficient_quota", "invalid_api_key", "model_not_found", "invalid_request_error", "server_error", "content_filter", "policy_violation":
+					info.UpstreamErrorCode = code
+				default:
+					info.UpstreamErrorCode = "unknown_error"
+				}
+			}
+		}
 		switch streamResponse.Type {
 		case "response.completed", "response.done":
 			if streamResponse.Response != nil {

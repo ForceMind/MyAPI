@@ -10,6 +10,7 @@ import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { SectionPageLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { quotaSeriesKey } from '@/features/channels/lib/quota-history'
 import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
@@ -41,128 +42,131 @@ export function PersonalUpstream() {
     (item) => item.channel_id === selectedAccount?.channel_id
   )
   return (
-    <main
-      id='content'
-      tabIndex={-1}
-      className='pc-page flex min-w-0 flex-col gap-5'
-      data-testid='personal-upstream'
-    >
-      <p className='text-muted-foreground text-sm'>
+    <SectionPageLayout>
+      <SectionPageLayout.Title>
         {t('Upstream accounts')}
-        {selectedAccount
-          ? ` / ${selectedAccount.account_label || selectedAccount.name}`
-          : ''}
-      </p>
-      <header className='flex min-w-0 flex-wrap items-center justify-between gap-3'>
-        <h1 className='min-w-0 text-2xl leading-8 font-semibold tracking-tight break-words sm:text-[32px] sm:leading-10'>
-          {t('Upstream accounts')}
-        </h1>
-        <div className='flex flex-wrap gap-2'>
-          {data.canRead ? (
-            <Button
-              variant='outline'
-              disabled={data.accountsQuery.isFetching}
-              onClick={() => void data.accountsQuery.refetch()}
-            >
-              {t('Refresh account windows')}
-            </Button>
-          ) : null}
-          {data.canRead && showChannels ? (
-            <Button
-              variant='outline'
-              nativeButton={false}
-              render={
-                <Link
-                  to='/connections'
-                  search={{ connection: selectedAccount?.channel_id }}
-                />
-              }
-            >
-              {t('Manage account connection')}
-            </Button>
-          ) : null}
-        </div>
-      </header>
-      <p className='text-muted-foreground text-sm'>
+      </SectionPageLayout.Title>
+      <SectionPageLayout.Description>
         {t('Saved subscription observations')}
-      </p>
-      {accounts.length > 0 ? (
-        <div className='grid min-w-0 gap-5 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]'>
-          <aside
-            className='bg-card hidden min-w-0 self-start rounded-xl border p-3 lg:block'
-            aria-label={t('Select upstream account')}
+      </SectionPageLayout.Description>
+      <SectionPageLayout.Actions>
+        {data.canRead ? (
+          <Button
+            variant='outline'
+            disabled={data.accountsQuery.isFetching}
+            onClick={() => void data.accountsQuery.refetch()}
           >
-            <p className='text-muted-foreground px-2 py-2 text-xs font-medium'>
-              {t('Observed subscription accounts')}
-            </p>
-            <div className='flex min-w-0 flex-col gap-1'>
-              {accounts.map((account) => (
-                <Button
-                  key={account.channel_id}
-                  variant={
-                    selectedAccount?.channel_id === account.channel_id
-                      ? 'secondary'
-                      : 'ghost'
-                  }
-                  aria-pressed={
-                    selectedAccount?.channel_id === account.channel_id
-                  }
-                  onClick={() => setChannelId(account.channel_id)}
-                  className='h-auto min-h-10 w-full min-w-0 justify-start py-2 text-left wrap-anywhere whitespace-normal'
-                >
-                  {account.account_label || account.name}
-                </Button>
-              ))}
-            </div>
-          </aside>
-          <div className='flex min-w-0 flex-col gap-4'>
-            <div className='flex min-w-0 flex-col gap-2 lg:hidden'>
-              <label htmlFor='upstream-account' className='text-sm font-medium'>
-                {t('Select upstream account')}
-              </label>
-              <select
-                id='upstream-account'
-                value={selectedAccount?.channel_id ?? ''}
-                onChange={(event) => setChannelId(Number(event.target.value))}
-                className='bg-background h-10 w-full min-w-0 rounded-md border px-2 text-sm'
+            {t('Refresh account windows')}
+          </Button>
+        ) : null}
+        {data.canRead && showChannels ? (
+          <Button
+            variant='outline'
+            nativeButton={false}
+            render={
+              <Link
+                to='/connections'
+                search={{ connection: selectedAccount?.channel_id }}
+              />
+            }
+          >
+            {t('Manage account connection')}
+          </Button>
+        ) : null}
+      </SectionPageLayout.Actions>
+      <SectionPageLayout.Content>
+        <div
+          className='flex min-w-0 flex-col gap-5'
+          data-testid='personal-upstream'
+        >
+          {accounts.length > 0 ? (
+            <div className='grid min-w-0 gap-5 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]'>
+              <aside
+                className='bg-card hidden min-w-0 self-start rounded-xl border p-3 lg:block'
+                aria-label={t('Select upstream account')}
               >
-                {accounts.map((account) => (
-                  <option key={account.channel_id} value={account.channel_id}>
-                    {account.account_label || account.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <h2 className='min-w-0 text-lg font-semibold wrap-anywhere'>
-              {selectedAccount?.account_label || selectedAccount?.name}
-            </h2>
-            {data.accountsQuery.data?.items_complete === false ||
-            data.accountsQuery.data?.source_complete === false ? (
-              <p role='status' className='text-muted-foreground text-sm'>
-                {t('Only returned window observations are shown.')}
-              </p>
-            ) : null}
-            <div className='grid min-w-0 gap-4 xl:grid-cols-2'>
-              {windows.map((item) => (
-                <WindowCard
-                  key={quotaSeriesKey(item)}
-                  item={item}
-                  showHistory={showChannels}
+                <p className='text-muted-foreground px-2 py-2 text-xs font-medium'>
+                  {t('Observed subscription accounts')}
+                </p>
+                <div className='flex min-w-0 flex-col gap-1'>
+                  {accounts.map((account) => (
+                    <Button
+                      key={account.channel_id}
+                      variant={
+                        selectedAccount?.channel_id === account.channel_id
+                          ? 'secondary'
+                          : 'ghost'
+                      }
+                      aria-pressed={
+                        selectedAccount?.channel_id === account.channel_id
+                      }
+                      onClick={() => setChannelId(account.channel_id)}
+                      className='h-auto min-h-10 w-full min-w-0 justify-start py-2 text-left wrap-anywhere whitespace-normal'
+                    >
+                      {account.account_label || account.name}
+                    </Button>
+                  ))}
+                </div>
+              </aside>
+              <div className='flex min-w-0 flex-col gap-4'>
+                <div className='flex min-w-0 flex-col gap-2 lg:hidden'>
+                  <label
+                    htmlFor='upstream-account'
+                    className='text-sm font-medium'
+                  >
+                    {t('Select upstream account')}
+                  </label>
+                  <select
+                    id='upstream-account'
+                    value={selectedAccount?.channel_id ?? ''}
+                    onChange={(event) =>
+                      setChannelId(Number(event.target.value))
+                    }
+                    className='bg-background h-10 w-full min-w-0 rounded-md border px-2 text-sm'
+                  >
+                    {accounts.map((account) => (
+                      <option
+                        key={account.channel_id}
+                        value={account.channel_id}
+                      >
+                        {account.account_label || account.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <h2 className='min-w-0 text-lg font-semibold wrap-anywhere'>
+                  {selectedAccount?.account_label || selectedAccount?.name}
+                </h2>
+                {data.accountsQuery.data?.items_complete === false ||
+                data.accountsQuery.data?.source_complete === false ? (
+                  <p role='status' className='text-muted-foreground text-sm'>
+                    {t('Only returned window observations are shown.')}
+                  </p>
+                ) : null}
+                <div className='grid min-w-0 gap-4 xl:grid-cols-2'>
+                  {windows.map((item) => (
+                    <WindowCard
+                      key={quotaSeriesKey(item)}
+                      item={item}
+                      showHistory={showChannels}
+                    />
+                  ))}
+                </div>
+                <WindowShareObservation
+                  key={selectedAccount.channel_id}
+                  channelId={selectedAccount.channel_id}
+                  canReadPoolUsage={
+                    data.canRead &&
+                    data.selfQuery.data?.role === ROLE.SUPER_ADMIN
+                  }
                 />
-              ))}
+              </div>
             </div>
-            <WindowShareObservation
-              key={selectedAccount.channel_id}
-              channelId={selectedAccount.channel_id}
-              canReadPoolUsage={
-                data.canRead && data.selfQuery.data?.role === ROLE.SUPER_ADMIN
-              }
-            />
-          </div>
+          ) : (
+            <AccountsState data={data} />
+          )}
         </div>
-      ) : (
-        <AccountsState data={data} />
-      )}
-    </main>
+      </SectionPageLayout.Content>
+    </SectionPageLayout>
   )
 }

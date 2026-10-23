@@ -14,6 +14,8 @@ token_budget.unavailable: "無法核驗 Token 預算，生成請求未送出"
 
 # Common messages
 common.invalid_params: "無效的參數"
+request_input_limit.exceeded: "輸入估算為 {{.Estimated}} Token，超過此渠道設定的 {{.Limit}} 上限。請縮短輸入；尚未送出上游請求。"
+request_input_limit.unavailable: "此渠道設定了輸入上限，但無法取得本次請求的完整文字估算；尚未送出上游請求。"
 common.database_error: "資料庫出錯，請聯繫管理員"
 common.retry_later: "請稍後重試"
 common.generate_failed: "生成失敗"

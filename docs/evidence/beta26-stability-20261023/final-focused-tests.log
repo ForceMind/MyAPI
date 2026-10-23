@@ -1,0 +1,10 @@
+$ vitest run src/components/navigation-progress/__tests__/layout.test.tsx src/features/channels/lib/__tests__/input-token-limits.test.ts src/features/usage-logs/components/__tests__/request-input-diagnostics.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+
+ Test Files  3 passed (3)
+      Tests  17 passed (17)
+   Start at  16:05:53
+   Duration  6.24s (transform 248ms, setup 801ms, import 626ms, tests 950ms, environment 3.42s)
+

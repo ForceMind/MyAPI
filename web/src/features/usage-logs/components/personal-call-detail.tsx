@@ -17,6 +17,7 @@ import { toIntlLocale } from '@/i18n/languages'
 
 import type { UsageLog } from '../data/schema'
 import { getPersonalCallEvidence } from '../lib/personal-call-evidence'
+import { RequestInputDiagnostics } from './request-input-diagnostics'
 
 export function PersonalCallDetail(props: { log: UsageLog }) {
   const { t, i18n } = useTranslation()
@@ -38,10 +39,18 @@ export function PersonalCallDetail(props: { log: UsageLog }) {
     [t('Model'), props.log.model_name || t('Unknown')],
     [t('Request path'), evidence.other?.request_path || t('Unknown')],
     [t('API Key'), props.log.token_name || t('Unknown')],
-    [t('HTTP status'), t('Unknown')],
+    [
+      t('HTTP status'),
+      Number.isInteger(evidence.other?.http_status) &&
+      (evidence.other?.http_status ?? 0) >= 100 &&
+      (evidence.other?.http_status ?? 0) <= 599
+        ? String(evidence.other?.http_status)
+        : t('Unknown'),
+    ],
   ]
   return (
     <div className='min-w-0 space-y-4' aria-label={t('Call details')}>
+      <RequestInputDiagnostics other={evidence.other} />
       <Card className='border-border bg-card border py-5 shadow-none ring-0'>
         <CardHeader className='gap-2 px-4 sm:px-5'>
           <CardTitle>

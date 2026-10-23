@@ -1,0 +1,2366 @@
+{
+  "synthetic": true,
+  "providerRequests": 0,
+  "baseline": false,
+  "journeys": [
+    {
+      "name": "overview",
+      "language": "zh",
+      "width": 1280,
+      "theme": "light",
+      "screenshot": "overview-zh-1280.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 966,
+          "height": 32
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 91
+        },
+        "content": {
+          "x": 253,
+          "y": 168,
+          "width": 1014,
+          "height": 719
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": []
+      }
+    },
+    {
+      "name": "accounts",
+      "language": "zh",
+      "width": 1280,
+      "theme": "light",
+      "screenshot": "accounts-zh-1280.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 710,
+          "height": 32
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 91
+        },
+        "content": {
+          "x": 253,
+          "y": 168,
+          "width": 1014,
+          "height": 719
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": [
+          {
+            "x": 1007,
+            "y": 101,
+            "width": 114,
+            "height": 36.375,
+            "text": "刷新账户窗口"
+          }
+        ]
+      }
+    },
+    {
+      "name": "models",
+      "language": "zh",
+      "width": 1280,
+      "theme": "light",
+      "screenshot": "models-zh-1280.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 800,
+          "height": 32
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 91
+        },
+        "content": {
+          "x": 253,
+          "y": 168,
+          "width": 1014,
+          "height": 654
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "按模型名称筛选...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 1097,
+            "y": 101,
+            "width": 98,
+            "height": 36,
+            "text": "添加模型"
+          },
+          {
+            "x": 1203,
+            "y": 101,
+            "width": 40,
+            "height": 36,
+            "text": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "analytics",
+      "language": "zh",
+      "width": 1280,
+      "theme": "light",
+      "screenshot": "analytics-zh-1280.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 966,
+          "height": 32
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 64
+        },
+        "content": {
+          "x": 253,
+          "y": 141,
+          "width": 1014,
+          "height": 746
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": []
+      }
+    },
+    {
+      "name": "content",
+      "language": "zh",
+      "width": 1280,
+      "theme": "light",
+      "screenshot": "content-zh-1280.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 718,
+          "height": 32
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 68.375
+        },
+        "content": {
+          "x": 253,
+          "y": 145.375,
+          "width": 1014,
+          "height": 741.625
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "全部模型",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "全部 API Key",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "datetime-local",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "datetime-local",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "40px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 1015,
+            "y": 101,
+            "width": 138,
+            "height": 36.375,
+            "text": "原始日志存储"
+          },
+          {
+            "x": 1161,
+            "y": 101,
+            "width": 82,
+            "height": 36.375,
+            "text": "刷新"
+          }
+        ]
+      }
+    },
+    {
+      "name": "profile",
+      "language": "zh",
+      "width": 1280,
+      "theme": "light",
+      "screenshot": "profile-zh-1280.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 966,
+          "height": 32
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 91
+        },
+        "content": {
+          "x": 253,
+          "y": 168,
+          "width": 1014,
+          "height": 719
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": []
+      }
+    },
+    {
+      "name": "system",
+      "language": "zh",
+      "width": 1280,
+      "theme": "light",
+      "screenshot": "system-zh-1280.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 966,
+          "height": 32
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 91
+        },
+        "content": {
+          "x": 253,
+          "y": 168,
+          "width": 1014,
+          "height": 719
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": []
+      }
+    },
+    {
+      "name": "settings",
+      "language": "zh",
+      "width": 1280,
+      "theme": "light",
+      "screenshot": "settings-zh-1280.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 776,
+          "height": 33
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 1014,
+          "height": 68
+        },
+        "content": {
+          "x": 253,
+          "y": 145,
+          "width": 1014,
+          "height": 742
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 32,
+            "slot": "form-control",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "MyAPI",
+            "minHeight": "auto"
+          },
+          {
+            "height": 32,
+            "slot": "form-control",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "https://yourdomain.com",
+            "minHeight": "auto"
+          },
+          {
+            "height": 32,
+            "slot": "form-control",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "https://example.com/logo.png",
+            "minHeight": "auto"
+          }
+        ],
+        "controls": [
+          {
+            "x": 1073,
+            "y": 101,
+            "width": 68,
+            "height": 36,
+            "text": "重置"
+          },
+          {
+            "x": 1149,
+            "y": 101,
+            "width": 94,
+            "height": 36,
+            "text": "保存更改"
+          }
+        ]
+      }
+    },
+    {
+      "name": "accounts-empty",
+      "language": "zh",
+      "width": 1280,
+      "result": "passed"
+    },
+    {
+      "name": "accounts-error",
+      "language": "zh",
+      "width": 1280,
+      "result": "passed"
+    },
+    {
+      "name": "overview",
+      "language": "zh",
+      "width": 390,
+      "theme": "light",
+      "screenshot": "overview-zh-390.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 358,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 91
+        },
+        "content": {
+          "x": 0,
+          "y": 155,
+          "width": 390,
+          "height": 682
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": []
+      }
+    },
+    {
+      "name": "accounts",
+      "language": "zh",
+      "width": 390,
+      "theme": "light",
+      "screenshot": "accounts-zh-390.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 358,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 147
+        },
+        "content": {
+          "x": 0,
+          "y": 211,
+          "width": 390,
+          "height": 626
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": [
+          {
+            "x": 16,
+            "y": 159,
+            "width": 114,
+            "height": 44,
+            "text": "刷新账户窗口"
+          }
+        ]
+      }
+    },
+    {
+      "name": "models",
+      "language": "zh",
+      "width": 390,
+      "theme": "light",
+      "screenshot": "models-zh-390.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 358,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 147
+        },
+        "content": {
+          "x": 0,
+          "y": 211,
+          "width": 390,
+          "height": 561
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "按模型名称筛选...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 16,
+            "y": 159,
+            "width": 98,
+            "height": 44,
+            "text": "添加模型"
+          },
+          {
+            "x": 122,
+            "y": 161,
+            "width": 40,
+            "height": 40,
+            "text": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "analytics",
+      "language": "zh",
+      "width": 390,
+      "theme": "light",
+      "screenshot": "analytics-zh-390.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 358,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 64
+        },
+        "content": {
+          "x": 0,
+          "y": 128,
+          "width": 390,
+          "height": 709
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": []
+      }
+    },
+    {
+      "name": "content",
+      "language": "zh",
+      "width": 390,
+      "theme": "light",
+      "screenshot": "content-zh-390.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 358,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 120
+        },
+        "content": {
+          "x": 0,
+          "y": 184,
+          "width": 390,
+          "height": 653
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 0,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "全部模型",
+            "minHeight": "40px"
+          },
+          {
+            "height": 0,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "全部 API Key",
+            "minHeight": "40px"
+          },
+          {
+            "height": 0,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "40px"
+          },
+          {
+            "height": 0,
+            "slot": "input",
+            "type": "datetime-local",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "40px"
+          },
+          {
+            "height": 0,
+            "slot": "input",
+            "type": "datetime-local",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "40px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 16,
+            "y": 132,
+            "width": 138,
+            "height": 44,
+            "text": "原始日志存储"
+          },
+          {
+            "x": 162,
+            "y": 132,
+            "width": 82,
+            "height": 44,
+            "text": "刷新"
+          }
+        ]
+      }
+    },
+    {
+      "name": "profile",
+      "language": "zh",
+      "width": 390,
+      "theme": "light",
+      "screenshot": "profile-zh-390.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 358,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 91
+        },
+        "content": {
+          "x": 0,
+          "y": 155,
+          "width": 390,
+          "height": 682
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": []
+      }
+    },
+    {
+      "name": "system",
+      "language": "zh",
+      "width": 390,
+      "theme": "light",
+      "screenshot": "system-zh-390.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 358,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 91
+        },
+        "content": {
+          "x": 0,
+          "y": 155,
+          "width": 390,
+          "height": 682
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": []
+      }
+    },
+    {
+      "name": "settings",
+      "language": "zh",
+      "width": 390,
+      "theme": "light",
+      "screenshot": "settings-zh-390.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 358,
+          "height": 33
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 121
+        },
+        "content": {
+          "x": 0,
+          "y": 185,
+          "width": 390,
+          "height": 652
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 32,
+            "slot": "form-control",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "MyAPI",
+            "minHeight": "auto"
+          },
+          {
+            "height": 32,
+            "slot": "form-control",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "https://yourdomain.com",
+            "minHeight": "auto"
+          },
+          {
+            "height": 32,
+            "slot": "form-control",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "https://example.com/logo.png",
+            "minHeight": "auto"
+          }
+        ],
+        "controls": [
+          {
+            "x": 16,
+            "y": 133,
+            "width": 68,
+            "height": 44,
+            "text": "重置"
+          },
+          {
+            "x": 92,
+            "y": 133,
+            "width": 94,
+            "height": 44,
+            "text": "保存更改"
+          }
+        ]
+      }
+    },
+    {
+      "name": "accounts-empty",
+      "language": "zh",
+      "width": 390,
+      "result": "passed"
+    },
+    {
+      "name": "accounts-error",
+      "language": "zh",
+      "width": 390,
+      "result": "passed"
+    },
+    {
+      "name": "overview",
+      "language": "ru",
+      "width": 320,
+      "theme": "light",
+      "screenshot": "overview-ru-320.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 288,
+          "height": 64
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 752
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 144
+        },
+        "content": {
+          "x": 0,
+          "y": 208,
+          "width": 320,
+          "height": 608
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": []
+      }
+    },
+    {
+      "name": "accounts",
+      "language": "ru",
+      "width": 320,
+      "theme": "light",
+      "screenshot": "accounts-ru-320.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 288,
+          "height": 64
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 738
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 243.375
+        },
+        "content": {
+          "x": 0,
+          "y": 307.375,
+          "width": 320,
+          "height": 494.625
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": [
+          {
+            "x": 16,
+            "y": 191,
+            "width": 221.265625,
+            "height": 44,
+            "text": "Обновить окна аккаунтов"
+          }
+        ]
+      }
+    },
+    {
+      "name": "models",
+      "language": "ru",
+      "width": 320,
+      "theme": "light",
+      "screenshot": "models-ru-320.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 288,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 752
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 168
+        },
+        "content": {
+          "x": 0,
+          "y": 232,
+          "width": 320,
+          "height": 519
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "Фильтр по имени модели...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 16,
+            "y": 180,
+            "width": 164.421875,
+            "height": 44,
+            "text": "Добавить модель"
+          },
+          {
+            "x": 188.421875,
+            "y": 182,
+            "width": 40,
+            "height": 40,
+            "text": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "analytics",
+      "language": "ru",
+      "width": 320,
+      "theme": "light",
+      "screenshot": "analytics-ru-320.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 288,
+          "height": 64
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 752
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 96
+        },
+        "content": {
+          "x": 0,
+          "y": 160,
+          "width": 320,
+          "height": 656
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": []
+      }
+    },
+    {
+      "name": "content",
+      "language": "ru",
+      "width": 320,
+      "theme": "light",
+      "screenshot": "content-ru-320.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 288,
+          "height": 64
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 752
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 204
+        },
+        "content": {
+          "x": 0,
+          "y": 268,
+          "width": 320,
+          "height": 548
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 0,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "All models",
+            "minHeight": "40px"
+          },
+          {
+            "height": 0,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "All API keys",
+            "minHeight": "40px"
+          },
+          {
+            "height": 0,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "40px"
+          },
+          {
+            "height": 0,
+            "slot": "input",
+            "type": "datetime-local",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "40px"
+          },
+          {
+            "height": 0,
+            "slot": "input",
+            "type": "datetime-local",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "40px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 16,
+            "y": 164,
+            "width": 166.875,
+            "height": 44,
+            "text": "Raw log storage"
+          },
+          {
+            "x": 16,
+            "y": 216,
+            "width": 125.140625,
+            "height": 44,
+            "text": "Обновить"
+          }
+        ]
+      }
+    },
+    {
+      "name": "profile",
+      "language": "ru",
+      "width": 320,
+      "theme": "light",
+      "screenshot": "profile-ru-320.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 288,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 752
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 112
+        },
+        "content": {
+          "x": 0,
+          "y": 176,
+          "width": 320,
+          "height": 640
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": []
+      }
+    },
+    {
+      "name": "system",
+      "language": "ru",
+      "width": 320,
+      "theme": "light",
+      "screenshot": "system-ru-320.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 288,
+          "height": 92
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 752
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 172
+        },
+        "content": {
+          "x": 0,
+          "y": 236,
+          "width": 320,
+          "height": 580
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": []
+      }
+    },
+    {
+      "name": "settings",
+      "language": "ru",
+      "width": 320,
+      "theme": "light",
+      "screenshot": "settings-ru-320.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 288,
+          "height": 72
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 752
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 320,
+          "height": 160
+        },
+        "content": {
+          "x": 0,
+          "y": 224,
+          "width": 320,
+          "height": 592
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 32,
+            "slot": "form-control",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "MyAPI",
+            "minHeight": "auto"
+          },
+          {
+            "height": 32,
+            "slot": "form-control",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "https://yourdomain.com",
+            "minHeight": "auto"
+          },
+          {
+            "height": 32,
+            "slot": "form-control",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "https://example.com/logo.png",
+            "minHeight": "auto"
+          }
+        ],
+        "controls": [
+          {
+            "x": 16,
+            "y": 172,
+            "width": 81.828125,
+            "height": 44,
+            "text": "Сброс"
+          },
+          {
+            "x": 105.828125,
+            "y": 172,
+            "width": 191.328125,
+            "height": 44,
+            "text": "Сохранить изменения"
+          }
+        ]
+      }
+    },
+    {
+      "name": "accounts-empty",
+      "language": "ru",
+      "width": 320,
+      "result": "passed"
+    },
+    {
+      "name": "accounts-error",
+      "language": "ru",
+      "width": 320,
+      "result": "passed"
+    },
+    {
+      "name": "overview",
+      "language": "en",
+      "width": 768,
+      "theme": "light",
+      "screenshot": "overview-en-768.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 736,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 91
+        },
+        "content": {
+          "x": 0,
+          "y": 155,
+          "width": 768,
+          "height": 682
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": []
+      }
+    },
+    {
+      "name": "accounts",
+      "language": "en",
+      "width": 768,
+      "theme": "light",
+      "screenshot": "accounts-en-768.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 736,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 147
+        },
+        "content": {
+          "x": 0,
+          "y": 211,
+          "width": 768,
+          "height": 626
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": [
+          {
+            "x": 16,
+            "y": 159,
+            "width": 207.953125,
+            "height": 44,
+            "text": "Refresh account windows"
+          }
+        ]
+      }
+    },
+    {
+      "name": "models",
+      "language": "en",
+      "width": 768,
+      "theme": "light",
+      "screenshot": "models-en-768.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 736,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 147
+        },
+        "content": {
+          "x": 0,
+          "y": 211,
+          "width": 768,
+          "height": 561
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "Filter by model name...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 16,
+            "y": 159,
+            "width": 113.265625,
+            "height": 44,
+            "text": "Add Model"
+          },
+          {
+            "x": 137.265625,
+            "y": 161,
+            "width": 40,
+            "height": 40,
+            "text": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "analytics",
+      "language": "en",
+      "width": 768,
+      "theme": "light",
+      "screenshot": "analytics-en-768.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 736,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 64
+        },
+        "content": {
+          "x": 0,
+          "y": 128,
+          "width": 768,
+          "height": 709
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": []
+      }
+    },
+    {
+      "name": "content",
+      "language": "en",
+      "width": 768,
+      "theme": "light",
+      "screenshot": "content-en-768.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 736,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 120
+        },
+        "content": {
+          "x": 0,
+          "y": 184,
+          "width": 768,
+          "height": 653
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "All models",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "All API keys",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "datetime-local",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "datetime-local",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "40px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 16,
+            "y": 132,
+            "width": 166.875,
+            "height": 44,
+            "text": "Raw log storage"
+          },
+          {
+            "x": 190.875,
+            "y": 132,
+            "width": 106.875,
+            "height": 44,
+            "text": "Refresh"
+          }
+        ]
+      }
+    },
+    {
+      "name": "profile",
+      "language": "en",
+      "width": 768,
+      "theme": "light",
+      "screenshot": "profile-en-768.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 736,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 91
+        },
+        "content": {
+          "x": 0,
+          "y": 155,
+          "width": 768,
+          "height": 682
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": []
+      }
+    },
+    {
+      "name": "system",
+      "language": "en",
+      "width": 768,
+      "theme": "light",
+      "screenshot": "system-en-768.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 736,
+          "height": 32
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 91
+        },
+        "content": {
+          "x": 0,
+          "y": 155,
+          "width": 768,
+          "height": 682
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": []
+      }
+    },
+    {
+      "name": "settings",
+      "language": "en",
+      "width": 768,
+      "theme": "light",
+      "screenshot": "settings-en-768.png",
+      "geometry": {
+        "title": {
+          "x": 16,
+          "y": 88,
+          "width": 736,
+          "height": 33
+        },
+        "main": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 773
+        },
+        "header": {
+          "x": 0,
+          "y": 64,
+          "width": 768,
+          "height": 121
+        },
+        "content": {
+          "x": 0,
+          "y": 185,
+          "width": 768,
+          "height": 652
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 32,
+            "slot": "form-control",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "MyAPI",
+            "minHeight": "auto"
+          },
+          {
+            "height": 32,
+            "slot": "form-control",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "https://yourdomain.com",
+            "minHeight": "auto"
+          },
+          {
+            "height": 32,
+            "slot": "form-control",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "https://example.com/logo.png",
+            "minHeight": "auto"
+          }
+        ],
+        "controls": [
+          {
+            "x": 16,
+            "y": 133,
+            "width": 77.75,
+            "height": 44,
+            "text": "Reset"
+          },
+          {
+            "x": 101.75,
+            "y": 133,
+            "width": 133.140625,
+            "height": 44,
+            "text": "Save Changes"
+          }
+        ]
+      }
+    },
+    {
+      "name": "accounts-empty",
+      "language": "en",
+      "width": 768,
+      "result": "passed"
+    },
+    {
+      "name": "accounts-error",
+      "language": "en",
+      "width": 768,
+      "result": "passed"
+    },
+    {
+      "name": "overview",
+      "language": "zh",
+      "width": 1024,
+      "theme": "dark",
+      "screenshot": "overview-zh-1024.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 710,
+          "height": 32
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 91
+        },
+        "content": {
+          "x": 253,
+          "y": 168,
+          "width": 758,
+          "height": 719
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": []
+      }
+    },
+    {
+      "name": "accounts",
+      "language": "zh",
+      "width": 1024,
+      "theme": "dark",
+      "screenshot": "accounts-zh-1024.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 454,
+          "height": 32
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 91
+        },
+        "content": {
+          "x": 253,
+          "y": 168,
+          "width": 758,
+          "height": 719
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": [
+          {
+            "x": 751,
+            "y": 101,
+            "width": 114,
+            "height": 36.375,
+            "text": "刷新账户窗口"
+          }
+        ]
+      }
+    },
+    {
+      "name": "models",
+      "language": "zh",
+      "width": 1024,
+      "theme": "dark",
+      "screenshot": "models-zh-1024.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 544,
+          "height": 32
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 91
+        },
+        "content": {
+          "x": 253,
+          "y": 168,
+          "width": 758,
+          "height": 654
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "按模型名称筛选...",
+            "minHeight": "40px"
+          },
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 1,
+            "type": "checkbox",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          },
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 841,
+            "y": 101,
+            "width": 98,
+            "height": 36,
+            "text": "添加模型"
+          },
+          {
+            "x": 947,
+            "y": 101,
+            "width": 40,
+            "height": 36,
+            "text": ""
+          }
+        ]
+      }
+    },
+    {
+      "name": "analytics",
+      "language": "zh",
+      "width": 1024,
+      "theme": "dark",
+      "screenshot": "analytics-zh-1024.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 710,
+          "height": 32
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 64
+        },
+        "content": {
+          "x": 253,
+          "y": 141,
+          "width": 758,
+          "height": 746
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": []
+      }
+    },
+    {
+      "name": "content",
+      "language": "zh",
+      "width": 1024,
+      "theme": "dark",
+      "screenshot": "content-zh-1024.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 462,
+          "height": 32
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 68.375
+        },
+        "content": {
+          "x": 253,
+          "y": 145.375,
+          "width": 758,
+          "height": 741.625
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "全部模型",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "全部 API Key",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "datetime-local",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "40px"
+          },
+          {
+            "height": 40,
+            "slot": "input",
+            "type": "datetime-local",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "40px"
+          }
+        ],
+        "controls": [
+          {
+            "x": 759,
+            "y": 101,
+            "width": 138,
+            "height": 36.375,
+            "text": "原始日志存储"
+          },
+          {
+            "x": 905,
+            "y": 101,
+            "width": 82,
+            "height": 36.375,
+            "text": "刷新"
+          }
+        ]
+      }
+    },
+    {
+      "name": "profile",
+      "language": "zh",
+      "width": 1024,
+      "theme": "dark",
+      "screenshot": "profile-zh-1024.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 710,
+          "height": 32
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 91
+        },
+        "content": {
+          "x": 253,
+          "y": 168,
+          "width": 758,
+          "height": 719
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 1,
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "",
+            "minHeight": "0px"
+          }
+        ],
+        "controls": []
+      }
+    },
+    {
+      "name": "system",
+      "language": "zh",
+      "width": 1024,
+      "theme": "dark",
+      "screenshot": "system-zh-1024.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 710,
+          "height": 32
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 91
+        },
+        "content": {
+          "x": 253,
+          "y": 168,
+          "width": 758,
+          "height": 719
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [],
+        "controls": []
+      }
+    },
+    {
+      "name": "settings",
+      "language": "zh",
+      "width": 1024,
+      "theme": "dark",
+      "screenshot": "settings-zh-1024.png",
+      "geometry": {
+        "title": {
+          "x": 277,
+          "y": 101,
+          "width": 520,
+          "height": 33
+        },
+        "main": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 810
+        },
+        "header": {
+          "x": 253,
+          "y": 77,
+          "width": 758,
+          "height": 68
+        },
+        "content": {
+          "x": 253,
+          "y": 145,
+          "width": 758,
+          "height": 742
+        },
+        "overflow": false,
+        "h1Count": 1,
+        "inputs": [
+          {
+            "height": 32,
+            "slot": "form-control",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "MyAPI",
+            "minHeight": "auto"
+          },
+          {
+            "height": 32,
+            "slot": "form-control",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "https://yourdomain.com",
+            "minHeight": "auto"
+          },
+          {
+            "height": 32,
+            "slot": "form-control",
+            "type": "text",
+            "hidden": "visible",
+            "label": null,
+            "placeholder": "https://example.com/logo.png",
+            "minHeight": "auto"
+          }
+        ],
+        "controls": [
+          {
+            "x": 817,
+            "y": 101,
+            "width": 68,
+            "height": 36,
+            "text": "重置"
+          },
+          {
+            "x": 893,
+            "y": 101,
+            "width": 94,
+            "height": 36,
+            "text": "保存更改"
+          }
+        ]
+      }
+    },
+    {
+      "name": "accounts-empty",
+      "language": "zh",
+      "width": 1024,
+      "result": "passed"
+    },
+    {
+      "name": "accounts-error",
+      "language": "zh",
+      "width": 1024,
+      "result": "passed"
+    }
+  ],
+  "result": "passed"
+}

@@ -1,0 +1,10 @@
+$ vitest run src/features/full-content-logs/components/__tests__/row-interaction.test.tsx src/features/full-content-logs/components/__tests__/filters.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+
+ Test Files  2 passed (2)
+      Tests  4 passed (4)
+   Start at  16:43:51
+   Duration  5.22s (transform 442ms, setup 608ms, import 1.20s, tests 901ms, environment 2.22s)
+

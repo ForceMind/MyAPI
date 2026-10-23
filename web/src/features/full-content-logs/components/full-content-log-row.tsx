@@ -81,7 +81,7 @@ export function FullContentLogRow(props: FullContentLogRowProps) {
       <TableCell className='max-w-64 truncate font-mono text-xs'>
         {props.log.request_id}
       </TableCell>
-      <TableCell className='bg-background sticky right-0 text-right group-hover:bg-[color-mix(in_oklch,var(--muted)_50%,var(--background))]'>
+      <TableCell className='bg-card sticky right-0 border-l text-right group-hover:bg-[color-mix(in_oklch,var(--muted)_50%,var(--card))]'>
         <Button
           size='sm'
           variant='outline'

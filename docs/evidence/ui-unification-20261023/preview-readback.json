@@ -1,0 +1,15 @@
+{
+  "/__preview": {
+    "status": 200,
+    "synthetic_header": "synthetic-readonly"
+  },
+  "/dashboard/overview": {
+    "status": 200,
+    "synthetic_header": "synthetic-readonly"
+  },
+  "/api/channel/quota/changes": {
+    "status": 200,
+    "synthetic_header": "synthetic-readonly",
+    "synthetic_windows": 4
+  }
+}

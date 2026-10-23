@@ -305,6 +305,7 @@ const SENSITIVE_FORM_FIELDS = [
   'thinking_to_content',
   'proxy',
   'http_protocol',
+  'input_token_limits',
   'http2_connection_shards',
   'pass_through_body_enabled',
   'system_prompt',
@@ -356,6 +357,7 @@ function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
     values.priority ||
     values.weight ||
     values.proxy?.trim() ||
+    values.input_token_limits?.trim() ||
     values.system_prompt?.trim() ||
     values.force_format ||
     values.thinking_to_content ||
@@ -4487,6 +4489,32 @@ export function ChannelMutateDrawer({
                               )}
                             />
 
+                            <FormField
+                              control={form.control}
+                              name='input_token_limits'
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>
+                                    {t('Estimated input limits')}
+                                  </FormLabel>
+                                  <FormControl>
+                                    <Textarea
+                                      {...field}
+                                      value={field.value ?? ''}
+                                      rows={3}
+                                      placeholder='{"gpt-6.1-sol": 920000}'
+                                      className='font-mono text-sm'
+                                    />
+                                  </FormControl>
+                                  <FormDescription>
+                                    {t(
+                                      'JSON object mapping exact request model names to positive Token limits. Leave empty for no local limit. These are local estimates, not advertised context windows.'
+                                    )}
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
                             <FormField
                               control={form.control}
                               name='http_protocol'

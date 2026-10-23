@@ -8,6 +8,7 @@ import {
 import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { NavigationProgress } from '@/components/navigation-progress'
 import { AnimatedOutlet } from '@/components/page-transition'
 import { SkipToMain } from '@/components/skip-to-main'
 import { Button } from '@/components/ui/button'
@@ -128,6 +129,7 @@ export function PersonalConsoleLayout(props: { children?: ReactNode }) {
           className='pc-desktop-nav'
           aria-label={t('Personal console navigation')}
           data-myapi-sidebar
+          tabIndex={0}
         >
           {context.view ? (
             <>
@@ -165,6 +167,7 @@ export function PersonalConsoleLayout(props: { children?: ReactNode }) {
         </div>
       </aside>
       <div className='pc-workspace'>
+        <NavigationProgress scope='workspace' />
         <header className='pc-header' data-myapi-header>
           {!mobile && collapsed && collapsible === 'offcanvas' && (
             <Button

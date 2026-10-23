@@ -78,7 +78,13 @@ test('source installer smoke exercises the real script without publishing or bor
   assert.match(job, /\.State\.Health\.Status/)
   assert.match(job, /\.HostConfig\.Memory/)
   assert.match(job, /\.HostConfig\.NanoCpus/)
-  assert.doesNotMatch(job, /docker (?:push|login)|packages: write|upload-artifact|--privileged|--network[= ]host/)
+  assert.doesNotMatch(job, /docker (?:push|login)|packages: write|--privileged|--network[= ]host/)
+  const uploads = job.split(/\n      - name: /).filter(step => /uses: actions\/upload-artifact@/.test(step))
+  assert.equal(uploads.length, 1, 'Only the safe installer report may be uploaded')
+  assert.match(uploads[0], /^Preserve safe source installer report\n/)
+  assert.match(uploads[0], /\n        if: always\(\)\n/)
+  assert.match(uploads[0], /\n          path: \$\{\{ runner\.temp \}\}\/myapi-installer-report\/\*\.json\n/)
+  assert.doesNotMatch(uploads[0], /include-hidden-files:\s*true/)
   // runner.temp is not a valid context in a job-level env block.
   assert.doesNotMatch(job.split('    steps:')[0], /runner\.temp/)
   for (const file of ['deploy/install.sh', 'deploy/docker-compose.yml', 'deploy/.env.example']) {

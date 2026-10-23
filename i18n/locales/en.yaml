@@ -17,6 +17,8 @@ quota_history.selection_too_large: "Too many quota observations; select a shorte
 
 # Common messages
 common.invalid_params: "Invalid parameters"
+request_input_limit.exceeded: "Estimated input {{.Estimated}} tokens exceeds this channel's configured limit of {{.Limit}}. Shorten the input. The upstream request was not sent."
+request_input_limit.unavailable: "This channel has an input limit, but a complete text estimate is unavailable for this request. The upstream request was not sent."
 common.database_error: "Database error, please contact the administrator"
 common.retry_later: "Please try again later"
 common.generate_failed: "Generation failed"

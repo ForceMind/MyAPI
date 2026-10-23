@@ -18,25 +18,35 @@ export function createKeyRequestFixture() {
   const base = createUIFixture({ role: 100, personalPolicy: true, language: 'zh' })
   const associations = createConnectionKeyFixture()
   const keys = [21, 22].map(id => ({ id, user_id: 1, name: 'Synthetic same-name Key · 合成同名 Key', key: `masked-synthetic-${id}`, status: 1, remain_quota: 100000, used_quota: 0, unlimited_quota: false, expired_time: -1, created_time: now - 3600, accessed_time: now, group: 'default', model_limits_enabled: false, model_limits: '', allow_ips: '' }))
+  const channel = { ...fixtureChannel, id: 1, type: 57, name: 'Synthetic connection · 合成连接', setting: JSON.stringify({ ...JSON.parse(fixtureChannel.setting || '{}'), input_token_limits: { 'synthetic-text-model': 920000 } }) }
   const scenarios = [
     ['SYNTHETIC-CONTEXT-ERROR', 21, 5, 'failed', 'unknown', 'Synthetic name before rename'],
     ['SYNTHETIC-COMPLETED-NO-USAGE', 21, 5, 'completed', 'unknown', keys[0].name],
     ['SYNTHETIC-NOT-RECORDED', 21, 2, 'completed', 'reported', keys[0].name],
     ['SYNTHETIC-OTHER-KEY', 22, 2, 'completed', 'reported', keys[1].name],
     ['SYNTHETIC-LEGACY-NO-ID', 0, 2, 'completed', 'reported', keys[0].name],
+    ['SYNTHETIC-PREFLIGHT-REJECTED', 21, 5, 'rejected', 'not_dispatched', keys[0].name],
   ]
   const rows = scenarios.map(([request_id, token_id, type, request_outcome, usage_outcome, token_name], index) => ({
     id: 100 - index, user_id: 1, username: 'Synthetic preview operator', token_id, token_name, type, request_id, upstream_request_id: `SYN-UP-${index + 1}`, created_at: now - index * 30,
     channel: 1, channel_name: 'Synthetic connection · 合成连接', model_name: 'synthetic-text-model', group: 'default', ip: '', is_stream: true, use_time: 2,
     quota: type === 2 ? 15 : 0, prompt_tokens: type === 2 ? 100 : 0, completion_tokens: type === 2 ? 20 : 0, content: type === 5 ? 'usage_pending_review' : 'Synthetic request completed',
-    other: JSON.stringify({ request_outcome, usage_outcome, usage_accuracy: usage_outcome, settlement_status: type === 5 ? 'pending_review' : 'settled', reserved_quota: 1000, actual_quota: type === 5 ? null : 15, ...(type === 2 ? { token_usage_evidence: { schema: 1, input_tokens: 100, output_tokens: 20, cache_read_tokens: 0 } } : {}) }),
+    other: JSON.stringify({ request_outcome, usage_outcome, usage_accuracy: usage_outcome, http_status: request_outcome === 'rejected' ? 400 : 200,
+      request_input_estimate: { input_tokens: request_outcome === 'rejected' ? 921000 : request_id === 'SYNTHETIC-CONTEXT-ERROR' ? 922000 : 98, method: 'o200k_base_text_estimate', complete: true, ...(request_outcome === 'rejected' ? { limit_tokens: 920000 } : {}) },
+      ...(request_outcome === 'rejected' ? { preflight_rejected: true, error_code: 'request_input_limit_exceeded' } : {}),
+      ...(request_id === 'SYNTHETIC-CONTEXT-ERROR' ? { upstream_error_code: 'context_length_exceeded' } : {}),
+      settlement_status: request_outcome === 'rejected' ? 'not_dispatched' : type === 5 ? 'pending_review' : 'settled', reserved_quota: request_outcome === 'rejected' ? 0 : 1000, actual_quota: request_outcome === 'rejected' ? 0 : type === 5 ? null : 15, ...(type === 2 ? { token_usage_evidence: { schema: 1, input_tokens: 100, output_tokens: 20, cache_read_tokens: 0 } } : {}) }),
   }))
   const bodyFor = row => {
     if (!row || row.request_id === 'SYNTHETIC-NOT-RECORDED' || !row.token_id) return null
-    const response = row.request_id === 'SYNTHETIC-CONTEXT-ERROR'
+    const preflight = row.request_id === 'SYNTHETIC-PREFLIGHT-REJECTED'
+    const response = preflight
+      ? JSON.stringify({ error: { code: 'request_input_limit_exceeded', message: 'Input estimate 921000 exceeds configured limit 920000; no upstream request was sent.' } })
+      : row.request_id === 'SYNTHETIC-CONTEXT-ERROR'
       ? `data: ${JSON.stringify({ error: { message: failure, type: 'invalid_request_error', code: 'context_length_exceeded' } })}\n\ndata: [DONE]\n\n`
       : `data: ${JSON.stringify({ choices: [{ delta: { content: 'Synthetic saved answer · 已保存的合成回答' } }] })}\n\ndata: [DONE]\n\n`
-    return { request_id: row.request_id, timestamp: new Date(row.created_at * 1000).toISOString(), user_id: 1, token_id: row.token_id, token_name: row.token_name, model: row.model_name, status: 200, method: 'POST', path: '/v1/chat/completions', duration_ms: 2000, chunk_count: 2, request_bytes: 96, response_bytes: Buffer.byteLength(response), response_body_total_bytes: Buffer.byteLength(response), response_body_truncated: false, request_body: JSON.stringify({ model: 'synthetic-text-model', stream: true, messages: [{ role: 'user', content: 'Synthetic preview request. No real provider is contacted.' }] }), response_body: response, request_content_type: 'application/json', response_content_type: 'text/event-stream', request_headers: { authorization: ['[REDACTED]'] }, response_headers: { 'content-type': ['text/event-stream'] }, query: {} }
+    const contentType = preflight ? 'application/json' : 'text/event-stream'
+    return { request_id: row.request_id, timestamp: new Date(row.created_at * 1000).toISOString(), user_id: 1, token_id: row.token_id, token_name: row.token_name, model: row.model_name, status: preflight ? 400 : 200, method: 'POST', path: '/v1/chat/completions', duration_ms: preflight ? 3 : 2000, chunk_count: preflight ? 1 : 2, request_bytes: 96, response_bytes: Buffer.byteLength(response), response_body_total_bytes: Buffer.byteLength(response), response_body_truncated: false, request_body: JSON.stringify({ model: 'synthetic-text-model', stream: true, messages: [{ role: 'user', content: 'Synthetic preview request. No real provider is contacted.' }] }), response_body: response, request_content_type: 'application/json', response_content_type: contentType, request_headers: { authorization: ['[REDACTED]'] }, response_headers: { 'content-type': [contentType] }, query: {} }
   }
   const page = (items, url) => {
     const number = Math.max(1, Number(url.searchParams.get('p') || 1)), size = Math.max(1, Math.min(100, Number(url.searchParams.get('page_size') || url.searchParams.get('size') || 20)))
@@ -71,8 +81,8 @@ export function createKeyRequestFixture() {
         const key = keys.find(key => key.id === Number(path.split('/').at(-1)))
         return key ? ok(key) : { status: 404, body: { success: false, message: 'Synthetic Key not found' } }
       }
-      if (path === '/api/channel' || path === '/api/channel/search') return ok(page([{ ...fixtureChannel, id: 1, type: 57, name: 'Synthetic connection · 合成连接' }], url))
-      if (path === '/api/channel/1') return ok({ ...fixtureChannel, id: 1, type: 57, name: 'Synthetic connection · 合成连接' })
+      if (path === '/api/channel' || path === '/api/channel/search') return ok(page([channel], url))
+      if (path === '/api/channel/1') return ok(channel)
       if (path === '/api/channel/quota/changes') return ok({ items: [] })
       if (path === '/api/subscription-share/channels/1/pools') return ok({ channel_id: 1, has_more: false, items: [{ pool_id: 7, channel_id: 1, window_source: 'codex_wham_usage_primary', window_type: 'five_hour', enabled: true }] })
       const related = associations.response(url, method)
@@ -123,7 +133,7 @@ export function createKeyRequestPreview({ dist = resolve(repo, 'web/dist') } = {
     if (request.method !== 'GET' && request.method !== 'HEAD') { response.writeHead(405); response.end(); return }
     if (url.pathname === '/__preview') {
       response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
-      response.end('<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>MyAPI R1 合成预览</title><body style="font:16px system-ui;max-width:760px;margin:60px auto;padding:20px;line-height:1.8"><h1>MyAPI · Key 请求排错预览</h1><p>合成数据、只读演示。不会访问生产数据或供应商，不会重新发送请求。</p><ol><li><a href="/keys">选择同名 Key 中的 #21 或 #22，查看各自请求</a></li><li><a href="/usage-logs/common?tokenId=21&pageSize=20">查看 Key #21：流内错误、成功但用量未知、未采集正文</a></li><li><a href="/connections?connection=1">连接 → 已保存分额 → Key → 请求</a></li><li><a href="/full-content-logs">查看正文采集状态与已保存 SSE</a></li></ol><p>请求列表和统计均按稳定 Key ID 筛选；未记录正文有说明，查看不会生成新请求。</p></body></html>'); return
+      response.end('<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>MyAPI 控制台合成预览</title><body style="font:16px system-ui;max-width:760px;margin:60px auto;padding:20px;line-height:1.8"><h1>MyAPI · 控制台预览</h1><p>合成数据、只读演示。不会访问生产数据或供应商，不会重新发送请求。</p><p><a href="/dashboard/overview">概览</a> · <a href="/upstream-accounts">上游账号</a> · <a href="/models/metadata">模型</a> · <a href="/dashboard/models">模型调用分析</a> · <a href="/profile">个人资料</a> · <a href="/system-info">系统信息</a> · <a href="/system-settings/site/system-info">站点设置</a></p><ol><li><a href="/keys">选择同名 Key 中的 #21 或 #22，查看各自请求</a></li><li><a href="/usage-logs/common?tokenId=21&pageSize=20">查看 Key #21：流内错误、成功但用量未知、未采集正文</a></li><li><a href="/connections?connection=1">连接 → 已保存分额 → Key → 请求</a></li><li><a href="/full-content-logs">查看正文采集状态与已保存 SSE</a></li></ol><p>请求列表和统计均按稳定 Key ID 筛选；未记录正文有说明，查看不会生成新请求。</p></body></html>'); return
     }
     let pathname
     try { pathname = decodeURIComponent(url.pathname) } catch { response.writeHead(400); response.end(); return }

@@ -1,0 +1,17 @@
+{
+  "synthetic": true,
+  "providerRequests": 0,
+  "journeys": [
+    {
+      "width": 1280,
+      "screenshot": "input-policy-zh-1280.png",
+      "result": "passed"
+    },
+    {
+      "width": 390,
+      "screenshot": "input-policy-zh-390.png",
+      "result": "passed"
+    }
+  ],
+  "result": "passed"
+}

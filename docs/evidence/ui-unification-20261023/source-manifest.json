@@ -1,0 +1,63 @@
+{
+  "branch": "dev",
+  "base_head": "6efd467255c5637277dbaffc1584c682503b056b",
+  "source_state": "uncommitted UI changes over prior beta.26 working tree; no commit or deployment",
+  "files": [
+    {
+      "path": "tools/ui/key-request-preview.mjs",
+      "sha256": "3d974eb8730ff3e1ee3dc02e4236379f21962d1d70e61dbb1d344269d3ed439d"
+    },
+    {
+      "path": "tools/ui/page-layout-browser.mjs",
+      "sha256": "48be7d2912067c539cb50f0f160f478098bd02aecf33c64b9e616f5532bfef1f"
+    },
+    {
+      "path": "tools/ui/page-layout-preview.mjs",
+      "sha256": "e93f231f9fdcd773f03fc612078918abc48fa2515261334a8d21d45742207c95"
+    },
+    {
+      "path": "web/src/components/data-table/toolbar/toolbar.tsx",
+      "sha256": "9142482b873c91a02ea983273f50c89d79b809550e161a9b5adfc428be2b7612"
+    },
+    {
+      "path": "web/src/features/dashboard/components/models/consumption-distribution-chart.tsx",
+      "sha256": "543667f5dba382b0936832d0ba5bf0822c2f9bb12176f1d3c31d0427ddaf5dea"
+    },
+    {
+      "path": "web/src/features/dashboard/components/models/log-stat-cards.tsx",
+      "sha256": "016be7c3a712f874fe5fcaeb0b070fe35618357d000b3417432e869e71034f83"
+    },
+    {
+      "path": "web/src/features/dashboard/components/models/model-charts.tsx",
+      "sha256": "35455d87b9a49f2fc356e9881cfdd98d284082888937b695b7823165cf89a880"
+    },
+    {
+      "path": "web/src/features/dashboard/components/personal-workbench/personal-workbench.tsx",
+      "sha256": "7c84bc91681d9c0a2972a5e4128b6c04beb8f35ef86c0bd76ac0dc7215b67004"
+    },
+    {
+      "path": "web/src/features/dashboard/index.tsx",
+      "sha256": "5bedc9fa1f48cf97a00734f5400320c2253cfea99ab262735c83e2d41c99c158"
+    },
+    {
+      "path": "web/src/features/full-content-logs/components/full-content-log-row.tsx",
+      "sha256": "add78cadab0a7e132e70e7cc52bbd6e41a8270022ed3b4082a5771fa9aeca26f"
+    },
+    {
+      "path": "web/src/features/full-content-logs/index.tsx",
+      "sha256": "12cfb694d284a1eca63e09447fc0509a170d6588bf0a9cd117db8e2168a0371b"
+    },
+    {
+      "path": "web/src/features/personal-upstream/personal-upstream.tsx",
+      "sha256": "01f34930d8fcfe22bf3e5792ea062ff954b9bc2534b9033b0575aed424ab39d1"
+    },
+    {
+      "path": "web/src/features/profile/index.tsx",
+      "sha256": "1f0171704e84b95e37737757d0c5c1435b7a1ff609f4476b1a9382b9e583c7f9"
+    },
+    {
+      "path": "web/src/styles/personal-console.css",
+      "sha256": "bfe6b13d724a1679d7a7f4c39e8da8ebbfb8cf10b02207b810076562a947e428"
+    }
+  ]
+}

@@ -179,6 +179,12 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	}
 
 	relayInfo.SetEstimatePromptTokens(tokens)
+	relayInfo.InitChannelMeta(c)
+	service.PrepareRequestInputEstimate(c, relayInfo)
+	if inputErr := service.EnforceRequestInputLimit(c, relayInfo); inputErr != nil {
+		newAPIError = inputErr
+		return
+	}
 
 	priceData, err := helper.ModelPriceHelper(c, relayInfo, tokens, meta)
 	if err != nil {
@@ -237,10 +243,15 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		// Strict eligibility is checked before entering the protocol helper.
 		// Capture the already-selected channel here; the helper will refresh the
 		// same context before model conversion and final outbound qualification.
-		if relayInfo.StrictTokenBudget {
-			relayInfo.InitChannelMeta(c)
-		}
+		relayInfo.InitChannelMeta(c)
 		addUsedChannel(c, channel.Id)
+		if attempt > 0 {
+			service.PrepareRequestInputEstimate(c, relayInfo)
+		}
+		if inputErr := service.EnforceRequestInputLimit(c, relayInfo); inputErr != nil {
+			newAPIError = inputErr
+			break
+		}
 		failover.StartAttempt(c)
 		if billingErr := service.PrepareTieredBillingForSelectedGroup(c, relayInfo); billingErr != nil {
 			newAPIError = billingErr
@@ -511,6 +522,9 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 		other["channel_id"] = channelId
 		other["channel_name"] = c.GetString("channel_name")
 		other["channel_type"] = c.GetInt("channel_type")
+		if estimate, ok := c.Get("request_input_estimate"); ok {
+			other["request_input_estimate"] = estimate
+		}
 		adminInfo := make(map[string]interface{})
 		adminInfo["use_channel"] = c.GetStringSlice("use_channel")
 		isMultiKey := common.GetContextKeyBool(c, constant.ContextKeyChannelIsMultiKey)

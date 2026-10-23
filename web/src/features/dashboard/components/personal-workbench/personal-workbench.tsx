@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { SectionPageLayout } from '@/components/layout'
 import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -40,19 +41,14 @@ function PersonalWorkbenchSession() {
       .map((item) => item.channel_id)
   ).size
   return (
-    <div
-      className='pc-page flex min-w-0 flex-col gap-5'
-      data-testid='personal-workbench'
-    >
-      <header className='flex min-w-0 flex-wrap items-start justify-between gap-3'>
-        <div>
-          <h1 className='text-2xl leading-8 font-semibold tracking-tight sm:text-[32px] sm:leading-10'>
-            {t('Your API workspace')}
-          </h1>
-          <p className='text-muted-foreground mt-2 text-base'>
-            {t('Connections, Keys, and calls at a glance')}
-          </p>
-        </div>
+    <SectionPageLayout>
+      <SectionPageLayout.Title>
+        {t('Your API workspace')}
+      </SectionPageLayout.Title>
+      <SectionPageLayout.Description>
+        {t('Connections, Keys, and calls at a glance')}
+      </SectionPageLayout.Description>
+      <SectionPageLayout.Actions>
         {failedAccounts > 0 && showUpstream ? (
           <Link
             to='/upstream-accounts'
@@ -69,63 +65,80 @@ function PersonalWorkbenchSession() {
             </StatusBadge>
           </Link>
         ) : null}
-      </header>
-      <div
-        className='grid min-w-0 items-start gap-5 lg:grid-cols-2 xl:grid-cols-3'
-        data-testid='personal-workbench-layout'
-      >
-        <OverviewConnections
-          canRead={data.canRead && showChannels}
-          showModels={showModels}
-        />
-        <OverviewKeys />
-        <section
-          className='flex min-w-0 flex-col gap-3 lg:col-span-2 xl:col-span-1'
-          aria-label={t('Upstream account windows')}
-          data-testid='account-windows-section'
+      </SectionPageLayout.Actions>
+      <SectionPageLayout.Content>
+        <div
+          className='flex min-w-0 flex-col gap-5'
+          data-testid='personal-workbench'
         >
-          {items.length > 1 ? (
-            <div className='flex min-w-0 flex-col gap-2'>
-              <label htmlFor='overview-window' className='text-sm font-medium'>
-                {t('Select account window')}
-              </label>
-              <select
-                id='overview-window'
-                className='bg-background h-10 w-full min-w-0 rounded-md border px-2 text-sm'
-                value={selected ? quotaSeriesKey(selected) : ''}
-                onChange={(event) => setSelectedSeries(event.target.value)}
-              >
-                {items.map((item) => (
-                  <option
-                    key={quotaSeriesKey(item)}
-                    value={quotaSeriesKey(item)}
-                  >
-                    {item.account_label || item.name} ·{' '}
-                    {quotaWindowLabel(item.window_type, t)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
-          {selected ? (
-            <WindowCard item={selected} compact showHistory={showChannels} />
-          ) : (
-            <AccountsState data={data} />
-          )}
-          {showUpstream ? (
-            <Button
-              variant='ghost'
-              className='self-start'
-              nativeButton={false}
-              render={<Link to='/upstream-accounts' />}
+          <div
+            className='grid min-w-0 items-stretch gap-5 lg:grid-cols-2 xl:grid-cols-3'
+            data-testid='personal-workbench-layout'
+          >
+            <OverviewConnections
+              canRead={data.canRead && showChannels}
+              showModels={showModels}
+            />
+            <OverviewKeys />
+            <section
+              className='pc-card pc-overview-windows flex min-w-0 flex-col gap-4 p-4 lg:col-span-2 xl:col-span-1'
+              aria-label={t('Upstream account windows')}
+              data-testid='account-windows-section'
             >
-              {t('View upstream accounts')}
-            </Button>
-          ) : null}
-        </section>
-      </div>
-      <OverviewRecent />
-    </div>
+              <h2 className='text-base font-semibold'>
+                {t('Upstream account windows')}
+              </h2>
+              {items.length > 1 ? (
+                <div className='flex min-w-0 flex-col gap-2'>
+                  <label
+                    htmlFor='overview-window'
+                    className='text-sm font-medium'
+                  >
+                    {t('Select account window')}
+                  </label>
+                  <select
+                    id='overview-window'
+                    className='bg-background h-10 w-full min-w-0 rounded-md border px-2 text-sm'
+                    value={selected ? quotaSeriesKey(selected) : ''}
+                    onChange={(event) => setSelectedSeries(event.target.value)}
+                  >
+                    {items.map((item) => (
+                      <option
+                        key={quotaSeriesKey(item)}
+                        value={quotaSeriesKey(item)}
+                      >
+                        {item.account_label || item.name} ·{' '}
+                        {quotaWindowLabel(item.window_type, t)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              {selected ? (
+                <WindowCard
+                  item={selected}
+                  compact
+                  showHistory={showChannels}
+                />
+              ) : (
+                <AccountsState data={data} />
+              )}
+              {showUpstream ? (
+                <Button
+                  variant='ghost'
+                  className='self-start'
+                  nativeButton={false}
+                  render={<Link to='/upstream-accounts' />}
+                >
+                  {t('View upstream accounts')}
+                </Button>
+              ) : null}
+            </section>
+          </div>
+          <OverviewRecent />
+        </div>
+      </SectionPageLayout.Content>
+    </SectionPageLayout>
   )
 }
 

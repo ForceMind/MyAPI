@@ -1,0 +1,478 @@
+TAP version 13
+# Subtest: isolated personal cold-cache journey has a bounded Web request budget
+ok 1 - isolated personal cold-cache journey has a bounded Web request budget
+  ---
+  duration_ms: 4.074523
+  type: 'test'
+  ...
+# Subtest: personal Web budget rejects non-personal, non-isolated, LAN and external targets
+ok 2 - personal Web budget rejects non-personal, non-isolated, LAN and external targets
+  ---
+  duration_ms: 1.077747
+  type: 'test'
+  ...
+# Subtest: personal frontend evidence is exact, public and replaces the redundant cold browser probe
+ok 3 - personal frontend evidence is exact, public and replaces the redundant cold browser probe
+  ---
+  duration_ms: 3.684719
+  type: 'test'
+  ...
+# Subtest: personal frontend evidence rejects every missing or mismatched proof with one fixed code
+ok 4 - personal frontend evidence rejects every missing or mismatched proof with one fixed code
+  ---
+  duration_ms: 3.273799
+  type: 'test'
+  ...
+# Subtest: standalone frontend probe reports bounded same-origin diagnostics with a fixed form timeout
+ok 5 - standalone frontend probe reports bounded same-origin diagnostics with a fixed form timeout
+  ---
+  duration_ms: 4.872655
+  type: 'test'
+  ...
+# Subtest: standalone frontend probe retains its real form and build contract for non-personal runs
+ok 6 - standalone frontend probe retains its real form and build contract for non-personal runs
+  ---
+  duration_ms: 2.75435
+  type: 'test'
+  ...
+# Subtest: relay fixture remains an explicit isolated smoke capability
+ok 7 - relay fixture remains an explicit isolated smoke capability
+  ---
+  duration_ms: 14.676943
+  type: 'test'
+  ...
+# Subtest: synthetic OpenAI only exposes a non-sensitive request summary
+ok 8 - synthetic OpenAI only exposes a non-sensitive request summary
+  ---
+  duration_ms: 200.299375
+  type: 'test'
+  ...
+# Subtest: synthetic OpenAI accepts the real Playground streaming contract with complete usage
+ok 9 - synthetic OpenAI accepts the real Playground streaming contract with complete usage
+  ---
+  duration_ms: 71.946637
+  type: 'test'
+  ...
+# Subtest: streaming fixture refuses missing usage opt-in and malformed stream values
+ok 10 - streaming fixture refuses missing usage opt-in and malformed stream values
+  ---
+  duration_ms: 61.022893
+  type: 'test'
+  ...
+# Subtest: synthetic OpenAI listener only allows explicit loopback or Docker namespace hosts
+ok 11 - synthetic OpenAI listener only allows explicit loopback or Docker namespace hosts
+  ---
+  duration_ms: 7.757663
+  type: 'test'
+  ...
+# Subtest: relay fixture verifies exact wallet, key, usage, log and redaction contracts without reporting credentials
+ok 12 - relay fixture verifies exact wallet, key, usage, log and redaction contracts without reporting credentials
+  ---
+  duration_ms: 139.657884
+  type: 'test'
+  ...
+# Subtest: applied settlement proof requires a fact and validates any present intent
+ok 13 - applied settlement proof requires a fact and validates any present intent
+  ---
+  duration_ms: 1.184095
+  type: 'test'
+  ...
+# Subtest: before-relay verification failure stops before any relay request
+ok 14 - before-relay verification failure stops before any relay request
+  ---
+  duration_ms: 37.261785
+  type: 'test'
+  ...
+# Subtest: smoke initialization requires explicit opt-in and a literal loopback target
+ok 15 - smoke initialization requires explicit opt-in and a literal loopback target
+  ---
+  duration_ms: 0.558247
+  type: 'test'
+  ...
+# Subtest: existing or non-SQLite instances are rejected without writes
+ok 16 - existing or non-SQLite instances are rejected without writes
+  ---
+  duration_ms: 21.31924
+  type: 'test'
+  ...
+# Subtest: full fresh fixture initializes, authenticates and reports no credentials
+ok 17 - full fresh fixture initializes, authenticates and reports no credentials
+  ---
+  duration_ms: 25.306343
+  type: 'test'
+  ...
+# Subtest: lan fresh fixture initializes, authenticates and reports no credentials
+ok 18 - lan fresh fixture initializes, authenticates and reports no credentials
+  ---
+  duration_ms: 10.689659
+  type: 'test'
+  ...
+# Subtest: fresh fixture rejects setup failure without reporting success
+ok 19 - fresh fixture rejects setup failure without reporting success
+  ---
+  duration_ms: 3.158701
+  type: 'test'
+  ...
+# Subtest: fresh fixture rejects anonymous failure without reporting success
+ok 20 - fresh fixture rejects anonymous failure without reporting success
+  ---
+  duration_ms: 2.021846
+  type: 'test'
+  ...
+# Subtest: fresh fixture rejects mode failure without reporting success
+ok 21 - fresh fixture rejects mode failure without reporting success
+  ---
+  duration_ms: 1.133546
+  type: 'test'
+  ...
+# Subtest: fresh fixture rejects login failure without reporting success
+ok 22 - fresh fixture rejects login failure without reporting success
+  ---
+  duration_ms: 8.306421
+  type: 'test'
+  ...
+# Subtest: zero-wallet fixture verifies finite Key accounting and a self-use log without exposing credentials
+ok 23 - zero-wallet fixture verifies finite Key accounting and a self-use log without exposing credentials
+  ---
+  duration_ms: 125.431212
+  type: 'test'
+  ...
+# Subtest: zero-wallet fixture refuses non-isolated targets and a Root that was granted a wallet
+ok 24 - zero-wallet fixture refuses non-isolated targets and a Root that was granted a wallet
+  ---
+  duration_ms: 12.423731
+  type: 'test'
+  ...
+# Subtest: personal writer fixture uses real transition endpoints in order and returns no authentication
+ok 25 - personal writer fixture uses real transition endpoints in order and returns no authentication
+  ---
+  duration_ms: 12.542379
+  type: 'test'
+  ...
+# Subtest: personal writer fixture rejects unsupported targets and active or nonfresh instances before apply
+ok 26 - personal writer fixture rejects unsupported targets and active or nonfresh instances before apply
+  ---
+  duration_ms: 25.119738
+  type: 'test'
+  ...
+# Subtest: browser setup callback replaces setup POST and requires real application readback
+ok 27 - browser setup callback replaces setup POST and requires real application readback
+  ---
+  duration_ms: 10.549122
+  type: 'test'
+  ...
+# Subtest: browser setup cannot report success without initialized application state
+ok 28 - browser setup cannot report success without initialized application state
+  ---
+  duration_ms: 1.157545
+  type: 'test'
+  ...
+# Subtest: personal browser fixed stages survive the top-level safe report boundary
+ok 29 - personal browser fixed stages survive the top-level safe report boundary
+  ---
+  duration_ms: 7.274313
+  type: 'test'
+  ...
+# Subtest: old configured SQLite without settlement intent/fact history migrates before the first relay
+ok 30 - old configured SQLite without settlement intent/fact history migrates before the first relay
+  ---
+  duration_ms: 139.093517
+  type: 'test'
+  ...
+# Subtest: upgraded old users never gain zero-wallet policy or invented policy revision
+ok 31 - upgraded old users never gain zero-wallet policy or invented policy revision
+  ---
+  duration_ms: 48.131141
+  type: 'test'
+  ...
+# Subtest: historical settlement rejection is followed by exact old-image recovery without replay
+ok 32 - historical settlement rejection is followed by exact old-image recovery without replay
+  ---
+  duration_ms: 24.085481
+  type: 'test'
+  ...
+# Subtest: positive intent identity is accepted only when it remains identical after old-image recovery
+ok 33 - positive intent identity is accepted only when it remains identical after old-image recovery
+  ---
+  duration_ms: 59.75704
+  type: 'test'
+  ...
+# Subtest: restored old image retains finite limits, exact usage, key, log and settlement proof
+ok 34 - restored old image retains finite limits, exact usage, key, log and settlement proof
+  ---
+  duration_ms: 135.360127
+  type: 'test'
+  ...
+# Subtest: rehearsal refuses missing, reordered or foreign restoration phases
+ok 35 - rehearsal refuses missing, reordered or foreign restoration phases
+  ---
+  duration_ms: 51.235514
+  type: 'test'
+  ...
+# Subtest: workflow pins the handoff baseline without publishing and keeps fresh install checks separate
+ok 36 - workflow pins the handoff baseline without publishing and keeps fresh install checks separate
+  ---
+  duration_ms: 10.533722
+  type: 'test'
+  ...
+# Subtest: smoke resolves runner-local storage inside a run step, not unavailable job env context
+ok 37 - smoke resolves runner-local storage inside a run step, not unavailable job env context
+  ---
+  duration_ms: 6.172427
+  type: 'test'
+  ...
+# Subtest: SQLite restore pauses only the owned fixture and copies DB plus WAL into a separate same-image instance
+ok 38 - SQLite restore pauses only the owned fixture and copies DB plus WAL into a separate same-image instance
+  ---
+  duration_ms: 25.93582
+  type: 'test'
+  ...
+# Subtest: SQLite restore rejects foreign ownership, existing target and missing opt-in before mutation
+ok 39 - SQLite restore rejects foreign ownership, existing target and missing opt-in before mutation
+  ---
+  duration_ms: 7.252464
+  type: 'test'
+  ...
+# Subtest: copy failure unpauses source without starting a restore; failed verification removes only the clone
+ok 40 - copy failure unpauses source without starting a restore; failed verification removes only the clone
+  ---
+  duration_ms: 19.141347
+  type: 'test'
+  ...
+# Subtest: uncertain clone removal retains its private directory instead of unlinking a live mount
+ok 41 - uncertain clone removal retains its private directory instead of unlinking a live mount
+  ---
+  duration_ms: 8.37762
+  type: 'test'
+  ...
+# Subtest: restored snapshot requires same login, policy, Key secret, exact usage and log identities without exposing them
+ok 42 - restored snapshot requires same login, policy, Key secret, exact usage and log identities without exposing them
+  ---
+  duration_ms: 93.406234
+  type: 'test'
+  ...
+# Subtest: restore refuses changed quota, Key or log identity and never resends a billable request
+ok 43 - restore refuses changed quota, Key or log identity and never resends a billable request
+  ---
+  duration_ms: 52.960396
+  type: 'test'
+  ...
+# Subtest: restore refuses changed root-status contract
+ok 44 - restore refuses changed root-status contract
+  ---
+  duration_ms: 28.143882
+  type: 'test'
+  ...
+# Subtest: restore refuses changed ordinary-status contract
+ok 45 - restore refuses changed ordinary-status contract
+  ---
+  duration_ms: 31.761056
+  type: 'test'
+  ...
+# Subtest: restore refuses changed key-status contract
+ok 46 - restore refuses changed key-status contract
+  ---
+  duration_ms: 20.540546
+  type: 'test'
+  ...
+# Subtest: restore refuses changed key-unlimited contract
+ok 47 - restore refuses changed key-unlimited contract
+  ---
+  duration_ms: 15.685923
+  type: 'test'
+  ...
+# Subtest: restore refuses changed key-model-enabled contract
+ok 48 - restore refuses changed key-model-enabled contract
+  ---
+  duration_ms: 13.284423
+  type: 'test'
+  ...
+# Subtest: restore refuses changed key-models contract
+ok 49 - restore refuses changed key-models contract
+  ---
+  duration_ms: 12.581218
+  type: 'test'
+  ...
+# Subtest: restore refuses changed key-group contract
+ok 50 - restore refuses changed key-group contract
+  ---
+  duration_ms: 9.829907
+  type: 'test'
+  ...
+# Subtest: restore refuses changed key-expiry contract
+ok 51 - restore refuses changed key-expiry contract
+  ---
+  duration_ms: 13.673136
+  type: 'test'
+  ...
+# Subtest: restore refuses changed channel-status contract
+ok 52 - restore refuses changed channel-status contract
+  ---
+  duration_ms: 10.877245
+  type: 'test'
+  ...
+# Subtest: restore refuses changed channel-base contract
+ok 53 - restore refuses changed channel-base contract
+  ---
+  duration_ms: 13.514619
+  type: 'test'
+  ...
+# Subtest: restore refuses changed channel-models contract
+ok 54 - restore refuses changed channel-models contract
+  ---
+  duration_ms: 4.905234
+  type: 'test'
+  ...
+# Subtest: restore refuses changed channel-group contract
+ok 55 - restore refuses changed channel-group contract
+  ---
+  duration_ms: 9.660372
+  type: 'test'
+  ...
+# Subtest: restore refuses changed settlement-state contract
+ok 56 - restore refuses changed settlement-state contract
+  ---
+  duration_ms: 11.356616
+  type: 'test'
+  ...
+# Subtest: restore refuses changed settlement-fact contract
+ok 57 - restore refuses changed settlement-fact contract
+  ---
+  duration_ms: 16.644781
+  type: 'test'
+  ...
+# Subtest: restore refuses changed settlement-intent contract
+ok 58 - restore refuses changed settlement-intent contract
+  ---
+  duration_ms: 7.343551
+  type: 'test'
+  ...
+# Subtest: handoff upgrade and old-image recovery each start from the untouched pre-upgrade snapshot
+ok 59 - handoff upgrade and old-image recovery each start from the untouched pre-upgrade snapshot
+  ---
+  duration_ms: 10.201439
+  type: 'test'
+  ...
+# Subtest: handoff recovery requires separate opt-in and does not start old image after failed upgrade verification
+ok 60 - handoff recovery requires separate opt-in and does not start old image after failed upgrade verification
+  ---
+  duration_ms: 10.579931
+  type: 'test'
+  ...
+# Subtest: expected execution-preflight rejection is proved before old-image recovery from an independent copy
+ok 61 - expected execution-preflight rejection is proved before old-image recovery from an independent copy
+  ---
+  duration_ms: 15.819259
+  type: 'test'
+  ...
+# Subtest: expected rejection refuses ready, wrong-reason, wrong-exit, OOM and DB or WAL mutation outcomes
+ok 62 - expected rejection refuses ready, wrong-reason, wrong-exit, OOM and DB or WAL mutation outcomes
+  ---
+  duration_ms: 48.059992
+  type: 'test'
+  ...
+# Subtest: rejects remote or ambiguous targets and missing opt-in before any request or file creation
+ok 63 - rejects remote or ambiguous targets and missing opt-in before any request or file creation
+  ---
+  duration_ms: 14.647694
+  type: 'test'
+  ...
+# Subtest: refuses an initialized server before generating an account or writing private files
+ok 64 - refuses an initialized server before generating an account or writing private files
+  ---
+  duration_ms: 79.863244
+  type: 'test'
+  ...
+# Subtest: generates a local Root and synthetic channel, disables every dispatch category and cleans only owned files
+ok 65 - generates a local Root and synthetic channel, disables every dispatch category and cleans only owned files
+  ---
+  duration_ms: 56.425631
+  type: 'test'
+  ...
+# Subtest: an unknown channel write is not retried and retains recovery state without leaking server errors
+ok 66 - an unknown channel write is not retried and retains recovery state without leaking server errors
+  ---
+  duration_ms: 13.859541
+  type: 'test'
+  ...
+# Subtest: stopping with an outstanding operation preserves credentials and skips key mutation and logout
+ok 67 - stopping with an outstanding operation preserves credentials and skips key mutation and logout
+  ---
+  duration_ms: 20.537176
+  type: 'test'
+  ...
+# Subtest: foreign files, symlinked state and changed identities refuse cleanup before destructive writes
+ok 68 - foreign files, symlinked state and changed identities refuse cleanup before destructive writes
+  ---
+  duration_ms: 24.949063
+  type: 'test'
+  ...
+# Subtest: a committed channel returning ID zero is read back exactly once without repeating creation
+ok 69 - a committed channel returning ID zero is read back exactly once without repeating creation
+  ---
+  duration_ms: 13.397381
+  type: 'test'
+  ...
+# Subtest: ambiguous channel readback leaves private state and refuses token or run creation
+ok 70 - ambiguous channel readback leaves private state and refuses token or run creation
+  ---
+  duration_ms: 8.961877
+  type: 'test'
+  ...
+# Subtest: a non-Root login cannot preseed a channel even when setup and login succeeded
+ok 71 - a non-Root login cannot preseed a channel even when setup and login succeeded
+  ---
+  duration_ms: 7.303863
+  type: 'test'
+  ...
+# Subtest: a wrong logout receipt retains local credentials instead of claiming cleanup succeeded
+ok 72 - a wrong logout receipt retains local credentials instead of claiming cleanup succeeded
+  ---
+  duration_ms: 26.270814
+  type: 'test'
+  ...
+# Subtest: group-readable session state is rejected without sending credentials or modifying server state
+ok 73 - group-readable session state is rejected without sending credentials or modifying server state
+  ---
+  duration_ms: 19.250075
+  type: 'test'
+  ...
+# Subtest: a mismatched run is never stopped and leaves all private files intact
+ok 74 - a mismatched run is never stopped and leaves all private files intact
+  ---
+  duration_ms: 16.309438
+  type: 'test'
+  ...
+# Subtest: a fresh server without enabled acceptance mode never receives a channel or token write
+ok 75 - a fresh server without enabled acceptance mode never receives a channel or token write
+  ---
+  duration_ms: 6.752224
+  type: 'test'
+  ...
+# Subtest: rejects remote destinations and ambiguous run IDs before sending the session
+ok 76 - rejects remote destinations and ambiguous run IDs before sending the session
+  ---
+  duration_ms: 8.532897
+  type: 'test'
+  ...
+# Subtest: creates only with explicit budgets and disables redirects
+ok 77 - creates only with explicit budgets and disables redirects
+  ---
+  duration_ms: 21.552025
+  type: 'test'
+  ...
+# Subtest: does not misrepresent stopping as drained or retry unknown writes
+ok 78 - does not misrepresent stopping as drained or retry unknown writes
+  ---
+  duration_ms: 2.367319
+  type: 'test'
+  ...
+1..78
+# tests 78
+# suites 0
+# pass 78
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3572.090752

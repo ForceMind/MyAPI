@@ -1,0 +1,5 @@
+ok  	github.com/ForceMind/MyAPI/controller	86.407s
+ok  	github.com/ForceMind/MyAPI/service	168.131s
+ok  	github.com/ForceMind/MyAPI/model	228.771s
+ok  	github.com/ForceMind/MyAPI/relay/common	0.037s
+ok  	github.com/ForceMind/MyAPI/relay/channel/openai	0.150s

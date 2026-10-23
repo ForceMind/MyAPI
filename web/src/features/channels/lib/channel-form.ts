@@ -36,6 +36,11 @@ import {
   stringifyAdvancedCustomConfig,
   validateAdvancedCustomConfig,
 } from './advanced-custom'
+import {
+  INPUT_TOKEN_LIMITS_ERROR,
+  isValidInputTokenLimits,
+  parseInputTokenLimits,
+} from './input-token-limits'
 import { validateModelRoutes } from './model-routes'
 
 // ============================================================================
@@ -262,6 +267,10 @@ export const channelFormSchema = z
       .optional()
       .refine(isOptionalProxyURL, ERROR_MESSAGES.INVALID_PROXY),
     http_protocol: z.enum(['auto', 'http1']).optional(),
+    input_token_limits: z
+      .string()
+      .optional()
+      .refine(isValidInputTokenLimits, INPUT_TOKEN_LIMITS_ERROR),
     http2_connection_shards: z.number().int().optional(),
     pass_through_body_enabled: z.boolean().optional(),
     system_prompt: z.string().optional(),
@@ -436,6 +445,7 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   thinking_to_content: false,
   proxy: '',
   http_protocol: HTTP_PROTOCOL_AUTO,
+  input_token_limits: '',
   http2_connection_shards: 1,
   pass_through_body_enabled: false,
   system_prompt: '',
@@ -476,6 +486,7 @@ export function transformChannelToFormDefaults(
     thinking_to_content: false,
     proxy: '',
     http_protocol: HTTP_PROTOCOL_AUTO as 'auto' | 'http1',
+    input_token_limits: '',
     http2_connection_shards: 1,
     pass_through_body_enabled: false,
     system_prompt: '',
@@ -494,6 +505,10 @@ export function transformChannelToFormDefaults(
         thinking_to_content: parsed.thinking_to_content || false,
         proxy: parsed.proxy || '',
         http_protocol: protocol,
+        input_token_limits:
+          parsed.input_token_limits == null
+            ? ''
+            : JSON.stringify(parsed.input_token_limits, null, 2),
         http2_connection_shards: protocol === HTTP_PROTOCOL_HTTP1 ? 1 : shards,
         pass_through_body_enabled: parsed.pass_through_body_enabled || false,
         system_prompt: parsed.system_prompt || '',
@@ -619,6 +634,10 @@ export function buildSettingJSON(formData: ChannelFormValues): string {
   }
 
   const protocol = normalizeHttpProtocol(formData.http_protocol)
+  const inputLimits = parseInputTokenLimits(formData.input_token_limits)
+  if (Object.keys(inputLimits).length) {
+    settingObj.input_token_limits = inputLimits
+  }
   const shards =
     protocol === HTTP_PROTOCOL_HTTP1
       ? 1

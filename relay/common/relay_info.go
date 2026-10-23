@@ -81,6 +81,8 @@ type TokenCountMeta struct {
 }
 
 type RelayInfo struct {
+	RequestInputEstimate  *RequestInputEstimate
+	UpstreamErrorCode     string
 	ConfirmedAPIUsageCost map[string]string
 	TokenBudgetAudit      map[string]interface{}
 

@@ -176,6 +176,7 @@ func recordPendingBillingSettlementWithDisposition(ctx *gin.Context, info *relay
 		"reserved_quota":    info.FinalPreConsumedQuota,
 	}
 	appendUsageReviewDisposition(other, disposition)
+	AppendRequestInputDiagnostics(ctx, info, other)
 	model.RecordErrorLog(ctx, info.UserId, info.ChannelId, info.OriginModelName, ctx.GetString("token_name"),
 		"usage_settlement_pending", info.TokenId, int(time.Now().Unix()-info.StartTime.Unix()), info.IsStream, info.UsingGroup,
 		other)
@@ -284,6 +285,7 @@ func holdUnverifiedTextUsageWithDisposition(ctx *gin.Context, info *relaycommon.
 		"reserved_quota": info.FinalPreConsumedQuota, "known_tool_obligations": summary.ToolSurchargeItems,
 		"review_persisted": holdErr == nil}
 	appendUsageReviewDisposition(other, disposition)
+	AppendRequestInputDiagnostics(ctx, info, other)
 	if common.SensitiveRequestDiagnostics(ctx) {
 		appendRequestPath(ctx, info, other)
 	}

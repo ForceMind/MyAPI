@@ -2,6 +2,9 @@ package i18n
 
 const MsgPlaygroundImageProviderUnsupported = "playground.image_provider_unsupported"
 
+const MsgRequestInputLimitExceeded = "request_input_limit.exceeded"
+const MsgRequestInputLimitUnavailable = "request_input_limit.unavailable"
+
 const MsgPlaygroundFileProviderUnsupported = "playground.file_provider_unsupported"
 
 const (

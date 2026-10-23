@@ -20,19 +20,44 @@ import { useRouterState } from '@tanstack/react-router'
 import { useEffect, useRef } from 'react'
 import LoadingBar, { type LoadingBarRef } from 'react-top-loading-bar'
 
-export function NavigationProgress() {
+export function NavigationProgress(props: { scope?: 'page' | 'workspace' }) {
   const ref = useRef<LoadingBarRef>(null)
-  const state = useRouterState()
+  const started = useRef(false)
+  const pending = useRouterState({
+    select: (state) => state.status === 'pending',
+  })
+  const authenticated = useRouterState({
+    select: (state) =>
+      state.matches.some((match) => match.routeId === '/_authenticated'),
+  })
+  const hidden = props.scope !== 'workspace' && authenticated
 
   useEffect(() => {
-    if (state.status === 'pending') {
-      ref.current?.continuousStart()
-    } else {
-      ref.current?.complete()
+    if (hidden) {
+      started.current = false
+      return
     }
-  }, [state.status])
+    if (pending) {
+      ref.current?.continuousStart()
+      started.current = true
+    } else if (started.current) {
+      ref.current?.complete()
+      started.current = false
+    }
+  }, [pending, hidden])
+
+  if (hidden) return null
 
   return (
-    <LoadingBar color='var(--muted-foreground)' ref={ref} shadow height={2} />
+    <LoadingBar
+      color='var(--primary)'
+      ref={ref}
+      shadow={false}
+      height={2}
+      containerClassName='myapi-navigation-progress'
+      containerStyle={
+        props.scope === 'workspace' ? { position: 'absolute' } : undefined
+      }
+    />
   )
 }

@@ -90,7 +90,7 @@ export function Profile() {
           />
         )}
         {(!error || loading) && (
-          <CardStaggerContainer className='mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-6'>
+          <CardStaggerContainer className='flex w-full min-w-0 flex-col gap-5'>
             <CardStaggerItem>
               <ProfileHeader
                 profile={profile}
@@ -100,8 +100,8 @@ export function Profile() {
             </CardStaggerItem>
 
             <CardStaggerItem>
-              <div className='grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.46fr)] xl:items-start'>
-                <div className='min-w-0 space-y-4 sm:space-y-6'>
+              <div className='grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.46fr)] xl:items-start'>
+                <div className='min-w-0 space-y-5'>
                   <ProfileSettingsCard
                     key={`settings:${securityScopeKey}`}
                     profile={profile}
@@ -146,7 +146,7 @@ export function Profile() {
                   />
                 </div>
 
-                <div className='min-w-0 space-y-4 sm:space-y-6'>
+                <div className='min-w-0 space-y-5'>
                   {checkinEnabled && (
                     <CheckinCalendarCard
                       checkinEnabled={checkinEnabled}

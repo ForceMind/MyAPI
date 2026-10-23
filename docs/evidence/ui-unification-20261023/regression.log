@@ -1,0 +1,10 @@
+$ vitest run src/features/personal-upstream/__tests__ src/features/dashboard/components/personal-workbench/__tests__ src/features/dashboard/components/overview/__tests__ src/features/profile/__tests__ src/features/full-content-logs/components/__tests__ src/features/system-settings/components/__tests__/settings-page-states.test.tsx src/components/layout/components/__tests__/section-page-layout.test.tsx src/components/data-table/layout/__tests__/error-state.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+
+ Test Files  31 passed (31)
+      Tests  185 passed (185)
+   Start at  16:37:45
+   Duration  85.74s (transform 4.84s, setup 6.98s, import 27.81s, tests 17.53s, environment 28.70s)
+

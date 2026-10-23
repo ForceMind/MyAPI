@@ -1,0 +1,10 @@
+$ vitest run src/features/dashboard/components/models/__tests__/consumption-distribution-granularity.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  16:48:18
+   Duration  4.29s (transform 681ms, setup 458ms, import 1.14s, tests 966ms, environment 1.49s)
+

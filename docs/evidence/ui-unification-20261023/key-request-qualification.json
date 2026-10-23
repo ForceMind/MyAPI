@@ -1,0 +1,92 @@
+{
+  "head": "6efd467255c5637277dbaffc1584c682503b056b",
+  "synthetic": true,
+  "providerRequests": 0,
+  "result": "passed",
+  "journeys": [
+    {
+      "language": "en",
+      "width": 1280,
+      "result": "passed",
+      "checks": [
+        "visible-key-id-scope",
+        "stable-id-list-and-stat",
+        "same-name-and-legacy-exclusion",
+        "pagination",
+        "completed-with-unknown-usage",
+        "http200-sse-error",
+        "response-tab-and-raw-sse",
+        "missing-body",
+        "return-filter-and-focus",
+        "saved-key-detail",
+        "no-external-or-write-or-secret-requests"
+      ],
+      "screenshots": [
+        "key-request-requests-en-1280.png",
+        "key-request-successful-unknown-usage-en-1280.png",
+        "key-request-stream-error-en-1280.png",
+        "key-request-sse-raw-en-1280.png",
+        "key-request-missing-body-en-1280.png",
+        "key-request-returned-key-en-1280.png",
+        "key-request-preflight-rejected-en-1280.png",
+        "key-request-preflight-body-en-1280.png"
+      ]
+    },
+    {
+      "language": "zh",
+      "width": 390,
+      "result": "passed",
+      "checks": [
+        "visible-key-id-scope",
+        "stable-id-list-and-stat",
+        "same-name-and-legacy-exclusion",
+        "pagination",
+        "completed-with-unknown-usage",
+        "http200-sse-error",
+        "response-tab-and-raw-sse",
+        "missing-body",
+        "return-filter-and-focus",
+        "saved-key-detail",
+        "no-external-or-write-or-secret-requests"
+      ],
+      "screenshots": [
+        "key-request-requests-zh-390.png",
+        "key-request-successful-unknown-usage-zh-390.png",
+        "key-request-stream-error-zh-390.png",
+        "key-request-sse-raw-zh-390.png",
+        "key-request-missing-body-zh-390.png",
+        "key-request-returned-key-zh-390.png",
+        "key-request-preflight-rejected-zh-390.png",
+        "key-request-preflight-body-zh-390.png"
+      ]
+    },
+    {
+      "language": "ru",
+      "width": 320,
+      "result": "passed",
+      "checks": [
+        "visible-key-id-scope",
+        "stable-id-list-and-stat",
+        "same-name-and-legacy-exclusion",
+        "pagination",
+        "completed-with-unknown-usage",
+        "http200-sse-error",
+        "response-tab-and-raw-sse",
+        "missing-body",
+        "return-filter-and-focus",
+        "saved-key-detail",
+        "no-external-or-write-or-secret-requests"
+      ],
+      "screenshots": [
+        "key-request-requests-ru-320.png",
+        "key-request-successful-unknown-usage-ru-320.png",
+        "key-request-stream-error-ru-320.png",
+        "key-request-sse-raw-ru-320.png",
+        "key-request-missing-body-ru-320.png",
+        "key-request-returned-key-ru-320.png",
+        "key-request-preflight-rejected-ru-320.png",
+        "key-request-preflight-body-ru-320.png"
+      ]
+    }
+  ]
+}

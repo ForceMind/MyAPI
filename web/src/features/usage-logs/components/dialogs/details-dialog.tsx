@@ -87,6 +87,7 @@ import {
   isTimingLogType,
 } from '../../lib/utils'
 import { USAGE_BILLING_PATH, type LogOtherData } from '../../types'
+import { RequestInputDiagnostics } from '../request-input-diagnostics'
 import { TokenBudgetEvidence } from '../token-budget-evidence'
 import { UsageAccuracyBadge } from '../usage-accuracy-badge'
 import { useLogMoneyVisibility } from '../usage-logs-provider'
@@ -668,6 +669,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
       bodyClassName='pr-2 sm:pr-4'
     >
       <div className='w-full max-w-full min-w-0 space-y-2.5 overflow-x-hidden py-1 sm:space-y-3'>
+        <RequestInputDiagnostics other={other} />
         {completedUsageReview && (
           <div
             role='status'
@@ -682,19 +684,12 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 )}
           </div>
         )}
-        {props.open &&
-          props.log.request_id &&
-          other?.settlement_status === 'pending_review' && (
-            <UsageReviewPanel requestId={props.log.request_id} />
-          )}
-        {props.isAdmin && other?.admin_info?.token_budget && (
-          <TokenBudgetEvidence evidence={other.admin_info.token_budget} />
-        )}
         {props.isAdmin && props.log.request_id && (
-          <div className='rounded-lg border p-3'>
+          <div className='bg-muted/40 rounded-lg p-3'>
             <Button
               variant='outline'
               size='sm'
+              className='min-h-10'
               onClick={() => setContentOpen(true)}
             >
               {t('View request content')}
@@ -714,6 +709,14 @@ export function DetailsDialog(props: DetailsDialogProps) {
               </Suspense>
             )}
           </div>
+        )}
+        {props.open &&
+          props.log.request_id &&
+          other?.settlement_status === 'pending_review' && (
+            <UsageReviewPanel requestId={props.log.request_id} />
+          )}
+        {props.isAdmin && other?.admin_info?.token_budget && (
+          <TokenBudgetEvidence evidence={other.admin_info.token_budget} />
         )}
         {props.log.token_id > 0 && (
           <Button
@@ -762,6 +765,14 @@ export function DetailsDialog(props: DetailsDialogProps) {
               mono
             />
           )}
+          {Number.isInteger(other?.http_status) &&
+            (other?.http_status ?? 0) >= 100 &&
+            (other?.http_status ?? 0) <= 599 && (
+              <DetailRow
+                label={t('HTTP status')}
+                value={String(other?.http_status)}
+              />
+            )}
           {props.log.upstream_request_id && (
             <DetailRow
               label={t('Upstream Request ID')}

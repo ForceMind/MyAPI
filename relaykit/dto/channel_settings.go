@@ -11,18 +11,32 @@ import (
 )
 
 type ChannelSettings struct {
-	ForceFormat            bool   `json:"force_format,omitempty"`
-	ThinkingToContent      bool   `json:"thinking_to_content,omitempty"`
-	Proxy                  string `json:"proxy"`
-	PassThroughBodyEnabled bool   `json:"pass_through_body_enabled,omitempty"`
-	SystemPrompt           string `json:"system_prompt,omitempty"`
-	SystemPromptOverride   bool   `json:"system_prompt_override,omitempty"`
+	// InputTokenLimits bounds local text estimates by exact client model name.
+	InputTokenLimits       map[string]int64 `json:"input_token_limits,omitempty"`
+	ForceFormat            bool             `json:"force_format,omitempty"`
+	ThinkingToContent      bool             `json:"thinking_to_content,omitempty"`
+	Proxy                  string           `json:"proxy"`
+	PassThroughBodyEnabled bool             `json:"pass_through_body_enabled,omitempty"`
+	SystemPrompt           string           `json:"system_prompt,omitempty"`
+	SystemPromptOverride   bool             `json:"system_prompt_override,omitempty"`
 	// HTTPProtocol controls outbound HTTP version negotiation for this channel.
 	// Accepted values: "", "auto" (default), "http1".
 	HTTPProtocol string `json:"http_protocol,omitempty"`
 	// HTTP2ConnectionShards spreads HTTP/2 traffic across N independent transports
 	// (1-8). Zero/unset means 1. Ignored when HTTPProtocol is "http1".
 	HTTP2ConnectionShards int `json:"http2_connection_shards,omitempty"`
+}
+
+func (s *ChannelSettings) ValidateInputTokenLimits() error {
+	if s == nil {
+		return nil
+	}
+	for model, limit := range s.InputTokenLimits {
+		if strings.TrimSpace(model) == "" || strings.TrimSpace(model) != model || limit <= 0 || limit > 2147483647 {
+			return fmt.Errorf("input_token_limits requires exact non-empty model names and integer limits from 1 to 2147483647")
+		}
+	}
+	return nil
 }
 
 const (
@@ -66,7 +80,7 @@ const (
 )
 
 type ChannelOtherSettings struct {
-	ModelRoutes []ModelRoute `json:"model_routes,omitempty"`
+	ModelRoutes                           []ModelRoute          `json:"model_routes,omitempty"`
 	AzureResponsesVersion                 string                `json:"azure_responses_version,omitempty"`
 	VertexKeyType                         VertexKeyType         `json:"vertex_key_type,omitempty"` // "json" or "api_key"
 	OpenRouterEnterprise                  *bool                 `json:"openrouter_enterprise,omitempty"`
@@ -89,21 +103,21 @@ type ChannelOtherSettings struct {
 	// TokenHub configures an explicit TokenHub-compatible upstream. It is
 	// intentionally provider-neutral; credentials remain in Channel.Key and
 	// are never part of this settings object.
-	TokenHub                             *TokenHubSettings      `json:"tokenhub,omitempty"`
+	TokenHub *TokenHubSettings `json:"tokenhub,omitempty"`
 }
 
 // TokenHubSettings describes the non-secret connection contract for a
 // TokenHub-compatible gateway. Enabled must be set explicitly; an absent
 // value preserves legacy channel behaviour.
 type TokenHubSettings struct {
-	Enabled              bool              `json:"enabled,omitempty"`
-	BaseURL              string            `json:"base_url,omitempty"`
-	Region               string            `json:"region,omitempty"`
-	Protocol             string            `json:"protocol,omitempty"`
-	ModelListPath        string            `json:"model_list_path,omitempty"`
-	HealthPath           string            `json:"health_path,omitempty"`
-	AllowModelDiscovery  bool              `json:"allow_model_discovery,omitempty"`
-	ModelAliases         map[string]string `json:"model_aliases,omitempty"`
+	Enabled             bool              `json:"enabled,omitempty"`
+	BaseURL             string            `json:"base_url,omitempty"`
+	Region              string            `json:"region,omitempty"`
+	Protocol            string            `json:"protocol,omitempty"`
+	ModelListPath       string            `json:"model_list_path,omitempty"`
+	HealthPath          string            `json:"health_path,omitempty"`
+	AllowModelDiscovery bool              `json:"allow_model_discovery,omitempty"`
+	ModelAliases        map[string]string `json:"model_aliases,omitempty"`
 }
 
 func (s *ChannelOtherSettings) IsOpenRouterEnterprise() bool {

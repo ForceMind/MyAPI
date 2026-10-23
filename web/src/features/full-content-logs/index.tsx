@@ -179,28 +179,28 @@ export function FullContentLogs() {
               </div>
             )}
 
-            <div className='grid gap-3 sm:grid-cols-3'>
-              <div className='rounded-lg border p-3'>
+            <div className='grid gap-3 min-[360px]:grid-cols-3'>
+              <div className='bg-card min-w-0 rounded-xl border p-3'>
                 <div className='text-muted-foreground text-xs'>
                   {t('Matching Requests')}
                 </div>
-                <div className='mt-1 text-xl font-semibold tabular-nums'>
+                <div className='mt-1 text-base font-semibold whitespace-nowrap tabular-nums sm:text-xl'>
                   {data?.total ?? '—'}
                 </div>
               </div>
-              <div className='rounded-lg border p-3'>
+              <div className='bg-card min-w-0 rounded-xl border p-3'>
                 <div className='text-muted-foreground text-xs'>
                   {t('Log Files')}
                 </div>
-                <div className='mt-1 text-xl font-semibold tabular-nums'>
+                <div className='mt-1 text-base font-semibold whitespace-nowrap tabular-nums sm:text-xl'>
                   {data?.files.count ?? '—'}
                 </div>
               </div>
-              <div className='rounded-lg border p-3'>
+              <div className='bg-card min-w-0 rounded-xl border p-3'>
                 <div className='text-muted-foreground text-xs'>
                   {t('Disk Usage')}
                 </div>
-                <div className='mt-1 text-xl font-semibold tabular-nums'>
+                <div className='mt-1 text-base font-semibold whitespace-nowrap tabular-nums sm:text-xl'>
                   {data ? formatLogBytes(data.files.total_size) : '—'}
                 </div>
               </div>
@@ -251,9 +251,9 @@ export function FullContentLogs() {
                   ))}
               </div>
             ) : (
-              <div className='min-h-0 flex-1 overflow-auto rounded-lg border'>
+              <div className='bg-card min-h-0 flex-1 overflow-auto rounded-xl border'>
                 <Table className='min-w-[1120px]'>
-                  <TableHeader className='bg-muted/40 sticky top-0 z-10'>
+                  <TableHeader className='bg-muted sticky top-0 z-10'>
                     <TableRow>
                       <TableHead>{t('Time')}</TableHead>
                       <TableHead>{t('Model / Endpoint')}</TableHead>
@@ -262,7 +262,7 @@ export function FullContentLogs() {
                       <TableHead>{t('Request / Response')}</TableHead>
                       <TableHead>{t('Duration')}</TableHead>
                       <TableHead>{t('Request ID')}</TableHead>
-                      <TableHead className='text-right'>
+                      <TableHead className='bg-muted sticky right-0 z-10 border-l text-right'>
                         {t('Actions')}
                       </TableHead>
                     </TableRow>

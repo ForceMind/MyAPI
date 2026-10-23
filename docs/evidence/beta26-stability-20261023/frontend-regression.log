@@ -1,0 +1,10 @@
+$ vitest run src/components/layout/components/__tests__ src/components/navigation-progress/__tests__ src/features/channels/lib/__tests__ src/features/channels/components/__tests__ src/features/usage-logs/components/__tests__ src/features/keys/components/__tests__/personal-key-actions.test.tsx src/features/keys/components/__tests__/personal-key-maintenance.test.tsx
+
+ RUN  v4.1.10 /root/myapi/web
+
+
+ Test Files  43 passed (43)
+      Tests  294 passed (294)
+   Start at  15:52:49
+   Duration  221.98s (transform 8.14s, setup 13.39s, import 78.30s, tests 63.04s, environment 57.18s)
+

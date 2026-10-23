@@ -7,12 +7,12 @@ const url = path => new URL(path, 'http://synthetic.invalid')
 test('the preview keeps same-name Keys and unidentified history out of a stable Key request scope', () => {
   const fixture = createKeyRequestFixture()
   const list = fixture.response(url('/api/log?token_id=21&page_size=20')).body.data
-  assert.deepEqual(list.items.map(row => row.request_id), ['SYNTHETIC-CONTEXT-ERROR', 'SYNTHETIC-COMPLETED-NO-USAGE', 'SYNTHETIC-NOT-RECORDED'])
-  assert.equal(list.total, 3)
+  assert.deepEqual(list.items.map(row => row.request_id), ['SYNTHETIC-CONTEXT-ERROR', 'SYNTHETIC-COMPLETED-NO-USAGE', 'SYNTHETIC-NOT-RECORDED', 'SYNTHETIC-PREFLIGHT-REJECTED'])
+  assert.equal(list.total, 4)
   assert.equal(list.items.every(row => row.token_id === 21), true)
   const stat = fixture.response(url('/api/log/stat?token_id=21')).body.data.token_usage
-  assert.equal(stat.records, 3)
-  assert.equal(stat.unknown_records, 2)
+  assert.equal(stat.records, 4)
+  assert.equal(stat.unknown_records, 3)
   assert.equal(stat.total_tokens, null)
   assert.equal(stat.known_total_tokens, '120')
   const second = fixture.response(url('/api/log?token_id=21&p=2&page_size=1')).body.data

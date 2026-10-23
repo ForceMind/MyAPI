@@ -114,6 +114,15 @@ export interface ToolSurchargeItem {
 }
 
 export interface LogOtherData {
+  request_input_estimate?: {
+    input_tokens: number
+    method: string
+    complete: boolean
+    limit_tokens?: number
+  }
+  upstream_error_code?: string
+  http_status?: number
+  preflight_rejected?: boolean
   official_price_source?: {
     publication_id: string
     source_sha256: string

@@ -1,0 +1,62 @@
+{
+  "synthetic": true,
+  "providerRequests": 0,
+  "journeys": [
+    {
+      "language": "zh",
+      "width": 1280,
+      "height": 720,
+      "screenshots": [
+        "console-layout-keys-zh-1280.png",
+        "console-layout-connections-zh-1280.png",
+        "console-layout-requests-zh-1280.png"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "en",
+      "width": 1440,
+      "height": 900,
+      "screenshots": [
+        "console-layout-keys-en-1440.png",
+        "console-layout-connections-en-1440.png",
+        "console-layout-requests-en-1440.png"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "ru",
+      "width": 1024,
+      "height": 640,
+      "screenshots": [
+        "console-layout-keys-ru-1024.png",
+        "console-layout-connections-ru-1024.png",
+        "console-layout-requests-ru-1024.png"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "zh",
+      "width": 390,
+      "height": 844,
+      "screenshots": [
+        "console-layout-keys-zh-390.png",
+        "console-layout-connections-zh-390.png",
+        "console-layout-requests-zh-390.png"
+      ],
+      "result": "passed"
+    },
+    {
+      "language": "ru",
+      "width": 320,
+      "height": 740,
+      "screenshots": [
+        "console-layout-keys-ru-320.png",
+        "console-layout-connections-ru-320.png",
+        "console-layout-requests-ru-320.png"
+      ],
+      "result": "passed"
+    }
+  ],
+  "result": "passed"
+}

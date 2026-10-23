@@ -41,6 +41,33 @@ func TestChannelValidateSettingsRejectsInvalidHTTPTransport(t *testing.T) {
 	}
 }
 
+func TestChannelValidateSettingsBoundsInputPolicy(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		limits map[string]int64
+		valid  bool
+	}{
+		{"absent", nil, true},
+		{"exact model", map[string]int64{"gpt-6.1-sol": 921000}, true},
+		{"blank name", map[string]int64{" ": 10}, false},
+		{"trimmed name required", map[string]int64{" gpt-6.1-sol": 10}, false},
+		{"negative", map[string]int64{"gpt-6.1-sol": -1}, false},
+		{"zero", map[string]int64{"gpt-6.1-sol": 0}, false},
+		{"oversized", map[string]int64{"gpt-6.1-sol": 2147483648}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			channel := &Channel{}
+			channel.SetSetting(dto.ChannelSettings{InputTokenLimits: tc.limits})
+			err := channel.ValidateSettings()
+			if tc.valid {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, "input_token_limits")
+			}
+		})
+	}
+}
+
 func TestAdvancedCustomChannelRequiresModelListRouteOnlyWhenUpdateChecksEnabled(t *testing.T) {
 	inferenceRoute := dto.AdvancedCustomRoute{
 		IncomingPath: "/v1/chat/completions",

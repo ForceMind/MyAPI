@@ -383,12 +383,12 @@ function PersonalApiKeyCard(props: {
       <CardHeader>
         <div className='flex min-w-0 items-start justify-between gap-3'>
           <div className='min-w-0 space-y-2'>
-            <div className='flex items-center gap-2'>
+            <div className='flex min-w-0 items-start gap-2'>
               <KeyRound
                 className='text-primary size-5 shrink-0'
                 aria-hidden='true'
               />
-              <CardTitle className='text-base break-all'>
+              <CardTitle className='min-w-0 text-base leading-6 break-words'>
                 {props.apiKey.name}
               </CardTitle>
             </div>

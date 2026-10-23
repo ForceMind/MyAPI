@@ -146,7 +146,7 @@ export function ConsumptionDistributionChart(
         <div className='flex w-full flex-wrap items-center gap-1.5 sm:w-auto sm:gap-2'>
           {props.onTimeGranularityChange && (
             <div
-              className='bg-muted/60 inline-flex h-7 max-w-full overflow-x-auto rounded-lg border p-0.5 sm:h-8'
+              className='myapi-chart-controls bg-muted/60 inline-flex h-7 max-w-full overflow-x-auto rounded-lg border p-0.5 sm:h-8'
               aria-label={t('Time Granularity')}
             >
               {TIME_GRANULARITY_OPTIONS.map((option) => (
@@ -167,7 +167,7 @@ export function ConsumptionDistributionChart(
             </div>
           )}
 
-          <div className='bg-muted/60 inline-flex h-7 max-w-full overflow-x-auto rounded-lg border p-0.5 sm:h-8'>
+          <div className='myapi-chart-controls bg-muted/60 inline-flex h-7 max-w-full overflow-x-auto rounded-lg border p-0.5 sm:h-8'>
             {CONSUMPTION_DISTRIBUTION_CHART_OPTIONS.map((item) => {
               const Icon = CHART_TYPE_ICONS[item.value]
               return (

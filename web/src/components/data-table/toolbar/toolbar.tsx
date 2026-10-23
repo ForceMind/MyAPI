@@ -343,12 +343,17 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
 
   if (hasLeftActions) {
     return (
-      <div className={cn('flex flex-col gap-2', props.className)}>
+      <div
+        className={cn(
+          'myapi-table-toolbar flex min-w-0 flex-col gap-3',
+          props.className
+        )}
+      >
         <div className='flex flex-wrap items-center gap-2 sm:gap-3'>
           {props.customSearch !== undefined ? props.customSearch : searchInput}
           {props.additionalSearch}
           {filterChips}
-          <div className='ms-auto flex shrink-0 items-center gap-1.5 sm:gap-2'>
+          <div className='myapi-table-tools ms-auto flex min-w-0 flex-wrap items-center gap-2'>
             {expandToggle}
           </div>
         </div>
@@ -361,7 +366,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
 
         <div className='flex flex-wrap items-center gap-2 sm:gap-3'>
           {props.leftActions}
-          <div className='ms-auto flex shrink-0 items-center gap-1.5 sm:gap-2'>
+          <div className='myapi-table-tools ms-auto flex min-w-0 flex-wrap items-center gap-2'>
             {props.preActions}
             {resetButton}
             {searchButton}
@@ -376,7 +381,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center gap-2 sm:gap-3',
+        'myapi-table-toolbar flex min-w-0 flex-wrap items-center gap-2 sm:gap-3',
         props.className
       )}
     >
@@ -385,7 +390,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
       {filterChips}
       {expanded && hasExpandable && props.expandable}
 
-      <div className='ms-auto flex shrink-0 items-center gap-1.5 sm:gap-2'>
+      <div className='myapi-table-tools ms-auto flex min-w-0 flex-wrap items-center gap-2'>
         {props.preActions}
         {resetButton}
         {searchButton}
