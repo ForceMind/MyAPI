@@ -17,8 +17,14 @@ export function tokenBudgetBrowserFixture() {
     },
     async route(route, url) {
       const path = url.pathname.replace(/\/$/, '')
+      const key = { id: 1, name: 'budget-browser-fixture', key: 'masked', status: 1, remain_quota: 1000, used_quota: 0, unlimited_quota: false, expired_time: -1, created_time: 1, accessed_time: 1, group: 'default', model_limits_enabled: false }
       if (path === '/api/token') {
-        await route.fulfill({ json: { success: true, data: { items: [{ id: 1, name: 'budget-browser-fixture', key: 'masked', status: 1, remain_quota: 1000, used_quota: 0, unlimited_quota: false, expired_time: -1, created_time: 1, accessed_time: 1, group: 'default', model_limits_enabled: false }], total: 1, page: 1, page_size: 10 } } })
+        await route.fulfill({ json: { success: true, data: { items: [key], total: 1, page: 1, page_size: 10 } } })
+        return true
+      }
+      // The Key inspector reads the opened Key by ID.
+      if (path === '/api/token/1' && route.request().method() === 'GET') {
+        await route.fulfill({ json: { success: true, data: key } })
         return true
       }
       if (path !== '/api/token/1/budget' && path !== '/api/token/1/budget/recover') return false
@@ -304,7 +310,12 @@ export async function checkTokenBudgetBrowser({ page, origin, output, label, fix
   await dialog.waitFor({ state: 'hidden' })
   assert.equal(fixture.writes.length, 5, 'closing through the mobile footer does not resubmit the budget')
   await page.reload({ waitUntil: 'networkidle' })
-  await page.getByRole('button', { name: label('API Key usage budgets'), exact: true }).click()
+  // Below 1024px a Key card opens the Key inspector; its Access tab holds the
+  // budget action that the desktop row shows inline (design 6.1, 8.2).
+  await page.locator('[data-inspect-id="1"]').first().click()
+  const inspector = page.locator('[data-inspector]')
+  await inspector.getByRole('tab', { name: label('Access'), exact: true }).click()
+  await inspector.getByRole('button', { name: label('Usage budgets'), exact: true }).click()
   await page.getByRole('dialog').getByText('20.01%', { exact: true }).waitFor()
   assert.equal(fixture.writes.length, 5, 'threshold reload never rewrites policy')
 

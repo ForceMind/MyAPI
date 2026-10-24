@@ -280,7 +280,10 @@ try {
   // original funding mode.
   const previousFundingMode = process.env.MYAPI_BROWSER_FUNDING_MODE
   process.env.MYAPI_BROWSER_FUNDING_MODE = 'enabled'
-  await page.goto(`${origin}/dashboard/overview`, { waitUntil: 'networkidle' })
+  // The account comparison left the overview for the account windows page,
+  // where it loads only on request (design 8.1, 8.3 and H4).
+  await page.goto(`${origin}/upstream-accounts`, { waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: label('Show window changes'), exact: true }).click()
   const comparison = page.getByTestId('codex-account-quota-chart')
   await comparison.getByTestId('quota-comparison-chart').waitFor({ state: 'visible' })
   const lines = comparison.getByTestId('quota-comparison-line')

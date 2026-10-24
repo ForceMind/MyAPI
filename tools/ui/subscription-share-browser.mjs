@@ -134,7 +134,8 @@ try {
           await page.getByRole('tab', { name: t('Window shares'), exact: true }).click()
           await page.getByRole('button', { name: t('Window share'), exact: true }).last().click()
           if (role === 100) {
-            const editor = page.getByRole('main', {name: t('Adjust window share'), exact: true})
+            // A region inside the Key inspector; the page keeps the only main.
+            const editor = page.getByRole('region', {name: t('Adjust window share'), exact: true})
             await editor.waitFor({state: 'visible'})
             await editor.getByLabel(t('Subscription account'), {exact: true}).selectOption('9')
             await editor.getByLabel(t('Choose one subscription window'), {exact: true}).selectOption('7:70')

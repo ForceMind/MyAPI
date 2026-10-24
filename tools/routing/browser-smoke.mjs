@@ -225,7 +225,8 @@ try {
       ['Upstream model', 'upstream-updated'],
       ['Endpoint', '/v1/responses'],
       ['Route reason', 'explicit_exact'],
-      ['Channel ID', '1'],
+      // Glossary (design 5.4): "Channel" is now "Connection".
+      ['Connection ID', '1'],
       ['Configuration digest', 'synthetic-config-evidence'],
     ]) {
       const evidenceRow = routeEvidence.getByText(label(field), { exact: true }).locator('..')
@@ -241,7 +242,7 @@ try {
       const outcomeLabel = attempt.getByText(label(outcome), { exact: true })
       await reach(outcomeLabel)
       for (const [field, value] of [
-        ['Channel ID', '1'],
+        ['Connection ID', '1'],
         ['Key index (0-based)', String(index)],
         ['Upstream model', 'upstream-updated'],
       ]) {

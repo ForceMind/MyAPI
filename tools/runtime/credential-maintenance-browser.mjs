@@ -475,6 +475,10 @@ try {
   await page.keyboard.press('Escape')
   await visibleVersion.waitFor({ state: 'hidden' })
   report.checks.exactProductionBuild = true
+  // Key actions live in the Key inspector (design 8.2): open the Key, then
+  // its Access tab.
+  await page.locator(`[data-inspect-id="${config.token_id}"]`).first().click()
+  await page.getByRole('tab', { name: t('Access'), exact: true }).click()
   const entry = page
     .getByRole('button', { name: t('Credential maintenance'), exact: true })
     .first()

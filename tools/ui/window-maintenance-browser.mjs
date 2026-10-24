@@ -499,7 +499,8 @@ try {
         .getByRole('button', { name: t('Window share'), exact: true })
         .last()
         .click()
-      const editor = page.getByRole('main', {
+      // A region inside the Key inspector; the page keeps the only main.
+      const editor = page.getByRole('region', {
         name: t('Adjust window share'),
         exact: true,
       })

@@ -452,6 +452,13 @@ try {
         if (outcome === 'navigate-away') {
           // The request adapter is deliberately held until the page unmounts.
           assert.equal(writes.length, 1)
+          // The open inspector is its own history entry (design 5.1): the
+          // first Back closes the Key, the second leaves the Keys page.
+          await page.goBack({ waitUntil: 'domcontentloaded' })
+          await page.waitForURL(
+            (url) =>
+              url.pathname === '/keys' && !url.searchParams.has('inspect')
+          )
           await page.goBack({ waitUntil: 'domcontentloaded' })
           await page
             .getByRole('main', { name: t('Profile'), exact: true })
