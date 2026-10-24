@@ -13,23 +13,61 @@ import (
 // the LAN distribution; hiding a menu item in React is not sufficient.
 const (
 	EditionFull = "full"
-	EditionLAN  = "lan"
+	EditionLite = "lite"
+	// EditionLAN is the legacy MYAPI_EDITION value for the Lite edition.
+	EditionLAN = "lan"
 )
 
-// CurrentEdition returns the normalized MYAPI_EDITION value. Unknown and
-// empty values fail open to the full edition for backwards compatibility.
+// EditionProfile is the product edition advertised to clients.
+type EditionProfile struct {
+	ProductEdition string
+	Capabilities   map[string]bool
+}
+
+// CurrentEdition returns the normalized product edition: EditionFull or
+// EditionLite, with the legacy "lan" value resolving to EditionLite. Unknown
+// and empty values fail open to the full edition for backwards compatibility.
 func CurrentEdition() string {
-	if strings.EqualFold(strings.TrimSpace(os.Getenv("MYAPI_EDITION")), EditionLAN) {
-		return EditionLAN
+	edition := strings.TrimSpace(os.Getenv("MYAPI_EDITION"))
+	if strings.EqualFold(edition, EditionLite) || strings.EqualFold(edition, EditionLAN) {
+		return EditionLite
 	}
 	return EditionFull
 }
 
+// IsLANEdition reports whether the restricted Lite edition is active, whether
+// it was selected as "lite" or through the legacy "lan" value.
 func IsLANEdition() bool {
-	return CurrentEdition() == EditionLAN
+	return CurrentEdition() == EditionLite
 }
 
-// EditionGuard enforces LAN edition's reduced surface at the HTTP boundary.
+// CurrentEditionProfile returns the product edition together with the UI
+// capabilities it offers. Capabilities describe UI entry points; the backend
+// blocking scope is defined by isLANRestrictedPath.
+func CurrentEditionProfile() EditionProfile {
+	edition := CurrentEdition()
+	full := edition == EditionFull
+	return EditionProfile{
+		ProductEdition: edition,
+		Capabilities: map[string]bool{
+			"payments":                 full,
+			"commercial_subscriptions": full,
+			"redemption_codes":         full,
+			"checkin":                  full,
+			"affiliate":                full,
+			"public_pricing":           full,
+			"rankings":                 full,
+			"perf_metrics":             full,
+			"external_oauth":           full,
+			"midjourney":               full,
+			"model_deployments":        full,
+			"site_content":             full,
+			"user_registration":        full,
+		},
+	}
+}
+
+// EditionGuard enforces the Lite edition's reduced surface at the HTTP boundary.
 // API relay routes, setup, authentication, keys and channel management remain
 // available; billing, public registration and external OAuth are disabled.
 func EditionGuard() gin.HandlerFunc {

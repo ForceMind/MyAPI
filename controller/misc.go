@@ -54,6 +54,7 @@ func GetStatus(c *gin.Context) {
 	oidcSetting := system_setting.GetOIDCSettings()
 	userFunding := service.CurrentUserFundingSnapshot()
 	paymentConfig := setting.CapturePaymentConfig()
+	edition := middleware.CurrentEditionProfile()
 
 	data := gin.H{
 		"version":                     common.Version,
@@ -130,6 +131,8 @@ func GetStatus(c *gin.Context) {
 		"checkin_enabled":             operation_setting.GetCheckinSetting().Enabled,
 		"user_funding_mode":           userFunding.State.Mode,
 		"user_funding_capabilities":   userFunding.Capabilities,
+		"product_edition":             edition.ProductEdition,
+		"capabilities":                edition.Capabilities,
 	}
 
 	// 根据启用状态注入可选内容

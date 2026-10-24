@@ -348,7 +348,7 @@ function startServer() {
       ...process.env,
       PORT: PORT.toString(),
       MYAPI_BIND_ADDRESS: BIND_ADDRESS,
-      MYAPI_EDITION: 'lan',
+      MYAPI_EDITION: 'lite',
       SESSION_COOKIE_SECURE: 'false',
       FULL_CONTENT_LOG_DIR: path.join(logsDir, 'full-content'),
     };

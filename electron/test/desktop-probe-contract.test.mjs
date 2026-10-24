@@ -11,6 +11,12 @@ test('production desktop startup probes the backend status endpoint and validate
   assert.match(source, /checkServerAvailability\(DEV_FRONTEND_PORT, 30, 1000, '127\.0\.0\.1', '\/'\)/)
 })
 
+test('production desktop runs the backend as the lite edition', async () => {
+  const source = await readFile(new URL('../main.js', import.meta.url), 'utf8')
+  assert.match(source, /MYAPI_EDITION: 'lite',/)
+  assert.doesNotMatch(source, /MYAPI_EDITION: 'lan'/)
+})
+
 test('production desktop stores backend and full-content logs under userData', async () => {
   const source = await readFile(new URL('../main.js', import.meta.url), 'utf8')
   assert.match(source, /const logsDir = path\.join\(userDataPath, 'logs'\)/)
