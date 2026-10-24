@@ -152,7 +152,7 @@ export function PersonalSubscriptionShareForm(
     <main
       id='content'
       tabIndex={-1}
-      className='pc-page min-w-0 space-y-6'
+      className='pc-page @container/share-page min-w-0 space-y-6'
       aria-labelledby='personal-share-title'
     >
       <header className='space-y-2'>
@@ -211,7 +211,7 @@ export function PersonalSubscriptionShareForm(
       {!props.loading && !props.loadError && props.pools.length > 0 && (
         <form
           id='personal-share-form'
-          className='grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(260px,1fr)]'
+          className='grid min-w-0 gap-5 @4xl/share-page:grid-cols-[minmax(0,1.7fr)_minmax(260px,1fr)]'
           aria-label={t('Adjust window share')}
           onSubmit={(event) => {
             event.preventDefault()
