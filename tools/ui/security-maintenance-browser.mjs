@@ -567,8 +567,17 @@ async function verifyMobilePasswordFooter(page, scenario) {
   }
   if (scenario.theme === 'dark') {
     const colors = await dialog.evaluate((element) => {
+      // Theme tokens resolve to OKLCH/Lab, whose numbers are not sRGB
+      // channels. Let canvas convert the computed color to sRGB first.
+      const canvas = document.createElement('canvas')
+      canvas.width = 1
+      canvas.height = 1
+      const context = canvas.getContext('2d', { willReadFrequently: true })
       const parse = (value) => {
-        const channels = value.match(/[\d.]+/g)?.slice(0, 3).map(Number) || []
+        context.clearRect(0, 0, 1, 1)
+        context.fillStyle = value
+        context.fillRect(0, 0, 1, 1)
+        const channels = [...context.getImageData(0, 0, 1, 1).data].slice(0, 3)
         return channels.length === 3
           ? channels.reduce((sum, channel) => sum + channel, 0) / 3
           : Number.NaN
