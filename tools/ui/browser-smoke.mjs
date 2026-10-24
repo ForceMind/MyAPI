@@ -997,9 +997,10 @@ try {
         assert.equal(report.requests.slice(chatStart).filter(request => request.path.replace(/\/$/, '') === '/api/token' || request.path === '/pg/keys' || isKeyRevealRequest(request)).length, 0, 'missing chat never retrieves a key list or secret before recovery navigation')
         await page.locator('main#content a[href="/dashboard"]').filter({ hasText: label('Return to dashboard') }).click()
         await page.waitForURL(`${origin}/dashboard/overview`)
-        await page.getByRole('heading', { level: 1, name: label('Your API workspace'), exact: true }).waitFor()
+        // One overview for every mode; its heading matches the navigation.
+        await page.getByRole('heading', { level: 1, name: label('Overview'), exact: true }).waitFor()
       }
-      await open(page, '/chat/not-an-integer', { shell: 'personal', title: label('Your API workspace'), expectedPath: '/dashboard/overview' })
+      await open(page, '/chat/not-an-integer', { shell: 'personal', title: label('Overview'), expectedPath: '/dashboard/overview' })
       assert.equal(report.requests.slice(start).filter(request => isKeyRevealRequest(request) || /^\/api\/token(?:\/search|\/\d+)?\/?$/.test(request.path)).length, 0, 'recovery navigation never retrieves broad Key objects or an active key secret')
       assert.equal(report.blockedExternal.length, externalStart, 'missing/invalid chat cannot attempt external navigation')
       await context.close(); contexts.delete(context)
@@ -1313,7 +1314,17 @@ try {
       await dialog.waitFor({ state: 'hidden' })
       await settled(page)
       if (width === 1280) assert.equal(await entry.evaluate(element => element === document.activeElement), true, 'keyboard policy entry regains focus after dismissal')
-      const budgetEntry = page.getByRole('button', { name: label('API Key usage budgets', language), exact: true })
+      // Below 1024px a Key card opens the Key inspector; its Access tab holds
+      // the budget and edit actions that the desktop row shows inline.
+      const phone = width < 1024
+      const inspector = page.locator('[data-inspector]')
+      if (phone) {
+        await page.locator('[data-inspect-id="21"]').first().click()
+        await inspector.getByRole('tab', { name: label('Access', language), exact: true }).click()
+      }
+      const budgetEntry = phone
+        ? inspector.getByRole('button', { name: label('Usage budgets', language), exact: true })
+        : page.getByRole('button', { name: label('API Key usage budgets', language), exact: true })
       await budgetEntry.getByText(label('Usage budgets', language), { exact: true }).waitFor()
       await budgetEntry.click()
       const budget = page.getByRole('dialog', { name: label('API Key usage budgets', language), exact: true })
@@ -1328,7 +1339,9 @@ try {
       await budget.waitFor({ state: 'hidden' })
       await settled(page)
       assert.equal(await budgetEntry.evaluate(element => element === document.activeElement), true, 'Escape restores the selected Key budget action focus')
-      const editEntry = page.getByRole('button', { name: label('Edit', language), exact: true })
+      const editEntry = phone
+        ? inspector.getByRole('button', { name: label('Edit Key', language), exact: true })
+        : page.getByRole('button', { name: label('Edit', language), exact: true })
       await editEntry.click()
       const drawer = page.getByRole('dialog', { name: label('Update API Key', language), exact: true })
       const quotaInput = drawer.getByRole('spinbutton', { name: label('Key quota (internal units)', language), exact: true })

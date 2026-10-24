@@ -99,11 +99,21 @@ try {
       await first.focus(); await page.keyboard.press('Enter')
       const detail = page.getByTestId('connection-detail')
       await detail.getByRole('heading', { name: longName, exact: true }).waitFor()
-      assert.equal(await inventory.count(), mobile ? 0 : 1, 'Mobile detail is a separate composition')
+      // Below 1024px the inspector replaces the list; the list stays mounted
+      // (filters and scroll survive) but is hidden.
+      assert.equal(await inventory.isVisible(), !mobile, 'Mobile detail is a separate composition')
       assert(await detail.getByRole('heading', { level: 2 }).evaluate(node => node === document.activeElement), 'Detail heading receives keyboard focus')
+      const tab = name => detail.getByRole('tab', { name: t(name), exact: true })
+      await tab('Account windows').click()
       await detail.getByText(t('No saved subscription windows for this connection. This does not mean the connection is unavailable.'), { exact: true }).waitFor()
-      const selectedUrl = page.url()
       await capture('detail')
+      await tab('Overview').click()
+      await page.waitForURL(url => !url.searchParams.has('tab'))
+      const selectedUrl = page.url()
+      // Phones close with the top-bar Back; wider layouts with the inspector's close.
+      const closeDetail = () => mobile
+        ? page.locator('.pc-header-mobile').getByRole('button', { name: t('Back'), exact: true }).click()
+        : detail.getByRole('button', { name: t('Close details'), exact: true }).click()
 
       await detail.getByRole('link', { name: t('Associated Key shares'), exact: true }).click()
       await page.getByRole('heading', { name: `${t('Associated Key shares')} · #1`, level: 1, exact: true }).waitFor()
@@ -185,12 +195,14 @@ try {
       await page.goBack({ waitUntil: 'networkidle' })
       assert.deepEqual(connectionLocation(page.url()), connectionLocation(selectedUrl), 'Returning from requests preserves selection and filters')
       await detail.getByRole('heading', { name: longName, exact: true }).waitFor()
-      await detail.getByRole('button', { name: t('Back to connections'), exact: true }).click()
+      await closeDetail()
       await first.waitFor()
       assert(await first.evaluate(node => node === document.activeElement), 'Return restores selected-row focus')
       assert.equal(new URL(page.url()).searchParams.get('filter'), 'Synthetic')
       assert.equal(new URL(page.url()).searchParams.get('page'), '2')
       await inventory.locator('[data-connection-id="2"]').click()
+      await detail.getByRole('heading', { name: 'Synthetic subscription connection', exact: true }).waitFor()
+      await tab('Account windows').click()
       await detail.getByText(t('Usage sample failed'), { exact: true }).waitFor()
       assert.equal(await detail.getByText('55%', { exact: true }).count(), 0, 'Failed observations do not invent current usage')
       await capture('failed-observation')
@@ -243,7 +255,7 @@ try {
         await detail.getByRole('heading', { name: longName, exact: true }).waitFor()
         empty = true
         await page.goto(`${origin}/connections`, { waitUntil: 'networkidle' })
-        await page.getByText(t('No channels found'), { exact: true }).waitFor(); await capture('empty')
+        await page.getByText(t('No connections yet'), { exact: true }).waitFor(); await capture('empty')
         deny = true
         await page.goto(`${origin}/connections?connection=1`, { waitUntil: 'networkidle' })
         await page.getByText(t('Connection access could not be verified.'), { exact: true }).waitFor(); await capture('permission-error')

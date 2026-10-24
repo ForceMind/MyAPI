@@ -118,7 +118,7 @@ try {
           if (!capturedKeyList) {
             const keyList = page.getByRole('main', { name: t('API Keys'), exact: true })
             await keyList.waitFor({ state: 'visible' })
-            await keyList.getByRole('button', { name: t('Window share'), exact: true }).waitFor({ state: 'visible' })
+            await keyList.locator('[data-inspect-id="21"]').first().waitFor({ state: 'visible' })
             keyListGeometry = await keyList.evaluate(element => {
               const rect = element.getBoundingClientRect()
               return { left: rect.left, right: rect.right, viewport: innerWidth, scrollWidth: element.scrollWidth, clientWidth: element.clientWidth, pageScrollWidth: document.documentElement.scrollWidth }
@@ -129,6 +129,9 @@ try {
             screenshots.push(keyListImage)
             capturedKeyList = true
           }
+          // The share editor opens from the Key inspector's Window shares tab.
+          await page.locator('[data-inspect-id="21"]').first().click()
+          await page.getByRole('tab', { name: t('Window shares'), exact: true }).click()
           await page.getByRole('button', { name: t('Window share'), exact: true }).last().click()
           if (role === 100) {
             const editor = page.getByRole('main', {name: t('Adjust window share'), exact: true})

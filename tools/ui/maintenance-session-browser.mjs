@@ -364,16 +364,22 @@ try {
           ),
           'Exact candidate build'
         )
-        await main.getByText(t('Advanced options'), { exact: true }).click()
+        // Every layout opens the same Key inspector; budgets and assigned
+        // access sit on its Access tab, Delete in its header menu.
+        await main.locator('[data-inspect-id="21"]').first().click()
+        const inspector = main.locator('[data-inspector]')
+        await inspector
+          .getByRole('tab', { name: t('Access'), exact: true })
+          .click()
         if (action === 'budget') {
-          await main
+          await inspector
             .getByRole('button', {
-              name: t('API Key usage budgets'),
+              name: t('Usage budgets'),
               exact: true,
             })
             .click()
         } else {
-          await main
+          await inspector
             .getByRole('button', { name: t('Open menu'), exact: true })
             .click()
           await page
@@ -492,9 +498,11 @@ try {
           assert.equal((await pendingResponse).status(), 200)
           if (action === 'delete') {
             await dialog.waitFor({ state: 'hidden' })
+            // The deleted Key's inspector closes onto the now empty list.
             await main
-              .getByText(t('No API keys found'), { exact: true })
+              .getByText(t('No API Keys Found'), { exact: true })
               .waitFor()
+            assert.equal(new URL(page.url()).searchParams.get('inspect'), null)
           } else if (action === 'policy') {
             const assigned = dialog.getByText(
               t('Administrator assignment is present.'),

@@ -118,7 +118,8 @@ export function createUIFixture({ role = 100, language = 'en', setupComplete = t
         if (state.policy === 'error') return unavailable('Synthetic policy unavailable')
         return { status: 200, body: ok({ user_id: user.id, no_balance: state.noBalance, revision: 1, legacy_remaining_quota: 1000000 }) }
       }
-      if (personalPolicy && path === '/api/token/21' && role > 0 && !url.search) return { status: 200, body: ok(key) }
+      // The Key inspector rereads the Key it opens, in every funding mode.
+      if (path === '/api/token/21' && role > 0 && !url.search) return { status: 200, body: ok(key) }
       if (path === `/api/token/${key.id}/subscription-share` && role > 0 && method === 'GET') {
         return { status: 200, body: ok({ token_id: key.id, pools: [] }) }
       }

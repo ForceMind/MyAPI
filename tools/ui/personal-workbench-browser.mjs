@@ -1,5 +1,7 @@
-// Production-build Chromium with isolated personal-workbench APIs. This is
-// synthetic UI evidence only; it never contacts a provider or settles usage.
+// Production-build Chromium with isolated personal-console APIs: the single
+// overview, the Key inspector's Playground handoff and the account windows.
+// This is synthetic UI evidence only; it never contacts a provider or settles
+// usage. (The separate personal workbench was merged into the overview.)
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import {
@@ -69,38 +71,37 @@ const tr = (key, language) => {
 for (const key of [
   "API key",
   "Account window used",
-  "An upstream account needs attention",
+  "Account windows",
   "Approximate",
   "Channel read permission is required to view upstream account windows.",
   "Choose a Key",
   "Choose a Key to observe its native window share.",
-  "Connections, Keys, and calls at a glance",
+  "Create an API Key for your client",
+  "Enabled connections",
   "Error",
-  "Existing API Keys",
   "Existing channel logins are kept. Open Channels to inspect the connection.",
   "Failed to load API keys",
-  "Keep using your existing Keys",
   "Key share settings",
   "Loading upstream accounts",
   "Local Key estimate",
-  "Manage API Keys",
   "Manage Key shares",
   "Manage account connection",
-  "No API Keys yet",
-  "No Key selected",
-  "No recent records",
+  "Most used account windows",
+  "Needs attention",
+  "Next steps",
+  "No requests in the last 24 hours",
   "No timestamp",
   "No upstream account windows were reported",
   "Observed {{time}}",
   "Open Playground",
+  "Overview",
   "Pending requests",
-  "Recent calls",
+  "Recent requests",
   "Refresh account windows",
   "Request failed",
   "Request successful",
   "Retry",
   "Sample age",
-  "Select account window",
   "Select an API Key",
   "Select an available API key before sending",
   "Select upstream account",
@@ -108,7 +109,7 @@ for (const key of [
   "Snapshot available",
   "Snapshot unavailable",
   "Stale sample",
-  "Test with an existing Key",
+  "Table view",
   "The selected API key is unavailable. Choose another key.",
   "This Key allocation",
   "This Key has no share for the selected account.",
@@ -117,21 +118,18 @@ for (const key of [
   "Unable to confirm channel permissions",
   "Unable to load Key shares",
   "Unable to load Keys",
+  "Unable to load recent requests",
   "Unable to load upstream account windows",
-  "Unable to load your recent records",
   "Unallocated",
   "Unattributed growth",
   "Unknown",
   "Unsampled requests",
   "Upstream account usage is not exact per-Key attribution. Windows are observed separately.",
-  "Upstream account windows",
   "Upstream accounts",
   "Usage not provided",
-  "View call logs",
-  "View upstream accounts",
   "Window observations are unavailable; existing estimates are preserved.",
   "Window resets require a trustworthy upstream sample.",
-  "Your API workspace",
+  "{{count}} requests completed without a usage report",
   "{{count}} Tokens",
   "{{count}} percentage points",
   "{{count}} seconds"
@@ -216,6 +214,12 @@ const safeKeys = [
     strict_token_budget: false,
   })),
 ]
+
+// The Keys page's list and Key inspector read the masked Key object; no
+// secret is part of it.
+function keyListItem(key, fixture) {
+  return { ...key, user_id: fixture.user.id, key: 'masked', used_quota: 0, created_time: now - 3600, accessed_time: now - 60, model_limits_enabled: false, model_limits: '', allow_ips: '' }
+}
 
 function budget(tokenId, userId) {
   const accountThreshold = tokenId === 23
@@ -514,23 +518,42 @@ function scenarioResponse(fixture, scenario, url, method, reads, pagePath) {
     }
   }
   const legacyDashboardList = method === 'GET' && pagePath === '/dashboard/overview' && ['enabled', 'retirement'].includes(scenario.mode)
-  if (/^\/api\/token\/\d+$/.test(path) ||
+  // Only the Keys page (its list and the Key inspector) reads Key objects;
+  // the overview counts Keys from the safe /pg/keys list.
+  const keysPage = method === 'GET' && pagePath === '/keys'
+  const keyObject = path.match(/^\/api\/token\/(\d+)$/)
+  if (keysPage && keyObject) {
+    const key = safeKeys.find((item) => item.id === Number(keyObject[1]))
+    if (!key || url.search) return { violation: `Unexpected Key read: ${path}${url.search}` }
+    return { status: 200, body: { success: true, data: keyListItem(key, fixture) } }
+  }
+  if (keysPage && ['/api/token', '/api/token/search'].includes(path)) {
+    const items = scenario.empty ? [] : safeKeys.map((key) => keyListItem(key, fixture))
+    return { status: 200, body: { success: true, data: { items, total: items.length, page: 1, page_size: 20 } } }
+  }
+  if (keyObject ||
       (['/api/token', '/api/token/search'].includes(path) && !legacyDashboardList)) {
     return {
       violation:
-        'Personal workbench requested a broad Key owner object instead of the safe list DTO',
+        'The overview requested a broad Key owner object instead of the safe list DTO',
     }
   }
   if (path === '/api/log/overview') {
-    return { violation: 'Personal workbench requested the all-user log overview' }
+    return { violation: 'The overview requested the all-user log overview' }
   }
-  if (path === '/api/log/self') {
-    if (scenario.failRecent && count === 1) return { status: 503, body: { success: false, message: 'Synthetic recent calls unavailable' } }
-    const items = scenario.empty ? [] : [
+  // Administrators read every user's records, like the call records page;
+  // ordinary users read only their own.
+  if (path === '/api/log/self' || (path === '/api/log' && scenario.role >= 10)) {
+    const sample = url.searchParams.get('page_size') !== '1'
+    if (sample) scenario.sampleReads = (scenario.sampleReads || 0) + 1
+    if (scenario.failRecent && sample && scenario.sampleReads === 1) return { status: 503, body: { success: false, message: 'Synthetic recent calls unavailable' } }
+    const rows = scenario.empty || url.searchParams.has('token_id') ? [] : [
       { id: 501, user_id: fixture.user.id, created_at: now - 120, type: 5, content: '', token_name: 'Synthetic desktop app', model_name: 'synthetic-personal-model', prompt_tokens: 0, completion_tokens: 0, use_time: 2, other: JSON.stringify({ request_outcome: 'completed', usage_outcome: 'unavailable', settlement_status: 'pending_review' }) },
       { id: 502, user_id: fixture.user.id, created_at: now - 60, type: 5, content: 'Synthetic upstream 429', token_name: 'Synthetic desktop app', model_name: 'synthetic-error-model', prompt_tokens: 0, completion_tokens: 0, use_time: 1, other: JSON.stringify({ request_outcome: 'failed', usage_outcome: 'unavailable' }) },
     ]
-    return { status: 200, body: { success: true, data: { items, total: items.length, page: 1, page_size: 10 } } }
+    const type = url.searchParams.get('type')
+    const items = type ? rows.filter((row) => String(row.type) === type) : rows
+    return { status: 200, body: { success: true, data: { items: sample ? items : [], total: items.length, page: 1, page_size: Number(url.searchParams.get('page_size') || 10) } } }
   }
   const shareMatch = path.match(/^\/api\/token\/(\d+)\/subscription-share$/)
   if (shareMatch && Number(shareMatch[1]) === 24) return { status: 200, body: { success: true, data: { token_id: 24, pools: [{ pool_id: 0, snapshot_id: 9, revision: 0, channel_id: 1, channel_name: 'Synthetic subscription account', plan_type: 'pro', window_slot: 'primary', window_type: 'five_hour', window_seconds: 18000, reset_at: now + 3600, observed_at: now - 60, max_age_seconds: 300, sample_age_seconds: 60, state: 'candidate', allocated_bps: 0, share_bps: 0, estimated_used_micro: 0, unattributed_micro: 0, pending_attempts: 0, unsampled_attempts: 0, approximate: true, baseline_time: 0 }] } } }
@@ -817,11 +840,11 @@ async function storedPlaygroundKeyId(page, role) {
   }, role === 1 ? 2 : 1)
 }
 
-async function openWorkbench(page, scenario) {
+async function openOverview(page, scenario) {
   await page.goto(`${origin}/dashboard/overview`, { waitUntil: 'networkidle' })
   await page.locator('[data-myapi-shell="authenticated"], [data-myapi-shell="personal"]').waitFor()
-  await page.getByTestId('personal-workbench').waitFor()
-  await page.getByRole('heading', { name: tr('Your API workspace', scenario.language), exact: true }).waitFor()
+  await page.getByTestId('overview').waitFor()
+  await page.getByRole('heading', { level: 1, name: tr('Overview', scenario.language), exact: true }).waitFor()
   await settled(page)
   const revision = await page.locator('html').getAttribute('data-build-rev')
   assert(revision?.startsWith(`rv.${version}.`), 'Visible revision matches VERSION')
@@ -835,7 +858,7 @@ async function screenshot(page, scenario, suffix) {
   const geometry = await page.evaluate(() => {
     const sections = []
     let hiddenSections = 0
-    for (const element of document.querySelectorAll('[data-testid="personal-workbench"], [data-testid="personal-upstream"], [data-slot="card"]')) {
+    for (const element of document.querySelectorAll('[data-testid="overview"], [data-testid="personal-upstream"], [data-slot="card"]')) {
       const box = element.getBoundingClientRect()
       // Hidden mounted cards have no rendered geometry. Include visible cards
       // below the fold as well: their content must also fit when scrolled to.
@@ -886,12 +909,13 @@ async function screenshot(page, scenario, suffix) {
   persist()
 }
 
-async function selectNativeKey(page, scenario, value) {
-  const details = page.getByTestId('overview-keys').locator('details')
-  if (!(await details.evaluate((element) => element.open))) await details.locator('summary').click()
-  const select = page.getByRole('combobox', { name: tr('Select an API Key', scenario.language), exact: true })
-  await select.selectOption(String(value))
-  assert.equal(await select.inputValue(), String(value))
+// The Playground handoff starts from the Key inspector on the Keys page.
+async function openKeyInspector(page, value) {
+  await page.goto(`${origin}/keys?inspect=${value}`, { waitUntil: 'networkidle' })
+  const inspector = page.locator('[data-inspector]')
+  const key = safeKeys.find((item) => item.id === value)
+  await inspector.getByRole('heading', { level: 2, name: key.name, exact: true }).waitFor()
+  return inspector
 }
 
 async function screenshotPoolUsage(page, scenario, suffix) {
@@ -919,7 +943,7 @@ async function runJourney(scenario, work) {
   const session = await createSession(scenario)
   const journey = { name: scenario.name, language: scenario.language, width: scenario.width, role: scenario.role, result: 'running' }
   try {
-    journey.buildRevision = await openWorkbench(session.page, scenario)
+    journey.buildRevision = await openOverview(session.page, scenario)
     await work(session)
     assert.deepEqual(session.audit.mutations, [], 'No business mutation or generation request')
     assert.deepEqual(session.audit.external, [], 'No external network request')
@@ -955,7 +979,7 @@ async function runJourney(scenario, work) {
         accountsError: session.page.getByTestId('accounts-error-state'),
         empty: session.page.getByTestId('accounts-empty-state'),
         upstream: session.page.getByTestId('personal-upstream'),
-        overview: session.page.getByTestId('personal-workbench'),
+        overview: session.page.getByTestId('overview'),
       }
       for (const [name, locator] of Object.entries(states)) evidence.states[name] = await locator.first().isVisible()
       evidence.render = await session.page.evaluate(() => ({
@@ -983,11 +1007,15 @@ async function runJourney(scenario, work) {
 
 async function populated(scenario) {
   await runJourney(scenario, async ({ page, audit, reads, fixture }) => {
-    await page.getByTestId('recent-records-section').getByText('synthetic-personal-model', { exact: true }).waitFor()
-    await page.getByTestId('recent-records-section').getByText(tr('Request successful', scenario.language), { exact: true }).waitFor()
-    assert.equal(await page.getByTestId('recent-records-section').getByText('0 Tokens', { exact: true }).count(), 0, 'Missing usage is never zero Tokens')
-    assert.equal(await page.getByTestId('recent-records-section').getByText(tr('Usage not provided', scenario.language), { exact: true }).count(), 2)
-    const body = await page.getByTestId('personal-workbench').innerText()
+    const recentSection = page.getByRole('region', { name: tr('Recent requests', scenario.language), exact: true })
+    await recentSection.getByText('synthetic-personal-model', { exact: false }).first().waitFor()
+    await recentSection.getByText(tr('Request successful', scenario.language), { exact: true }).first().waitFor()
+    await recentSection.getByText(tr('Request failed', scenario.language), { exact: true }).first().waitFor()
+    assert.equal(await page.getByTestId('overview').getByText(/\b0 Tokens\b/).count(), 0, 'Missing usage is never zero Tokens')
+    // The completed request without usage is listed for attention, not zeroed.
+    await page.getByRole('region', { name: tr('Needs attention', scenario.language), exact: true })
+      .getByText(tr('{{count}} requests completed without a usage report', scenario.language).replace('{{count}}', '1'), { exact: true }).waitFor()
+    const body = await page.getByTestId('overview').innerText()
     assert(!/USD\s+\d|\$\s*\d/.test(body), 'Personal overview shows no monetary balance')
     await screenshot(page, scenario, 'overview')
     if (scenario.channelRead) {
@@ -1098,22 +1126,25 @@ async function populated(scenario) {
         assert.equal(await page.getByTestId('pool-usage-7').count(), 0, 'Native window permission does not reveal Root usage')
         await screenshot(page, scenario, 'upstream-without-root-usage')
       }
-      await openWorkbench(page, scenario)
+      await openOverview(page, scenario)
     } else assert.equal(audit.requests.filter((request) => request.path === '/api/channel/quota/changes').length, 0, 'No channel read without permission')
     for (const keyId of [24, 25, 26]) {
-      await selectNativeKey(page, scenario, keyId)
-      assert(await page.getByRole('button', { name: tr('Open Playground', scenario.language), exact: true }).isDisabled(), 'Unavailable Key cannot open Playground')
+      const inspector = await openKeyInspector(page, keyId)
+      assert(await inspector.getByRole('button', { name: tr('Open Playground', scenario.language), exact: true }).isDisabled(), 'Unavailable Key cannot open Playground')
     }
-    await selectNativeKey(page, scenario, 23)
+    const inspector = await openKeyInspector(page, 23)
     const modelResponse = page.waitForResponse((response) => new URL(response.url()).pathname === '/pg/models' && response.request().headers()['x-myapi-key-id'] === '23')
-    const open = page.getByRole('button', { name: tr('Open Playground', scenario.language), exact: true })
+    const open = inspector.getByRole('button', { name: tr('Open Playground', scenario.language), exact: true })
     await open.focus(); await page.keyboard.press('Enter')
     await page.waitForURL(`${origin}/playground`)
     await assertPlaygroundSelection(page, scenario, 23)
     await modelResponse
     assert.equal(await storedPlaygroundKeyId(page, scenario.role), 23, 'Handoff replaces previously saved Key 22')
     assert.equal(audit.requests.filter((request) => request.path === '/pg/models' && request.keyId === '22').length, 0, 'No fallback to an older wider Key')
-    assert.equal(audit.requests.filter((request) => request.path === '/api/log' || request.path === '/api/log/overview').length, 0, 'Personal records are always owner scoped')
+    assert.equal(audit.requests.filter((request) => request.path === '/api/log/overview').length, 0, 'The overview never reads the all-user log overview')
+    // Administrators see every user's requests, as on the call records page;
+    // ordinary users only ever read their own.
+    if (scenario.role < 10) assert.equal(audit.requests.filter((request) => request.path === '/api/log').length, 0, 'Ordinary users read only their own records')
     assert.equal(audit.requests.filter((request) => /^\/api\/token\/\d+\/budget$/.test(request.path)).length, 0, 'Overview does not load monetary budget forms')
     if (scenario.role !== 100) assert.equal(audit.requests.filter((request) => /^\/api\/subscription-share\/pools\//.test(request.path)).length, 0, 'Non-Root sessions never request full pool usage')
     if (scenario.role === 10) {
@@ -1138,8 +1169,8 @@ async function populated(scenario) {
 
 async function blockedHandoff(scenario) {
   await runJourney(scenario, async ({ page, reads, audit }) => {
-    await selectNativeKey(page, scenario, 23)
-    await page.getByRole('button', { name: tr('Open Playground', scenario.language), exact: true }).click()
+    const inspector = await openKeyInspector(page, 23)
+    await inspector.getByRole('button', { name: tr('Open Playground', scenario.language), exact: true }).click()
     await page.waitForURL(`${origin}/playground`)
     const keySelect = page.getByRole('combobox', { name: tr('API key', scenario.language), exact: true })
     await keySelect.waitFor()
@@ -1154,27 +1185,22 @@ async function blockedHandoff(scenario) {
 
 async function inspectWindowStates(scenario) {
   await runJourney(scenario, async ({ page, reads }) => {
-    const connections = page.getByTestId('overview-connections')
     const search = await page.locator('header[data-myapi-header]').getByRole('button', { name: tr('Search', scenario.language), exact: true }).boundingBox()
     assert(search && search.width === search.height && search.width >= 44, 'The console search is a compact square control with an accessible target')
-    await connections.getByText('4', { exact: true }).waitFor()
-    const list = connections.getByTestId(scenario.width >= 1024 ? 'connection-desktop-list' : 'connection-mobile-list')
-    await list.getByRole(scenario.width >= 1024 ? 'row' : 'listitem').filter({ hasText: 'Synthetic standard API channel' }).waitFor()
-    if (scenario.width >= 1024) {
-      const statusLines = await list.getByText(tr('Enabled', scenario.language), { exact: true }).first().evaluate((element) => {
-        const range = document.createRange()
-        range.selectNodeContents(element)
-        return [...range.getClientRects()].filter((rect) => rect.height > 0).length
-      })
-      assert.equal(statusLines, 1, 'The desktop connection status retains enough room for its complete label')
-    }
-    assert.equal(reads.get('/api/channel'), 1, 'Desktop and mobile connection presentations share one metadata read')
+    // The overview's health strip carries the connection totals; the
+    // connection list itself lives on the Connections page (design 8.1).
+    const health = page.locator('[aria-labelledby="overview-health-title"]')
+    await health.getByText(tr('Enabled connections', scenario.language), { exact: true }).waitFor()
+    await health.getByText('4 / 4', { exact: true }).waitFor()
+    assert.equal(reads.get('/api/channel'), 2, 'The overview reads only the configured and the enabled connection totals')
     await screenshot(page, scenario, 'overview-connections')
     const savedHistory = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/channel/7/quota/history' && response.request().method() === 'GET' && response.status() === 200)
-    await connections.getByRole('link', { name: tr('Manage connections', scenario.language), exact: true }).click()
+    await page.getByTestId('overview').getByRole('link', { name: tr('Add connection', scenario.language), exact: true }).click()
     await page.waitForURL('**/connections')
-    await page.getByTestId('connections-inventory').waitFor()
-    await page.getByRole('link', { name: tr('Advanced channel management', scenario.language), exact: true }).click()
+    const inventory = page.getByTestId('connections-inventory')
+    await inventory.waitFor()
+    await inventory.locator('[data-connection-id="10"]').filter({ hasText: 'Synthetic standard API channel' }).waitFor()
+    await page.getByRole('link', { name: tr('Table view', scenario.language), exact: true }).click()
     await page.waitForURL('**/channels')
     await page.waitForFunction((name) => [...document.querySelectorAll('main *')].some((element) => element.textContent?.trim() === name && element.checkVisibility()), 'Synthetic standard API channel')
     const history = await (await savedHistory).json()
@@ -1183,7 +1209,7 @@ async function inspectWindowStates(scenario) {
     await page.goBack()
     await page.getByTestId('connections-inventory').waitFor()
     await page.goBack()
-    await page.getByTestId('personal-workbench').waitFor()
+    await page.getByTestId('overview').waitFor()
     await page.goto(`${origin}/upstream-accounts`, { waitUntil: 'networkidle' })
     await page.getByText(tr('Usage sample failed', scenario.language), { exact: true }).waitFor()
     await page.getByText(tr('Window reporting unsupported', scenario.language), { exact: true }).waitFor()
@@ -1192,17 +1218,19 @@ async function inspectWindowStates(scenario) {
     assert.equal(await windows.count(), 2, 'The failed and unsupported account windows remain separate')
     assert.equal(await windows.getByRole('link', { name: tr('View channel history', scenario.language), exact: true }).first().getAttribute('href'), '/channels?quotaChannelId=7', 'History locates the original channel identity')
     await screenshot(page, scenario, 'failed-and-unsupported')
-    const selectAccount = async (id, name) => {
-      if (scenario.width >= 1024) await page.getByRole('complementary', { name: tr('Select upstream account', scenario.language), exact: true }).getByRole('button', { name, exact: true }).click()
-      else await page.getByRole('combobox', { name: tr('Select upstream account', scenario.language), exact: true }).selectOption(String(id))
+    // One account list for every width (no native select on phones).
+    const selectAccount = async (name) => {
+      const account = page.getByRole('complementary', { name: tr('Select upstream account', scenario.language), exact: true }).getByRole('button', { name, exact: true })
+      await account.click()
+      assert.equal(await account.getAttribute('aria-pressed'), 'true')
       await page.getByRole('heading', { name, exact: true }).waitFor()
     }
-    await selectAccount(8, 'Synthetic zero and stale account')
+    await selectAccount('Synthetic zero and stale account')
     await windows.getByText('0%', { exact: true }).waitFor()
     await windows.getByText(tr('Stale sample', scenario.language), { exact: true }).waitFor()
     await windows.getByText(tr('Last reported usage', scenario.language), { exact: true }).waitFor()
     await screenshot(page, scenario, 'zero-and-stale')
-    await selectAccount(9, 'Synthetic incomplete evidence account')
+    await selectAccount('Synthetic incomplete evidence account')
     await windows.getByText(tr('No reliable usage sample', scenario.language), { exact: true }).waitFor()
     await windows.getByText(tr('Sample time unverified', scenario.language), { exact: true }).waitFor()
     assert.equal(await windows.getByText('0%', { exact: true }).count(), 0, 'Missing evidence is never replaced with zero')
@@ -1232,18 +1260,29 @@ try {
   await blockedHandoff({ ...base, name: 'personal-handoff-safe-list-failed-zh-320', role: 1, channelRead: false, language: 'zh', width: 320, failPlaygroundKeys: true })
   const recovery = { ...base, name: 'personal-retry-zh-320', language: 'zh', width: 320, failKeys: true, failRecent: true, failAccounts: true }
   await runJourney(recovery, async ({ page, reads }) => {
-    for (const id of ['keys-error-state', 'recent-error-state', 'accounts-error-state']) await page.getByTestId(id).waitFor()
+    // The overview lists no Keys (design 8.1), so the failed Key count has
+    // no section of its own to retry; recent requests and windows do.
+    const recentSection = page.getByRole('region', { name: tr('Recent requests', recovery.language), exact: true })
+    const recentError = recentSection.getByRole('alert').filter({ hasText: tr('Unable to load recent requests', recovery.language) })
+    await recentError.waitFor()
+    await page.getByTestId('accounts-error-state').waitFor()
     await screenshot(page, recovery, 'errors')
-    for (const id of ['keys-error-state', 'recent-error-state', 'accounts-error-state']) {
-      await page.getByTestId(id).getByRole('button', { name: tr('Retry', recovery.language), exact: true }).click()
-      await page.getByTestId(id).waitFor({ state: 'hidden' })
-    }
+    await recentError.getByRole('button', { name: tr('Retry', recovery.language), exact: true }).click()
+    await recentError.waitFor({ state: 'hidden' })
+    await recentSection.getByText('synthetic-personal-model', { exact: false }).first().waitFor()
+    await page.getByTestId('accounts-error-state').getByRole('button', { name: tr('Retry', recovery.language), exact: true }).click()
+    await page.getByTestId('accounts-error-state').waitFor({ state: 'hidden' })
     await screenshot(page, recovery, 'recovered')
-    for (const path of ['/pg/keys', '/api/log/self', '/api/channel/quota/changes']) assert.equal(reads.get(path), 2, 'Failed section retries once')
+    assert.equal(recovery.sampleReads, 2, 'The failed request sample retries once')
+    assert.equal(reads.get('/api/channel/quota/changes'), 2, 'Failed account windows retry once')
   })
   const empty = { ...base, name: 'personal-empty-en-1280', language: 'en', width: 1280, empty: true }
   await runJourney(empty, async ({ page }) => {
-    for (const id of ['keys-empty-state', 'recent-empty-state', 'accounts-empty-state']) await page.getByTestId(id).waitFor()
+    await page.getByRole('region', { name: tr('Recent requests', empty.language), exact: true })
+      .getByText(tr('No requests in the last 24 hours', empty.language), { exact: true }).waitFor()
+    await page.getByTestId('accounts-empty-state').waitFor()
+    // No Keys yet: the next step points at creating one.
+    await page.getByRole('link', { name: tr('Create an API Key for your client', empty.language), exact: true }).waitFor()
     await screenshot(page, empty, 'empty')
   })
   for (const mode of ['enabled', 'retirement', 'unknown']) {
@@ -1252,11 +1291,15 @@ try {
     try {
       await session.page.goto(`${origin}/dashboard/overview`, { waitUntil: 'networkidle' })
       await session.page.locator('[data-myapi-shell="authenticated"], [data-myapi-shell="personal"]').waitFor()
-      assert.equal(await session.page.getByTestId('personal-workbench').count(), 0, 'Unconfirmed or commercial mode does not mount personal workspace')
-      assert.equal(session.audit.requests.filter((request) => request.path === '/pg/keys').length, 0, 'Gate does not request personal Keys')
-      assert.equal(session.audit.requests.filter((request) => /^\/api\/token\/\d+\/subscription-share$/.test(request.path)).length, 0, 'Gate does not request personal share pools')
-      assert.equal(session.audit.requests.filter((request) => /^\/api\/subscription-share\/pools\//.test(request.path)).length, 0, 'Gate does not request full pool usage')
-      if (mode === 'unknown') assert.equal(session.audit.requests.filter((request) => ['/api/channel/quota/changes', '/api/log/self', '/api/log/self/overview', '/api/log/overview', '/api/data/self', '/api/data', '/api/perf-metrics/summary'].includes(request.path)).length, 0, 'Unknown mode starts neither dashboard data plane')
+      // Every funding mode mounts the same overview. Funds appear only once
+      // the mode is confirmed as commercial; an unknown mode reads none.
+      await session.page.getByTestId('overview').waitFor()
+      const funds = session.audit.requests.filter((request) => ['/api/data/self', '/api/data', '/api/perf-metrics/summary', '/api/user/topup/self', '/api/subscription/self'].includes(request.path))
+      if (mode === 'unknown') assert.equal(funds.length, 0, 'Unknown mode reads no funds or analytics data')
+      assert.equal(session.audit.requests.filter((request) => /^\/api\/token\/\d+\/subscription-share$/.test(request.path)).length, 0, 'The overview does not request personal share pools')
+      assert.equal(session.audit.requests.filter((request) => /^\/api\/subscription-share\/pools\//.test(request.path)).length, 0, 'The overview does not request full pool usage')
+      assert.equal(session.audit.requests.filter((request) => ['/api/log/self/overview', '/api/log/overview', '/api/log'].includes(request.path)).length, 0, 'An ordinary user reads only their own records')
+      assert.equal(session.audit.requests.filter((request) => request.path === '/api/channel/quota/changes').length, 0, 'No account windows without channel read')
       assert.deepEqual(session.audit.mutations, [], 'Gate has no business mutation')
       assert.deepEqual(session.audit.external, [], 'Gate has no external calls')
       assert.deepEqual(session.audit.violations, [], 'Gate respects fixture contracts')

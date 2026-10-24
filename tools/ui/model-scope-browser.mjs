@@ -466,6 +466,9 @@ try {
       exact: true,
     })
     await keyList.waitFor({ state: 'visible' })
+    // Key actions live in the Key inspector: open the Key, then Access.
+    await keyList.locator('[data-inspect-id="21"]').first().click()
+    await keyList.getByRole('tab', { name: t('Access'), exact: true }).click()
     const entry = keyList
       .getByRole('button', { name: t('Model scope'), exact: true })
       .last()

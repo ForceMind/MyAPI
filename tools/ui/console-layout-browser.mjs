@@ -35,7 +35,8 @@ try {
     report.journeys.push(journey)
     try {
       await page.goto(origin + '/keys', { waitUntil: 'networkidle' })
-      await page.getByRole('button', { name: t('View Key requests'), exact: true }).first().waitFor()
+      // Every layout lists each Key as one control that opens its inspector.
+      await page.locator('[data-inspect-id]').first().waitFor()
       if (width >= 1024) {
         // Without a saved preference the sidebar starts as an icon rail below 1280px.
         const startsAsRail = width < 1280

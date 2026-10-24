@@ -485,6 +485,16 @@ try {
         await keyList.waitFor({ state: 'visible' })
         await assertFits(keyList, width, `${name}: Key list`)
       }
+      // The share editor opens from the Key inspector's Window shares tab;
+      // after the editor closes the inspector is still open on that tab.
+      const sharesTab = page.getByRole('tab', {
+        name: t('Window shares'),
+        exact: true,
+      })
+      if (!(await sharesTab.isVisible())) {
+        await page.locator('[data-inspect-id="21"]').first().click()
+      }
+      await sharesTab.click()
       await page
         .getByRole('button', { name: t('Window share'), exact: true })
         .last()
@@ -885,6 +895,10 @@ try {
     element.classList.contains('dark') ? 'dark' : 'light'
   )
   assert.equal(ownerTheme, 'light', `${ownerName}: stored light theme is applied`)
+  await ownerPage.locator('[data-inspect-id="21"]').first().click()
+  await ownerPage
+    .getByRole('tab', { name: ownerT('Window shares'), exact: true })
+    .click()
   await ownerPage
     .getByRole('button', { name: ownerT('Window share'), exact: true })
     .last()
