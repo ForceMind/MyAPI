@@ -16,8 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import {
+  DashboardSpeed01Icon,
+  HeartCheckIcon,
+  Timer02Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from '@tanstack/react-query'
-import { Gauge, HeartPulse, Timer } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -95,7 +100,7 @@ export function PerformanceHealthPanel() {
     <section className='bg-card h-full overflow-hidden rounded-2xl border shadow-xs'>
       <div className='flex items-center gap-2 border-b px-4 py-3 sm:px-5'>
         <IconBadge tone='success' size='sm'>
-          <HeartPulse />
+          <HugeiconsIcon icon={HeartCheckIcon} />
         </IconBadge>
         <h3 className='text-sm font-semibold'>{t('Performance health')}</h3>
         <span className='text-muted-foreground ml-auto text-xs'>
@@ -106,7 +111,7 @@ export function PerformanceHealthPanel() {
       <div className='space-y-3 p-4 sm:p-5'>
         <div className='grid grid-cols-3 gap-2'>
           <MetricCell
-            icon={HeartPulse}
+            icon={HeartCheckIcon}
             label={t('Success rate')}
             value={formatUptimePct(summary.successRate)}
             loading={loading}
@@ -114,14 +119,14 @@ export function PerformanceHealthPanel() {
             tone='success'
           />
           <MetricCell
-            icon={Timer}
+            icon={Timer02Icon}
             label={t('Average latency')}
             value={formatLatency(summary.avgLatencyMs)}
             loading={loading}
             tone='warning'
           />
           <MetricCell
-            icon={Gauge}
+            icon={DashboardSpeed01Icon}
             label={t('Throughput')}
             value={formatThroughput(summary.avgTps)}
             loading={loading}
@@ -179,19 +184,18 @@ export function PerformanceHealthPanel() {
 }
 
 function MetricCell(props: {
-  icon: React.ComponentType<{ className?: string }>
+  icon: typeof HeartCheckIcon
   label: string
   value: string
   loading: boolean
   valueClassName?: string
   tone: IconBadgeTone
 }) {
-  const Icon = props.icon
   return (
     <div className='bg-muted/40 rounded-xl px-3 py-2.5'>
       <div className='text-muted-foreground flex items-center gap-1.5 text-[11px] font-medium'>
         <IconBadge tone={props.tone} size='xs'>
-          <Icon />
+          <HugeiconsIcon icon={props.icon} />
         </IconBadge>
         <span className='truncate'>{props.label}</span>
       </div>

@@ -6,7 +6,8 @@ it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
-import { ChevronDown } from 'lucide-react'
+import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -590,7 +591,8 @@ export function CodexAccountQuotaChart(props: {
             onClick={() => setDetailsExpanded((current) => !current)}
           >
             {detailsExpanded ? t('Hide details') : t('Show details')}
-            <ChevronDown
+            <HugeiconsIcon
+              icon={ArrowDown01Icon}
               className={cn(
                 'size-4 transition-transform',
                 detailsExpanded && 'rotate-180'

@@ -16,7 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Zap, ExternalLink, Gauge } from 'lucide-react'
+import {
+  DashboardSpeed01Icon,
+  FlashIcon,
+  LinkSquare02Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
@@ -101,7 +106,8 @@ export function ApiInfoItemComponent(props: ApiInfoItemProps) {
             className='size-7 p-0'
             title={t('Test Latency')}
           >
-            <Zap
+            <HugeiconsIcon
+              icon={FlashIcon}
               className={cn('size-3.5', status.testing && 'animate-pulse')}
             />
           </Button>
@@ -113,7 +119,7 @@ export function ApiInfoItemComponent(props: ApiInfoItemProps) {
             className='hidden size-7 p-0 sm:inline-flex'
             title={t('External Speed Test')}
           >
-            <Gauge className='size-3.5' />
+            <HugeiconsIcon icon={DashboardSpeed01Icon} className='size-3.5' />
           </Button>
 
           <CopyButton
@@ -133,7 +139,7 @@ export function ApiInfoItemComponent(props: ApiInfoItemProps) {
             title={t('Open in New Tab')}
             render={<a href={item.url} target='_blank' rel='noreferrer' />}
           >
-            <ExternalLink className='size-3.5' />
+            <HugeiconsIcon icon={LinkSquare02Icon} className='size-3.5' />
           </Button>
         </div>
       </div>

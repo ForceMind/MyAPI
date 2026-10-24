@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Route } from 'lucide-react'
+import { Route01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -52,7 +53,7 @@ export function ApiInfoPanel() {
       title={
         <span className='flex items-center gap-2'>
           <IconBadge tone='info' size='sm'>
-            <Route />
+            <HugeiconsIcon icon={Route01Icon} />
           </IconBadge>
           {t('API Info')}
         </span>

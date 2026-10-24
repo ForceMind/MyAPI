@@ -16,8 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import {
+  ChartDecreaseIcon,
+  FireIcon,
+  SecurityCheckIcon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from '@tanstack/react-query'
-import { Flame, ShieldCheck, TrendingDown } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -339,7 +344,11 @@ export function SummaryCards() {
               <div className='grid grid-cols-2 gap-2'>
                 <div className='bg-background/60 rounded-lg px-2.5 py-2'>
                   <div className='text-muted-foreground flex items-center gap-1 text-[11px] leading-none font-medium'>
-                    <Flame className='size-3 shrink-0' aria-hidden='true' />
+                    <HugeiconsIcon
+                      icon={FireIcon}
+                      className='size-3 shrink-0'
+                      aria-hidden='true'
+                    />
                     <span className='truncate'>{t('Last 24h usage')}</span>
                   </div>
                   <div className='text-foreground mt-1.5 truncate text-xs font-semibold tabular-nums'>
@@ -351,12 +360,14 @@ export function SummaryCards() {
                 <div className='bg-background/60 rounded-lg px-2.5 py-2'>
                   <div className='text-muted-foreground flex items-center gap-1 text-[11px] leading-none font-medium'>
                     {runwayDays !== null && runwayDays < 3 ? (
-                      <TrendingDown
+                      <HugeiconsIcon
+                        icon={ChartDecreaseIcon}
                         className='size-3 shrink-0'
                         aria-hidden='true'
                       />
                     ) : (
-                      <ShieldCheck
+                      <HugeiconsIcon
+                        icon={SecurityCheckIcon}
                         className='size-3 shrink-0'
                         aria-hidden='true'
                       />

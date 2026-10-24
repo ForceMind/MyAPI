@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Activity, RotateCw } from 'lucide-react'
+import { Activity01Icon, Refresh01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { memo, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -99,7 +100,7 @@ export function UptimePanel() {
       title={
         <span className='flex items-center gap-2'>
           <IconBadge tone='success' size='sm'>
-            <Activity />
+            <HugeiconsIcon icon={Activity01Icon} />
           </IconBadge>
           {t('Uptime')}
         </span>
@@ -118,7 +119,8 @@ export function UptimePanel() {
           disabled={refreshing}
           className='size-7 p-0'
         >
-          <RotateCw
+          <HugeiconsIcon
+            icon={Refresh01Icon}
             className={cn('size-3.5', refreshing && 'animate-spin')}
             aria-label={t('Refresh')}
           />

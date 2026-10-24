@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Megaphone } from 'lucide-react'
+import { Megaphone01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { memo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -62,7 +63,7 @@ export function AnnouncementsPanel() {
       title={
         <span className='flex items-center gap-2'>
           <IconBadge tone='warning' size='sm'>
-            <Megaphone />
+            <HugeiconsIcon icon={Megaphone01Icon} />
           </IconBadge>
           {t('Announcements')}
         </span>

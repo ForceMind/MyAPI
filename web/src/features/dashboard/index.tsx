@@ -32,7 +32,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { usePersonalWorkbenchMode } from '@/hooks/use-personal-workbench-mode'
 import { ROLE } from '@/lib/roles'
 import { getRollingDateRange, type TimeGranularity } from '@/lib/time'
 import { cn } from '@/lib/utils'
@@ -40,7 +39,7 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import { ModelsChartPreferences } from './components/models/models-chart-preferences'
 import { ModelsFilter } from './components/models/models-filter-dialog'
-import { OverviewDashboard } from './components/overview/overview-dashboard'
+import { OverviewPage } from './components/overview/overview-page'
 import { DEFAULT_TIME_GRANULARITY } from './constants'
 import {
   buildDefaultDashboardFilters,
@@ -198,7 +197,6 @@ const SECTION_META: Record<DashboardSectionId, { titleKey: string }> = {
 
 export function Dashboard() {
   const { t } = useTranslation()
-  const personalWorkbench = usePersonalWorkbenchMode()
   const navigate = useNavigate()
   const params = route.useParams()
   const userRole = useAuthStore((state) => state.auth.user?.role)
@@ -371,44 +369,36 @@ export function Dashboard() {
     ) : null
   const sectionActions = modelActions ?? flowActions
 
-  if (activeSection === 'overview' && personalWorkbench) {
-    return <OverviewDashboard />
+  // The overview is its own page (design 8.1); analytics share this layout.
+  if (activeSection === 'overview') {
+    return <OverviewPage />
   }
 
   return (
     <SectionPageLayout>
-      <SectionPageLayout.Title>
-        {t(
-          activeSection === 'overview' && personalWorkbench
-            ? 'Personal workbench'
-            : meta.titleKey
-        )}
-      </SectionPageLayout.Title>
+      <SectionPageLayout.Title>{t(meta.titleKey)}</SectionPageLayout.Title>
       <SectionPageLayout.Content>
         <div className='space-y-3 sm:space-y-4'>
-          {activeSection !== 'overview' && (
-            <div className='flex flex-wrap items-center justify-between gap-1.5 sm:gap-2'>
-              {showSectionTabs ? (
-                <Tabs value={activeSection} onValueChange={handleSectionChange}>
-                  <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
-                    {visibleSections.map((section) => (
-                      <TabsTrigger key={section} value={section}>
-                        {t(SECTION_META[section].titleKey)}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </Tabs>
-              ) : (
-                <div />
-              )}
-              {sectionActions != null && (
-                <div className='myapi-analysis-actions flex min-w-0 flex-wrap items-center gap-2'>
-                  {sectionActions}
-                </div>
-              )}
-            </div>
-          )}
-          {activeSection === 'overview' && <OverviewDashboard />}
+          <div className='flex flex-wrap items-center justify-between gap-1.5 sm:gap-2'>
+            {showSectionTabs ? (
+              <Tabs value={activeSection} onValueChange={handleSectionChange}>
+                <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
+                  {visibleSections.map((section) => (
+                    <TabsTrigger key={section} value={section}>
+                      {t(SECTION_META[section].titleKey)}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            ) : (
+              <div />
+            )}
+            {sectionActions != null && (
+              <div className='myapi-analysis-actions flex min-w-0 flex-wrap items-center gap-2'>
+                {sectionActions}
+              </div>
+            )}
+          </div>
           {activeSection === 'models' && (
             <>
               <FadeIn>

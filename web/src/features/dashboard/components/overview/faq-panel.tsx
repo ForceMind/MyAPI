@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { HelpCircle } from 'lucide-react'
+import { HelpCircleIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -42,7 +43,7 @@ export function FAQPanel() {
       title={
         <span className='flex items-center gap-2'>
           <IconBadge tone='chart-4' size='sm'>
-            <HelpCircle />
+            <HugeiconsIcon icon={HelpCircleIcon} />
           </IconBadge>
           {t('FAQ')}
         </span>
