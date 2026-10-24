@@ -185,9 +185,10 @@ function PlaygroundSession(props: {
   }
 
   return (
-    <div className='relative flex size-full min-h-0 flex-col overflow-hidden'>
-      {/* Full-width scroll container: scrolling works even over side whitespace */}
-      <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
+    <div className='relative flex size-full min-h-0 flex-col overflow-x-hidden overflow-y-auto'>
+      {/* Full-width scroll container: scrolling works even over side whitespace.
+          It keeps a readable height on short screens; the page scrolls instead. */}
+      <div className='flex min-h-48 flex-1 flex-col overflow-hidden'>
         <PlaygroundChat
           messages={messages}
           isLoadingMessages={isLoadingMessages}

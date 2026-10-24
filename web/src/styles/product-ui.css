@@ -147,4 +147,80 @@
       min-height: 2.75rem;
     }
   }
+
+  /* Overlay footer actions wrap to another line instead of overflowing the
+   * dialog when a translated label is wider than the button (design 6.3). */
+  :is(
+      [data-slot='dialog-footer'],
+      [data-slot='alert-dialog-footer'],
+      [data-slot='sheet-footer'],
+      [data-slot='drawer-footer']
+    )
+    [data-myapi-button]:not([data-size^='icon']) {
+    max-width: 100%;
+    height: auto;
+    padding-block: 0.375rem;
+    white-space: normal;
+  }
+
+  /* Zero specificity: the button size stays the minimum height, and min-h-*
+   * classes set at a call site still win. */
+  :where(
+    :is(
+        [data-slot='dialog-footer'],
+        [data-slot='alert-dialog-footer'],
+        [data-slot='sheet-footer'],
+        [data-slot='drawer-footer']
+      )
+      [data-myapi-button][data-size='default']
+  ) {
+    min-height: 2.25rem;
+  }
+  :where(
+    :is(
+        [data-slot='dialog-footer'],
+        [data-slot='alert-dialog-footer'],
+        [data-slot='sheet-footer'],
+        [data-slot='drawer-footer']
+      )
+      [data-myapi-button][data-size='lg']
+  ) {
+    min-height: 2.5rem;
+  }
+  :where(
+    :is(
+        [data-slot='dialog-footer'],
+        [data-slot='alert-dialog-footer'],
+        [data-slot='sheet-footer'],
+        [data-slot='drawer-footer']
+      )
+      [data-myapi-button][data-size='sm']
+  ) {
+    min-height: 2rem;
+  }
+  :where(
+    :is(
+        [data-slot='dialog-footer'],
+        [data-slot='alert-dialog-footer'],
+        [data-slot='sheet-footer'],
+        [data-slot='drawer-footer']
+      )
+      [data-myapi-button][data-size='xs']
+  ) {
+    min-height: 1.5rem;
+  }
+
+  @media (pointer: coarse) {
+    :where(
+      :is(
+          [data-slot='dialog-footer'],
+          [data-slot='alert-dialog-footer'],
+          [data-slot='sheet-footer'],
+          [data-slot='drawer-footer']
+        )
+        [data-myapi-button]:not([data-size^='icon'])
+    ) {
+      min-height: 2.75rem;
+    }
+  }
 }
