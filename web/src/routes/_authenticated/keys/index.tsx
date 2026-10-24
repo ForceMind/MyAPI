@@ -16,29 +16,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { createFileRoute } from '@tanstack/react-router'
-import z from 'zod'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { connectionKeyContextSchema } from '@/features/connections/key-context'
 import { ApiKeys } from '@/features/keys'
-import { API_KEY_STATUS_OPTIONS } from '@/features/keys/constants'
-import { savedKeyIdSchema } from '@/features/keys/key-request-context'
-
-const apiKeySearchSchema = z.object({
-  keyId: savedKeyIdSchema.optional(),
-  focusKeyId: savedKeyIdSchema.optional(),
-  connectionContext: connectionKeyContextSchema.optional().catch(undefined),
-  page: z.number().optional().catch(1),
-  pageSize: z.number().optional().catch(undefined),
-  status: z
-    .array(z.enum(API_KEY_STATUS_OPTIONS.map((s) => s.value as `${number}`)))
-    .optional()
-    .catch([]),
-  filter: z.string().optional().catch(''),
-  token: z.string().optional().catch(''),
-})
+import {
+  apiKeySearchSchema,
+  legacyKeyLinkTarget,
+} from '@/features/keys/lib/keys-search'
 
 export const Route = createFileRoute('/_authenticated/keys/')({
   validateSearch: apiKeySearchSchema,
+  beforeLoad: ({ search }) => {
+    const target = legacyKeyLinkTarget(search)
+    if (target) throw redirect({ to: '/keys', search: target, replace: true })
+  },
   component: ApiKeys,
 })

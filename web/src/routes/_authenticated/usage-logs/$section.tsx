@@ -25,6 +25,7 @@ import {
   savedKeyIdSchema,
 } from '@/features/keys/key-request-context'
 import { UsageLogs } from '@/features/usage-logs'
+import { requestInspectorTabSchema } from '@/features/usage-logs/lib/request-inspector-tabs'
 import {
   isUsageLogsSectionId,
   USAGE_LOGS_DEFAULT_SECTION,
@@ -54,6 +55,9 @@ const usageLogsSearchSchema = z.object({
   username: z.string().optional().catch(''),
   requestId: z.string().optional().catch(''),
   upstreamRequestId: z.string().optional().catch(''),
+  // Opens the call record of `requestId` in the request inspector.
+  inspect: z.literal('request').optional().catch(undefined),
+  requestTab: requestInspectorTabSchema,
   startTime: z.number().optional(),
   endTime: z.number().optional(),
 })

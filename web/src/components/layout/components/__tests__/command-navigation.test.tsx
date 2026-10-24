@@ -134,21 +134,24 @@ describe('command search opens a pasted Request ID', () => {
     localStorage.clear()
   })
 
-  test('pasting a Request ID and pressing Enter opens the call records filtered to it', async () => {
+  test('pasting a Request ID and pressing Enter opens that request’s details in the call records', async () => {
     const user = userEvent.setup()
     const { router } = await renderShellRoute(<SearchWorkspace />)
     const input = await screen.findByRole('combobox')
     await user.click(input)
     await user.paste(`  ${requestId}\n`)
     expect(
-      screen.getByRole('option', { name: `Find request ${requestId}` })
+      screen.getByRole('option', { name: `Open request ${requestId}` })
     ).toHaveAttribute('aria-selected', 'true')
     expect(screen.queryByText('No results found.')).not.toBeInTheDocument()
     await user.keyboard('{Enter}')
     await waitFor(() =>
       expect(router.state.location.pathname).toBe('/usage-logs/common')
     )
-    expect(router.state.location.search).toMatchObject({ requestId })
+    expect(router.state.location.search).toMatchObject({
+      requestId,
+      inspect: 'request',
+    })
     await waitFor(() =>
       expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     )
@@ -159,7 +162,7 @@ describe('command search opens a pasted Request ID', () => {
     await renderShellRoute(<SearchWorkspace />)
     await user.type(await screen.findByRole('combobox'), 'Settings')
     expect(
-      screen.queryByRole('option', { name: /^Find request/ })
+      screen.queryByRole('option', { name: /^Open request/ })
     ).not.toBeInTheDocument()
   })
 
@@ -175,7 +178,7 @@ describe('command search opens a pasted Request ID', () => {
     await user.click(await screen.findByRole('combobox'))
     await user.paste(requestId)
     expect(
-      screen.queryByRole('option', { name: /^Find request/ })
+      screen.queryByRole('option', { name: /^Open request/ })
     ).not.toBeInTheDocument()
   })
 })

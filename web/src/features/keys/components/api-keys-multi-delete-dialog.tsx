@@ -42,7 +42,7 @@ export function ApiKeysMultiDeleteDialog<TData>({
 }: ApiKeysMultiDeleteDialogProps<TData>) {
   const { t } = useTranslation()
   const isCurrentSession = useKeyMaintenanceSession()
-  const { triggerRefresh } = useApiKeys()
+  const { triggerRefresh, onKeysDeleted } = useApiKeys()
   const [isDeleting, setIsDeleting] = useState(false)
   const sending = useRef(false)
   const selectedRows = table.getFilteredSelectedRowModel().rows
@@ -65,6 +65,7 @@ export function ApiKeysMultiDeleteDialog<TData>({
         toast.success(t('Successfully deleted {{count}} API key(s)', { count }))
         table.resetRowSelection()
         triggerRefresh()
+        onKeysDeleted?.(ids)
         onOpenChange(false)
       } else {
         toast.error(result.message || t(ERROR_MESSAGES.BATCH_DELETE_FAILED))

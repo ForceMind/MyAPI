@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -8,6 +8,7 @@ import type { SystemStatus } from '@/features/auth/types'
 import { PRODUCT_CAPABILITIES } from '@/lib/product-edition'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
+import { useInspectorStore } from '@/stores/inspector-store'
 
 import { AuthenticatedLayout } from '../authenticated-layout'
 import { renderShellRoute } from './shell-test-utils'
@@ -335,5 +336,42 @@ describe('mobile composition', () => {
         within(header).getByRole('link', { name: 'Overview' })
       ).toHaveAttribute('href', '/dashboard/overview')
     )
+  })
+
+  test('an open inspector makes a main destination a second-level page whose Back closes it', async () => {
+    setViewport(390)
+    const user = userEvent.setup()
+    const close = vi.fn()
+    await renderShellRoute(<Workspace />, { path: '/keys' })
+    act(() =>
+      useInspectorStore.getState().setCurrent({ title: 'API Key #21', close })
+    )
+    const header = screen.getByRole('banner')
+    expect(within(header).getByText('API Key #21')).toHaveAttribute(
+      'title',
+      'API Key #21'
+    )
+    await user.click(within(header).getByRole('button', { name: 'Back' }))
+    expect(close).toHaveBeenCalledOnce()
+    act(() => useInspectorStore.getState().setCurrent(null))
+  })
+})
+
+describe('inspector in the PC breadcrumb', () => {
+  test('the breadcrumb names the open object and its page item closes the inspector', async () => {
+    const user = userEvent.setup()
+    const close = vi.fn()
+    await renderShellRoute(<Workspace />, { path: '/keys' })
+    act(() =>
+      useInspectorStore.getState().setCurrent({ title: 'API Key #21', close })
+    )
+    const crumbs = screen.getByRole('navigation', { name: 'Current page' })
+    expect(within(crumbs).getByText('API Key #21')).toHaveAttribute(
+      'aria-current',
+      'page'
+    )
+    await user.click(within(crumbs).getByRole('button', { name: 'API Keys' }))
+    expect(close).toHaveBeenCalledOnce()
+    act(() => useInspectorStore.getState().setCurrent(null))
   })
 })

@@ -29,7 +29,13 @@ import type { ApiKey, ApiKeysDialogType } from '../types'
 
 type ApiKeysContextType = {
   viewRequests?: (key: ApiKey) => void
+  /** Opens a Key in the page inspector; absent outside the Keys page. */
+  openKey?: (key: ApiKey) => void
+  /** The Key the inspector shows, highlighted in the list. */
+  inspectedKeyId?: number
   requestFocusId?: number
+  /** Told after a confirmed deletion, so the page can close its inspector. */
+  onKeysDeleted?: (ids: number[]) => void
   open: ApiKeysDialogType | null
   setOpen: (str: ApiKeysDialogType | null) => void
   currentRow: ApiKey | null
@@ -51,7 +57,10 @@ const ApiKeysContext = React.createContext<ApiKeysContextType | null>(null)
 export function ApiKeysProvider(props: {
   children: React.ReactNode
   viewRequests?: (key: ApiKey) => void
+  openKey?: (key: ApiKey) => void
+  inspectedKeyId?: number
   requestFocusId?: number
+  onKeysDeleted?: (ids: number[]) => void
 }) {
   const { t } = useTranslation()
   const isCurrentSession = useKeyMaintenanceSession()
@@ -182,7 +191,10 @@ export function ApiKeysProvider(props: {
     <ApiKeysContext
       value={{
         viewRequests: props.viewRequests,
+        openKey: props.openKey,
+        inspectedKeyId: props.inspectedKeyId,
         requestFocusId: props.requestFocusId,
+        onKeysDeleted: props.onKeysDeleted,
         open,
         setOpen,
         currentRow,

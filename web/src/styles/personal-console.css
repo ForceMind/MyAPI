@@ -346,6 +346,17 @@
   min-height: 40px;
 }
 @media (width < 1024px) {
+  /* A full-screen inspector is the page: the top bar carries Back and the
+   * object title, so the list page's own header and footer step aside. */
+  .personal-console .myapi-page:has([data-inspector='page'])
+    > :is(.myapi-page-header, .myapi-page-footer) {
+    display: none;
+  }
+  .personal-console
+    .myapi-page:has([data-inspector='page'])
+    > .myapi-page-content {
+    padding: 0;
+  }
   /* Only the top bar and the bottom navigation stay fixed (design 5.2, M1):
    * the page header, content and pagination scroll as one column. Pages that
    * contain their own scrolling (data-page-scroll='contained') keep it. */
@@ -379,6 +390,19 @@
   }
   .personal-console .myapi-analysis-actions {
     width: 100%;
+  }
+}
+@media (width < 1024px) and (pointer: coarse) {
+  /* Touch screens get 44px targets (design 6.2, P5). The 40px heights above
+   * would otherwise win over the pointer: coarse contract in product-ui.css. */
+  .personal-console
+    .myapi-page
+    :is(
+      button:not([role='checkbox'], [role='switch'], [role='radio']),
+      [data-slot='tabs-trigger'],
+      [data-myapi-button]
+    ) {
+    min-height: 44px;
   }
 }
 @media (width < 640px) {

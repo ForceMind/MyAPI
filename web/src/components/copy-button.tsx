@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Check, Copy } from 'lucide-react'
+import { Copy01Icon, Tick02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -69,9 +70,12 @@ export function CopyButton({
       aria-label={isCopied ? copiedAriaLabel : resolvedAriaLabel}
     >
       {isCopied ? (
-        <Check className={cn('text-success', iconClassName)} />
+        <HugeiconsIcon
+          icon={Tick02Icon}
+          className={cn('text-success', iconClassName)}
+        />
       ) : (
-        <Copy className={cn(iconClassName)} />
+        <HugeiconsIcon icon={Copy01Icon} className={cn(iconClassName)} />
       )}
       {children}
     </Button>

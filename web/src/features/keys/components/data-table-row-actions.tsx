@@ -16,21 +16,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { Row } from '@tanstack/react-table'
 import {
-  Trash2,
-  Edit,
-  Power,
-  PowerOff,
-  ExternalLink,
-  ArrowRightLeft,
-  Copy,
-  Link,
-  Loader2,
-  Gauge,
-  ListFilter,
-  ShieldCheck,
-} from 'lucide-react'
+  ArrowDataTransferHorizontalIcon,
+  Copy01Icon,
+  DashboardSpeed01Icon,
+  Delete02Icon,
+  Edit02Icon,
+  FilterHorizontalIcon,
+  Link01Icon,
+  LinkSquare02Icon,
+  Loading03Icon,
+  PowerIcon,
+  PowerOffIcon,
+  SecurityCheckIcon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import type { Row } from '@tanstack/react-table'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -80,11 +81,14 @@ type DataTableRowActionsProps<TData> =
       row: Row<TData>
       apiKey?: never
       onCredentialMaintenance?: () => void
+      /** Only the "more" menu, for narrow rows and the inspector header. */
+      menuOnly?: boolean
     }
   | {
       apiKey: ApiKey
       row?: never
       onCredentialMaintenance?: () => void
+      menuOnly?: boolean
     }
 
 export function DataTableRowActions<TData = ApiKey>(
@@ -211,12 +215,144 @@ export function DataTableRowActions<TData = ApiKey>(
     }
   }
 
-  let statusIcon = <Power className='size-4' />
+  let statusIcon = <HugeiconsIcon icon={PowerIcon} className='size-4' />
   if (isTogglingStatus) {
-    statusIcon = <Loader2 className='size-4 animate-spin' />
+    statusIcon = (
+      <HugeiconsIcon icon={Loading03Icon} className='size-4 animate-spin' />
+    )
   } else if (isEnabled) {
-    statusIcon = <PowerOff className='size-4' />
+    statusIcon = <HugeiconsIcon icon={PowerOffIcon} className='size-4' />
   }
+
+  const menuItems = (
+    <>
+      <DropdownMenuItem
+        onClick={() => {
+          setCurrentRow(apiKey)
+          setOpen('access-policy')
+        }}
+      >
+        {t('Assigned access')}
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        onClick={() => {
+          setCurrentRow(apiKey)
+          setOpen('model-scope')
+        }}
+      >
+        {t('Model scope')}
+        <DropdownMenuShortcut>
+          <HugeiconsIcon icon={FilterHorizontalIcon} />
+        </DropdownMenuShortcut>
+      </DropdownMenuItem>
+      {props.onCredentialMaintenance && (
+        <DropdownMenuItem onClick={props.onCredentialMaintenance}>
+          {t('Credential maintenance')}
+          <DropdownMenuShortcut>
+            <HugeiconsIcon icon={SecurityCheckIcon} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
+      )}
+      <DropdownMenuItem
+        onClick={() => {
+          setCurrentRow(apiKey)
+          setOpen('subscription-share')
+        }}
+      >
+        {t('Subscription shares')}
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        onClick={async () => {
+          const realKey = getCachedRealKey()
+          if (!realKey) return
+          const ok = await copyToClipboard(realKey)
+          if (ok && isCurrentSession()) toast.success(t('Copied'))
+        }}
+      >
+        {t('Copy Key')}
+        <DropdownMenuShortcut>
+          <HugeiconsIcon icon={Copy01Icon} />
+        </DropdownMenuShortcut>
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        onClick={async () => {
+          const realKey = getCachedRealKey()
+          if (!realKey) return
+          const connStr = encodeChannelConnectionInfo(
+            realKey,
+            getServerAddress()
+          )
+          const ok = await copyToClipboard(connStr)
+          if (ok && isCurrentSession()) toast.success(t('Copied'))
+        }}
+      >
+        {t('Copy Connection Info')}
+        <DropdownMenuShortcut>
+          <HugeiconsIcon icon={Link01Icon} />
+        </DropdownMenuShortcut>
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        onClick={async () => {
+          if (!isCurrentSession()) return
+          const realKey = await resolveRealKey(apiKey.id)
+          if (!realKey || !isCurrentSession()) return
+          setResolvedKey(realKey)
+          setCurrentRow(apiKey)
+          setOpen('cc-switch')
+        }}
+      >
+        {t('CC Switch')}
+        <DropdownMenuShortcut>
+          <HugeiconsIcon icon={ArrowDataTransferHorizontalIcon} />
+        </DropdownMenuShortcut>
+      </DropdownMenuItem>
+      {hasChatPresets && (
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>{t('Chat')}</DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            {chatPresets.map((preset) => (
+              <DropdownMenuItem
+                key={preset.id}
+                onClick={() => handleOpenChatPreset(preset)}
+              >
+                {preset.name}
+                {preset.type !== 'web' && (
+                  <DropdownMenuShortcut>
+                    <HugeiconsIcon icon={LinkSquare02Icon} />
+                  </DropdownMenuShortcut>
+                )}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+      )}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        onClick={() => {
+          setCurrentRow(apiKey)
+          setOpen('delete')
+        }}
+        className='text-destructive focus:text-destructive'
+      >
+        {t('Delete')}
+        <DropdownMenuShortcut>
+          <HugeiconsIcon icon={Delete02Icon} />
+        </DropdownMenuShortcut>
+      </DropdownMenuItem>
+    </>
+  )
+  const menu = (
+    <DataTableRowActionMenu
+      ariaLabel={t('Open menu')}
+      contentClassName='w-[200px]'
+      modal={false}
+      onOpenChange={handleMenuOpenChange}
+    >
+      {menuItems}
+    </DataTableRowActionMenu>
+  )
+  if (props.menuOnly) return menu
 
   return (
     <div className='-ml-1.5 flex max-w-full min-w-0 flex-wrap items-center gap-1 md:min-w-min'>
@@ -232,7 +368,7 @@ export function DataTableRowActions<TData = ApiKey>(
               className={
                 isEnabled
                   ? 'text-destructive hover:text-destructive'
-                  : 'text-emerald-600 hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-400'
+                  : 'text-success hover:text-success'
               }
             />
           }
@@ -256,7 +392,7 @@ export function DataTableRowActions<TData = ApiKey>(
             />
           }
         >
-          <Edit />
+          <HugeiconsIcon icon={Edit02Icon} />
         </TooltipTrigger>
         <TooltipContent>{t('Edit')}</TooltipContent>
       </Tooltip>
@@ -271,7 +407,11 @@ export function DataTableRowActions<TData = ApiKey>(
           setOpen('budget')
         }}
       >
-        <Gauge className='size-4 shrink-0' aria-hidden='true' />
+        <HugeiconsIcon
+          icon={DashboardSpeed01Icon}
+          className='size-4 shrink-0'
+          aria-hidden='true'
+        />
         <span className='max-w-full min-w-0 break-words whitespace-normal md:min-w-min md:break-normal'>
           {t('Usage budgets')}
         </span>
@@ -291,127 +431,7 @@ export function DataTableRowActions<TData = ApiKey>(
         </Button>
       )}
 
-      <DataTableRowActionMenu
-        ariaLabel={t('Open menu')}
-        contentClassName='w-[200px]'
-        modal={false}
-        onOpenChange={handleMenuOpenChange}
-      >
-        <DropdownMenuItem
-          onClick={() => {
-            setCurrentRow(apiKey)
-            setOpen('access-policy')
-          }}
-        >
-          {t('Assigned access')}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            setCurrentRow(apiKey)
-            setOpen('model-scope')
-          }}
-        >
-          {t('Model scope')}
-          <DropdownMenuShortcut>
-            <ListFilter />
-          </DropdownMenuShortcut>
-        </DropdownMenuItem>
-        {props.onCredentialMaintenance && (
-          <DropdownMenuItem onClick={props.onCredentialMaintenance}>
-            {t('Credential maintenance')}
-            <DropdownMenuShortcut>
-              <ShieldCheck />
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuItem
-          onClick={() => {
-            setCurrentRow(apiKey)
-            setOpen('subscription-share')
-          }}
-        >
-          {t('Subscription shares')}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={async () => {
-            const realKey = getCachedRealKey()
-            if (!realKey) return
-            const ok = await copyToClipboard(realKey)
-            if (ok && isCurrentSession()) toast.success(t('Copied'))
-          }}
-        >
-          {t('Copy Key')}
-          <DropdownMenuShortcut>
-            <Copy size={16} />
-          </DropdownMenuShortcut>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={async () => {
-            const realKey = getCachedRealKey()
-            if (!realKey) return
-            const connStr = encodeChannelConnectionInfo(
-              realKey,
-              getServerAddress()
-            )
-            const ok = await copyToClipboard(connStr)
-            if (ok && isCurrentSession()) toast.success(t('Copied'))
-          }}
-        >
-          {t('Copy Connection Info')}
-          <DropdownMenuShortcut>
-            <Link size={16} />
-          </DropdownMenuShortcut>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={async () => {
-            if (!isCurrentSession()) return
-            const realKey = await resolveRealKey(apiKey.id)
-            if (!realKey || !isCurrentSession()) return
-            setResolvedKey(realKey)
-            setCurrentRow(apiKey)
-            setOpen('cc-switch')
-          }}
-        >
-          {t('CC Switch')}
-          <DropdownMenuShortcut>
-            <ArrowRightLeft size={16} />
-          </DropdownMenuShortcut>
-        </DropdownMenuItem>
-        {hasChatPresets && (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>{t('Chat')}</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              {chatPresets.map((preset) => (
-                <DropdownMenuItem
-                  key={preset.id}
-                  onClick={() => handleOpenChatPreset(preset)}
-                >
-                  {preset.name}
-                  {preset.type !== 'web' && (
-                    <DropdownMenuShortcut>
-                      <ExternalLink size={16} />
-                    </DropdownMenuShortcut>
-                  )}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => {
-            setCurrentRow(apiKey)
-            setOpen('delete')
-          }}
-          className='text-destructive focus:text-destructive'
-        >
-          {t('Delete')}
-          <DropdownMenuShortcut>
-            <Trash2 size={16} />
-          </DropdownMenuShortcut>
-        </DropdownMenuItem>
-      </DataTableRowActionMenu>
+      {menu}
     </div>
   )
 }

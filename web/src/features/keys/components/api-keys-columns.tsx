@@ -39,6 +39,7 @@ import { API_KEY_STATUSES } from '../constants'
 import { checkedAddSafeIntegers } from '../lib/quota-display'
 import type { ApiKey } from '../types'
 import { ApiKeyGroupCell } from './api-key-group-cell'
+import { ApiKeyNameCell, CompactApiKeyRowActions } from './api-key-name-cell'
 import { ApiKeyTimestampCell } from './api-key-timestamp-cell'
 import {
   ApiKeyCell,
@@ -49,9 +50,11 @@ import {
 import { DataTableRowActions } from './data-table-row-actions'
 
 function getQuotaProgressColor(percentage: number): string {
-  if (percentage <= 10) return '[&_[data-slot=progress-indicator]]:bg-rose-500'
-  if (percentage <= 30) return '[&_[data-slot=progress-indicator]]:bg-amber-500'
-  return '[&_[data-slot=progress-indicator]]:bg-emerald-500'
+  if (percentage <= 10) {
+    return '[&_[data-slot=progress-indicator]]:bg-destructive'
+  }
+  if (percentage <= 30) return '[&_[data-slot=progress-indicator]]:bg-warning'
+  return '[&_[data-slot=progress-indicator]]:bg-success'
 }
 
 function useGroupRatios(): Record<string, number | string> {
@@ -74,14 +77,26 @@ function useGroupRatios(): Record<string, number | string> {
   return data ?? {}
 }
 
-export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
+/**
+ * Key table columns. `compact` keeps the columns that still fit beside an
+ * open inspector (design 6.2 column priority) and reduces row actions to the
+ * menu; `showQuota` is false where Keys carry no financial quota (personal
+ * workbench mode).
+ */
+export function useApiKeysColumns(
+  now: number,
+  options: { compact: boolean; showQuota: boolean } = {
+    compact: false,
+    showQuota: true,
+  }
+): ColumnDef<ApiKey>[] {
   const { t, i18n } = useTranslation()
   const groupRatios = useGroupRatios()
   const shouldReduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const justNowLabel = t('Just now')
   const staleAccessThreshold = dayjs(now).subtract(3, 'month').valueOf()
-  return [
+  const columns: ColumnDef<ApiKey>[] = [
     {
       id: 'select',
       header: ({ table }) => (
@@ -108,9 +123,7 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
     {
       accessorKey: 'name',
       header: t('Name'),
-      cell: ({ row }) => (
-        <span className='font-medium'>{row.getValue('name')}</span>
-      ),
+      cell: ApiKeyNameCell,
       size: 180,
       meta: { mobileTitle: true },
     },
@@ -159,7 +172,7 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
             <Tooltip>
               <TooltipTrigger
                 render={
-                  <div className='w-[150px] min-w-0 max-w-full space-y-1 text-xs' />
+                  <div className='w-[150px] max-w-full min-w-0 space-y-1 text-xs' />
                 }
               >
                 <div className='min-w-0'>
@@ -346,8 +359,29 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
     {
       id: 'actions',
       header: () => t('Actions'),
-      cell: DataTableRowActions,
+      cell: options.compact ? CompactApiKeyRowActions : DataTableRowActions,
       meta: { pinned: 'right' as const },
     },
   ]
+  const hidden = new Set<string>()
+  if (!options.showQuota) hidden.add('quota')
+  if (options.compact) {
+    for (const id of [
+      'key',
+      'quota',
+      'group',
+      'model_limits',
+      'allow_ips',
+      'created_time',
+      'accessed_time',
+      'expired_time',
+    ]) {
+      hidden.add(id)
+    }
+  }
+  return columns.filter((column) => {
+    const id =
+      column.id ?? ('accessorKey' in column ? String(column.accessorKey) : '')
+    return !hidden.has(id)
+  })
 }

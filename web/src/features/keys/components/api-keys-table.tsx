@@ -16,11 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { Database01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 import type { Table as TanstackTable } from '@tanstack/react-table'
-import { Database } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -31,6 +32,8 @@ import {
   useDataTable,
 } from '@/components/data-table'
 import { ErrorState } from '@/components/error-state'
+import { useInspectorFocusReturn } from '@/components/inspector/use-inspector-focus-return'
+import { useInspectorPresentation } from '@/components/inspector/use-inspector-presentation'
 import { StatusBadge } from '@/components/status-badge'
 import {
   Empty,
@@ -41,8 +44,10 @@ import {
 } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { usePersonalWorkbenchMode } from '@/hooks/use-personal-workbench-mode'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
-import { formatQuota } from '@/lib/format'
+import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
+import { formatQuota, formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { getApiKeys, searchApiKeys } from '../api'
@@ -143,11 +148,14 @@ function ApiKeyMobileQuota(props: { apiKey: ApiKey }) {
 function ApiKeysMobileList({
   table,
   isLoading,
+  showQuota,
 }: {
   table: TanstackTable<ApiKey>
   isLoading: boolean
+  showQuota: boolean
 }) {
   const { t } = useTranslation()
+  const { openKey, inspectedKeyId, requestFocusId } = useApiKeys()
   const rows = table.getRowModel().rows
 
   if (isLoading) return <ApiKeysMobileSkeleton />
@@ -158,7 +166,7 @@ function ApiKeysMobileList({
         <Empty className='border-none p-0'>
           <EmptyHeader>
             <EmptyMedia variant='icon'>
-              <Database className='size-6' />
+              <HugeiconsIcon icon={Database01Icon} className='size-6' />
             </EmptyMedia>
             <EmptyTitle>{t('No API Keys Found')}</EmptyTitle>
             <EmptyDescription>
@@ -177,6 +185,64 @@ function ApiKeysMobileList({
       {rows.map((row) => {
         const apiKey = row.original
         const statusConfig = API_KEY_STATUSES[apiKey.status]
+
+        if (openKey) {
+          // On the Keys page a card is one tap into the Key's full-screen
+          // inspector, which holds every action (design 6.2).
+          return (
+            <div
+              key={row.id}
+              className={cn(
+                'bg-card flex min-w-0 items-start gap-2 border-b px-3 py-2 last:border-b-0',
+                inspectedKeyId === apiKey.id && 'bg-accent'
+              )}
+            >
+              <div className='flex min-w-0 flex-1 flex-col gap-1'>
+                <button
+                  type='button'
+                  data-inspect-id={apiKey.id}
+                  aria-expanded={inspectedKeyId === apiKey.id}
+                  // Back from this Key's call records lands on the Key.
+                  autoFocus={requestFocusId === apiKey.id}
+                  onClick={() => openKey(apiKey)}
+                  className='flex min-h-11 min-w-0 flex-col items-stretch gap-1 py-1 text-left'
+                >
+                  <span className='flex min-w-0 items-start justify-between gap-2'>
+                    <span className='min-w-0 truncate text-sm font-semibold'>
+                      {apiKey.name}
+                    </span>
+                    {statusConfig && (
+                      <StatusBadge
+                        label={t(statusConfig.label)}
+                        variant={statusConfig.variant}
+                        showDot
+                        copyable={false}
+                        className='shrink-0'
+                      />
+                    )}
+                  </span>
+                  <span className='text-caption text-muted-foreground flex min-w-0 flex-wrap gap-x-2'>
+                    <span className='font-mono'>#{apiKey.id}</span>
+                    <span>
+                      {t('Last used')}:{' '}
+                      {apiKey.accessed_time > 0
+                        ? formatTimestampToDate(apiKey.accessed_time)
+                        : t('Never')}
+                    </span>
+                  </span>
+                </button>
+                {/* Outside the button: the quota badge has its own control. */}
+                {showQuota && (
+                  <div className='flex items-center justify-between gap-2 text-xs'>
+                    <span className='text-muted-foreground'>{t('Quota')}</span>
+                    <ApiKeyMobileQuota apiKey={apiKey} />
+                  </div>
+                )}
+              </div>
+              <DataTableRowActions row={row} menuOnly />
+            </div>
+          )
+        }
 
         return (
           <div
@@ -211,10 +277,12 @@ function ApiKeysMobileList({
               <DataTableRowActions row={row} />
             </div>
 
-            <div className='flex items-center justify-between gap-2 text-xs'>
-              <span className='text-muted-foreground'>{t('Quota')}</span>
-              <ApiKeyMobileQuota apiKey={apiKey} />
-            </div>
+            {showQuota && (
+              <div className='flex items-center justify-between gap-2 text-xs'>
+                <span className='text-muted-foreground'>{t('Quota')}</span>
+                <ApiKeyMobileQuota apiKey={apiKey} />
+              </div>
+            )}
           </div>
         )
       })}
@@ -224,9 +292,16 @@ function ApiKeysMobileList({
 
 export function ApiKeysTable() {
   const { t } = useTranslation()
-  const { refreshTrigger } = useApiKeys()
+  const { refreshTrigger, inspectedKeyId } = useApiKeys()
   const [now, setNow] = useState(() => Date.now())
-  const columns = useApiKeysColumns(now)
+  const presentation = useInspectorPresentation()
+  // Personal workbench Keys carry no financial quota (funding disabled).
+  const showQuota = !usePersonalWorkbenchMode()
+  const columns = useApiKeysColumns(now, {
+    compact: inspectedKeyId !== undefined && presentation === 'side',
+    showQuota,
+  })
+  const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -321,55 +396,84 @@ export function ApiKeysTable() {
     ensurePageInRange: isError ? undefined : ensurePageInRange,
   })
 
+  useInspectorFocusReturn({
+    selectedId:
+      inspectedKeyId === undefined ? undefined : String(inspectedKeyId),
+    listRef,
+    context: JSON.stringify([
+      pagination.pageIndex,
+      pagination.pageSize,
+      globalFilter,
+      tokenFilter,
+    ]),
+    settled: !isLoading,
+    rows: data,
+  })
+
   return (
-    <DataTablePage
-      table={table}
-      columns={columns}
-      isLoading={isLoading}
-      isFetching={isFetching}
-      errorState={
-        isError ? (
-          <ErrorState
-            title={t('Failed to load API keys')}
-            description={t('Please try again later.')}
-            onRetry={() => {
-              if (!isFetching) void refetch()
-            }}
+    <div ref={listRef} className='flex h-full min-h-0 min-w-0 flex-col'>
+      <DataTablePage
+        table={table}
+        mobileQuery={CONSOLE_MOBILE_QUERY}
+        columns={columns}
+        isLoading={isLoading}
+        isFetching={isFetching}
+        errorState={
+          isError ? (
+            <ErrorState
+              title={t('Failed to load API keys')}
+              description={t('Please try again later.')}
+              onRetry={() => {
+                if (!isFetching) void refetch()
+              }}
+            />
+          ) : undefined
+        }
+        emptyTitle={t('No API Keys Found')}
+        emptyDescription={t(
+          'No API keys available. Create your first API key to get started.'
+        )}
+        skeletonKeyPrefix='api-keys-skeleton'
+        applyHeaderSize
+        toolbarProps={{
+          searchPlaceholder: t('Filter by name...'),
+          searchDebounceMs: 500,
+          additionalSearch: (
+            <Input
+              placeholder={t('Filter by API key...')}
+              aria-label={t('Filter by API key...')}
+              value={tokenFilterInput}
+              onChange={(e) => setTokenFilterInput(e.target.value)}
+              className='w-full sm:w-50 lg:w-60'
+            />
+          ),
+          filters: [
+            {
+              columnId: 'status',
+              title: t('Status'),
+              options: API_KEY_STATUS_OPTIONS,
+              singleSelect: true,
+            },
+          ],
+        }}
+        mobile={
+          <ApiKeysMobileList
+            table={table}
+            isLoading={isLoading}
+            showQuota={showQuota}
           />
-        ) : undefined
-      }
-      emptyTitle={t('No API Keys Found')}
-      emptyDescription={t(
-        'No API keys available. Create your first API key to get started.'
-      )}
-      skeletonKeyPrefix='api-keys-skeleton'
-      applyHeaderSize
-      toolbarProps={{
-        searchPlaceholder: t('Filter by name...'),
-        searchDebounceMs: 500,
-        additionalSearch: (
-          <Input
-            placeholder={t('Filter by API key...')}
-            aria-label={t('Filter by API key...')}
-            value={tokenFilterInput}
-            onChange={(e) => setTokenFilterInput(e.target.value)}
-            className='w-full sm:w-50 lg:w-60'
-          />
-        ),
-        filters: [
-          {
-            columnId: 'status',
-            title: t('Status'),
-            options: API_KEY_STATUS_OPTIONS,
-            singleSelect: true,
-          },
-        ],
-      }}
-      mobile={<ApiKeysMobileList table={table} isLoading={isLoading} />}
-      getRowClassName={(row) =>
-        isDisabledApiKeyRow(row.original) ? DISABLED_ROW_DESKTOP : undefined
-      }
-      bulkActions={<DataTableBulkActions table={table} />}
-    />
+        }
+        getRowClassName={(row) => {
+          if (row.original.id === inspectedKeyId) {
+            // Pinned cells paint their own background, so they take it too.
+            return 'bg-accent [&>td]:bg-accent'
+          }
+          return isDisabledApiKeyRow(row.original)
+            ? DISABLED_ROW_DESKTOP
+            : undefined
+        }}
+        bulkActions={<DataTableBulkActions table={table} />}
+      />
+    </div>
   )
 }

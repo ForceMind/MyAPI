@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Plus } from 'lucide-react'
+import { PlusSignIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -58,7 +59,11 @@ function ApiKeysPrimaryButtonSession(props: {
           </Button>
         )}
         <Button size='sm' onClick={() => setOpen('create')}>
-          <Plus className='h-4 w-4' />
+          <HugeiconsIcon
+            icon={PlusSignIcon}
+            data-icon='inline-start'
+            aria-hidden='true'
+          />
           {t('Create API Key')}
         </Button>
       </div>

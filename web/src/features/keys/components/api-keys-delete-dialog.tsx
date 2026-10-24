@@ -39,7 +39,8 @@ import { useApiKeys } from './api-keys-provider'
 export function ApiKeysDeleteDialog() {
   const { t } = useTranslation()
   const isCurrentSession = useKeyMaintenanceSession()
-  const { open, setOpen, currentRow, triggerRefresh } = useApiKeys()
+  const { open, setOpen, currentRow, triggerRefresh, onKeysDeleted } =
+    useApiKeys()
   const [isDeleting, setIsDeleting] = useState(false)
   const sending = useRef(false)
 
@@ -59,6 +60,7 @@ export function ApiKeysDeleteDialog() {
         toast.success(t(SUCCESS_MESSAGES.API_KEY_DELETED))
         setOpen(null)
         triggerRefresh()
+        onKeysDeleted?.([currentRow.id])
       } else {
         toast.error(result.message || t(ERROR_MESSAGES.DELETE_FAILED))
       }

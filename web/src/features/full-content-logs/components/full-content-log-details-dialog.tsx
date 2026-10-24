@@ -16,9 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useQuery } from '@tanstack/react-query'
-import { isAxiosError } from 'axios'
-import { Check, Copy } from 'lucide-react'
+import { Copy01Icon, Tick02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -30,11 +29,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
-import { ROLE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
-import { useAuthStore } from '@/stores/auth-store'
 
-import { getFullContentLogDetail } from '../api'
+import { useFullContentLogDetail } from '../hooks/use-full-content-log-detail'
 import {
   extractLogRequestText,
   extractLogResponseText,
@@ -52,7 +49,7 @@ interface FullContentLogDetailsDialogProps {
 
 const MAX_DISPLAY_LENGTH = 1024 * 1024
 
-function ContentPanel(props: {
+export function ContentPanel(props: {
   body: string
   encoding?: string
   contentType?: string
@@ -61,6 +58,8 @@ function ContentPanel(props: {
   compact?: boolean
   truncated?: boolean
   totalBytes?: number
+  /** `false` keeps long lines intact and scrolls the code area sideways. */
+  wrap?: boolean
 }) {
   const { t } = useTranslation()
   const { copiedText, copyToClipboard } = useCopyToClipboard()
@@ -92,13 +91,20 @@ function ContentPanel(props: {
           disabled={!formattedBody}
           onClick={() => void copyToClipboard(formattedBody)}
         >
-          {copiedText === formattedBody ? <Check /> : <Copy />}
+          <HugeiconsIcon
+            icon={copiedText === formattedBody ? Tick02Icon : Copy01Icon}
+            data-icon='inline-start'
+            aria-hidden='true'
+          />
           {t('Copy')}
         </Button>
       </div>
       <pre
         className={cn(
-          'bg-muted/40 overflow-auto rounded-lg border p-3 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap',
+          'bg-muted/40 overflow-auto rounded-lg border p-3 font-mono text-xs leading-relaxed',
+          props.wrap === false
+            ? 'whitespace-pre'
+            : 'break-all whitespace-pre-wrap',
           props.compact ? 'max-h-48 min-h-24' : 'max-h-[48vh] min-h-48'
         )}
       >
@@ -121,54 +127,9 @@ export function FullContentLogDetailsDialog(
 ) {
   const { t } = useTranslation()
   const isMobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
-  const userId = useAuthStore((state) => state.auth.user?.id ?? null)
-  const role = useAuthStore((state) => state.auth.user?.role ?? 0)
-  const canRead = userId !== null && role >= ROLE.ADMIN
-  const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const [showRaw, setShowRaw] = useState(false)
-  const detailQuery = useQuery({
-    // Keep sensitive request/response bodies isolated when a tab switches
-    // authenticated identities without a full page reload.
-    queryKey: [
-      'full-content-logs',
-      'detail',
-      props.requestId,
-      userId,
-      sessionId,
-      role,
-    ],
-    queryFn: async ({ signal }) => {
-      const response = await getFullContentLogDetail(
-        props.requestId || '',
-        signal
-      )
-      if (
-        !response.success ||
-        !response.data ||
-        response.data.request_id !== props.requestId
-      ) {
-        throw new Error(response.message || t('Failed to load log detail'))
-      }
-      return response.data
-    },
-    enabled: props.open && Boolean(props.requestId) && canRead,
-    retry: false,
-  })
-  const detail = canRead && !detailQuery.isError ? detailQuery.data : undefined
-  const status = isAxiosError(detailQuery.error)
-    ? detailQuery.error.response?.status
-    : undefined
-  let contentError =
-    detailQuery.error instanceof Error
-      ? detailQuery.error.message
-      : t('Failed to load log detail')
-  if (status === 404) {
-    contentError = t(
-      'No saved request content. It may not have been recorded or may have expired.'
-    )
-  } else if (status === 401 || status === 403) {
-    contentError = t('Request content is available to administrators only.')
-  }
+  const { detailQuery, detail, contentError, canRead } =
+    useFullContentLogDetail(props.requestId, props.open)
   const requestText = useMemo(
     () =>
       detail

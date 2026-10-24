@@ -16,7 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Check, Copy, Loader2 } from 'lucide-react'
+import {
+  Copy01Icon,
+  Loading03Icon,
+  Tick02Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -74,13 +79,17 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
     if (ok) markKeyCopied(apiKey.id)
   }, [resolvedFullKey, resolveRealKey, apiKey.id, markKeyCopied])
 
-  let copyIcon = <Copy className='size-3.5' />
+  let copyIcon = <HugeiconsIcon icon={Copy01Icon} className='size-3.5' />
   let copyTooltip = t('Copy API key')
   if (isLoading) {
-    copyIcon = <Loader2 className='size-3.5 animate-spin' />
+    copyIcon = (
+      <HugeiconsIcon icon={Loading03Icon} className='size-3.5 animate-spin' />
+    )
     copyTooltip = t('Loading...')
   } else if (isCopied) {
-    copyIcon = <Check className='size-3.5 text-green-600' />
+    copyIcon = (
+      <HugeiconsIcon icon={Tick02Icon} className='text-success size-3.5' />
+    )
     copyTooltip = t('Copied!')
   }
 
@@ -106,7 +115,10 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
             <p className='text-muted-foreground text-xs'>{t('Full API Key')}</p>
             {isLoading ? (
               <div className='flex items-center gap-2 py-2'>
-                <Loader2 className='size-3.5 animate-spin' />
+                <HugeiconsIcon
+                  icon={Loading03Icon}
+                  className='size-3.5 animate-spin'
+                />
                 <span className='text-muted-foreground text-xs'>
                   {t('Loading...')}
                 </span>

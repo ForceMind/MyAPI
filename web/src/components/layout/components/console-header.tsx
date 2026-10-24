@@ -29,6 +29,7 @@ import { Search } from '@/components/search'
 import { Button } from '@/components/ui/button'
 import { useConsolePage } from '@/hooks/use-console-page'
 import { useNotifications } from '@/hooks/use-notifications'
+import { useInspectorStore } from '@/stores/inspector-store'
 
 import { AppBreadcrumb } from './app-breadcrumb'
 
@@ -85,18 +86,25 @@ export function MobileHeader() {
   const { t } = useTranslation()
   const router = useRouter()
   const page = useConsolePage()
+  // An open inspector fills the screen like a second-level page.
+  const inspector = useInspectorStore((state) => state.current)
 
   const goBack = () => {
+    if (inspector) {
+      inspector.close()
+      return
+    }
     if (window.history.length > 1) {
       router.history.back()
       return
     }
     void router.navigate({ to: page.parent?.url ?? '/dashboard/overview' })
   }
+  const title = inspector?.title ?? page.title
 
   return (
     <header className='pc-header pc-header-mobile' data-myapi-header>
-      {page.topLevel ? (
+      {page.topLevel && !inspector ? (
         <Link
           to='/dashboard/$section'
           params={{ section: 'overview' }}
@@ -116,8 +124,8 @@ export function MobileHeader() {
         </Button>
       )}
       {/* The page keeps its own h1; this repeats it as a compact label. */}
-      <span className='pc-mobile-title' title={page.title}>
-        {page.title}
+      <span className='pc-mobile-title' title={title}>
+        {title}
       </span>
       <div className='pc-header-actions'>
         <Search variant='icon' />

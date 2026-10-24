@@ -14,6 +14,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { renderListRoute } from '@/components/data-table/layout/__tests__/list-route-fixture'
 import { api } from '@/lib/api'
+import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 import { useAuthStore } from '@/stores/auth-store'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
@@ -121,7 +122,8 @@ test.each([
       const matchMedia = window.matchMedia
       vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
         ...matchMedia(query),
-        matches: query === '(max-width: 640px)',
+        // The Keys page switches to its card list with the console shell.
+        matches: query === CONSOLE_MOBILE_QUERY,
       }))
     }
     outcome = failure

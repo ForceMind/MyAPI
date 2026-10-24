@@ -114,14 +114,16 @@ export function CommandMenu() {
                       navigate({
                         to: '/usage-logs/$section',
                         params: { section: 'common' },
-                        search: { requestId },
+                        // Opens the request's details directly; the call
+                        // records behind it stay filtered to the same ID.
+                        search: { requestId, inspect: 'request' },
                       })
                     )
                   }
                 >
                   <HugeiconsIcon icon={FileSearchIcon} aria-hidden='true' />
                   <span className='truncate'>
-                    {t('Find request {{requestId}}', { requestId })}
+                    {t('Open request {{requestId}}', { requestId })}
                   </span>
                 </CommandItem>
               </CommandGroup>

@@ -183,11 +183,17 @@ export function useTableUrlState(
     })
   }
 
-  const [globalFilter, setGlobalFilter] = useState<string | undefined>(() => {
-    if (!globalFilterEnabled) return undefined
-    const raw = (search as SearchRecord)[globalFilterKey]
-    return typeof raw === 'string' ? raw : ''
-  })
+  const rawGlobalFilter = (search as SearchRecord)[globalFilterKey]
+  const urlGlobalFilter =
+    typeof rawGlobalFilter === 'string' ? rawGlobalFilter : ''
+  const [globalFilter, setGlobalFilter] = useState<string | undefined>(() =>
+    globalFilterEnabled ? urlGlobalFilter : undefined
+  )
+  // The URL stays the single source: a link to the same page with another
+  // filter replaces the one in use (typing writes the same value back).
+  useEffect(() => {
+    if (globalFilterEnabled) setGlobalFilter(urlGlobalFilter)
+  }, [globalFilterEnabled, urlGlobalFilter])
 
   const onGlobalFilterChange: OnChangeFn<string> | undefined =
     globalFilterEnabled

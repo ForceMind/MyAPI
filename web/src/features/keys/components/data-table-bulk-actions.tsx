@@ -16,8 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import {
+  Copy01Icon,
+  Delete02Icon,
+  Loading03Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import type { Table } from '@tanstack/react-table'
-import { Copy, Trash2, Loader2 } from 'lucide-react'
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -97,9 +102,12 @@ export function DataTableBulkActions<TData>({
             }
           >
             {isCopying ? (
-              <Loader2 className='size-4 animate-spin' />
+              <HugeiconsIcon
+                icon={Loading03Icon}
+                className='size-4 animate-spin'
+              />
             ) : (
-              <Copy className='size-4' />
+              <HugeiconsIcon icon={Copy01Icon} className='size-4' />
             )}
           </TooltipTrigger>
           <TooltipContent>
@@ -119,7 +127,7 @@ export function DataTableBulkActions<TData>({
               />
             }
           >
-            <Trash2 />
+            <HugeiconsIcon icon={Delete02Icon} />
             <span className='sr-only'>{t('Delete selected API keys')}</span>
           </TooltipTrigger>
           <TooltipContent>

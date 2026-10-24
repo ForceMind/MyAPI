@@ -1,4 +1,5 @@
-import { AlertTriangle } from 'lucide-react'
+import { Alert02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -22,7 +23,7 @@ export function RequestInputDiagnostics(props: { other: LogOtherData | null }) {
     <div className='min-w-0 space-y-3'>
       {(contextExceeded || rejected) && (
         <Alert>
-          <AlertTriangle aria-hidden='true' />
+          <HugeiconsIcon icon={Alert02Icon} aria-hidden='true' />
           <AlertTitle>
             {rejected ? t('Blocked before upstream') : t('Request failed')}
           </AlertTitle>
