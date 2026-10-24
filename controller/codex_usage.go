@@ -600,22 +600,6 @@ func recordManualCodexUsageSnapshots(ctx context.Context, channel *model.Channel
 	return recordQualifiedCodexUsageSnapshotsForIdentity(channel.Id, identity, observedAt, uuid.NewString(), statusCode, body, len(nativeSource) == 1 && nativeSource[0])
 }
 
-func recordCodexUsageSnapshots(channelID, statusCode int, body []byte) error {
-	return recordCodexUsageSnapshotsForAccount(channelID, "", statusCode, body)
-}
-
-func recordCodexUsageSnapshotsForAccount(channelID int, accountID string, statusCode int, body []byte) error {
-	return recordCodexUsageSnapshotsAtForAccount(channelID, accountID, time.Now().Unix(), statusCode, body)
-}
-
-func recordCodexUsageSnapshotsAt(channelID int, observedAt int64, statusCode int, body []byte) error {
-	return recordCodexUsageSnapshotsAtForAccount(channelID, "", observedAt, statusCode, body)
-}
-
-func recordCodexUsageSnapshotsAtForAccount(channelID int, accountID string, observedAt int64, statusCode int, body []byte) error {
-	return recordCodexUsageSnapshotsAtWithSampleIDForAccount(channelID, accountID, observedAt, uuid.NewString(), statusCode, body)
-}
-
 func recordCodexUsageSnapshotsAtWithSampleID(channelID int, observedAt int64, sampleID string, statusCode int, body []byte) error {
 	return recordCodexUsageSnapshotsAtWithSampleIDForAccount(channelID, "", observedAt, sampleID, statusCode, body)
 }

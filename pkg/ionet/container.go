@@ -3,11 +3,9 @@ package ionet
 import (
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/ForceMind/MyAPI/common"
-	"github.com/samber/lo"
 )
 
 // ListContainers retrieves all containers for a specific deployment
@@ -120,33 +118,6 @@ func buildLogEndpoint(deploymentID, containerID string, opts *GetLogsOptions) (s
 	endpoint += buildQueryParams(params)
 
 	return endpoint, nil
-}
-
-// GetContainerLogs retrieves logs for containers in a deployment and normalizes them
-func (c *Client) GetContainerLogs(deploymentID, containerID string, opts *GetLogsOptions) (*ContainerLogs, error) {
-	raw, err := c.GetContainerLogsRaw(deploymentID, containerID, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	logs := &ContainerLogs{
-		ContainerID: containerID,
-	}
-
-	if raw == "" {
-		return logs, nil
-	}
-
-	normalized := strings.ReplaceAll(raw, "\r\n", "\n")
-	lines := strings.Split(normalized, "\n")
-	logs.Logs = lo.FilterMap(lines, func(line string, _ int) (LogEntry, bool) {
-		if strings.TrimSpace(line) == "" {
-			return LogEntry{}, false
-		}
-		return LogEntry{Message: line}, true
-	})
-
-	return logs, nil
 }
 
 // GetContainerLogsRaw retrieves the raw text logs for a specific container

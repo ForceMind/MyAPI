@@ -237,20 +237,6 @@ func collectPendingUpstreamModelChangesFromModels(
 	return normalizeModelNames(pendingAdd), normalizeModelNames(pendingRemove)
 }
 
-func collectPendingUpstreamModelChanges(channel *model.Channel, settings dto.ChannelOtherSettings) (pendingAddModels []string, pendingRemoveModels []string, err error) {
-	upstreamModels, err := fetchChannelUpstreamModelIDs(channel)
-	if err != nil {
-		return nil, nil, err
-	}
-	pendingAddModels, pendingRemoveModels = collectPendingUpstreamModelChangesFromModels(
-		channel.GetModels(),
-		upstreamModels,
-		settings.UpstreamModelUpdateIgnoredModels,
-		normalizeChannelModelMapping(channel),
-	)
-	return pendingAddModels, pendingRemoveModels, nil
-}
-
 func getUpstreamModelUpdateMinCheckIntervalSeconds() int64 {
 	interval := int64(common.GetEnvOrDefault(
 		"CHANNEL_UPSTREAM_MODEL_UPDATE_MIN_CHECK_INTERVAL_SECONDS",

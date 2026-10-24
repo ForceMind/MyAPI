@@ -147,19 +147,6 @@ func ResolveModelRequestRateLimit(group string) ModelRequestRateLimitSnapshot {
 	return snapshot
 }
 
-func ModelRequestRateLimitGroup2JSONString() string {
-	ModelRequestRateLimitMutex.RLock()
-	group := cloneModelRequestRateLimitGroup(ModelRequestRateLimitGroup)
-	ModelRequestRateLimitMutex.RUnlock()
-
-	jsonBytes, err := common.Marshal(group)
-	if err != nil {
-		common.SysLog("error marshalling model request rate limit group: " + err.Error())
-		return "{}"
-	}
-	return string(jsonBytes)
-}
-
 func ParseModelRequestRateLimitGroupJSON(jsonStr string) (map[string][2]int, error) {
 	group := make(map[string][2]int)
 	if err := common.Unmarshal([]byte(jsonStr), &group); err != nil {
@@ -194,16 +181,6 @@ func UpdateModelRequestRateLimitGroupByJSONString(jsonStr string) error {
 	ModelRequestRateLimitGroup = cloneModelRequestRateLimitGroup(group)
 	ModelRequestRateLimitMutex.Unlock()
 	return nil
-}
-
-func GetGroupRateLimit(group string) (totalCount, successCount int, found bool) {
-	ModelRequestRateLimitMutex.RLock()
-	defer ModelRequestRateLimitMutex.RUnlock()
-	limits, found := ModelRequestRateLimitGroup[group]
-	if !found {
-		return 0, 0, false
-	}
-	return limits[0], limits[1], true
 }
 
 func CheckModelRequestRateLimitGroup(jsonStr string) error {

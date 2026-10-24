@@ -234,26 +234,6 @@ func RunTaskPollingOnce(ctx context.Context, report func(processed, total int)) 
 	return summary
 }
 
-// DispatchPlatformUpdate is retained for direct callers. The production pass
-// uses dispatchPlatformUpdate with a channel-scoped composite key batch.
-func DispatchPlatformUpdate(ctx context.Context, platform constant.TaskPlatform, taskChannelM map[int][]string, taskM map[string]*model.Task) {
-	tasks := make([]*model.Task, 0, len(taskM))
-	for _, task := range taskM {
-		tasks = append(tasks, task)
-	}
-	contexts, err := LoadTaskPollingContexts(model.DB, tasks)
-	if err != nil {
-		logger.LogError(ctx, fmt.Sprintf("load direct polling metadata: %v", err))
-		return
-	}
-	batch, err := pollingBatchFromLegacyMaps(taskChannelM, taskM, contexts)
-	if err != nil {
-		logger.LogError(ctx, err.Error())
-		return
-	}
-	dispatchPlatformUpdate(ctx, platform, batch)
-}
-
 func dispatchPlatformUpdate(ctx context.Context, platform constant.TaskPlatform, batch *taskPollingBatch) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -267,22 +247,6 @@ func dispatchPlatformUpdate(ctx context.Context, platform constant.TaskPlatform,
 			common.SysLog(fmt.Sprintf("UpdateVideoTasks fail: %s", err))
 		}
 	}
-}
-
-func UpdateSunoTasks(ctx context.Context, taskChannelM map[int][]string, taskM map[string]*model.Task) error {
-	tasks := make([]*model.Task, 0, len(taskM))
-	for _, task := range taskM {
-		tasks = append(tasks, task)
-	}
-	contexts, err := LoadTaskPollingContexts(model.DB, tasks)
-	if err != nil {
-		return err
-	}
-	batch, err := pollingBatchFromLegacyMaps(taskChannelM, taskM, contexts)
-	if err != nil {
-		return err
-	}
-	return updateSunoPollingBatch(ctx, batch)
 }
 
 func updateSunoPollingBatch(ctx context.Context, batch *taskPollingBatch) error {

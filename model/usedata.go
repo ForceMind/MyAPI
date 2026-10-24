@@ -238,16 +238,6 @@ func increaseQuotaData(quotaData *QuotaData) {
 	}
 }
 
-func GetQuotaDataByUsername(username string, startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
-	return GetQuotaDataByUsernameWithGranularity(
-		username,
-		startTime,
-		endTime,
-		QuotaDataGranularityHour,
-		0,
-	)
-}
-
 func GetQuotaDataByUsernameWithGranularity(
 	username string,
 	startTime int64,
@@ -265,16 +255,6 @@ func GetQuotaDataByUsernameWithGranularity(
 		Order("created_at ASC, model_name ASC").
 		Find(&quotaDatas).Error
 	return quotaDatas, err
-}
-
-func GetQuotaDataByUserId(userId int, startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
-	return GetQuotaDataByUserIdWithGranularity(
-		userId,
-		startTime,
-		endTime,
-		QuotaDataGranularityHour,
-		0,
-	)
 }
 
 func GetQuotaDataByUserIdWithGranularity(
@@ -296,15 +276,6 @@ func GetQuotaDataByUserIdWithGranularity(
 	return quotaDatas, err
 }
 
-func GetQuotaDataGroupByUser(startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
-	return GetQuotaDataGroupByUserWithGranularity(
-		startTime,
-		endTime,
-		QuotaDataGranularityHour,
-		0,
-	)
-}
-
 func GetQuotaDataGroupByUserWithGranularity(
 	startTime int64,
 	endTime int64,
@@ -320,16 +291,6 @@ func GetQuotaDataGroupByUserWithGranularity(
 		Order("created_at ASC, username ASC").
 		Find(&quotaDatas).Error
 	return quotaDatas, err
-}
-
-func GetAllQuotaDates(startTime int64, endTime int64, username string) (quotaData []*QuotaData, err error) {
-	return GetAllQuotaDatesWithGranularity(
-		startTime,
-		endTime,
-		username,
-		QuotaDataGranularityHour,
-		0,
-	)
 }
 
 func GetAllQuotaDatesWithGranularity(

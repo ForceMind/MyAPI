@@ -117,56 +117,8 @@ func GetGeneralSetting() *GeneralSetting {
 	return &setting
 }
 
-// IsCurrencyDisplay 是否以货币形式展示（美元或人民币）
-func IsCurrencyDisplay() bool {
-	setting := generalSettingState.snapshot()
-	return setting.QuotaDisplayType != QuotaDisplayTypeTokens
-}
-
-// IsCNYDisplay 是否以人民币展示
-func IsCNYDisplay() bool {
-	setting := generalSettingState.snapshot()
-	return setting.QuotaDisplayType == QuotaDisplayTypeCNY
-}
-
 // GetQuotaDisplayType 返回额度展示类型
 func GetQuotaDisplayType() string {
 	setting := generalSettingState.snapshot()
 	return setting.QuotaDisplayType
-}
-
-// GetCurrencySymbol 返回当前展示类型对应符号
-func GetCurrencySymbol() string {
-	setting := generalSettingState.snapshot()
-	switch setting.QuotaDisplayType {
-	case QuotaDisplayTypeUSD:
-		return "$"
-	case QuotaDisplayTypeCNY:
-		return "¥"
-	case QuotaDisplayTypeCustom:
-		if setting.CustomCurrencySymbol != "" {
-			return setting.CustomCurrencySymbol
-		}
-		return "¤"
-	default:
-		return ""
-	}
-}
-
-// GetUsdToCurrencyRate 返回 1 USD = X <currency> 的 X（TOKENS 不适用）
-func GetUsdToCurrencyRate(usdToCny float64) float64 {
-	setting := generalSettingState.snapshot()
-	switch setting.QuotaDisplayType {
-	case QuotaDisplayTypeUSD:
-		return 1
-	case QuotaDisplayTypeCNY:
-		return usdToCny
-	case QuotaDisplayTypeCustom:
-		if setting.CustomCurrencyExchangeRate > 0 {
-			return setting.CustomCurrencyExchangeRate
-		}
-		return 1
-	default:
-		return 1
-	}
 }

@@ -100,15 +100,3 @@ func GetCheckinSetting() *CheckinSetting {
 	setting := checkinSettingState.snapshot()
 	return &setting
 }
-
-// IsCheckinEnabled 是否启用签到功能
-func IsCheckinEnabled() bool {
-	setting := checkinSettingState.snapshot()
-	return setting.Enabled
-}
-
-// GetCheckinQuotaRange 获取签到额度范围
-func GetCheckinQuotaRange() (min, max int) {
-	setting := checkinSettingState.snapshot()
-	return setting.MinQuota, setting.MaxQuota
-}

@@ -19,13 +19,6 @@ func adminAdjustmentTestDB(t *testing.T, writerMode QuotaWriterMode, writerEpoch
 	return db
 }
 
-func getAdminAdjustment(t *testing.T, db *gorm.DB, targetUserId int, requestId string) AdminQuotaAdjustment {
-	t.Helper()
-	var record AdminQuotaAdjustment
-	require.NoError(t, db.Where("target_user_id = ? AND request_id = ?", targetUserId, requestId).First(&record).Error)
-	return record
-}
-
 func countAdminAdjustments(t *testing.T, db *gorm.DB, targetUserId int) int64 {
 	t.Helper()
 	var count int64

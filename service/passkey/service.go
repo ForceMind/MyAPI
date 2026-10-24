@@ -16,12 +16,6 @@ import (
 	webauthn "github.com/go-webauthn/webauthn/webauthn"
 )
 
-// BuildWebAuthn constructs a WebAuthn instance using one current Passkey
-// settings snapshot and the request context.
-func BuildWebAuthn(r *http.Request) (*webauthn.WebAuthn, error) {
-	return BuildWebAuthnWithSettings(r, system_setting.GetPasskeySettings())
-}
-
 // BuildWebAuthnWithSettings constructs a WebAuthn instance from one caller
 // supplied settings snapshot. Request handlers use it after checking Enabled
 // so a hot configuration update cannot mix the enablement decision with RP

@@ -14,8 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ForceMind/MyAPI/common"
-	"github.com/ForceMind/MyAPI/logger"
 	"github.com/gin-gonic/gin"
 )
 
@@ -39,21 +37,6 @@ import (
 //}
 
 const HexPayloadHashKey = "HexPayloadHash"
-
-func SetPayloadHash(c *gin.Context, req any) error {
-	body, err := common.Marshal(req)
-	if err != nil {
-		return err
-	}
-	logger.LogInfo(c, fmt.Sprintf("SetPayloadHash body: %s", body))
-	payloadHash := sha256.Sum256(body)
-	hexPayloadHash := hex.EncodeToString(payloadHash[:])
-	c.Set(HexPayloadHashKey, hexPayloadHash)
-	return nil
-}
-func getPayloadHash(c *gin.Context) string {
-	return c.GetString(HexPayloadHashKey)
-}
 
 func Sign(c *gin.Context, req *http.Request, apiKey string) error {
 	header := req.Header

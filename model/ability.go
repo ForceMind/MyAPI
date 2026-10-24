@@ -54,12 +54,6 @@ func GetEnabledModels() []string {
 	return models
 }
 
-func GetAllEnableAbilities() []Ability {
-	var abilities []Ability
-	DB.Find(&abilities, "enabled = ?", true)
-	return abilities
-}
-
 func GetChannelRoutingPolicy(group string, modelName string, requestPath string) (ChannelRoutingPolicy, error) {
 	candidates, _, err := loadChannelRoutingCandidates(group, modelName, requestPath)
 	if err != nil {
@@ -356,14 +350,6 @@ func (channel *Channel) UpdateAbilities(tx *gorm.DB) error {
 	return err
 }
 
-func UpdateAbilityStatus(channelId int, status bool) error {
-	_, _, err := runChannelRoutingTransaction(context.Background(), func(tx *gorm.DB) (bool, error) {
-		result := tx.Model(&Ability{}).Where("channel_id = ?", channelId).Select("enabled").Update("enabled", status)
-		return result.RowsAffected > 0, result.Error
-	})
-	return err
-}
-
 func updateAbilityStatusWithDB(db *gorm.DB, channelId int, status bool) error {
 	if db == nil {
 		return gorm.ErrInvalidDB
@@ -371,40 +357,11 @@ func updateAbilityStatusWithDB(db *gorm.DB, channelId int, status bool) error {
 	return db.Model(&Ability{}).Where("channel_id = ?", channelId).Select("enabled").Update("enabled", status).Error
 }
 
-func UpdateAbilityStatusByTag(tag string, status bool) error {
-	_, _, err := runChannelRoutingTransaction(context.Background(), func(tx *gorm.DB) (bool, error) {
-		result := tx.Model(&Ability{}).Where("tag = ?", tag).Select("enabled").Update("enabled", status)
-		return result.RowsAffected > 0, result.Error
-	})
-	return err
-}
-
 func updateAbilityStatusByTagWithDB(db *gorm.DB, tag string, status bool) error {
 	if db == nil {
 		return gorm.ErrInvalidDB
 	}
 	return db.Model(&Ability{}).Where("tag = ?", tag).Select("enabled").Update("enabled", status).Error
-}
-
-func UpdateAbilityByTag(tag string, newTag *string, priority *int64, weight *uint) error {
-	_, _, err := runChannelRoutingTransaction(context.Background(), func(tx *gorm.DB) (bool, error) {
-		updates := make(map[string]any)
-		if newTag != nil {
-			updates["tag"] = newTag
-		}
-		if priority != nil {
-			updates["priority"] = priority
-		}
-		if weight != nil {
-			updates["weight"] = *weight
-		}
-		if len(updates) == 0 {
-			return false, nil
-		}
-		result := tx.Model(&Ability{}).Where("tag = ?", tag).Updates(updates)
-		return result.RowsAffected > 0, result.Error
-	})
-	return err
 }
 
 func updateAbilityByTagWithDB(db *gorm.DB, tag string, newTag *string, priority *int64, weight *uint) error {

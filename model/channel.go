@@ -595,33 +595,6 @@ func channelQuotaSamplingMetadataCondition(databaseType common.DatabaseType) (st
 	}
 }
 
-// Native JSON columns on MySQL/PostgreSQL and SQLite JSON stored as TEXT/BLOB
-// use different extraction operators. Accept an object with a missing/false
-// boolean flag, or SQL NULL from old rows. Malformed metadata is excluded, not
-// silently treated as a single-key credential or allowed to break the batch.
-func channelQuotaSingleKeyCondition(databaseType common.DatabaseType) (string, error) {
-	switch databaseType {
-	case common.DatabaseTypeSQLite:
-		return `CASE WHEN channel_info IS NULL THEN 1
-			WHEN json_valid(CAST(channel_info AS TEXT)) THEN
-				CASE WHEN json_type(CAST(channel_info AS TEXT)) = 'object'
-				AND COALESCE(json_type(CAST(channel_info AS TEXT), '$.is_multi_key'), 'false') = 'false' THEN 1 ELSE 0 END
-			ELSE 0 END = 1`, nil
-	case common.DatabaseTypeMySQL:
-		return `(channel_info IS NULL OR (JSON_TYPE(channel_info) = 'OBJECT' AND
-			(JSON_EXTRACT(channel_info, '$.is_multi_key') IS NULL OR
-			(JSON_TYPE(JSON_EXTRACT(channel_info, '$.is_multi_key')) = 'BOOLEAN'
-			AND JSON_UNQUOTE(JSON_EXTRACT(channel_info, '$.is_multi_key')) = 'false'))))`, nil
-	case common.DatabaseTypePostgreSQL:
-		return `(channel_info IS NULL OR (json_typeof(channel_info) = 'object' AND
-			(channel_info->'is_multi_key' IS NULL OR
-			(json_typeof(channel_info->'is_multi_key') = 'boolean'
-			AND channel_info->>'is_multi_key' = 'false'))))`, nil
-	default:
-		return "", fmt.Errorf("unsupported quota sampling database type: %s", databaseType)
-	}
-}
-
 func GetChannelsByTag(tag string, idSort bool, selectAll bool, sortOptions ...ChannelSortOptions) ([]*Channel, error) {
 	var channels []*Channel
 	order := resolveChannelSortOptions(idSort, sortOptions)
@@ -678,17 +651,6 @@ func GetChannelById(id int, selectAll bool) (*Channel, error) {
 		return nil, err
 	}
 	return channel, nil
-}
-
-func BatchInsertChannels(channels []Channel) error {
-	fingerprint, err := FingerprintChannelOperation(struct {
-		Channels []Channel `json:"channels"`
-	}{Channels: channels})
-	if err != nil {
-		return err
-	}
-	_, _, err = BatchInsertChannelsWithOperation(context.Background(), channels, "", fingerprint)
-	return err
 }
 
 func BatchDeleteChannels(ids []int) (int64, error) {
@@ -886,26 +848,6 @@ func GetChannelPollingLock(channelId int) *sync.Mutex {
 	newLock := &sync.Mutex{}
 	actual, _ := channelPollingLocks.LoadOrStore(channelId, newLock)
 	return actual.(*sync.Mutex)
-}
-
-// CleanupChannelPollingLocks removes locks for channels that no longer exist
-// This is optional and can be called periodically to prevent memory leaks
-func CleanupChannelPollingLocks() {
-	var activeChannelIds []int
-	DB.Model(&Channel{}).Pluck("id", &activeChannelIds)
-
-	activeChannelSet := make(map[int]bool)
-	for _, id := range activeChannelIds {
-		activeChannelSet[id] = true
-	}
-
-	channelPollingLocks.Range(func(key, value interface{}) bool {
-		channelId := key.(int)
-		if !activeChannelSet[channelId] {
-			channelPollingLocks.Delete(channelId)
-		}
-		return true
-	})
 }
 
 func handlerMultiKeyUpdate(channel *Channel, usingKey string, status int, reason string) {
@@ -1208,10 +1150,6 @@ func updateChannelUsedQuota(id int, quota int64) {
 	}
 }
 
-func DeleteChannelByStatus(status int64) (int64, error) {
-	return deleteChannelsByCondition("status = ?", status)
-}
-
 func DeleteDisabledChannel() (int64, error) {
 	return deleteChannelsByCondition(
 		"status = ? or status = ?",
@@ -1244,10 +1182,6 @@ func deleteChannelsByCondition(condition string, args ...any) (int64, error) {
 		return 0, err
 	}
 	return deletedCount, nil
-}
-
-func GetPaginatedTags(offset int, limit int) ([]*string, error) {
-	return GetPaginatedChannelTags(DB.Model(&Channel{}), offset, limit)
 }
 
 func GetPaginatedChannelTags(query *gorm.DB, offset int, limit int) ([]*string, error) {
@@ -1451,56 +1385,8 @@ func BatchSetChannelTag(ids []int, tag *string) error {
 	return err
 }
 
-// CountAllChannels returns total channels in DB
-func CountAllChannels() (int64, error) {
-	var total int64
-	err := DB.Model(&Channel{}).Count(&total).Error
-	return total, err
-}
-
-// CountAllTags returns number of non-empty distinct tags
-func CountAllTags() (int64, error) {
-	return CountChannelTags(DB.Model(&Channel{}))
-}
-
 func CountChannelTags(query *gorm.DB) (int64, error) {
 	var total int64
 	err := query.Where("tag is not null AND tag != ''").Distinct("tag").Count(&total).Error
 	return total, err
-}
-
-// Get channels of specified type with pagination
-func GetChannelsByType(startIdx int, num int, idSort bool, channelType int) ([]*Channel, error) {
-	var channels []*Channel
-	order := "priority desc"
-	if idSort {
-		order = "id desc"
-	}
-	err := DB.Where("type = ?", channelType).Order(order).Limit(num).Offset(startIdx).Omit("key").Find(&channels).Error
-	return channels, err
-}
-
-// Count channels of specific type
-func CountChannelsByType(channelType int) (int64, error) {
-	var count int64
-	err := DB.Model(&Channel{}).Where("type = ?", channelType).Count(&count).Error
-	return count, err
-}
-
-// Return map[type]count for all channels
-func CountChannelsGroupByType() (map[int64]int64, error) {
-	type result struct {
-		Type  int64 `gorm:"column:type"`
-		Count int64 `gorm:"column:count"`
-	}
-	var results []result
-	err := DB.Model(&Channel{}).Select("type, count(*) as count").Group("type").Find(&results).Error
-	if err != nil {
-		return nil, err
-	}
-	counts := make(map[int64]int64)
-	for _, r := range results {
-		counts[r.Type] = r.Count
-	}
-	return counts, nil
 }

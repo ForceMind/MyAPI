@@ -249,17 +249,6 @@ func (c *AntigravityClient) Cancel(ctx context.Context, interactionID string) (*
 	return c.doJSON(ctx, http.MethodPost, path+"/cancel", nil, false)
 }
 
-// Delete removes a stored interaction. It is separate from Cancel: cancelling
-// stops execution while deleting removes the provider-side record.
-func (c *AntigravityClient) Delete(ctx context.Context, interactionID string) error {
-	path, err := interactionPath(interactionID)
-	if err != nil {
-		return err
-	}
-	_, err = c.doJSON(ctx, http.MethodDelete, path, nil, true)
-	return err
-}
-
 func (c *AntigravityClient) doJSON(ctx context.Context, method, path string, payload any, allowEmpty bool) (*AntigravityInteraction, error) {
 	if c == nil || c.httpClient == nil {
 		return nil, errors.New("antigravity: client is not initialized")

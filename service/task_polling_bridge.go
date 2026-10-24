@@ -43,14 +43,6 @@ func durableTerminalWithoutEvidenceUsingContext(ctx context.Context, pollingCont
 	return durableTerminalManualReviewUsingContext(ctx, pollingContext, task, outcome, actualQuota, reason, DurableTerminalEvidence{}, clamps...)
 }
 
-func DurableTerminalManualReviewWithEvidence(ctx context.Context, task *model.Task, outcome string, actualQuota int, reason string, evidence DurableTerminalEvidence, clamps ...*common.QuotaClamp) (bool, error) {
-	pollingContext, err := LoadTaskPollingContext(model.DB, task)
-	if err != nil {
-		return false, err
-	}
-	return durableTerminalManualReviewUsingContext(ctx, pollingContext, task, outcome, actualQuota, reason, evidence, clamps...)
-}
-
 func durableTerminalManualReviewUsingContext(ctx context.Context, pollingContext *TaskPollingContext, task *model.Task, outcome string, actualQuota int, reason string, evidence DurableTerminalEvidence, clamps ...*common.QuotaClamp) (bool, error) {
 	if model.DB == nil || task == nil || task.TaskID == "" || pollingContext == nil || pollingContext.Operation == nil {
 		return false, nil

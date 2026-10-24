@@ -140,10 +140,6 @@ func validateApiInfo(apiInfoStr string) error {
 	return nil
 }
 
-func GetApiInfo() []map[string]interface{} {
-	return GetApiInfoForConsoleSetting(*GetConsoleSetting())
-}
-
 func GetApiInfoForConsoleSetting(setting ConsoleSetting) []map[string]interface{} {
 	return getJSONList(setting.ApiInfo)
 }
@@ -232,20 +228,12 @@ func getPublishTime(item map[string]interface{}) time.Time {
 	return time.Time{}
 }
 
-func GetAnnouncements() []map[string]interface{} {
-	return GetAnnouncementsForConsoleSetting(*GetConsoleSetting())
-}
-
 func GetAnnouncementsForConsoleSetting(setting ConsoleSetting) []map[string]interface{} {
 	list := getJSONList(setting.Announcements)
 	sort.SliceStable(list, func(i, j int) bool {
 		return getPublishTime(list[i]).After(getPublishTime(list[j]))
 	})
 	return list
-}
-
-func GetFAQ() []map[string]interface{} {
-	return GetFAQForConsoleSetting(*GetConsoleSetting())
 }
 
 func GetFAQForConsoleSetting(setting ConsoleSetting) []map[string]interface{} {

@@ -125,21 +125,6 @@ func validateDiskCachePlacement(config DiskCacheConfig) error {
 	return nil
 }
 
-// IsDiskCacheEnabled 是否启用磁盘缓存（生效代）
-func IsDiskCacheEnabled() bool {
-	return GetDiskCacheConfig().Enabled
-}
-
-// GetDiskCacheThresholdBytes 获取磁盘缓存阈值（字节，生效代）
-func GetDiskCacheThresholdBytes() int64 {
-	return int64(GetDiskCacheConfig().ThresholdMB) << 20
-}
-
-// GetDiskCacheMaxSizeBytes 获取磁盘缓存最大大小（字节，生效代）
-func GetDiskCacheMaxSizeBytes() int64 {
-	return int64(GetDiskCacheConfig().MaxSizeMB) << 20
-}
-
 // GetDiskCachePath 获取磁盘缓存目录（生效代）
 func GetDiskCachePath() string {
 	return GetDiskCacheConfig().Path
@@ -225,32 +210,4 @@ func IncrementMemoryCacheHits() {
 func ResetDiskCacheStats() {
 	atomic.StoreInt64(&diskCacheStats.DiskCacheHits, 0)
 	atomic.StoreInt64(&diskCacheStats.MemoryCacheHits, 0)
-}
-
-// ResetDiskCacheUsage 重置磁盘缓存使用量统计（用于清理缓存后）
-func ResetDiskCacheUsage() {
-	atomic.StoreInt64(&diskCacheStats.ActiveDiskFiles, 0)
-	atomic.StoreInt64(&diskCacheStats.CurrentDiskUsageBytes, 0)
-}
-
-// SyncDiskCacheStats 从实际磁盘状态同步统计信息
-// 用于修正统计与实际不符的情况
-func SyncDiskCacheStats() {
-	fileCount, totalSize, err := GetDiskCacheInfo()
-	if err != nil {
-		return
-	}
-	atomic.StoreInt64(&diskCacheStats.ActiveDiskFiles, int64(fileCount))
-	atomic.StoreInt64(&diskCacheStats.CurrentDiskUsageBytes, totalSize)
-}
-
-// IsDiskCacheAvailable 检查是否可以创建新的磁盘缓存
-func IsDiskCacheAvailable(requestSize int64) bool {
-	config := GetDiskCacheConfig()
-	if !config.Enabled {
-		return false
-	}
-	maxBytes := int64(config.MaxSizeMB) << 20
-	currentUsage := atomic.LoadInt64(&diskCacheStats.CurrentDiskUsageBytes)
-	return currentUsage+requestSize <= maxBytes
 }

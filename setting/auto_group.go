@@ -24,17 +24,6 @@ func init() {
 	maxTokenAutoGroups.Store(DefaultMaxTokenAutoGroups)
 }
 
-func ContainsAutoGroup(group string) bool {
-	autoGroupsMutex.RLock()
-	defer autoGroupsMutex.RUnlock()
-	for _, autoGroup := range autoGroups {
-		if autoGroup == group {
-			return true
-		}
-	}
-	return false
-}
-
 func UpdateAutoGroupsByJsonString(jsonString string) error {
 	var groups []string
 	if err := common.Unmarshal([]byte(jsonString), &groups); err != nil {

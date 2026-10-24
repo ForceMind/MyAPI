@@ -58,12 +58,6 @@ func GetDiskCacheDir() string {
 	return diskCacheDirFor(GetDiskCachePath())
 }
 
-// EnsureDiskCacheDir 确保缓存目录存在（生效代目录）
-func EnsureDiskCacheDir() error {
-	dir := GetDiskCacheDir()
-	return os.MkdirAll(dir, 0755)
-}
-
 // CreateDiskCacheFileIn 在指定缓存根目录下创建磁盘缓存文件。
 // cachePath 为空时使用系统临时目录。传入的路径必须来自调用方决策时
 // 使用的同一生效代快照，保证一次决策的目录选择一致。
@@ -119,25 +113,6 @@ func WriteDiskCacheFileString(cacheType DiskCacheType, data string) (string, err
 	return WriteDiskCacheFile(cacheType, []byte(data))
 }
 
-// ReadDiskCacheFile 读取磁盘缓存文件
-func ReadDiskCacheFile(filePath string) ([]byte, error) {
-	return os.ReadFile(filePath)
-}
-
-// ReadDiskCacheFileString 读取磁盘缓存文件为字符串
-func ReadDiskCacheFileString(filePath string) (string, error) {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
-}
-
-// RemoveDiskCacheFile 删除磁盘缓存文件
-func RemoveDiskCacheFile(filePath string) error {
-	return os.Remove(filePath)
-}
-
 // CleanupOldDiskCacheFiles 清理旧的缓存文件
 // maxAge: 文件最大存活时间
 // 注意：此函数只删除文件，不更新统计（因为无法知道每个文件的原始大小）
@@ -173,35 +148,6 @@ func CleanupOldDiskCacheFiles(maxAge time.Duration) error {
 		}
 	}
 	return firstErr
-}
-
-// GetDiskCacheInfo 获取磁盘缓存目录信息
-func GetDiskCacheInfo() (fileCount int, totalSize int64, err error) {
-	var firstErr error
-	for _, dir := range diskCacheDirs() {
-		entries, readErr := os.ReadDir(dir)
-		if readErr != nil {
-			if os.IsNotExist(readErr) {
-				continue
-			}
-			if firstErr == nil {
-				firstErr = readErr
-			}
-			continue
-		}
-		for _, entry := range entries {
-			if entry.IsDir() {
-				continue
-			}
-			info, infoErr := entry.Info()
-			if infoErr != nil {
-				continue
-			}
-			fileCount++
-			totalSize += info.Size()
-		}
-	}
-	return fileCount, totalSize, firstErr
 }
 
 // ShouldUseDiskCache 判断是否应该使用磁盘缓存。

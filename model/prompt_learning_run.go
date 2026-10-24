@@ -326,33 +326,6 @@ func TransitionPromptLearningRun(ctx context.Context, userID int, scopeRef strin
 	return updated, err
 }
 
-// RecoverExpiredPromptLearningRuns only requeues work before submission. The
-// absence of an upstream receipt in leased/preparing states makes it safe to
-// retry; submitted work remains an explicit unknown/outcome workflow.
-func RecoverExpiredPromptLearningRuns(ctx context.Context, now int64, limit int) (int64, error) {
-	if DB == nil || now <= 0 || limit <= 0 || limit > 200 {
-		return 0, ErrPromptLearningInvalidInput
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	var runs []PromptLearningRun
-	if err := DB.WithContext(ctx).Where("state IN ? AND lease_until > 0 AND lease_until < ?", []string{promptLearningRunStateLeased, promptLearningRunStatePreparing}, now).Order("id ASC").Limit(limit).Find(&runs).Error; err != nil {
-		return 0, err
-	}
-	var recovered int64
-	for _, run := range runs {
-		update := DB.WithContext(ctx).Model(&PromptLearningRun{}).Where("id = ? AND state = ? AND lease_fence = ? AND lease_until < ?", run.ID, run.State, run.LeaseFence, now).Updates(map[string]any{
-			"state": promptLearningRunStatePending, "lease_owner": "", "lease_until": 0, "updated_at": now,
-		})
-		if update.Error != nil {
-			return recovered, update.Error
-		}
-		recovered += update.RowsAffected
-	}
-	return recovered, nil
-}
-
 func validPromptLearningRunInput(input PromptLearningRunInput) bool {
 	return input.UserID > 0 && input.PolicyGeneration > 0 && input.SampleUpperID >= 0 && input.SampleCount >= 0 && input.SampleCount <= promptLearningRunMaxSamples &&
 		input.InputTokenLimit > 0 && input.InputTokenLimit <= promptLearningRunMaxTokens && input.OutputTokenLimit > 0 && input.OutputTokenLimit <= promptLearningRunMaxTokens &&

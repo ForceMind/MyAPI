@@ -376,11 +376,6 @@ func GetTimedOutUnfinishedTasks(cutoffUnix int64, limit int) []*Task {
 	return tasks
 }
 
-func GetAllUnFinishSyncTasks(limit int) []*Task {
-	tasks, _ := GetAllUnfinishedSyncTasksForPolling(limit, time.Now().Unix())
-	return tasks
-}
-
 // GetAllUnfinishedSyncTasksForPolling returns due tasks while excluding manual
 // review rows. Fresh pending work is ordered before retryable work so a large
 // uncertainty backlog cannot consume the entire polling window.

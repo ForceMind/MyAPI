@@ -156,13 +156,6 @@ func ResolveAccessProfile(groupName, configuredDescription string) AccessProfile
 	return resolveAccessProfile(groupName, configuredDescription, setting.GetAccessProfileSetting())
 }
 
-// ResolveAccessProfileWithSnapshot resolves a key policy against one detached
-// registry generation. Callers that need to evaluate a tier and profile for a
-// single request must pass the same snapshot to both resolvers.
-func ResolveAccessProfileWithSnapshot(groupName, configuredDescription string, registry *setting.AccessProfileSetting) AccessProfileMetadata {
-	return resolveAccessProfile(groupName, configuredDescription, registry)
-}
-
 func resolveAccessProfile(groupName, configuredDescription string, registry *setting.AccessProfileSetting) AccessProfileMetadata {
 	profile := AccessProfileMetadata{
 		ID:          groupName,
@@ -248,12 +241,6 @@ func ResolveAccessProfileIDWithSnapshot(profileID, fallbackGroup, configuredDesc
 
 func ResolveAccountTier(groupName, configuredDescription string) AccountTierMetadata {
 	return resolveAccountTier(groupName, configuredDescription, setting.GetAccessProfileSetting())
-}
-
-// ResolveAccountTierWithSnapshot resolves the account half of a request
-// policy against the caller-provided detached registry generation.
-func ResolveAccountTierWithSnapshot(groupName, configuredDescription string, registry *setting.AccessProfileSetting) AccountTierMetadata {
-	return resolveAccountTier(groupName, configuredDescription, registry)
 }
 
 func resolveAccountTier(groupName, configuredDescription string, registry *setting.AccessProfileSetting) AccountTierMetadata {

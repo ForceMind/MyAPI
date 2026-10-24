@@ -1,7 +1,6 @@
 package common
 
 import (
-	"encoding/base64"
 	"fmt"
 	kitutil "github.com/ForceMind/MyAPI/relaykit/relayconvert/kitutil"
 	"strconv"
@@ -93,10 +92,6 @@ func StringToByteSlice(s string) []byte {
 	tmp1 := (*[2]uintptr)(unsafe.Pointer(&s))
 	tmp2 := [3]uintptr{tmp1[0], tmp1[1], tmp1[1]}
 	return *(*[]byte)(unsafe.Pointer(&tmp2))
-}
-
-func EncodeBase64(str string) string {
-	return base64.StdEncoding.EncodeToString([]byte(str))
 }
 
 func GetJsonString(data any) string {

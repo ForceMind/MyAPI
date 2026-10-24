@@ -128,57 +128,6 @@ func CaptureModelPricingSnapshot(modelName string) ModelPricingSnapshot {
 	}
 }
 
-// CaptureOptionMapForPricingRead keeps the administrator's old-value CAS view
-// on one side of a local pricing batch publication.
-func CaptureOptionMapForPricingRead() (map[string]string, error) {
-	pricingRuntimeMu.RLock()
-	defer pricingRuntimeMu.RUnlock()
-	if pricingRuntimeFault.Load() {
-		return nil, ErrPricingRuntimeUnavailable
-	}
-	common.OptionMapRWMutex.RLock()
-	defer common.OptionMapRWMutex.RUnlock()
-	values := make(map[string]string, len(common.OptionMap))
-	for key, value := range common.OptionMap {
-		values[key] = value
-	}
-	return values, nil
-}
-
-func CapturePricingSyncData() (map[string]any, error) {
-	pricingRuntimeMu.RLock()
-	defer pricingRuntimeMu.RUnlock()
-	if pricingRuntimeFault.Load() {
-		return nil, ErrPricingRuntimeUnavailable
-	}
-	data := billing_setting.GetPricingSyncData(map[string]any(ratio_setting.GetExposedData()))
-	data["image_ratio"] = ratio_setting.GetImageRatioCopy()
-	data["audio_ratio"] = ratio_setting.GetAudioRatioCopy()
-	data["audio_completion_ratio"] = ratio_setting.GetAudioCompletionRatioCopy()
-	return data, nil
-}
-
-func CaptureExposedPricingData() (map[string]any, bool, error) {
-	pricingRuntimeMu.RLock()
-	defer pricingRuntimeMu.RUnlock()
-	if pricingRuntimeFault.Load() {
-		return nil, false, ErrPricingRuntimeUnavailable
-	}
-	if !ratio_setting.IsExposeRatioEnabled() {
-		return nil, false, nil
-	}
-	return map[string]any(ratio_setting.GetExposedData()), true, nil
-}
-
-func CapturePublicPricing() ([]Pricing, []PricingVendor, error) {
-	pricingRuntimeMu.RLock()
-	defer pricingRuntimeMu.RUnlock()
-	if pricingRuntimeFault.Load() {
-		return nil, nil, ErrPricingRuntimeUnavailable
-	}
-	return GetPricing(), GetVendors(), nil
-}
-
 func isModelPricingOptionKey(key string) bool {
 	switch key {
 	case "ModelRatio", "ModelPrice", "CompletionRatio", "CacheRatio", "CreateCacheRatio", "ImageRatio", "AudioRatio", "AudioCompletionRatio", "ExposeRatioEnabled", "billing_setting.billing_mode", "billing_setting.billing_expr":

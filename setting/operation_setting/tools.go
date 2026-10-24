@@ -257,12 +257,6 @@ func (s *managedToolPriceSetting) UpdateConfigMap(values map[string]string) erro
 	return nil
 }
 
-// RebuildToolPriceIndex republishes the current immutable overrides together
-// with a freshly derived index. It is not used on the billing hot path.
-func RebuildToolPriceIndex() {
-	toolPriceSetting.mutateOverrides(func(map[string]float64) {})
-}
-
 // GetToolPriceForModel returns the price ($/1K calls) for a tool given a model name.
 // Lookup: longest prefix match → tool default → 0.
 func GetToolPriceForModel(toolName, modelName string) float64 {
