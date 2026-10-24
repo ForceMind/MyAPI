@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { i18n as I18nInstance } from 'i18next'
+
 import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
 
 export const INTERFACE_LANGUAGE_OPTIONS = [
@@ -107,4 +109,33 @@ export function toIntlLocale(value?: string | null): string | undefined {
   } catch {
     return undefined
   }
+}
+
+/**
+ * Convert an interface language code into the BCP-47 tag written to
+ * `<html lang>`. Chinese uses script subtags (`zh-Hans` / `zh-Hant`) because
+ * the script, not the region, decides which CJK glyphs and font stack apply
+ * (see the `:lang()` blocks in styles/theme.css).
+ */
+export function toDocumentLanguage(value?: string | null): string {
+  if (value === 'zhCN') return 'zh-Hans'
+  if (value === 'zhTW') return 'zh-Hant'
+  return toIntlLocale(value) ?? 'en'
+}
+
+/**
+ * Keep `<html lang>` equal to the interface language: screen readers pick
+ * pronunciation from it, and the CSS font stacks are selected with `:lang()`.
+ * Applies the current language immediately (i18next may already have
+ * initialised) and then follows every language change.
+ */
+export function syncDocumentLanguage(instance: I18nInstance): void {
+  if (typeof document === 'undefined') return
+  const apply = (language?: string) => {
+    document.documentElement.lang = toDocumentLanguage(
+      instance.resolvedLanguage ?? language
+    )
+  }
+  apply(instance.language)
+  instance.on('languageChanged', apply)
 }

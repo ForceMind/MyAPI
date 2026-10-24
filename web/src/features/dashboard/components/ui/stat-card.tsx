@@ -56,17 +56,17 @@ interface StatCardProps {
 
 const TONE_CLASSES: Record<StatCardTone, string> = {
   'accent-1':
-    'from-overview-accent-1/80 via-overview-accent-1/45 to-overview-accent-1/5 dark:from-overview-accent-1/70 dark:via-overview-accent-1/30',
+    'from-chart-1/80 via-chart-1/45 to-chart-1/5 dark:from-chart-1/70 dark:via-chart-1/30',
   'accent-2':
-    'from-overview-accent-2/80 via-overview-accent-2/45 to-overview-accent-2/5 dark:from-overview-accent-2/70 dark:via-overview-accent-2/30',
+    'from-chart-2/80 via-chart-2/45 to-chart-2/5 dark:from-chart-2/70 dark:via-chart-2/30',
   'accent-3':
-    'from-overview-accent-3/80 via-overview-accent-3/45 to-overview-accent-3/5 dark:from-overview-accent-3/70 dark:via-overview-accent-3/30',
+    'from-chart-3/80 via-chart-3/45 to-chart-3/5 dark:from-chart-3/70 dark:via-chart-3/30',
 }
 
 const LINE_TONE_CLASSES: Record<StatCardTone, string> = {
-  'accent-1': 'text-overview-accent-1',
-  'accent-2': 'text-overview-accent-2',
-  'accent-3': 'text-overview-accent-3',
+  'accent-1': 'text-chart-1',
+  'accent-2': 'text-chart-2',
+  'accent-3': 'text-chart-3',
 }
 
 const ICON_TONE_BY_STAT_TONE: Record<StatCardTone, IconBadgeTone> = {

@@ -259,7 +259,7 @@ function PresetConfig() {
       <Radio
         value={customization.preset}
         onValueChange={(v) => setPreset(v as ThemePreset)}
-        className='grid w-full grid-cols-4 gap-3'
+        className='grid w-full grid-cols-2 gap-3'
         aria-label={t('Select color preset')}
       >
         {THEME_PRESETS.map((preset) => (
@@ -267,7 +267,7 @@ function PresetConfig() {
             key={preset.value}
             value={preset.value}
             className='group flex flex-col items-stretch outline-none'
-            aria-label={t(`preset.${preset.value}`)}
+            aria-label={t(preset.labelKey)}
           >
             <div
               className={cn(
@@ -279,13 +279,8 @@ function PresetConfig() {
             >
               <div
                 aria-hidden='true'
+                data-preset-swatch={preset.value}
                 className='absolute inset-0 rounded-md'
-                style={{
-                  background:
-                    preset.value === 'default'
-                      ? 'linear-gradient(135deg, oklch(0.68 0.2 25) 0%, oklch(0.8 0.17 85) 25%, oklch(0.72 0.18 155) 50%, oklch(0.66 0.19 245) 75%, oklch(0.68 0.2 315) 100%)'
-                      : `linear-gradient(135deg, ${preset.swatches[0]} 0%, ${preset.swatches[1] ?? preset.swatches[0]} 100%)`,
-                }}
               />
               <CircleCheck
                 className={cn(
@@ -295,8 +290,8 @@ function PresetConfig() {
                 aria-hidden='true'
               />
             </div>
-            <div className='mt-1.5 truncate text-center text-xs'>
-              {t(`preset.${preset.value}`)}
+            <div className='mt-1.5 text-center text-xs'>
+              {t(preset.labelKey)}
             </div>
           </Item>
         ))}
@@ -311,9 +306,8 @@ function PresetConfig() {
  * Each option renders a live "Aa" preview in the font it represents.
  * `Auto` deliberately leaves `fontFamily` undefined so the preview inherits
  * the currently active body font — that way the user sees what `Auto` will
- * actually look like for the active preset (Anthropic → serif glyphs,
- * everything else → sans glyphs) without us having to duplicate the
- * preset-default mapping in the UI.
+ * actually look like for the active preset without us having to duplicate
+ * the preset-default mapping in the UI.
  */
 const FONT_OPTIONS: {
   value: ThemeFont
@@ -395,7 +389,7 @@ const RADIUS_OPTIONS: {
   // CSS border-radius value used to render the visual preview corner.
   preview: string
 }[] = [
-  { value: 'default', label: 'Auto', preview: '1rem' },
+  { value: 'default', label: 'Auto', preview: '0.5rem' },
   { value: 'none', label: '0', preview: '0' },
   { value: 'sm', label: '0.3', preview: '0.3rem' },
   { value: 'md', label: '0.5', preview: '0.5rem' },

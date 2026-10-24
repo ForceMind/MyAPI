@@ -1,36 +1,5 @@
-/* Approved personal-console visual-v0.2; original logo asset stays unchanged. */
-:root:not([data-theme-preset]) .personal-console,
-:root:not([data-theme-preset])
-  body:has(.personal-console)
-  [data-slot='dialog-content'],
-:root:not([data-theme-preset])
-  body:has(.personal-console)
-  [data-slot='sheet-content'] {
-  --background: #f7f8fc;
-  --foreground: #182338;
-  --card: #fff;
-  --card-foreground: #182338;
-  --popover: #fff;
-  --popover-foreground: #182338;
-  --primary: #4f6bd8;
-  --primary-foreground: #fff;
-  --border: #dfe4f0;
-  --input: #dfe4f0;
-  --ring: #4f6bd8;
-  --muted: #edf0f7;
-  --muted-foreground: #586780;
-  --accent: #e9edf8;
-  --accent-foreground: #304799;
-  --secondary: #edf0f7;
-  --secondary-foreground: #304160;
-  --success: #087a55;
-  --success-foreground: #fff;
-  --warning: #8a5b00;
-  --warning-foreground: #fff;
-  --destructive: #b42318;
-  --destructive-foreground: #fff;
-  color: var(--foreground);
-}
+/* Personal console shell layout. Colours come only from the semantic tokens
+ * in theme.css and theme-presets.css; this file defines no palette. */
 /* Platform shell: business data is shared, desktop and mobile navigation differ. */
 .personal-console {
   --pc-header-height: 64px;
@@ -252,7 +221,7 @@
 }
 .personal-console [data-slot='card'],
 .pc-card {
-  border-radius: var(--pc-card-radius, 12px);
+  border-radius: var(--pc-card-radius, var(--radius-xl));
   border: 1px solid var(--border);
   background: var(--card);
   box-shadow: none;
@@ -461,39 +430,6 @@
     padding-inline: 8px;
   }
 }
-.dark:not([data-theme-preset]) .personal-console,
-.dark:not([data-theme-preset])
-  body:has(.personal-console)
-  [data-slot='dialog-content'],
-.dark:not([data-theme-preset])
-  body:has(.personal-console)
-  [data-slot='sheet-content'] {
-  --background: #131c2b;
-  --foreground: #e6ebf5;
-  --card: #1b2639;
-  --card-foreground: #e6ebf5;
-  --popover: #1b2639;
-  --popover-foreground: #e6ebf5;
-  --border: #35435c;
-  --input: #35435c;
-  --muted: #25334a;
-  --muted-foreground: #b6c2d6;
-  --accent: #2a3b60;
-  --accent-foreground: #c2d0ff;
-  --secondary: #25334a;
-  --secondary-foreground: #e6ebf5;
-  --success: #6ee7b7;
-  --success-foreground: #182338;
-  --warning: #fcd34d;
-  --warning-foreground: #182338;
-  --destructive: #fda4af;
-  --destructive-foreground: #182338;
-}
-
-.dark .pc-mobile-nav a[aria-current='page'] {
-  color: #a9baff;
-}
-
 [data-theme-radius] .personal-console {
   --pc-card-radius: var(--radius);
 }

@@ -20,11 +20,9 @@ For commercial licensing, please contact support@quantumnous.com
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/public-sans';
-/* Editorial serif (Lora) backing the `serif` font axis and the Anthropic
- * preset's default typography. See `--font-serif` in theme.css for the
- * full Latin + CJK fallback stack and `theme-presets.css` for the cascade
- * that activates it. Loaded globally so font-switching is instantaneous
- * with no FOUT once the variable is fetched. */
+/* Editorial serif (Lora) backing the optional `serif` font axis. See
+ * `--font-serif` in theme.css for the full Latin + CJK fallback stack and
+ * `theme-presets.css` for the cascade that activates it. */
 @import '@fontsource-variable/lora';
 
 @import './theme.css';
@@ -102,8 +100,9 @@ For commercial licensing, please contact support@quantumnous.com
      * (defined in theme.css, swapped by `[data-theme-font='...']` blocks
      * in theme-presets.css). Defaults to the project's humanist sans. */
     font-family: var(--font-body);
+    /* 1.5 for Latin/Cyrillic, 1.6 for CJK (theme.css :lang blocks). */
+    line-height: var(--leading-body);
   }
-
   /* Keep sticky headers stable while primitives lock body scrolling. */
   body[data-scroll-locked] {
     overflow: unset !important;
@@ -160,14 +159,6 @@ For commercial licensing, please contact support@quantumnous.com
   ) !important;
   background-size: 300% 100% !important;
   animation: skeleton-shimmer 1.8s ease-in-out infinite !important;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .skeleton-shimmer,
-  .auto-skeleton-fade [class^='skeleton-'] {
-    animation: none !important;
-    background: var(--skeleton-base) !important;
-  }
 }
 
 @utility container {
@@ -432,18 +423,6 @@ For commercial licensing, please contact support@quantumnous.com
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .animate-appear,
-  .animate-appear-zoom,
-  .animate-scroll-up,
-  .animate-scroll-down,
-  [data-slot='table'] tbody tr {
-    animation: none !important;
-    opacity: 1;
-    transform: none;
-  }
-}
-
 /* Smooth streaming: one-shot fade-in on newly streamed words.
  * Duration must match FADE_DURATION_MS in response-fade.ts */
 @keyframes stream-fade-in {
@@ -458,12 +437,6 @@ For commercial licensing, please contact support@quantumnous.com
 [data-stream-fade] {
   animation: stream-fade-in 250ms ease-out both;
   animation-delay: var(--stream-fade-delay, 0ms);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  [data-stream-fade] {
-    animation: none;
-  }
 }
 
 /* ── Landing page scroll-triggered animations ── */
@@ -530,18 +503,6 @@ For commercial licensing, please contact support@quantumnous.com
 }
 .landing-animate-fade-right {
   animation: landing-fade-right 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .landing-animate-fade-up,
-  .landing-animate-fade-in,
-  .landing-animate-scale-in,
-  .landing-animate-fade-left,
-  .landing-animate-fade-right {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-  }
 }
 
 /* Micro-interactions — Vercel-style subtle hover/active feedback */
@@ -672,14 +633,6 @@ For commercial licensing, please contact support@quantumnous.com
   animation: terminal-demo-pulse 1.5s ease-in-out infinite;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .terminal-demo-blink,
-  .terminal-demo-spin,
-  .terminal-demo-pulse {
-    animation: none !important;
-  }
-}
-
 /* ── Auto group flowing border ── */
 @property --auto-group-flow-angle {
   syntax: '<angle>';
@@ -720,7 +673,53 @@ For commercial licensing, please contact support@quantumnous.com
   animation: auto-group-flow-border-travel 3.2s linear infinite;
 }
 
+/* ── Reduced motion (DESIGN_DIRECTION 4.5) ─────────────────────────────
+ * The single place that honours prefers-reduced-motion: motion tokens drop
+ * to 0ms, movement and scaling stop, skeletons stop shimmering. Spinners
+ * keep turning because they are the only sign that work is in progress. */
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+  }
+
+  *:not(.animate-spin),
+  *:not(.animate-spin)::before,
+  *:not(.animate-spin)::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .skeleton-shimmer,
+  .auto-skeleton-fade [class^='skeleton-'] {
+    animation: none !important;
+    background: var(--skeleton-base) !important;
+  }
+
+  .animate-appear,
+  .animate-appear-zoom,
+  .animate-scroll-up,
+  .animate-scroll-down,
+  [data-slot='table'] tbody tr,
+  [data-stream-fade],
+  .landing-animate-fade-up,
+  .landing-animate-fade-in,
+  .landing-animate-scale-in,
+  .landing-animate-fade-left,
+  .landing-animate-fade-right,
+  .terminal-demo-blink,
+  .terminal-demo-spin,
+  .terminal-demo-pulse {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
   .auto-group-flow-border {
     display: none;
   }

@@ -18,28 +18,31 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { Transition, Variants } from 'motion/react'
 
-const EASE_OUT_CUBIC = [0.33, 1, 0.68, 1] as const
+// Mirrors the CSS motion tokens in styles/theme.css (DESIGN_DIRECTION 4.5):
+// --duration-fast/base/slow and --ease-standard. Movement stays within 8px.
+const EASE_STANDARD = [0.2, 0, 0, 1] as const
 
 const DURATION = {
   instant: 0,
-  fast: 0.15,
-  normal: 0.25,
-  slow: 0.35,
+  fast: 0.12,
+  normal: 0.2,
+  slow: 0.28,
 } as const
 
 export const MOTION_TRANSITION: Record<string, Transition> = {
-  default: { duration: DURATION.normal, ease: EASE_OUT_CUBIC },
-  fast: { duration: DURATION.fast, ease: EASE_OUT_CUBIC },
-  slow: { duration: DURATION.slow, ease: EASE_OUT_CUBIC },
+  default: { duration: DURATION.normal, ease: EASE_STANDARD },
+  fast: { duration: DURATION.fast, ease: EASE_STANDARD },
+  slow: { duration: DURATION.slow, ease: EASE_STANDARD },
   spring: { type: 'spring', damping: 20, stiffness: 300 },
   none: { duration: DURATION.instant },
 }
 
 export const MOTION_VARIANTS = {
+  // Page changes fade only; no whole-page movement.
   pageEnter: {
-    initial: { opacity: 0, y: 8, filter: 'blur(4px)' },
-    animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
-    exit: { opacity: 0, y: -4, filter: 'blur(2px)' },
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
   },
   fadeIn: {
     initial: { opacity: 0 },
@@ -52,21 +55,21 @@ export const MOTION_VARIANTS = {
     exit: { opacity: 0, scale: 0.96 },
   },
   slideUp: {
-    initial: { opacity: 0, y: 16 },
+    initial: { opacity: 0, y: 8 },
     animate: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: 16 },
+    exit: { opacity: 0, y: 8 },
   },
   slideDown: {
-    initial: { opacity: 0, y: -16 },
+    initial: { opacity: 0, y: -8 },
     animate: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: -16 },
+    exit: { opacity: 0, y: -8 },
   },
   tableRow: {
     initial: { opacity: 0, y: 4 },
     animate: { opacity: 1, y: 0 },
   },
   cardItem: {
-    initial: { opacity: 0, y: 12, scale: 0.98 },
+    initial: { opacity: 0, y: 8, scale: 0.98 },
     animate: { opacity: 1, y: 0, scale: 1 },
   },
   sidebarSlide: {
@@ -102,7 +105,7 @@ export const CARD_STAGGER_VARIANTS: Variants = {
 }
 
 export const CARD_ITEM_VARIANTS: Variants = {
-  initial: { opacity: 0, y: 12, scale: 0.98 },
+  initial: { opacity: 0, y: 8, scale: 0.98 },
   animate: {
     opacity: 1,
     y: 0,

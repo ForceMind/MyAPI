@@ -45,6 +45,7 @@ import { handleServerError } from '@/lib/handle-server-error'
 import { DirectionProvider } from './context/direction-provider'
 import { FontProvider } from './context/font-provider'
 import { ThemeProvider } from './context/theme-provider'
+import { syncDocumentLanguage } from './i18n/languages'
 import '@/i18n/runtime-config'
 
 // Generated Routes
@@ -57,6 +58,7 @@ import './styles/index.css'
 // VChart theme is driven by our ThemeProvider (html.light/html.dark) via per-chart `theme` prop.
 initializeFrontendCache()
 installBuildMetadata()
+syncDocumentLanguage(i18next)
 
 const queryClient = new QueryClient({
   defaultOptions: {
