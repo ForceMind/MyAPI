@@ -135,16 +135,27 @@ async function screenshot(page, name, { shell = true, touch = false, headingLeve
     }
     const header = document.querySelector('[data-myapi-header]')
     const main = document.querySelector('main#content')
-    const title = main?.querySelector(`h${headingLevel}`)
+    // Below 1024px an open inspector is the page (design 5.2, 6.1): the list
+    // page header steps aside and the inspector heading titles the page.
+    const inspectorPage = main?.querySelector('[data-inspector="page"]')
+    const title = inspectorPage ? inspectorPage.querySelector('h2') : main?.querySelector(`h${headingLevel}`)
+    // The shell scrolls the page inside a route scrollport below the top bar,
+    // so a scrolled main is clipped by that scrollport, not by the header.
+    let scrollport = main?.parentElement
+    while (scrollport && !['auto', 'scroll', 'hidden', 'clip'].includes(getComputedStyle(scrollport).overflowY)) scrollport = scrollport.parentElement
+    const visibleTop = main && scrollport ? Math.max(main.getBoundingClientRect().top, scrollport.getBoundingClientRect().top + scrollport.clientTop) : null
+    const mainBox = main?.getBoundingClientRect()
+    const firstVisibleMainPoint = mainBox && visibleTop !== null ? document.elementFromPoint(mainBox.left + mainBox.width / 2, visibleTop + 1) : null
+    const headerCoversMain = Boolean(header && firstVisibleMainPoint && header.contains(firstVisibleMainPoint))
     const controls = authenticated ? [...header.querySelectorAll('button')].filter(element => element.getBoundingClientRect().width > 0).map(element => ({ name: element.getAttribute('aria-label') || element.textContent, ...rect(element) })) : []
     const actions = authenticated ? [...document.querySelectorAll('.myapi-page-actions button')].filter(element => element.getBoundingClientRect().width > 0).map(element => ({ name: element.getAttribute('aria-label') || element.textContent, text: element.innerText.trim(), ...rect(element), whiteSpace: getComputedStyle(element).whiteSpace })) : []
     const personalNavigation = [...document.querySelectorAll('[data-myapi-interface="platform"] nav')].find(element => element.getBoundingClientRect().width > 0 && element.getBoundingClientRect().height > 0)
-    return { viewport: { width: innerWidth, height: innerHeight }, documentWidth: document.documentElement.scrollWidth, coarsePointer: matchMedia('(pointer: coarse)').matches, header: rect(header), main: rect(main), title: rect(title), controls, actions, personalNavigation: rect(personalNavigation), theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light' }
+    return { viewport: { width: innerWidth, height: innerHeight }, documentWidth: document.documentElement.scrollWidth, coarsePointer: matchMedia('(pointer: coarse)').matches, header: rect(header), main: rect(main), visibleTop, headerCoversMain, title: rect(title), controls, actions, personalNavigation: rect(personalNavigation), theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light' }
   }, { authenticated: shell === true, headingLevel })
   assert(geometry.documentWidth <= geometry.viewport.width + 1, `${name}: page-wide horizontal overflow: ${JSON.stringify(geometry)}`)
   if (shell === true) {
     assert(geometry.main && geometry.header && geometry.title, `${name}: authenticated semantic shell`)
-    assert(geometry.main.y >= geometry.header.bottom - 1, `${name}: main is not covered by the actual header`)
+    assert(geometry.visibleTop >= geometry.header.bottom - 1 && !geometry.headerCoversMain, `${name}: main is not covered by the actual header: ${JSON.stringify({ header: geometry.header, main: geometry.main, visibleTop: geometry.visibleTop, headerCoversMain: geometry.headerCoversMain })}`)
     assert(geometry.main.x >= -1 && geometry.main.right <= geometry.viewport.width + 1, `${name}: main stays in the viewport`)
     assert(geometry.main.height > 100 && geometry.title.height > 0, `${name}: readable main and title`)
     assert(geometry.title.x >= geometry.main.x - 1 && geometry.title.right <= geometry.main.right + 1, `${name}: task title fits the main column`)
@@ -361,6 +372,8 @@ try {
     await chooseLayout('Full layout')
     assert.equal(await sidebar.isVisible(), false, 'Full layout releases the desktop sidebar space')
     await page.getByRole('button', { name: label('Expand sidebar'), exact: true }).click()
+    // The rail expands with the 200ms panel transition (design 4.5).
+    await settled(page)
     const restored = await sidebar.boundingBox()
     assert(restored && restored.width === expanded.width, 'The header restores navigation from full layout')
     await page.setViewportSize({ width: 1920, height: 900 })
@@ -606,7 +619,11 @@ try {
       for (let step = 0; step < 30; step++) {
         actionGeometry = await confirmCompliance.evaluate(button => {
           const rect = button.getBoundingClientRect()
-          const content = button.closest('.myapi-page-content').getBoundingClientRect()
+          // Below 1024px the page header and content scroll as one column in
+          // the shell's route scrollport (design 5.2); measure that scrollport.
+          let scrollport = button.parentElement
+          while (scrollport && !(['auto', 'scroll'].includes(getComputedStyle(scrollport).overflowY) && scrollport.scrollHeight > scrollport.clientHeight)) scrollport = scrollport.parentElement
+          const content = (scrollport ?? button.closest('.myapi-page-content')).getBoundingClientRect()
           const target = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
           return { center: rect.y + rect.height / 2, viewportCenter: (content.top + content.bottom) / 2, x: content.x + content.width / 2, visible: rect.top >= content.top && rect.bottom <= content.bottom && rect.left >= content.left && rect.right <= content.right && button.scrollWidth <= button.clientWidth + 1 && (target === button || button.contains(target)) }
         })

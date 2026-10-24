@@ -1185,8 +1185,15 @@ async function blockedHandoff(scenario) {
 
 async function inspectWindowStates(scenario) {
   await runJourney(scenario, async ({ page, reads }) => {
-    const search = await page.locator('header[data-myapi-header]').getByRole('button', { name: tr('Search', scenario.language), exact: true }).boundingBox()
-    assert(search && search.width === search.height && search.width >= 44, 'The console search is a compact square control with an accessible target')
+    const searchControl = page.locator('header[data-myapi-header]').getByRole('button', { name: tr('Search', scenario.language), exact: true })
+    const search = await searchControl.boundingBox()
+    if (scenario.width < 1024) {
+      assert(search && search.width === search.height && search.width >= 44, 'The mobile console search is a compact square control with an accessible target')
+    } else {
+      // Design 5.1: the PC header carries a wide global search bar with its Ctrl/Cmd K shortcut.
+      assert(search && search.width > search.height * 3 && search.height >= 36, 'The desktop console search is a wide bar with a pointer-sized target')
+      assert.match(await searchControl.getAttribute('aria-keyshortcuts') ?? '', /^(Control|Meta)\+K$/, 'The desktop console search announces its keyboard shortcut')
+    }
     // The overview's health strip carries the connection totals; the
     // connection list itself lives on the Connections page (design 8.1).
     const health = page.locator('[aria-labelledby="overview-health-title"]')
@@ -1195,7 +1202,8 @@ async function inspectWindowStates(scenario) {
     assert.equal(reads.get('/api/channel'), 2, 'The overview reads only the configured and the enabled connection totals')
     await screenshot(page, scenario, 'overview-connections')
     const savedHistory = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/channel/7/quota/history' && response.request().method() === 'GET' && response.status() === 200)
-    await page.getByTestId('overview').getByRole('link', { name: tr('Add connection', scenario.language), exact: true }).click()
+    // Design 8.1: "Add connection" is a page action beside the overview title.
+    await page.locator('main#content').getByRole('link', { name: tr('Add connection', scenario.language), exact: true }).first().click()
     await page.waitForURL('**/connections')
     const inventory = page.getByTestId('connections-inventory')
     await inventory.waitFor()

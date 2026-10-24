@@ -57,7 +57,8 @@ try {
     }
     const openRequest = async (index, requestId) => {
       await rows.nth(index).click()
-      await request.getByText(requestId, { exact: true }).waitFor()
+      // The ID heads the details and may repeat in the diagnosis facts.
+      await request.getByText(requestId, { exact: true }).first().waitFor()
       assert.equal(param('request'), requestId)
     }
     const backToKey = async rowId => {
@@ -142,7 +143,7 @@ try {
       assert.equal(param('keyId'), null)
       // A pasted Request ID opens its details directly.
       await page.goto(`${origin}/usage-logs/common?requestId=SYNTHETIC-PREFLIGHT-REJECTED&inspect=request`, { waitUntil: 'networkidle' })
-      await request.getByText('SYNTHETIC-PREFLIGHT-REJECTED', { exact: true }).waitFor()
+      await request.getByText('SYNTHETIC-PREFLIGHT-REJECTED', { exact: true }).first().waitFor()
       await request.getByText(t('Blocked before upstream'), { exact: true }).waitFor()
       await capture('direct-request')
       const reads = fixture.requests.slice(start)

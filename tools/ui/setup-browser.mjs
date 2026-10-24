@@ -200,12 +200,9 @@ try {
         await page.getByLabel('Password', { exact: true }).fill(credentials.password)
         await page.getByRole('button', { name: 'Sign in', exact: true }).click()
         await page.waitForURL(`${origin}/dashboard`)
-        if (width === 320) {
-          await page.getByRole('button', { name: 'Account menu', exact: true }).click()
-          await page.getByRole('menuitem', { name: 'Profile', exact: true }).click()
-        } else {
-          await page.locator('a[href="/profile"]').filter({ visible: true }).click()
-        }
+        // Profile lives in the account menu at every width (design 5.1).
+        await page.getByRole('button', { name: 'Account menu', exact: true }).click()
+        await page.getByRole('menuitem', { name: 'Profile', exact: true }).click()
         await page.getByRole('heading', { name: 'Synthetic UI operator', level: 2 }).waitFor()
         assert.equal(logins, 1)
         assert.equal(submits, scenario === 'business-failure' ? 2 : 1)

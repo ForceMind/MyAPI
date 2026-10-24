@@ -80,11 +80,9 @@ try {
           await page.waitForURL(`${origin}/profile`)
         } else {
           await page.goto(`${origin}/keys`, { waitUntil: 'networkidle' })
-          if (width === 320) {
-            await page.getByRole('button', { name: 'Account menu', exact: true }).click()
-            await page.getByRole('menuitem', { name: 'Profile', exact: true }).click()
-          }
-          else await page.locator('a[href="/profile"]').first().click()
+          // Profile lives in the account menu at every width (design 5.1).
+          await page.getByRole('button', { name: 'Account menu', exact: true }).click()
+          await page.getByRole('menuitem', { name: 'Profile', exact: true }).click()
           await page.waitForURL(`${origin}/profile`)
         }
         if (scenario === 'failure-retry' || ['stalled-request', 'stalled-auth-refresh'].includes(scenario)) {
