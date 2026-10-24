@@ -117,17 +117,21 @@ try {
       if (mobile) {
         await nav.getByRole('button', { name: t('More'), exact: true }).click()
         const more = page.getByRole('dialog', { name: t('All modules') })
-        for (const [key, href] of [['Request bodies & SSE', '/full-content-logs'], ['Task Logs', '/usage-logs/task'], ['Drawing Logs', '/usage-logs/drawing'], ['System Info', '/system-info'], ['System Settings', '/system-settings/site']]) {
+        for (const [key, href] of [['Bodies & SSE', '/full-content-logs'], ['Tasks', '/usage-logs/task'], ['Drawing', '/usage-logs/drawing'], ['System status', '/system-info'], ['Settings', '/system-settings/site']]) {
           assert.equal(await more.getByRole('link', { name: t(key), exact: true }).getAttribute('href'), href)
         }
         await capture('more')
         await page.keyboard.press('Escape')
       } else {
-        assert.equal(await nav.getByRole('link', { name: t('Request bodies & SSE'), exact: true }).getAttribute('href'), '/full-content-logs')
-        await assertTextContrast(nav.getByRole('link', { name: t('Profile'), exact: true }).locator('span'), 'active platform navigation', 'light')
+        assert.equal(await nav.getByRole('link', { name: t('Bodies & SSE'), exact: true }).getAttribute('href'), '/full-content-logs')
       }
-      await nav.getByRole('link', { name: t('Call records'), exact: true }).click()
+      // Profile moved to the account menu; the call records entry is the
+      // active destination whose contrast is checked on desktop.
+      const callRecords = nav.getByRole('link', { name: t(mobile ? 'Records' : 'Requests_nav'), exact: true })
+      await callRecords.click()
       await page.getByRole('heading', { name: t('Call records'), level: 1 }).waitFor()
+      // Below 1280px the sidebar starts as an icon rail without visible labels.
+      if (item.width >= 1280) await assertTextContrast(callRecords.locator('span'), 'active platform navigation', 'light')
       // This bookmarked server-filtered list must survive detail and return.
       await page.goto(`${origin}/usage-logs/common?pageSize=20&model=synthetic-text-model`, { waitUntil: 'networkidle' })
       const statistics = page.getByRole('region', { name: t('Token usage statistics'), exact: true })

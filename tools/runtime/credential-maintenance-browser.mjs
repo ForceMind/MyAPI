@@ -454,11 +454,12 @@ try {
 
   stage = 'open-keys'
   await page.goto(`${config.origin}/keys`, { waitUntil: 'domcontentloaded' })
-  const visibleVersion = page.getByTestId(
-    config.width < 768
-      ? 'console-mobile-build-version'
-      : 'console-build-revision'
-  )
+  // The console shows its build number at the foot of the account menu on
+  // every width; the mobile top bar no longer carries it.
+  await page
+    .getByRole('button', { name: t('Account menu'), exact: true })
+    .click()
+  const visibleVersion = page.getByTestId('console-build-revision')
   await visibleVersion.waitFor({ state: 'visible' })
   const buildRevision = await page
     .locator('html')
@@ -471,6 +472,8 @@ try {
     (await visibleVersion.textContent())?.trim() === config.version,
     'VISIBLE_VERSION'
   )
+  await page.keyboard.press('Escape')
+  await visibleVersion.waitFor({ state: 'hidden' })
   report.checks.exactProductionBuild = true
   const entry = page
     .getByRole('button', { name: t('Credential maintenance'), exact: true })

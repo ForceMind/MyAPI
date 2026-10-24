@@ -37,6 +37,10 @@ try {
       await page.goto(origin + '/keys', { waitUntil: 'networkidle' })
       await page.getByRole('button', { name: t('View Key requests'), exact: true }).first().waitFor()
       if (width >= 1024) {
+        // Without a saved preference the sidebar starts as an icon rail below 1280px.
+        const startsAsRail = width < 1280
+        assert.equal(await page.locator('.personal-console').getAttribute('data-collapsed'), String(startsAsRail), 'Default sidebar state follows the window width')
+        if (startsAsRail) await page.getByRole('button', { name: t('Expand sidebar'), exact: true }).click()
         const nav = page.getByRole('navigation', { name: t('Personal console navigation') })
         const aligned = await page.evaluate(() => {
           const brand = document.querySelector('.pc-sidebar .pc-brand').getBoundingClientRect()
@@ -63,7 +67,7 @@ try {
       } else {
         await page.getByRole('button', { name: t('More'), exact: true }).click()
         const more = page.getByRole('dialog', { name: t('All modules'), exact: true })
-        await more.getByRole('link', { name: t('System Info'), exact: true }).waitFor()
+        await more.getByRole('link', { name: t('System status'), exact: true }).waitFor()
         await page.keyboard.press('Escape')
       }
       for (const [name, path] of [['keys', '/keys'], ['connections', '/connections?connection=1'], ['requests', '/usage-logs/common?tokenId=21']]) {

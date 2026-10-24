@@ -416,8 +416,12 @@ try {
     await page.goto(`${origin}/keys`, { waitUntil: 'networkidle' })
     const buildRevision = await page.locator('html').getAttribute('data-build-rev')
     assert(buildRevision?.startsWith(`rv.${version}.${process.env.GITHUB_SHA || sourceHead}.`))
-    const visibleVersion = page.getByTestId(scenario.width < 768 ? 'console-mobile-build-version' : 'console-build-revision')
+    // The build number sits at the foot of the account menu on every width.
+    await page.getByRole('button', { name: t('Account menu'), exact: true }).click()
+    const visibleVersion = page.getByTestId('console-build-revision')
     assert.equal((await visibleVersion.textContent())?.trim(), version)
+    await page.keyboard.press('Escape')
+    await visibleVersion.waitFor({ state: 'hidden' })
     const entry = page
       .getByRole('button', { name: t('Credential maintenance'), exact: true })
       .first()

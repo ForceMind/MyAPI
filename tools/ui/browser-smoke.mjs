@@ -461,7 +461,7 @@ try {
       await page.getByRole('button', { name: label('Search'), exact: true }).click()
       const command = page.getByRole('dialog')
       await command.getByRole('combobox').waitFor()
-      for (const title of ['System Settings', 'System Info', ...(options.role === 1 ? ['Connections', 'Channels', 'Users', 'Models'] : []), ...(options.sidebar ? ['API Keys', 'Call records'] : [])]) {
+      for (const title of ['Settings', 'System status', ...(options.role === 1 ? ['Connections', 'Account windows', 'Users', 'Model catalog'] : []), ...(options.sidebar ? ['API Keys_nav', 'Requests_nav'] : [])]) {
         assert.equal(await command.getByRole('option', { name: label(title), exact: true }).count(), 0, `command honors role/sidebar narrowing: ${title}`)
       }
       if (options.sidebar) {

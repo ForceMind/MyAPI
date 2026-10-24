@@ -138,7 +138,9 @@ import path from 'node:path'
 
 function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, closeFails = false, deferSwitchUpdate = false, deferDialogClose = false, deferAssistantRendering = false, forbidStreamReads = false, hangAt, closeHangs = false, documentResponses = [], reloadAlreadyCurrent = false, savedPlaygroundKeyId, unsafeUsageScreenshot = false, failUsageScreenshot = false, usageFailureRole, onNavigate, wireCapture } = {}) {
   const zh = JSON.parse(readFileSync(new URL('../../web/src/i18n/locales/zh.json', import.meta.url))).translation
-  const reverse = Object.fromEntries(Object.entries(zh).map(([key, value]) => [value, key]))
+  // `*_nav` keys are i18next context variants of a base key (navigation
+  // wording); the base key stays the canonical identity of a shared value.
+  const reverse = Object.fromEntries(Object.entries(zh).filter(([key]) => !key.endsWith('_nav')).map(([key, value]) => [value, key]))
   const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
   const users = new Map([[1, { id: 1, username: base.username, role: 100, quota: 0, used_quota: 15, request_count: 1, self_use_no_balance: true, revision: 1 }]])
   const keys = new Map()
@@ -619,8 +621,9 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
             page.advancedKeyOpen = true
           }
           if (kind === 'link' && parents.some(parent => ['Personal console navigation', 'Mobile console navigation'].includes(parent))) {
-            assert(['Overview', 'API Keys', 'Call records'].includes(value))
-            const pathname = { Overview: '/dashboard/overview', 'API Keys': '/keys', 'Call records': '/usage-logs/common' }[value]
+            // Desktop sidebar labels (en) and mobile bottom-bar labels (zh).
+            const pathname = { Overview: '/dashboard/overview', 'API Keys': '/keys', Requests: '/usage-logs/common', Keys: '/keys', Records: '/usage-logs/common' }[value]
+            assert(pathname, `unexpected console navigation label: ${value}`)
             page.current = base.baseUrl + pathname
             page.logDetailsOpen = false
             page.keyTestExpanded = false

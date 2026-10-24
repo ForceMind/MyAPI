@@ -338,14 +338,17 @@ try {
           .waitFor()
         const nav = page.getByRole('navigation', {
           name: t(
-            width < 768
+            width < 1024
               ? 'Mobile console navigation'
               : 'Personal console navigation'
           ),
           exact: true,
         })
         await nav
-          .getByRole('link', { name: t('API Keys'), exact: true })
+          .getByRole('link', {
+            name: t(width < 1024 ? 'Keys' : 'API Keys_nav'),
+            exact: true,
+          })
           .click()
         const main = page.getByRole('main', {
           name: t('API Keys'),

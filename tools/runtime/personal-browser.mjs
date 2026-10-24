@@ -289,11 +289,15 @@ async function open(session, pathname, { forceLoad = false } = {}) {
   // Reusing a page already at this exact URL avoids needless cache-disabled
   // document reloads. The final persistence check explicitly forces a load.
   if (!forceLoad && session.page.url() === target) return
-  const navigationLabels = { '/dashboard/overview': 'Overview', '/keys': 'API Keys', '/usage-logs/common': 'Call records' }
+  // Below 1024px the console uses the mobile composition and its short tab labels.
+  const mobile = session.width < 1024
+  const navigationLabels = mobile
+    ? { '/dashboard/overview': 'Overview', '/keys': 'Keys', '/usage-logs/common': 'Records' }
+    : { '/dashboard/overview': 'Overview', '/keys': 'API Keys_nav', '/usage-logs/common': 'Requests_nav' }
   if (!forceLoad && session.user && Object.hasOwn(navigationLabels, pathname)) {
     const { page, label } = session
     const navigation = page.getByRole('navigation', {
-      name: label(session.width < 768 ? 'Mobile console navigation' : 'Personal console navigation'), exact: true,
+      name: label(mobile ? 'Mobile console navigation' : 'Personal console navigation'), exact: true,
     })
     await navigation.waitFor({ state: 'visible' })
     await navigation.getByRole('link', { name: label(navigationLabels[pathname]), exact: true })
