@@ -1,0 +1,966 @@
+{
+  "blocked": 0,
+  "pageErrors": [],
+  "writes": [],
+  "steps": [
+    {
+      "task": 1,
+      "layout": "PC 1280",
+      "clicks": 2,
+      "path": "Keys list row -> recent request"
+    },
+    {
+      "task": 1,
+      "layout": "phone 390",
+      "clicks": 3,
+      "path": "bottom nav Keys -> Key -> request (+1 nav tap from overview)"
+    },
+    {
+      "task": 2,
+      "layout": "PC 1280",
+      "clicks": 1,
+      "path": "Ctrl+K, paste, Enter"
+    },
+    {
+      "task": 2,
+      "layout": "phone 390",
+      "clicks": 2,
+      "path": "search icon, paste, Enter"
+    },
+    {
+      "task": 6,
+      "layout": "PC 1280",
+      "clicks": 2,
+      "path": "connection row -> Test"
+    },
+    {
+      "task": 6,
+      "layout": "phone 390",
+      "clicks": 2,
+      "path": "connection row -> Test"
+    },
+    {
+      "task": 4,
+      "layout": "PC 1280",
+      "clicks": 2,
+      "path": "Add connection -> (fill form) -> Save and test; preview refuses the write"
+    },
+    {
+      "task": 9,
+      "layout": "PC 1280",
+      "clicks": 1,
+      "path": "overview 失败 N"
+    }
+  ],
+  "shots": [
+    "overview-1280-light.png",
+    "keys-inspector-1280-light.png",
+    "request-body-1280-light.png",
+    "connections-inspector-1280-light.png",
+    "overview-390-light.png",
+    "keys-inspector-390-light.png",
+    "request-body-390-light.png",
+    "connections-inspector-390-light.png",
+    "overview-1280-dark.png",
+    "keys-inspector-1280-dark.png",
+    "request-body-1280-dark.png",
+    "connections-inspector-1280-dark.png",
+    "overview-390-dark.png",
+    "keys-inspector-390-dark.png",
+    "request-body-390-dark.png",
+    "connections-inspector-390-dark.png",
+    "keys-1280-light.png",
+    "connections-1280-light.png",
+    "account-windows-1280-light.png",
+    "keys-390-light.png",
+    "connections-390-light.png",
+    "account-windows-390-light.png",
+    "task1-1280-key-open.png",
+    "task1-1280-request.png",
+    "task1-1280-body.png",
+    "task1-1280-sse.png",
+    "task1-390-key-page.png",
+    "task1-390-request.png",
+    "task1-390-body.png",
+    "task2-1280-command.png",
+    "task2-1280-details.png",
+    "task2-390-details.png",
+    "task6-1280-test.png",
+    "task6-390-test.png",
+    "task4-1280-editor.png",
+    "task9-1280-failed.png",
+    "keys-inspector-1024-light.png",
+    "connections-inspector-1024-light.png",
+    "overview-1024-light.png",
+    "overview-768-light.png",
+    "keys-inspector-768-light.png",
+    "overview-320-ru.png",
+    "keys-inspector-320-ru.png",
+    "request-body-320-ru.png",
+    "connections-320-ru.png",
+    "overview-1280-lite.png"
+  ],
+  "checks": [
+    {
+      "name": "overview-1280-light: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "overflow": 0,
+        "inspector": null,
+        "h1": "概览",
+        "topTitle": null,
+        "crumbs": [
+          "概览"
+        ]
+      }
+    },
+    {
+      "name": "overview-1280-light: desktop composition",
+      "pass": true,
+      "detail": "desktop"
+    },
+    {
+      "name": "keys-inspector-1280-light: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "overflow": 0,
+        "inspector": "side",
+        "h1": "API Key",
+        "topTitle": null,
+        "crumbs": [
+          "访问",
+          "API Key",
+          "API Key #21"
+        ]
+      }
+    },
+    {
+      "name": "keys-inspector-1280-light: desktop composition",
+      "pass": true,
+      "detail": "desktop"
+    },
+    {
+      "name": "keys-inspector-1280-light: inspector is beside the list",
+      "pass": true,
+      "detail": "side"
+    },
+    {
+      "name": "request-body-1280-light: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "overflow": 0,
+        "inspector": "side",
+        "h1": "API Key",
+        "topTitle": null,
+        "crumbs": [
+          "访问",
+          "API Key",
+          "请求 SYNTHETIC-CONTEXT-ERROR"
+        ]
+      }
+    },
+    {
+      "name": "request-body-1280-light: desktop composition",
+      "pass": true,
+      "detail": "desktop"
+    },
+    {
+      "name": "request-body-1280-light: inspector is beside the list",
+      "pass": true,
+      "detail": "side"
+    },
+    {
+      "name": "connections-inspector-1280-light: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "overflow": 0,
+        "inspector": "side",
+        "h1": "连接",
+        "topTitle": null,
+        "crumbs": [
+          "上游",
+          "连接",
+          "Synthetic connection · 合成连接"
+        ]
+      }
+    },
+    {
+      "name": "connections-inspector-1280-light: desktop composition",
+      "pass": true,
+      "detail": "desktop"
+    },
+    {
+      "name": "connections-inspector-1280-light: inspector is beside the list",
+      "pass": true,
+      "detail": "side"
+    },
+    {
+      "name": "overview-390-light: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": null,
+        "h1": "概览",
+        "topTitle": "概览",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "overview-390-light: mobile composition",
+      "pass": true,
+      "detail": "mobile"
+    },
+    {
+      "name": "keys-inspector-390-light: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": "page",
+        "h1": "API Key",
+        "topTitle": "API Key #21",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "keys-inspector-390-light: mobile composition",
+      "pass": true,
+      "detail": "mobile"
+    },
+    {
+      "name": "keys-inspector-390-light: inspector is a full page",
+      "pass": true,
+      "detail": "page"
+    },
+    {
+      "name": "request-body-390-light: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": "page",
+        "h1": "API Key",
+        "topTitle": "请求 SYNTHETIC-CONTEXT-ERROR",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "request-body-390-light: mobile composition",
+      "pass": true,
+      "detail": "mobile"
+    },
+    {
+      "name": "request-body-390-light: inspector is a full page",
+      "pass": true,
+      "detail": "page"
+    },
+    {
+      "name": "connections-inspector-390-light: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": "page",
+        "h1": "连接",
+        "topTitle": "Synthetic connection · 合成连接",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "connections-inspector-390-light: mobile composition",
+      "pass": true,
+      "detail": "mobile"
+    },
+    {
+      "name": "connections-inspector-390-light: inspector is a full page",
+      "pass": true,
+      "detail": "page"
+    },
+    {
+      "name": "overview-1280-dark: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "overflow": 0,
+        "inspector": null,
+        "h1": "概览",
+        "topTitle": null,
+        "crumbs": [
+          "概览"
+        ]
+      }
+    },
+    {
+      "name": "overview-1280-dark: desktop composition",
+      "pass": true,
+      "detail": "desktop"
+    },
+    {
+      "name": "keys-inspector-1280-dark: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "overflow": 0,
+        "inspector": "side",
+        "h1": "API Key",
+        "topTitle": null,
+        "crumbs": [
+          "访问",
+          "API Key",
+          "API Key #21"
+        ]
+      }
+    },
+    {
+      "name": "keys-inspector-1280-dark: desktop composition",
+      "pass": true,
+      "detail": "desktop"
+    },
+    {
+      "name": "keys-inspector-1280-dark: inspector is beside the list",
+      "pass": true,
+      "detail": "side"
+    },
+    {
+      "name": "request-body-1280-dark: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "overflow": 0,
+        "inspector": "side",
+        "h1": "API Key",
+        "topTitle": null,
+        "crumbs": [
+          "访问",
+          "API Key",
+          "请求 SYNTHETIC-CONTEXT-ERROR"
+        ]
+      }
+    },
+    {
+      "name": "request-body-1280-dark: desktop composition",
+      "pass": true,
+      "detail": "desktop"
+    },
+    {
+      "name": "request-body-1280-dark: inspector is beside the list",
+      "pass": true,
+      "detail": "side"
+    },
+    {
+      "name": "connections-inspector-1280-dark: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "overflow": 0,
+        "inspector": "side",
+        "h1": "连接",
+        "topTitle": null,
+        "crumbs": [
+          "上游",
+          "连接",
+          "Synthetic connection · 合成连接"
+        ]
+      }
+    },
+    {
+      "name": "connections-inspector-1280-dark: desktop composition",
+      "pass": true,
+      "detail": "desktop"
+    },
+    {
+      "name": "connections-inspector-1280-dark: inspector is beside the list",
+      "pass": true,
+      "detail": "side"
+    },
+    {
+      "name": "overview-390-dark: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": null,
+        "h1": "概览",
+        "topTitle": "概览",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "overview-390-dark: mobile composition",
+      "pass": true,
+      "detail": "mobile"
+    },
+    {
+      "name": "keys-inspector-390-dark: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": "page",
+        "h1": "API Key",
+        "topTitle": "API Key #21",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "keys-inspector-390-dark: mobile composition",
+      "pass": true,
+      "detail": "mobile"
+    },
+    {
+      "name": "keys-inspector-390-dark: inspector is a full page",
+      "pass": true,
+      "detail": "page"
+    },
+    {
+      "name": "request-body-390-dark: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": "page",
+        "h1": "API Key",
+        "topTitle": "请求 SYNTHETIC-CONTEXT-ERROR",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "request-body-390-dark: mobile composition",
+      "pass": true,
+      "detail": "mobile"
+    },
+    {
+      "name": "request-body-390-dark: inspector is a full page",
+      "pass": true,
+      "detail": "page"
+    },
+    {
+      "name": "connections-inspector-390-dark: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": "page",
+        "h1": "连接",
+        "topTitle": "Synthetic connection · 合成连接",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "connections-inspector-390-dark: mobile composition",
+      "pass": true,
+      "detail": "mobile"
+    },
+    {
+      "name": "connections-inspector-390-dark: inspector is a full page",
+      "pass": true,
+      "detail": "page"
+    },
+    {
+      "name": "keys-1280: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "overflow": 0,
+        "inspector": null,
+        "h1": "API Key",
+        "topTitle": null,
+        "crumbs": [
+          "访问",
+          "API Key"
+        ]
+      }
+    },
+    {
+      "name": "connections-1280: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "overflow": 0,
+        "inspector": null,
+        "h1": "连接",
+        "topTitle": null,
+        "crumbs": [
+          "上游",
+          "连接"
+        ]
+      }
+    },
+    {
+      "name": "account-windows-1280: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "overflow": 0,
+        "inspector": null,
+        "h1": "账号窗口",
+        "topTitle": null,
+        "crumbs": [
+          "上游",
+          "账号窗口"
+        ]
+      }
+    },
+    {
+      "name": "keys-390: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": null,
+        "h1": "API Key",
+        "topTitle": "API Key",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "connections-390: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": null,
+        "h1": "连接",
+        "topTitle": "连接",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "account-windows-390: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": null,
+        "h1": "账号窗口",
+        "topTitle": "账号窗口",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "overview 1280x800: health, attention, windows and >=3 recent rows in the first screen",
+      "pass": true,
+      "detail": {
+        "health": true,
+        "attention": true,
+        "windows": true,
+        "recentRowsInView": 3
+      }
+    },
+    {
+      "name": "overview 390x844: health and attention start in the first screen",
+      "pass": true,
+      "detail": {
+        "health": 192,
+        "attention": 412,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "keys 390x844: the first Key row is in the first screen",
+      "pass": true,
+      "detail": {
+        "top": 378,
+        "bottom": 426,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "keys 390: Key status labels are not cut off",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "Key inspector 390x844: the first request row is in the first screen (D1/H1)",
+      "pass": true,
+      "detail": {
+        "top": 352,
+        "bottom": 412,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "Key inspector 390: every control in the inspector is at least 44x44",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "connections 390x844: the first connection row is in the first screen",
+      "pass": true,
+      "detail": {
+        "top": 442,
+        "bottom": 524,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "task 1 PC: the Key row opens its recent requests beside the list",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "overflow": 0,
+        "inspector": "side",
+        "h1": "API Key",
+        "topTitle": null,
+        "crumbs": [
+          "访问",
+          "API Key",
+          "API Key #21"
+        ]
+      }
+    },
+    {
+      "name": "task 1 PC: the request opens with its result and diagnosis (2 clicks)",
+      "pass": true,
+      "detail": {
+        "search": "?inspect=21&request=SYNTHETIC-CONTEXT-ERROR",
+        "facts": "返回 Synthetic same-name Key · 合成同名 Key\n请求详情\n错误\n10/24 04:06:23\nsynthetic-text-model\nSYNTHETIC-CONTEXT-ERROR\n结果\n请求失败\nHTTP 状态\n200\n用量依据\n用量未提供\n结算\n结算待核对\n诊断\n正文\nSSE\n请求失败\n输入超过上游上下文窗口，请缩短输入后再试。\n输入 Token 估算\n922,000\n\n本地估算，不作为上游实际用量或结算依据。\n\n上游错误码: context_length_exceeded\n\n加载中...\n\n查看这个 Key\n\n请求失败\n\n请求 ID\nSYNTHETIC-CONTEXT-ERROR\nHTTP 状态\n200\n上游请求 ID\nSYN-UP-1\n连接\n1 (Synthetic connection · 合成连接)\nAPI Key\nSynthetic name b"
+      }
+    },
+    {
+      "name": "task 1 PC: the body tab shows the saved, redacted body without resending",
+      "pass": true,
+      "detail": {
+        "writes": [],
+        "search": "?inspect=21&request=SYNTHETIC-CONTEXT-ERROR&requestTab=body"
+      }
+    },
+    {
+      "name": "task 1 PC: Back returns to the Key with focus on the request",
+      "pass": true,
+      "detail": {
+        "search": "?inspect=21",
+        "focus": "100"
+      }
+    },
+    {
+      "name": "task 1 phone: the Key opens as a full page with Back in the top bar",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": "page",
+        "h1": "API Key",
+        "topTitle": "API Key #21",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "phone: top-bar Back from the request returns to the Key with focus on the request",
+      "pass": true,
+      "detail": {
+        "search": "?inspect=21",
+        "focus": "100"
+      }
+    },
+    {
+      "name": "phone: top-bar Back from the Key returns to the list with focus on the Key",
+      "pass": true,
+      "detail": {
+        "search": "",
+        "focus": "21",
+        "listVisible": true
+      }
+    },
+    {
+      "name": "phone: every inspector button can be scrolled clear of the top and bottom bars",
+      "pass": true,
+      "detail": {
+        "checked": 11,
+        "covered": []
+      }
+    },
+    {
+      "name": "task 2: the pasted Request ID is the selected command",
+      "pass": true,
+      "detail": "打开请求 SYNTHETIC-CONTEXT-ERROR"
+    },
+    {
+      "name": "task 2: Enter opens the request details directly (1 step after paste)",
+      "pass": true,
+      "detail": {
+        "path": "/usage-logs/common",
+        "search": "?requestId=SYNTHETIC-CONTEXT-ERROR&inspect=request",
+        "inspector": "side",
+        "crumbs": [
+          "记录",
+          "调用记录",
+          "请求 SYNTHETIC-CONTEXT-ERROR"
+        ]
+      }
+    },
+    {
+      "name": "task 2 phone: search icon, paste, Enter opens the full-page details (2 steps)",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": "page",
+        "h1": "调用记录",
+        "topTitle": "请求 SYNTHETIC-CONTEXT-ERROR",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "task 6: row then Test runs the existing test and shows its result inline (2 clicks)",
+      "pass": true,
+      "detail": "测试失败\nThis optional module is outside the synthetic preview."
+    },
+    {
+      "name": "task 4: Add connection opens the editor titled 添加连接 with 保存并测试",
+      "pass": true,
+      "detail": "O\n添加连接OpenAI"
+    },
+    {
+      "name": "task 4: no buttons overlap in the editor header (paste vs close)",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "task 9: the overview offers 失败 N linked to failed requests of 24 hours",
+      "pass": true,
+      "detail": "/usage-logs/common?type=[\"5\"]&startTime=1792759074000&endTime=1792849074540"
+    },
+    {
+      "name": "task 9: one click lands on the call records filtered to errors",
+      "pass": true,
+      "detail": {
+        "search": "?type=[\"5\"]&startTime=1792759074000&endTime=1792849074540",
+        "filter": false
+      }
+    },
+    {
+      "name": "task 9: the failed requests are listed on arrival",
+      "pass": true,
+      "detail": [
+        {
+          "text": "04:06:23\t\n请求失败\tSynthetic name before ren",
+          "opacity": "1"
+        },
+        {
+          "text": "04:05:53\t\n请求成功\tSynthetic same-name Key ·",
+          "opacity": "1"
+        },
+        {
+          "text": "04:05:23\t\n请求成功\tSynthetic same-name Key ·",
+          "opacity": "1"
+        },
+        {
+          "text": "04:04:53\t\n请求成功\tSynthetic same-name Key ·",
+          "opacity": "1"
+        },
+        {
+          "text": "04:04:23\t\n请求成功\tSynthetic same-name Key ·",
+          "opacity": "1"
+        },
+        {
+          "text": "04:03:53\t\n发出前已拒绝\tSynthetic same-name Key",
+          "opacity": "1"
+        }
+      ]
+    },
+    {
+      "name": "1280: from the Key's call records, Back to Keys returns focus to that Key",
+      "pass": true,
+      "detail": {
+        "backLabel": true,
+        "search": "?focusKeyId=21",
+        "active": "查看 Key 请求"
+      }
+    },
+    {
+      "name": "390: from the Key's call records, Back to Keys returns focus to that Key",
+      "pass": true,
+      "detail": {
+        "backLabel": true,
+        "search": "?focusKeyId=21",
+        "active": "21"
+      }
+    },
+    {
+      "name": "1024: the Key inspector overlays the list",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "overflow": 0,
+        "inspector": "overlay",
+        "h1": "API Key",
+        "topTitle": null,
+        "crumbs": [
+          "访问",
+          "API Key",
+          "API Key #21"
+        ]
+      }
+    },
+    {
+      "name": "1024: the connection inspector overlays the list",
+      "pass": true
+    },
+    {
+      "name": "overview 1024: no horizontal overflow",
+      "pass": true
+    },
+    {
+      "name": "overview 768: mobile composition without overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": null,
+        "h1": "概览",
+        "topTitle": "概览",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "keys-inspector 768: mobile composition without overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": "page",
+        "h1": "API Key",
+        "topTitle": "API Key #21",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "overview 320 ru: no horizontal overflow, lang ru",
+      "pass": true,
+      "detail": {
+        "lang": "ru",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": null,
+        "h1": "Обзор",
+        "topTitle": "Обзор",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "overview 320 ru: every tab label fits inside its tab row",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-inspector 320 ru: no horizontal overflow, lang ru",
+      "pass": true,
+      "detail": {
+        "lang": "ru",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": "page",
+        "h1": "Ключи API",
+        "topTitle": "Ключ API #21",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "keys-inspector 320 ru: every tab label fits inside its tab row",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-body 320 ru: no horizontal overflow, lang ru",
+      "pass": true,
+      "detail": {
+        "lang": "ru",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": "page",
+        "h1": "Ключи API",
+        "topTitle": "Запрос SYNTHETIC-CONTEXT-ERROR",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "request-body 320 ru: every tab label fits inside its tab row",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "connections 320 ru: no horizontal overflow, lang ru",
+      "pass": true,
+      "detail": {
+        "lang": "ru",
+        "composition": "mobile",
+        "overflow": 0,
+        "inspector": "page",
+        "h1": "Подключения",
+        "topTitle": "Synthetic connection · 合成连接",
+        "crumbs": []
+      }
+    },
+    {
+      "name": "connections 320 ru: every tab label fits inside its tab row",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "lite overview: no performance or site content panels",
+      "pass": true,
+      "detail": "概览\n创建 API Key\n添加连接\n健康\n请求（24 小时）\n6\n含成功与失败\n失败率\n33.3%\n近 24 小时最近 6 条请求\n耗时中位数\n2 秒\n近 24 小时最近 6 条请求\n已启用连接\n1 / 1\n已启用 / 已配置\n需要处理\n待核对请求\n最近请求中 2 条失败\n1 条请求已完成但未返回用量\n用量最高的账号窗口\n查看全部账号窗口\nSynthetic subscription · 合成订"
+    },
+    {
+      "name": "page h1 equals the navigation name on all four pages",
+      "pass": true,
+      "detail": [
+        {
+          "route": "/dashboard/overview",
+          "h1": "概览",
+          "nav": "概览"
+        },
+        {
+          "route": "/keys",
+          "h1": "API Key",
+          "nav": "API Key"
+        },
+        {
+          "route": "/connections",
+          "h1": "连接",
+          "nav": "连接"
+        },
+        {
+          "route": "/upstream-accounts",
+          "h1": "账号窗口",
+          "nav": "账号窗口"
+        }
+      ]
+    }
+  ],
+  "failed": []
+}
