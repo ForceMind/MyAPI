@@ -6945,6 +6945,21 @@
     "Zero retention": "データ保持なし",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Analytics": "分析",
+    "Account windows": "アカウント枠",
+    "Model catalog": "モデルカタログ",
+    "Access": "アクセス",
+    "Keys": "キー",
+    "Records": "記録",
+    "Bodies & SSE": "本文と SSE",
+    "Tasks": "タスク",
+    "System status": "稼働状況",
+    "Commerce": "商用機能",
+    "API Keys_nav": "APIキー",
+    "Requests_nav": "呼び出し履歴",
+    "Search pages or paste a Request ID": "ページを検索、またはリクエストIDを貼り付け",
+    "Find request {{requestId}}": "リクエスト {{requestId}} を検索",
+    "Language": "言語"
   }
 }

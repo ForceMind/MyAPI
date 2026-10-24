@@ -6945,6 +6945,21 @@
     "Zero retention": "零数据保留",
     "Zhipu": "智谱",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "Analytics": "分析",
+    "Account windows": "账号窗口",
+    "Model catalog": "模型目录",
+    "Access": "访问",
+    "Keys": "Key",
+    "Records": "记录",
+    "Bodies & SSE": "正文与 SSE",
+    "Tasks": "任务",
+    "System status": "运行状态",
+    "Commerce": "商业",
+    "API Keys_nav": "API Key",
+    "Requests_nav": "调用记录",
+    "Search pages or paste a Request ID": "搜索页面或粘贴请求 ID",
+    "Find request {{requestId}}": "查找请求 {{requestId}}",
+    "Language": "语言"
   }
 }

@@ -16,8 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { Megaphone01Icon, Notification03Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import type { TFunction } from 'i18next'
-import { Bell, Megaphone } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { RichContent } from '@/components/rich-content'
@@ -190,7 +191,7 @@ function NoticeContent({
   if (loading) {
     return (
       <EmptyState
-        icon={<Bell />}
+        icon={<HugeiconsIcon icon={Notification03Icon} />}
         title={t('Loading...')}
         description={t('Latest platform updates and notices')}
       />
@@ -199,7 +200,10 @@ function NoticeContent({
 
   if (!notice) {
     return (
-      <EmptyState icon={<Bell />} title={t('No announcements at this time')} />
+      <EmptyState
+        icon={<HugeiconsIcon icon={Notification03Icon} />}
+        title={t('No announcements at this time')}
+      />
     )
   }
 
@@ -225,7 +229,7 @@ function AnnouncementsContent({
   if (loading) {
     return (
       <EmptyState
-        icon={<Megaphone />}
+        icon={<HugeiconsIcon icon={Megaphone01Icon} />}
         title={t('Loading...')}
         description={t('Latest platform updates and notices')}
       />
@@ -234,7 +238,10 @@ function AnnouncementsContent({
 
   if (announcements.length === 0) {
     return (
-      <EmptyState icon={<Megaphone />} title={t('No system announcements')} />
+      <EmptyState
+        icon={<HugeiconsIcon icon={Megaphone01Icon} />}
+        title={t('No system announcements')}
+      />
     )
   }
 
@@ -314,7 +321,7 @@ export function NotificationPopover({
           />
         }
       >
-        <Bell className='size-[1.2rem]' />
+        <HugeiconsIcon icon={Notification03Icon} aria-hidden='true' />
         {unreadCount > 0 ? (
           <Badge
             variant='destructive'
@@ -343,11 +350,19 @@ export function NotificationPopover({
         >
           <TabsList className='grid w-full grid-cols-2'>
             <TabsTrigger value='notice' className='gap-1.5'>
-              <Bell className='size-3.5' />
+              <HugeiconsIcon
+                icon={Notification03Icon}
+                className='size-3.5'
+                aria-hidden='true'
+              />
               {t('Notice')}
             </TabsTrigger>
             <TabsTrigger value='announcements' className='gap-1.5'>
-              <Megaphone className='size-3.5' />
+              <HugeiconsIcon
+                icon={Megaphone01Icon}
+                className='size-3.5'
+                aria-hidden='true'
+              />
               {t('Timeline')}
             </TabsTrigger>
           </TabsList>

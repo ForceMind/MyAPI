@@ -6945,6 +6945,21 @@
     "Zero retention": "Không lưu dữ liệu",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Analytics": "Phân tích",
+    "Account windows": "Cửa sổ tài khoản",
+    "Model catalog": "Danh mục mô hình",
+    "Access": "Truy cập",
+    "Keys": "Khóa",
+    "Records": "Nhật ký",
+    "Bodies & SSE": "Nội dung và SSE",
+    "Tasks": "Tác vụ",
+    "System status": "Trạng thái hệ thống",
+    "Commerce": "Thương mại",
+    "API Keys_nav": "Khóa API",
+    "Requests_nav": "Lịch sử gọi",
+    "Search pages or paste a Request ID": "Tìm trang hoặc dán ID yêu cầu",
+    "Find request {{requestId}}": "Tìm yêu cầu {{requestId}}",
+    "Language": "Ngôn ngữ"
   }
 }

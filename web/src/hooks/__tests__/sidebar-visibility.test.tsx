@@ -51,26 +51,29 @@ describe('sidebar role and module visibility', () => {
     localStorage.clear()
   })
 
-  test('an administrator cannot see the root-only System Settings entry', async () => {
+  test('an administrator cannot see the root-only Settings entry', async () => {
     await renderShellRoute(<NavigationProbe />)
 
-    expect(screen.getByRole('link', { name: 'Connections' })).toBeInTheDocument()
     expect(
-      screen.queryByRole('link', { name: 'System Settings' })
+      screen.getByRole('link', { name: 'Connections' })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: 'Settings' })
     ).not.toBeInTheDocument()
   })
 
-  test('a root operator can see System Settings and System Info', async () => {
+  test('a root operator can see Settings and System status', async () => {
     useAuthStore
       .getState()
       .auth.setUser({ id: 1, username: 'root', role: ROLE.SUPER_ADMIN })
     await renderShellRoute(<NavigationProbe />)
 
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute(
+      'href',
+      '/system-settings/site'
+    )
     expect(
-      screen.getByRole('link', { name: 'System Settings' })
-    ).toHaveAttribute('href', '/system-settings/site')
-    expect(
-      screen.getByRole('link', { name: 'System Info' })
+      screen.getByRole('link', { name: 'System status' })
     ).toBeInTheDocument()
   })
 
@@ -80,9 +83,9 @@ describe('sidebar role and module visibility', () => {
       .auth.setUser({ id: 2, username: 'member', role: ROLE.USER })
     await renderShellRoute(<NavigationProbe />)
 
-    expect(
-      screen.queryByRole('region', { name: 'Admin' })
-    ).not.toBeInTheDocument()
+    for (const name of ['Users', 'Subscriptions', 'Redemption Codes']) {
+      expect(screen.queryByRole('link', { name })).not.toBeInTheDocument()
+    }
     expect(screen.getByRole('link', { name: 'API Keys' })).toBeInTheDocument()
   })
 
@@ -106,7 +109,7 @@ describe('sidebar role and module visibility', () => {
       screen.queryByRole('link', { name: 'API Keys' })
     ).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('link', { name: 'Call records' })
+      screen.queryByRole('link', { name: 'Requests' })
     ).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Overview' })).toBeInTheDocument()
   })
@@ -120,7 +123,7 @@ describe('sidebar role and module visibility', () => {
       screen.queryByRole('link', { name: 'System Information' })
     ).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('link', { name: 'System Settings' })
+      screen.queryByRole('link', { name: 'Settings' })
     ).not.toBeInTheDocument()
   })
 
@@ -134,9 +137,7 @@ describe('sidebar role and module visibility', () => {
     })
     await renderShellRoute(<NavigationProbe />)
 
-    expect(
-      screen.getByRole('link', { name: 'System Settings' })
-    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument()
   })
 
   test('disabled commerce leaves funding history out of the default navigation', async () => {
@@ -157,12 +158,22 @@ describe('sidebar role and module visibility', () => {
       .getState()
       .auth.setUser({ id: 1, username: 'root', role: ROLE.SUPER_ADMIN })
     await renderShellRoute(<NavigationProbe />)
-    const console = screen.getByRole('region', { name: 'Connections & access' })
+    const regions = screen
+      .getAllByRole('region')
+      .map((region) => region.getAttribute('aria-label'))
+    expect(regions.indexOf('Upstream')).toBeGreaterThanOrEqual(0)
+    expect(regions.indexOf('Upstream')).toBeLessThan(regions.indexOf('Access'))
+    expect(regions.indexOf('Access')).toBeLessThan(regions.indexOf('Records'))
     expect(
-      within(console)
+      within(screen.getByRole('region', { name: 'Upstream' }))
         .getAllByRole('link')
         .map((link) => link.textContent)
-    ).toEqual(['Upstream accounts', 'Connections', 'Models', 'API Keys'])
+    ).toEqual(['Connections', 'Account windows', 'Model catalog'])
+    expect(
+      within(screen.getByRole('region', { name: 'Access' }))
+        .getAllByRole('link')
+        .map((link) => link.textContent)
+    ).toEqual(['API Keys', 'Users'])
   })
 
   test('ordinary users do not receive upstream or settings destinations in the console', async () => {
@@ -170,7 +181,12 @@ describe('sidebar role and module visibility', () => {
       .getState()
       .auth.setUser({ id: 2, username: 'owner', role: ROLE.USER })
     await renderShellRoute(<NavigationProbe />)
-    for (const name of ['Connections', 'Models', 'System Settings']) {
+    for (const name of [
+      'Connections',
+      'Account windows',
+      'Model catalog',
+      'Settings',
+    ]) {
       expect(screen.queryByRole('link', { name })).not.toBeInTheDocument()
     }
   })

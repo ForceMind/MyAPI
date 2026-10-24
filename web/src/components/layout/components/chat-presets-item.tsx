@@ -16,8 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import {
+  ArrowRight01Icon,
+  LinkSquare02Icon,
+  Loading03Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { Link, useLocation } from '@tanstack/react-router'
-import { ExternalLink, Loader2, ChevronRight } from 'lucide-react'
 import { useMemo, useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -106,9 +111,17 @@ function ChatMenuItem({
           {preset.name}
         </span>
         {loading ? (
-          <Loader2 className='h-4 w-4 shrink-0 animate-spin' />
+          <HugeiconsIcon
+            icon={Loading03Icon}
+            className='size-4 shrink-0 animate-spin'
+            aria-hidden='true'
+          />
         ) : (
-          <ExternalLink className='h-4 w-4 shrink-0' />
+          <HugeiconsIcon
+            icon={LinkSquare02Icon}
+            className='size-4 shrink-0'
+            aria-hidden='true'
+          />
         )}
       </SidebarMenuSubButton>
     </SidebarMenuSubItem>
@@ -146,9 +159,17 @@ function DropdownPresetItem({
     >
       {preset.name}
       {loading ? (
-        <Loader2 className='ml-auto h-4 w-4 animate-spin opacity-70' />
+        <HugeiconsIcon
+          icon={Loading03Icon}
+          className='ms-auto size-4 animate-spin opacity-70'
+          aria-hidden='true'
+        />
       ) : (
-        <ExternalLink className='ml-auto h-4 w-4 opacity-70' />
+        <HugeiconsIcon
+          icon={LinkSquare02Icon}
+          className='ms-auto size-4 opacity-70'
+          aria-hidden='true'
+        />
       )}
     </DropdownMenuItem>
   )
@@ -236,9 +257,19 @@ export function ChatPresetsItem({ item }: { item: NavChatPresets }) {
           <DropdownMenuTrigger
             render={<SidebarMenuButton tooltip={item.title} />}
           >
-            {item.icon && <item.icon className='h-4 w-4 shrink-0' />}
+            {item.icon && (
+              <HugeiconsIcon
+                icon={item.icon}
+                className='size-4 shrink-0'
+                aria-hidden='true'
+              />
+            )}
             <span className='min-w-0 flex-1 truncate'>{item.title}</span>
-            <ChevronRight className='ms-auto h-4 w-4 shrink-0 opacity-70' />
+            <HugeiconsIcon
+              icon={ArrowRight01Icon}
+              className='ms-auto size-4 shrink-0 opacity-70'
+              aria-hidden='true'
+            />
           </DropdownMenuTrigger>
           <DropdownMenuContent align='start'>
             {visiblePresets.map((preset) => (
@@ -266,9 +297,19 @@ export function ChatPresetsItem({ item }: { item: NavChatPresets }) {
         className='group/collapsible-trigger'
         render={<SidebarMenuButton />}
       >
-        {item.icon && <item.icon className='shrink-0' />}
+        {item.icon && (
+          <HugeiconsIcon
+            icon={item.icon}
+            className='shrink-0'
+            aria-hidden='true'
+          />
+        )}
         <span className='min-w-0 flex-1 truncate'>{item.title}</span>
-        <ChevronRight className='ms-auto size-4 shrink-0 transition-transform duration-200 group-data-[panel-open]/collapsible-trigger:rotate-90' />
+        <HugeiconsIcon
+          icon={ArrowRight01Icon}
+          className='ms-auto size-4 shrink-0 transition-transform duration-200 group-data-[panel-open]/collapsible-trigger:rotate-90'
+          aria-hidden='true'
+        />
       </CollapsibleTrigger>
       <CollapsibleContent className='CollapsibleContent'>
         <SidebarMenuSub>

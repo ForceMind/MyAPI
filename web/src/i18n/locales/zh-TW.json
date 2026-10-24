@@ -6945,6 +6945,21 @@
     "Zero retention": "零數據保留",
     "Zhipu": "智譜",
     "Zhipu V4": "智譜 V4",
-    "Zoom": "縮放"
+    "Zoom": "縮放",
+    "Analytics": "分析",
+    "Account windows": "帳號視窗",
+    "Model catalog": "模型目錄",
+    "Access": "存取",
+    "Keys": "Key",
+    "Records": "記錄",
+    "Bodies & SSE": "本文與 SSE",
+    "Tasks": "任務",
+    "System status": "運行狀態",
+    "Commerce": "商業",
+    "API Keys_nav": "API Key",
+    "Requests_nav": "呼叫記錄",
+    "Search pages or paste a Request ID": "搜尋頁面或貼上請求 ID",
+    "Find request {{requestId}}": "查找請求 {{requestId}}",
+    "Language": "語言"
   }
 }

@@ -57,11 +57,12 @@ describe('command navigation follows sidebar access', () => {
     expect(
       await screen.findByRole('option', { name: 'API Keys' })
     ).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Profile' })).toBeInTheDocument()
     expect(
       screen.queryByRole('option', { name: 'Connections' })
     ).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('option', { name: 'System Settings' })
+      screen.queryByRole('option', { name: 'Settings' })
     ).not.toBeInTheDocument()
   })
 
@@ -105,5 +106,76 @@ describe('command navigation follows sidebar access', () => {
     await waitFor(() =>
       expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     )
+  })
+})
+
+describe('command search opens a pasted Request ID', () => {
+  const requestId = '20261024093015123456789ab12cd34Xy7Zq9Lm'
+
+  beforeEach(() => {
+    Object.defineProperty(HTMLElement.prototype, 'getAnimations', {
+      configurable: true,
+      value: () => [],
+    })
+    localStorage.clear()
+    useAuthStore
+      .getState()
+      .auth.setUser({ id: 1, username: 'root', role: ROLE.SUPER_ADMIN })
+  })
+  afterEach(() => {
+    if (originalGetAnimations) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        'getAnimations',
+        originalGetAnimations
+      )
+    } else Reflect.deleteProperty(HTMLElement.prototype, 'getAnimations')
+    useAuthStore.getState().auth.reset('idle')
+    localStorage.clear()
+  })
+
+  test('pasting a Request ID and pressing Enter opens the call records filtered to it', async () => {
+    const user = userEvent.setup()
+    const { router } = await renderShellRoute(<SearchWorkspace />)
+    const input = await screen.findByRole('combobox')
+    await user.click(input)
+    await user.paste(`  ${requestId}\n`)
+    expect(
+      screen.getByRole('option', { name: `Find request ${requestId}` })
+    ).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByText('No results found.')).not.toBeInTheDocument()
+    await user.keyboard('{Enter}')
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/usage-logs/common')
+    )
+    expect(router.state.location.search).toMatchObject({ requestId })
+    await waitFor(() =>
+      expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    )
+  })
+
+  test('typing a page name does not offer a Request ID lookup', async () => {
+    const user = userEvent.setup()
+    await renderShellRoute(<SearchWorkspace />)
+    await user.type(await screen.findByRole('combobox'), 'Settings')
+    expect(
+      screen.queryByRole('option', { name: /^Find request/ })
+    ).not.toBeInTheDocument()
+  })
+
+  test('a user whose call records are hidden is not offered a Request ID lookup', async () => {
+    const user = userEvent.setup()
+    await renderShellRoute(<SearchWorkspace />, {
+      status: {
+        SidebarModulesAdmin: JSON.stringify({
+          console: { enabled: true, log: false },
+        }),
+      },
+    })
+    await user.click(await screen.findByRole('combobox'))
+    await user.paste(requestId)
+    expect(
+      screen.queryByRole('option', { name: /^Find request/ })
+    ).not.toBeInTheDocument()
   })
 })

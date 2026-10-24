@@ -1,6 +1,7 @@
-/* Personal console shell layout. Colours come only from the semantic tokens
- * in theme.css and theme-presets.css; this file defines no palette. */
-/* Platform shell: business data is shared, desktop and mobile navigation differ. */
+/* Console shell layout (one shell for every role and edition). Colours come
+ * only from the semantic tokens in theme.css and theme-presets.css; this file
+ * defines no palette. PC (>=1024px) and mobile are separate compositions in
+ * console-shell.tsx; these rules size them. */
 .personal-console {
   --pc-header-height: 64px;
   --pc-page-gutter: 16px;
@@ -9,6 +10,9 @@
   width: 100%;
   height: 100svh;
   overflow: hidden;
+  /* clip, unlike hidden, cannot be scrolled by scrollIntoView or focus, so
+   * the top bar and bottom navigation never slide out of view. */
+  overflow: clip;
   background: var(--background);
 }
 .pc-sidebar {
@@ -66,17 +70,54 @@
 .pc-header > .pc-brand strong {
   font-size: 18px;
 }
-.personal-console .pc-header-actions > button {
+.pc-header-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+}
+.personal-console .pc-header-actions > button,
+.personal-console .pc-header-mobile > button {
   min-width: 44px;
   min-height: 44px;
 }
-.pc-mobile-version {
-  max-width: 84px;
+/* Mobile top bar: brand or back, page title, search, notifications, account. */
+.pc-header-mobile {
+  --pc-header-height: 56px;
+  justify-content: flex-start;
+  gap: 4px;
+  padding-inline: 8px 4px;
+}
+.pc-mobile-brand {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+}
+.pc-mobile-brand img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+.pc-mobile-title {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
+  font-size: var(--text-title);
+  line-height: var(--text-title--line-height);
+  font-weight: 600;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.pc-mobile-title + .pc-header-actions {
+  margin-inline-start: auto;
+}
 .pc-route-content {
+  /* Containing block for positioned page descendants, so they scroll and
+   * clip with the page instead of extending the shell. */
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -98,9 +139,9 @@
 .pc-mobile-nav > a,
 .pc-more {
   display: flex;
-  flex: 1;
-  min-width: 0;
-  min-height: 54px;
+  flex: 1 1 0;
+  min-width: 44px;
+  min-height: 56px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -109,9 +150,23 @@
   font-size: 11px;
   line-height: 14px;
   text-align: center;
-  overflow-wrap: anywhere;
   color: var(--muted-foreground);
   cursor: pointer;
+}
+/* Labels wrap only between words (two lines at most) and never inside one;
+ * CJK keeps its words together. A word wider than the tab is clipped and
+ * the full label stays in the accessible name and title. */
+.pc-mobile-nav > a > span,
+.pc-more > span {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow-wrap: normal;
+  word-break: keep-all;
+  hyphens: manual;
 }
 .pc-mobile-nav svg {
   width: 21px;
@@ -125,11 +180,46 @@
 .pc-nav-group {
   padding-block: 8px;
 }
-.pc-nav-group h2 {
-  margin: 4px 12px 6px;
-  font-size: 11px;
+.pc-nav-group h2,
+.pc-nav-group-toggle {
+  margin: 4px 0 6px;
+  padding-inline: 12px;
+  font-size: var(--text-caption);
+  line-height: var(--text-caption--line-height);
   font-weight: 500;
   color: var(--muted-foreground);
+}
+.pc-nav-group:has(> .pc-nav-group-toggle) {
+  padding-block: 2px;
+}
+.pc-nav-group-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 2px;
+  border-radius: var(--radius-md);
+  text-align: start;
+  cursor: pointer;
+}
+.pc-nav-group-toggle:hover {
+  background: var(--muted);
+}
+.pc-nav-group-toggle svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  transition: transform var(--duration-base) var(--ease-standard);
+}
+.pc-nav-group-toggle[aria-expanded='false'] svg {
+  transform: rotate(-90deg);
+}
+.pc-nav-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .pc-nav-link {
   display: flex;
@@ -159,6 +249,11 @@
 .pc-more-modules .pc-nav-link {
   min-height: 48px;
   font-size: 14px;
+}
+.pc-more-modules .pc-nav-link span {
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 .pc-more-modules .pc-nav-group + .pc-nav-group {
   border-top: 1px solid var(--border);
@@ -251,6 +346,17 @@
   min-height: 40px;
 }
 @media (width < 1024px) {
+  /* Only the top bar and the bottom navigation stay fixed (design 5.2, M1):
+   * the page header, content and pagination scroll as one column. Pages that
+   * contain their own scrolling (data-page-scroll='contained') keep it. */
+  .personal-console .myapi-page:has(> [data-page-scroll='page']) {
+    flex: none;
+    overflow: visible;
+  }
+  .personal-console .myapi-page-content[data-page-scroll='page'] {
+    flex: none;
+    overflow: visible;
+  }
   .personal-console [data-slot='button'] {
     min-height: 40px;
   }
@@ -371,22 +477,35 @@
     justify-content: flex-start;
     color: var(--muted-foreground);
   }
-  .pc-build {
-    display: block;
-    padding: 6px 12px 0;
-    color: var(--muted-foreground);
-    font-size: 10px;
-    line-height: 15px;
-    overflow-wrap: anywhere;
-  }
   .pc-header {
     display: flex;
     flex-shrink: 0;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
     padding: 0 calc(var(--pc-page-gutter) + var(--pc-content-inset));
     background: var(--card);
     border-bottom: 1px solid var(--border);
+  }
+  .pc-header-context {
+    flex: 1;
+    min-width: 0;
+  }
+  .pc-search-bar {
+    width: clamp(14rem, 26vw, 22rem);
+    flex-shrink: 1;
+    justify-content: flex-start;
+    gap: 8px;
+    color: var(--muted-foreground);
+    font-weight: 400;
+  }
+  .pc-search-hint {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-align: start;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
   .pc-mobile-nav {
     display: none;
@@ -401,8 +520,8 @@
     padding: 24px;
   }
   .personal-console[data-collapsed='true'] .pc-sidebar {
-    flex-basis: 68px;
-    width: 68px;
+    flex-basis: 64px;
+    width: 64px;
     padding-inline: 6px;
   }
   .personal-console[data-collapsed='true'][data-collapse-mode='offcanvas']
@@ -416,14 +535,19 @@
   }
   .personal-console[data-collapsed='true'] .pc-brand {
     margin-inline: -6px;
-    padding-inline: 18px;
+    padding-inline: 16px;
   }
   .personal-console[data-collapsed='true'] .pc-brand > span + span,
   .personal-console[data-collapsed='true'] .pc-nav-link span,
   .personal-console[data-collapsed='true'] .pc-nav-group h2,
-  .personal-console[data-collapsed='true'] .pc-collapse span,
-  .personal-console[data-collapsed='true'] .pc-build {
+  .personal-console[data-collapsed='true'] .pc-collapse span {
     display: none;
+  }
+  .personal-console[data-collapsed='true'] .pc-nav-group + .pc-nav-group {
+    border-top: 1px solid var(--border);
+  }
+  .personal-console[data-collapsed='true'] .pc-collapse {
+    justify-content: center;
   }
   .personal-console[data-collapsed='true'] .pc-nav-link {
     justify-content: center;

@@ -16,26 +16,44 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import {
+  LanguageSkillIcon,
+  Logout01Icon,
+  PaintBoardIcon,
+  Settings01Icon,
+  UserIcon,
+  Wallet01Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useNavigate } from '@tanstack/react-router'
-import { User, Wallet, LogOut, Settings } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useInterfaceLanguage } from '@/components/language-switcher'
 import { SignOutDialog } from '@/components/sign-out-dialog'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useTheme } from '@/context/theme-provider'
 import useDialogState from '@/hooks/use-dialog'
 import { useFundingPresentation } from '@/hooks/use-funding-presentation'
+import { useProductEdition } from '@/hooks/use-product-edition'
 import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
 import { useUserDisplay } from '@/hooks/use-user-display'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
+import { getBuildRevision } from '@/lib/build-metadata'
 import { ROLE } from '@/lib/roles'
 import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
 import { useAuthStore } from '@/stores/auth-store'
@@ -44,8 +62,11 @@ const avatarFallbackClassName = 'font-semibold text-white'
 
 export function ProfileDropdown() {
   const { commercialEnabled } = useFundingPresentation()
+  const { capabilities } = useProductEdition()
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const { theme, setTheme } = useTheme()
+  const language = useInterfaceLanguage()
   const [open, setOpen] = useDialogState()
   const user = useAuthStore((state) => state.auth.user)
   const { displayName, roleLabel } = useUserDisplay(user)
@@ -57,6 +78,7 @@ export function ProfileDropdown() {
     () => getUserAvatarStyle(avatarName),
     [avatarName]
   )
+  const version = import.meta.env.VITE_REACT_APP_VERSION || getBuildRevision()
 
   return (
     <>
@@ -79,7 +101,7 @@ export function ProfileDropdown() {
             </AvatarFallback>
           </Avatar>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align='end' sideOffset={8} className='w-56'>
+        <DropdownMenuContent align='end' sideOffset={8} className='w-60'>
           <div className='flex items-center gap-2 px-1.5 py-1.5'>
             <Avatar className='size-8'>
               <AvatarFallback
@@ -111,38 +133,110 @@ export function ProfileDropdown() {
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem onClick={() => navigate({ to: '/profile' })}>
-            <User className='size-4' />
-            {t('Profile')}
-          </DropdownMenuItem>
-
-          {!SELF_USE_MINIMAL && commercialEnabled && isWalletVisible && (
-            <DropdownMenuItem onClick={() => navigate({ to: '/wallet' })}>
-              <Wallet className='size-4' />
-              {t('Wallet')}
+          <DropdownMenuGroup>
+            <DropdownMenuItem onClick={() => navigate({ to: '/profile' })}>
+              <HugeiconsIcon icon={UserIcon} aria-hidden='true' />
+              {t('Profile')}
             </DropdownMenuItem>
-          )}
 
-          {isSuperAdmin && (
-            <DropdownMenuItem
-              onClick={() =>
-                navigate({
-                  to: '/system-settings/site/$section',
-                  params: { section: 'system-info' },
-                })
-              }
-            >
-              <Settings className='size-4' />
-              {t('System Settings')}
-            </DropdownMenuItem>
-          )}
+            {!SELF_USE_MINIMAL &&
+              capabilities.payments &&
+              commercialEnabled &&
+              isWalletVisible && (
+                <DropdownMenuItem onClick={() => navigate({ to: '/wallet' })}>
+                  <HugeiconsIcon icon={Wallet01Icon} aria-hidden='true' />
+                  {t('Wallet')}
+                </DropdownMenuItem>
+              )}
+
+            {isSuperAdmin && (
+              <DropdownMenuItem
+                onClick={() =>
+                  navigate({
+                    to: '/system-settings/site/$section',
+                    params: { section: 'system-info' },
+                  })
+                }
+              >
+                <HugeiconsIcon icon={Settings01Icon} aria-hidden='true' />
+                {t('System Settings')}
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem variant='destructive' onClick={() => setOpen(true)}>
-            <LogOut className='size-4' />
-            {t('Sign out')}
-          </DropdownMenuItem>
+          <DropdownMenuGroup>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <HugeiconsIcon icon={LanguageSkillIcon} aria-hidden='true' />
+                {t('Language')}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuGroup>
+                  <DropdownMenuRadioGroup
+                    value={language.current}
+                    onValueChange={(code) => void language.changeLanguage(code)}
+                  >
+                    {language.options.map((option) => (
+                      <DropdownMenuRadioItem
+                        key={option.code}
+                        value={option.code}
+                      >
+                        {option.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <HugeiconsIcon icon={PaintBoardIcon} aria-hidden='true' />
+                {t('Theme')}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuGroup>
+                  <DropdownMenuRadioGroup
+                    value={theme}
+                    onValueChange={(value) =>
+                      setTheme(value as 'light' | 'dark' | 'system')
+                    }
+                  >
+                    <DropdownMenuRadioItem value='light'>
+                      {t('Light')}
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value='dark'>
+                      {t('Dark')}
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value='system'>
+                      {t('System')}
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </DropdownMenuGroup>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              variant='destructive'
+              onClick={() => setOpen(true)}
+            >
+              <HugeiconsIcon icon={Logout01Icon} aria-hidden='true' />
+              {t('Sign out')}
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+
+          <p
+            className='text-muted-foreground px-2 pt-1 pb-1.5 text-[11px] break-all'
+            data-testid='console-build-revision'
+            title={getBuildRevision()}
+          >
+            {version}
+          </p>
         </DropdownMenuContent>
       </DropdownMenu>
 

@@ -19,10 +19,10 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useProductEdition } from '@/hooks/use-product-edition'
 import { useStatus } from '@/hooks/use-status'
 import { resolveDocsLink } from '@/lib/build-branding'
 import { parseHeaderNavModulesFromStatus } from '@/lib/nav-modules'
-import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
 import { useAuthStore } from '@/stores/auth-store'
 
 export type TopNavLink = {
@@ -48,6 +48,7 @@ export type TopNavLink = {
 export function useTopNavLinks(): TopNavLink[] {
   const { t } = useTranslation()
   const { status } = useStatus()
+  const { capabilities } = useProductEdition()
   const { auth } = useAuthStore()
 
   // Parse HeaderNavModules
@@ -77,7 +78,7 @@ export function useTopNavLinks(): TopNavLink[] {
   const pricing = modules?.pricing
   if (
     isAuthed &&
-    !SELF_USE_MINIMAL &&
+    capabilities.public_pricing &&
     pricing &&
     typeof pricing === 'object' &&
     pricing.enabled
@@ -90,7 +91,7 @@ export function useTopNavLinks(): TopNavLink[] {
   const rankings = modules?.rankings
   if (
     isAuthed &&
-    !SELF_USE_MINIMAL &&
+    capabilities.rankings &&
     rankings &&
     typeof rankings === 'object' &&
     rankings.enabled

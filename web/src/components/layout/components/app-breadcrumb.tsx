@@ -1,55 +1,47 @@
-import { useLocation } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import {
   Breadcrumb,
   BreadcrumbItem,
+  BreadcrumbLink,
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
-import { getDashboardSectionNavItems } from '@/features/dashboard/section-registry'
-import { getModelsSectionNavItems } from '@/features/models/section-registry'
-import { getUsageLogsSectionNavItems } from '@/features/usage-logs/section-registry'
-import { useSidebarView } from '@/hooks/use-sidebar-view'
-import { ROLE } from '@/lib/roles'
-import { useAuthStore } from '@/stores/auth-store'
+import { useConsolePage } from '@/hooks/use-console-page'
 
-import { checkIsActive } from '../lib/url-utils'
-
-/** Current location context; labels never introduce another permission path. */
+/**
+ * Current location as group / page / current view (design 5.1). The group is
+ * plain text; the parent page is a link that keeps the user's place.
+ */
 export function AppBreadcrumb() {
   const { t } = useTranslation()
-  const href = useLocation({ select: (location) => location.href })
-  const pathname = useLocation({ select: (location) => location.pathname })
-  const role = useAuthStore((state) => state.auth.user?.role ?? ROLE.GUEST)
-  const { navGroups, view } = useSidebarView()
-  const group = navGroups.find((candidate) =>
-    candidate.items.some((item) => checkIsActive(href, item))
-  )
-  const item = group?.items.find((candidate) => checkIsActive(href, candidate))
-  const child = item?.items?.find((candidate) => checkIsActive(href, candidate))
-  const section = [
-    ...getDashboardSectionNavItems(t, { isAdmin: role >= ROLE.ADMIN }),
-    ...getModelsSectionNavItems(t),
-    ...getUsageLogsSectionNavItems(t),
-  ].find((candidate) => candidate.url === pathname)
-
-  let title = child?.title ?? section?.title ?? item?.title ?? t('Console')
-  if (pathname.startsWith('/chat/')) title = t('Chat')
-  if (pathname === '/prompt-learning') title = t('Prompt learning')
-  const context = view ? t('System Settings') : (group?.title ?? t('Console'))
-  const showContext = title !== context
+  const page = useConsolePage()
 
   return (
     <Breadcrumb aria-label={t('Current page')} className='min-w-0'>
       <BreadcrumbList className='flex-nowrap gap-1.5 overflow-hidden'>
-        {showContext && (
+        {page.group && (
           <>
-            <BreadcrumbItem className='max-w-[40%] min-w-0 shrink'>
-              <span className='truncate text-xs' title={context}>
-                {context}
+            <BreadcrumbItem className='max-w-[30%] min-w-0 shrink'>
+              <span className='text-caption truncate' title={page.group}>
+                {page.group}
               </span>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator className='shrink-0' />
+          </>
+        )}
+        {page.parent && (
+          <>
+            <BreadcrumbItem className='max-w-[35%] min-w-0 shrink'>
+              <BreadcrumbLink
+                className='truncate text-sm'
+                title={page.parent.title}
+                render={<Link to={page.parent.url} preload={false} />}
+              >
+                {page.parent.title}
+              </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator className='shrink-0' />
           </>
@@ -57,9 +49,9 @@ export function AppBreadcrumb() {
         <BreadcrumbItem className='min-w-0 flex-1'>
           <BreadcrumbPage
             className='truncate text-sm font-medium'
-            title={title}
+            title={page.title}
           >
-            {title}
+            {page.title}
           </BreadcrumbPage>
         </BreadcrumbItem>
       </BreadcrumbList>

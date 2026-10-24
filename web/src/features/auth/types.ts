@@ -184,6 +184,8 @@ export interface SystemStatus {
   password_login_enabled?: boolean
   password_register_enabled?: boolean
   custom_oauth_providers?: CustomOAuthProviderInfo[]
+  product_edition?: string
+  capabilities?: Partial<Record<string, boolean>>
   [key: string]: unknown
 }
 

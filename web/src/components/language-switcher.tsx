@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Languages, Check } from 'lucide-react'
+import { LanguageSkillIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -24,7 +25,9 @@ import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuGroup,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -32,14 +35,14 @@ import {
   normalizeInterfaceLanguage,
 } from '@/i18n/languages'
 import { api } from '@/lib/api'
-import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
-export function LanguageSwitcher() {
-  const { i18n, t } = useTranslation()
+/** Current interface language and a change handler that also saves it. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useInterfaceLanguage() {
+  const { i18n } = useTranslation()
   const user = useAuthStore((s) => s.auth.user)
-  const currentLanguage = normalizeInterfaceLanguage(i18n.language)
-  const handleChangeLanguage = useCallback(
+  const changeLanguage = useCallback(
     async (code: string) => {
       await i18n.changeLanguage(code)
       if (user) {
@@ -52,31 +55,36 @@ export function LanguageSwitcher() {
     },
     [i18n, user]
   )
+  return {
+    current: normalizeInterfaceLanguage(i18n.language),
+    options: AVAILABLE_INTERFACE_LANGUAGE_OPTIONS,
+    changeLanguage,
+  }
+}
+
+export function LanguageSwitcher() {
+  const { t } = useTranslation()
+  const language = useInterfaceLanguage()
 
   return (
     <DropdownMenu modal={false}>
-      <DropdownMenuTrigger
-        render={<Button variant='ghost' size='icon' className='h-9 w-9' />}
-      >
-        <Languages className='size-[1.2rem]' />
+      <DropdownMenuTrigger render={<Button variant='ghost' size='icon' />}>
+        <HugeiconsIcon icon={LanguageSkillIcon} aria-hidden='true' />
         <span className='sr-only'>{t('Change language')}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end'>
-        {AVAILABLE_INTERFACE_LANGUAGE_OPTIONS.map((lang) => (
-          <DropdownMenuItem
-            key={lang.code}
-            onClick={() => handleChangeLanguage(lang.code)}
+        <DropdownMenuGroup>
+          <DropdownMenuRadioGroup
+            value={language.current}
+            onValueChange={(code) => void language.changeLanguage(code)}
           >
-            {lang.label}
-            <Check
-              size={14}
-              className={cn(
-                'ms-auto',
-                currentLanguage !== lang.code && 'hidden'
-              )}
-            />
-          </DropdownMenuItem>
-        ))}
+            {language.options.map((option) => (
+              <DropdownMenuRadioItem key={option.code} value={option.code}>
+                {option.label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

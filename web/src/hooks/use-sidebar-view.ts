@@ -26,6 +26,7 @@ import { hasPermission } from '@/lib/admin-permissions'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
+import { useProductEdition } from './use-product-edition'
 import { useSidebarConfig } from './use-sidebar-config'
 import { useSidebarData } from './use-sidebar-data'
 
@@ -38,7 +39,7 @@ const ROOT_VIEW_KEY = '__root'
  * - Returns the matching nested {@link SidebarView} (with its nav
  *   groups) when the URL belongs to a registered drill-in workspace.
  * - Otherwise returns the root navigation, narrowed by:
- *     · admin-only group visibility (role-based);
+ *     · per-item `requiredRole` and channel read permission;
  *     · `useSidebarConfig` (admin × user `sidebar_modules` overlay).
  *
  * Nested views are intentionally NOT passed through `useSidebarConfig`
@@ -54,12 +55,11 @@ export function useSidebarView(
   const userRole = user?.role
   const rootSidebarData = useSidebarData()
   const configFilteredRoot = useSidebarConfig(rootSidebarData.navGroups)
+  const { capabilities } = useProductEdition()
 
   const rootNavGroups = useMemo<NavGroup[]>(() => {
     const role = userRole ?? ROLE.GUEST
-    const isAdmin = role >= ROLE.ADMIN
     return configFilteredRoot
-      .filter((group) => (group.id === 'admin' ? isAdmin : true))
       .map((group) => {
         const items = group.items.filter((item) => {
           if (item.requiredRole !== undefined && role < item.requiredRole) {
@@ -91,7 +91,7 @@ export function useSidebarView(
     return {
       key: view.id,
       view,
-      navGroups: view.getNavGroups(t),
+      navGroups: view.getNavGroups(t, capabilities),
     }
   }
 

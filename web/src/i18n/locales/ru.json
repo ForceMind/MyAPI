@@ -6945,6 +6945,21 @@
     "Zero retention": "Без хранения данных",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Analytics": "Аналитика",
+    "Account windows": "Окна аккаунтов",
+    "Model catalog": "Каталог моделей",
+    "Access": "Доступ",
+    "Keys": "Ключи",
+    "Records": "Журналы",
+    "Bodies & SSE": "Содержимое и SSE",
+    "Tasks": "Задачи",
+    "System status": "Состояние системы",
+    "Commerce": "Коммерция",
+    "API Keys_nav": "Ключи API",
+    "Requests_nav": "Запросы",
+    "Search pages or paste a Request ID": "Найти страницу или вставить ID запроса",
+    "Find request {{requestId}}": "Найти запрос {{requestId}}",
+    "Language": "Язык"
   }
 }

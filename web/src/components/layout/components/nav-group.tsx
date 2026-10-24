@@ -16,8 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { ArrowRight01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { Link, useLocation } from '@tanstack/react-router'
-import { ChevronRight } from 'lucide-react'
 import { type ReactNode, useState, useEffect } from 'react'
 
 import { Badge } from '@/components/ui/badge'
@@ -141,7 +142,13 @@ function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {
           />
         }
       >
-        {item.icon && <item.icon className='shrink-0' aria-hidden='true' />}
+        {item.icon && (
+          <HugeiconsIcon
+            icon={item.icon}
+            className='shrink-0'
+            aria-hidden='true'
+          />
+        )}
         <span className='min-w-0 flex-1 truncate'>{item.title}</span>
         {item.badge && <NavBadge>{item.badge}</NavBadge>}
       </SidebarMenuButton>
@@ -184,10 +191,17 @@ function SidebarMenuCollapsible({
         className='group/collapsible-trigger'
         render={<SidebarMenuButton tooltip={item.title} />}
       >
-        {item.icon && <item.icon className='shrink-0' aria-hidden='true' />}
+        {item.icon && (
+          <HugeiconsIcon
+            icon={item.icon}
+            className='shrink-0'
+            aria-hidden='true'
+          />
+        )}
         <span className='min-w-0 flex-1 truncate'>{item.title}</span>
         {item.badge && <NavBadge>{item.badge}</NavBadge>}
-        <ChevronRight
+        <HugeiconsIcon
+          icon={ArrowRight01Icon}
           aria-hidden='true'
           className='ms-auto size-4 shrink-0 transition-transform duration-200 group-data-[panel-open]/collapsible-trigger:rotate-90 motion-reduce:transition-none'
         />
@@ -210,7 +224,11 @@ function SidebarMenuCollapsible({
                 }
               >
                 {subItem.icon && (
-                  <subItem.icon className='shrink-0' aria-hidden='true' />
+                  <HugeiconsIcon
+                    icon={subItem.icon}
+                    className='shrink-0'
+                    aria-hidden='true'
+                  />
                 )}
                 <span className='min-w-0 flex-1 truncate'>{subItem.title}</span>
                 {subItem.badge && <NavBadge>{subItem.badge}</NavBadge>}
@@ -245,10 +263,17 @@ function SidebarMenuCollapsedDropdown({
             />
           }
         >
-          {item.icon && <item.icon className='shrink-0' aria-hidden='true' />}
+          {item.icon && (
+            <HugeiconsIcon
+              icon={item.icon}
+              className='shrink-0'
+              aria-hidden='true'
+            />
+          )}
           <span className='min-w-0 flex-1 truncate'>{item.title}</span>
           {item.badge && <NavBadge>{item.badge}</NavBadge>}
-          <ChevronRight
+          <HugeiconsIcon
+            icon={ArrowRight01Icon}
             aria-hidden='true'
             className='ms-auto size-4 shrink-0 transition-transform duration-200 group-data-[popup-open]/dropdown-trigger:rotate-90 motion-reduce:transition-none'
           />
@@ -270,7 +295,9 @@ function SidebarMenuCollapsedDropdown({
                   />
                 }
               >
-                {sub.icon && <sub.icon />}
+                {sub.icon && (
+                  <HugeiconsIcon icon={sub.icon} aria-hidden='true' />
+                )}
                 <span className='max-w-52 text-wrap'>{sub.title}</span>
                 {sub.badge && (
                   <span className='ms-auto text-xs'>{sub.badge}</span>

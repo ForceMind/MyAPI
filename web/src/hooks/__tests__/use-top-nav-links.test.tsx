@@ -59,3 +59,32 @@ test('explicit external docs link keeps its target', () => {
     external: true,
   })
 })
+
+test.each([
+  ['full', true],
+  ['lite', false],
+] as const)(
+  'a %s edition decides whether Model Square and Rankings are offered',
+  (edition, offered) => {
+    useAuthStore.getState().auth.setUser({ id: 2, username: 'member', role: 1 })
+    vi.mocked(useStatus).mockReturnValue({
+      status: {
+        HeaderNavModules: JSON.stringify({
+          pricing: { enabled: true, requireAuth: false },
+          rankings: { enabled: true, requireAuth: false },
+        }),
+        product_edition: edition,
+        capabilities: { public_pricing: offered, rankings: offered },
+      },
+      loading: false,
+      error: null,
+      confirmed: true,
+    })
+
+    const { result } = renderHook(() => useTopNavLinks())
+    const hrefs = new Set(result.current.map((link) => link.href))
+
+    expect(hrefs.has('/pricing')).toBe(offered)
+    expect(hrefs.has('/rankings')).toBe(offered)
+  }
+)

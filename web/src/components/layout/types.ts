@@ -16,16 +16,21 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { IconSvgElement } from '@hugeicons/react'
 import type { LinkProps } from '@tanstack/react-router'
 import type { TFunction } from 'i18next'
+
+import type { ProductCapability } from '@/lib/product-edition'
 
 /**
  * Base navigation item type
  */
 type BaseNavItem = {
   title: string
+  /** Label for space-constrained places such as the mobile bottom bar. */
+  shortTitle?: string
   badge?: string
-  icon?: React.ElementType
+  icon?: IconSvgElement
   activeUrls?: (LinkProps['to'] | (string & {}))[]
   configUrls?: (LinkProps['to'] | (string & {}))[]
   /**
@@ -34,6 +39,8 @@ type BaseNavItem = {
    * `useSidebarView`). Route-level guards still enforce access independently.
    */
   requiredRole?: number
+  /** Edition capability that must be enabled for the entry to be shown. */
+  capability?: ProductCapability
 }
 
 /**
@@ -75,6 +82,12 @@ export type NavGroup = {
   id?: string
   title: string
   items: NavItem[]
+  /** The group heading is announced to assistive technology only. */
+  titleHidden?: boolean
+  /** The sidebar shows the group folded unless it holds the current page. */
+  defaultCollapsed?: boolean
+  /** Label for the group in the mobile bottom bar, when it has a tab. */
+  shortTitle?: string
 }
 
 /**
@@ -125,7 +138,10 @@ export type SidebarView = {
   /** Back-navigation descriptor; required for nested views */
   parent: SidebarViewParent
   /** Nav group builder, called per render with the active translator */
-  getNavGroups: (t: TFunction) => NavGroup[]
+  getNavGroups: (
+    t: TFunction,
+    capabilities?: Record<ProductCapability, boolean>
+  ) => NavGroup[]
 }
 
 /**

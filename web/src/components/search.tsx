@@ -16,44 +16,60 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { SearchIcon } from 'lucide-react'
+import { Search01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 
 import { useSearch } from '@/context/search-provider'
-import { cn } from '@/lib/utils'
 
 import { Button } from './ui/button'
+import { Kbd } from './ui/kbd'
 
 type SearchProps = {
-  className?: string
-  type?: React.HTMLInputTypeAttribute
-  placeholder?: string
+  /** `bar` shows the hint and shortcut (PC); `icon` is a 44px touch target. */
+  variant?: 'bar' | 'icon'
 }
 
-export function Search({ className = '', placeholder }: SearchProps) {
+const isApplePlatform =
+  typeof navigator !== 'undefined' &&
+  /Mac|iPhone|iPad/.test(navigator.userAgent)
+
+/** Opens the global command search (`Ctrl/⌘ K`). */
+export function Search(props: SearchProps) {
   const { t } = useTranslation()
   const { setOpen } = useSearch()
-  const resolvedPlaceholder = placeholder ?? t('Search')
+
+  if (props.variant === 'icon') {
+    return (
+      <Button
+        variant='ghost'
+        size='icon'
+        className='pc-search-icon'
+        onClick={() => setOpen(true)}
+        aria-label={t('Search')}
+      >
+        <HugeiconsIcon icon={Search01Icon} aria-hidden='true' />
+      </Button>
+    )
+  }
+
   return (
     <Button
       variant='outline'
-      className={cn(
-        'bg-muted/25 group text-muted-foreground hover:bg-accent relative h-8 w-full flex-1 justify-start rounded-md text-sm font-normal shadow-none sm:w-40 sm:pe-12 md:flex-none lg:w-52 xl:w-64',
-        className
-      )}
+      className='pc-search-bar'
       onClick={() => setOpen(true)}
-      aria-label={resolvedPlaceholder}
+      aria-label={t('Search')}
+      aria-keyshortcuts={isApplePlatform ? 'Meta+K' : 'Control+K'}
     >
-      <SearchIcon
+      <HugeiconsIcon
+        icon={Search01Icon}
+        data-icon='inline-start'
         aria-hidden='true'
-        className='absolute start-1.5 top-1/2 -translate-y-1/2'
-        size={16}
       />
-      <span className='ms-4'>{resolvedPlaceholder}</span>
-      <kbd className='bg-muted group-hover:bg-accent pointer-events-none absolute end-[0.3rem] top-[0.3rem] hidden h-5 items-center gap-1 rounded border px-1.5 font-mono text-[10px] font-medium opacity-100 select-none sm:flex'>
-        <span className='text-xs'>⌘</span>
-        {t('K')}
-      </kbd>
+      <span className='pc-search-hint'>
+        {t('Search pages or paste a Request ID')}
+      </span>
+      <Kbd aria-hidden='true'>{isApplePlatform ? '⌘ K' : 'Ctrl K'}</Kbd>
     </Button>
   )
 }

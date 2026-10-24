@@ -16,8 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import {
+  ArrowRight01Icon,
+  ComputerIcon,
+  FileSearchIcon,
+  Moon02Icon,
+  Sun03Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowRight, ChevronRight, Laptop, Moon, Sun } from 'lucide-react'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -37,16 +44,36 @@ import { useSidebarView } from '@/hooks/use-sidebar-view'
 
 import { ScrollArea } from './ui/scroll-area'
 
+const CALL_RECORDS_URL = '/usage-logs/common'
+
+/**
+ * A pasted Request ID is one token of at least eight ID characters with a
+ * digit, hyphen or underscore, so page names such as "Settings" never match.
+ */
+const REQUEST_ID_PATTERN = /^(?=.*[\d_-])[A-Za-z0-9][\w.:-]{7,127}$/
+
 export function CommandMenu() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { setTheme } = useTheme()
   const { open, setOpen } = useSearch()
-  const { navGroups } = useSidebarView()
+  const root = useSidebarView({ rootOnly: true })
+  const context = useSidebarView()
+  const [search, setSearch] = React.useState('')
+
+  const navGroups = context.view
+    ? [...context.navGroups, ...root.navGroups]
+    : root.navGroups
+  const canOpenCallRecords = root.navGroups.some((group) =>
+    group.items.some((item) => item.url === CALL_RECORDS_URL)
+  )
+  const requestId = search.trim()
+  const offerRequest = canOpenCallRecords && REQUEST_ID_PATTERN.test(requestId)
 
   const runCommand = React.useCallback(
     (command: () => unknown) => {
       setOpen(false)
+      setSearch('')
       command()
     },
     [setOpen]
@@ -57,18 +84,48 @@ export function CommandMenu() {
     <CommandDialog
       modal
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setSearch('')
+      }}
       title={t('Search')}
-      description={t('Type a command or search...')}
+      description={t('Search pages or paste a Request ID')}
     >
       <Command>
         <CommandInput
           aria-label={t('Search')}
-          placeholder={t('Type a command or search...')}
+          placeholder={t('Search pages or paste a Request ID')}
+          value={search}
+          onValueChange={setSearch}
         />
         <CommandList>
           <ScrollArea className='h-72 pe-1'>
-            <CommandEmpty>{t('No results found.')}</CommandEmpty>
+            {/* cmdk does not count force-mounted items, so the lookup hides it. */}
+            {!offerRequest && (
+              <CommandEmpty>{t('No results found.')}</CommandEmpty>
+            )}
+            {offerRequest && (
+              <CommandGroup heading={t('Request ID')} forceMount>
+                <CommandItem
+                  value={`request-id:${requestId}`}
+                  forceMount
+                  onSelect={() =>
+                    runCommand(() =>
+                      navigate({
+                        to: '/usage-logs/$section',
+                        params: { section: 'common' },
+                        search: { requestId },
+                      })
+                    )
+                  }
+                >
+                  <HugeiconsIcon icon={FileSearchIcon} aria-hidden='true' />
+                  <span className='truncate'>
+                    {t('Find request {{requestId}}', { requestId })}
+                  </span>
+                </CommandItem>
+              </CommandGroup>
+            )}
             {navGroups.map((group) => {
               const groupIdentity = group.id
                 ? `id:${group.id}`
@@ -100,9 +157,11 @@ export function CommandMenu() {
                             runCommand(() => navigate({ to: navItem.url }))
                           }}
                         >
-                          <div className='flex size-4 items-center justify-center'>
-                            <ArrowRight className='text-muted-foreground/80 size-2' />
-                          </div>
+                          <HugeiconsIcon
+                            icon={ArrowRight01Icon}
+                            aria-hidden='true'
+                            className='text-muted-foreground'
+                          />
                           {navItem.title}
                         </CommandItem>
                       )
@@ -126,10 +185,14 @@ export function CommandMenu() {
                             runCommand(() => navigate({ to: subItem.url }))
                           }}
                         >
-                          <div className='flex size-4 items-center justify-center'>
-                            <ArrowRight className='text-muted-foreground/80 size-2' />
-                          </div>
-                          {navItem.title} <ChevronRight /> {subItem.title}
+                          <HugeiconsIcon
+                            icon={ArrowRight01Icon}
+                            aria-hidden='true'
+                            className='text-muted-foreground'
+                          />
+                          {navItem.title}
+                          <span aria-hidden='true'>/</span>
+                          {subItem.title}
                         </CommandItem>
                       )
                     })
@@ -137,19 +200,34 @@ export function CommandMenu() {
                 </CommandGroup>
               )
             })}
+            <CommandGroup heading={t('Account')}>
+              {/* Profile lives in the account menu, outside the sidebar. */}
+              <CommandItem
+                value={t('Profile')}
+                onSelect={() => runCommand(() => navigate({ to: '/profile' }))}
+              >
+                <HugeiconsIcon
+                  icon={ArrowRight01Icon}
+                  aria-hidden='true'
+                  className='text-muted-foreground'
+                />
+                {t('Profile')}
+              </CommandItem>
+            </CommandGroup>
             <CommandSeparator />
             <CommandGroup heading={t('Theme')}>
               <CommandItem onSelect={() => runCommand(() => setTheme('light'))}>
-                <Sun /> <span>{t('Light')}</span>
+                <HugeiconsIcon icon={Sun03Icon} aria-hidden='true' />
+                <span>{t('Light')}</span>
               </CommandItem>
               <CommandItem onSelect={() => runCommand(() => setTheme('dark'))}>
-                <Moon className='scale-90' />
+                <HugeiconsIcon icon={Moon02Icon} aria-hidden='true' />
                 <span>{t('Dark')}</span>
               </CommandItem>
               <CommandItem
                 onSelect={() => runCommand(() => setTheme('system'))}
               >
-                <Laptop />
+                <HugeiconsIcon icon={ComputerIcon} aria-hidden='true' />
                 <span>{t('System')}</span>
               </CommandItem>
             </CommandGroup>

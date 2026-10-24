@@ -6945,6 +6945,21 @@
     "Zero retention": "Aucune rétention",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Analytics": "Analyses",
+    "Account windows": "Fenêtres de compte",
+    "Model catalog": "Catalogue de modèles",
+    "Access": "Accès",
+    "Keys": "Clés",
+    "Records": "Journaux",
+    "Bodies & SSE": "Contenus et SSE",
+    "Tasks": "Tâches",
+    "System status": "État du système",
+    "Commerce": "Commerce",
+    "API Keys_nav": "Clés API",
+    "Requests_nav": "Requêtes",
+    "Search pages or paste a Request ID": "Rechercher une page ou coller un ID de requête",
+    "Find request {{requestId}}": "Rechercher la requête {{requestId}}",
+    "Language": "Langue"
   }
 }

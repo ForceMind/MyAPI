@@ -35,15 +35,21 @@ const originalGetAnimations = Object.getOwnPropertyDescriptor(
 )
 const originalInnerWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth')
 
+function matchesViewport(query: string, width: number) {
+  const max = /max-width:\s*(\d+)px/.exec(query)
+  const min = /min-width:\s*(\d+)px/.exec(query)
+  if (max) return width <= Number(max[1])
+  if (min) return width >= Number(min[1])
+  return query.includes('prefers-reduced-motion')
+}
+
 function setViewport(width: number) {
   Object.defineProperty(window, 'innerWidth', {
     configurable: true,
     value: width,
   })
   vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
-    matches:
-      query.includes('prefers-reduced-motion') ||
-      (query.includes('max-width') && width < 768),
+    matches: matchesViewport(query, width),
     media: query,
     onchange: null,
     addListener: () => undefined,
@@ -99,24 +105,17 @@ describe('authenticated operator navigation', () => {
         .map((link) => link.textContent)
     ).toEqual([
       'Overview',
-      'Model Call Analytics',
-      'Upstream accounts',
+      'Analytics',
       'Connections',
-      'Models',
+      'Account windows',
+      'Model catalog',
       'API Keys',
     ])
     expect(
       within(navigation)
         .getAllByRole('group')
         .map((group) => group.getAttribute('aria-label'))
-    ).toEqual([
-      'Console',
-      'Connections & access',
-      'Records & diagnostics',
-      'Operations',
-      'Admin',
-      'Tools',
-    ])
+    ).toEqual(['Console', 'Upstream', 'Access', 'Records', 'Tools', 'System'])
     expect(
       within(navigation).getByRole('link', { name: 'Overview' })
     ).toHaveAttribute('aria-current', 'page')
@@ -149,12 +148,9 @@ describe('authenticated operator navigation', () => {
     expect(
       within(context).getByRole('link', { current: 'page' })
     ).toHaveTextContent('Flow')
-    expect(within(header).getByRole('button', { name: 'Search' })).toBeEnabled()
-    expect(within(header).getByRole('button', { name: 'Search' })).toHaveClass(
-      'size-11',
-      'lg:w-11',
-      'xl:w-11'
-    )
+    const search = within(header).getByRole('button', { name: 'Search' })
+    expect(search).toBeEnabled()
+    expect(search).toHaveAttribute('aria-keyshortcuts', 'Control+K')
     expect(
       within(header).getByRole('button', { name: 'Change language' })
     ).toBeInTheDocument()
@@ -175,7 +171,7 @@ describe('authenticated operator navigation', () => {
       'Analyse détaillée des appels aux modèles et de leur utilisation quotidienne'
     i18next.addResourceBundle('fr', 'translation', {
       'Current page': 'Page actuelle',
-      'Model Call Analytics': longTitle,
+      Analytics: longTitle,
     })
 
     await act(async () => {
@@ -256,8 +252,12 @@ describe('authenticated operator navigation', () => {
     const navigation = await screen.findByRole('dialog', {
       name: 'All modules',
     })
-    await user.click(within(navigation).getByRole('link', { name: 'API Keys' }))
-    await waitFor(() => expect(router.state.location.pathname).toBe('/keys'))
+    await user.click(
+      within(navigation).getByRole('link', { name: 'Account windows' })
+    )
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/upstream-accounts')
+    )
     await waitFor(() =>
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     )

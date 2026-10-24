@@ -16,24 +16,36 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useState } from 'react'
+
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { LayoutProvider } from '@/context/layout-provider'
 import { SearchProvider } from '@/context/search-provider'
 import { getCookie } from '@/lib/cookies'
 
-import { PersonalConsoleLayout } from './personal-console-layout'
+import { ConsoleShell } from './console-shell'
 
 type AuthenticatedLayoutProps = {
   children?: React.ReactNode
 }
 
+/**
+ * A saved `sidebar_state` wins; otherwise the sidebar starts as an icon rail
+ * between 1024 and 1279px and expanded from 1280px (design 5.1).
+ */
+function getInitialSidebarOpen() {
+  const saved = getCookie('sidebar_state')
+  if (saved === 'true' || saved === 'false') return saved === 'true'
+  return window.matchMedia('(min-width: 1280px)').matches
+}
+
 export function AuthenticatedLayout(props: AuthenticatedLayoutProps) {
-  const defaultOpen = getCookie('sidebar_state') !== 'false'
+  const [defaultOpen] = useState(getInitialSidebarOpen)
   return (
     <LayoutProvider>
       <SearchProvider>
         <SidebarProvider defaultOpen={defaultOpen} className='contents'>
-          <PersonalConsoleLayout>{props.children}</PersonalConsoleLayout>
+          <ConsoleShell>{props.children}</ConsoleShell>
         </SidebarProvider>
       </SearchProvider>
     </LayoutProvider>

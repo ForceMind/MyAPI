@@ -16,17 +16,21 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { TFunction } from 'i18next'
 import {
-  Box,
-  CreditCard,
-  Layout,
-  Settings,
-  Shield,
-  ShieldAlert,
-  Wrench,
-} from 'lucide-react'
+  CreditCardIcon,
+  CubeIcon,
+  Layout01Icon,
+  SecurityIcon,
+  Settings01Icon,
+  Shield01Icon,
+  Wrench01Icon,
+} from '@hugeicons/core-free-icons'
+import type { TFunction } from 'i18next'
 
+import {
+  resolveProductEdition,
+  type ProductCapability,
+} from '@/lib/product-edition'
 import { SELF_USE_MINIMAL } from '@/lib/self-use-build'
 
 import type { NavGroup, SidebarView } from '../types'
@@ -34,6 +38,8 @@ import type { NavGroup, SidebarView } from '../types'
 type SettingsNavSection = {
   id: string
   titleKey: string
+  selfUseHidden?: boolean
+  capability?: ProductCapability
 }
 
 const SITE_SECTIONS = [
@@ -45,10 +51,14 @@ const SITE_SECTIONS = [
 
 const AUTH_SECTIONS = [
   { id: 'basic-auth', titleKey: 'Basic Authentication' },
-  { id: 'oauth', titleKey: 'OAuth Integrations' },
+  { id: 'oauth', titleKey: 'OAuth Integrations', capability: 'external_oauth' },
   { id: 'passkey', titleKey: 'Passkey Authentication' },
   { id: 'bot-protection', titleKey: 'Bot Protection' },
-  { id: 'custom-oauth', titleKey: 'Custom OAuth' },
+  {
+    id: 'custom-oauth',
+    titleKey: 'Custom OAuth',
+    capability: 'external_oauth',
+  },
 ] as const
 
 const BILLING_SECTIONS = [
@@ -57,8 +67,18 @@ const BILLING_SECTIONS = [
   { id: 'model-pricing', titleKey: 'Model Pricing' },
   { id: 'group-pricing', titleKey: 'Group Pricing' },
   { id: 'quota-writer', titleKey: 'Quota Writer Mode' },
-  { id: 'payment', titleKey: 'Payment Gateway', selfUseHidden: true },
-  { id: 'checkin', titleKey: 'Check-in Rewards', selfUseHidden: true },
+  {
+    id: 'payment',
+    titleKey: 'Payment Gateway',
+    selfUseHidden: true,
+    capability: 'payments',
+  },
+  {
+    id: 'checkin',
+    titleKey: 'Check-in Rewards',
+    selfUseHidden: true,
+    capability: 'checkin',
+  },
 ] as const
 
 const MODEL_SECTIONS = [
@@ -69,7 +89,12 @@ const MODEL_SECTIONS = [
   { id: 'claude', titleKey: 'Claude' },
   { id: 'grok', titleKey: 'Grok' },
   { id: 'channel-affinity', titleKey: 'Channel Affinity' },
-  { id: 'model-deployment', titleKey: 'Model Deployment', selfUseHidden: true },
+  {
+    id: 'model-deployment',
+    titleKey: 'Model Deployment',
+    selfUseHidden: true,
+    capability: 'model_deployments',
+  },
 ] as const
 
 const SECURITY_SECTIONS = [
@@ -106,10 +131,14 @@ const OPERATION_SECTIONS = [
 function getSettingsSectionNavItems(
   t: TFunction,
   basePath: string,
-  sections: readonly (SettingsNavSection & { selfUseHidden?: boolean })[]
+  sections: readonly SettingsNavSection[],
+  capabilities: Record<ProductCapability, boolean>
 ) {
   return sections
     .filter((section) => !SELF_USE_MINIMAL || !section.selfUseHidden)
+    .filter(
+      (section) => !section.capability || capabilities[section.capability]
+    )
     .map((section) => ({
       title: t(section.titleKey),
       url: `${basePath}/${section.id}`,
@@ -123,7 +152,10 @@ function getSettingsSectionNavItems(
  * header already provides top-level context — the inner group label
  * scopes the items as "administration" actions.
  */
-function getSystemSettingsNavGroups(t: TFunction): NavGroup[] {
+function getSystemSettingsNavGroups(
+  t: TFunction,
+  capabilities = resolveProductEdition(null).capabilities
+): NavGroup[] {
   return [
     {
       id: 'system-administration',
@@ -131,69 +163,76 @@ function getSystemSettingsNavGroups(t: TFunction): NavGroup[] {
       items: [
         {
           title: t('Site & Branding'),
-          icon: Settings,
+          icon: Settings01Icon,
           items: getSettingsSectionNavItems(
             t,
             '/system-settings/site',
-            SITE_SECTIONS
+            SITE_SECTIONS,
+            capabilities
           ),
         },
         {
           title: t('Authentication'),
-          icon: Shield,
+          icon: Shield01Icon,
           items: getSettingsSectionNavItems(
             t,
             '/system-settings/auth',
-            AUTH_SECTIONS
+            AUTH_SECTIONS,
+            capabilities
           ),
         },
         {
           title: t('Billing & Payment'),
-          icon: CreditCard,
+          icon: CreditCardIcon,
           items: getSettingsSectionNavItems(
             t,
             '/system-settings/billing',
-            BILLING_SECTIONS
+            BILLING_SECTIONS,
+            capabilities
           ),
         },
         {
           title: t('Models & Routing'),
-          icon: Box,
+          icon: CubeIcon,
           items: getSettingsSectionNavItems(
             t,
             '/system-settings/models',
-            MODEL_SECTIONS
+            MODEL_SECTIONS,
+            capabilities
           ),
         },
         {
           title: t('Security & Limits'),
-          icon: ShieldAlert,
+          icon: SecurityIcon,
           items: getSettingsSectionNavItems(
             t,
             '/system-settings/security',
-            SECURITY_SECTIONS
+            SECURITY_SECTIONS,
+            capabilities
           ),
         },
-        ...(SELF_USE_MINIMAL
+        ...(SELF_USE_MINIMAL || !capabilities.site_content
           ? []
           : [
               {
                 title: t('Console Content'),
-                icon: Layout,
+                icon: Layout01Icon,
                 items: getSettingsSectionNavItems(
                   t,
                   '/system-settings/content',
-                  CONTENT_SECTIONS
+                  CONTENT_SECTIONS,
+                  capabilities
                 ),
               },
             ]),
         {
           title: t('Operations'),
-          icon: Wrench,
+          icon: Wrench01Icon,
           items: getSettingsSectionNavItems(
             t,
             '/system-settings/operations',
-            OPERATION_SECTIONS
+            OPERATION_SECTIONS,
+            capabilities
           ),
         },
       ],

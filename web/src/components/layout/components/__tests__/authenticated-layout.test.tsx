@@ -8,7 +8,7 @@ version.
 */
 import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, expect, test } from 'vitest'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { DirectionProvider } from '@/context/direction-provider'
 import { ThemeProvider } from '@/context/theme-provider'
@@ -21,6 +21,17 @@ import { AuthenticatedLayout } from '../authenticated-layout'
 import { renderShellRoute } from './shell-test-utils'
 
 beforeEach(() => {
+  // A wide desktop window, where the sidebar starts expanded.
+  vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+    matches: query.includes('min-width'),
+    media: query,
+    onchange: null,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => false,
+  }))
   useAuthStore.getState().auth.setUser({
     id: 1,
     username: 'synthetic-maintainer',
@@ -87,17 +98,37 @@ test.each(['enabled', 'retirement', 'unconfirmed'] as const)(
     const navigation = screen.getByRole('navigation', {
       name: 'Personal console navigation',
     })
+    const user = userEvent.setup()
+    await user.click(within(navigation).getByRole('button', { name: 'System' }))
     expect(
-      within(navigation).getByRole('link', { name: 'System Info' })
+      within(navigation).getByRole('link', { name: 'System status' })
     ).toHaveAttribute('href', '/system-info')
+    const commerce = within(navigation).queryByRole('button', {
+      name: 'Commerce',
+    })
+    if (commerce) await user.click(commerce)
     const wallet = within(navigation).queryByRole('link', { name: 'Wallet' })
     if (mode === 'enabled') expect(wallet).toHaveAttribute('href', '/wallet')
     else expect(wallet).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Request filter')).toHaveValue('request-42')
     queryClient.clear()
   }
 )
 
-test('a Root settings page exposes existing setting sections on desktop and mobile More', async () => {
+function useMobileViewport() {
+  vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+    matches: query.includes('max-width'),
+    media: query,
+    onchange: null,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => false,
+  }))
+}
+
+test('a Root settings page exposes existing setting sections on desktop', async () => {
   const { queryClient } = await renderShellRoute(
     <DirectionProvider>
       <ThemeProvider>
@@ -120,13 +151,33 @@ test('a Root settings page exposes existing setting sections on desktop and mobi
   expect(
     within(navigation).getByRole('link', { name: 'Log Maintenance' })
   ).toHaveAttribute('href', '/system-settings/operations/logs')
+  queryClient.clear()
+})
+
+test('a Root settings page exposes existing setting sections in mobile More', async () => {
+  useMobileViewport()
+  const { queryClient } = await renderShellRoute(
+    <DirectionProvider>
+      <ThemeProvider>
+        <AuthenticatedLayout>
+          <main id='content'>Settings</main>
+        </AuthenticatedLayout>
+      </ThemeProvider>
+    </DirectionProvider>,
+    {
+      path: '/system-settings/site/system-info',
+      status: fundingStatus('disabled'),
+    }
+  )
+  expect(
+    within(
+      screen.getByRole('navigation', { name: 'Mobile console navigation' })
+    ).getByRole('link', { name: 'Records' })
+  ).toHaveAttribute('href', '/usage-logs/common')
   await userEvent.setup().click(screen.getByRole('button', { name: 'More' }))
   const dialog = await screen.findByRole('dialog', { name: 'All modules' })
   expect(
     within(dialog).getByRole('link', { name: 'SSRF Protection' })
   ).toHaveAttribute('href', '/system-settings/security/ssrf')
-  expect(
-    within(dialog).getByRole('link', { name: 'Call records' })
-  ).toHaveAttribute('href', '/usage-logs/common')
   queryClient.clear()
 })
