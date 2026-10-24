@@ -19,7 +19,11 @@ import {
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
 import { toIntlLocale } from '@/i18n/languages'
 
-import { nativeWindowState, nativeWindowUsage } from '../window-state'
+import {
+  describeNativeWindowState,
+  nativeWindowState,
+  nativeWindowUsage,
+} from '../window-state'
 
 export function WindowCard(props: {
   item: ChannelQuotaChangeItem
@@ -41,37 +45,11 @@ export function WindowCard(props: {
   } else if (props.item.source === 'codex_wham_usage_secondary') {
     slotLabel = t('Secondary window')
   }
-  let statusLabel = t('No reliable usage sample')
-  let description = t(
-    'No trustworthy usage observation is available for this window.'
-  )
-  let status: 'neutral' | 'success' | 'warning' | 'danger' = 'neutral'
-  if (state === 'error') {
-    statusLabel = t('Usage sample failed')
-    description = t(
-      'The latest usage sample failed. Inspect the channel history and connection.'
-    )
-    status = 'danger'
-  } else if (state === 'unsupported') {
-    statusLabel = t('Window reporting unsupported')
-    description = t('This provider does not report this window.')
-  } else if (state === 'stale') {
-    statusLabel = t('Stale sample')
-    description = t(
-      'This is a past observation, not a current availability check.'
-    )
-    status = 'warning'
-  } else if (state === 'unverified') {
-    statusLabel = t('Sample time unverified')
-    description = t(
-      'The observation time is missing or invalid. This value is not confirmed current.'
-    )
-    status = 'warning'
-  } else if (state === 'available') {
-    statusLabel = t('Snapshot available')
-    description = t('Window resets require a trustworthy upstream sample.')
-    status = 'success'
-  }
+  const {
+    label: statusLabel,
+    description,
+    variant: status,
+  } = describeNativeWindowState(state, t)
   return (
     <Card className='pc-card min-w-0' data-testid='native-window-card'>
       <CardHeader>

@@ -44,7 +44,7 @@ type UseChannelMutateFormParams = {
   currentRow?: Pick<Channel, 'id'> | null
   isEditing: boolean
   isMultiKeyChannel: boolean
-  onSuccess: () => void
+  onSuccess: (response: ChannelMutationResponse<unknown>) => void
 }
 
 const SENSITIVE_UPDATE_FIELDS = [
@@ -154,7 +154,7 @@ export function useChannelMutateForm(props: UseChannelMutateFormParams) {
     },
     onSuccess: ({ messageKey, response }) => {
       notifyChannelMutationSuccess(response, t(messageKey))
-      props.onSuccess()
+      props.onSuccess(response)
     },
     onError: (error: unknown) => {
       if (isModelRouteConfigChanged(error)) {

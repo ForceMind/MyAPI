@@ -177,7 +177,7 @@ import {
   collectInvalidStatusCodeEntries,
   collectNewDisallowedStatusCodeRedirects,
 } from '../../lib/status-code-risk-guard'
-import type { Channel } from '../../types'
+import type { Channel, ChannelMutationResponse } from '../../types'
 import { ChannelModelDiscovery } from '../channel-model-discovery'
 import { ChannelModelRoutes } from '../channel-model-routes'
 import { useChannels } from '../channels-provider'
@@ -205,6 +205,12 @@ type ChannelMutateDrawerProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   currentRow?: Pick<Channel, 'id'> | null
+  /** Replaces the default "Create/Edit Channel" title. */
+  title?: string
+  /** Replaces the default submit label, e.g. "Save and test". */
+  submitLabel?: string
+  /** Receives the saved connection IDs after a successful save. */
+  onSaved?: (channelIds: number[]) => void
 }
 
 type ModelMappingGuardrail = {
@@ -629,6 +635,9 @@ export function ChannelMutateDrawer({
   open,
   onOpenChange,
   currentRow,
+  title,
+  submitLabel,
+  onSaved,
 }: ChannelMutateDrawerProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -1636,16 +1645,31 @@ export function ChannelMutateDrawer({
   )
 
   // Handle successful submission
-  const handleSuccess = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
-    if (channelId) {
-      queryClient.invalidateQueries({
-        queryKey: channelsQueryKeys.detail(channelId),
-      })
-    }
-    onOpenChange(false)
-    setOpen(null)
-  }, [channelId, queryClient, onOpenChange, setOpen])
+  const handleSuccess = useCallback(
+    // The Codex OAuth import saves through its own request and reports no
+    // response here, so the saved IDs are optional.
+    (response?: ChannelMutationResponse<unknown>) => {
+      queryClient.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
+      if (channelId) {
+        queryClient.invalidateQueries({
+          queryKey: channelsQueryKeys.detail(channelId),
+        })
+      }
+      onOpenChange(false)
+      setOpen(null)
+      if (onSaved && channelId) {
+        onSaved([channelId])
+      } else if (onSaved) {
+        const created = (response?.data as { ids?: unknown } | undefined)?.ids
+        onSaved(
+          Array.isArray(created)
+            ? created.filter((id): id is number => Number.isSafeInteger(id))
+            : []
+        )
+      }
+    },
+    [channelId, queryClient, onOpenChange, setOpen, onSaved]
+  )
 
   // Show missing models confirmation dialog
   const confirmMissingModelMappings = useCallback(
@@ -1956,7 +1980,8 @@ export function ChannelMutateDrawer({
                     <ChannelTypeLogo type={currentType} size={22} />
                   </IconBadge>
                   <span>
-                    {isEditing ? t('Edit Channel') : t('Create Channel')}
+                    {title ??
+                      (isEditing ? t('Edit Channel') : t('Create Channel'))}
                     <span className='text-muted-foreground ml-2 text-sm font-normal'>
                       {t(currentTypeLabel)}
                     </span>
@@ -1977,7 +2002,8 @@ export function ChannelMutateDrawer({
                   type='button'
                   variant='outline'
                   size='sm'
-                  className='shrink-0'
+                  // Clears the sheet's close button in the top-right corner.
+                  className='shrink-0 sm:mr-8'
                   onClick={pasteConnectionInfoFromClipboard}
                 >
                   <ClipboardPaste className='size-4' />
@@ -5100,7 +5126,8 @@ export function ChannelMutateDrawer({
               {isSubmitting && (
                 <Loader2 className='mr-2 h-4 w-4 animate-spin' />
               )}
-              {isEditing ? t('Update Channel') : t('Save changes')}
+              {submitLabel ??
+                (isEditing ? t('Update Channel') : t('Save changes'))}
             </Button>
           </SheetFooter>
         </SheetContent>

@@ -8,11 +8,23 @@ version.
 */
 import z from 'zod'
 
+export const CONNECTION_INSPECTOR_TABS = [
+  'overview',
+  'windows',
+  'routing',
+] as const
+export type ConnectionInspectorTab = (typeof CONNECTION_INSPECTOR_TABS)[number]
+
+/**
+ * `/connections` search: list filters plus the open connection (`connection`)
+ * and its inspector tab, so refresh and shared links reopen the same view.
+ */
 export const connectionsSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
   filter: z.string().trim().max(200).optional().catch(undefined),
   status: z.enum(['enabled', 'disabled']).optional().catch(undefined),
   connection: z.number().int().positive().optional().catch(undefined),
+  tab: z.enum(CONNECTION_INSPECTOR_TABS).optional().catch(undefined),
 })
 export type ConnectionsSearch = z.infer<typeof connectionsSearchSchema>
 export const CONNECTION_PAGE_SIZE = 20
@@ -28,6 +40,9 @@ const connectionSchema = z.object({
   group: z.string().nullish(),
   priority: z.number().int().nullish(),
   weight: z.number().int().nullish(),
+  // Last saved connectivity test; 0 means never tested.
+  test_time: z.number().int().nullish(),
+  response_time: z.number().int().nullish(),
 })
 export type ConnectionSummary = z.infer<typeof connectionSchema>
 

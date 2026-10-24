@@ -14,9 +14,9 @@ import {
   searchChannels,
 } from '@/features/channels/api'
 import { channelsQueryKeys } from '@/features/channels/lib/channel-actions'
-import { parseFreshSelfUser } from '@/features/dashboard/components/personal-workbench/workbench-state'
 import { hasPermission } from '@/lib/admin-permissions'
 import { api } from '@/lib/api'
+import { parseFreshSelfUser } from '@/lib/fresh-self-user'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -63,6 +63,13 @@ export function useConnections(search: ConnectionsSearch) {
   )
   const canWrite = Boolean(
     canRead && declaredWrite && hasPermission(self.data, 'channel', 'write')
+  )
+  // Testing contacts the provider; it needs the operate grant both in the
+  // signed-in identity and in the fresh self read.
+  const canOperate = Boolean(
+    canRead &&
+    hasPermission(user, 'channel', 'operate') &&
+    hasPermission(self.data, 'channel', 'operate')
   )
   const params = {
     p: search.page ?? 1,
@@ -115,5 +122,13 @@ export function useConnections(search: ConnectionsSearch) {
     retry: false,
     refetchOnWindowFocus: false,
   })
-  return { self, list, detail, canRead, canWrite, identity: identity.join(':') }
+  return {
+    self,
+    list,
+    detail,
+    canRead,
+    canWrite,
+    canOperate,
+    identity: identity.join(':'),
+  }
 }

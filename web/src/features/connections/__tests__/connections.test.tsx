@@ -16,6 +16,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { api } from '@/lib/api'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
+import { useInspectorStore } from '@/stores/inspector-store'
 
 import type { ConnectionsSearch } from '../connection-state'
 import { ConnectionsWorkspace } from '../connections'
@@ -62,10 +63,13 @@ vi.mock('@/features/channels/components/drawers/channel-mutate-drawer', () => ({
     currentRow,
     onOpenChange,
   }: {
-    currentRow: { id: number }
+    currentRow: { id: number } | null
     onOpenChange: (open: boolean) => void
   }) => (
-    <div role='dialog' aria-label={`Edit #${currentRow.id}`}>
+    <div
+      role='dialog'
+      aria-label={currentRow ? `Edit #${currentRow.id}` : 'Add connection'}
+    >
       <button type='button' onClick={() => onOpenChange(false)}>
         Cancel edit
       </button>
@@ -90,7 +94,20 @@ const connection = {
 }
 let teardown: (() => void) | undefined
 
+async function leaveDetail(
+  user: ReturnType<typeof userEvent.setup>,
+  mobile: boolean
+) {
+  if (mobile) {
+    // The console top bar's Back closes the full-screen inspector.
+    act(() => useInspectorStore.getState().current?.close())
+    return
+  }
+  await user.click(screen.getByRole('button', { name: 'Close details' }))
+}
+
 afterEach(() => {
+  useInspectorStore.setState({ current: null })
   teardown?.()
   api.defaults.adapter = originalAdapter
   Object.defineProperty(window, 'matchMedia', originalMatchMedia)
@@ -114,12 +131,21 @@ function mount(
     freshId?: number
   } = {}
 ) {
+  // 390px phone or 1440px desktop (inspector beside the list).
+  const width = options.mobile ? 390 : 1440
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
-    value: vi.fn().mockReturnValue({
-      matches: options.mobile ?? false,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
+    value: vi.fn((query: string) => {
+      const max = /max-width:\s*(\d+)px/.exec(query)
+      const min = /min-width:\s*(\d+)px/.exec(query)
+      let matches = false
+      if (max) matches = width <= Number(max[1])
+      if (min) matches = width >= Number(min[1])
+      return {
+        matches,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }
     }),
   })
   const user = {
@@ -305,6 +331,7 @@ test('desktop list/detail uses one inventory read, scopes logs by stable ID and 
       'Configuration status does not confirm upstream availability.'
     )
   ).toBeInTheDocument()
+  await user.click(screen.getByRole('tab', { name: 'Account windows' }))
   expect(
     await screen.findByText(
       'No saved subscription windows for this connection. This does not mean the connection is unavailable.'
@@ -333,11 +360,11 @@ test('mobile opens a separate detail and restores selected-row focus and filter 
     await screen.findByRole('button', { name: /Synthetic connection/ })
   )
   await screen.findByRole('heading', { name: 'Synthetic connection' })
-  expect(screen.queryByTestId('connections-inventory')).not.toBeInTheDocument()
+  expect(screen.getByTestId('connections-inventory')).not.toBeVisible()
   expect(
-    screen.getByRole('heading', { name: 'Connection details · #7' })
+    screen.getByRole('heading', { level: 2, name: 'Synthetic connection' })
   ).toHaveFocus()
-  await user.click(screen.getByRole('button', { name: 'Back to connections' }))
+  await leaveDetail(user, true)
   expect(screen.queryByTestId('connection-detail')).not.toBeInTheDocument()
   expect(
     screen.getByRole('button', { name: /Synthetic connection/ })
@@ -369,7 +396,7 @@ test('search and pagination use server parameters rather than filtering one page
       )
     ).toBe(true)
   )
-  await user.click(await screen.findByRole('button', { name: 'Next' }))
+  await user.click(await screen.findByRole('button', { name: 'Next page' }))
   await waitFor(() =>
     expect(
       fixture.requests.some(
@@ -417,7 +444,7 @@ test('detail 503 remains an error, never an empty list, and explicit retry recov
   await detail.findByText(
     'Unable to load this connection. It may have been removed or access may have changed.'
   )
-  expect(detail.queryByText('No channels found')).not.toBeInTheDocument()
+  expect(detail.queryByText('No connections yet')).not.toBeInTheDocument()
   fixture.recover()
   await userEvent.setup().click(detail.getByRole('button', { name: 'Retry' }))
   await detail.findByRole('heading', { name: 'Synthetic connection' })
@@ -427,6 +454,9 @@ test.each([{ windowsFail: true }, { wrongWindow: true }])(
   'missing or mismatched saved-window evidence is not represented as a healthy empty result',
   async (options) => {
     mount({ ...options, initial: { connection: 7 } })
+    await userEvent
+      .setup()
+      .click(await screen.findByRole('tab', { name: 'Account windows' }))
     await screen.findByText('Unable to load account windows')
     expect(
       screen.queryByText(
@@ -443,9 +473,7 @@ test('leaving a pending detail aborts only that observer and does not fetch prov
       fixture.requests.some((request) => request.path === '/api/channel/7')
     ).toBe(true)
   )
-  await userEvent
-    .setup()
-    .click(screen.getByRole('button', { name: 'Back to connections' }))
+  await leaveDetail(userEvent.setup(), false)
   await waitFor(() => expect(fixture.detailAborted).toBe(true))
   expect(
     fixture.requests.every((request) =>
@@ -477,11 +505,12 @@ test('same-session permission revocation immediately removes detail and editor',
 
 test('empty inventory stays distinct from a read error and keeps a working advanced entry', async () => {
   mount({ empty: true })
-  await screen.findByText('No channels found')
+  await screen.findByText('No connections yet')
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-  expect(
-    screen.getByRole('link', { name: 'Advanced channel management' })
-  ).toHaveAttribute('href', '/channels')
+  expect(screen.getByRole('link', { name: 'Table view' })).toHaveAttribute(
+    'href',
+    '/channels'
+  )
 })
 
 test('a session change closes the previous editor before the next identity is verified', async () => {
@@ -518,9 +547,7 @@ test('returning before the inventory arrives restores focus when the row becomes
     holdList: true,
   })
   await screen.findByRole('heading', { name: 'Synthetic connection' })
-  await userEvent
-    .setup()
-    .click(screen.getByRole('button', { name: 'Back to connections' }))
+  await leaveDetail(userEvent.setup(), true)
   await act(async () => fixture.releaseList())
   const row = await screen.findByRole('button', {
     name: /Synthetic connection/,
@@ -538,9 +565,7 @@ test.each([{ empty: true }, { missingRow: true }, { failList: true }])(
       holdList: true,
     })
     await screen.findByRole('heading', { name: 'Synthetic connection' })
-    await userEvent
-      .setup()
-      .click(screen.getByRole('button', { name: 'Back to connections' }))
+    await leaveDetail(userEvent.setup(), true)
     await act(async () => fixture.releaseList())
     await waitFor(() =>
       expect(
@@ -560,9 +585,7 @@ test.each(['focus', 'pointer', 'keyboard'] as const)(
     })
     const user = userEvent.setup()
     await screen.findByRole('heading', { name: 'Synthetic connection' })
-    await user.click(
-      screen.getByRole('button', { name: 'Back to connections' })
-    )
+    await leaveDetail(user, true)
     const input = screen.getByRole('textbox', { name: 'Search connections' })
     if (interaction === 'focus') {
       act(() => input.focus())
@@ -593,9 +616,7 @@ test.each([
       holdList: true,
     })
     await screen.findByRole('heading', { name: 'Synthetic connection' })
-    await userEvent
-      .setup()
-      .click(screen.getByRole('button', { name: 'Back to connections' }))
+    await leaveDetail(userEvent.setup(), true)
     act(() => fixture.navigate(next))
     await act(async () => fixture.releaseList())
     const row = await screen.findByRole('button', {
@@ -616,16 +637,17 @@ test('reopening detail cancels an old pending return and a later Back restores t
   })
   const user = userEvent.setup()
   await screen.findByRole('heading', { name: 'Synthetic connection' })
-  await user.click(screen.getByRole('button', { name: 'Back to connections' }))
+  await leaveDetail(user, true)
   act(() => fixture.navigate({ connection: 7 }))
   const heading = screen.getByRole('heading', {
-    name: 'Connection details · #7',
+    level: 2,
+    name: 'Synthetic connection',
   })
   expect(heading).toHaveFocus()
   await act(async () => fixture.releaseList())
   await waitFor(() => expect(fixture.client.isFetching()).toBe(0))
   expect(heading).toHaveFocus()
-  await user.click(screen.getByRole('button', { name: 'Back to connections' }))
+  await leaveDetail(user, true)
   expect(
     await screen.findByRole('button', { name: /Synthetic connection/ })
   ).toHaveFocus()

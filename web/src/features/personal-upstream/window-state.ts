@@ -60,3 +60,60 @@ export function nativeWindowState(
   if (freshness === 'fresh') return 'available'
   return freshness === 'stale' ? 'stale' : 'unverified'
 }
+
+/** Status text of a saved window observation; never claims availability. */
+export function describeNativeWindowState(
+  state: ReturnType<typeof nativeWindowState>,
+  t: (key: string) => string
+): {
+  label: string
+  description: string
+  variant: 'neutral' | 'success' | 'warning' | 'danger'
+} {
+  switch (state) {
+    case 'error':
+      return {
+        label: t('Usage sample failed'),
+        description: t(
+          'The latest usage sample failed. Inspect the channel history and connection.'
+        ),
+        variant: 'danger',
+      }
+    case 'unsupported':
+      return {
+        label: t('Window reporting unsupported'),
+        description: t('This provider does not report this window.'),
+        variant: 'neutral',
+      }
+    case 'stale':
+      return {
+        label: t('Stale sample'),
+        description: t(
+          'This is a past observation, not a current availability check.'
+        ),
+        variant: 'warning',
+      }
+    case 'unverified':
+      return {
+        label: t('Sample time unverified'),
+        description: t(
+          'The observation time is missing or invalid. This value is not confirmed current.'
+        ),
+        variant: 'warning',
+      }
+    case 'available':
+      return {
+        label: t('Snapshot available'),
+        description: t('Window resets require a trustworthy upstream sample.'),
+        variant: 'success',
+      }
+    default:
+      return {
+        label: t('No reliable usage sample'),
+        description: t(
+          'No trustworthy usage observation is available for this window.'
+        ),
+        variant: 'neutral',
+      }
+  }
+}

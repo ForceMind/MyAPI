@@ -50,12 +50,21 @@ afterEach(() => {
 test.each([false, true])(
   'real connection editor loads its native DTO and cancels without writes (mobile=%s)',
   async (mobile) => {
+    // 390px phone or 1440px desktop, against the real console breakpoints.
+    const width = mobile ? 390 : 1440
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
-      value: vi.fn().mockReturnValue({
-        matches: mobile,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
+      value: vi.fn((query: string) => {
+        const max = /max-width:\s*(\d+)px/.exec(query)
+        const min = /min-width:\s*(\d+)px/.exec(query)
+        let matches = false
+        if (max) matches = width <= Number(max[1])
+        if (min) matches = width >= Number(min[1])
+        return {
+          matches,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        }
       }),
     })
     const user = {

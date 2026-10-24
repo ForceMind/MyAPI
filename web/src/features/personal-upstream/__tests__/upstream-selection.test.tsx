@@ -7,7 +7,7 @@ the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AxiosAdapter } from 'axios'
 import type { AnchorHTMLAttributes } from 'react'
@@ -142,7 +142,7 @@ function mountAccounts(role: number = ROLE.SUPER_ADMIN, showChannels = true) {
   }
 }
 
-test('desktop account buttons and the mobile picker select the same saved evidence without another snapshot read', async () => {
+test('the account list selects saved evidence on every width without another snapshot read', async () => {
   const fixture = mountAccounts()
   try {
     const user = userEvent.setup()
@@ -165,11 +165,12 @@ test('desktop account buttons and the mobile picker select the same saved eviden
       screen.getByText('Manage account connection').closest('a')
     ).toHaveAttribute('href', '/connections?connection=8')
     expect(screen.queryByText('Usage sample failed')).not.toBeInTheDocument()
-    await user.selectOptions(
-      screen.getByRole('combobox', {
-        name: 'Select upstream account',
-      }),
-      '7'
+    // One list serves PC and phone (no native select on either).
+    expect(
+      screen.queryByRole('combobox', { name: 'Select upstream account' })
+    ).not.toBeInTheDocument()
+    await user.click(
+      within(desktop).getByRole('button', { name: 'First account' })
     )
     expect(
       screen.getByRole('heading', { name: 'First account' })
@@ -192,6 +193,24 @@ test('a disabled Channels module hides connection and history actions while pres
       screen.queryByRole('link', { name: 'View channel history' })
     ).not.toBeInTheDocument()
     expect(screen.getByText('0%')).toBeInTheDocument()
+  } finally {
+    fixture.cleanup()
+  }
+})
+
+test('window changes over time are read only after an explicit request', async () => {
+  const fixture = mountAccounts()
+  try {
+    const user = userEvent.setup()
+    await screen.findByRole('heading', { name: 'First account' })
+    expect(fixture.quotaReads).toBe(1)
+    const toggle = screen.getByRole('button', { name: 'Show window changes' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await user.click(toggle)
+    expect(
+      screen.getByRole('button', { name: 'Hide window changes' })
+    ).toHaveAttribute('aria-expanded', 'true')
+    await waitFor(() => expect(fixture.quotaReads).toBe(2))
   } finally {
     fixture.cleanup()
   }

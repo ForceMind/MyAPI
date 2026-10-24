@@ -6,518 +6,471 @@ it under the terms of the GNU Affero General Public License as published by
 the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
+import {
+  ArrowRight01Icon,
+  PlusSignIcon,
+  Search01Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { getRouteApi, Link } from '@tanstack/react-router'
-import { ArrowLeft, ArrowRight, Search } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { StatusBadge } from '@/components/status-badge'
+import { useInspectorBack } from '@/components/inspector/inspector-history'
+import { InspectorLayout } from '@/components/inspector/inspector-layout'
+import { useInspectorFocusReturn } from '@/components/inspector/use-inspector-focus-return'
+import { SectionPageLayout } from '@/components/layout'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { ChannelsProvider } from '@/features/channels/components/channels-provider'
 import { ChannelMutateDrawer } from '@/features/channels/components/drawers/channel-mutate-drawer'
-import { CHANNEL_STATUS_CONFIG } from '@/features/channels/constants'
 import { getChannelTypeLabel } from '@/features/channels/lib/channel-utils'
-import { useMediaQuery } from '@/hooks/use-media-query'
 import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
-import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
+import { ROLE } from '@/lib/roles'
+import { cn } from '@/lib/utils'
 
 import {
+  ConnectionInspector,
+  ConnectionStatus,
+  LastTest,
+} from './connection-inspector'
+import {
   CONNECTION_PAGE_SIZE,
-  connectionValues,
+  type ConnectionInspectorTab,
   type ConnectionSummary,
   type ConnectionsSearch,
 } from './connection-state'
-import { ConnectionWindows } from './connection-windows'
+import { useConnectionTest } from './use-connection-test'
 import { useConnections } from './use-connections'
 
 const route = getRouteApi('/_authenticated/connections/')
 
+export type ConnectionsNavigation = {
+  replace?: boolean
+  /** The new entry was opened from the list; closing goes back to it. */
+  fromList?: boolean
+}
+
 export function Connections() {
   const search = route.useSearch()
   const navigate = route.useNavigate()
+  const goBack = useInspectorBack()
   return (
     <ConnectionsWorkspace
       search={search}
-      onSearch={(next) => void navigate({ search: next })}
+      onSearch={(next, options) =>
+        void navigate({
+          search: next,
+          replace: options?.replace,
+          state: options?.fromList ? { inspectorBack: true } : undefined,
+        })
+      }
+      onCloseInspector={() =>
+        goBack(
+          () =>
+            void navigate({
+              search: { ...search, connection: undefined, tab: undefined },
+              replace: true,
+            })
+        )
+      }
     />
   )
 }
 
-function ConnectionStatus({ status }: { status: number }) {
-  const { t } = useTranslation()
-  const config =
-    CHANNEL_STATUS_CONFIG[status as keyof typeof CHANNEL_STATUS_CONFIG] ??
-    CHANNEL_STATUS_CONFIG[0]
-  return (
-    <StatusBadge
-      variant={config.variant}
-      copyable={false}
-      className='h-auto min-h-5 whitespace-normal'
-    >
-      {t(config.label)}
-    </StatusBadge>
-  )
-}
-
-function Configuration({ item }: { item: ConnectionSummary }) {
-  const { t } = useTranslation()
-  const models = connectionValues(item.models)
-  const groups = connectionValues(item.group)
-  return (
-    <section aria-label={t('Routing configuration')} className='space-y-3'>
-      <h3 className='font-semibold'>{t('Routing configuration')}</h3>
-      <dl className='grid min-w-0 grid-cols-2 gap-3 text-sm'>
-        <div>
-          <dt className='text-muted-foreground'>{t('Priority')}</dt>
-          <dd>{item.priority ?? t('Unknown')}</dd>
-        </div>
-        <div>
-          <dt className='text-muted-foreground'>{t('Weight')}</dt>
-          <dd>{item.weight ?? t('Unknown')}</dd>
-        </div>
-        <div className='col-span-2 min-w-0'>
-          <dt className='text-muted-foreground'>{t('Group')}</dt>
-          <dd className='[overflow-wrap:anywhere]'>
-            {groups.join(', ') || t('Unknown')}
-          </dd>
-        </div>
-        <div className='col-span-2 min-w-0'>
-          <dt className='text-muted-foreground'>{t('Models')}</dt>
-          <dd>
-            {models.length ? (
-              <ul className='mt-1 flex min-w-0 flex-wrap gap-2'>
-                {models.map((model) => (
-                  <li
-                    key={model}
-                    className='bg-muted max-w-full rounded px-2 py-1 [overflow-wrap:anywhere]'
-                  >
-                    {model}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              t('Unknown')
-            )}
-          </dd>
-        </div>
-      </dl>
-    </section>
-  )
-}
-
+/**
+ * Upstream connections: the list with an inspector (status, last test, Test
+ * and Edit, saved account windows, routing), plus "Add connection" that saves
+ * through the existing connection editor and then runs the existing test.
+ * Every view is in the URL; opening the page or a connection reads saved
+ * configuration only and never contacts a provider.
+ */
 export function ConnectionsWorkspace({
   search,
   onSearch,
+  onCloseInspector,
 }: {
   search: ConnectionsSearch
-  onSearch: (next: ConnectionsSearch) => void
+  onSearch: (next: ConnectionsSearch, options?: ConnectionsNavigation) => void
+  onCloseInspector?: () => void
 }) {
   const { t } = useTranslation()
   const data = useConnections(search)
-  const mobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
   const showKeys = useIsSidebarModuleVisible('/keys')
   const showLogs = useIsSidebarModuleVisible('/usage-logs/common')
+  const showTable = useIsSidebarModuleVisible('/channels')
   const [filter, setFilter] = useState(search.filter ?? '')
   const [editor, setEditor] = useState<string | null>(null)
-  const detailHeading = useRef<HTMLHeadingElement>(null)
+  const [adding, setAdding] = useState(false)
   const editButton = useRef<HTMLButtonElement>(null)
-  const lastSelection = useRef(search.connection)
-  const pendingFocusReturn = useRef<number | undefined>(undefined)
+  const addButton = useRef<HTMLButtonElement>(null)
   const inventoryHeading = useRef<HTMLHeadingElement>(null)
-  const inventoryContext = JSON.stringify([
-    data.identity,
-    data.canRead,
-    search.filter,
-    search.status,
-    search.page ?? 1,
-  ])
-  const lastInventoryContext = useRef(inventoryContext)
   const listRef = useRef<HTMLDivElement>(null)
+  const test = useConnectionTest(data.identity)
   const selectedId = search.connection
   const editorIdentity = `${data.identity}:${selectedId}`
   const item = data.detail.isError ? undefined : data.detail.data
   useEffect(() => setFilter(search.filter ?? ''), [search.filter])
   useEffect(() => setEditor(null), [editorIdentity, data.canWrite])
-  useEffect(() => {
-    if (selectedId !== undefined) detailHeading.current?.focus()
-    if (
-      selectedId !== undefined ||
-      lastInventoryContext.current !== inventoryContext
-    ) {
-      pendingFocusReturn.current = undefined
-    } else if (lastSelection.current !== undefined) {
-      pendingFocusReturn.current = lastSelection.current
-    }
-    lastSelection.current = selectedId
-    lastInventoryContext.current = inventoryContext
-  }, [selectedId, mobile, data.canRead, inventoryContext])
-  useEffect(() => {
-    const returnId = pendingFocusReturn.current
-    if (returnId === undefined) return
-    const row = listRef.current?.querySelector<HTMLButtonElement>(
-      `[data-connection-id="${returnId}"]`
-    )
-    if (row || data.list.isSuccess || data.list.isError) {
-      // A removed/filtered row or failed inventory has a stable, visible fallback.
-      pendingFocusReturn.current = undefined
-      const target = row ?? inventoryHeading.current
-      target?.focus()
-      return
-    }
-    // Keep the target while loading, but never override a newer user action.
-    const cancelFocusReturn = () => {
-      pendingFocusReturn.current = undefined
-    }
-    document.addEventListener('pointerdown', cancelFocusReturn, true)
-    document.addEventListener('keydown', cancelFocusReturn, true)
-    document.addEventListener('focusin', cancelFocusReturn, true)
-    return () => {
-      document.removeEventListener('pointerdown', cancelFocusReturn, true)
-      document.removeEventListener('keydown', cancelFocusReturn, true)
-      document.removeEventListener('focusin', cancelFocusReturn, true)
-    }
-  }, [
-    selectedId,
-    mobile,
-    inventoryContext,
-    data.list.data,
-    data.list.isSuccess,
-    data.list.isError,
-  ])
+  useEffect(() => setAdding(false), [data.identity, data.canWrite])
+  useInspectorFocusReturn({
+    selectedId: selectedId === undefined ? undefined : String(selectedId),
+    listRef,
+    fallbackRef: inventoryHeading,
+    context: JSON.stringify([
+      data.identity,
+      data.canRead,
+      search.filter,
+      search.status,
+      search.page ?? 1,
+    ]),
+    settled: data.list.isSuccess || data.list.isError,
+    rows: data.list.data,
+  })
   // Selection/session changes cannot reopen an editor with the previous target.
   const editing =
     data.canWrite && editor === editorIdentity && item?.id === selectedId
   const page = search.page ?? 1
-  return (
-    <main
-      id='content'
-      tabIndex={-1}
-      className='pc-page flex min-w-0 flex-col gap-5'
-      data-testid='connections-workspace'
+  const closeInspector =
+    onCloseInspector ??
+    (() =>
+      onSearch(
+        { ...search, connection: undefined, tab: undefined },
+        { replace: true }
+      ))
+  const openConnection = (connection: ConnectionSummary) =>
+    onSearch(
+      { ...search, connection: connection.id, tab: undefined },
+      selectedId === undefined ? { fromList: true } : { replace: true }
+    )
+
+  const inventory = (
+    <section
+      className='bg-card p-card flex min-w-0 flex-col gap-4 rounded-xl border'
+      aria-labelledby='connections-inventory-title'
+      data-testid='connections-inventory'
     >
-      <header className='flex min-w-0 flex-wrap items-start justify-between gap-3'>
-        <div className='min-w-0'>
-          <h1 className='text-2xl font-semibold tracking-tight'>
-            {t('Connections')}
-          </h1>
-          <p className='text-muted-foreground mt-2 text-sm'>
-            {t(
-              'Inspect a connection, its routing and recorded requests without leaving your place.'
-            )}
-          </p>
-        </div>
-        {data.canRead ? (
-          <Link
-            to='/channels'
-            className={`${buttonVariants({ variant: 'outline' })} h-auto min-h-11 max-w-full py-2 whitespace-normal`}
-          >
-            {t('Advanced channel management')}
-          </Link>
-        ) : null}
-      </header>
-      {data.self.isFetching && <p role='status'>{t('Loading...')}</p>}
-      {!data.self.isFetching && !data.canRead && (
-        <div role='alert' className='space-y-3'>
-          <p>{t('Connection access could not be verified.')}</p>
-          <Button variant='outline' onClick={() => void data.self.refetch()}>
-            {t('Retry')}
+      <div className='flex min-w-0 flex-col gap-3'>
+        <h2
+          id='connections-inventory-title'
+          ref={inventoryHeading}
+          tabIndex={-1}
+          className='text-title outline-none'
+        >
+          {t('Configured connections')}
+        </h2>
+        <form
+          className='flex min-w-0 flex-wrap gap-2'
+          onSubmit={(event) => {
+            event.preventDefault()
+            onSearch({
+              ...search,
+              filter: filter.trim() || undefined,
+              page: 1,
+              connection: undefined,
+              tab: undefined,
+            })
+          }}
+        >
+          <label className='min-w-0 flex-1 basis-40'>
+            <span className='sr-only'>{t('Search connections')}</span>
+            <Input
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              maxLength={200}
+              placeholder={t('Search connections')}
+            />
+          </label>
+          <Button type='submit' variant='outline' aria-label={t('Search')}>
+            <HugeiconsIcon
+              icon={Search01Icon}
+              data-icon='inline-start'
+              aria-hidden='true'
+            />
+            {t('Search')}
           </Button>
+        </form>
+        <ToggleGroup
+          aria-label={t('Status')}
+          variant='outline'
+          size='sm'
+          value={[search.status ?? 'all']}
+          onValueChange={(value) => {
+            const next = value[0]
+            if (!next) return
+            onSearch({
+              ...search,
+              status:
+                next === 'all'
+                  ? undefined
+                  : (next as ConnectionsSearch['status']),
+              page: 1,
+              connection: undefined,
+              tab: undefined,
+            })
+          }}
+        >
+          <ToggleGroupItem value='all'>{t('All Status')}</ToggleGroupItem>
+          <ToggleGroupItem value='enabled'>{t('Enabled')}</ToggleGroupItem>
+          <ToggleGroupItem value='disabled'>{t('Disabled')}</ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+      {data.list.isPending && (
+        <div className='flex flex-col gap-2' aria-busy='true'>
+          <span className='sr-only' role='status'>
+            {t('Loading...')}
+          </span>
+          {[1, 2, 3].map((row) => (
+            <Skeleton key={row} className='h-16 w-full' />
+          ))}
         </div>
       )}
-      {data.canRead && (
-        <div className='grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(260px,0.85fr)_minmax(0,1.4fr)]'>
-          {!mobile || selectedId === undefined ? (
-            <Card
-              className='pc-card min-w-0'
-              data-testid='connections-inventory'
+      {data.list.isError && (
+        <Alert variant='destructive'>
+          <AlertTitle>{t('Unable to load connections')}</AlertTitle>
+          <AlertDescription>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => void data.list.refetch()}
             >
-              <CardHeader>
-                <CardTitle>
-                  <h2 ref={inventoryHeading} tabIndex={-1}>
-                    {t('Configured connections')}
-                  </h2>
-                </CardTitle>
-                <form
-                  className='mt-3 flex min-w-0 flex-wrap gap-2'
-                  onSubmit={(event) => {
-                    event.preventDefault()
-                    onSearch({
-                      ...search,
-                      filter: filter.trim() || undefined,
-                      page: 1,
-                      connection: undefined,
-                    })
-                  }}
-                >
-                  <label className='min-w-0 flex-1 basis-40'>
-                    <span className='sr-only'>{t('Search connections')}</span>
-                    <Input
-                      className='min-h-11'
-                      value={filter}
-                      onChange={(event) => setFilter(event.target.value)}
-                      maxLength={200}
-                      placeholder={t('Search connections')}
-                    />
-                  </label>
-                  <Button
-                    type='submit'
-                    className='min-h-11'
-                    aria-label={t('Search')}
-                  >
-                    <Search size={16} />
-                    <span>{t('Search')}</span>
-                  </Button>
-                  <label className='flex min-w-0 basis-full flex-wrap items-center gap-2 text-sm'>
-                    <span>{t('Status')}</span>
-                    <select
-                      aria-label={t('Status')}
-                      className='border-input bg-background min-h-11 max-w-full flex-1 rounded-md border px-3'
-                      value={search.status ?? ''}
-                      onChange={(event) =>
-                        onSearch({
-                          ...search,
-                          status:
-                            (event.target
-                              .value as ConnectionsSearch['status']) ||
-                            undefined,
-                          page: 1,
-                          connection: undefined,
-                        })
-                      }
-                    >
-                      <option value=''>{t('All Status')}</option>
-                      <option value='enabled'>{t('Enabled')}</option>
-                      <option value='disabled'>{t('Disabled')}</option>
-                    </select>
-                  </label>
-                </form>
-              </CardHeader>
-              <CardContent className='space-y-4'>
-                {data.list.isPending && <p role='status'>{t('Loading...')}</p>}
-                {data.list.isError && (
-                  <div role='alert' className='space-y-3'>
-                    <p>{t('Unable to load connections')}</p>
-                    <Button
-                      variant='outline'
-                      onClick={() => void data.list.refetch()}
-                    >
-                      {t('Retry')}
-                    </Button>
-                  </div>
-                )}
-                {data.list.isSuccess && (
-                  <>
-                    <p
-                      className='text-muted-foreground text-sm'
-                      aria-live='polite'
-                    >
-                      {t('Connections: {{count}}', {
-                        count: data.list.data.total,
-                      })}
-                    </p>
-                    {data.list.data.items.length === 0 ? (
-                      <p>{t('No channels found')}</p>
-                    ) : (
-                      <div ref={listRef} className='space-y-2'>
-                        {data.list.data.items.map((connection) => (
-                          <button
-                            key={connection.id}
-                            type='button'
-                            data-connection-id={connection.id}
-                            aria-pressed={selectedId === connection.id}
-                            onClick={() =>
-                              onSearch({ ...search, connection: connection.id })
-                            }
-                            className='border-border hover:bg-muted focus-visible:ring-ring aria-pressed:border-primary aria-pressed:bg-primary/5 flex min-h-20 w-full min-w-0 flex-col gap-2 rounded-lg border p-3 text-left focus-visible:ring-2 focus-visible:outline-none'
-                          >
-                            <span className='flex min-w-0 items-start justify-between gap-2'>
-                              <span className='min-w-0 font-medium [overflow-wrap:anywhere]'>
-                                {connection.name || `#${connection.id}`}
-                              </span>
-                              <ArrowRight
-                                className='mt-1 size-4 shrink-0'
-                                aria-hidden
-                              />
-                            </span>
-                            <span className='flex flex-wrap items-center gap-2 text-xs'>
-                              <span className='text-muted-foreground'>
-                                #{connection.id} ·{' '}
-                                {t(getChannelTypeLabel(connection.type))}
-                              </span>
-                              <ConnectionStatus status={connection.status} />
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <nav
-                      aria-label={t('Pagination')}
-                      className='flex flex-wrap items-center justify-between gap-2'
-                    >
-                      <Button
-                        variant='outline'
-                        className='min-h-11'
-                        disabled={page <= 1}
-                        onClick={() =>
-                          onSearch({
-                            ...search,
-                            page: page - 1,
-                            connection: undefined,
-                          })
-                        }
-                      >
-                        {t('Previous')}
-                      </Button>
-                      <span className='text-muted-foreground text-sm'>
-                        {t('Page {{page}}', { page })}
-                      </span>
-                      <Button
-                        variant='outline'
-                        className='min-h-11'
-                        disabled={
-                          page * CONNECTION_PAGE_SIZE >= data.list.data.total
-                        }
-                        onClick={() =>
-                          onSearch({
-                            ...search,
-                            page: page + 1,
-                            connection: undefined,
-                          })
-                        }
-                      >
-                        {t('Next')}
-                      </Button>
-                    </nav>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          ) : null}
-          {!mobile || selectedId !== undefined ? (
-            <Card className='pc-card min-w-0' data-testid='connection-detail'>
-              <CardHeader className='space-y-3'>
-                {selectedId !== undefined ? (
-                  <Button
-                    variant='ghost'
-                    className='h-auto min-h-11 max-w-full self-start py-2 whitespace-normal'
-                    onClick={() => {
-                      setEditor(null)
-                      onSearch({ ...search, connection: undefined })
-                    }}
-                  >
-                    <ArrowLeft size={16} />
-                    {t('Back to connections')}
-                  </Button>
-                ) : null}
-                <CardTitle>
-                  <h2
-                    ref={detailHeading}
-                    tabIndex={-1}
-                    className='min-w-0 [overflow-wrap:anywhere]'
-                  >
-                    {t('Connection details')}
-                    {selectedId ? ` · #${selectedId}` : ''}
-                  </h2>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className='flex min-w-0 flex-col gap-6'>
-                {selectedId === undefined && (
-                  <p className='text-muted-foreground'>
-                    {t(
-                      'Select a connection to inspect its configuration and requests.'
-                    )}
-                  </p>
-                )}
-                {selectedId !== undefined && data.detail.isPending && (
-                  <p role='status'>{t('Loading...')}</p>
-                )}
-                {selectedId !== undefined && data.detail.isError && (
-                  <div role='alert' className='space-y-3'>
-                    <p>
-                      {t(
-                        'Unable to load this connection. It may have been removed or access may have changed.'
-                      )}
-                    </p>
-                    <Button
-                      variant='outline'
-                      onClick={() => void data.detail.refetch()}
-                    >
-                      {t('Retry')}
-                    </Button>
-                  </div>
-                )}
-                {selectedId !== undefined && data.detail.isSuccess && item && (
-                  <>
-                    <section className='min-w-0 space-y-3'>
-                      <h3 className='text-xl font-semibold [overflow-wrap:anywhere]'>
-                        {item.name || `#${item.id}`}
-                      </h3>
-                      <div className='flex flex-wrap items-center gap-2 text-sm'>
-                        <span>{t(getChannelTypeLabel(item.type))}</span>
-                        <ConnectionStatus status={item.status} />
-                      </div>
-                      <p className='text-muted-foreground text-sm'>
-                        {t(
-                          'Configuration status does not confirm upstream availability.'
-                        )}
-                      </p>
-                      <div className='flex flex-wrap gap-2'>
-                        {data.canWrite ? (
-                          <Button
-                            ref={editButton}
-                            className='h-auto min-h-11 max-w-full py-2 whitespace-normal'
-                            onClick={() => setEditor(editorIdentity)}
-                          >
-                            {t('Edit connection')}
-                          </Button>
-                        ) : null}
-                        {showKeys && data.self.data?.role === 100 ? (
-                          <Link
-                            to='/keys'
-                            search={{
-                              connectionContext: {
-                                connection: { ...search, connection: item.id },
-                              },
-                            }}
-                            className={`${buttonVariants({ variant: 'outline' })} h-auto min-h-11 max-w-full py-2 whitespace-normal`}
-                          >
-                            {t('Associated Key shares')}
-                          </Link>
-                        ) : null}
-                        {showLogs ? (
-                          <Link
-                            to='/usage-logs/$section'
-                            params={{ section: 'common' }}
-                            search={{
-                              channel: String(item.id),
-                              connectionContext: {
-                                connection: { ...search, connection: item.id },
-                              },
-                              page: 1,
-                              pageSize: 20,
-                            }}
-                            className={`${buttonVariants({ variant: 'outline' })} h-auto min-h-11 max-w-full py-2 whitespace-normal`}
-                          >
-                            {t('View connection requests')}
-                          </Link>
-                        ) : null}
-                      </div>
-                    </section>
-                    <Configuration item={item} />
-                    <ConnectionWindows
-                      key={`${data.identity}:${item.id}`}
-                      channelId={item.id}
-                      identity={data.identity}
-                    />
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          ) : null}
-        </div>
+              {t('Retry')}
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
+      {data.list.isSuccess && (
+        <>
+          <p className='text-caption text-muted-foreground' aria-live='polite'>
+            {t('Connections: {{count}}', { count: data.list.data.total })}
+          </p>
+          {data.list.data.items.length === 0 ? (
+            <Empty className='border'>
+              <EmptyHeader>
+                <EmptyTitle>{t('No connections yet')}</EmptyTitle>
+                <EmptyDescription>
+                  {search.filter || search.status
+                    ? t('No connection matches these filters.')
+                    : t(
+                        'Add an upstream connection to start routing requests.'
+                      )}
+                </EmptyDescription>
+              </EmptyHeader>
+              {data.canWrite && !search.filter && !search.status && (
+                <EmptyContent>
+                  <Button onClick={() => setAdding(true)}>
+                    {t('Add connection')}
+                  </Button>
+                </EmptyContent>
+              )}
+            </Empty>
+          ) : (
+            <div
+              ref={listRef}
+              className='flex flex-col divide-y rounded-lg border'
+            >
+              {data.list.data.items.map((connection) => (
+                <button
+                  key={connection.id}
+                  type='button'
+                  data-connection-id={connection.id}
+                  data-inspect-id={connection.id}
+                  aria-expanded={selectedId === connection.id}
+                  onClick={() => openConnection(connection)}
+                  className={cn(
+                    'hover:bg-muted flex min-h-16 w-full min-w-0 items-center gap-3 px-3 py-2 text-left focus-visible:outline-2 focus-visible:-outline-offset-2',
+                    selectedId === connection.id && 'bg-accent'
+                  )}
+                >
+                  <span className='flex min-w-0 flex-1 flex-col gap-1'>
+                    <span className='text-body min-w-0 font-medium wrap-anywhere'>
+                      {connection.name || `#${connection.id}`}
+                    </span>
+                    <span className='text-caption text-muted-foreground flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
+                      <span>
+                        #{connection.id} ·{' '}
+                        {t(getChannelTypeLabel(connection.type))}
+                      </span>
+                      <ConnectionStatus status={connection.status} />
+                      <span>
+                        {t('Last test')}: <LastTest item={connection} />
+                      </span>
+                    </span>
+                  </span>
+                  <HugeiconsIcon
+                    icon={ArrowRight01Icon}
+                    className='text-muted-foreground size-4 shrink-0'
+                    aria-hidden='true'
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+          <nav
+            aria-label={t('Pagination')}
+            className='flex flex-wrap items-center justify-between gap-2'
+          >
+            <Button
+              variant='outline'
+              disabled={page <= 1}
+              onClick={() =>
+                onSearch({
+                  ...search,
+                  page: page - 1,
+                  connection: undefined,
+                  tab: undefined,
+                })
+              }
+            >
+              {t('Previous page')}
+            </Button>
+            <span className='text-caption text-muted-foreground'>
+              {t('Page {{page}}', { page })}
+            </span>
+            <Button
+              variant='outline'
+              disabled={page * CONNECTION_PAGE_SIZE >= data.list.data.total}
+              onClick={() =>
+                onSearch({
+                  ...search,
+                  page: page + 1,
+                  connection: undefined,
+                  tab: undefined,
+                })
+              }
+            >
+              {t('Next page')}
+            </Button>
+          </nav>
+        </>
+      )}
+    </section>
+  )
+
+  return (
+    <>
+      <SectionPageLayout>
+        <SectionPageLayout.Title>{t('Connections')}</SectionPageLayout.Title>
+        <SectionPageLayout.Description>
+          {t(
+            'Select a connection to test it, edit it or read its saved account windows.'
+          )}
+        </SectionPageLayout.Description>
+        <SectionPageLayout.Actions>
+          {data.canRead && showTable && (
+            <nav aria-label={t('Connection views')} className='flex gap-1'>
+              <span
+                aria-current='page'
+                className={cn(
+                  buttonVariants({ variant: 'secondary', size: 'sm' }),
+                  'h-auto min-h-8'
+                )}
+              >
+                {t('List view')}
+              </span>
+              <Link
+                to='/channels'
+                data-myapi-button=''
+                className={cn(
+                  buttonVariants({ variant: 'ghost', size: 'sm' }),
+                  'h-auto min-h-8'
+                )}
+              >
+                {t('Table view')}
+              </Link>
+            </nav>
+          )}
+          {data.canWrite && (
+            <Button ref={addButton} onClick={() => setAdding(true)}>
+              <HugeiconsIcon
+                icon={PlusSignIcon}
+                data-icon='inline-start'
+                aria-hidden='true'
+              />
+              {t('Add connection')}
+            </Button>
+          )}
+        </SectionPageLayout.Actions>
+        <SectionPageLayout.Content>
+          <div
+            className='flex min-w-0 flex-col gap-4'
+            data-testid='connections-workspace'
+          >
+            {data.self.isFetching && (
+              <p role='status' className='text-body text-muted-foreground'>
+                {t('Loading...')}
+              </p>
+            )}
+            {!data.self.isFetching && !data.canRead && (
+              <Alert variant='destructive'>
+                <AlertTitle>
+                  {t('Connection access could not be verified.')}
+                </AlertTitle>
+                <AlertDescription>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    onClick={() => void data.self.refetch()}
+                  >
+                    {t('Retry')}
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+            {data.canRead && (
+              <InspectorLayout
+                open={selectedId !== undefined}
+                label={
+                  item?.id === selectedId && item?.name
+                    ? item.name
+                    : t('Connection #{{id}}', { id: selectedId ?? '' })
+                }
+                onClose={closeInspector}
+                list={inventory}
+                inspector={
+                  selectedId !== undefined && (
+                    <ConnectionInspector
+                      connectionId={selectedId}
+                      search={search}
+                      detail={data.detail}
+                      item={item}
+                      identity={data.identity}
+                      canWrite={data.canWrite}
+                      canOperate={data.canOperate}
+                      showKeys={showKeys}
+                      showLogs={showLogs}
+                      isRoot={data.self.data?.role === ROLE.SUPER_ADMIN}
+                      test={test}
+                      editButtonRef={editButton}
+                      onEdit={() => setEditor(editorIdentity)}
+                      onTabChange={(tab: ConnectionInspectorTab) =>
+                        onSearch(
+                          {
+                            ...search,
+                            tab: tab === 'overview' ? undefined : tab,
+                          },
+                          { replace: true }
+                        )
+                      }
+                      onClose={closeInspector}
+                    />
+                  )
+                }
+              />
+            )}
+          </div>
+        </SectionPageLayout.Content>
+      </SectionPageLayout>
       {editing && selectedId !== undefined ? (
         <ChannelsProvider key={editorIdentity}>
           <ChannelMutateDrawer
@@ -532,6 +485,33 @@ export function ConnectionsWorkspace({
           />
         </ChannelsProvider>
       ) : null}
-    </main>
+      {adding && data.canWrite ? (
+        <ChannelsProvider key={`${data.identity}:add`}>
+          <ChannelMutateDrawer
+            open
+            currentRow={null}
+            title={t('Add connection')}
+            submitLabel={data.canOperate ? t('Save and test') : undefined}
+            onSaved={(ids) => {
+              const created = ids[0]
+              if (created === undefined) return
+              onSearch(
+                { ...search, connection: created, tab: undefined },
+                { fromList: true }
+              )
+              if (data.canOperate) {
+                void test.run({ id: created, name: '' })
+              }
+            }}
+            onOpenChange={(open) => {
+              if (!open) {
+                setAdding(false)
+                addButton.current?.focus()
+              }
+            }}
+          />
+        </ChannelsProvider>
+      ) : null}
+    </>
   )
 }

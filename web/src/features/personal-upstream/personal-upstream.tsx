@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next'
 import { SectionPageLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { quotaSeriesKey } from '@/features/channels/lib/quota-history'
+import { AccountQuotaChangesPanel } from '@/features/dashboard/components/overview/account-quota-changes-panel'
 import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
 import { ROLE } from '@/lib/roles'
 
@@ -26,6 +27,7 @@ export function PersonalUpstream() {
   const data = useUpstreamAccounts()
   const showChannels = useIsSidebarModuleVisible('/channels')
   const [channelId, setChannelId] = useState<number | null>(null)
+  const [showChanges, setShowChanges] = useState(false)
   const items =
     data.canRead && !data.accountsQuery.isError
       ? (data.accountsQuery.data?.items.filter(
@@ -43,9 +45,7 @@ export function PersonalUpstream() {
   )
   return (
     <SectionPageLayout>
-      <SectionPageLayout.Title>
-        {t('Upstream accounts')}
-      </SectionPageLayout.Title>
+      <SectionPageLayout.Title>{t('Account windows')}</SectionPageLayout.Title>
       <SectionPageLayout.Description>
         {t('Saved subscription observations')}
       </SectionPageLayout.Description>
@@ -81,14 +81,16 @@ export function PersonalUpstream() {
         >
           {accounts.length > 0 ? (
             <div className='grid min-w-0 gap-5 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]'>
+              {/* One account list for every width; on a phone it scrolls
+                  sideways instead of a native select (design 6.2). */}
               <aside
-                className='bg-card hidden min-w-0 self-start rounded-xl border p-3 lg:block'
+                className='bg-card min-w-0 self-start rounded-xl border p-3'
                 aria-label={t('Select upstream account')}
               >
-                <p className='text-muted-foreground px-2 py-2 text-xs font-medium'>
+                <p className='text-caption text-muted-foreground px-2 py-2'>
                   {t('Observed subscription accounts')}
                 </p>
-                <div className='flex min-w-0 flex-col gap-1'>
+                <div className='flex min-w-0 gap-1 overflow-x-auto lg:flex-col lg:overflow-visible'>
                   {accounts.map((account) => (
                     <Button
                       key={account.channel_id}
@@ -101,7 +103,7 @@ export function PersonalUpstream() {
                         selectedAccount?.channel_id === account.channel_id
                       }
                       onClick={() => setChannelId(account.channel_id)}
-                      className='h-auto min-h-10 w-full min-w-0 justify-start py-2 text-left wrap-anywhere whitespace-normal'
+                      className='h-auto min-h-10 max-w-64 shrink-0 justify-start py-2 text-left wrap-anywhere whitespace-normal lg:w-full lg:max-w-none lg:min-w-0'
                     >
                       {account.account_label || account.name}
                     </Button>
@@ -109,31 +111,6 @@ export function PersonalUpstream() {
                 </div>
               </aside>
               <div className='flex min-w-0 flex-col gap-4'>
-                <div className='flex min-w-0 flex-col gap-2 lg:hidden'>
-                  <label
-                    htmlFor='upstream-account'
-                    className='text-sm font-medium'
-                  >
-                    {t('Select upstream account')}
-                  </label>
-                  <select
-                    id='upstream-account'
-                    value={selectedAccount?.channel_id ?? ''}
-                    onChange={(event) =>
-                      setChannelId(Number(event.target.value))
-                    }
-                    className='bg-background h-10 w-full min-w-0 rounded-md border px-2 text-sm'
-                  >
-                    {accounts.map((account) => (
-                      <option
-                        key={account.channel_id}
-                        value={account.channel_id}
-                      >
-                        {account.account_label || account.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
                 <h2 className='min-w-0 text-lg font-semibold wrap-anywhere'>
                   {selectedAccount?.account_label || selectedAccount?.name}
                 </h2>
@@ -164,6 +141,30 @@ export function PersonalUpstream() {
             </div>
           ) : (
             <AccountsState data={data} />
+          )}
+          {data.canRead && (
+            <section
+              aria-labelledby='account-window-changes'
+              className='flex min-w-0 flex-col gap-3'
+            >
+              <div className='flex min-w-0 flex-wrap items-center justify-between gap-2'>
+                <h2 id='account-window-changes' className='text-section'>
+                  {t('Window changes over time')}
+                </h2>
+                <Button
+                  variant='outline'
+                  aria-expanded={showChanges}
+                  onClick={() => setShowChanges((open) => !open)}
+                >
+                  {showChanges
+                    ? t('Hide window changes')
+                    : t('Show window changes')}
+                </Button>
+              </div>
+              {/* Read only on request: the comparison is a second, larger
+                  read of saved observations. */}
+              {showChanges && <AccountQuotaChangesPanel />}
+            </section>
           )}
         </div>
       </SectionPageLayout.Content>

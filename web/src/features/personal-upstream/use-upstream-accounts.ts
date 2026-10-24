@@ -9,9 +9,9 @@ version.
 import { useQuery } from '@tanstack/react-query'
 
 import { getChannelQuotaChanges } from '@/features/channels/api'
-import { parseFreshSelfUser } from '@/features/dashboard/components/personal-workbench/workbench-state'
 import { hasPermission } from '@/lib/admin-permissions'
 import { getSelf } from '@/lib/api'
+import { parseFreshSelfUser } from '@/lib/fresh-self-user'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
