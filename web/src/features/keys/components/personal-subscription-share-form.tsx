@@ -149,9 +149,8 @@ export function PersonalSubscriptionShareForm(
     </div>
   )
   return (
-    <main
-      id='content'
-      tabIndex={-1}
+    // A region inside the Key inspector: the page already owns main#content.
+    <section
       className='pc-page @container/share-page min-w-0 space-y-6'
       aria-labelledby='personal-share-title'
     >
@@ -636,6 +635,6 @@ export function PersonalSubscriptionShareForm(
           {!desktop && actions}
         </form>
       )}
-    </main>
+    </section>
   )
 }
