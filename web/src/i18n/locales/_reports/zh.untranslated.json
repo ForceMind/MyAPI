@@ -1,4 +1,5 @@
 {
+  "API Key": "API Key",
   "Callback URL": "回调 URL",
   "Codex authorization failed": "Codex 授权失败",
   "Codex credential saved": "Codex 凭据已保存",
@@ -11,5 +12,6 @@
   "Opened ChatGPT authorization page": "已打开 ChatGPT 授权页面",
   "Sign in to Codex with ChatGPT": "使用 ChatGPT 登录 Codex",
   "Sign in with ChatGPT": "使用 ChatGPT 登录",
-  "Windows PowerShell": "Windows PowerShell"
+  "Windows PowerShell": "Windows PowerShell",
+  "API Key #{{id}}": "API Key #{{id}}"
 }
