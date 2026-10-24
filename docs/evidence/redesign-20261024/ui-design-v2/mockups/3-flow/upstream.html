@@ -1,0 +1,207 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>上游 · MyAPI（方向 3 流向图）</title><style>
+:root{
+  --bg:#FFFFFF; --surface:#F3F5FA; --fg:#0C1222; --muted:#525E78; --border:#DDE2EC; --input:#8591AB; --hover:#EEF1F8;
+  --primary:#0035FC; --primary-fg:#FFFFFF; --core:#0035FC; --core-fg:#FFFFFF; --core-accent:#00CFFC; --line:#8591AB;
+  --ok:#146F37; --ok-bg:#E6F6EC; --warn:#8F5200; --warn-bg:#FFF3DB; --fail:#C8241B; --fail-bg:#FDECEA; --info:#00628F; --info-bg:#E3F3FC;
+  --ring:#0083A8; --ring-track:#E1E7F1; --radius:14px; --radius-sm:8px;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Hiragino Sans GB","Microsoft YaHei UI","Noto Sans",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ 
+  --bg:#090D18; --surface:#131A2A; --fg:#E8ECF6; --muted:#9AA6C0; --border:#222C42; --input:#5F6C8C; --hover:#182136;
+  --primary:#88A0FF; --primary-fg:#070B1A; --core:#1C2752; --core-fg:#E8ECF6; --core-accent:#00CFFC; --line:#3A4664;
+  --ok:#4ADE9B; --ok-bg:#153527; --warn:#F2B544; --warn-bg:#3A2D14; --fail:#FF8A80; --fail-bg:#3C1E1E; --info:#5CC8FF; --info-bg:#15314A;
+  --ring:#22D3FF; --ring-track:#263249; color-scheme:dark; } }
+:root[data-theme="dark"]{ 
+  --bg:#090D18; --surface:#131A2A; --fg:#E8ECF6; --muted:#9AA6C0; --border:#222C42; --input:#5F6C8C; --hover:#182136;
+  --primary:#88A0FF; --primary-fg:#070B1A; --core:#1C2752; --core-fg:#E8ECF6; --core-accent:#00CFFC; --line:#3A4664;
+  --ok:#4ADE9B; --ok-bg:#153527; --warn:#F2B544; --warn-bg:#3A2D14; --fail:#FF8A80; --fail-bg:#3C1E1E; --info:#5CC8FF; --info-bg:#15314A;
+  --ring:#22D3FF; --ring-track:#263249; color-scheme:dark; }
+*{box-sizing:border-box} html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+a{color:var(--primary)} button{font:inherit;color:inherit}
+h1,h2,h3{margin:0;font-weight:600} h1{font-size:24px;line-height:32px;letter-spacing:-.01em} h2{font-size:16px} h3{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.muted{color:var(--muted)} .mono{font-family:var(--mono);font-size:13px} .num{font-variant-numeric:tabular-nums}
+svg{width:18px;height:18px;flex:none}
+/* top nav */
+.top{position:sticky;top:0;z-index:6;background:var(--bg);border-bottom:1px solid var(--border)}
+.top .in{max-width:1200px;margin:0 auto;padding:0 24px;height:56px;display:flex;align-items:center;gap:20px}
+.top .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;text-decoration:none;color:var(--fg)}
+.top nav{display:flex;gap:4px;height:56px}
+.top nav a{display:flex;align-items:center;padding:0 12px;color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:500}
+.top nav a:hover{color:var(--fg)} .top nav a[aria-current]{color:var(--fg);border-bottom-color:var(--primary)}
+.top .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.search{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border:1px solid var(--border);border-radius:18px;background:var(--surface);color:var(--muted);min-width:260px}
+.search input{border:0;background:transparent;outline:0;flex:1;font:inherit;color:var(--fg);min-width:0} .search kbd{font:11px var(--mono);border:1px solid var(--border);border-radius:4px;padding:0 5px}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:grid;place-items:center;font-size:12px;font-weight:600}
+.wrap{max-width:1200px;margin:0 auto;padding:24px 24px 64px}
+.mtop,.bottomnav{display:none}
+.crumb{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:13px;margin-bottom:8px;flex-wrap:wrap} .crumb a{color:inherit;text-decoration:none} .crumb a:hover{text-decoration:underline}
+.head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px} .head p{margin:4px 0 0;color:var(--muted)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+/* controls */
+.btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);cursor:pointer;white-space:nowrap;text-decoration:none;color:inherit}
+.btn:hover{background:var(--hover)} .btn.primary{background:var(--primary);color:var(--primary-fg);border-color:transparent} .btn.ghost{border-color:transparent;background:transparent} .btn.icon{width:36px;padding:0;justify-content:center} .btn.danger{color:var(--fail)}
+.btn:focus-visible,[role=tab]:focus-visible,.switch:focus-visible,.node:focus-visible,tr[tabindex]:focus-visible,.card[tabindex]:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips [role=tab],.chip{height:30px;padding:0 12px;border:1px solid var(--border);background:var(--bg);border-radius:15px;cursor:pointer;color:var(--muted);font-size:13px;display:inline-flex;align-items:center;gap:6px}
+.chips [role=tab][aria-selected=true]{background:var(--fg);color:var(--bg);border-color:transparent}
+.chip.filter{background:var(--primary);color:var(--primary-fg);border-color:transparent}
+.switch{width:42px;height:24px;border-radius:12px;background:var(--input);border:0;position:relative;cursor:pointer;flex:none;padding:0}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .12s}
+.switch[aria-checked=true]{background:var(--primary)} .switch[aria-checked=true]::after{left:21px}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:11px;font-size:12px;font-weight:500;white-space:nowrap}
+.badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.badge-ok{color:var(--ok);background:var(--ok-bg)} .badge-fail{color:var(--fail);background:var(--fail-bg)} .badge-warn{color:var(--warn);background:var(--warn-bg)} .badge-info{color:var(--info);background:var(--info-bg)} .badge-neutral{color:var(--muted);background:var(--surface)}
+/* surfaces */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+.card.white{background:var(--bg)}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border)} .card-body{padding:18px}
+.alert{display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:var(--radius-sm);background:var(--warn-bg);color:var(--warn);margin-bottom:16px;flex-wrap:wrap} .alert a{color:inherit}
+/* flow board */
+.flow{display:grid;grid-template-columns:1fr 300px 1fr;gap:0 48px;align-items:start;padding:24px;position:relative}
+.flow .core{align-self:center}
+.col{display:flex;flex-direction:column;gap:12px;position:relative}
+.col h3{margin-bottom:2px}
+.node{position:relative;display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);cursor:pointer;text-align:left}
+.node:hover{border-color:var(--input)} .node[aria-pressed=true]{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary) inset}
+.node b{font-weight:600;display:flex;gap:8px;align-items:center;flex-wrap:wrap} .node .s{color:var(--muted);font-size:12.5px}
+.node .d{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none} .node .d.off{background:var(--input)} .node .d.bad{background:var(--fail)}
+.col.keys .node::after,.col.conns .node::before{content:"";position:absolute;top:50%;width:48px;border-top:2px solid var(--line)}
+.col.keys .node::after{right:-49px} .col.conns .node::before{left:-49px}
+.col.conns .node[data-off=true]::before{border-top-style:dashed}
+.core{background:var(--core);color:var(--core-fg);border-radius:var(--radius);padding:20px;display:flex;flex-direction:column;gap:10px;position:relative;z-index:1}
+.core .t{display:flex;align-items:center;gap:10px;font-weight:600;font-size:16px}
+.core .url{font-family:var(--mono);font-size:12.5px;padding:8px 10px;border-radius:6px;background:rgba(255,255,255,.12);display:flex;gap:8px;align-items:center} .core .url code{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.core .url button{background:transparent;border:0;color:inherit;cursor:pointer;display:grid;place-items:center;padding:0}
+.core .kpi{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:11.5px;opacity:.95} .core .kpi b{display:block;font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;line-height:24px}
+.core .bars{display:flex;align-items:flex-end;gap:2px;height:28px} .core .bars i{flex:1;background:var(--core-accent);border-radius:1px 1px 0 0;min-height:2px;opacity:.9}
+.core .meta{font-size:11.5px;opacity:.8}
+.ring{width:44px;height:44px;flex:none} .ring circle{fill:none;stroke-width:5} .ring .tr{stroke:var(--ring-track)} .ring .v{stroke:var(--ring);stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%} .ring.warn .v{stroke:var(--warn)} .ring.crit .v{stroke:var(--fail)}
+.ring text{font:600 11px var(--font);fill:var(--fg);text-anchor:middle;dominant-baseline:central}
+.ring.big{width:120px;height:120px} .ring.big text{font-size:22px}
+/* tables */
+table{width:100%;border-collapse:collapse} th{font-size:12px;color:var(--muted);font-weight:500;text-align:left;padding:8px 12px;border-bottom:1px solid var(--border)}
+td{padding:0 12px;height:46px;border-bottom:1px solid var(--border);white-space:nowrap} tbody tr:last-child td{border-bottom:0}
+tbody tr[tabindex]{cursor:pointer} tbody tr[tabindex]:hover{background:var(--hover)} tbody tr[hidden]{display:none}
+td.r,th.r{text-align:right} td.mono{font-family:var(--mono);font-size:13px}
+.tscroll{overflow-x:auto}
+/* stat tiles */
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.tile{padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg)} .tile .l{font-size:12px;color:var(--muted)} .tile .v{font-size:24px;font-weight:600;line-height:32px;font-variant-numeric:tabular-nums} .tile .s{font-size:12px;color:var(--muted)}
+/* tabs */
+[role=tablist].tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:16px;overflow:auto}
+.tabs [role=tab]{border:0;background:none;padding:10px 12px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tabs [role=tab][aria-selected=true]{color:var(--fg);font-weight:600;border-bottom-color:var(--primary)}
+/* object pages */
+[data-screen]:not([data-active="true"]){display:none}
+.objhead{display:flex;gap:16px;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap}
+.objhead .grow{flex:1;min-width:240px} .objhead .sub{color:var(--muted);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start} .two > *{min-width:0}
+.results{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.results > div{padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg)} .results .l{font-size:12px;color:var(--muted)} .results .v{font-weight:600}
+.tl{list-style:none;margin:0;padding:0 0 0 8px;border-left:2px solid var(--border)}
+.tl li{position:relative;padding:0 0 14px 16px} .tl li::before{content:"";position:absolute;left:-7px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--ok);border:2px solid var(--surface)}
+.tl li.fail::before{background:var(--fail)} .tl li.warn::before{background:var(--warn)} .tl .t{display:block;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.code{font-family:var(--mono);font-size:12.5px;line-height:1.6;white-space:pre;overflow:auto;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin:0;max-height:360px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0} .kv dt{color:var(--muted)} .kv dd{margin:0;overflow-wrap:anywhere}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.card.conn{padding:16px;display:flex;flex-direction:column;gap:12px;cursor:pointer} .card.conn:hover{border-color:var(--input)}
+.card.conn .top-row{display:flex;gap:12px;align-items:center} .card.conn .top-row .grow{flex:1;min-width:0}
+.card.conn b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .card.conn .s{color:var(--muted);font-size:12.5px}
+.card.conn .foot{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:12px;border-top:1px solid var(--border)} .card.conn .foot .grow{flex:1}
+.card.conn[data-inuse=true]{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary) inset}
+.winbig{display:flex;gap:28px;flex-wrap:wrap} .winbig > div{display:flex;gap:14px;align-items:center}
+.list{list-style:none;margin:0;padding:0} .list li{display:flex;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid var(--border)} .list li:first-child{border-top:0} .list li .grow{flex:1;min-width:0}
+/* mobile */
+@media (max-width:1023px){
+  body{font-size:15px}
+  .top{display:none}
+  .mtop{display:flex;align-items:center;gap:8px;height:56px;padding:0 10px 0 16px;position:sticky;top:0;z-index:6;background:var(--bg);border-bottom:1px solid var(--border)}
+  .mtop h1{font-size:18px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mtop .back{display:none} body:not([data-screen="list"]) .mtop .back{display:inline-flex} body:not([data-screen="list"]) .mtop .logo{display:none}
+  .wrap{padding:16px 16px 96px}
+  .bottomnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;height:calc(64px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--bg);border-top:1px solid var(--border);z-index:6}
+  .bottomnav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;color:var(--muted);text-decoration:none;min-height:44px} .bottomnav a[aria-current]{color:var(--primary)} .bottomnav svg{width:22px;height:22px}
+  .head h1,.crumb{display:none} .head{display:block;margin-bottom:12px} .head p{margin:0 0 10px} .head .actions{width:100%}
+  .objhead{display:block} .objhead .actions{margin-top:12px}
+  .flow{grid-template-columns:1fr;gap:16px;padding:16px}
+  .col.keys .node::after,.col.conns .node::before{display:none}
+  .col::after{content:"";display:block;width:2px;height:16px;background:var(--line);margin:0 auto}
+  .col.conns::after{display:none}
+  .core{order:0}
+  .tiles{grid-template-columns:1fr 1fr 1fr;gap:8px} .tile .v{font-size:20px}
+  .two{grid-template-columns:1fr}
+  .results{grid-template-columns:1fr 1fr}
+  .cards{grid-template-columns:1fr}
+  .btn{height:44px} .btn.icon{width:44px} .switch{height:28px;width:48px} .switch::after{width:22px;height:22px} .switch[aria-checked=true]::after{left:23px}
+  .objhead .actions{width:100%}
+  /* tables become rows */
+  .tscroll{overflow:visible} table,tbody,td{display:block} thead{display:none}
+  tbody tr{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"a b c" "d d d";gap:4px 10px;padding:12px 14px;border-bottom:1px solid var(--border)}
+  td{height:auto;padding:0;border:0;white-space:normal} td.m1{grid-area:a} td.m2{grid-area:b} td.m3{grid-area:c;text-align:right} td.m4{grid-area:d;color:var(--muted);font-size:13px} td.mx{display:none}
+  .search{min-width:0}
+}
+</style></head>
+<body data-title-list="上游" data-title-key="上游" data-title-req="上游" data-title-conn="示例订阅账号 A">
+<header class="top"><div class="in"><a class="brand" href="home.html"><img src="../assets/myapi-logo-v1.png" width="28" height="28" alt="MyAPI" style="display:block;border-radius:6px">MyAPI</a><nav aria-label="主导航"><a href="home.html" >概览</a><a href="upstream.html" aria-current="page">上游</a><a href="keys.html" >API Key</a><a href="#" >请求</a><a href="#" >设置</a></nav>
+<div class="right"><div class="search" role="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input placeholder="搜索或粘贴 Request ID" aria-label="全局搜索"><kbd>⌘K</kbd></div><button class="btn icon ghost" onclick="toggleTheme()" aria-label="切换亮暗"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg></button><div class="avatar" aria-label="管理员">管</div></div></div></header>
+<header class="mtop"><button class="btn icon ghost back" aria-label="返回"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="m15 6-6 6 6 6"/></svg></button><span class="logo"><img src="../assets/myapi-logo-v1.png" width="26" height="26" alt="MyAPI" style="display:block;border-radius:5px"></span><h1>上游</h1><button class="btn icon ghost" aria-label="搜索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button></header>
+<main class="wrap">
+<section data-screen="list">
+<div class="head"><div><h1>上游</h1><p>4 个连接 · 正在使用示例订阅账号 A，备用示例订阅账号 D。</p></div><div class="actions"><div class="chips" role="tablist" aria-label="类型"><button role="tab" aria-selected="true">全部</button><button role="tab" aria-selected="false">订阅</button><button role="tab" aria-selected="false">API</button><button role="tab" aria-selected="false">本地</button></div><button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M12 5v14M5 12h14"/></svg>添加上游</button></div></div>
+<div class="cards"><div class="card white conn" tabindex="0" data-go="#conn/1" data-inuse="true" data-shot="conn-1">
+<div class="top-row"><svg class="ring crit " viewBox="0 0 44 44" role="img" aria-label="已用 82%"><circle class="tr" cx="22" cy="22" r="18"/><circle class="v" cx="22" cy="22" r="18" stroke-dasharray="92.7 113.1"/><text x="22" y="22">82%</text></svg><div class="grow"><b>示例订阅账号 A</b><div class="s">订阅 · 优先级 1 · 3 个模型</div></div></div>
+<div class="s">5 小时剩余 18% · 7 天剩余 45% · 观测于 20:35</div>
+<div class="actions"><span class="badge badge-ok"><i class="dot"></i>可用</span><span class="badge badge-info"><i class="dot"></i>正在使用</span><span class="s">2 分钟前</span></div>
+<div class="foot"><button class="switch" role="switch" aria-checked="true" aria-label="启用 示例订阅账号 A"></button><span class="grow"></span><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M7 5v14l11-7Z"/></svg>测试</button><button class="btn icon ghost" aria-label="更多"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg></button></div></div><div class="card white conn" tabindex="0" data-go="#conn/2" data-inuse="false" data-shot="conn-2">
+<div class="top-row"><div class="avatar" style="width:44px;height:44px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M9 7V3M15 7V3"/><path d="M6 7h12v4a6 6 0 0 1-12 0V7Z"/><path d="M12 17v4"/></svg></div><div class="grow"><b>示例 API 连接 B</b><div class="s">API Key · 优先级 2 · 5 个模型</div></div></div>
+<div class="s">按量计费，无订阅窗口</div>
+<div class="actions"><span class="badge badge-fail"><i class="dot"></i>测试失败 401</span><span class="s">1 小时前</span></div>
+<div class="foot"><button class="switch" role="switch" aria-checked="true" aria-label="启用 示例 API 连接 B"></button><span class="grow"></span><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M7 5v14l11-7Z"/></svg>测试</button><button class="btn icon ghost" aria-label="更多"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg></button></div></div><div class="card white conn" tabindex="0" data-go="#conn/3" data-inuse="false" data-shot="conn-3">
+<div class="top-row"><div class="avatar" style="width:44px;height:44px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div><div class="grow"><b>示例本地模型 C</b><div class="s">本地 · 优先级 3 · 2 个模型</div></div></div>
+<div class="s">本地服务，无额度窗口</div>
+<div class="actions"><span class="badge badge-neutral"><i class="dot"></i>已停用</span><span class="s">未测试</span></div>
+<div class="foot"><button class="switch" role="switch" aria-checked="false" aria-label="启用 示例本地模型 C"></button><span class="grow"></span><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M7 5v14l11-7Z"/></svg>测试</button><button class="btn icon ghost" aria-label="更多"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg></button></div></div><div class="card white conn" tabindex="0" data-go="#conn/4" data-inuse="false" data-shot="conn-4">
+<div class="top-row"><svg class="ring ok " viewBox="0 0 44 44" role="img" aria-label="已用 12%"><circle class="tr" cx="22" cy="22" r="18"/><circle class="v" cx="22" cy="22" r="18" stroke-dasharray="13.6 113.1"/><text x="22" y="22">12%</text></svg><div class="grow"><b>示例订阅账号 D</b><div class="s">订阅 · 优先级 2 · 3 个模型</div></div></div>
+<div class="s">5 小时剩余 88% · 7 天剩余 70% · 观测于 20:30</div>
+<div class="actions"><span class="badge badge-ok"><i class="dot"></i>可用</span><span class="s">12 分钟前</span></div>
+<div class="foot"><button class="switch" role="switch" aria-checked="true" aria-label="启用 示例订阅账号 D"></button><span class="grow"></span><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M7 5v14l11-7Z"/></svg>测试</button><button class="btn icon ghost" aria-label="更多"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg></button></div></div></div>
+<p class="muted" style="font-size:13px;margin-top:16px">打开此页不会向上游发请求；只有点「测试」才会真正联网。</p>
+</section>
+<section data-screen="conn">
+<div class="crumb"><a href="#">上游</a><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="m9 6 6 6-6 6"/></svg><span>示例订阅账号 A</span></div>
+<div class="objhead"><div class="grow"><h1>示例订阅账号 A</h1><div class="sub"><span class="badge badge-ok"><i class="dot"></i>可用</span><span class="badge badge-info"><i class="dot"></i>正在使用</span><span>订阅</span><span class="mono">upstream-a.example.invalid</span></div></div>
+<div class="actions"><button class="switch" role="switch" aria-checked="true" aria-label="启用"></button><button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M7 5v14l11-7Z"/></svg>测试</button><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="m13 7 3 3"/></svg>编辑</button><button class="btn icon ghost" aria-label="更多"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg></button></div></div>
+<div role="tablist" class="tabs" aria-label="连接页面"><button role="tab" aria-selected="true" aria-controls="c-win">窗口</button><button role="tab" aria-selected="false" aria-controls="c-route">路由与模型</button><button role="tab" aria-selected="false" aria-controls="c-req">请求</button><button role="tab" aria-selected="false" aria-controls="c-hist">历史</button></div>
+<div class="tabpanels">
+<div role="tabpanel" id="c-win"><div class="card white card-body"><div class="winbig"><div><svg class="ring crit big" viewBox="0 0 120 120" role="img" aria-label="已用 82%"><circle class="tr" cx="60" cy="60" r="50"/><circle class="v" cx="60" cy="60" r="50" stroke-dasharray="257.6 314.2"/><text x="60" y="60">82%</text></svg><div><div class="muted">5 小时窗口</div><div style="font-size:18px;font-weight:600">剩余 18%</div><div class="muted" style="font-size:13px">观测于 20:35</div><div class="muted" style="font-size:13px">预计重置 22:10</div></div></div><div><svg class="ring ok big" viewBox="0 0 120 120" role="img" aria-label="已用 55%"><circle class="tr" cx="60" cy="60" r="50"/><circle class="v" cx="60" cy="60" r="50" stroke-dasharray="172.8 314.2"/><text x="60" y="60">55%</text></svg><div><div class="muted">7 天窗口</div><div style="font-size:18px;font-weight:600">剩余 45%</div><div class="muted" style="font-size:13px">观测于 20:35</div><div class="muted" style="font-size:13px">预计重置 10/27</div></div></div></div><p class="muted" style="margin:16px 0 0;font-size:13px">数值来自上游账号的原生窗口采样，每 5 分钟一次；重置时间以上游返回为准。</p></div></div>
+<div role="tabpanel" id="c-route" hidden><div class="card white card-body"><dl class="kv"><dt>优先级</dt><dd>1</dd><dt>权重</dt><dd>100</dd><dt>模型</dt><dd class="mono">synthetic-text-model, synthetic-vision-model, synthetic-embed-model</dd><dt>最近测试</dt><dd>通过，412 ms，2 分钟前</dd></dl></div></div>
+<div role="tabpanel" id="c-req" hidden><div class="card white"><div class="tscroll"><table><thead><tr><th>时间</th><th>结果</th><th>Key</th><th>模型</th><th>连接</th><th class="r">耗时</th></tr></thead><tbody>
+<tr tabindex="0"  data-rowkey="key-21 conn-1"><td class="mono num m1">04:06:23</td><td class="m2"><span class="badge badge-fail"><i class="dot"></i>请求失败</span></td><td class="mx">示例 Key · 团队机器人</td><td class="mono m4">synthetic-text-model · 上游流内错误 (500)</td><td class="mx">示例订阅账号 A</td><td class="r num m3">2.1 秒</td></tr><tr tabindex="0"  data-rowkey="key-21 conn-1"><td class="mono num m1">04:05:53</td><td class="m2"><span class="badge badge-ok"><i class="dot"></i>请求成功</span></td><td class="mx">示例 Key · 团队机器人</td><td class="mono m4">synthetic-text-model · 用量未知</td><td class="mx">示例订阅账号 A</td><td class="r num m3">2.0 秒</td></tr><tr tabindex="0"  data-rowkey="key-22 conn-1"><td class="mono num m1">04:05:23</td><td class="m2"><span class="badge badge-ok"><i class="dot"></i>请求成功</span></td><td class="mx">示例 Key · 本机 CLI</td><td class="mono m4">synthetic-text-model · 120 Token</td><td class="mx">示例订阅账号 A</td><td class="r num m3">1.4 秒</td></tr><tr tabindex="0"  data-rowkey="key-21 conn-1"><td class="mono num m1">03:58:41</td><td class="m2"><span class="badge badge-ok"><i class="dot"></i>请求成功</span></td><td class="mx">示例 Key · 团队机器人</td><td class="mono m4">synthetic-text-model · 640 Token</td><td class="mx">示例订阅账号 A</td><td class="r num m3">900 ms</td></tr></tbody></table></div></div></div>
+<div role="tabpanel" id="c-hist" hidden><div class="card white card-body"><ul class="tl"><li><span class="t">今天 20:35</span>窗口采样成功：5 小时 82%，7 天 55%</li><li class="warn"><span class="t">今天 02:40</span>5 小时窗口超过 80%</li><li><span class="t">今天 00:00</span>5 小时窗口重置（上游证据：reset_at）</li><li><span class="t">10/22</span>测试通过，380 ms</li></ul></div></div>
+</div></section></main>
+<nav class="bottomnav" aria-label="底部导航"><a href="home.html" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9h12v-9"/></svg>概览</a><a href="upstream.html" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M9 7V3M15 7V3"/><path d="M6 7h12v4a6 6 0 0 1-12 0V7Z"/><path d="M12 17v4"/></svg>上游</a><a href="keys.html" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M15 12v2"/></svg>Key</a><a href="#" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 6h16M4 12h16M4 18h10"/></svg>请求</a><a href="#" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg>更多</a></nav>
+<script>
+
+(function(){var q=new URLSearchParams(location.search);var t=q.get('theme');if(t)document.documentElement.dataset.theme=t;
+window.toggleTheme=function(){var h=document.documentElement;var dark=h.dataset.theme==='dark'||(!h.dataset.theme&&matchMedia('(prefers-color-scheme: dark)').matches);h.dataset.theme=dark?'light':'dark';};
+document.addEventListener('click',function(e){var sw=e.target.closest('[role="switch"]');if(sw){var on=sw.getAttribute('aria-checked')==='true';sw.setAttribute('aria-checked',on?'false':'true');var row=sw.closest('[data-enabled]');if(row)row.dataset.enabled=on?'false':'true';e.stopPropagation();}
+var tab=e.target.closest('[role="tab"]');if(tab){var list=tab.closest('[role="tablist"]');list.querySelectorAll('[role="tab"]').forEach(function(t){t.setAttribute('aria-selected',t===tab?'true':'false');t.tabIndex=t===tab?0:-1;});var scope=list.parentElement;scope.querySelectorAll(':scope > [role="tabpanel"], :scope > .tabpanels > [role="tabpanel"]').forEach(function(p){p.hidden=p.id!==tab.getAttribute('aria-controls');});}
+});
+})();
+function route(){var h=location.hash;var screen=h.indexOf('#req/')===0?'req':h.indexOf('#key/')===0?'key':h.indexOf('#conn/')===0?'conn':'list';
+ document.body.dataset.screen=screen;document.querySelectorAll('[data-screen]').forEach(function(p){p.dataset.active=(p.dataset.screen===screen)?'true':'false'});
+ var mt=document.querySelector('.mtop h1');if(mt){mt.textContent=document.body.dataset['title'+screen.charAt(0).toUpperCase()+screen.slice(1)]||document.body.dataset.titleList;}
+ window.scrollTo(0,0);}
+window.addEventListener('hashchange',route);route();
+document.addEventListener('click',function(e){
+ var el=e.target.closest('[data-go]');if(el&&!e.target.closest('button,a,[role=switch]')){location.hash=el.dataset.go;return;}
+ var b=e.target.closest('.back');if(b){history.back();return;}
+ var n=e.target.closest('[data-filter]');if(n){var on=n.getAttribute('aria-pressed')==='true';document.querySelectorAll('[data-filter]').forEach(function(x){x.setAttribute('aria-pressed','false')});n.setAttribute('aria-pressed',on?'false':'true');
+   var f=on?'':n.dataset.filter;document.querySelectorAll('[data-rowkey]').forEach(function(tr){tr.hidden=!!f&&tr.dataset.rowkey.split(' ').indexOf(f)<0;});
+   var chip=document.getElementById('filter-chip');if(chip){chip.hidden=!f;chip.querySelector('span').textContent=n.dataset.label||'';}}
+ var cl=e.target.closest('[data-clear]');if(cl){document.querySelectorAll('[data-filter]').forEach(function(x){x.setAttribute('aria-pressed','false')});document.querySelectorAll('[data-rowkey]').forEach(function(tr){tr.hidden=false});document.getElementById('filter-chip').hidden=true;}
+});
+document.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target.matches('[data-go]')){location.hash=e.target.dataset.go;}});
+</script></body></html>

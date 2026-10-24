@@ -1,0 +1,227 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>上游 · MyAPI（方向 1 切换台）</title><style>
+:root{
+  --bg:#F6F5F1; --card:#FFFFFF; --fg:#1D1C19; --muted:#5F5C55; --border:#E4E1DA; --input:#8C8878;
+  --primary:#0035FC; --primary-fg:#FFFFFF; --accent:#EEF1FF; --accent-fg:#0029C4;
+  --ok:#1B7A3E; --ok-bg:#E4F4EA; --warn:#8A5300; --warn-bg:#FFF2DC; --fail:#C2261D; --fail-bg:#FDEBEA; --info:#0B5E8F; --info-bg:#E3F3FC;
+  --meter:#0083A8; --meter-track:#E6E3DC; --switch-off:#8C8878; --hover:#F3F1EC; --shadow:0 1px 2px rgba(29,28,25,.06);
+  --radius:12px; --radius-sm:8px; --font:system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Hiragino Sans GB","Microsoft YaHei UI","Noto Sans","Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ 
+  --bg:#171613; --card:#201F1B; --fg:#ECE9E1; --muted:#A8A49A; --border:#34322C; --input:#7A766C;
+  --primary:#8EA6FF; --primary-fg:#0A1030; --accent:#26305A; --accent-fg:#CBD5FF;
+  --ok:#5BD38A; --ok-bg:#1C2E24; --warn:#F0B550; --warn-bg:#342A17; --fail:#FF8E85; --fail-bg:#3A1F1D; --info:#62C7F5; --info-bg:#17303B;
+  --meter:#22D3FF; --meter-track:#2E2D28; --switch-off:#7A766C; --hover:#26251F; --shadow:0 1px 0 rgba(0,0,0,.4);
+  color-scheme:dark; } }
+:root[data-theme="dark"]{ 
+  --bg:#171613; --card:#201F1B; --fg:#ECE9E1; --muted:#A8A49A; --border:#34322C; --input:#7A766C;
+  --primary:#8EA6FF; --primary-fg:#0A1030; --accent:#26305A; --accent-fg:#CBD5FF;
+  --ok:#5BD38A; --ok-bg:#1C2E24; --warn:#F0B550; --warn-bg:#342A17; --fail:#FF8E85; --fail-bg:#3A1F1D; --info:#62C7F5; --info-bg:#17303B;
+  --meter:#22D3FF; --meter-track:#2E2D28; --switch-off:#7A766C; --hover:#26251F; --shadow:0 1px 0 rgba(0,0,0,.4);
+  color-scheme:dark; }
+*{box-sizing:border-box} html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+a{color:var(--primary)} button{font:inherit;color:inherit}
+h1,h2,h3{margin:0;font-weight:600} h1{font-size:22px;line-height:30px} h2{font-size:16px;line-height:24px} h3{font-size:14px}
+.muted{color:var(--muted)} .mono{font-family:var(--mono);font-size:13px} .num{font-variant-numeric:tabular-nums}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+svg{width:18px;height:18px;flex:none}
+/* shell */
+.app{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+.rail{border-right:1px solid var(--border);padding:16px 12px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 8px 16px;font-weight:600;font-size:16px}
+.brand small{display:block;font-weight:400;font-size:12px;color:var(--muted)}
+.nav a{display:flex;align-items:center;gap:10px;height:38px;padding:0 10px;border-radius:var(--radius-sm);color:var(--fg);text-decoration:none}
+.nav a:hover{background:var(--hover)} .nav a[aria-current]{background:var(--accent);color:var(--accent-fg);font-weight:600}
+.rail .spacer{flex:1}
+.edition{margin:8px 8px 0;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;color:var(--muted);background:var(--card)}
+.edition b{display:block;color:var(--fg);font-size:13px}
+.main{padding:28px 36px 48px;max-width:1080px;width:100%}
+.topbar{display:none}
+.bottomnav{display:none}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px}
+.page-head p{margin:4px 0 0;color:var(--muted)}
+/* controls */
+.btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--card);cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--hover)} .btn.primary{background:var(--primary);color:var(--primary-fg);border-color:transparent} .btn.primary:hover{filter:brightness(.95)}
+.btn.ghost{border-color:transparent;background:transparent} .btn.icon{width:36px;padding:0;justify-content:center}
+.btn.danger{color:var(--fail)} .btn:focus-visible,.row:focus-visible,[role=tab]:focus-visible,.switch:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--card);padding:3px;gap:2px}
+.seg [role=tab]{height:30px;padding:0 12px;border:0;background:transparent;border-radius:6px;cursor:pointer;color:var(--muted)}
+.seg [role=tab][aria-selected=true]{background:var(--accent);color:var(--accent-fg);font-weight:600}
+.search{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border:1px solid var(--input);border-radius:var(--radius-sm);background:var(--card);color:var(--muted);min-width:220px}
+.search input{border:0;background:transparent;outline:0;flex:1;font:inherit;color:var(--fg);min-width:0}
+.toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.switch{width:42px;height:24px;border-radius:12px;background:var(--switch-off);border:0;position:relative;cursor:pointer;flex:none;padding:0}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .12s}
+.switch[aria-checked=true]{background:var(--primary)} .switch[aria-checked=true]::after{left:21px}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:11px;font-size:12px;font-weight:500;white-space:nowrap}
+.badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.badge-ok{color:var(--ok);background:var(--ok-bg)} .badge-fail{color:var(--fail);background:var(--fail-bg)} .badge-warn{color:var(--warn);background:var(--warn-bg)} .badge-info{color:var(--info);background:var(--info-bg)} .badge-neutral{color:var(--muted);background:var(--hover)}
+.chip{display:inline-block;padding:1px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--muted)}
+.meter{height:6px;border-radius:3px;background:var(--meter-track);overflow:hidden;min-width:80px}
+.meter i{display:block;height:100%;border-radius:3px;background:var(--meter)} .meter.warn i{background:var(--warn)} .meter.crit i{background:var(--fail)}
+/* cards & rows */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
+.rows{display:flex;flex-direction:column;gap:10px}
+.rowcard{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.rowcard[data-inuse=true]{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary) inset}
+.row{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 16px;cursor:pointer}
+.row:hover{background:var(--hover)}
+.avatar{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-weight:600;background:var(--accent);color:var(--accent-fg)}
+.row .title{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:600}
+.row .sub{color:var(--muted);font-size:13px;display:flex;gap:10px;flex-wrap:wrap;margin-top:2px}
+.row .right{display:flex;align-items:center;gap:14px}
+.quota{text-align:right;font-size:12px;color:var(--muted);line-height:16px;min-width:120px}
+.quota b{color:var(--fg);font-weight:600}
+.quota .meter{margin-top:4px}
+.inuse{display:inline-flex;align-items:center;gap:6px;color:var(--accent-fg);font-weight:600;font-size:12px}
+.inuse::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--primary)}
+.detail{border-top:1px solid var(--border);padding:16px;background:var(--bg);display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.detail h3{margin-bottom:8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.detail .full{grid-column:1/-1}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px} .kv dt{color:var(--muted)} .kv dd{margin:0}
+.winrow{display:grid;grid-template-columns:64px 1fr 56px;gap:10px;align-items:center;font-size:13px;margin-bottom:8px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.list{list-style:none;margin:0;padding:0}
+.list li{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border)} .list li:first-child{border-top:0}
+.list li .grow{flex:1;min-width:0} .list li .t{color:var(--muted);font-size:13px}
+.list li[data-open]{cursor:pointer} .list li[data-open]:hover{background:var(--hover)}
+.trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* home */
+.hero{display:grid;grid-template-columns:1.2fr 1fr;gap:0}
+.hero > div{padding:18px 20px;min-width:0} .hero > div + div{border-left:1px solid var(--border)}
+.baseurl{display:flex;align-items:center;gap:8px;margin:10px 0 12px;padding:10px 12px;border:1px dashed var(--input);border-radius:var(--radius-sm);background:var(--bg)}
+.baseurl code{flex:1;font-family:var(--mono);font-size:14px}
+.snippet{font-family:var(--mono);font-size:12px;line-height:1.6;white-space:pre;overflow:auto;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin:0}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}
+.tile{padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--card)}
+.tile .l{font-size:12px;color:var(--muted)} .tile .v{font-size:24px;font-weight:600;line-height:32px;font-variant-numeric:tabular-nums} .tile .d{font-size:12px;color:var(--muted)}
+.two{display:grid;grid-template-columns:3fr 2fr;gap:16px;align-items:start}
+.callout{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:var(--radius);background:var(--warn-bg);color:var(--warn);margin-bottom:16px}
+.callout ul{margin:4px 0 0;padding-left:18px;color:var(--fg)} .callout a{color:inherit}
+.strip{display:flex;align-items:center;gap:10px;padding:10px 14px;margin-bottom:12px;border-radius:var(--radius);background:var(--accent);color:var(--accent-fg);font-size:13px}
+/* tabs */
+[role=tablist].tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:12px}
+.tabs [role=tab]{border:0;background:none;padding:8px 12px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs [role=tab][aria-selected=true]{color:var(--fg);font-weight:600;border-bottom-color:var(--primary)}
+/* dialog */
+dialog{border:0;border-radius:16px;padding:0;width:min(760px,calc(100vw - 32px));max-height:calc(100vh - 48px);background:var(--card);color:var(--fg);box-shadow:0 24px 48px -24px rgba(0,0,0,.4)}
+dialog::backdrop{background:rgba(20,20,16,.45)}
+.dlg-head{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border)}
+.dlg-head .grow{flex:1;min-width:0}
+.dlg-body{padding:16px 20px;overflow:auto}
+.results{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.results > div{padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg)}
+.results .l{font-size:12px;color:var(--muted)} .results .v{font-weight:600;margin-top:2px}
+.tl{list-style:none;margin:0;padding:0;border-left:2px solid var(--border);margin-left:6px}
+.tl li{position:relative;padding:0 0 12px 16px;font-size:13px}
+.tl li::before{content:"";position:absolute;left:-7px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--ok);border:2px solid var(--card)}
+.tl li.fail::before{background:var(--fail)} .tl li.warn::before{background:var(--warn)}
+.tl .t{font-family:var(--mono);font-size:12px;color:var(--muted);display:block}
+.code{font-family:var(--mono);font-size:12px;line-height:1.6;white-space:pre;overflow:auto;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin:0;max-height:280px}
+.dlg-foot{display:flex;justify-content:space-between;gap:8px;padding:12px 20px;border-top:1px solid var(--border)}
+/* mobile */
+@media (max-width:1023px){
+  body{font-size:15px}
+  .app{display:block}
+  .rail{display:none}
+  .topbar{display:flex;align-items:center;gap:10px;height:56px;padding:0 12px 0 16px;position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);z-index:5}
+  .topbar h1{font-size:18px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .main{padding:16px 16px 96px;max-width:none}
+  .page-head{display:none}
+  .bottomnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;height:calc(64px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--card);border-top:1px solid var(--border);z-index:5}
+  .bottomnav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;color:var(--muted);text-decoration:none;min-height:44px}
+  .bottomnav a[aria-current]{color:var(--accent-fg)} .bottomnav svg{width:22px;height:22px}
+  .row{grid-template-columns:36px minmax(0,1fr);padding:12px 14px;row-gap:10px}
+  .avatar{width:36px;height:36px}
+  .row .right{grid-column:1/-1;justify-content:flex-end;flex-wrap:wrap;gap:10px}
+  .quota{text-align:left;flex:1 1 100%;min-width:0}
+  .list li{flex-wrap:wrap;row-gap:4px} .list li .grow{flex:1 1 100%;order:9;white-space:normal} .list li .t:first-child{order:0}
+  .snippet,.code{max-width:100%}
+  .detail{grid-template-columns:1fr;padding:14px}
+  .hero{grid-template-columns:1fr} .hero > div + div{border-left:0;border-top:1px solid var(--border)}
+  .tiles{grid-template-columns:1fr 1fr} .two{grid-template-columns:1fr}
+  .toolbar .search{min-width:0;flex:1}
+  .seg{overflow:auto;max-width:100%}
+  dialog{width:100vw;max-width:100vw;height:100vh;max-height:100vh;border-radius:0}
+  .results{grid-template-columns:1fr 1fr}
+  .btn{height:44px} .switch{height:28px;width:48px} .switch::after{width:22px;height:22px} .switch[aria-checked=true]::after{left:23px}
+  .list li{padding:12px 14px}
+}
+</style></head>
+<body><div class="app">
+<aside class="rail"><div class="brand"><img src="../assets/myapi-logo-v1.png" width="32" height="32" alt="MyAPI" style="display:block;border-radius:6px"><span>MyAPI<small>Desktop · 仅本机</small></span></div>
+<nav class="nav" aria-label="主导航"><a href="home.html" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9h12v-9"/></svg>接入</a><a href="upstream.html" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M9 7V3M15 7V3"/><path d="M6 7h12v4a6 6 0 0 1-12 0V7Z"/><path d="M12 17v4"/></svg>上游</a><a href="keys.html" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M15 12v2"/></svg>API Key</a><a href="#" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 6h16M4 12h16M4 18h10"/></svg>请求</a><a href="#" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>用量</a></nav><div class="spacer"></div>
+<nav class="nav" aria-label="次导航"><a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>设置</a></nav>
+<div class="edition"><b>127.0.0.1:3000</b>本机接入地址 · 版本 0.2.0</div></aside>
+<div>
+<header class="topbar"><img src="../assets/myapi-logo-v1.png" width="26" height="26" alt="MyAPI" style="display:block;border-radius:5px"><h1>上游</h1><button class="btn icon primary" aria-label="添加上游"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M12 5v14M5 12h14"/></svg></button><button class="btn icon ghost" aria-label="搜索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button></header>
+<main class="main">
+<div class="page-head"><div><h1>上游</h1><p>一个开关启用或停用；展开一行看窗口、路由与最近测试。</p></div><div class="actions"><button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M12 5v14M5 12h14"/></svg>添加上游</button><button class="btn icon ghost" onclick="toggleTheme()" aria-label="切换亮暗"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg></button></div></div>
+
+<div class="strip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg><span>正在使用 <b>示例订阅账号 A</b>（优先级 1）· 备用 <b>示例订阅账号 D</b> · 示例 API 连接 B 因测试失败暂未参与路由</span></div>
+<div class="toolbar"><div class="seg" role="tablist" aria-label="类型"><button role="tab" aria-selected="true">全部 4</button><button role="tab" aria-selected="false">订阅 2</button><button role="tab" aria-selected="false">API 1</button><button role="tab" aria-selected="false">本地 1</button></div><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input placeholder="搜索连接" aria-label="搜索连接"></div></div>
+<div class="rows"><div class="rowcard" data-inuse="true" data-enabled="true" data-shot="conn-1">
+<div class="row" role="button" tabindex="0" data-expand aria-expanded="true" aria-controls="conn-1-detail">
+  <div class="avatar" aria-hidden="true">A</div>
+  <div><div class="title">示例订阅账号 A<span class="chip">订阅</span><span class="inuse">正在使用</span></div><div class="sub"><span class="mono">upstream-a.example.invalid</span><span>优先级 1</span><span>3 个模型</span></div></div>
+  <div class="right"><div class="quota">5 小时剩余 <b class="num">18%</b> · 7 天剩余 <b class="num">45%</b><div class="meter crit"><i style="width:82%"></i></div></div><span class="badge badge-ok"><i class="dot"></i>测试通过 · 2 分钟前</span><button class="btn icon ghost" aria-label="测试连接"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M7 5v14l11-7Z"/></svg></button><button class="switch" role="switch" aria-checked="true" aria-label="启用 示例订阅账号 A"></button></div>
+</div>
+<div class="detail" id="conn-1-detail" >
+  <section><h3>额度窗口</h3><div class="winrow"><span class="muted">5 小时</span><div class="meter crit"><i style="width:82%"></i></div><b class="num">82%</b></div><div class="winrow"><span class="muted">7 天</span><div class="meter ok"><i style="width:55%"></i></div><b class="num">55%</b></div><div class="muted" style="font-size:12px">观测于 20:35</div></section>
+  <section><h3>路由</h3><dl class="kv"><dt>优先级</dt><dd>1</dd><dt>权重</dt><dd>100</dd><dt>模型</dt><dd>synthetic-text-model、synthetic-vision-model、+1</dd><dt>最近测试</dt><dd>通过，412 ms</dd></dl></section>
+  <section class="full"><h3>操作</h3><div class="actions"><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M7 5v14l11-7Z"/></svg>测试</button><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="m13 7 3 3"/></svg>编辑</button><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>复制地址</button><button class="btn ghost">查看请求</button><button class="btn ghost danger">删除</button></div></section>
+</div></div><div class="rowcard" data-inuse="false" data-enabled="true" data-shot="conn-2">
+<div class="row" role="button" tabindex="0" data-expand aria-expanded="false" aria-controls="conn-2-detail">
+  <div class="avatar" aria-hidden="true">B</div>
+  <div><div class="title">示例 API 连接 B<span class="chip">API Key</span></div><div class="sub"><span class="mono">api.example.invalid/v1</span><span>优先级 2</span><span>5 个模型</span></div></div>
+  <div class="right"><div class="quota"><span>按量 · 无窗口</span></div><span class="badge badge-fail"><i class="dot"></i>测试失败 401 · 1 小时前</span><button class="btn icon ghost" aria-label="测试连接"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M7 5v14l11-7Z"/></svg></button><button class="switch" role="switch" aria-checked="true" aria-label="启用 示例 API 连接 B"></button></div>
+</div>
+<div class="detail" id="conn-2-detail" hidden>
+  <section><h3>额度窗口</h3><div class="muted" style="font-size:13px">该连接按量计费，没有订阅窗口。</div></section>
+  <section><h3>路由</h3><dl class="kv"><dt>优先级</dt><dd>2</dd><dt>权重</dt><dd>50</dd><dt>模型</dt><dd>synthetic-text-model、synthetic-vision-model、+3</dd><dt>最近测试</dt><dd>失败，HTTP 401</dd></dl></section>
+  <section class="full"><h3>操作</h3><div class="actions"><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M7 5v14l11-7Z"/></svg>测试</button><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="m13 7 3 3"/></svg>编辑</button><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>复制地址</button><button class="btn ghost">查看请求</button><button class="btn ghost danger">删除</button></div></section>
+</div></div><div class="rowcard" data-inuse="false" data-enabled="false" data-shot="conn-3">
+<div class="row" role="button" tabindex="0" data-expand aria-expanded="false" aria-controls="conn-3-detail">
+  <div class="avatar" aria-hidden="true">C</div>
+  <div><div class="title">示例本地模型 C<span class="chip">本地</span></div><div class="sub"><span class="mono">127.0.0.1:11434</span><span>优先级 3</span><span>2 个模型</span></div></div>
+  <div class="right"><div class="quota"><span>本地 · 无额度</span></div><span class="badge badge-neutral"><i class="dot"></i>未测试</span><button class="btn icon ghost" aria-label="测试连接"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M7 5v14l11-7Z"/></svg></button><button class="switch" role="switch" aria-checked="false" aria-label="启用 示例本地模型 C"></button></div>
+</div>
+<div class="detail" id="conn-3-detail" hidden>
+  <section><h3>额度窗口</h3><div class="muted" style="font-size:13px">该连接按量计费，没有订阅窗口。</div></section>
+  <section><h3>路由</h3><dl class="kv"><dt>优先级</dt><dd>3</dd><dt>权重</dt><dd>10</dd><dt>模型</dt><dd>synthetic-text-model、synthetic-vision-model</dd><dt>最近测试</dt><dd>未测试</dd></dl></section>
+  <section class="full"><h3>操作</h3><div class="actions"><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M7 5v14l11-7Z"/></svg>测试</button><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="m13 7 3 3"/></svg>编辑</button><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>复制地址</button><button class="btn ghost">查看请求</button><button class="btn ghost danger">删除</button></div></section>
+</div></div><div class="rowcard" data-inuse="false" data-enabled="true" data-shot="conn-4">
+<div class="row" role="button" tabindex="0" data-expand aria-expanded="false" aria-controls="conn-4-detail">
+  <div class="avatar" aria-hidden="true">D</div>
+  <div><div class="title">示例订阅账号 D<span class="chip">订阅</span></div><div class="sub"><span class="mono">upstream-d.example.invalid</span><span>优先级 2</span><span>3 个模型</span></div></div>
+  <div class="right"><div class="quota">5 小时剩余 <b class="num">88%</b> · 7 天剩余 <b class="num">70%</b><div class="meter ok"><i style="width:12%"></i></div></div><span class="badge badge-ok"><i class="dot"></i>测试通过 · 12 分钟前</span><button class="btn icon ghost" aria-label="测试连接"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M7 5v14l11-7Z"/></svg></button><button class="switch" role="switch" aria-checked="true" aria-label="启用 示例订阅账号 D"></button></div>
+</div>
+<div class="detail" id="conn-4-detail" hidden>
+  <section><h3>额度窗口</h3><div class="winrow"><span class="muted">5 小时</span><div class="meter ok"><i style="width:12%"></i></div><b class="num">12%</b></div><div class="winrow"><span class="muted">7 天</span><div class="meter ok"><i style="width:30%"></i></div><b class="num">30%</b></div><div class="muted" style="font-size:12px">观测于 20:30 · 7 天窗口已过期，等待重新采样</div></section>
+  <section><h3>路由</h3><dl class="kv"><dt>优先级</dt><dd>2</dd><dt>权重</dt><dd>100</dd><dt>模型</dt><dd>synthetic-text-model、synthetic-vision-model、+1</dd><dt>最近测试</dt><dd>通过，655 ms</dd></dl></section>
+  <section class="full"><h3>操作</h3><div class="actions"><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M7 5v14l11-7Z"/></svg>测试</button><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="m13 7 3 3"/></svg>编辑</button><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>复制地址</button><button class="btn ghost">查看请求</button><button class="btn ghost danger">删除</button></div></section>
+</div></div></div>
+<p class="muted" style="font-size:13px;margin-top:12px">打开此页不会向上游发请求；只有点「测试」才会真正联网。</p>
+</main></div></div>
+<nav class="bottomnav" aria-label="底部导航"><a href="home.html" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9h12v-9"/></svg>接入</a><a href="upstream.html" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M9 7V3M15 7V3"/><path d="M6 7h12v4a6 6 0 0 1-12 0V7Z"/><path d="M12 17v4"/></svg>上游</a><a href="keys.html" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M15 12v2"/></svg>API Key</a><a href="#" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 6h16M4 12h16M4 18h10"/></svg>请求</a><a href="#" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg>更多</a></nav>
+<script>
+
+(function(){var q=new URLSearchParams(location.search);var t=q.get('theme');if(t)document.documentElement.dataset.theme=t;
+window.toggleTheme=function(){var h=document.documentElement;var dark=h.dataset.theme==='dark'||(!h.dataset.theme&&matchMedia('(prefers-color-scheme: dark)').matches);h.dataset.theme=dark?'light':'dark';};
+document.addEventListener('click',function(e){var sw=e.target.closest('[role="switch"]');if(sw){var on=sw.getAttribute('aria-checked')==='true';sw.setAttribute('aria-checked',on?'false':'true');var row=sw.closest('[data-enabled]');if(row)row.dataset.enabled=on?'false':'true';e.stopPropagation();}
+var tab=e.target.closest('[role="tab"]');if(tab){var list=tab.closest('[role="tablist"]');list.querySelectorAll('[role="tab"]').forEach(function(t){t.setAttribute('aria-selected',t===tab?'true':'false');t.tabIndex=t===tab?0:-1;});var scope=list.parentElement;scope.querySelectorAll(':scope > [role="tabpanel"], :scope > .tabpanels > [role="tabpanel"]').forEach(function(p){p.hidden=p.id!==tab.getAttribute('aria-controls');});}
+});
+})();
+document.addEventListener('click',function(e){
+  var row=e.target.closest('[data-expand]');
+  if(row&&!e.target.closest('button,a')){var open=row.getAttribute('aria-expanded')==='true';row.setAttribute('aria-expanded',open?'false':'true');var d=row.nextElementSibling;if(d)d.hidden=open;return;}
+  var r=e.target.closest('[data-open]');
+  if(r){var dlg=document.getElementById(r.dataset.open);if(dlg&&dlg.showModal){dlg.showModal();}return;}
+  var c=e.target.closest('[data-close]');
+  if(c){c.closest('dialog').close();}
+});
+document.addEventListener('keydown',function(e){if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-expand],[data-open]')){e.preventDefault();e.target.click();}});
+</script></body></html>

@@ -1,0 +1,209 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>API Key · MyAPI（方向 2 控制室）</title><style>
+:root{
+  --chrome:#0B1220; --chrome-fg:#C6D0E5; --chrome-muted:#8A97B5; --chrome-active:#1C2B52; --chrome-border:#1C2740; --live:#22D3FF;
+  --bg:#EEF2F8; --surface:#FFFFFF; --fg:#0F172A; --muted:#4A5878; --border:#D5DCE8; --input:#8794AE; --row-alt:#F6F8FC; --hover:#EEF2FA;
+  --primary:#0035FC; --primary-fg:#FFFFFF; --sel:#E6ECFF; --sel-fg:#0029C4;
+  --ok:#0E7A47; --ok-bg:#E3F5EB; --warn:#915300; --warn-bg:#FFF3DB; --fail:#C41E17; --fail-bg:#FCEAE9; --info:#0062A3; --info-bg:#E3F1FC;
+  --meter:#0083A8; --meter-track:#E1E7F1; --radius:6px;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Hiragino Sans GB","Microsoft YaHei UI","Noto Sans",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ 
+  --bg:#0A0F1C; --surface:#121A2B; --fg:#E5EAF5; --muted:#99A6C2; --border:#263249; --input:#5C6A8A; --row-alt:#151E31; --hover:#1A2438;
+  --primary:#7D97FF; --primary-fg:#06091A; --sel:#1E2A52; --sel-fg:#CBD6FF;
+  --ok:#4FD991; --ok-bg:#15342A; --warn:#F3B74A; --warn-bg:#3A2D14; --fail:#FF8A82; --fail-bg:#3C1E1E; --info:#62C2FF; --info-bg:#15314A;
+  --meter:#22D3FF; --meter-track:#263249; color-scheme:dark; } }
+:root[data-theme="dark"]{ 
+  --bg:#0A0F1C; --surface:#121A2B; --fg:#E5EAF5; --muted:#99A6C2; --border:#263249; --input:#5C6A8A; --row-alt:#151E31; --hover:#1A2438;
+  --primary:#7D97FF; --primary-fg:#06091A; --sel:#1E2A52; --sel-fg:#CBD6FF;
+  --ok:#4FD991; --ok-bg:#15342A; --warn:#F3B74A; --warn-bg:#3A2D14; --fail:#FF8A82; --fail-bg:#3C1E1E; --info:#62C2FF; --info-bg:#15314A;
+  --meter:#22D3FF; --meter-track:#263249; color-scheme:dark; }
+*{box-sizing:border-box} html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:13px/1.45 var(--font);-webkit-font-smoothing:antialiased}
+a{color:var(--primary)} button{font:inherit;color:inherit}
+h1,h2,h3{margin:0;font-weight:600} h1{font-size:18px} h2{font-size:13px;letter-spacing:.02em} h3{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.muted{color:var(--muted)} .mono{font-family:var(--mono);font-size:12px} .num{font-variant-numeric:tabular-nums}
+svg{width:16px;height:16px;flex:none}
+/* chrome */
+.top{position:sticky;top:0;z-index:6;height:48px;display:flex;align-items:center;gap:12px;padding:0 12px 0 14px;background:var(--chrome);color:var(--chrome-fg);border-bottom:1px solid var(--chrome-border)}
+.top .brand{display:flex;align-items:center;gap:8px;font-weight:600;color:#fff;width:200px}
+.top .brand .ed{font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;background:var(--chrome-active);color:var(--chrome-fg);letter-spacing:.04em}
+.cmd{flex:1;max-width:520px;display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:var(--radius);background:#0F172A;border:1px solid var(--chrome-border);color:var(--chrome-muted)}
+.cmd input{flex:1;background:transparent;border:0;outline:0;color:#fff;font:inherit;min-width:0} .cmd kbd{font:11px var(--mono);border:1px solid var(--chrome-border);border-radius:4px;padding:0 5px}
+.live{display:flex;gap:16px;margin-left:auto;font-variant-numeric:tabular-nums;font-size:12px}
+.live span b{color:var(--live);font-weight:600;font-family:var(--mono);font-size:13px} .live span.bad b{color:#FF8A82} .live span.ok b{color:#4FD991}
+.tbtn{height:32px;min-width:32px;padding:0 8px;border:0;border-radius:var(--radius);background:transparent;color:var(--chrome-fg);display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer} .tbtn:hover{background:var(--chrome-active)}
+.avatar{width:26px;height:26px;border-radius:50%;background:var(--chrome-active);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:600}
+.frame{display:grid;grid-template-columns:68px 1fr;min-height:calc(100vh - 48px - 26px)}
+.rail{background:var(--chrome);border-right:1px solid var(--chrome-border);padding:8px 6px;display:flex;flex-direction:column;gap:2px;position:sticky;top:48px;height:calc(100vh - 48px - 26px)}
+.rail a{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 2px;border-radius:var(--radius);color:var(--chrome-muted);text-decoration:none;font-size:10.5px;line-height:1.2;text-align:center}
+.rail a svg{width:18px;height:18px} .rail a:hover{color:#fff;background:var(--chrome-active)} .rail a[aria-current]{color:#fff;background:var(--chrome-active)}
+.rail .sep{height:1px;background:var(--chrome-border);margin:6px 4px}
+.rail .grow{flex:1}
+.status{position:fixed;left:0;right:0;bottom:0;height:26px;display:flex;align-items:center;gap:18px;padding:0 14px;background:var(--chrome);color:var(--chrome-muted);font:11px var(--mono);border-top:1px solid var(--chrome-border);z-index:6}
+.status b{color:var(--chrome-fg);font-weight:500} .status .dot{width:6px;height:6px;border-radius:50%;background:#4FD991;display:inline-block;margin-right:5px}
+.content{padding:12px 14px 40px;min-width:0}
+.bar{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.bar h1{margin-right:auto}
+.mtop,.bottomnav{display:none}
+/* controls */
+.btn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);cursor:pointer;white-space:nowrap;font-size:12.5px}
+.btn:hover{background:var(--hover)} .btn.primary{background:var(--primary);color:var(--primary-fg);border-color:transparent} .btn.ghost{border-color:transparent;background:transparent} .btn.icon{width:30px;padding:0;justify-content:center} .btn.danger{color:var(--fail)}
+.btn:focus-visible,tr[tabindex]:focus-visible,[role=tab]:focus-visible,.switch:focus-visible,.krow:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+.chips{display:flex;gap:4px;flex-wrap:wrap}
+.chips [role=tab]{height:26px;padding:0 10px;border:1px solid var(--border);background:var(--surface);border-radius:13px;cursor:pointer;color:var(--muted);font-size:12px}
+.chips [role=tab][aria-selected=true]{background:var(--sel);color:var(--sel-fg);border-color:transparent;font-weight:600}
+.field{display:flex;align-items:center;gap:6px;height:30px;padding:0 8px;border:1px solid var(--input);border-radius:var(--radius);background:var(--surface);color:var(--muted);min-width:0}
+.field input{border:0;outline:0;background:transparent;font:inherit;color:var(--fg);flex:1;min-width:0}
+.switch{width:32px;height:18px;border-radius:9px;background:var(--input);border:0;position:relative;cursor:pointer;flex:none;padding:0}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .12s}
+.switch[aria-checked=true]{background:var(--primary)} .switch[aria-checked=true]::after{left:16px}
+.badge{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border-radius:4px;font-size:11.5px;font-weight:500;white-space:nowrap}
+.badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.badge-ok{color:var(--ok);background:var(--ok-bg)} .badge-fail{color:var(--fail);background:var(--fail-bg)} .badge-warn{color:var(--warn);background:var(--warn-bg)} .badge-info{color:var(--info);background:var(--info-bg)} .badge-neutral{color:var(--muted);background:var(--hover)}
+.meter{height:5px;border-radius:3px;background:var(--meter-track);overflow:hidden;min-width:56px}
+.meter i{display:block;height:100%;background:var(--meter)} .meter.warn i{background:var(--warn)} .meter.crit i{background:var(--fail)}
+.mcell{display:flex;align-items:center;gap:6px} .mcell .meter{width:56px}
+/* panes */
+.pane{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);min-width:0;display:flex;flex-direction:column}
+.pane-head{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);min-height:38px}
+.pane-head h2{margin-right:auto}
+.pane-body{padding:10px;overflow:auto;min-height:0}
+.panes{display:grid;gap:10px;align-items:start}
+.panes.keys{grid-template-columns:272px minmax(0,1fr) 372px}
+.tscroll{overflow-x:auto;min-width:0}
+.compact .lo{display:none}
+.panes.upstream{grid-template-columns:minmax(0,1fr) 400px}
+.panes.home{grid-template-columns:minmax(0,2fr) minmax(300px,1fr)}
+.stack{display:flex;flex-direction:column;gap:10px;min-width:0}
+table{width:100%;border-collapse:collapse;font-size:12.5px} th{font-size:11px;color:var(--muted);font-weight:500;text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:0 8px;height:32px;border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+tbody tr:nth-child(even){background:var(--row-alt)} tbody tr[tabindex]{cursor:pointer} tbody tr[tabindex]:hover{background:var(--hover)} tbody tr[aria-selected=true]{background:var(--sel);color:var(--sel-fg)} tbody tr[aria-selected=true] .muted{color:inherit;opacity:.8}
+td.r,th.r{text-align:right} td.mono{font-family:var(--mono);font-size:12px}
+.strip{display:flex;gap:22px;align-items:flex-end;padding:8px 12px;margin-bottom:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:auto}
+.stat .l{font-size:11px;color:var(--muted);white-space:nowrap} .stat .v{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;line-height:24px}
+.stat .v small{font-size:11px;color:var(--muted);font-weight:400;margin-left:4px}
+.spark{display:flex;align-items:flex-end;gap:1px;height:24px;width:120px} .spark i{flex:1;background:var(--meter);min-height:1px;border-radius:1px 1px 0 0} .spark.fail i{background:var(--fail)}
+.spark-wrap{display:flex;flex-direction:column;gap:2px} .spark-wrap .l{font-size:11px;color:var(--muted)}
+.events{list-style:none;margin:0;padding:0}
+.events li{display:grid;grid-template-columns:52px 8px 1fr;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px;align-items:start}
+.events li:last-child{border-bottom:0} .events .t{font-family:var(--mono);font-size:11px;color:var(--muted);padding-top:2px}
+.events .d{width:8px;height:8px;border-radius:50%;margin-top:5px;background:var(--ok)} .events .fail .d{background:var(--fail)} .events .warn .d{background:var(--warn)} .events .info .d{background:var(--info)}
+.klist{list-style:none;margin:0;padding:0}
+.krow{display:grid;grid-template-columns:8px 1fr auto;gap:8px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;text-decoration:none;color:inherit}
+.krow:hover{background:var(--hover)} .krow[aria-current]{background:var(--sel);color:var(--sel-fg)}
+.krow .d{width:8px;height:8px;border-radius:50%;background:var(--ok)} .krow.paused .d{background:var(--input)}
+.krow b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .krow .s{font-size:11.5px;color:var(--muted)} .krow[aria-current] .s{color:inherit;opacity:.85}
+.krow .n{font-variant-numeric:tabular-nums;font-size:12px;text-align:right}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12.5px;margin:0} .kv dt{color:var(--muted)} .kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.results{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+.results > div{padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--row-alt)} .results .l{font-size:10.5px;color:var(--muted)} .results .v{font-weight:600;font-size:12.5px}
+[role=tablist].tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:8px}
+.tabs [role=tab]{border:0;background:none;padding:6px 10px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;font-size:12.5px}
+.tabs [role=tab][aria-selected=true]{color:var(--fg);font-weight:600;border-bottom-color:var(--primary)}
+.tl{list-style:none;margin:0;padding:0 0 0 10px;border-left:2px solid var(--border)}
+.tl li{position:relative;padding:0 0 8px 12px;font-size:12.5px} .tl li::before{content:"";position:absolute;left:-6px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--ok);border:2px solid var(--surface)}
+.tl li.fail::before{background:var(--fail)} .tl li.warn::before{background:var(--warn)} .tl .t{display:block;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.code{font-family:var(--mono);font-size:11.5px;line-height:1.55;white-space:pre;overflow:auto;background:var(--row-alt);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;margin:0;max-height:300px}
+.section{margin-bottom:12px} .section h3{margin-bottom:6px}
+.winrow{display:grid;grid-template-columns:48px 1fr 44px;gap:8px;align-items:center;margin-bottom:6px;font-size:12.5px}
+.hist{display:flex;align-items:flex-end;gap:3px;height:48px} .hist i{flex:1;background:var(--meter);border-radius:2px 2px 0 0} .hist-l{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:2px}
+.hint{font-size:11px;color:var(--muted);padding:6px 10px;border-top:1px solid var(--border)} .hint kbd{font-family:var(--mono);border:1px solid var(--border);border-radius:3px;padding:0 4px}
+.actions{display:flex;gap:6px;flex-wrap:wrap}
+.lo{}
+/* mobile */
+@media (max-width:1023px){
+  body{font-size:14px}
+  .top{display:none} .rail{display:none} .status{display:none}
+  .frame{display:block}
+  .mtop{display:flex;align-items:center;gap:8px;height:52px;padding:0 10px;position:sticky;top:0;z-index:6;background:var(--chrome);color:#fff;border-bottom:1px solid var(--chrome-border)}
+  .mtop h1{font-size:16px;flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .mtop .back{display:none} .mtop[data-back=true] .back{display:inline-flex}
+  .mtop .ed{font-size:10px;padding:1px 6px;border-radius:4px;background:var(--chrome-active);color:var(--chrome-fg)}
+  .content{padding:10px 10px 80px}
+  .bottomnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;height:calc(60px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--chrome);border-top:1px solid var(--chrome-border);z-index:6}
+  .bottomnav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10.5px;color:var(--chrome-muted);text-decoration:none;min-height:44px} .bottomnav a[aria-current]{color:#fff} .bottomnav svg{width:20px;height:20px}
+  .panes{display:block} .pane{margin-bottom:10px}
+  [data-screen]:not([data-active="true"]){display:none}
+  .pane-body{overflow:visible}
+  .lo{display:none}
+  .strip{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 12px;overflow:visible} .spark-wrap{grid-column:1/-1}
+  .spark{width:100%}
+  .btn{height:36px} .btn.icon{width:36px}
+  body:not([data-screen="list"]) .bar{display:none}
+  .tscroll{overflow:visible}
+  table,tbody,td{display:block} thead{display:none}
+  tbody tr{display:grid;gap:3px 10px;padding:9px 10px;border-bottom:1px solid var(--border);align-items:center}
+  td{height:auto;padding:0;border:0;white-space:normal;max-width:none;overflow:visible}
+  .t-req tr{grid-template-columns:auto 1fr auto;grid-template-areas:"time res ms" "model model model"}
+  .c-time{grid-area:time} .c-res{grid-area:res} .c-ms{grid-area:ms} .c-model{grid-area:model;overflow-wrap:anywhere}
+  .t-conn tr{grid-template-columns:1fr auto auto;grid-template-areas:"name name sw" "type status win"}
+  .c-name{grid-area:name} .c-type{grid-area:type} .c-status{grid-area:status} .c-win{grid-area:win;justify-self:end} .c-sw{grid-area:sw;justify-self:end}
+  .c-win .meter{width:72px}
+  .pane-head h2 .mono{display:block;font-weight:400}
+  .results{grid-template-columns:1fr 1fr}
+  .krow{padding:10px}
+  .bar h1{font-size:16px}
+}
+</style></head>
+<body>
+<header class="top"><div class="brand"><img src="../assets/myapi-logo-v1.png" width="24" height="24" alt="MyAPI" style="display:block;border-radius:5px">MyAPI <span class="ed">FULL</span></div>
+<div class="cmd" role="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input placeholder="搜索页面、Key、连接，或粘贴 Request ID 回车直达" aria-label="全局搜索"><kbd>⌘K</kbd></div>
+<div class="live" aria-label="实时计数"><span>RPM <b>12</b></span><span class="bad">失败/小时 <b>2</b></span><span class="ok">上游 <b>3/4</b></span><span>用量未知 <b>3</b></span></div>
+<button class="tbtn" onclick="toggleTheme()" aria-label="切换亮暗"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg></button><button class="tbtn" aria-label="通知"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4l2-2Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></button><div class="avatar" aria-label="管理员">管</div></header>
+<header class="mtop" data-title-list="API Key" data-title-key="示例 Key · 团队机器人" data-title-req="请求 req_01HX…KF2A" data-title-conn="API Key"><button class="tbtn back" aria-label="返回"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="m15 6-6 6 6 6"/></svg></button><img src="../assets/myapi-logo-v1.png" width="22" height="22" alt="MyAPI" style="display:block;border-radius:4px"><h1>API Key</h1><span class="ed">FULL</span><button class="tbtn" aria-label="搜索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button></header>
+<div class="frame"><nav class="rail" aria-label="主导航"><a href="home.html" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9h12v-9"/></svg>概览</a><a href="upstream.html" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M9 7V3M15 7V3"/><path d="M6 7h12v4a6 6 0 0 1-12 0V7Z"/><path d="M12 17v4"/></svg>上游</a><a href="keys.html" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M15 12v2"/></svg>Key</a><a href="#" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 6h16M4 12h16M4 18h10"/></svg>请求</a><a href="#" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M7 3h7l5 5v13H7V3Z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>正文</a><a href="#" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5a5 5 0 0 1 6 5"/></svg>用户</a><a href="#" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>分析</a><div class="sep"></div><a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M12 15h5"/></svg>商业</a><div class="grow"></div><a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>设置</a></nav><main class="content">
+<div class="bar"><h1>API Key</h1><span class="muted">3 个 · 2 个启用</span><button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M12 5v14M5 12h14"/></svg>创建 Key</button></div>
+<div class="panes keys">
+<section class="pane" data-screen="list" aria-label="Key 列表"><div class="pane-head"><div class="field" style="flex:1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input placeholder="名称或末 4 位" aria-label="搜索 Key"></div></div>
+<ul class="klist"><li><a class="krow enabled" href="#key/21" data-select="#key/21" data-shot="key-21"><span class="d"></span><span><b>示例 Key · 团队机器人</b><span class="s mono">sk-····a8f3</span> <span class="s">· 今天 128 次 · 失败 2</span></span><span class="n">04:06</span></a></li><li><a class="krow enabled" href="#key/22" data-select="#key/22" data-shot="key-22"><span class="d"></span><span><b>示例 Key · 本机 CLI</b><span class="s mono">sk-····7c21</span> <span class="s">· 今天 41 次</span></span><span class="n">03:58</span></a></li><li><a class="krow paused" href="#key/23" data-select="#key/23" data-shot="key-23"><span class="d"></span><span><b>示例 Key · 测试用</b><span class="s mono">sk-····11e0</span> <span class="s">· 今天 0 次</span></span><span class="n">已暂停</span></a></li></ul>
+<div class="hint">按名称、末 4 位或 ID 过滤</div></section>
+<section class="pane compact" data-screen="key" aria-label="Key 的请求"><div class="pane-head"><h2>示例 Key · 团队机器人 <span class="muted mono">sk-····a8f3</span></h2><button class="switch" role="switch" aria-checked="true" aria-label="启用 Key"></button><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="m13 7 3 3"/></svg>范围与分额</button><button class="btn icon ghost" aria-label="更多"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg></button></div>
+<div class="pane-head" style="min-height:34px"><div class="chips" role="tablist" aria-label="筛选"><button role="tab" aria-selected="true">全部 128</button><button role="tab" aria-selected="false">失败 2</button><button role="tab" aria-selected="false">用量未知 1</button><button role="tab" aria-selected="false">已拒绝 1</button></div><span class="muted lo">今天</span></div>
+<div class="tscroll"><table class="t-req"><thead><tr><th>时间</th><th>结果</th><th>模型</th><th class="lo">连接</th><th class="r lo">HTTP</th><th class="r">耗时</th></tr></thead><tbody>
+<tr tabindex="0" data-select="#req/0" data-shot="req-0"><td class="mono num c-time">04:06:23</td><td class="c-res"><span class="badge badge-fail"><i class="dot"></i>请求失败</span></td><td class="mono c-model">synthetic-text-model</td><td class="lo">示例订阅账号 A</td><td class="r lo num">500</td><td class="r num c-ms">2.1 秒</td></tr><tr tabindex="0" data-select="#req/1" data-shot="req-1"><td class="mono num c-time">04:05:53</td><td class="c-res"><span class="badge badge-ok"><i class="dot"></i>请求成功</span></td><td class="mono c-model">synthetic-text-model</td><td class="lo">示例订阅账号 A</td><td class="r lo num">200</td><td class="r num c-ms">2.0 秒</td></tr><tr tabindex="0" data-select="#req/2" data-shot="req-2"><td class="mono num c-time">04:05:23</td><td class="c-res"><span class="badge badge-ok"><i class="dot"></i>请求成功</span></td><td class="mono c-model">synthetic-text-model</td><td class="lo">示例订阅账号 A</td><td class="r lo num">200</td><td class="r num c-ms">1.4 秒</td></tr><tr tabindex="0" data-select="#req/3" data-shot="req-3"><td class="mono num c-time">04:03:53</td><td class="c-res"><span class="badge badge-warn"><i class="dot"></i>发出前已拒绝</span></td><td class="mono c-model">synthetic-vision-model</td><td class="lo">—</td><td class="r lo num">400</td><td class="r num c-ms">—</td></tr><tr tabindex="0" data-select="#req/4" data-shot="req-4"><td class="mono num c-time">04:01:10</td><td class="c-res"><span class="badge badge-ok"><i class="dot"></i>请求成功</span></td><td class="mono c-model">synthetic-text-model</td><td class="lo">示例订阅账号 D</td><td class="r lo num">200</td><td class="r num c-ms">3.2 秒</td></tr><tr tabindex="0" data-select="#req/5" data-shot="req-5"><td class="mono num c-time">03:58:41</td><td class="c-res"><span class="badge badge-ok"><i class="dot"></i>请求成功</span></td><td class="mono c-model">synthetic-text-model</td><td class="lo">示例订阅账号 A</td><td class="r lo num">200</td><td class="r num c-ms">900 ms</td></tr></tbody></table></div><div class="hint">5 小时分额已用 40%（近似，基于订阅账号 A 的原生窗口）· 允许模型 2 个</div></section>
+<section class="pane" data-screen="req" aria-label="请求详情">
+<div class="pane-head"><h2>请求 <span class="mono">req_01HX…KF2A</span></h2><button class="btn icon ghost" aria-label="复制 Request ID"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button><button class="btn icon ghost" aria-label="在新页打开"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="m9 6 6 6-6 6"/></svg></button></div>
+<div class="pane-body">
+<div class="results"><div><div class="l">业务结果</div><div class="v" style="color:var(--fail)">失败</div></div><div><div class="l">HTTP</div><div class="v">500 上游</div></div><div><div class="l">用量可信度</div><div class="v">未知</div></div><div><div class="l">结算</div><div class="v">未扣费</div></div></div>
+<dl class="kv"><dt>时间</dt><dd class="mono">04:06:23</dd><dt>Key</dt><dd>示例 Key · 团队机器人 (#21)</dd><dt>模型</dt><dd class="mono">synthetic-text-model</dd><dt>连接</dt><dd>示例订阅账号 A（优先级 1）</dd><dt>耗时</dt><dd>2.1 秒，首字节 0.9 秒</dd></dl>
+<div role="tablist" class="tabs" aria-label="请求详情" style="margin-top:10px"><button role="tab" aria-selected="true" aria-controls="p-diag">诊断</button><button role="tab" aria-selected="false" aria-controls="p-body">正文</button><button role="tab" aria-selected="false" aria-controls="p-sse">SSE</button><button role="tab" aria-selected="false" aria-controls="p-raw">原始</button></div>
+<div class="tabpanels"><div role="tabpanel" id="p-diag"><ul class="tl"><li class="ok"><span class="t">04:06:23.012</span>收到请求，Key #21 鉴权通过</li><li class="ok"><span class="t">04:06:23.031</span>路由：选择「示例订阅账号 A」（优先级 1，权重 100）</li><li class="fail"><span class="t">04:06:24.900</span>上游返回 HTTP 500，流已开始，无法重试到其他连接</li><li class="warn"><span class="t">04:06:25.100</span>结算：用量未知，未扣费，已记入「待核对」</li></ul></div>
+<div role="tabpanel" id="p-body" hidden><pre class="code">{
+  "model": "synthetic-text-model",
+  "stream": true,
+  "messages": [
+    { "role": "system", "content": "你是一个示例助手。" },
+    { "role": "user", "content": "用一句话介绍 MyAPI。" }
+  ],
+  "max_tokens": 256
+}</pre></div><div role="tabpanel" id="p-sse" hidden><pre class="code">event: message_start
+data: {"type":"message_start","id":"msg_synthetic_01"}
+
+event: content_block_delta
+data: {"type":"content_block_delta","delta":{"text":"MyAPI 是一个"}}
+
+event: error
+data: {"type":"error","error":{"type":"overloaded_error","message":"synthetic upstream error"}}</pre></div><div role="tabpanel" id="p-raw" hidden><pre class="code">{"request_id":"req_01HXA2B3C4D5E6F7G8H9JKF2A","key_id":21,"channel_id":1,"http_status":500,"usage":null,"settlement":"skipped"}</pre></div></div>
+</div><div class="hint">Esc 返回列表 · <kbd>J</kbd>/<kbd>K</kbd> 上下条</div></section>
+</div></main></div>
+<footer class="status"><span><i class="dot"></i><b>运行中</b> 实例 0.2.0-beta.26</span><span>SQLite</span><span>后台任务 <b>3</b></span><span>最近采样 <b>20:35</b></span><span>时区 UTC+8</span><span style="margin-left:auto">↑↓ 选择 · Enter 打开 · ⌘K 搜索</span></footer>
+<nav class="bottomnav" aria-label="底部导航"><a href="home.html" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9h12v-9"/></svg>概览</a><a href="upstream.html" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M9 7V3M15 7V3"/><path d="M6 7h12v4a6 6 0 0 1-12 0V7Z"/><path d="M12 17v4"/></svg>上游</a><a href="keys.html" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M15 12v2"/></svg>Key</a><a href="#" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><path d="M4 6h16M4 12h16M4 18h10"/></svg>请求</a><a href="#" ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg>更多</a></nav>
+<script>
+
+(function(){var q=new URLSearchParams(location.search);var t=q.get('theme');if(t)document.documentElement.dataset.theme=t;
+window.toggleTheme=function(){var h=document.documentElement;var dark=h.dataset.theme==='dark'||(!h.dataset.theme&&matchMedia('(prefers-color-scheme: dark)').matches);h.dataset.theme=dark?'light':'dark';};
+document.addEventListener('click',function(e){var sw=e.target.closest('[role="switch"]');if(sw){var on=sw.getAttribute('aria-checked')==='true';sw.setAttribute('aria-checked',on?'false':'true');var row=sw.closest('[data-enabled]');if(row)row.dataset.enabled=on?'false':'true';e.stopPropagation();}
+var tab=e.target.closest('[role="tab"]');if(tab){var list=tab.closest('[role="tablist"]');list.querySelectorAll('[role="tab"]').forEach(function(t){t.setAttribute('aria-selected',t===tab?'true':'false');t.tabIndex=t===tab?0:-1;});var scope=list.parentElement;scope.querySelectorAll(':scope > [role="tabpanel"], :scope > .tabpanels > [role="tabpanel"]').forEach(function(p){p.hidden=p.id!==tab.getAttribute('aria-controls');});}
+});
+})();
+function route(){var h=location.hash;var screen=h.indexOf('#req/')===0?'req':h.indexOf('#key/')===0?'key':h.indexOf('#conn/')===0?'conn':'list';
+ document.body.dataset.screen=screen;
+ document.querySelectorAll('[data-screen]').forEach(function(p){p.dataset.active=(p.dataset.screen===screen)?'true':'false'});
+ var mt=document.querySelector('.mtop');if(mt){mt.dataset.back=screen==='list'?'false':'true';var t=mt.querySelector('h1');if(t)t.textContent=mt.dataset['title'+screen.charAt(0).toUpperCase()+screen.slice(1)]||mt.dataset.titleList;}
+ document.querySelectorAll('[data-select]').forEach(function(el){var on=el.dataset.select===h;if(el.tagName==='TR')el.setAttribute('aria-selected',on?'true':'false');else if(on)el.setAttribute('aria-current','true');else el.removeAttribute('aria-current');});}
+window.addEventListener('hashchange',route);route();
+document.addEventListener('click',function(e){var el=e.target.closest('[data-select]');if(el&&!e.target.closest('button,a')){location.hash=el.dataset.select;}
+ var b=e.target.closest('.back');if(b){history.back();}});
+document.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target.matches('[data-select]')){location.hash=e.target.dataset.select;}});
+</script></body></html>
