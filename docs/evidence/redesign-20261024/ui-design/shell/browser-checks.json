@@ -1,0 +1,645 @@
+{
+  "blocked": 0,
+  "pageErrors": [],
+  "shots": [
+    "overview-1280-light.png",
+    "key-requests-1280-light.png",
+    "upstream-accounts-1280-light.png",
+    "settings-1280-light.png",
+    "overview-390-light.png",
+    "key-requests-390-light.png",
+    "upstream-accounts-390-light.png",
+    "settings-390-light.png",
+    "overview-1280-dark.png",
+    "key-requests-1280-dark.png",
+    "upstream-accounts-1280-dark.png",
+    "settings-1280-dark.png",
+    "overview-390-dark.png",
+    "key-requests-390-dark.png",
+    "upstream-accounts-390-dark.png",
+    "settings-390-dark.png",
+    "overview-320-ru.png",
+    "more-320-ru.png",
+    "key-requests-768-light.png",
+    "overview-1024-rail.png",
+    "overview-1024-expanded.png",
+    "overview-1280-lite.png",
+    "more-390-lite.png",
+    "command-request-id-1280.png",
+    "request-id-result-1280.png",
+    "key-requests-1280-rail.png",
+    "key-requests-390-scrolled-end.png"
+  ],
+  "checks": [
+    {
+      "name": "overview-1280-light: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "collapsed": "false",
+        "overflow": 0,
+        "sidebarWidth": 240,
+        "bottomTabs": []
+      }
+    },
+    {
+      "name": "overview-1280-light: desktop composition",
+      "pass": true,
+      "detail": "desktop"
+    },
+    {
+      "name": "key-requests-1280-light: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "collapsed": "false",
+        "overflow": 0,
+        "sidebarWidth": 240,
+        "bottomTabs": []
+      }
+    },
+    {
+      "name": "key-requests-1280-light: desktop composition",
+      "pass": true,
+      "detail": "desktop"
+    },
+    {
+      "name": "upstream-accounts-1280-light: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "collapsed": "false",
+        "overflow": 0,
+        "sidebarWidth": 240,
+        "bottomTabs": []
+      }
+    },
+    {
+      "name": "upstream-accounts-1280-light: desktop composition",
+      "pass": true,
+      "detail": "desktop"
+    },
+    {
+      "name": "settings-1280-light: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "collapsed": "false",
+        "overflow": 0,
+        "sidebarWidth": 240,
+        "bottomTabs": []
+      }
+    },
+    {
+      "name": "settings-1280-light: desktop composition",
+      "pass": true,
+      "detail": "desktop"
+    },
+    {
+      "name": "overview-390-light: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "collapsed": "true",
+        "overflow": 0,
+        "sidebarWidth": null,
+        "bottomTabs": [
+          "概览",
+          "上游",
+          "Key",
+          "记录",
+          "更多"
+        ]
+      }
+    },
+    {
+      "name": "overview-390-light: mobile composition",
+      "pass": true,
+      "detail": "mobile"
+    },
+    {
+      "name": "key-requests-390-light: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "collapsed": "true",
+        "overflow": 0,
+        "sidebarWidth": null,
+        "bottomTabs": [
+          "概览",
+          "上游",
+          "Key",
+          "记录",
+          "更多"
+        ]
+      }
+    },
+    {
+      "name": "key-requests-390-light: mobile composition",
+      "pass": true,
+      "detail": "mobile"
+    },
+    {
+      "name": "upstream-accounts-390-light: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "collapsed": "true",
+        "overflow": 0,
+        "sidebarWidth": null,
+        "bottomTabs": [
+          "概览",
+          "上游",
+          "Key",
+          "记录",
+          "更多"
+        ]
+      }
+    },
+    {
+      "name": "upstream-accounts-390-light: mobile composition",
+      "pass": true,
+      "detail": "mobile"
+    },
+    {
+      "name": "settings-390-light: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "collapsed": "true",
+        "overflow": 0,
+        "sidebarWidth": null,
+        "bottomTabs": [
+          "概览",
+          "上游",
+          "Key",
+          "记录",
+          "更多"
+        ]
+      }
+    },
+    {
+      "name": "settings-390-light: mobile composition",
+      "pass": true,
+      "detail": "mobile"
+    },
+    {
+      "name": "overview-1280-dark: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "collapsed": "false",
+        "overflow": 0,
+        "sidebarWidth": 240,
+        "bottomTabs": []
+      }
+    },
+    {
+      "name": "overview-1280-dark: desktop composition",
+      "pass": true,
+      "detail": "desktop"
+    },
+    {
+      "name": "key-requests-1280-dark: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "collapsed": "false",
+        "overflow": 0,
+        "sidebarWidth": 240,
+        "bottomTabs": []
+      }
+    },
+    {
+      "name": "key-requests-1280-dark: desktop composition",
+      "pass": true,
+      "detail": "desktop"
+    },
+    {
+      "name": "upstream-accounts-1280-dark: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "collapsed": "false",
+        "overflow": 0,
+        "sidebarWidth": 240,
+        "bottomTabs": []
+      }
+    },
+    {
+      "name": "upstream-accounts-1280-dark: desktop composition",
+      "pass": true,
+      "detail": "desktop"
+    },
+    {
+      "name": "settings-1280-dark: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "collapsed": "false",
+        "overflow": 0,
+        "sidebarWidth": 240,
+        "bottomTabs": []
+      }
+    },
+    {
+      "name": "settings-1280-dark: desktop composition",
+      "pass": true,
+      "detail": "desktop"
+    },
+    {
+      "name": "overview-390-dark: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "collapsed": "true",
+        "overflow": 0,
+        "sidebarWidth": null,
+        "bottomTabs": [
+          "概览",
+          "上游",
+          "Key",
+          "记录",
+          "更多"
+        ]
+      }
+    },
+    {
+      "name": "overview-390-dark: mobile composition",
+      "pass": true,
+      "detail": "mobile"
+    },
+    {
+      "name": "key-requests-390-dark: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "collapsed": "true",
+        "overflow": 0,
+        "sidebarWidth": null,
+        "bottomTabs": [
+          "概览",
+          "上游",
+          "Key",
+          "记录",
+          "更多"
+        ]
+      }
+    },
+    {
+      "name": "key-requests-390-dark: mobile composition",
+      "pass": true,
+      "detail": "mobile"
+    },
+    {
+      "name": "upstream-accounts-390-dark: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "collapsed": "true",
+        "overflow": 0,
+        "sidebarWidth": null,
+        "bottomTabs": [
+          "概览",
+          "上游",
+          "Key",
+          "记录",
+          "更多"
+        ]
+      }
+    },
+    {
+      "name": "upstream-accounts-390-dark: mobile composition",
+      "pass": true,
+      "detail": "mobile"
+    },
+    {
+      "name": "settings-390-dark: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "mobile",
+        "collapsed": "true",
+        "overflow": 0,
+        "sidebarWidth": null,
+        "bottomTabs": [
+          "概览",
+          "上游",
+          "Key",
+          "记录",
+          "更多"
+        ]
+      }
+    },
+    {
+      "name": "settings-390-dark: mobile composition",
+      "pass": true,
+      "detail": "mobile"
+    },
+    {
+      "name": "320 ru: five bottom targets",
+      "pass": true,
+      "detail": [
+        "Обзор",
+        "Источник",
+        "Ключи",
+        "Журналы",
+        "Ещё"
+      ]
+    },
+    {
+      "name": "320 ru: every target >= 44x44",
+      "pass": true,
+      "detail": [
+        {
+          "label": "Обзор",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Источник",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Ключи",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Журналы",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Ещё",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "name": "320 ru: labels at most two lines, no word clipped",
+      "pass": true,
+      "detail": [
+        {
+          "label": "Обзор",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Источник",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Ключи",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Журналы",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Ещё",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "name": "320 ru: no horizontal overflow",
+      "pass": true
+    },
+    {
+      "name": "768: mobile composition",
+      "pass": true
+    },
+    {
+      "name": "1024: desktop composition starts as a 64px rail",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "collapsed": "true",
+        "overflow": 0,
+        "sidebarWidth": 64,
+        "bottomTabs": []
+      }
+    },
+    {
+      "name": "1024: expand control opens the 240px sidebar",
+      "pass": true,
+      "detail": {
+        "lang": "zh-Hans",
+        "composition": "desktop",
+        "collapsed": "false",
+        "overflow": 0,
+        "sidebarWidth": 240,
+        "bottomTabs": []
+      }
+    },
+    {
+      "name": "lite 1280: no Commerce group and no drawing entry",
+      "pass": true,
+      "detail": {
+        "groups": [
+          "控制台",
+          "上游",
+          "访问",
+          "记录",
+          "工具",
+          "系统"
+        ],
+        "links": [
+          "/dashboard/overview",
+          "/dashboard/models",
+          "/connections",
+          "/upstream-accounts",
+          "/models/metadata",
+          "/keys",
+          "/users",
+          "/usage-logs/common",
+          "/full-content-logs",
+          "/usage-logs/task"
+        ]
+      }
+    },
+    {
+      "name": "full 1280: drawing entry present",
+      "pass": true,
+      "detail": {
+        "groups": [
+          "控制台",
+          "上游",
+          "访问",
+          "记录",
+          "工具",
+          "系统"
+        ],
+        "links": [
+          "/dashboard/overview",
+          "/dashboard/models",
+          "/connections",
+          "/upstream-accounts",
+          "/models/metadata",
+          "/keys",
+          "/users",
+          "/usage-logs/common",
+          "/full-content-logs",
+          "/usage-logs/task",
+          "/usage-logs/drawing"
+        ]
+      }
+    },
+    {
+      "name": "lite 390: More has no commerce or drawing entries",
+      "pass": true,
+      "detail": [
+        "/dashboard/models",
+        "/upstream-accounts",
+        "/models/metadata",
+        "/users",
+        "/full-content-logs",
+        "/usage-logs/task",
+        "/playground",
+        "/prompt-learning",
+        "/system-info",
+        "/system-settings/site",
+        "/profile"
+      ]
+    },
+    {
+      "name": "Ctrl+K opens the command search with the input focused",
+      "pass": true
+    },
+    {
+      "name": "pasted Request ID is the selected command",
+      "pass": true,
+      "detail": "查找请求 SYNTHETIC-CONTEXT-ERROR"
+    },
+    {
+      "name": "Enter navigates to /usage-logs/common?requestId=...",
+      "pass": true,
+      "detail": {
+        "path": "/usage-logs/common",
+        "search": "?requestId=SYNTHETIC-CONTEXT-ERROR",
+        "rows": 1,
+        "mentions": 1
+      }
+    },
+    {
+      "name": "1280: collapse control folds the sidebar and persists sidebar_state",
+      "pass": true,
+      "detail": {
+        "collapsed": "true",
+        "focus": true,
+        "cookie": "vite-ui-theme=light; sidebar_state=false"
+      }
+    },
+    {
+      "name": "1280: expand control restores the sidebar",
+      "pass": true
+    },
+    {
+      "name": "390: More opens by keyboard and Escape returns focus to it",
+      "pass": true,
+      "detail": {
+        "open": false,
+        "focusReturned": true
+      }
+    },
+    {
+      "name": "390 key requests: every page button can be scrolled clear of both fixed bars",
+      "pass": true,
+      "detail": {
+        "checked": 19,
+        "covered": [],
+        "fixedBars": [
+          56,
+          65
+        ],
+        "footerBottom": 779,
+        "navTop": 779,
+        "shellScrollTop": 0,
+        "headerTopAfter": 0,
+        "navBottomAfter": 844,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "390 key requests: pagination scrolls with content and ends above the bottom bar",
+      "pass": true,
+      "detail": {
+        "checked": 19,
+        "covered": [],
+        "fixedBars": [
+          56,
+          65
+        ],
+        "footerBottom": 779,
+        "navTop": 779,
+        "shellScrollTop": 0,
+        "headerTopAfter": 0,
+        "navBottomAfter": 844,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "390 key requests: top bar and bottom bar stay pinned after scrolling",
+      "pass": true,
+      "detail": {
+        "checked": 19,
+        "covered": [],
+        "fixedBars": [
+          56,
+          65
+        ],
+        "footerBottom": 779,
+        "navTop": 779,
+        "shellScrollTop": 0,
+        "headerTopAfter": 0,
+        "navBottomAfter": 844,
+        "innerHeight": 844
+      }
+    }
+  ],
+  "failed": []
+}
