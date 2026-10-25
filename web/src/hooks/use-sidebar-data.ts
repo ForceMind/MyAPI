@@ -88,6 +88,7 @@ export function useSidebarData(): SidebarData {
           title: t('Connections'),
           url: '/connections',
           activeUrls: ['/channels'],
+          activePrefixes: ['/connections/'],
           icon: PlugSocketIcon,
           requiredRole: ROLE.ADMIN,
         },

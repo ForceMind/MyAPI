@@ -122,7 +122,7 @@ export function WindowCard(props: {
           <Link
             to='/channels'
             search={{ quotaChannelId: props.item.channel_id }}
-            className='text-primary self-start text-xs font-medium underline-offset-4 hover:underline focus-visible:underline'
+            className='text-primary inline-flex items-center self-start text-xs font-medium underline-offset-4 hover:underline focus-visible:underline pointer-coarse:min-h-11'
           >
             {t('View channel history')}
           </Link>

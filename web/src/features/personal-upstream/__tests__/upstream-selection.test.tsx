@@ -26,9 +26,11 @@ vi.mock('@tanstack/react-router', () => ({
     props: AnchorHTMLAttributes<HTMLAnchorElement> & {
       to: string
       search?: { quotaChannelId?: number; connection?: number }
+      params?: Record<string, string>
     }
   ) => {
-    const { to, search, children, ...attributes } = props
+    const { to: route, params, search, children, ...attributes } = props
+    const to = route.replaceAll(/\$(\w+)/g, (_, name) => params?.[name] ?? '')
     return (
       <a
         {...attributes}
@@ -163,7 +165,7 @@ test('the account list selects saved evidence on every width without another sna
     expect(screen.getByText('100%')).toBeInTheDocument()
     expect(
       screen.getByText('Manage account connection').closest('a')
-    ).toHaveAttribute('href', '/connections?connection=8')
+    ).toHaveAttribute('href', '/connections/8')
     expect(screen.queryByText('Usage sample failed')).not.toBeInTheDocument()
     // One list serves PC and phone (no native select on either).
     expect(

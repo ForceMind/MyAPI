@@ -6,53 +6,16 @@ it under the terms of the GNU Affero General Public License as published by
 the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AxiosError, CanceledError, type AxiosAdapter } from 'axios'
-import { useState, type AnchorHTMLAttributes } from 'react'
 import { afterEach, expect, test, vi } from 'vitest'
 
 import { api } from '@/lib/api'
-import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 import { useInspectorStore } from '@/stores/inspector-store'
 
-import type { ConnectionsSearch } from '../connection-state'
-import { ConnectionsWorkspace } from '../connections'
+import { mountConnections } from './connections-page-fixture'
 
-vi.mock('@tanstack/react-router', () => ({
-  getRouteApi: () => ({}),
-  Link: ({
-    to,
-    params,
-    search,
-    children,
-    ...attributes
-  }: AnchorHTMLAttributes<HTMLAnchorElement> & {
-    to: string
-    params?: { section: string }
-    search?: Record<string, unknown>
-  }) => (
-    <a
-      {...attributes}
-      href={`${to.replace('$section', params?.section ?? '')}${
-        search
-          ? `?${new URLSearchParams(
-              Object.entries(search)
-                .filter(([, v]) => v !== undefined)
-                .map(([k, v]) => [
-                  k,
-                  typeof v === 'object' ? JSON.stringify(v) : String(v),
-                ])
-            )}`
-          : ''
-      }`}
-    >
-      {children}
-    </a>
-  ),
-}))
 vi.mock('@/hooks/use-sidebar-config', () => ({
   useIsSidebarModuleVisible: () => true,
 }))
@@ -82,235 +45,41 @@ const originalMatchMedia = Object.getOwnPropertyDescriptor(
   window,
   'matchMedia'
 ) ?? { configurable: true, value: window.matchMedia }
-const connection = {
-  id: 7,
-  type: 1,
-  name: 'Synthetic connection',
-  status: 1,
-  models: 'alpha,beta',
-  group: 'default',
-  priority: 0,
-  key: 'SECRET-SENTINEL',
-}
 let teardown: (() => void) | undefined
 
-async function leaveDetail(
-  user: ReturnType<typeof userEvent.setup>,
-  mobile: boolean
-) {
-  if (mobile) {
-    // The console top bar's Back closes the full-screen inspector.
-    act(() => useInspectorStore.getState().current?.close())
-    return
-  }
-  await user.click(screen.getByRole('button', { name: 'Close details' }))
-}
-
 afterEach(() => {
-  useInspectorStore.setState({ current: null })
   teardown?.()
+  teardown = undefined
   api.defaults.adapter = originalAdapter
   Object.defineProperty(window, 'matchMedia', originalMatchMedia)
+  useAuthStore.getState().auth.reset('idle')
   vi.restoreAllMocks()
 })
 
-function mount(
-  options: {
-    mobile?: boolean
-    initial?: ConnectionsSearch
-    read?: boolean
-    write?: boolean
-    failDetail?: boolean
-    windowsFail?: boolean
-    wrongWindow?: boolean
-    empty?: boolean
-    holdList?: boolean
-    failList?: boolean
-    missingRow?: boolean
-    holdDetail?: boolean
-    freshId?: number
-  } = {}
-) {
-  // 390px phone or 1440px desktop (inspector beside the list).
-  const width = options.mobile ? 390 : 1440
-  Object.defineProperty(window, 'matchMedia', {
-    configurable: true,
-    value: vi.fn((query: string) => {
-      const max = /max-width:\s*(\d+)px/.exec(query)
-      const min = /min-width:\s*(\d+)px/.exec(query)
-      let matches = false
-      if (max) matches = width <= Number(max[1])
-      if (min) matches = width >= Number(min[1])
-      return {
-        matches,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-      }
-    }),
-  })
-  const user = {
-    id: 7,
-    username: 'synthetic-operator',
-    role: ROLE.ADMIN,
-    permissions: {
-      admin_permissions: { channel: { read: true, write: true } },
-    },
-  }
-  const session = {
-    sid: 'connections-test-session',
-    current: true,
-    login_method: 'password',
-    ip: '127.0.0.1',
-    user_agent: 'test',
-    created_at: 1,
-    last_active_at: 1,
-    expires_at: 4_000_000_000,
-  }
-  useAuthStore.getState().auth.setBundle({
-    access_token: 'synthetic-connection-access',
-    token_type: 'Bearer',
-    access_expires_at: 4_000_000_000,
-    user,
-    session,
-  })
-  const requests: { path: string; params: Record<string, unknown> }[] = []
-  let releaseList!: () => void
-  const listGate = new Promise<void>((resolve) => {
-    releaseList = resolve
-  })
-  let failDetail = options.failDetail
-  let detailAborted = false
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  })
-  const adapter: AxiosAdapter = async (config) => {
-    const path = config.url ?? ''
-    requests.push({ path, params: config.params ?? {} })
-    expect(config.method).toBe('get')
-    let data: unknown
-    if (path === '/api/user/self') {
-      data = {
-        success: true,
-        data: {
-          ...user,
-          id: options.freshId ?? user.id,
-          permissions: {
-            admin_permissions: {
-              channel: {
-                read: options.read ?? true,
-                write: options.write ?? true,
-              },
-            },
-          },
-        },
-      }
-    } else if (path === '/api/channel' || path === '/api/channel/search') {
-      if (options.holdList) await listGate
-      if (options.failList) throw new Error('Inventory unavailable')
-      data = {
-        success: true,
-        data: {
-          total: options.empty ? 0 : 21,
-          items: options.empty
-            ? []
-            : [{ ...connection, id: options.missingRow ? 8 : 7 }],
-        },
-      }
-    } else if (path === '/api/channel/7') {
-      if (options.holdDetail) {
-        return new Promise((_resolve, reject) => {
-          config.signal?.addEventListener?.('abort', () => {
-            detailAborted = true
-            reject(new CanceledError('Observer left', config))
-          })
-        })
-      }
-      if (failDetail) {
-        throw new AxiosError(
-          'Service unavailable',
-          'ERR_BAD_RESPONSE',
-          config,
-          undefined,
-          {
-            config,
-            status: 503,
-            statusText: 'Unavailable',
-            headers: {},
-            data: { success: false },
-          }
-        )
-      }
-      data = { success: true, data: connection }
-    } else if (path === '/api/channel/quota/changes') {
-      expect(config.params.channel_ids).toBe('7')
-      data = options.windowsFail
-        ? { success: false }
-        : {
-            success: true,
-            data: {
-              items: options.wrongWindow
-                ? [
-                    {
-                      channel_id: 8,
-                      name: 'Wrong connection',
-                      metric_type: 'codex_rate_limit',
-                      unit: 'percent',
-                    },
-                  ]
-                : [],
-            },
-          }
-    } else throw new Error(`Unexpected request: ${path}`)
-    return { config, status: 200, statusText: 'OK', headers: {}, data }
-  }
-  api.defaults.adapter = adapter
-  let latestSearch = options.initial ?? {}
-  let navigate!: (next: ConnectionsSearch) => void
-  function Harness() {
-    const [search, setSearch] = useState<ConnectionsSearch>(
-      options.initial ?? {}
-    )
-    latestSearch = search
-    navigate = setSearch
-    return <ConnectionsWorkspace search={search} onSearch={setSearch} />
-  }
-  const view = render(
-    <QueryClientProvider client={client}>
-      <Harness />
-    </QueryClientProvider>
-  )
-  teardown = () => {
-    view.unmount()
-    client.clear()
-  }
-  return {
-    requests,
-    releaseList,
-    navigate: (next: ConnectionsSearch) => navigate(next),
-    client,
-    user,
-    session,
-    get search() {
-      return latestSearch
-    },
-    recover: () => {
-      failDetail = false
-    },
-    get detailAborted() {
-      return detailAborted
-    },
-  }
+async function mount(options: Parameters<typeof mountConnections>[0] = {}) {
+  const fixture = await mountConnections(options)
+  teardown = fixture.teardown
+  return fixture
 }
 
-test('desktop list/detail uses one inventory read, scopes logs by stable ID and never caches credentials', async () => {
-  const fixture = mount()
+/** The card's link (the card's name); the whole card opens the page. */
+const cardLink = () =>
+  screen.findByRole('link', { name: 'Synthetic connection' })
+const search = (fixture: Awaited<ReturnType<typeof mount>>) =>
+  fixture.router.state.location.search as Record<string, unknown>
+
+/** Back from the connection page, as the shell's breadcrumb or top bar does. */
+async function leavePage() {
+  await act(async () => useInspectorStore.getState().current?.close())
+}
+
+test('the grid reads the inventory once, a card opens its page, call records are scoped by the stable ID and credentials are never cached', async () => {
+  const fixture = await mount()
   const user = userEvent.setup()
-  await user.click(
-    await screen.findByRole('button', { name: /Synthetic connection/ })
-  )
-  await screen.findByRole('heading', { name: 'Synthetic connection' })
-  expect(screen.getByTestId('connections-inventory')).toBeVisible()
-  expect(screen.getByTestId('connection-detail')).toBeVisible()
+  await user.click(await cardLink())
+  await screen.findByRole('heading', { level: 1, name: 'Synthetic connection' })
+  expect(fixture.router.state.location.pathname).toBe('/connections/7')
+  await user.click(screen.getByRole('tab', { name: 'Requests' }))
   const calls = new URL(
     screen
       .getByRole('link', { name: 'View connection requests' })
@@ -318,20 +87,19 @@ test('desktop list/detail uses one inventory read, scopes logs by stable ID and 
     'https://example.test'
   )
   expect(calls.pathname).toBe('/usage-logs/common')
-  expect(calls.searchParams.get('channel')).toBe('7')
+  expect(JSON.parse(calls.searchParams.get('channel') ?? '')).toBe('7')
   expect(JSON.parse(calls.searchParams.get('connectionContext') ?? '')).toEqual(
-    {
-      connection: fixture.search,
-    }
+    { connection: { connection: 7 } }
   )
   expect(calls.searchParams.get('page')).toBe('1')
   expect(calls.searchParams.get('pageSize')).toBe('20')
+  await user.click(screen.getByRole('tab', { name: 'Routing and models' }))
   expect(
     screen.getByText(
       'Configuration status does not confirm upstream availability.'
     )
   ).toBeInTheDocument()
-  await user.click(screen.getByRole('tab', { name: 'Account windows' }))
+  await user.click(screen.getByRole('tab', { name: 'Windows' }))
   expect(
     await screen.findByText(
       'No saved subscription windows for this connection. This does not mean the connection is unavailable.'
@@ -350,37 +118,60 @@ test('desktop list/detail uses one inventory read, scopes logs by stable ID and 
   ).not.toContain('SECRET-SENTINEL')
 })
 
-test('mobile opens a separate detail and restores selected-row focus and filter context on return', async () => {
-  const fixture = mount({
+test('mobile: a card opens the page and Back restores the card focus and the list filters', async () => {
+  const fixture = await mount({
     mobile: true,
-    initial: { filter: 'Synthetic', page: 2, status: 'enabled' },
+    entry: '/connections?filter=Synthetic&page=2&status=enabled',
   })
   const user = userEvent.setup()
-  await user.click(
-    await screen.findByRole('button', { name: /Synthetic connection/ })
-  )
-  await screen.findByRole('heading', { name: 'Synthetic connection' })
-  expect(screen.getByTestId('connections-inventory')).not.toBeVisible()
-  expect(
-    screen.getByRole('heading', { level: 2, name: 'Synthetic connection' })
-  ).toHaveFocus()
-  await leaveDetail(user, true)
-  expect(screen.queryByTestId('connection-detail')).not.toBeInTheDocument()
-  expect(
-    screen.getByRole('button', { name: /Synthetic connection/ })
-  ).toHaveFocus()
-  expect(fixture.search).toEqual({
+  await user.click(await cardLink())
+  const heading = await screen.findByRole('heading', {
+    level: 1,
+    name: 'Synthetic connection',
+  })
+  await waitFor(() => expect(heading).toHaveFocus())
+  expect(search(fixture).connectionReturn).toEqual({
     filter: 'Synthetic',
     page: 2,
     status: 'enabled',
-    connection: undefined,
+  })
+  await leavePage()
+  await waitFor(() =>
+    expect(fixture.router.state.location.pathname).toBe('/connections')
+  )
+  await waitFor(async () => expect(await cardLink()).toHaveFocus())
+  expect(search(fixture)).toEqual({
+    filter: 'Synthetic',
+    page: 2,
+    status: 'enabled',
   })
 })
 
+test('Back from a shared connection link returns to its list and focuses the card', async () => {
+  const fixture = await mount({
+    entry: `/connections/7?connectionReturn=${encodeURIComponent(
+      JSON.stringify({ filter: 'Synthetic', page: 2 })
+    )}`,
+  })
+  await screen.findByRole('heading', { level: 1, name: 'Synthetic connection' })
+  await leavePage()
+  await waitFor(() =>
+    expect(fixture.router.state.location.pathname).toBe('/connections')
+  )
+  expect(search(fixture)).toEqual({
+    filter: 'Synthetic',
+    page: 2,
+    focusConnectionId: 7,
+  })
+  await waitFor(async () => expect(await cardLink()).toHaveFocus())
+  // Replaced: the shared link is not a step back.
+  expect(fixture.router.history.length).toBe(1)
+})
+
 test('search and pagination use server parameters rather than filtering one page locally', async () => {
-  const fixture = mount()
+  const fixture = await mount({ total: 21 })
   const user = userEvent.setup()
-  await screen.findByRole('button', { name: /Synthetic connection/ })
+  await cardLink()
   await user.type(
     screen.getByRole('textbox', { name: 'Search connections' }),
     'alpha'
@@ -407,8 +198,8 @@ test('search and pagination use server parameters rather than filtering one page
   )
 })
 
-test('editing is explicit, targets the selected connection, and cancel restores focus without writes', async () => {
-  mount({ initial: { connection: 7 } })
+test('editing is explicit, targets the open connection, and cancel restores focus without writes', async () => {
+  const fixture = await mount({ entry: '/connections/7' })
   const user = userEvent.setup()
   await screen.findByRole('button', { name: 'Edit connection' })
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -417,20 +208,28 @@ test('editing is explicit, targets the selected connection, and cancel restores 
   await user.click(screen.getByRole('button', { name: 'Cancel edit' }))
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Edit connection' })).toHaveFocus()
+  expect(fixture.requests.every((request) => request.method === 'get')).toBe(
+    true
+  )
 })
 
 test('a fresh read-only grant hides editing while retaining the read workflow', async () => {
-  mount({ initial: { connection: 7 }, write: false })
-  await screen.findByRole('heading', { name: 'Synthetic connection' })
+  await mount({ entry: '/connections/7', write: false })
+  await screen.findByRole('heading', { level: 1, name: 'Synthetic connection' })
   expect(
     screen.queryByRole('button', { name: 'Edit connection' })
   ).not.toBeInTheDocument()
 })
 
-test.each([{ read: false }, { freshId: 8 }])(
-  'unverified or revoked identity never starts channel reads',
+test.each([
+  { read: false, entry: '/connections' },
+  { freshId: 8, entry: '/connections' },
+  { read: false, entry: '/connections/7' },
+  { freshId: 8, entry: '/connections/7' },
+])(
+  'unverified or revoked identity never starts channel reads: %j',
   async (options) => {
-    const fixture = mount(options)
+    const fixture = await mount(options)
     await screen.findByText('Connection access could not be verified.')
     expect(fixture.requests.map((request) => request.path)).toEqual([
       '/api/user/self',
@@ -439,24 +238,21 @@ test.each([{ read: false }, { freshId: 8 }])(
 )
 
 test('detail 503 remains an error, never an empty list, and explicit retry recovers', async () => {
-  const fixture = mount({ initial: { connection: 7 }, failDetail: true })
-  const detail = within(await screen.findByTestId('connection-detail'))
-  await detail.findByText(
+  const fixture = await mount({ entry: '/connections/7', failDetail: true })
+  const page = within(await screen.findByTestId('connection-page'))
+  await page.findByText(
     'Unable to load this connection. It may have been removed or access may have changed.'
   )
-  expect(detail.queryByText('No connections yet')).not.toBeInTheDocument()
+  expect(page.queryByText('No connections yet')).not.toBeInTheDocument()
   fixture.recover()
-  await userEvent.setup().click(detail.getByRole('button', { name: 'Retry' }))
-  await detail.findByRole('heading', { name: 'Synthetic connection' })
+  await userEvent.setup().click(page.getByRole('button', { name: 'Retry' }))
+  await page.findByRole('heading', { level: 1, name: 'Synthetic connection' })
 })
 
 test.each([{ windowsFail: true }, { wrongWindow: true }])(
-  'missing or mismatched saved-window evidence is not represented as a healthy empty result',
+  'missing or mismatched saved-window evidence is not represented as a healthy empty result: %j',
   async (options) => {
-    mount({ ...options, initial: { connection: 7 } })
-    await userEvent
-      .setup()
-      .click(await screen.findByRole('tab', { name: 'Account windows' }))
+    await mount({ ...options, entry: '/connections/7' })
     await screen.findByText('Unable to load account windows')
     expect(
       screen.queryByText(
@@ -466,26 +262,34 @@ test.each([{ windowsFail: true }, { wrongWindow: true }])(
   }
 )
 
-test('leaving a pending detail aborts only that observer and does not fetch provider data', async () => {
-  const fixture = mount({ initial: { connection: 7 }, holdDetail: true })
+test('leaving a pending page aborts only that observer and does not fetch provider data', async () => {
+  const fixture = await mount({ entry: '/connections/7', holdDetail: true })
   await waitFor(() =>
     expect(
       fixture.requests.some((request) => request.path === '/api/channel/7')
     ).toBe(true)
   )
-  await leaveDetail(userEvent.setup(), false)
+  await act(() => fixture.router.navigate({ to: '/connections' }))
   await waitFor(() => expect(fixture.detailAborted).toBe(true))
+  // Saved configuration, observations and call records only.
   expect(
-    fixture.requests.every((request) =>
-      ['/api/user/self', '/api/channel', '/api/channel/7'].includes(
-        request.path
-      )
+    fixture.requests.every(
+      (request) =>
+        request.method === 'get' &&
+        [
+          '/api/user/self',
+          '/api/channel',
+          '/api/channel/7',
+          '/api/channel/quota/changes',
+          '/api/log',
+          '/pg/keys',
+        ].includes(request.path)
     )
   ).toBe(true)
 })
 
-test('same-session permission revocation immediately removes detail and editor', async () => {
-  const fixture = mount({ initial: { connection: 7 } })
+test('same-session permission revocation immediately removes the page and editor', async () => {
+  const fixture = await mount({ entry: '/connections/7' })
   await userEvent
     .setup()
     .click(await screen.findByRole('button', { name: 'Edit connection' }))
@@ -500,11 +304,11 @@ test('same-session permission revocation immediately removes detail and editor',
   )
   await screen.findByText('Connection access could not be verified.')
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  expect(screen.queryByTestId('connection-detail')).not.toBeInTheDocument()
+  expect(screen.queryByText('Windows')).not.toBeInTheDocument()
 })
 
 test('empty inventory stays distinct from a read error and keeps a working advanced entry', async () => {
-  mount({ empty: true })
+  await mount({ empty: true })
   await screen.findByText('No connections yet')
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Table view' })).toHaveAttribute(
@@ -513,8 +317,15 @@ test('empty inventory stays distinct from a read error and keeps a working advan
   )
 })
 
+test('an inventory read error is an error with retry, not an empty grid', async () => {
+  await mount({ failList: true })
+  await screen.findByText('Unable to load connections')
+  expect(screen.queryByText('No connections yet')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible()
+})
+
 test('a session change closes the previous editor before the next identity is verified', async () => {
-  const fixture = mount({ initial: { connection: 7 } })
+  const fixture = await mount({ entry: '/connections/7' })
   await userEvent
     .setup()
     .click(await screen.findByRole('button', { name: 'Edit connection' }))
@@ -540,32 +351,36 @@ test('a session change closes the previous editor before the next identity is ve
   ).toHaveLength(before)
 })
 
-test('returning before the inventory arrives restores focus when the row becomes available', async () => {
-  const fixture = mount({
-    mobile: true,
-    initial: { connection: 7 },
-    holdList: true,
-  })
-  await screen.findByRole('heading', { name: 'Synthetic connection' })
-  await leaveDetail(userEvent.setup(), true)
+/** Opens the card's page, then goes Back while the next list read waits. */
+async function openAndReturnWhileListLoads(
+  fixture: Awaited<ReturnType<typeof mount>>
+) {
+  const user = userEvent.setup()
+  await user.click(await cardLink())
+  await screen.findByRole('heading', { level: 1, name: 'Synthetic connection' })
+  fixture.client.removeQueries({ queryKey: ['channels', 'list'] })
+  fixture.holdLists()
+  await leavePage()
+  await waitFor(() =>
+    expect(fixture.router.state.location.pathname).toBe('/connections')
+  )
+  return user
+}
+
+test('returning before the inventory arrives restores focus when the card becomes available', async () => {
+  const fixture = await mount({ mobile: true })
+  await openAndReturnWhileListLoads(fixture)
   await act(async () => fixture.releaseList())
-  const row = await screen.findByRole('button', {
-    name: /Synthetic connection/,
-  })
-  await waitFor(() => expect(row).toHaveFocus())
+  const link = await cardLink()
+  await waitFor(() => expect(link).toHaveFocus())
 })
 
 test.each([{ empty: true }, { missingRow: true }, { failList: true }])(
-  'returning to an inventory without the target or with an error focuses its heading: %j',
+  'returning to an inventory without the card or with an error focuses its heading: %j',
   async (options) => {
-    const fixture = mount({
-      ...options,
-      mobile: true,
-      initial: { connection: 7 },
-      holdList: true,
-    })
-    await screen.findByRole('heading', { name: 'Synthetic connection' })
-    await leaveDetail(userEvent.setup(), true)
+    const fixture = await mount({ mobile: true })
+    await openAndReturnWhileListLoads(fixture)
+    Object.assign(fixture.state, options)
     await act(async () => fixture.releaseList())
     await waitFor(() =>
       expect(
@@ -576,29 +391,21 @@ test.each([{ empty: true }, { missingRow: true }, { failList: true }])(
 )
 
 test.each(['focus', 'pointer', 'keyboard'] as const)(
-  'interacting with the list by %s cancels delayed focus restoration',
+  'interacting with the grid by %s cancels delayed focus restoration',
   async (interaction) => {
-    const fixture = mount({
-      mobile: true,
-      initial: { connection: 7 },
-      holdList: true,
-    })
-    const user = userEvent.setup()
-    await screen.findByRole('heading', { name: 'Synthetic connection' })
-    await leaveDetail(user, true)
+    const fixture = await mount({ mobile: true })
+    const user = await openAndReturnWhileListLoads(fixture)
     const input = screen.getByRole('textbox', { name: 'Search connections' })
     if (interaction === 'focus') {
       act(() => input.focus())
     } else if (interaction === 'pointer') {
-      await user.click(
-        screen.getByRole('heading', { name: 'Configured connections' })
-      )
+      await user.click(input)
     } else {
       await user.keyboard('{Escape}')
     }
     const focusBefore = document.activeElement
     await act(async () => fixture.releaseList())
-    await screen.findByRole('button', { name: /Synthetic connection/ })
+    await cardLink()
     expect(document.activeElement).toBe(focusBefore)
   }
 )
@@ -608,47 +415,32 @@ test.each([
   { filter: 'Synthetic' },
   { status: 'enabled' as const },
 ])(
-  'new inventory navigation cancels a pending return even without a pointer event: %j',
+  'new grid navigation cancels a pending return even without a pointer event: %j',
   async (next) => {
-    const fixture = mount({
-      mobile: true,
-      initial: { connection: 7 },
-      holdList: true,
-    })
-    await screen.findByRole('heading', { name: 'Synthetic connection' })
-    await leaveDetail(userEvent.setup(), true)
-    act(() => fixture.navigate(next))
+    const fixture = await mount({ mobile: true })
+    await openAndReturnWhileListLoads(fixture)
+    await act(() =>
+      fixture.router.navigate({ to: '/connections', search: next })
+    )
     await act(async () => fixture.releaseList())
-    const row = await screen.findByRole('button', {
-      name: /Synthetic connection/,
-    })
-    expect(row).not.toHaveFocus()
+    const link = await cardLink()
+    expect(link).not.toHaveFocus()
     expect(
       screen.getByRole('heading', { name: 'Configured connections' })
     ).not.toHaveFocus()
   }
 )
 
-test('reopening detail cancels an old pending return and a later Back restores the current row', async () => {
-  const fixture = mount({
-    mobile: true,
-    initial: { connection: 7 },
-    holdList: true,
-  })
-  const user = userEvent.setup()
-  await screen.findByRole('heading', { name: 'Synthetic connection' })
-  await leaveDetail(user, true)
-  act(() => fixture.navigate({ connection: 7 }))
-  const heading = screen.getByRole('heading', {
-    level: 2,
+test('reopening a card cancels an old pending return and a later Back restores that card', async () => {
+  const fixture = await mount({ mobile: true })
+  const user = await openAndReturnWhileListLoads(fixture)
+  await act(async () => fixture.releaseList())
+  await user.click(await cardLink())
+  const heading = await screen.findByRole('heading', {
+    level: 1,
     name: 'Synthetic connection',
   })
-  expect(heading).toHaveFocus()
-  await act(async () => fixture.releaseList())
-  await waitFor(() => expect(fixture.client.isFetching()).toBe(0))
-  expect(heading).toHaveFocus()
-  await leaveDetail(user, true)
-  expect(
-    await screen.findByRole('button', { name: /Synthetic connection/ })
-  ).toHaveFocus()
+  await waitFor(() => expect(heading).toHaveFocus())
+  await leavePage()
+  await waitFor(async () => expect(await cardLink()).toHaveFocus())
 })

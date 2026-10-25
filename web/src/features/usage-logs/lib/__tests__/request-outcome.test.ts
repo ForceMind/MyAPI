@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
+import { isRequestFailure } from '../request-facts'
 import { getLogTypeConfig } from '../utils'
 
 describe('request outcome is independent of usage settlement', () => {
@@ -54,5 +55,43 @@ describe('request outcome is independent of usage settlement', () => {
       label: 'Error',
       color: 'red',
     })
+  })
+})
+
+describe('request failures match the server result=failed filter', () => {
+  test.each([
+    [
+      'an error record',
+      { type: 5, content: 'status_code=502', other: '{}' },
+      true,
+    ],
+    ['a consume record', { type: 2, content: '', other: '{}' }, false],
+    [
+      'a usage review',
+      { type: 5, content: 'usage_pending_review', other: '{}' },
+      false,
+    ],
+    [
+      'a settlement review',
+      { type: 5, content: 'usage_settlement_pending', other: '{}' },
+      false,
+    ],
+    [
+      'a preflight rejection',
+      {
+        type: 5,
+        content: 'input limit',
+        other: '{"request_outcome":"rejected","preflight_rejected":true}',
+      },
+      false,
+    ],
+    [
+      'an explicit non-rejection',
+      { type: 5, content: 'x', other: '{"preflight_rejected":false}' },
+      true,
+    ],
+    ['unreadable metadata', { type: 5, content: 'x', other: '{broken' }, true],
+  ])('%s', (_name, log, expected) => {
+    expect(isRequestFailure(log)).toBe(expected)
   })
 })

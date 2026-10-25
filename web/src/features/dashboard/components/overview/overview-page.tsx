@@ -136,7 +136,13 @@ function OverviewSession() {
     return hourlyBuckets(sample.rows, Date.now() / 1000, coverageStart)
   }, [sample, data.since])
 
-  const failures = rows?.filter((row) => !getRequestFacts(row).completed)
+  // Exact 24-hour request failures over exact 24-hour request records, the
+  // same failures the attention link lists.
+  const counts = data.counts.isError ? undefined : data.counts.data
+  const failureRate =
+    counts && counts.failed !== null && counts.requests > 0
+      ? counts.failed / counts.requests
+      : null
   const usageMissing = rows?.filter((row) => {
     const facts = getRequestFacts(row)
     return facts.completed && !facts.usageKnown
@@ -295,14 +301,12 @@ function OverviewSession() {
               <GatewayCoreCard
                 address={address}
                 requests={
-                  data.counts.isError ? null : (data.counts.data ?? null)
+                  data.counts.isError
+                    ? null
+                    : (data.counts.data?.requests ?? null)
                 }
                 requestsLoading={data.counts.isPending}
-                failureRate={
-                  rows && rows.length > 0 && failures
-                    ? failures.length / rows.length
-                    : null
-                }
+                failureRate={failureRate}
                 medianSeconds={
                   rows
                     ? medianSeconds(rows.map((row) => row.use_time))

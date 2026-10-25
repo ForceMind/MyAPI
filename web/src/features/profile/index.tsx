@@ -35,12 +35,14 @@ import {
 } from '@/components/ui/card'
 import { useFundingPresentation } from '@/hooks/use-funding-presentation'
 import { useConfirmedFundingMode } from '@/hooks/use-personal-workbench-mode'
+import { useProductEdition } from '@/hooks/use-product-edition'
 import { useStatus } from '@/hooks/use-status'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { CheckinCalendarCard } from './components/checkin-calendar-card'
 import { LanguagePreferencesCard } from './components/language-preferences-card'
 import { LoginSessionsCard } from './components/login-sessions-card'
+import { MySubscriptionCard } from './components/my-subscription-card'
 import { PasskeyCard } from './components/passkey-card'
 import { ProfileHeader } from './components/profile-header'
 import { ProfileSecurityCard } from './components/profile-security-card'
@@ -61,6 +63,7 @@ export function Profile() {
     profileIdentityKey
   )
   const { commercialEnabled } = useFundingPresentation()
+  const edition = useProductEdition()
   const fundingMode = useConfirmedFundingMode()
   const permissions = useAuthStore((s) => s.auth.user?.permissions)
   const securityScopeKey = `${authUserId ?? profile?.id ?? 'anonymous'}:${authRole ?? profile?.role ?? 'no-role'}:${
@@ -147,6 +150,13 @@ export function Profile() {
                 </div>
 
                 <div className='min-w-0 space-y-5'>
+                  <MySubscriptionCard
+                    key={`subscriptions:${securityScopeKey}`}
+                    canManage={
+                      edition.capabilities.commercial_subscriptions &&
+                      showCommercialFeatures
+                    }
+                  />
                   {checkinEnabled && (
                     <CheckinCalendarCard
                       checkinEnabled={checkinEnabled}

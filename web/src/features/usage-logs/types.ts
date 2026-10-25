@@ -365,7 +365,12 @@ export interface GetLogsParams {
   group?: string
   request_id?: string
   upstream_request_id?: string
+  /** `failed`: request failures only (no pending reviews or preflight rejections). */
+  result?: LogResultFilter
 }
+
+/** Values of the optional `result` filter of `/api/log` and `/api/log/self`. */
+export type LogResultFilter = 'failed'
 
 export interface GetLogsResponse {
   success: boolean
@@ -390,6 +395,7 @@ export interface GetLogStatsParams {
   group?: string
   request_id?: string
   upstream_request_id?: string
+  result?: LogResultFilter
 }
 
 export interface GetLogStatsResponse {

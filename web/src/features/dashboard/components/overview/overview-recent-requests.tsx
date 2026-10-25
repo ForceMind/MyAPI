@@ -12,6 +12,7 @@ import {
   InboxIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useState, type ReactNode, type Ref } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -35,13 +36,21 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { getAllLogs, getUserLogs } from '@/features/usage-logs/api'
 import {
   RequestDuration,
   RequestOutcomeBadge,
   RequestTime,
 } from '@/features/usage-logs/components/request-summary'
-import type { UsageLog } from '@/features/usage-logs/data/schema'
-import { getRequestFacts } from '@/features/usage-logs/lib/request-facts'
+import {
+  usageLogSchema,
+  type UsageLog,
+} from '@/features/usage-logs/data/schema'
+import {
+  getRequestFacts,
+  isRequestFailure,
+  isRequestLog,
+} from '@/features/usage-logs/lib/request-facts'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
@@ -90,6 +99,62 @@ function UsageNote(props: { log: UsageLog }) {
 }
 
 /**
+ * The latest request failures of the last 24 hours (`result=failed`), for
+ * the selected Key or connection when one is selected. Read only while the
+ * "Failed" outcome is shown.
+ */
+function useRecentFailures(
+  data: OverviewData,
+  selection: FlowSelection | null,
+  enabled: boolean
+) {
+  const userId = data.user?.id
+  return useQuery({
+    queryKey: [
+      'overview',
+      'failures',
+      data.isAdmin,
+      userId,
+      data.since,
+      selection?.kind,
+      selection?.id,
+    ],
+    queryFn: async () => {
+      const params = {
+        p: 1,
+        page_size: DESKTOP_ROWS,
+        start_timestamp: data.since,
+        result: 'failed' as const,
+        ...(selection?.kind === 'key' ? { token_id: selection.id } : {}),
+      }
+      const response = data.isAdmin
+        ? await getAllLogs({
+            ...params,
+            ...(selection?.kind === 'connection'
+              ? { channel: selection.id }
+              : {}),
+          })
+        : await getUserLogs(params)
+      if (!response?.success || !Array.isArray(response.data?.items)) {
+        throw new Error('Request failures unavailable')
+      }
+      return {
+        rows: usageLogSchema
+          .array()
+          .parse(response.data.items)
+          .filter(
+            (row) =>
+              isRequestLog(row) && (data.isAdmin || row.user_id === userId)
+          ),
+      }
+    },
+    enabled: enabled && Boolean(data.user),
+    retry: false,
+    refetchOnWindowFocus: false,
+  })
+}
+
+/**
  * Latest requests under the flow board: time (opens the request), result,
  * Key, model with usage, connection (administrators) and duration. Content
  * is never shown here. A selected flow node filters the rows and shows a
@@ -106,25 +171,43 @@ export function OverviewRecentRequests(props: {
   const mobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
   const showLogs = useIsSidebarModuleVisible('/usage-logs/common')
   const [outcome, setOutcome] = useState<Outcome>('all')
-  const query = props.data.sample
   const selection = props.selection
+  const limit = mobile ? MOBILE_ROWS : DESKTOP_ROWS
+  const failures = useRecentFailures(
+    props.data,
+    selection,
+    outcome === 'failed'
+  )
+  // "Failed" reads the request failures of the last 24 hours from the
+  // server (`result=failed`), so it lists the same records as the call
+  // records link; the other outcomes narrow the sampled rows.
+  const query = outcome === 'failed' ? failures : props.data.sample
   const rows = (query.isError ? undefined : query.data?.rows)?.filter((row) => {
     if (selection?.kind === 'key' && row.token_id !== selection.id) return false
     if (selection?.kind === 'connection' && row.channel !== selection.id) {
       return false
     }
     const facts = getRequestFacts(row)
-    if (outcome === 'failed') return !facts.completed
+    if (outcome === 'failed') return isRequestFailure(row)
     if (outcome === 'usage') return facts.completed && !facts.usageKnown
     return true
   })
-  const shown = rows?.slice(0, mobile ? MOBILE_ROWS : DESKTOP_ROWS) ?? []
+  const shown = rows?.slice(0, limit) ?? []
   const showConnection = props.data.isAdmin
   const filtered = selection !== null || outcome !== 'all'
-  let recordsSearch = {}
+  let recordsSearch: Record<string, unknown> = {}
   if (selection?.kind === 'key') recordsSearch = { tokenId: selection.id }
   if (selection?.kind === 'connection') {
     recordsSearch = { channel: String(selection.id) }
+  }
+  if (outcome === 'failed') {
+    recordsSearch = {
+      ...recordsSearch,
+      type: ['5'],
+      result: 'failed',
+      startTime: props.data.since * 1000,
+      endTime: Date.now() + 3600 * 1000,
+    }
   }
 
   let body

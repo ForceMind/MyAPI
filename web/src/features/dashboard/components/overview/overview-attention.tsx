@@ -13,7 +13,10 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { PendingUsageReviews } from '@/features/usage-logs/components/pending-usage-reviews'
-import { getRequestFacts } from '@/features/usage-logs/lib/request-facts'
+import {
+  getRequestFacts,
+  isRequestFailure,
+} from '@/features/usage-logs/lib/request-facts'
 import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
 import { ROLE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
@@ -26,10 +29,11 @@ const linkClassName =
 /**
  * Needs attention (design v2 home): one amber strip listing what to handle,
  * each item linking to the filtered place where it can be handled: disabled
- * connections, failed requests and requests without a usage report among
- * the latest ones, failing account samples and body capture being off. It
- * takes no space when nothing needs attention, except for the root operator,
- * who always reaches the pending settlement reviews here.
+ * connections, request failures in 24 hours (the same records the link
+ * lists), requests without a usage report among the latest ones, failing
+ * account samples and body capture being off. It takes no space when
+ * nothing needs attention, except for the root operator, who always reaches
+ * the pending settlement reviews here.
  */
 export function OverviewAttention(props: { data: OverviewData }) {
   const { t } = useTranslation()
@@ -41,7 +45,13 @@ export function OverviewAttention(props: { data: OverviewData }) {
     ? undefined
     : props.data.sample.data?.rows
   const facts = rows?.map(getRequestFacts) ?? []
-  const failed = facts.filter((fact) => !fact.completed).length
+  // Request failures by the call records' `result=failed` rule: the exact
+  // 24-hour total when it could be read, else those among the latest rows.
+  const exactFailed = props.data.counts.isError
+    ? null
+    : (props.data.counts.data?.failed ?? null)
+  const sampledFailed = rows?.filter(isRequestFailure).length ?? 0
+  const failed = exactFailed ?? sampledFailed
   const usageMissing = facts.filter(
     (fact) => fact.completed && !fact.usageKnown
   ).length
@@ -84,10 +94,12 @@ export function OverviewAttention(props: { data: OverviewData }) {
         <Link
           to='/usage-logs/$section'
           params={{ section: 'common' }}
-          search={errorSearch}
+          search={{ ...errorSearch, result: 'failed' }}
           className={linkClassName}
         >
-          {t('{{count}} of the latest requests failed', { count: failed })}
+          {exactFailed === null
+            ? t('{{count}} of the latest requests failed', { count: failed })
+            : t('{{count}} requests failed in 24 hours', { count: failed })}
         </Link>
       ),
     })

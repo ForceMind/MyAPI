@@ -11,13 +11,12 @@ import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import z from 'zod'
 
-import { Skeleton } from '@/components/ui/skeleton'
+import { StatTile } from '@/components/stat-tile'
 import { quotaWindowLabel } from '@/features/channels/lib/quota-history'
 import { getAllLogs, getUserLogs } from '@/features/usage-logs/api'
 import type { UsageLog } from '@/features/usage-logs/data/schema'
 import { getRequestFacts } from '@/features/usage-logs/lib/request-facts'
 import { formatQuota, formatTimestampToDate } from '@/lib/format'
-import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { useKeySubscriptionShare } from '../../hooks/use-key-subscription-share'
@@ -26,35 +25,6 @@ import { heldSharePools, shareUsedPercent } from '../../lib/share-usage'
 import type { ApiKey } from '../../types'
 
 const totalSchema = z.number().int().nonnegative()
-
-function StatTile(props: {
-  label: string
-  value: ReactNode
-  detail?: ReactNode
-  loading?: boolean
-  danger?: boolean
-}) {
-  return (
-    <div className='bg-card flex min-w-0 flex-col gap-0.5 rounded-lg border px-2.5 py-3 sm:px-4'>
-      <dt className='text-caption text-muted-foreground wrap-anywhere'>
-        {props.label}
-      </dt>
-      <dd
-        className={cn(
-          'text-lg leading-7 font-semibold tabular-nums wrap-anywhere sm:text-2xl sm:leading-8',
-          props.danger && 'text-destructive'
-        )}
-      >
-        {props.loading ? <Skeleton className='my-1 h-6 w-16' /> : props.value}
-      </dd>
-      {props.detail != null && (
-        <dd className='text-caption text-muted-foreground wrap-anywhere'>
-          {props.detail}
-        </dd>
-      )}
-    </div>
-  )
-}
 
 /**
  * Three figures of one Key from saved records: requests in the last 24

@@ -23,11 +23,13 @@ import { useTranslation } from 'react-i18next'
 import { SectionPageLayout } from '@/components/layout'
 import type { NavGroup } from '@/components/layout/types'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { connectionListContext } from '@/features/connections/connection-state'
 import { CacheStatsDialog } from '@/features/system-settings/general/channel-affinity/cache-stats-dialog'
 import { useMediaQuery } from '@/hooks'
 import { useFundingPresentation } from '@/hooks/use-funding-presentation'
 import { useSidebarConfig } from '@/hooks/use-sidebar-config'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
+import { linkButtonClassName } from '@/lib/link-button'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { UserInfoDialog } from './components/dialogs/user-info-dialog'
@@ -146,19 +148,29 @@ function UsageLogsContent() {
               {t('Back to Keys')}
             </Link>
           )}
-          {connectionContext && (
+          {connectionContext && contextSearch.returnToKeys && (
             <Link
-              to={contextSearch.returnToKeys ? '/keys' : '/connections'}
-              search={
-                contextSearch.returnToKeys
-                  ? { connectionContext }
-                  : connectionContext.connection
-              }
+              to='/keys'
+              search={{ connectionContext }}
               className='text-primary underline'
             >
-              {contextSearch.returnToKeys
-                ? t('Associated Key shares')
-                : t('Back to connections')}
+              {t('Associated Key shares')}
+            </Link>
+          )}
+          {connectionContext && !contextSearch.returnToKeys && (
+            <Link
+              to='/connections/$connectionId'
+              params={{
+                connectionId: String(connectionContext.connection.connection),
+              }}
+              search={{
+                connectionReturn: connectionListContext(
+                  connectionContext.connection
+                ),
+              }}
+              className='text-primary underline'
+            >
+              {t('Back to connection')}
             </Link>
           )}
         </SectionPageLayout.Breadcrumb>
@@ -201,6 +213,37 @@ function UsageLogsContent() {
                 </p>
               </div>
             )}
+            {activeCategory === 'common' &&
+              contextSearch.result === 'failed' && (
+                <div
+                  className='bg-muted/30 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border p-3 text-sm'
+                  role='status'
+                  data-testid='failed-requests-filter'
+                >
+                  <p className='min-w-0 flex-1 basis-60'>
+                    <span className='font-medium'>
+                      {t('Request failures only')}
+                    </span>{' '}
+                    <span className='text-muted-foreground'>
+                      {t(
+                        'Settlement reviews and requests rejected before sending are not listed.'
+                      )}
+                    </span>
+                  </p>
+                  <Link
+                    to='/usage-logs/$section'
+                    params={{ section: 'common' }}
+                    search={{ ...contextSearch, result: undefined, page: 1 }}
+                    data-myapi-button=''
+                    className={linkButtonClassName({
+                      variant: 'outline',
+                      size: 'sm',
+                    })}
+                  >
+                    {t('Show all error records')}
+                  </Link>
+                </div>
+              )}
             {showTaskSwitcher && (
               <Tabs value={activeCategory} onValueChange={handleSectionChange}>
                 <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>

@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { getRouteApi } from '@tanstack/react-router'
+import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import type {
   ColumnFiltersState,
   OnChangeFn,
@@ -25,17 +25,22 @@ import type {
   Row,
 } from '@tanstack/react-table'
 import { Eye, EyeOff } from 'lucide-react'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
   DISABLED_ROW_DESKTOP,
   DISABLED_ROW_MOBILE,
   DataTablePage,
+  DataTableRow,
   useDebouncedColumnFilter,
   useDataTable,
 } from '@/components/data-table'
 import { ErrorState } from '@/components/error-state'
+import {
+  useRememberReturnFocus,
+  useReturnFocus,
+} from '@/components/object-page/return-focus'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -47,6 +52,7 @@ import {
 import { useMediaQuery } from '@/hooks'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { getLobeIcon } from '@/lib/lobe-icon'
+import { cn } from '@/lib/utils'
 
 import { getChannels, searchChannels, getGroups } from '../api'
 import {
@@ -91,6 +97,8 @@ export function ChannelsTable() {
     setSensitiveVisible,
   } = useChannels()
   const isMobile = useMediaQuery('(max-width: 640px)')
+  const navigate = useNavigate()
+  const rememberFocus = useRememberReturnFocus()
 
   // Table state
   const [sorting, setSorting] = useState<SortingState>([])
@@ -407,6 +415,32 @@ export function ChannelsTable() {
     })),
   ]
 
+  // Back from a connection's page puts focus on the name that opened it.
+  useReturnFocus({
+    attribute: 'data-connection-link',
+    settled: !isLoading && !isFetching,
+    rows: data,
+  })
+  // A pointer anywhere on a channel row opens its connection page, except on
+  // the row's own controls; tag rows only expand.
+  const openFromRow = (event: MouseEvent<HTMLElement>, channel: Channel) => {
+    const target = event.target as HTMLElement
+    if (isTagAggregateRow(channel) || !event.currentTarget.contains(target)) {
+      return
+    }
+    if (
+      target.closest('button,a,input,label,[role="checkbox"],[role="switch"]')
+    ) {
+      return
+    }
+    rememberFocus('data-connection-link', channel.id)
+    void navigate({
+      to: '/connections/$connectionId',
+      params: { connectionId: String(channel.id) },
+      state: { inspectorBack: true },
+    })
+  }
+
   return (
     <>
       {enableTagMode ? (
@@ -504,6 +538,21 @@ export function ChannelsTable() {
             </Tooltip>
           ),
         }}
+        renderRow={(row, helpers) => (
+          <DataTableRow
+            key={row.id}
+            row={row}
+            className={cn(
+              !isTagAggregateRow(row.original) && 'cursor-pointer',
+              isDisabledChannelRow(row.original) && DISABLED_ROW_DESKTOP
+            )}
+            getColumnClassName={(columnId) =>
+              helpers.getCellClassName(columnId)
+            }
+            cellRenderColumns={table.options.columns}
+            onClick={(event) => openFromRow(event, row.original)}
+          />
+        )}
         getRowClassName={(row, { isMobile }) => {
           if (!isDisabledChannelRow(row.original)) {
             return undefined

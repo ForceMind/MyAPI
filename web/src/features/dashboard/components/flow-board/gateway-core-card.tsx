@@ -47,7 +47,10 @@ export function GatewayCoreCard(props: {
   /** Exact 24-hour request count; null when unavailable. */
   requests: number | null
   requestsLoading: boolean
-  /** Failure share of the sampled requests; null when nothing was sampled. */
+  /**
+   * 24-hour request failures (`result=failed`) over 24-hour request records;
+   * null when either total is unavailable or there were no requests.
+   */
   failureRate: number | null
   medianSeconds: number | undefined
   sampleLoading: boolean
@@ -115,7 +118,7 @@ export function GatewayCoreCard(props: {
         />
         <Kpi
           label={t('Failure rate')}
-          loading={props.sampleLoading}
+          loading={props.requestsLoading}
           value={
             props.failureRate === null ? '—' : percent.format(props.failureRate)
           }

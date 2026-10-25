@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 /* eslint-disable react-refresh/only-export-components */
 import { useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   AlertTriangle,
@@ -27,13 +28,14 @@ import {
   Shuffle,
   SlidersHorizontal,
 } from 'lucide-react'
-import { useState, useMemo, useContext, useEffect } from 'react'
+import { useState, useMemo, useContext, useEffect, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { BadgeListCell } from '@/components/data-table'
 import { GroupBadge } from '@/components/group-badge'
+import { useRememberReturnFocus } from '@/components/object-page/return-focus'
 import { ProviderBadge } from '@/components/provider-badge'
 import { StatusBadge, type StatusBadgeProps } from '@/components/status-badge'
 import { TableId } from '@/components/table-id'
@@ -586,6 +588,26 @@ export function BalanceCell({ channel }: { channel: Channel }) {
 /**
  * Generate channels columns configuration
  */
+/**
+ * The channel's name opens its connection page (the table is the
+ * connections' table view); Back returns here with focus on the link.
+ */
+function ConnectionPageLink(props: { channelId: number; children: ReactNode }) {
+  const rememberFocus = useRememberReturnFocus()
+  return (
+    <Link
+      to='/connections/$connectionId'
+      params={{ connectionId: String(props.channelId) }}
+      state={{ inspectorBack: true }}
+      data-connection-link={props.channelId}
+      onClick={() => rememberFocus('data-connection-link', props.channelId)}
+      className='hover:text-primary flex max-w-full min-w-0 underline-offset-4 hover:underline focus-visible:underline'
+    >
+      {props.children}
+    </Link>
+  )
+}
+
 export function useChannelsColumns(
   options: {
     enableSelection?: boolean
@@ -704,11 +726,13 @@ export function useChannelsColumns(
             <div className='flex max-w-full min-w-0 items-center gap-2'>
               <div className='flex max-w-full min-w-0 flex-col gap-1'>
                 <div className='flex max-w-full min-w-0 items-center gap-1.5'>
-                  <TruncatedText
-                    text={sensitiveVisible ? name : SENSITIVE_MASK}
-                    className='font-medium'
-                    maxWidth='max-w-full'
-                  />
+                  <ConnectionPageLink channelId={channel.id}>
+                    <TruncatedText
+                      text={sensitiveVisible ? name : SENSITIVE_MASK}
+                      className='font-medium'
+                      maxWidth='max-w-full'
+                    />
+                  </ConnectionPageLink>
                   {isPassThrough && (
                     <TooltipProvider delay={100}>
                       <Tooltip>

@@ -79,18 +79,24 @@ export function useOverviewData() {
   const counts = useQuery({
     queryKey: ['overview', 'request-counts', isAdmin, ...identity, since],
     queryFn: async () => {
-      const [consumed, failed] = await Promise.all(
-        [2, 5].map((type) =>
-          fetchLogs({ p: 1, page_size: 1, type, start_timestamp: since })
-        )
-      )
-      const totals = [consumed, failed].map((response) =>
+      const base = { p: 1, page_size: 1, start_timestamp: since }
+      const responses = await Promise.all([
+        fetchLogs({ ...base, type: 2 }),
+        fetchLogs({ ...base, type: 5 }),
+        // The same rule as the call records' "request failures only" link.
+        fetchLogs({ ...base, result: 'failed' }),
+      ])
+      const [consumed, errors, failed] = responses.map((response) =>
         response?.success ? totalSchema.safeParse(response.data?.total) : null
       )
-      if (totals.some((total) => !total?.success)) {
+      if (!consumed?.success || !errors?.success) {
         throw new Error('Request counts unavailable')
       }
-      return totals.reduce((sum, total) => sum + (total?.data ?? 0), 0)
+      return {
+        requests: consumed.data + errors.data,
+        /** Request failures; null when that total could not be read. */
+        failed: failed?.success ? failed.data : null,
+      }
     },
     enabled: Boolean(user),
     retry: false,

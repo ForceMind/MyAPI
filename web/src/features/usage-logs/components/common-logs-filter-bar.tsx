@@ -193,6 +193,11 @@ export function CommonLogsFilterBar<TData>(
       search: {
         ...filterParams,
         type: [logType],
+        // The failure filter narrows error records; another type ends it.
+        result:
+          logType === '5' || logType === LOG_TYPE_ALL_VALUE
+            ? searchParams.result
+            : undefined,
         page: 1,
         pageSize: searchParams.pageSize,
         tokenId: searchParams.tokenId,
@@ -208,6 +213,7 @@ export function CommonLogsFilterBar<TData>(
     logType,
     navigate,
     queryClient,
+    searchParams.result,
     searchParams.pageSize,
     searchParams.tokenId,
     searchParams.keyReturn,

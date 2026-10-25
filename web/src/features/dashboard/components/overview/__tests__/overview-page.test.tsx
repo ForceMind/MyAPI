@@ -133,6 +133,8 @@ const row = (overrides: Row): Row => ({
 
 let requests: InternalAxiosRequestConfig[]
 let logRows: Row[]
+// Failures of the 24 hours that are older than the sampled latest rows.
+let olderFailures: Row[]
 let logFailures: number
 let countFailures: boolean
 let channelTotals: { all: number; enabled: number }
@@ -156,6 +158,7 @@ beforeEach(() => {
   url.set({})
   requests = []
   logRows = [row({})]
+  olderFailures = []
   logFailures = 0
   countFailures = false
   channelTotals = { all: 3, enabled: 2 }
@@ -184,17 +187,37 @@ beforeEach(() => {
     if (path === '/api/user/self') {
       data = { success: true, data: useAuthStore.getState().auth.user }
     } else if (path === '/api/log' || path === '/api/log/self') {
+      // `result=failed` as the server applies it: error rows that are not a
+      // settlement review and not rejected before sending.
+      const matching =
+        query.get('result') === 'failed'
+          ? [...logRows, ...olderFailures].filter(
+              (item) =>
+                item.type === 5 &&
+                !['usage_pending_review', 'usage_settlement_pending'].includes(
+                  String(item.content)
+                ) &&
+                !String(item.other).includes('"preflight_rejected":true')
+            )
+          : logRows
       if (query.get('page_size') === '1') {
-        const type = Number(query.get('type'))
+        const type = query.has('type') ? Number(query.get('type')) : null
         data = countFailures
           ? { success: false, message: 'private count detail' }
           : {
               success: true,
               data: {
                 items: [],
-                total: logRows.filter((item) => item.type === type).length,
+                total: matching.filter(
+                  (item) => type === null || item.type === type
+                ).length,
               },
             }
+      } else if (query.get('result') === 'failed') {
+        data = {
+          success: true,
+          data: { items: matching, total: matching.length },
+        }
       } else if (logFailures > 0) {
         logFailures--
         data = { success: false, message: 'private upstream detail' }
@@ -567,11 +590,14 @@ describe('overview for a channel administrator', () => {
         name: /1 connections are disabled/,
       })
     ).toHaveAttribute('href', '/connections?status=disabled')
+    // The exact 24-hour count and its link both use `result=failed`.
     expect(
       within(attention)
-        .getByRole('link', { name: /1 of the latest requests failed/ })
+        .getByRole('link', { name: /1 requests failed in 24 hours/ })
         .getAttribute('href')
-    ).toMatch(/^\/usage-logs\/common\?type=5&startTime=\d+&endTime=\d+$/)
+    ).toMatch(
+      /^\/usage-logs\/common\?type=5&startTime=\d+&endTime=\d+&result=failed$/
+    )
     const account = node('connection-1')
     expect(
       within(account).getByRole('img', { name: /82% used, 18% left/ })
@@ -795,5 +821,122 @@ describe('edition, funding and module boundaries', () => {
     expect(await screen.findAllByText('Second user Key')).not.toHaveLength(0)
     expect(screen.queryByText('Admin-only Key')).not.toBeInTheDocument()
     expect(requests.at(-1)?.url).not.toBe(undefined)
+  })
+})
+
+describe('request failures follow the call records rule (result=failed)', () => {
+  const failureRows = () => [
+    row({
+      id: 4,
+      request_id: 'REQ-FAIL',
+      type: 5,
+      content: 'status_code=502',
+      other: JSON.stringify({ request_outcome: 'failed' }),
+    }),
+    row({
+      id: 3,
+      request_id: 'REQ-REVIEW',
+      type: 5,
+      content: 'usage_pending_review',
+      other: JSON.stringify({ settlement_status: 'pending_review' }),
+    }),
+    row({
+      id: 2,
+      request_id: 'REQ-REJECTED',
+      type: 5,
+      content: 'input limit',
+      other: JSON.stringify({
+        request_outcome: 'rejected',
+        preflight_rejected: true,
+      }),
+    }),
+    row({ id: 1 }),
+  ]
+
+  test('the failure rate and the attention count leave out reviews and rejections before sending', async () => {
+    setUser(ROLE.ADMIN, { read: true })
+    logRows = failureRows()
+    renderOverview()
+    // 1 failure among 4 request records.
+    expect(await within(core()).findByText('25%')).toBeVisible()
+    const attention = screen.getByRole('region', { name: 'Needs attention' })
+    expect(
+      await within(attention).findByRole('link', {
+        name: '1 requests failed in 24 hours',
+      })
+    ).toHaveAttribute('href', expect.stringContaining('result=failed'))
+    expect(
+      requests.some(
+        (config) =>
+          config.url?.startsWith('/api/log?') &&
+          config.url.includes('page_size=1') &&
+          config.url.includes('result=failed')
+      )
+    ).toBe(true)
+  })
+
+  test('the Failed filter of recent requests lists the result=failed records and links to them', async () => {
+    setUser(ROLE.ADMIN, { read: true })
+    logRows = failureRows()
+    olderFailures = [
+      row({
+        id: 9,
+        created_at: NOW - 20 * 3600,
+        request_id: 'REQ-OLDER-FAIL',
+        type: 5,
+        content: 'status_code=500',
+        other: JSON.stringify({ request_outcome: 'failed' }),
+      }),
+    ]
+    renderOverview()
+    const recent = await screen.findByRole('region', {
+      name: 'Recent requests',
+    })
+    await within(recent).findByText('Request successful')
+    await userEvent.click(
+      within(recent).getByRole('button', { name: 'Failed' })
+    )
+    await waitFor(() =>
+      expect(
+        within(recent)
+          .getAllByRole('link')
+          .map((link) => link.getAttribute('href'))
+      ).toContain('/usage-logs/request/REQ-FAIL')
+    )
+    // A failure older than the sampled rows is listed too: the filter reads
+    // the server's failures, not the sample.
+    expect(
+      within(recent)
+        .getAllByRole('link')
+        .map((link) => link.getAttribute('href'))
+    ).toContain('/usage-logs/request/REQ-OLDER-FAIL')
+    const hrefs = within(recent)
+      .getAllByRole('link')
+      .map((link) => link.getAttribute('href') ?? '')
+    expect(hrefs).not.toContain('/usage-logs/request/REQ-REVIEW')
+    expect(hrefs).not.toContain('/usage-logs/request/REQ-REJECTED')
+    expect(
+      requests.some(
+        (config) =>
+          config.url?.includes('result=failed') &&
+          !config.url.includes('page_size=1')
+      )
+    ).toBe(true)
+    expect(
+      within(recent).getByRole('link', { name: 'View call records' })
+    ).toHaveAttribute('href', expect.stringMatching(/type=5.*result=failed/))
+  })
+
+  test('the All filter keeps the sampled rows and the link without result', async () => {
+    setUser(ROLE.ADMIN, { read: true })
+    logRows = failureRows()
+    renderOverview()
+    const recent = await screen.findByRole('region', {
+      name: 'Recent requests',
+    })
+    await within(recent).findByText('Request successful')
+    expect(
+      within(recent).getByRole('link', { name: 'View call records' })
+    ).toHaveAttribute('href', '/usage-logs/common')
   })
 })

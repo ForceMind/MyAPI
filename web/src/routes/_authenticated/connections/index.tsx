@@ -8,14 +8,17 @@ version.
 */
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { connectionsSearchSchema } from '@/features/connections/connection-state'
+import {
+  connectionsSearchSchema,
+  legacyConnectionLinkTarget,
+} from '@/features/connections/connection-state'
 import { Connections } from '@/features/connections/connections'
 import { hasPermission } from '@/lib/admin-permissions'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
 export const Route = createFileRoute('/_authenticated/connections/')({
-  beforeLoad: () => {
+  beforeLoad: ({ search }) => {
     const user = useAuthStore.getState().auth.user
     if (
       !user ||
@@ -23,6 +26,16 @@ export const Route = createFileRoute('/_authenticated/connections/')({
       !hasPermission(user, 'channel', 'read')
     ) {
       throw redirect({ to: '/403' })
+    }
+    // Earlier inspector links now open the connection's page.
+    const target = legacyConnectionLinkTarget(search)
+    if (target) {
+      throw redirect({
+        to: '/connections/$connectionId',
+        params: { connectionId: String(target.connectionId) },
+        search: target.search,
+        replace: true,
+      })
     }
   },
   validateSearch: connectionsSearchSchema,

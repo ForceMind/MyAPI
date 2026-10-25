@@ -12,7 +12,7 @@ import type { ChannelQuotaChangeItem } from '@/features/channels/types'
 import { savedKeyIdSchema } from '@/features/keys/key-request-context'
 import { nativeWindowUsage } from '@/features/personal-upstream/window-state'
 import type { UsageLog } from '@/features/usage-logs/data/schema'
-import { getRequestFacts } from '@/features/usage-logs/lib/request-facts'
+import { isRequestFailure } from '@/features/usage-logs/lib/request-facts'
 
 /** A flow board column shows at most this many nodes before "View all". */
 export const FLOW_NODE_LIMIT = 6
@@ -47,8 +47,9 @@ export type FlowTraffic = { requests: number; failures: number }
 /**
  * Requests and failures per stable ID (Key ID or connection ID) among the
  * sampled call records. Rows without an ID are not attributed to any node.
- * "Failed" follows the overview's existing rule: every request that did not
- * complete, including ones rejected before sending.
+ * "Failed" is a request failure by the call records' `result=failed` rule,
+ * like every failure figure of the overview: settlement reviews and requests
+ * rejected before sending are not failures.
  */
 export function trafficBy(
   rows: UsageLog[],
@@ -60,7 +61,7 @@ export function trafficBy(
     if (!Number.isSafeInteger(id) || id <= 0) continue
     const entry = traffic.get(id) ?? { requests: 0, failures: 0 }
     entry.requests += 1
-    if (!getRequestFacts(row).completed) entry.failures += 1
+    if (isRequestFailure(row)) entry.failures += 1
     traffic.set(id, entry)
   }
   return traffic

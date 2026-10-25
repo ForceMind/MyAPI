@@ -50,6 +50,9 @@ const usageLogsSearchSchema = z.object({
   page: z.number().optional().catch(1),
   pageSize: z.number().optional().catch(undefined),
   type: logTypeSearchSchema.optional(),
+  // Request failures only (`/api/log?result=failed`): no settlement reviews
+  // and no rejections before sending.
+  result: z.enum(['failed']).optional().catch(undefined),
   filter: z.string().optional().catch(''),
   model: z.string().optional().catch(''),
   token: z.string().optional().catch(''),

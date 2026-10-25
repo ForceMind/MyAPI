@@ -31,10 +31,11 @@ vi.mock('@tanstack/react-router', () => ({
   }: AnchorHTMLAttributes<HTMLAnchorElement> & {
     to: string
     search?: unknown
-    params?: { section: string }
+    params?: Record<string, string>
   }) => (
     <a
       {...attributes}
+      data-params={params ? JSON.stringify(params) : undefined}
       href={`${to.replace('$section', params?.section ?? '')}?${encodeURIComponent(JSON.stringify(search))}`}
     >
       {children}
@@ -187,12 +188,18 @@ test('same-name Keys use allocation IDs and preserve the exact connection contex
       decodeURIComponent((link.getAttribute('href') ?? '').split('?')[1])
     )
   ).toEqual({ connectionContext: { ...context, key: 22 } })
-  const back = screen.getByRole('link', { name: 'Back to connections' })
-  expect(
-    JSON.parse(
-      decodeURIComponent((back.getAttribute('href') ?? '').split('?')[1])
-    )
-  ).toEqual(context.connection)
+  // Back opens the connection's page, which returns to the same list
+  // filters and page.
+  const back = screen.getByRole('link', { name: 'Back to connection' })
+  const [backPath, backSearch] = (back.getAttribute('href') ?? '').split('?')
+  expect(backPath).toBe('/connections/$connectionId')
+  expect(back).toHaveAttribute(
+    'data-params',
+    JSON.stringify({ connectionId: '1' })
+  )
+  expect(JSON.parse(decodeURIComponent(backSearch))).toEqual({
+    connectionReturn: { page: 3, filter: 'same name', status: 'disabled' },
+  })
   expect(
     screen.getByRole('button', { name: 'Manage Key shares' })
   ).toBeEnabled()
@@ -320,10 +327,8 @@ test('canceling the scoped editor returns to the same Key and preserves inventor
   )
   expect(screen.getByRole('heading', { name: 'Key #21' })).toBeInTheDocument()
   expect(
-    screen
-      .getByRole('link', { name: 'Back to connections' })
-      .getAttribute('href')
-  ).toContain(encodeURIComponent(JSON.stringify(context.connection)))
+    screen.getByRole('link', { name: 'Back to connection' })
+  ).toHaveAttribute('data-params', JSON.stringify({ connectionId: '1' }))
   expect(fixture.requests).toContain('/api/token/21/subscription-share')
 })
 

@@ -25,6 +25,7 @@ import { useTranslation } from 'react-i18next'
 import { SectionPageLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useProductEdition } from '@/hooks/use-product-edition'
 
 import { listDeployments } from './api'
 import { DeploymentAccessGuard } from './components/deployment-access-guard'
@@ -58,9 +59,26 @@ function ModelsContent() {
   const navigate = useNavigate()
   const { tabCategory, setTabCategory } = useModels()
   const params = route.useParams()
-  const activeSection = (params.section ??
+  const { capabilities } = useProductEdition()
+  // Editions without model deployments (Lite) show the catalog only.
+  const sections = MODELS_SECTION_IDS.filter(
+    (section) => section !== 'deployments' || capabilities.model_deployments
+  )
+  const requestedSection = (params.section ??
     MODELS_DEFAULT_SECTION) as ModelsSectionId
+  const activeSection = sections.includes(requestedSection)
+    ? requestedSection
+    : MODELS_DEFAULT_SECTION
   const deployment = useModelDeploymentSettings(activeSection === 'deployments')
+
+  useEffect(() => {
+    if (requestedSection === activeSection) return
+    void navigate({
+      to: '/models/$section',
+      params: { section: activeSection },
+      replace: true,
+    })
+  }, [requestedSection, activeSection, navigate])
 
   // Deployment create dialog state
   const [createDeploymentOpen, setCreateDeploymentOpen] = useState(false)
@@ -113,15 +131,17 @@ function ModelsContent() {
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
           <div className='flex h-full min-h-0 flex-col gap-4'>
-            <Tabs value={activeSection} onValueChange={handleSectionChange}>
-              <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
-                {MODELS_SECTION_IDS.map((section) => (
-                  <TabsTrigger key={section} value={section}>
-                    {t(SECTION_META[section].titleKey)}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+            {sections.length > 1 && (
+              <Tabs value={activeSection} onValueChange={handleSectionChange}>
+                <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
+                  {sections.map((section) => (
+                    <TabsTrigger key={section} value={section}>
+                      {t(SECTION_META[section].titleKey)}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            )}
             <div className='min-h-0 flex-1'>
               {activeSection === 'metadata' ? (
                 <ModelsTable />

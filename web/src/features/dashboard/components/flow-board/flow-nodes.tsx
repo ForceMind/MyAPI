@@ -16,7 +16,10 @@ import {
   quotaWindowLabel,
 } from '@/features/channels/lib/quota-history'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
-import type { ConnectionSummary } from '@/features/connections/connection-state'
+import {
+  connectionKind,
+  type ConnectionSummary,
+} from '@/features/connections/connection-state'
 import { API_KEY_STATUS, API_KEY_STATUSES } from '@/features/keys/constants'
 import {
   describeNativeWindowState,
@@ -26,11 +29,6 @@ import {
 import { cn } from '@/lib/utils'
 
 import type { FlowKeyNode, FlowTraffic } from '../../lib/overview-flow'
-
-/** ChatGPT Subscription (Codex): an account with usage windows. */
-const SUBSCRIPTION_TYPE = 57
-/** Ollama and Xinference serve models from the operator's own machine. */
-const LOCAL_TYPES = new Set([4, 47])
 
 const nodeClassName =
   'bg-background hover:border-input relative grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-lg border px-3.5 py-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary aria-pressed:border-primary aria-pressed:ring-1 aria-pressed:ring-primary aria-pressed:ring-inset'
@@ -135,8 +133,9 @@ export function ConnectionNode(props: {
   }
 
   let kind = t('Metered')
-  if (window || connection.type === SUBSCRIPTION_TYPE) kind = t('Subscription')
-  else if (LOCAL_TYPES.has(connection.type)) kind = t('Local')
+  const connectionType = connectionKind(connection, Boolean(window))
+  if (connectionType === 'subscription') kind = t('Subscription')
+  else if (connectionType === 'local') kind = t('Local')
   let aside = <span className='text-caption text-muted-foreground'>{kind}</span>
   if (used !== null) {
     aside = (

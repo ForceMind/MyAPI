@@ -80,3 +80,32 @@ export function getRequestFacts(log: UsageLog) {
 export function isRequestLog(log: Pick<UsageLog, 'type'>) {
   return log.type === 2 || log.type === 5
 }
+
+/** Error rows that record settlement review rather than a failed request. */
+const REVIEW_CONTENTS = new Set([
+  'usage_settlement_pending',
+  'usage_pending_review',
+])
+
+/**
+ * A request failure, by the same rule as the call record filter
+ * `result=failed` (`model/log.go` `applyLogResultFilter`): an error record
+ * that is neither a usage settlement review nor a request rejected by the
+ * input preflight before any upstream was contacted.
+ */
+export function isRequestFailure(
+  log: Pick<UsageLog, 'type' | 'content' | 'other'>
+) {
+  if (log.type !== 5 || REVIEW_CONTENTS.has(log.content ?? '')) return false
+  try {
+    const other: unknown = JSON.parse(log.other || 'null')
+    return !(
+      other &&
+      typeof other === 'object' &&
+      (other as { preflight_rejected?: unknown }).preflight_rejected === true
+    )
+  } catch {
+    // The server matches the stored text; do the same for unreadable JSON.
+    return !(log.other ?? '').includes('"preflight_rejected":true')
+  }
+}

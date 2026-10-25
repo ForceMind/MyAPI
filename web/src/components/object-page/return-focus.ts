@@ -11,7 +11,7 @@ import {
   useRouter,
   type HistoryLocation,
 } from '@tanstack/react-router'
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, type RefObject } from 'react'
 
 // The row that opened an object page, per history entry of the page it was
 // opened from. Back (in-app or the browser's) shows that entry again and
@@ -43,13 +43,18 @@ export function useRememberReturnFocus() {
  * Returns focus to the row of this list that opened an object page, once
  * its history entry is shown again. While the list is loading it waits for
  * the row, but any newer pointer, key or focus action from the user cancels
- * the return; once the list has settled and shows rows without that one, it
- * gives up.
+ * the return; once the list has settled without that row, focus goes to the
+ * fallback when there is one, else it gives up when other rows are shown.
  */
 export function useReturnFocus(options: {
   attribute: string
   settled: boolean
   rows: unknown
+  /**
+   * Where focus goes when the list has settled without that row (removed,
+   * filtered out, empty or unreadable).
+   */
+  fallback?: RefObject<HTMLElement | null>
 }) {
   const key = useLocation({ select: (location) => entryKey(location.state) })
   useEffect(() => {
@@ -62,9 +67,10 @@ export function useReturnFocus(options: {
     const listShown =
       options.settled &&
       document.querySelector(`[${options.attribute}]`) !== null
-    if (target || listShown) {
+    const fallback = options.settled ? options.fallback?.current : null
+    if (target || listShown || fallback) {
       pendingFocus.delete(key)
-      target?.focus()
+      ;(target ?? fallback)?.focus()
       return
     }
     const cancel = () => pendingFocus.delete(key)
@@ -76,5 +82,5 @@ export function useReturnFocus(options: {
       document.removeEventListener('keydown', cancel, true)
       document.removeEventListener('focusin', cancel, true)
     }
-  }, [key, options.attribute, options.settled, options.rows])
+  }, [key, options.attribute, options.settled, options.rows, options.fallback])
 }

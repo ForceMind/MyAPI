@@ -29,5 +29,13 @@
   "Scope and shares": "Scope and shares",
   "Successful and failed records": "Successful and failed records",
   "The call record as saved for this account; request and response bodies are under Body and SSE.": "The call record as saved for this account; request and response bodies are under Body and SSE.",
-  "The full Key is read only when you reveal or copy it.": "The full Key is read only when you reveal or copy it."
+  "The full Key is read only when you reveal or copy it.": "The full Key is read only when you reveal or copy it.",
+  "Back to connection": "Back to connection",
+  "No saved samples or tests for this connection yet.": "No saved samples or tests for this connection yet.",
+  "Only saved samples and the last saved test are listed. Opening this page does not contact the provider.": "Only saved samples and the last saved test are listed. Opening this page does not contact the provider.",
+  "Opening this page does not send requests to any upstream; only Test contacts the provider.": "Opening this page does not send requests to any upstream; only Test contacts the provider.",
+  "Preview routing for a group and model": "Preview routing for a group and model",
+  "Requests appear here once a Key is routed to this connection.": "Requests appear here once a Key is routed to this connection.",
+  "Routing and models": "Routing and models",
+  "Settlement reviews and requests rejected before sending are not listed.": "Settlement reviews and requests rejected before sending are not listed."
 }

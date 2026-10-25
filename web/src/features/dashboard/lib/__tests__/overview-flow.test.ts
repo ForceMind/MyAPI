@@ -61,12 +61,43 @@ describe('traffic per stable identity', () => {
   test('counts requests and failures per Key ID, never per Key name', () => {
     const rows = [
       log({ id: 1, token_id: 21, token_name: 'Same name' }),
-      log({ id: 2, token_id: 22, token_name: 'Same name', other: failed }),
-      log({ id: 3, token_id: 21, token_name: 'Renamed', other: failed }),
+      log({
+        id: 2,
+        token_id: 22,
+        token_name: 'Same name',
+        type: 5,
+        other: failed,
+      }),
+      log({
+        id: 3,
+        token_id: 21,
+        token_name: 'Renamed',
+        type: 5,
+        other: failed,
+      }),
     ]
     const traffic = trafficBy(rows, (row) => row.token_id)
     expect(traffic.get(21)).toEqual({ requests: 2, failures: 1 })
     expect(traffic.get(22)).toEqual({ requests: 1, failures: 1 })
+  })
+
+  test('settlement reviews and rejections before sending count as requests, not failures', () => {
+    const rows = [
+      log({ type: 5, content: 'usage_pending_review', other: '{}' }),
+      log({ type: 5, content: 'usage_settlement_pending', other: '{}' }),
+      log({
+        type: 5,
+        content: 'input limit',
+        other: JSON.stringify({
+          request_outcome: 'rejected',
+          preflight_rejected: true,
+        }),
+      }),
+    ]
+    expect(trafficBy(rows, (row) => row.token_id).get(21)).toEqual({
+      requests: 3,
+      failures: 0,
+    })
   })
 
   test('rows without a Key ID or connection are not attributed to any node', () => {
@@ -76,7 +107,10 @@ describe('traffic per stable identity', () => {
   })
 
   test('counts per connection use the channel ID', () => {
-    const rows = [log({ channel: 3 }), log({ channel: 3, other: failed })]
+    const rows = [
+      log({ channel: 3 }),
+      log({ channel: 3, type: 5, other: failed }),
+    ]
     expect(trafficBy(rows, (row) => row.channel).get(3)).toEqual({
       requests: 2,
       failures: 1,

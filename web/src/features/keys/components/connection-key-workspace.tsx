@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Button, buttonVariants } from '@/components/ui/button'
 import { getConnectionPools } from '@/features/connections/connection-pools-api'
+import { connectionListContext } from '@/features/connections/connection-state'
 import type { ConnectionKeyContext } from '@/features/connections/key-context'
 import { PoolKeyAllocations } from '@/features/personal-upstream/components/pool-key-allocations'
 import { getPoolUsage } from '@/features/personal-upstream/pool-usage-api'
@@ -118,11 +119,14 @@ function ConnectionKeySession(props: { context: ConnectionKeyContext }) {
       </p>
       <div className='flex flex-wrap gap-2'>
         <Link
-          to='/connections'
-          search={props.context.connection}
+          to='/connections/$connectionId'
+          params={{ connectionId: String(channelId) }}
+          search={{
+            connectionReturn: connectionListContext(props.context.connection),
+          }}
           className={`${buttonVariants({ variant: 'outline' })} h-auto min-h-11 max-w-full whitespace-normal`}
         >
-          {t('Back to connections')}
+          {t('Back to connection')}
         </Link>
         {props.context.pool && (
           <Link

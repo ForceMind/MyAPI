@@ -540,19 +540,9 @@
   .pc-page-context {
     padding-top: 8px;
   }
-  /* A full-screen inspector is the page: the top bar carries Back and the
-   * object title, so the list page's own header and footer step aside. */
-  .personal-console
-    .myapi-page:has([data-inspector='page'])
-    > :is(.myapi-page-header, .myapi-page-footer) {
-    display: none;
-  }
-  .personal-console
-    .myapi-page:has([data-inspector='page'])
-    > .myapi-page-content {
-    padding: 0;
-  }
-  .pc-page-frame:has([data-inspector='page']) > .pc-page-context {
+  /* An object page fills the phone screen: the top bar carries Back and the
+   * object's name, so the area's page tabs step aside. */
+  .pc-page-frame:has([data-object-page]) > .pc-page-context {
     display: none;
   }
   .personal-console [data-slot='button'] {

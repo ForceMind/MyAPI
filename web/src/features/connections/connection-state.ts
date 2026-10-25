@@ -8,26 +8,112 @@ version.
 */
 import z from 'zod'
 
-export const CONNECTION_INSPECTOR_TABS = [
-  'overview',
-  'windows',
-  'routing',
-] as const
-export type ConnectionInspectorTab = (typeof CONNECTION_INSPECTOR_TABS)[number]
+/** Tabs of the first-version connection inspector, kept for earlier links. */
+const LEGACY_INSPECTOR_TABS = ['overview', 'windows', 'routing'] as const
 
 /**
- * `/connections` search: list filters plus the open connection (`connection`)
- * and its inspector tab, so refresh and shared links reopen the same view.
+ * `/connections` search: the card grid's filters and page, and the card to
+ * focus on arrival. An earlier link
+ * that opened a connection in the inspector (`connection`, `tab`) is
+ * redirected to the connection's own page.
  */
 export const connectionsSearchSchema = z.object({
   page: z.number().int().positive().optional().catch(undefined),
   filter: z.string().trim().max(200).optional().catch(undefined),
   status: z.enum(['enabled', 'disabled']).optional().catch(undefined),
+  /** The card to focus on arrival (Back from a page opened by a link). */
+  focusConnectionId: z.number().int().positive().optional().catch(undefined),
   connection: z.number().int().positive().optional().catch(undefined),
-  tab: z.enum(CONNECTION_INSPECTOR_TABS).optional().catch(undefined),
+  tab: z.enum(LEGACY_INSPECTOR_TABS).optional().catch(undefined),
 })
 export type ConnectionsSearch = z.infer<typeof connectionsSearchSchema>
 export const CONNECTION_PAGE_SIZE = 20
+
+/** The list state a connection page returns to. */
+const connectionReturnSchema = connectionsSearchSchema.pick({
+  page: true,
+  filter: true,
+  status: true,
+})
+export type ConnectionReturn = z.infer<typeof connectionReturnSchema>
+
+/** Tabs of the connection page; windows is the default and stays out of the URL. */
+export const CONNECTION_PAGE_TABS = [
+  'windows',
+  'routing',
+  'requests',
+  'history',
+] as const
+export type ConnectionPageTab = (typeof CONNECTION_PAGE_TABS)[number]
+
+/** `/connections/$connectionId` search: the tab and the list to return to. */
+export const connectionPageSearchSchema = z.object({
+  tab: z
+    .enum(CONNECTION_PAGE_TABS)
+    .exclude(['windows'])
+    .optional()
+    .catch(undefined),
+  connectionReturn: connectionReturnSchema.optional().catch(undefined),
+})
+export type ConnectionPageSearch = z.infer<typeof connectionPageSearchSchema>
+
+export const connectionIdSchema = z
+  .union([z.number(), z.string().regex(/^\d+$/).transform(Number)])
+  .pipe(z.number().int().positive().max(2147483647))
+
+/** The list's filters and page, when any differ from the plain first page. */
+export function connectionListContext(
+  search: ConnectionReturn
+): ConnectionReturn | undefined {
+  const context: ConnectionReturn = {
+    page: search.page && search.page > 1 ? search.page : undefined,
+    filter: search.filter || undefined,
+    status: search.status,
+  }
+  return Object.values(context).some((value) => value !== undefined)
+    ? context
+    : undefined
+}
+
+/**
+ * Where an earlier `/connections?connection=<id>[&tab=]` inspector link now
+ * points: the connection page on the matching tab, returning to the same
+ * list. `undefined` when there is nothing to rewrite.
+ */
+export function legacyConnectionLinkTarget(
+  search: ConnectionsSearch
+): { connectionId: number; search: ConnectionPageSearch } | undefined {
+  if (search.connection === undefined) return undefined
+  return {
+    connectionId: search.connection,
+    search: {
+      tab: search.tab === 'routing' ? 'routing' : undefined,
+      connectionReturn: connectionListContext(search),
+    },
+  }
+}
+
+/** ChatGPT Subscription (Codex): an account with usage windows. */
+export const SUBSCRIPTION_CONNECTION_TYPE = 57
+/** Ollama and Xinference serve models from the operator's own machine. */
+const LOCAL_CONNECTION_TYPES = new Set([4, 47])
+
+export type ConnectionKind = 'subscription' | 'api' | 'local'
+
+/**
+ * How a connection is billed, for its badge: a subscription account (it
+ * reports usage windows), a model server on the operator's machine, or an
+ * API Key billed per use.
+ */
+export function connectionKind(
+  connection: Pick<ConnectionSummary, 'type'>,
+  hasWindows: boolean
+): ConnectionKind {
+  if (hasWindows || connection.type === SUBSCRIPTION_CONNECTION_TYPE) {
+    return 'subscription'
+  }
+  return LOCAL_CONNECTION_TYPES.has(connection.type) ? 'local' : 'api'
+}
 
 // Deliberately project configuration metadata before it reaches query caches.
 // Credentials, opaque settings and provider responses never belong in this view.
