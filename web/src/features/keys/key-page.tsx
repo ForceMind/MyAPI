@@ -168,7 +168,7 @@ function KeyPageContent(props: {
       data-testid='key-page'
       title={title}
       label={title}
-      meta={apiKey ? <KeyMeta apiKey={apiKey} /> : <span>#{props.keyId}</span>}
+      meta={apiKey ? <KeyMeta apiKey={apiKey} /> : undefined}
       actions={
         apiKey ? (
           <KeyActions

@@ -100,7 +100,7 @@ export function KeyRecentRequests(props: {
     )
   } else if (!rows?.length) {
     body = (
-      <Empty className='m-3 border'>
+      <Empty className='m-3 w-auto border'>
         <EmptyHeader>
           <EmptyMedia variant='icon'>
             <HugeiconsIcon icon={InboxIcon} aria-hidden='true' />
@@ -114,7 +114,7 @@ export function KeyRecentRequests(props: {
     )
   } else if (shown.length === 0) {
     body = (
-      <Empty className='m-3 border'>
+      <Empty className='m-3 w-auto border'>
         <EmptyHeader>
           <EmptyTitle>
             {t('No matching requests among the latest ones')}
