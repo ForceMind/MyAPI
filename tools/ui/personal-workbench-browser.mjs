@@ -76,8 +76,8 @@ for (const key of [
   "Channel read permission is required to view upstream account windows.",
   "Choose a Key",
   "Choose a Key to observe its native window share.",
-  "Create an API Key for your client",
-  "Enabled connections",
+  "API Keys could not be loaded.",
+  "Create API Key",
   "Error",
   "Existing channel logins are kept. Open Channels to inspect the connection.",
   "Failed to load API keys",
@@ -86,9 +86,8 @@ for (const key of [
   "Local Key estimate",
   "Manage Key shares",
   "Manage account connection",
-  "Most used account windows",
   "Needs attention",
-  "Next steps",
+  "No API Keys yet",
   "No requests in the last 24 hours",
   "No timestamp",
   "No upstream account windows were reported",
@@ -124,6 +123,7 @@ for (const key of [
   "Unattributed growth",
   "Unknown",
   "Unsampled requests",
+  "Upstream",
   "Upstream account usage is not exact per-Key attribution. Windows are observed separately.",
   "Upstream accounts",
   "Usage not provided",
@@ -977,7 +977,7 @@ async function runJourney(scenario, work) {
         permissionError: session.page.getByText(tr('Unable to confirm channel permissions', scenario.language), { exact: true }),
         permissionDenied: session.page.getByText(tr('Channel read permission is required to view upstream account windows.', scenario.language), { exact: true }),
         accountsError: session.page.getByTestId('accounts-error-state'),
-        empty: session.page.getByTestId('accounts-empty-state'),
+        flowBoard: session.page.getByTestId('flow-board'),
         upstream: session.page.getByTestId('personal-upstream'),
         overview: session.page.getByTestId('overview'),
       }
@@ -1197,12 +1197,14 @@ async function inspectWindowStates(scenario) {
       else assert(search && search.width === search.height && search.width >= 36, 'The narrow desktop console search is a square control with a pointer-sized target')
       assert.match(await searchControl.getAttribute('aria-keyshortcuts') ?? '', /^(Control|Meta)\+K$/, 'The desktop console search announces its keyboard shortcut')
     }
-    // The overview's health strip carries the connection totals; the
-    // connection list itself lives on the Connections page (design 8.1).
-    const health = page.locator('[aria-labelledby="overview-health-title"]')
-    await health.getByText(tr('Enabled connections', scenario.language), { exact: true }).waitFor()
-    await health.getByText('4 / 4', { exact: true }).waitFor()
-    assert.equal(reads.get('/api/channel'), 2, 'The overview reads only the configured and the enabled connection totals')
+    // The flow board's upstream column carries the configured total and the
+    // first connections by priority with their saved window states; the full
+    // list lives on the Connections page (design v2 2.3).
+    const board = page.getByTestId('flow-board')
+    await board.locator('h3').filter({ hasText: `${tr('Upstream', scenario.language)} · 4` }).waitFor()
+    assert.equal(await board.locator('[data-flow-node^="connection-"]').count(), 4, 'Every configured connection has a node')
+    await board.locator('[data-flow-node="connection-7"]').getByText(tr('Usage sample failed', scenario.language), { exact: true }).waitFor()
+    assert.equal(reads.get('/api/channel'), 2, 'The overview reads only the first connections and the enabled total')
     await screenshot(page, scenario, 'overview-connections')
     const savedHistory = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/channel/7/quota/history' && response.request().method() === 'GET' && response.status() === 200)
     // Design 8.1: "Add connection" is a page action beside the overview title.
@@ -1271,13 +1273,17 @@ try {
   await blockedHandoff({ ...base, name: 'personal-handoff-safe-list-failed-zh-320', role: 1, channelRead: false, language: 'zh', width: 320, failPlaygroundKeys: true })
   const recovery = { ...base, name: 'personal-retry-zh-320', language: 'zh', width: 320, failKeys: true, failRecent: true, failAccounts: true }
   await runJourney(recovery, async ({ page, reads }) => {
-    // The overview lists no Keys (design 8.1), so the failed Key count has
-    // no section of its own to retry; recent requests and windows do.
+    // The flow board's Key column, recent requests and the saved account
+    // windows each fail on their own and retry on their own.
     const recentSection = page.getByRole('region', { name: tr('Recent requests', recovery.language), exact: true })
     const recentError = recentSection.getByRole('alert').filter({ hasText: tr('Unable to load recent requests', recovery.language) })
     await recentError.waitFor()
     await page.getByTestId('accounts-error-state').waitFor()
+    const keysError = page.getByTestId('flow-board').getByText(tr('API Keys could not be loaded.', recovery.language), { exact: true })
+    await keysError.waitFor()
     await screenshot(page, recovery, 'errors')
+    await keysError.locator('..').getByRole('button', { name: tr('Retry', recovery.language), exact: true }).click()
+    await page.getByTestId('flow-board').locator('[data-flow-node="key-21"]').waitFor()
     await recentError.getByRole('button', { name: tr('Retry', recovery.language), exact: true }).click()
     await recentError.waitFor({ state: 'hidden' })
     await recentSection.getByText('synthetic-personal-model', { exact: false }).first().waitFor()
@@ -1291,9 +1297,10 @@ try {
   await runJourney(empty, async ({ page }) => {
     await page.getByRole('region', { name: tr('Recent requests', empty.language), exact: true })
       .getByText(tr('No requests in the last 24 hours', empty.language), { exact: true }).waitFor()
-    await page.getByTestId('accounts-empty-state').waitFor()
-    // No Keys yet: the next step points at creating one.
-    await page.getByRole('link', { name: tr('Create an API Key for your client', empty.language), exact: true }).waitFor()
+    // No Keys yet: the flow board's Key column points at creating one.
+    const board = page.getByTestId('flow-board')
+    await board.getByText(tr('No API Keys yet', empty.language), { exact: true }).waitFor()
+    assert.equal(await board.getByRole('link', { name: tr('Create API Key', empty.language), exact: true }).getAttribute('href'), '/keys', 'The empty Key column links to Key creation')
     await screenshot(page, empty, 'empty')
   })
   for (const mode of ['enabled', 'retirement', 'unknown']) {

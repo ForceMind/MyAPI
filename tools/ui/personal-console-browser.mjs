@@ -253,12 +253,12 @@ try {
         report.screenshots.push({ file: 'platform-home-zh-1280.png', state: 'public-home', width: 1280, language: 'zh' })
       } else {
         await page.waitForURL('**/dashboard/overview', { waitUntil: 'domcontentloaded' })
-        // One overview for every mode; its health strip reads the fixture.
+        // One overview for every mode; its gateway core card reads the fixture.
         const overview = page.getByTestId('overview')
         await overview.waitFor()
-        const health = overview.locator('[aria-labelledby="overview-health-title"]')
-        await health.getByText(translations.zh['Requests (24 h)'], { exact: true }).waitFor()
-        await page.waitForFunction(() => !document.querySelector('[aria-labelledby="overview-health-title"] [data-slot="skeleton"]'))
+        const core = overview.getByTestId('flow-core')
+        await core.getByText(translations.zh['Last 24 h'], { exact: true }).waitFor()
+        await page.waitForFunction(() => !document.querySelector('[data-testid="flow-core"] [data-slot="skeleton"]'))
       }
       assert.deepEqual(homeAudit.violations, [], 'Home entry only uses configured fixture APIs')
       assert.deepEqual(homeAudit.external, [], 'Home entry has zero external requests')

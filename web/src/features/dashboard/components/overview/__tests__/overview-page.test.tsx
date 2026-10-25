@@ -20,37 +20,79 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import { OverviewPage } from '../overview-page'
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    params,
-    search,
-    children,
-    ...attributes
-  }: AnchorHTMLAttributes<HTMLAnchorElement> & {
-    to: string
-    params?: { section?: string }
-    search?: Record<string, unknown>
-  }) => (
-    <a
-      {...attributes}
-      href={`${to.replace('$section', params?.section ?? '')}${
-        search
-          ? `?${new URLSearchParams(
-              Object.entries(search)
-                .filter(([, value]) => value !== undefined)
-                .map(([key, value]) => [
-                  key,
-                  Array.isArray(value) ? value.join(',') : String(value),
-                ])
-            )}`
-          : ''
-      }`}
-    >
-      {children}
-    </a>
-  ),
-}))
+// The page reads and writes its selection through the route's search; this
+// stands in for the URL so a test can start from a shared link and observe
+// every navigation the page makes.
+const url = vi.hoisted(() => {
+  let search: Record<string, unknown> = {}
+  const listeners = new Set<() => void>()
+  return {
+    navigations: [] as Record<string, unknown>[],
+    get: () => search,
+    set(next: Record<string, unknown>) {
+      search = next
+      listeners.forEach((listener) => listener())
+    },
+    subscribe(listener: () => void) {
+      listeners.add(listener)
+      return () => void listeners.delete(listener)
+    },
+  }
+})
+
+vi.mock('@tanstack/react-router', async () => {
+  const { useSyncExternalStore } = await import('react')
+  return {
+    Link: ({
+      to,
+      params,
+      search,
+      children,
+      ...attributes
+    }: AnchorHTMLAttributes<HTMLAnchorElement> & {
+      to: string
+      params?: { section?: string }
+      search?: Record<string, unknown>
+    }) => {
+      const query = new URLSearchParams(
+        Object.entries(search ?? {})
+          .filter(([, value]) => value !== undefined)
+          .map(([key, value]) => [
+            key,
+            Array.isArray(value) ? value.join(',') : String(value),
+          ])
+      ).toString()
+      return (
+        <a
+          {...attributes}
+          href={`${to.replace('$section', params?.section ?? '')}${
+            query ? `?${query}` : ''
+          }`}
+        >
+          {children}
+        </a>
+      )
+    },
+    getRouteApi: () => ({
+      useSearch: () => useSyncExternalStore(url.subscribe, url.get),
+      useNavigate:
+        () =>
+        (options: {
+          search:
+            | Record<string, unknown>
+            | ((previous: Record<string, unknown>) => Record<string, unknown>)
+        }) => {
+          const next =
+            typeof options.search === 'function'
+              ? options.search(url.get())
+              : options.search
+          url.navigations.push({ ...options, search: next })
+          url.set(next)
+          return Promise.resolve()
+        },
+    }),
+  }
+})
 // These panels have their own tests; here only their presence matters.
 vi.mock('../summary-cards', () => ({
   SummaryCards: () => <section aria-label='Funds summary' />,
@@ -92,7 +134,9 @@ const row = (overrides: Row): Row => ({
 let requests: InternalAxiosRequestConfig[]
 let logRows: Row[]
 let logFailures: number
+let countFailures: boolean
 let channelTotals: { all: number; enabled: number }
+let channelItems: Row[]
 let keyItems: Row[]
 const originalAdapter = api.defaults.adapter
 const clients: QueryClient[] = []
@@ -108,10 +152,18 @@ function setUser(role: number, grants: Record<string, boolean> = {}, id = 1) {
 }
 
 beforeEach(() => {
+  url.navigations = []
+  url.set({})
   requests = []
   logRows = [row({})]
   logFailures = 0
-  channelTotals = { all: 2, enabled: 1 }
+  countFailures = false
+  channelTotals = { all: 3, enabled: 2 }
+  channelItems = [
+    { id: 1, type: 57, name: 'Account A link', status: 1, priority: 5 },
+    { id: 2, type: 57, name: 'Account B link', status: 1, priority: 3 },
+    { id: 3, type: 1, name: 'Metered link', status: 2, priority: 0 },
+  ]
   keyItems = [
     {
       id: 21,
@@ -125,25 +177,27 @@ beforeEach(() => {
   ]
   const adapter: AxiosAdapter = async (config) => {
     requests.push(config)
-    const url = config.url ?? ''
-    const path = url.split('?')[0]
-    const query = new URLSearchParams(url.split('?')[1] ?? '')
+    const requestUrl = config.url ?? ''
+    const path = requestUrl.split('?')[0]
+    const query = new URLSearchParams(requestUrl.split('?')[1] ?? '')
     let data: unknown = { success: true, data: {} }
     if (path === '/api/user/self') {
       data = { success: true, data: useAuthStore.getState().auth.user }
     } else if (path === '/api/log' || path === '/api/log/self') {
-      if (logFailures > 0) {
+      if (query.get('page_size') === '1') {
+        const type = Number(query.get('type'))
+        data = countFailures
+          ? { success: false, message: 'private count detail' }
+          : {
+              success: true,
+              data: {
+                items: [],
+                total: logRows.filter((item) => item.type === type).length,
+              },
+            }
+      } else if (logFailures > 0) {
         logFailures--
         data = { success: false, message: 'private upstream detail' }
-      } else if (query.get('page_size') === '1') {
-        const type = Number(query.get('type'))
-        data = {
-          success: true,
-          data: {
-            items: [],
-            total: logRows.filter((item) => item.type === type).length,
-          },
-        }
       } else {
         data = {
           success: true,
@@ -155,7 +209,7 @@ beforeEach(() => {
       data = {
         success: true,
         data: {
-          items: [],
+          items: enabled ? [] : channelItems,
           total: enabled ? channelTotals.enabled : channelTotals.all,
         },
       }
@@ -232,9 +286,31 @@ function renderOverview(status: Record<string, unknown> = {}) {
 }
 
 const paths = () => requests.map((config) => (config.url ?? '').split('?')[0])
+const board = () => screen.getByTestId('flow-board')
+const core = () => screen.getByTestId('flow-core')
+const node = (name: string) =>
+  within(board())
+    .getAllByRole('button')
+    .find((button) => button.dataset.flowNode === name) as HTMLElement
+
+function mockPhone() {
+  vi.spyOn(window, 'matchMedia').mockImplementation(
+    (query: string) =>
+      ({
+        matches: query === '(max-width: 1023px)',
+        media: query,
+        onchange: null,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+        dispatchEvent: () => false,
+      }) as MediaQueryList
+  )
+}
 
 describe('overview for an ordinary user', () => {
-  test('reads only its own call records, never channels, and shows no provider column or upstream actions', async () => {
+  test('reads only its own call records, never channels, and shows only its Keys and requests', async () => {
     setUser(ROLE.USER)
     renderOverview()
     const recent = await screen.findByRole('region', {
@@ -248,16 +324,18 @@ describe('overview for an ordinary user', () => {
     expect(paths().every((path) => !path.startsWith('/api/channel'))).toBe(true)
     expect(paths()).toContain('/api/log/self')
     expect(paths()).not.toContain('/api/log')
+    // No upstream column, no account windows, no upstream actions.
     expect(
-      screen.queryByRole('region', { name: 'Most used account windows' })
+      within(board()).queryByRole('heading', { name: /Upstream/ })
     ).not.toBeInTheDocument()
+    expect(within(board()).queryByRole('img')).not.toBeInTheDocument()
     expect(
       screen.queryByRole('link', { name: 'Add connection' })
     ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Pending requests' })
     ).not.toBeInTheDocument()
-    expect(screen.queryByText('Enabled connections')).not.toBeInTheDocument()
+    expect(await within(board()).findByText('Desktop Key')).toBeVisible()
   })
 
   test('a completed request without usage stays successful and invents no tokens', async () => {
@@ -279,21 +357,24 @@ describe('overview for an ordinary user', () => {
     })
     expect(await within(recent).findByText('Request successful')).toBeVisible()
     expect(within(recent).queryByText(/0 Tokens/)).not.toBeInTheDocument()
+    expect(
+      within(within(recent).getByRole('table')).getByText(/Usage not provided/)
+    ).toBeVisible()
     const attention = screen.getByRole('region', { name: 'Needs attention' })
     expect(
       within(attention).getByText('1 requests completed without a usage report')
     ).toBeVisible()
+    expect(within(core()).getByText(/Usage not provided: 1/)).toBeVisible()
   })
 
-  test('counts Keys from the safe list and never reads Key objects', async () => {
+  test('without Keys the board offers to create one from the safe list, never reading Key objects', async () => {
     setUser(ROLE.USER)
     keyItems = []
+    logRows = []
     renderOverview()
-    const next = await screen.findByRole('region', { name: 'Next steps' })
+    expect(await within(board()).findByText('No API Keys yet')).toBeVisible()
     expect(
-      within(next).getByRole('link', {
-        name: /Create an API Key for your client/,
-      })
+      within(board()).getByRole('link', { name: 'Create API Key' })
     ).toHaveAttribute('href', '/keys')
     expect(paths()).toContain('/pg/keys')
     expect(paths().some((path) => path.startsWith('/api/token'))).toBe(false)
@@ -312,10 +393,25 @@ describe('overview for an ordinary user', () => {
     expect(
       screen.queryByText(/private upstream detail/)
     ).not.toBeInTheDocument()
+    // Counts that could not be read are unknown, not zero.
+    expect(within(node('key-21')).getByText('Unknown')).toBeVisible()
+    expect(within(core()).getAllByText('—').length).toBeGreaterThan(0)
     await userEvent
       .setup()
       .click(within(recent).getByRole('button', { name: 'Retry' }))
     expect(await within(recent).findByText('Desktop Key')).toBeVisible()
+  })
+
+  test('an unreadable 24-hour count is shown as unavailable, never 0', async () => {
+    setUser(ROLE.USER)
+    countFailures = true
+    renderOverview()
+    await waitFor(() =>
+      expect(
+        within(core()).getByText('Last 24 h').nextElementSibling
+      ).toHaveTextContent('—')
+    )
+    expect(screen.queryByText(/private count detail/)).not.toBeInTheDocument()
   })
 
   test('an invalid timestamp degrades to an unknown time', async () => {
@@ -330,8 +426,126 @@ describe('overview for an ordinary user', () => {
   })
 })
 
+describe('selecting a flow node', () => {
+  beforeEach(() => {
+    logRows = [
+      row({ id: 3, token_id: 22, token_name: 'Laptop Key', request_id: 'R3' }),
+      row({ id: 2, token_id: 21, request_id: 'R2', channel: 2 }),
+      row({ id: 1, token_id: 21, request_id: 'R1' }),
+    ]
+    keyItems = [
+      { id: 21, name: 'Desktop Key', status: 1 },
+      { id: 22, name: 'Laptop Key', status: 1 },
+    ]
+  })
+
+  test('counts each Key by its stable ID among the sampled requests', async () => {
+    setUser(ROLE.USER)
+    renderOverview()
+    await waitFor(() =>
+      expect(within(node('key-21')).getByText('2 requests')).toBeVisible()
+    )
+    expect(within(node('key-22')).getByText('1 requests')).toBeVisible()
+  })
+
+  test('selecting a Key writes it to the URL and filters the requests with a clearable chip', async () => {
+    setUser(ROLE.USER)
+    renderOverview()
+    const recent = await screen.findByRole('region', {
+      name: 'Recent requests',
+    })
+    await within(recent).findByText('Laptop Key')
+    const user = userEvent.setup()
+    await user.click(node('key-21'))
+    expect(url.navigations.at(-1)).toMatchObject({
+      search: { key: 21, connection: undefined },
+      resetScroll: false,
+    })
+    expect(node('key-21')).toHaveAttribute('aria-pressed', 'true')
+    expect(within(recent).queryByText('Laptop Key')).not.toBeInTheDocument()
+    expect(within(recent).getAllByText('Desktop Key')).toHaveLength(2)
+    expect(within(recent).getByTestId('flow-filter-chip')).toHaveTextContent(
+      'Key: Desktop Key'
+    )
+    expect(
+      within(recent).getByRole('link', { name: 'View call records' })
+    ).toHaveAttribute('href', '/usage-logs/common?tokenId=21')
+
+    await user.click(
+      within(recent).getByRole('button', { name: 'Clear filter' })
+    )
+    expect(url.get()).toEqual({ key: undefined, connection: undefined })
+    expect(node('key-21')).toHaveAttribute('aria-pressed', 'false')
+    expect(within(recent).getByText('Laptop Key')).toBeVisible()
+    expect(within(recent).queryByTestId('flow-filter-chip')).toBeNull()
+  })
+
+  test('selecting the same node again clears the filter', async () => {
+    setUser(ROLE.USER)
+    renderOverview()
+    await waitFor(() => expect(node('key-21')).toBeDefined())
+    const user = userEvent.setup()
+    await user.click(node('key-21'))
+    await user.click(node('key-21'))
+    expect(url.get()).toEqual({ key: undefined, connection: undefined })
+  })
+
+  test('a shared or refreshed link restores the selected Key', async () => {
+    url.set({ key: 22 })
+    setUser(ROLE.USER)
+    renderOverview()
+    const recent = await screen.findByRole('region', {
+      name: 'Recent requests',
+    })
+    expect(await within(recent).findByText('Laptop Key')).toBeVisible()
+    expect(within(recent).queryByText('Desktop Key')).not.toBeInTheDocument()
+    expect(node('key-22')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('an administrator filters by connection and the URL names it', async () => {
+    setUser(ROLE.ADMIN, { read: true, write: true })
+    url.set({ connection: 2 })
+    renderOverview()
+    const recent = await screen.findByRole('region', {
+      name: 'Recent requests',
+    })
+    await waitFor(() =>
+      expect(node('connection-2')).toHaveAttribute('aria-pressed', 'true')
+    )
+    expect(
+      within(recent)
+        .getAllByRole('link')
+        .map((link) => link.getAttribute('href'))
+    ).toEqual(
+      expect.arrayContaining([
+        '/usage-logs/common?requestId=R2&inspect=request',
+        '/usage-logs/common?channel=2',
+      ])
+    )
+    expect(
+      within(recent).queryByRole('link', { name: /R1|R3/ })
+    ).not.toBeInTheDocument()
+    expect(within(recent).getByTestId('flow-filter-chip')).toHaveTextContent(
+      'Upstream: Account B link'
+    )
+  })
+
+  test('on a phone selecting a node brings the requests into view', async () => {
+    mockPhone()
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollIntoView')
+    setUser(ROLE.USER)
+    renderOverview()
+    await waitFor(() => expect(node('key-21')).toBeDefined())
+    await userEvent.setup().click(node('key-21'))
+    expect(scroll).toHaveBeenCalledTimes(1)
+    expect(scroll.mock.contexts[0]).toBe(
+      screen.getByRole('region', { name: 'Recent requests' })
+    )
+  })
+})
+
 describe('overview for a channel administrator', () => {
-  test('shows enabled connections, the most used window and links failures to filtered call records', async () => {
+  test('shows connections with saved windows, failures and links them to filtered places', async () => {
     setUser(ROLE.ADMIN, { read: true, write: true })
     logRows = [
       row({
@@ -343,8 +557,7 @@ describe('overview for a channel administrator', () => {
       row({ id: 1 }),
     ]
     renderOverview()
-    expect(await screen.findByText('1 / 2')).toBeVisible()
-    expect(await screen.findByText('50%')).toBeVisible()
+    expect(await within(core()).findByText('50%')).toBeVisible()
     const attention = screen.getByRole('region', { name: 'Needs attention' })
     expect(
       await within(attention).findByText('1 connections are disabled')
@@ -354,17 +567,18 @@ describe('overview for a channel administrator', () => {
         name: /1 connections are disabled/,
       })
     ).toHaveAttribute('href', '/connections?status=disabled')
-    const windows = screen.getByRole('region', {
-      name: 'Most used account windows',
-    })
-    const first = (await within(windows).findAllByRole('listitem'))[0]
-    expect(within(first).getByText(/Account A/)).toBeVisible()
-    expect(within(first).getByText('82% used')).toBeVisible()
+    expect(
+      within(attention)
+        .getByRole('link', { name: /1 of the latest requests failed/ })
+        .getAttribute('href')
+    ).toMatch(/^\/usage-logs\/common\?type=5&startTime=\d+&endTime=\d+$/)
+    const account = node('connection-1')
+    expect(
+      within(account).getByRole('img', { name: /82% used, 18% left/ })
+    ).toHaveTextContent('82%')
+    expect(within(node('connection-3')).getByText('Metered')).toBeVisible()
+    expect(within(node('connection-3')).getByText('Disabled')).toBeVisible()
     const recent = screen.getByRole('region', { name: 'Recent requests' })
-    const failed = within(recent).getByRole('link', { name: /Failed 1/ })
-    expect(failed.getAttribute('href')).toMatch(
-      /^\/usage-logs\/common\?type=5&startTime=\d+&endTime=\d+$/
-    )
     // Every row opens its request's details directly.
     const links = within(recent)
       .getAllByRole('link')
@@ -377,41 +591,19 @@ describe('overview for a channel administrator', () => {
     ).toHaveAttribute('href', '/connections')
   })
 
-  test('on a phone only the most used window is shown', async () => {
-    vi.spyOn(window, 'matchMedia').mockImplementation(
-      (query: string) =>
-        ({
-          matches: query === '(max-width: 1023px)',
-          media: query,
-          onchange: null,
-          addEventListener: () => undefined,
-          removeEventListener: () => undefined,
-          addListener: () => undefined,
-          removeListener: () => undefined,
-          dispatchEvent: () => false,
-        }) as MediaQueryList
-    )
-    setUser(ROLE.ADMIN, { read: true, write: true })
-    renderOverview()
-    const windows = await screen.findByRole('region', {
-      name: 'Most used account windows',
-    })
-    const items = await within(windows).findAllByRole('listitem')
-    expect(items).toHaveLength(1)
-    expect(within(items[0]).getByText(/Account A/)).toBeVisible()
-  })
-
   test('a malformed connection total is unavailable, never a fabricated zero', async () => {
     setUser(ROLE.ADMIN, { read: true })
     channelTotals = { all: -1, enabled: 0 }
     renderOverview()
-    const health = await screen.findByRole('region', { name: 'Health' })
-    await waitFor(() =>
-      expect(
-        within(health).getAllByText('Not provided').length
-      ).toBeGreaterThan(0)
-    )
-    expect(within(health).queryByText('0 / 0')).not.toBeInTheDocument()
+    expect(
+      await within(board()).findByText('Connections could not be loaded.')
+    ).toBeVisible()
+    expect(
+      within(board()).getByRole('heading', { name: 'Upstream' })
+    ).toBeVisible()
+    expect(
+      screen.queryByText(/connections are disabled/)
+    ).not.toBeInTheDocument()
   })
 
   test('without channel read permission no channel or window is requested', async () => {
@@ -420,7 +612,53 @@ describe('overview for a channel administrator', () => {
     await screen.findByRole('region', { name: 'Recent requests' })
     await waitFor(() => expect(paths()).toContain('/api/user/self'))
     expect(paths().some((path) => path.startsWith('/api/channel'))).toBe(false)
-    expect(screen.queryByText('Enabled connections')).not.toBeInTheDocument()
+    expect(
+      within(board()).queryByRole('heading', { name: /Upstream/ })
+    ).not.toBeInTheDocument()
+  })
+})
+
+describe('gateway core card by edition', () => {
+  test('Lite shows the current access address and that it was opened on this computer', async () => {
+    setUser(ROLE.USER)
+    renderOverview({
+      product_edition: 'lite',
+      version: '0.2.0-beta.26',
+      capabilities: Object.fromEntries(
+        PRODUCT_CAPABILITIES.map((capability) => [capability, false])
+      ),
+    })
+    const card = core()
+    expect(within(card).getByText(`${window.location.origin}/v1`)).toBeVisible()
+    expect(within(card).getByText('Current access address')).toBeVisible()
+    expect(
+      within(card).getByText(
+        /Lite · 0\.2\.0-beta\.26 · Opened on this computer/
+      )
+    ).toBeVisible()
+  })
+
+  test('Full shows the configured server address and no local access mode', async () => {
+    setUser(ROLE.USER)
+    renderOverview({
+      server_address: 'https://gateway.example.test/',
+      version: '0.2.0-beta.26',
+    })
+    const card = core()
+    expect(
+      within(card).getByText('https://gateway.example.test/v1')
+    ).toBeVisible()
+    expect(within(card).getByText('Configured server address')).toBeVisible()
+    expect(within(card).getByText(/Full · 0\.2\.0-beta\.26/)).toBeVisible()
+    expect(
+      within(card).queryByText(/Opened on this computer/)
+    ).not.toBeInTheDocument()
+  })
+
+  test('a missing version is said to be missing', () => {
+    setUser(ROLE.USER)
+    renderOverview()
+    expect(within(core()).getByText(/Version not provided/)).toBeVisible()
   })
 })
 
@@ -548,12 +786,15 @@ describe('edition, funding and module boundaries', () => {
 
   test('switching accounts removes the previous administrator data', async () => {
     setUser(ROLE.ADMIN, { read: true })
-    logRows = [row({ token_name: 'Admin-only Key' })]
+    logRows = [row({ token_name: 'Admin-only Key', token_id: 77 })]
     renderOverview()
-    expect(await screen.findByText('Admin-only Key')).toBeVisible()
+    const recent = await screen.findByRole('region', {
+      name: 'Recent requests',
+    })
+    expect(await within(recent).findByText('Admin-only Key')).toBeVisible()
     logRows = [row({ token_name: 'Second user Key', user_id: 2 })]
     act(() => setUser(ROLE.USER, {}, 2))
-    expect(await screen.findByText('Second user Key')).toBeVisible()
+    expect(await screen.findAllByText('Second user Key')).not.toHaveLength(0)
     expect(screen.queryByText('Admin-only Key')).not.toBeInTheDocument()
     expect(requests.at(-1)?.url).not.toBe(undefined)
   })
