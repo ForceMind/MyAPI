@@ -1345,11 +1345,11 @@ func TestSettleTaskSaturationAuditWhenRepricingIsSkipped(t *testing.T) {
 			admin, ok := other["admin_info"].(map[string]any)
 			require.True(t, ok)
 			assert.Contains(t, admin, "quota_saturation")
-			consumeLogs, _, err := model.GetUserLogs(82, model.LogTypeConsume, 0, 0, "", "", 0, 10, "", "", "")
+			consumeLogs, _, err := model.GetUserLogs(82, model.LogTypeConsume, 0, 0, "", "", 0, 10, "", "", "", "")
 			require.NoError(t, err)
 			require.Len(t, consumeLogs, 1, "the audit event is not a consumption request")
 			assert.Equal(t, 500, consumeLogs[0].Quota)
-			systemLogs, _, err := model.GetUserLogs(82, model.LogTypeSystem, 0, 0, "", "", 0, 10, "", "", "")
+			systemLogs, _, err := model.GetUserLogs(82, model.LogTypeSystem, 0, 0, "", "", 0, 10, "", "", "", "")
 			require.NoError(t, err)
 			require.Len(t, systemLogs, 1)
 			var userOther map[string]any

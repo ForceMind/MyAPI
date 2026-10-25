@@ -50,7 +50,7 @@ func TestUsageReviewProjectionRecoversWithoutDuplicateStatistics(t *testing.T) {
 	oldLog := LOG_DB
 	LOG_DB = logDB
 	t.Cleanup(func() { LOG_DB = oldLog })
-	logs, total, err := GetUserLogs(account.User.Id, LogTypeConsume, 0, 0, "", "", 0, 10, "", row.RequestID, "")
+	logs, total, err := GetUserLogs(account.User.Id, LogTypeConsume, 0, 0, "", "", 0, 10, "", row.RequestID, "", "")
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, total)
 	require.Len(t, logs, 1)

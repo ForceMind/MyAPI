@@ -50,7 +50,7 @@ func TestClaudePerTokenSettlementRequiresCompleteRawUsage(t *testing.T) {
 				assert.Equal(t, 100-tc.want[0], settler.refund)
 			}
 			if tc.name == "reported zero" {
-				logs, _, err := model.GetUserLogs(88, model.LogTypeConsume, 0, 0, "", "", 0, 10, "", "", "")
+				logs, _, err := model.GetUserLogs(88, model.LogTypeConsume, 0, 0, "", "", 0, 10, "", "", "", "")
 				require.NoError(t, err)
 				require.NotEmpty(t, logs)
 				assert.NotContains(t, logs[0].Content, "上游没有返回计费信息")

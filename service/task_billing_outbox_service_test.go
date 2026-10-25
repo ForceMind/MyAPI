@@ -185,7 +185,7 @@ func TestTaskBillingOutboxService_RejectsConflictingExistingProjection(t *testin
 	require.NoError(t, db.Where("billing_event_id = ?", event.EventID).First(&identity).Error)
 	assert.Equal(t, model.BillingLogProjectionIdentityStatusQuarantined, identity.Status)
 	assert.Contains(t, identity.Reason, "conflict")
-	visible, total, err := model.GetAllLogs(model.LogTypeUnknown, 0, 0, "", "", "", 0, 10, 0, "", conflictLog.RequestId, "")
+	visible, total, err := model.GetAllLogs(model.LogTypeUnknown, 0, 0, "", "", "", 0, 10, 0, "", conflictLog.RequestId, "", "")
 	require.NoError(t, err)
 	assert.Zero(t, total)
 	assert.Empty(t, visible)

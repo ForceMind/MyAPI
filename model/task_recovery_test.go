@@ -1530,7 +1530,7 @@ func runB2SubmissionDatabaseContract(t *testing.T, db *gorm.DB) {
 		require.Len(t, replays, 2)
 		assert.Equal(t, replays[0].BillingProjectionDigest, replays[1].BillingProjectionDigest)
 		assert.NotEqual(t, replays[0].LogRowKey, replays[1].LogRowKey)
-		visible, total, err := GetAllLogs(LogTypeUnknown, 0, 0, "", "", "", 0, 10, 0, "", "log-replay", "")
+		visible, total, err := GetAllLogs(LogTypeUnknown, 0, 0, "", "", "", 0, 10, 0, "", "log-replay", "", "")
 		require.NoError(t, err)
 		assert.EqualValues(t, 1, total)
 		require.Len(t, visible, 1)

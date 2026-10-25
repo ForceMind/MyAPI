@@ -113,7 +113,7 @@ func TestPostTextConsumeQuotaOverflowDoesNotRefundPreconsume(t *testing.T) {
 	assert.Contains(t, admin, "quota_saturation")
 	assert.Contains(t, warnings.String(), "text-overflow-request")
 	assert.Contains(t, warnings.String(), "quota saturation on consume log")
-	userLogs, _, err := model.GetUserLogs(81, model.LogTypeUnknown, 0, 0, "", "", 0, 10, "", "", "")
+	userLogs, _, err := model.GetUserLogs(81, model.LogTypeUnknown, 0, 0, "", "", 0, 10, "", "", "", "")
 	require.NoError(t, err)
 	require.Len(t, userLogs, 1)
 	var userOther map[string]any

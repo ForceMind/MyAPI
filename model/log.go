@@ -36,6 +36,38 @@ func applyExplicitLogTextFilter(tx *gorm.DB, column string, value string) (*gorm
 	return tx.Where(column+" = ?", value), nil
 }
 
+// LogResultFailed selects request failures; see applyLogResultFilter.
+const LogResultFailed = "failed"
+
+// applyLogResultFilter narrows log rows by request outcome. LogTypeError also
+// stores two kinds of rows that are not request failures, and "failed"
+// excludes both:
+//   - usage awaiting settlement review, written by service/billing_usage_review.go
+//     with the fixed contents "usage_settlement_pending" and "usage_pending_review";
+//   - requests rejected by the input-limit preflight before any upstream
+//     dispatch, written by service/request_input.go with
+//     `"preflight_rejected":true` in other.
+//
+// The checks are plain column comparisons and LIKE, so they run unchanged on
+// SQLite, MySQL, PostgreSQL and ClickHouse without JSON functions. The LIKE
+// relies on the compact JSON that common.MapToJsonStr writes for other.
+func applyLogResultFilter(tx *gorm.DB, result string) (*gorm.DB, error) {
+	switch result {
+	case "":
+		return tx, nil
+	case LogResultFailed:
+	default:
+		return nil, gorm.ErrInvalidData
+	}
+	preflightCondition, preflightPattern, err := buildLogLikeCondition("COALESCE(logs.other, '')", `%"preflight_rejected":true%`)
+	if err != nil {
+		return nil, err
+	}
+	return tx.Where("logs.type = ?", LogTypeError).
+		Where("COALESCE(logs.content, '') NOT IN ?", []string{"usage_settlement_pending", "usage_pending_review"}).
+		Where("NOT ("+preflightCondition+")", preflightPattern), nil
+}
+
 func buildLogLikeCondition(column string, value string) (string, string, error) {
 	if common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
 		pattern, err := sanitizeClickHouseLikePattern(value)
@@ -919,7 +951,7 @@ func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
 	}
 }
 
-func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string, upstreamRequestId string, identity ...LogIdentityFilter) (logs []*Log, total int64, err error) {
+func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string, upstreamRequestId string, result string, identity ...LogIdentityFilter) (logs []*Log, total int64, err error) {
 	tx := deduplicatedLogs(LOG_DB)
 	tx, err = applyLogIdentityFilter(tx, identity)
 	if err != nil {
@@ -928,6 +960,9 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 
 	if logType != LogTypeUnknown {
 		tx = tx.Where("logs.type = ?", logType)
+	}
+	if tx, err = applyLogResultFilter(tx, result); err != nil {
+		return nil, 0, err
 	}
 
 	if tx, err = applyExplicitLogTextFilter(tx, "logs.model_name", modelName); err != nil {
@@ -1014,7 +1049,7 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 
 const logSearchCountLimit = 10000
 
-func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, startIdx int, num int, group string, requestId string, upstreamRequestId string, identity ...LogIdentityFilter) (logs []*Log, total int64, err error) {
+func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, startIdx int, num int, group string, requestId string, upstreamRequestId string, result string, identity ...LogIdentityFilter) (logs []*Log, total int64, err error) {
 	tx := deduplicatedLogs(LOG_DB).Where("logs.user_id = ?", userId)
 	tx, err = applyLogIdentityFilter(tx, identity)
 	if err != nil {
@@ -1023,6 +1058,9 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 
 	if logType != LogTypeUnknown {
 		tx = tx.Where("logs.type = ?", logType)
+	}
+	if tx, err = applyLogResultFilter(tx, result); err != nil {
+		return nil, 0, err
 	}
 
 	if tx, err = applyExplicitLogTextFilter(tx, "logs.model_name", modelName); err != nil {

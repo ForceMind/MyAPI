@@ -284,7 +284,7 @@ func TestKlingPollingPreservesDeductionSaturationAudit(t *testing.T) {
 			assert.Equal(t, "QuotaFromFloat", saturation["op"])
 			assert.Equal(t, 1, strings.Count(warnings.String(), "quota saturation on task log:"))
 			assert.Contains(t, warnings.String(), "task=kling-public-task")
-			userLogs, _, err := model.GetUserLogs(1, model.LogTypeUnknown, 0, 0, "", "", 0, 10, "", logs[0].RequestId, "")
+			userLogs, _, err := model.GetUserLogs(1, model.LogTypeUnknown, 0, 0, "", "", 0, 10, "", logs[0].RequestId, "", "")
 			require.NoError(t, err)
 			require.Len(t, userLogs, 1)
 			var userOther map[string]any

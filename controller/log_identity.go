@@ -26,6 +26,13 @@ func logIdentityFilter(c *gin.Context, userID int) (model.LogIdentityFilter, boo
 			filter.TokenID = int(id)
 		}
 	}
+	// Every log list and stat handler passes through here, so an unknown
+	// result value is rejected before it reaches the model layer.
+	if values, present := query["result"]; present && err == nil {
+		if len(values) != 1 || (values[0] != "" && values[0] != model.LogResultFailed) {
+			err = strconv.ErrSyntax
+		}
+	}
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"success": false, "message": common.TranslateMessage(c, i18n.MsgInvalidParams)})
 		return model.LogIdentityFilter{}, false

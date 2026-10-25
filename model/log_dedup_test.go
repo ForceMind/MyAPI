@@ -252,7 +252,7 @@ func TestLogConsumersUseUnifiedCanonicalRuleBeforeFiltersAndPagination(t *testin
 	seenRows := map[string]struct{}{}
 	seenEvents := map[string]struct{}{}
 	for page := 0; page < 4; page++ {
-		logs, total, err := GetAllLogs(LogTypeUnknown, 0, 0, "", "", "", page*2, 2, 0, "", "", "")
+		logs, total, err := GetAllLogs(LogTypeUnknown, 0, 0, "", "", "", page*2, 2, 0, "", "", "", "")
 		require.NoError(t, err)
 		assert.EqualValues(t, 8, total)
 		require.Len(t, logs, 2)
@@ -285,6 +285,7 @@ func TestLogConsumersUseUnifiedCanonicalRuleBeforeFiltersAndPagination(t *testin
 		fixture.canonical.Group,
 		fixture.canonical.RequestId,
 		fixture.canonical.UpstreamRequestId,
+		"",
 	)
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, canonicalTotal)
@@ -304,6 +305,7 @@ func TestLogConsumersUseUnifiedCanonicalRuleBeforeFiltersAndPagination(t *testin
 		fixture.noncanonical.Group,
 		fixture.noncanonical.RequestId,
 		fixture.noncanonical.UpstreamRequestId,
+		"",
 	)
 	require.NoError(t, err)
 	assert.Zero(t, noncanonicalTotal)
@@ -321,6 +323,7 @@ func TestLogConsumersUseUnifiedCanonicalRuleBeforeFiltersAndPagination(t *testin
 		fixture.canonical.Group,
 		fixture.canonical.RequestId,
 		fixture.canonical.UpstreamRequestId,
+		"",
 	)
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, userTotal)
@@ -393,7 +396,7 @@ func TestHistoricalDigestFallbackUsesFullProjectionTuple(t *testing.T) {
 	insertLogWithoutHooks(t, db, &missingDigest)
 	insertLogWithoutHooks(t, db, &digestPreferred)
 
-	logs, total, err := GetAllLogs(LogTypeConsume, 0, 0, "", "historical-user", "", 0, 10, 0, "", "", "")
+	logs, total, err := GetAllLogs(LogTypeConsume, 0, 0, "", "historical-user", "", 0, 10, 0, "", "", "", "")
 	require.NoError(t, err)
 	assert.EqualValues(t, 2, total)
 	require.Len(t, logs, 2)
@@ -452,7 +455,7 @@ func TestLogCleanupDeletesLogicalBillingEventsByCanonicalAge(t *testing.T) {
 		require.NoError(t, CreateLog(db, &row))
 	}
 
-	before, _, err := GetAllLogs(LogTypeConsume, 0, 0, "cleanup-model", "cleanup-user", "", 0, 10, 0, "", "", "")
+	before, _, err := GetAllLogs(LogTypeConsume, 0, 0, "cleanup-model", "cleanup-user", "", 0, 10, 0, "", "", "", "")
 	require.NoError(t, err)
 	require.Len(t, before, 2)
 	beforeCanonical := map[string]string{}
@@ -486,7 +489,7 @@ func TestLogCleanupDeletesLogicalBillingEventsByCanonicalAge(t *testing.T) {
 	var retainedPhysical int64
 	require.NoError(t, db.Model(&Log{}).Where("billing_event_id = ?", "cleanup-retained").Count(&retainedPhysical).Error)
 	assert.EqualValues(t, 2, retainedPhysical, "an old replay must remain when the canonical event is not expired")
-	after, _, err := GetAllLogs(LogTypeConsume, 0, 0, "cleanup-model", "cleanup-user", "", 0, 10, 0, "", "", "")
+	after, _, err := GetAllLogs(LogTypeConsume, 0, 0, "cleanup-model", "cleanup-user", "", 0, 10, 0, "", "", "", "")
 	require.NoError(t, err)
 	require.Len(t, after, 1)
 	assert.Equal(t, retainedNew.Content, after[0].Content, "cleanup must not expose a different replay as canonical")
@@ -667,13 +670,13 @@ func runLogDedupDatabaseContract(t *testing.T, db *gorm.DB) {
 	insertLogWithoutHooks(t, db, &first)
 	insertLogWithoutHooks(t, db, &second)
 
-	logs, total, err := GetAllLogs(LogTypeConsume, stamp, stamp, canonical.ModelName, canonical.Username, "", 0, 10, 0, "", "configured-request", "")
+	logs, total, err := GetAllLogs(LogTypeConsume, stamp, stamp, canonical.ModelName, canonical.Username, "", 0, 10, 0, "", "configured-request", "", "")
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, total)
 	require.Len(t, logs, 1)
 	assert.Equal(t, canonical.BillingProjectionDigest, logs[0].BillingProjectionDigest)
 
-	logs, total, err = GetAllLogs(LogTypeConsume, stamp, stamp, noncanonical.ModelName, noncanonical.Username, "", 0, 10, 0, "", "configured-request", "")
+	logs, total, err = GetAllLogs(LogTypeConsume, stamp, stamp, noncanonical.ModelName, noncanonical.Username, "", 0, 10, 0, "", "configured-request", "", "")
 	require.NoError(t, err)
 	assert.Zero(t, total)
 	assert.Empty(t, logs)
@@ -761,7 +764,7 @@ func TestRelationalBackfillQuarantinesConflictingEventAndContinues(t *testing.T)
 	assert.Equal(t, BillingLogProjectionIdentityStatusQuarantined, identity.Status)
 	assert.Contains(t, identity.Reason, "immutable projections")
 
-	logs, total, err := GetAllLogs(LogTypeConsume, target-20, target, "", "", "", 0, 10, 0, "", "", "")
+	logs, total, err := GetAllLogs(LogTypeConsume, target-20, target, "", "", "", 0, 10, 0, "", "", "", "")
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, total)
 	require.Len(t, logs, 1)
