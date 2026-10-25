@@ -57,7 +57,8 @@ UI 设计（`ui-design/DESIGN_DIRECTION.md` 第 11 节）：
 5. Lite / Desktop 精简构建提供七种语言，语言包按需懒加载。
 6. 采用术语表（"渠道"改"连接"，"API 密钥/令牌"统一为"API Key"），依赖文案的浏览器验收脚本在同一批次更新。
 
-尚未获得维护者确认、因此暂不实施的三项改变现有 LAN 实例行为的门禁改动：未知版本值拒绝启动；补封 `/api/redemption`、`/api/deployments`、`/api/mj`；开放 `/api/subscription/self` 只读。
+三项改变现有 LAN 实例行为的门禁改动，维护者于 2026-10-25 以"都按推荐"确认，已在 `07207713` 实现：未知版本值拒绝启动（合法值为空、`full`、`lite`、`lan`）；Lite 下补封 `/api/redemption`、`/api/deployments`、Midjourney（`/api/mj`、`/mj`、`/:mode/mj`，后两者是主会话为避免只封管理接口、留着转发而扩展的，已在汇报中说明）；Lite 下只放开 `GET /api/subscription/self`，其余订阅路径仍封。另一项获批改动：日志新增可选参数 `result=failed`（`eb08c3f3`），只返回请求失败、排除待核对与发出前被拒绝；管理员概览继续读取全部用户的记录，与调用记录页一致。亮色青色对比度保持不变，遥测填充必须同时显示数值。
+后续待做：概览"失败 N"链接改用 `result=failed`（前端）；Lite 下已有订阅用户的自助只读订阅视图（前端，放进个人资料页）；日志筛选在 MySQL 与 PostgreSQL 上的测试已接入 CI 的 S1 作业，需读 CI 结果确认。
 
 ## UI 方向第二版（2026-10-25）
 
