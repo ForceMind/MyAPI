@@ -1214,7 +1214,8 @@ async function inspectWindowStates(scenario) {
     await page.waitForURL('**/connections')
     const inventory = page.getByTestId('connections-inventory')
     await inventory.waitFor()
-    await inventory.locator('[data-connection-id="10"]').filter({ hasText: 'Synthetic standard API channel' }).waitFor()
+    // The grid shows a card per connection (design v2 upstream).
+    await inventory.locator('[data-connection-card="10"]').filter({ hasText: 'Synthetic standard API channel' }).waitFor()
     await page.getByRole('link', { name: tr('Table view', scenario.language), exact: true }).click()
     await page.waitForURL('**/channels')
     await page.waitForFunction((name) => [...document.querySelectorAll('main *')].some((element) => element.textContent?.trim() === name && element.checkVisibility()), 'Synthetic standard API channel')

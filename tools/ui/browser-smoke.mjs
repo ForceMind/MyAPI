@@ -151,10 +151,8 @@ async function screenshot(page, name, { shell = true, touch = false, headingLeve
     }
     const header = document.querySelector('[data-myapi-header]')
     const main = document.querySelector('main#content')
-    // Below 1024px an open inspector is the page (design 5.2, 6.1): the list
-    // page header steps aside and the inspector heading titles the page.
-    const inspectorPage = main?.querySelector('[data-inspector="page"]')
-    const title = inspectorPage ? inspectorPage.querySelector('h2') : main?.querySelector(`h${headingLevel}`)
+    // Objects open as pages of their own (design v2), titled by the page heading.
+    const title = main?.querySelector(`h${headingLevel}`)
     // The shell scrolls the page inside a route scrollport below the top bar,
     // so a scrolled main is clipped by that scrollport, not by the header.
     let scrollport = main?.parentElement

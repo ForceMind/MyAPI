@@ -15,7 +15,7 @@ const output = resolve(process.env.MYAPI_BROWSER_ARTIFACTS || '.local-tests/conn
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim()
 const codes = { en: 'en', zh: 'zhCN', 'zh-TW': 'zhTW', fr: 'fr', ja: 'ja', ru: 'ru', vi: 'vi' }
 const translations = Object.fromEntries(Object.keys(codes).map(lang => [lang, JSON.parse(readFileSync(resolve(repo, `web/src/i18n/locales/${lang}.json`))).translation]))
-const report = { head, workflowHead: process.env.GITHUB_SHA || null, scope: 'Connection list/detail, persisted Key identity, pool pagination, scoped edit cancellation, Apply/Reset request return context and failure boundaries. Six widths by seven locales, synthetic APIs only.', result: 'running', journeys: [], screenshots: [], errors: [] }
+const report = { head, workflowHead: process.env.GITHUB_SHA || null, scope: 'Connection grid and connection page, persisted Key identity, pool pagination, scoped edit cancellation, Apply/Reset request return context and failure boundaries. Six widths by seven locales, synthetic APIs only.', result: 'running', journeys: [], screenshots: [], errors: [] }
 const persist = () => writeFileSync(resolve(output, 'connections-qualification.json'), JSON.stringify(report, null, 2))
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' }
 const server = createServer((request, response) => {
@@ -64,9 +64,10 @@ try {
       if (path === '/api/channel' || path === '/api/channel/search') return route.fulfill({ json: { success: true, data: { total: empty ? 0 : 22, page: Number(url.searchParams.get('p') || 1), page_size: 20, items: empty ? [] : [connection(1), connection(2)] } } })
       if (/^\/api\/channel\/[12]$/.test(path)) return route.fulfill({ status: failDetail ? 503 : 200, json: failDetail ? { success: false } : { success: true, data: connection(Number(path.split('/').at(-1))) } })
       if (path === '/api/channel/quota/changes') {
-        const id = Number(url.searchParams.get('channel_ids'))
-        assert([1, 2].includes(id), 'Saved observations are scoped by connection ID')
-        return route.fulfill({ json: { success: true, data: { items: id === 1 ? [] : [{ channel_id: 2, name: 'Synthetic subscription connection', metric_type: 'codex_rate_limit', unit: 'percent', status: 'error', observed_at: FIXTURE_TIME / 1000, source: 'codex_wham_usage_primary', window_seconds: 18000, current_available: 45 }] } } })
+        // The grid reads its cards' observations at once; a page reads one.
+        const ids = (url.searchParams.get('channel_ids') || '').split(',').map(Number)
+        assert(ids.length > 0 && ids.every(id => [1, 2].includes(id)), 'Saved observations are scoped by connection ID')
+        return route.fulfill({ json: { success: true, data: { items: ids.includes(2) ? [{ channel_id: 2, name: 'Synthetic subscription connection', metric_type: 'codex_rate_limit', unit: 'percent', status: 'error', observed_at: FIXTURE_TIME / 1000, source: 'codex_wham_usage_primary', window_seconds: 18000, current_available: 45 }] : [] } } })
       }
       const response = fixture.response(url, request.method())
       if (response.violation) { violations.push(response.violation); return route.fulfill({ status: 503, json: { success: false } }) }
@@ -92,28 +93,31 @@ try {
     try {
       await page.goto(`${origin}/connections?filter=Synthetic&page=2&status=enabled`, { waitUntil: 'networkidle' })
       const inventory = page.getByTestId('connections-inventory')
-      const first = inventory.locator('[data-connection-id="1"]')
+      const first = inventory.locator('[data-connection-link="1"]')
       await first.waitFor()
       assert(requests.some(request => request.path === '/api/channel/search' && request.params.keyword === 'Synthetic' && request.params.p === '2' && request.params.status === 'enabled'))
       await capture('list')
       await first.focus(); await page.keyboard.press('Enter')
-      const detail = page.getByTestId('connection-detail')
+      const detail = page.getByTestId('connection-page')
       await detail.getByRole('heading', { name: longName, exact: true }).waitFor()
-      // Below 1024px the inspector replaces the list; the list stays mounted
-      // (filters and scroll survive) but is hidden.
-      assert.equal(await inventory.isVisible(), !mobile, 'Mobile detail is a separate composition')
-      assert(await detail.getByRole('heading', { level: 2 }).evaluate(node => node === document.activeElement), 'Detail heading receives keyboard focus')
+      // The connection is a page of its own on every width (design v2); the
+      // grid's filters and page travel with it and come back on Back.
+      assert.equal(await inventory.count(), 0, 'The connection page replaces the grid')
+      assert.equal(new URL(page.url()).pathname, '/connections/1', 'A card opens the connection page')
+      assert(await detail.getByRole('heading', { level: 1 }).evaluate(node => node === document.activeElement), 'Page heading receives keyboard focus')
       const tab = name => detail.getByRole('tab', { name: t(name), exact: true })
-      await tab('Account windows').click()
+      // Windows is the first tab and stays out of the URL.
       await detail.getByText(t('No saved subscription windows for this connection. This does not mean the connection is unavailable.'), { exact: true }).waitFor()
       await capture('detail')
-      await tab('Overview').click()
+      await tab('Routing and models').click()
+      await page.waitForURL(url => url.searchParams.get('tab') === 'routing')
+      await tab('Windows').click()
       await page.waitForURL(url => !url.searchParams.has('tab'))
       const selectedUrl = page.url()
-      // Phones close with the top-bar Back; wider layouts with the inspector's close.
+      // Phones go back with the top-bar Back; wider layouts with the breadcrumb.
       const closeDetail = () => mobile
         ? page.locator('.pc-header-mobile').getByRole('button', { name: t('Back'), exact: true }).click()
-        : detail.getByRole('button', { name: t('Close details'), exact: true }).click()
+        : page.getByRole('navigation', { name: t('Current page'), exact: true }).getByRole('button', { name: t('Connections'), exact: true }).click()
 
       await detail.getByRole('link', { name: t('Associated Key shares'), exact: true }).click()
       await page.getByRole('heading', { name: `${t('Associated Key shares')} · #1`, level: 1, exact: true }).waitFor()
@@ -180,10 +184,14 @@ try {
       await page.getByRole('link', { name: t('All saved share windows'), exact: true }).click()
       await savedPool.waitFor()
       assert.equal(JSON.parse(new URL(page.url()).searchParams.get('connectionContext')).poolPage, 2)
-      await page.getByRole('link', { name: t('Back to connections'), exact: true }).click()
+      await page.getByRole('link', { name: t('Back to connection'), exact: true }).click()
       await detail.getByRole('heading', { name: longName, exact: true }).waitFor()
       assert.deepEqual(connectionLocation(page.url()), connectionLocation(selectedUrl), 'Key workflow returns to original selected connection and inventory filters')
 
+      // The connection's call records are linked from its Requests tab.
+      await tab('Requests_section').click()
+      await page.waitForURL(url => url.searchParams.get('tab') === 'requests')
+      const requestsUrl = page.url()
       const logs = detail.getByRole('link', { name: t('View connection requests'), exact: true })
       assert.equal(JSON.parse(new URL(await logs.getAttribute('href'), origin).searchParams.get('channel')), '1', 'TanStack preserves a numeric-looking channel ID as a string')
       await Promise.all([
@@ -193,16 +201,15 @@ try {
       await page.getByRole('heading', { name: t('Call records'), level: 1, exact: true }).waitFor()
       assert(requests.some(request => request.path === '/api/log' && request.params.channel === '1'), 'Backend reads are scoped to the selected connection')
       await page.goBack({ waitUntil: 'networkidle' })
-      assert.deepEqual(connectionLocation(page.url()), connectionLocation(selectedUrl), 'Returning from requests preserves selection and filters')
+      assert.deepEqual(connectionLocation(page.url()), connectionLocation(requestsUrl), 'Returning from requests preserves selection and filters')
       await detail.getByRole('heading', { name: longName, exact: true }).waitFor()
       await closeDetail()
       await first.waitFor()
       assert(await first.evaluate(node => node === document.activeElement), 'Return restores selected-row focus')
       assert.equal(new URL(page.url()).searchParams.get('filter'), 'Synthetic')
       assert.equal(new URL(page.url()).searchParams.get('page'), '2')
-      await inventory.locator('[data-connection-id="2"]').click()
+      await inventory.locator('[data-connection-link="2"]').click()
       await detail.getByRole('heading', { name: 'Synthetic subscription connection', exact: true }).waitFor()
-      await tab('Account windows').click()
       await detail.getByText(t('Usage sample failed'), { exact: true }).waitFor()
       assert.equal(await detail.getByText('55%', { exact: true }).count(), 0, 'Failed observations do not invent current usage')
       await capture('failed-observation')
@@ -240,14 +247,16 @@ try {
         assert.equal(await allocations.count(), 0, 'Fresh permission denial hides saved allocation data')
         await capture('key-permission-error')
         deny = false
+        // An earlier inspector link opens the connection page in place.
         await page.goto(`${origin}/connections?connection=1`, { waitUntil: 'networkidle' })
         await detail.getByRole('button', { name: t('Edit connection'), exact: true }).click()
+        assert.equal(new URL(page.url()).pathname, '/connections/1', 'An earlier inspector link is redirected to the connection page')
         const editor = page.getByRole('dialog').filter({ hasText: t('Edit Channel') })
         await editor.waitFor(); await capture('edit')
         await page.keyboard.press('Escape'); await editor.waitFor({ state: 'hidden' })
-        assert.equal(new URL(page.url()).searchParams.get('connection'), '1', 'Cancel edit retains selection')
+        assert.equal(new URL(page.url()).pathname, '/connections/1', 'Cancel edit retains selection')
         failDetail = true
-        await page.goto(`${origin}/connections?connection=1`, { waitUntil: 'networkidle' })
+        await page.goto(`${origin}/connections/1`, { waitUntil: 'networkidle' })
         await detail.getByText(t('Unable to load this connection. It may have been removed or access may have changed.'), { exact: true }).waitFor()
         await capture('service-error')
         failDetail = false
@@ -257,7 +266,7 @@ try {
         await page.goto(`${origin}/connections`, { waitUntil: 'networkidle' })
         await page.getByText(t('No connections yet'), { exact: true }).waitFor(); await capture('empty')
         deny = true
-        await page.goto(`${origin}/connections?connection=1`, { waitUntil: 'networkidle' })
+        await page.goto(`${origin}/connections/1`, { waitUntil: 'networkidle' })
         await page.getByText(t('Connection access could not be verified.'), { exact: true }).waitFor(); await capture('permission-error')
       }
       assert.deepEqual(errors, [], 'No runtime errors')
