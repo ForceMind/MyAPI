@@ -80,7 +80,10 @@ UI 设计（`ui-design/DESIGN_DIRECTION.md` 第 11 节）：
 方向 3 进度（2026-10-25）：
 - 第 1 步 令牌与顶部导航外壳：已完成并推送（`b28cf752`、`e59adcdd`、`d57a4d7b`、`f5770baa`）；CI 运行 40166671819 结论 success（Linux 上全部浏览器验收通过）。主会话重跑 `typecheck`、`lint`、前端全量测试（3 个既有存储类失败，无新增），并查看了 PC、手机、暗色"更多"菜单截图。
 - 第 2 步 首页流向板：已完成并推送（`edf7ae1d`、`cceb4aa5`、`ed45ec3e`）。主会话重跑 `typecheck` 无错误、前端全量测试 1813 个用例 3 个失败（credential-maintenance-dialog、credential-rotation-dialog 为基线既有；handoff-lifecycle 在高负载下偶发，单独重跑通过），并查看了概览 1280、节点选中、手机三张截图。数据口径：24 小时内最近 100 条日志在前端聚合，核心卡总数精确读取，截断时写明；未新增后端接口；缺失数据显示"未知"。与样稿的已知差异：无"今天 / 7 天"切换、Key 节点显示 `#ID` 而非掩码尾号（安全列表不含掩码）、上游节点无"测试失败 401"（连接记录不存测试结果）、Full 无"用户 / 分组"摘要。待 CI 验证。
-- 第 3 步 Key 列表、Key 对象页、请求页：进行中。
+- 第 3 步 Key 列表、Key 对象页、请求页：已完成并推送（`67be4186`、`b2607555`、`f3b29ffe`、`20ec63f1`，与后端 `07207713`、`eb08c3f3` 同批推送）。主会话重跑 `typecheck` 无错误、`lint` 只有既有 warning、前端全量测试 1843 个用例 4 个失败（credential-maintenance-dialog、credential-rotation-dialog 为基线既有；account-switch、strict-parameter-selection 为高负载偶发，基线与前几步也出现过），并查看了 Key 对象页 1280 与 Key 列表 390 截图。新地址：`/keys/<id>`、`/keys/<id>/requests/<requestId>`、`/usage-logs/request/<requestId>`，旧 `?inspect=` 链接重定向。子代理另报：Key 页删除后列表仍显示已删 Key 的缓存缺陷已修；共享分页组件手机页码按钮 32px 宽（低于 44px 触控合同）留到第 4 步收尾项处理。待 CI 验证。
+- 后端门禁与日志筛选（`07207713`、`eb08c3f3`）：已推送，主会话重跑 `go build ./...`、`go vet`、`middleware` / `controller` / `model` 三个包测试通过；MySQL 与 PostgreSQL 上的日志筛选测试接入 CI 的 S1 作业，待 CI 验证。
+- 第 4 步 上游卡片网格与连接对象页，加三个收尾项（概览"失败 N"接入 `result=failed`、分页按钮手机 ≥44px、Lite 个人资料页"我的订阅"只读卡片）：进行中。
+- 第 5 步 其余页面（调用记录列表、设置、用户、分析、正文日志、任务、系统信息、商业、个人资料其余部分）：未开始。
 
 方向 3 已知风险（来自方案文档）：流向板是全新组件，对象多时拓扑感减弱；顶部导航在俄语、法语下最敏感（1024–1279 宽度需把一项收进"更多"）；任务 1、7 的步数比方向 1 多 1 步；实现代价为三个方向中最高。
 
