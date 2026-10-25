@@ -27,31 +27,70 @@ func TestEditionGuardResolvesEditionValues(t *testing.T) {
 		{value: "litee", restricted: false},
 	}
 	paths := []struct {
+		method      string
 		path        string
 		blockedLite bool
 	}{
-		{path: "/api/pricing", blockedLite: true},
-		{path: "/api/subscription", blockedLite: true},
-		{path: "/api/subscription/self", blockedLite: true},
-		{path: "/api/subscription-share/x", blockedLite: false},
-		{path: "/api/user/topup", blockedLite: true},
-		{path: "/api/redemption", blockedLite: false},
-		{path: "/api/deployments", blockedLite: false},
-		{path: "/api/channel/1/codex/local-auth", blockedLite: true},
-		{path: "/v1/chat/completions", blockedLite: false},
+		{method: http.MethodGet, path: "/api/pricing", blockedLite: true},
+		{method: http.MethodGet, path: "/api/subscription", blockedLite: true},
+		// Lite keeps the caller's own subscriptions readable because quota
+		// reset and subscription billing keep running in every edition.
+		{method: http.MethodGet, path: "/api/subscription/self", blockedLite: false},
+		{method: http.MethodGet, path: "/api/subscription/self/", blockedLite: false},
+		{method: http.MethodPost, path: "/api/subscription/self", blockedLite: true},
+		{method: http.MethodPut, path: "/api/subscription/self", blockedLite: true},
+		{method: http.MethodDelete, path: "/api/subscription/self", blockedLite: true},
+		{method: http.MethodHead, path: "/api/subscription/self", blockedLite: true},
+		{method: http.MethodGet, path: "/api/subscription/self/preference", blockedLite: true},
+		{method: http.MethodPut, path: "/api/subscription/self/preference", blockedLite: true},
+		{method: http.MethodGet, path: "/api/subscription/plans", blockedLite: true},
+		{method: http.MethodPost, path: "/api/subscription/balance/pay", blockedLite: true},
+		{method: http.MethodGet, path: "/api/subscription/admin/plans", blockedLite: true},
+		{method: http.MethodGet, path: "/api/subscription/epay/notify", blockedLite: true},
+		{method: http.MethodGet, path: "/api/subscription-share/x", blockedLite: false},
+		{method: http.MethodGet, path: "/api/subscription-share/channels/1/pools", blockedLite: false},
+		{method: http.MethodPost, path: "/api/subscription-share/pools/1/close", blockedLite: false},
+		{method: http.MethodPut, path: "/api/token/1/subscription-share", blockedLite: false},
+		{method: http.MethodGet, path: "/api/user/topup", blockedLite: true},
+		{method: http.MethodGet, path: "/api/redemption", blockedLite: true},
+		{method: http.MethodGet, path: "/api/redemption/", blockedLite: true},
+		{method: http.MethodGet, path: "/api/redemption/search", blockedLite: true},
+		{method: http.MethodDelete, path: "/api/redemption/1", blockedLite: true},
+		{method: http.MethodGet, path: "/api/deployments", blockedLite: true},
+		{method: http.MethodGet, path: "/api/deployments/settings", blockedLite: true},
+		{method: http.MethodPost, path: "/api/deployments/1/extend", blockedLite: true},
+		{method: http.MethodGet, path: "/api/mj/self", blockedLite: true},
+		{method: http.MethodGet, path: "/api/mj/", blockedLite: true},
+		{method: http.MethodGet, path: "/mj/image/1", blockedLite: true},
+		{method: http.MethodPost, path: "/mj/submit/imagine", blockedLite: true},
+		{method: http.MethodGet, path: "/mj/task/1/fetch", blockedLite: true},
+		{method: http.MethodPost, path: "/fast/mj/submit/imagine", blockedLite: true},
+		{method: http.MethodGet, path: "/relax/mj/task/1/fetch", blockedLite: true},
+		{method: http.MethodGet, path: "/turbo/mj/image/1", blockedLite: true},
+		{method: http.MethodGet, path: "/api/mjx", blockedLite: false},
+		{method: http.MethodPost, path: "/mjx/submit/imagine", blockedLite: false},
+		{method: http.MethodGet, path: "/api/redemptions", blockedLite: false},
+		{method: http.MethodGet, path: "/api/deployments-history", blockedLite: false},
+		{method: http.MethodGet, path: "/api/channel/1/codex/local-auth", blockedLite: true},
+		{method: http.MethodGet, path: "/api/channel/", blockedLite: false},
+		{method: http.MethodPut, path: "/api/channel/1", blockedLite: false},
+		{method: http.MethodPost, path: "/v1/chat/completions", blockedLite: false},
+		{method: http.MethodGet, path: "/v1/models", blockedLite: false},
+		{method: http.MethodPost, path: "/v1/images/generations", blockedLite: false},
+		{method: http.MethodPost, path: "/suno/submit/music", blockedLite: false},
 	}
 
 	gin.SetMode(gin.TestMode)
 	for _, edition := range editions {
 		for _, route := range paths {
-			t.Run("edition="+edition.value+" path="+route.path, func(t *testing.T) {
+			t.Run("edition="+edition.value+" "+route.method+" "+route.path, func(t *testing.T) {
 				t.Setenv("MYAPI_EDITION", edition.value)
 				router := gin.New()
 				router.Use(EditionGuard())
-				router.Any(route.path, func(c *gin.Context) { c.Status(http.StatusNoContent) })
+				router.Handle(route.method, route.path, func(c *gin.Context) { c.Status(http.StatusNoContent) })
 
 				recorder := httptest.NewRecorder()
-				router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, route.path, nil))
+				router.ServeHTTP(recorder, httptest.NewRequest(route.method, route.path, nil))
 
 				if !(edition.restricted && route.blockedLite) {
 					assert.Equal(t, http.StatusNoContent, recorder.Code)
@@ -68,6 +107,38 @@ func TestEditionGuardResolvesEditionValues(t *testing.T) {
 				assert.Contains(t, recorder.Header().Get("Cache-Control"), "no-store")
 			})
 		}
+	}
+}
+
+func TestValidateEditionRejectsUnknownValues(t *testing.T) {
+	tests := []struct {
+		value   string
+		wantErr bool
+	}{
+		{value: "", wantErr: false},
+		{value: "   ", wantErr: false},
+		{value: "full", wantErr: false},
+		{value: "FULL", wantErr: false},
+		{value: "lite", wantErr: false},
+		{value: " Lite ", wantErr: false},
+		{value: "lan", wantErr: false},
+		{value: "LAN", wantErr: false},
+		{value: "litee", wantErr: true},
+		{value: "lan-lite", wantErr: true},
+		{value: "desktop", wantErr: true},
+		{value: "full,lite", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run("edition="+tt.value, func(t *testing.T) {
+			t.Setenv("MYAPI_EDITION", tt.value)
+			err := ValidateEdition()
+			if !tt.wantErr {
+				assert.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Equal(t, `unsupported MYAPI_EDITION "`+strings.TrimSpace(tt.value)+`": use full, lite, or the legacy alias lan`, err.Error())
+		})
 	}
 }
 

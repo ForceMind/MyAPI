@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -25,14 +26,25 @@ type EditionProfile struct {
 }
 
 // CurrentEdition returns the normalized product edition: EditionFull or
-// EditionLite, with the legacy "lan" value resolving to EditionLite. Unknown
-// and empty values fail open to the full edition for backwards compatibility.
+// EditionLite, with the legacy "lan" value resolving to EditionLite. An empty
+// value means full. ValidateEdition rejects unknown values at startup; the
+// fallback to full below only remains as a runtime default.
 func CurrentEdition() string {
 	edition := strings.TrimSpace(os.Getenv("MYAPI_EDITION"))
 	if strings.EqualFold(edition, EditionLite) || strings.EqualFold(edition, EditionLAN) {
 		return EditionLite
 	}
 	return EditionFull
+}
+
+// ValidateEdition rejects a non-empty MYAPI_EDITION that is not a known
+// edition, so a misspelt Lite value cannot silently start the Full surface.
+func ValidateEdition() error {
+	edition := strings.TrimSpace(os.Getenv("MYAPI_EDITION"))
+	if edition == "" || strings.EqualFold(edition, EditionFull) || strings.EqualFold(edition, EditionLite) || strings.EqualFold(edition, EditionLAN) {
+		return nil
+	}
+	return fmt.Errorf("unsupported MYAPI_EDITION %q: use full, lite, or the legacy alias lan", edition)
 }
 
 // IsLANEdition reports whether the restricted Lite edition is active, whether
@@ -69,10 +81,11 @@ func CurrentEditionProfile() EditionProfile {
 
 // EditionGuard enforces the Lite edition's reduced surface at the HTTP boundary.
 // API relay routes, setup, authentication, keys and channel management remain
-// available; billing, public registration and external OAuth are disabled.
+// available; billing, redemption codes, model deployments, Midjourney, public
+// registration and external OAuth are disabled.
 func EditionGuard() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !IsLANEdition() || !isLANRestrictedPath(c.Request.URL.Path) {
+		if !IsLANEdition() || !isLANRestrictedPath(c.Request.Method, c.Request.URL.Path) {
 			c.Next()
 			return
 		}
@@ -88,9 +101,21 @@ func EditionGuard() gin.HandlerFunc {
 	}
 }
 
-func isLANRestrictedPath(path string) bool {
+func isLANRestrictedPath(method string, path string) bool {
 	path = strings.TrimSuffix(path, "/")
+	// Subscription billing and quota resets keep running in Lite, so a user
+	// may still read their own subscriptions; preference writes, purchases,
+	// plans and administration stay closed.
+	if path == "/api/subscription/self" && method == http.MethodGet {
+		return false
+	}
 	if strings.HasPrefix(path, "/api/channel/") && strings.Contains(path, "/codex/local-auth") {
+		return true
+	}
+	// Midjourney relays are registered both as `/mj/...` and `/:mode/mj/...`
+	// (router/relay-router.go), and its task views live under `/api/mj`.
+	segments := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	if segments[0] == "mj" || (len(segments) >= 2 && segments[1] == "mj") {
 		return true
 	}
 	// Admin OAuth binding routes include a user id segment
@@ -109,6 +134,8 @@ func isLANRestrictedPath(path string) bool {
 		"/api/ratio_config",
 		"/api/rankings",
 		"/api/subscription",
+		"/api/redemption",
+		"/api/deployments",
 		"/api/oauth",
 		"/api/stripe",
 		"/api/creem",

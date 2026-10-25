@@ -12,6 +12,12 @@ Lite 是面向个人和小规模使用的正式 My API 功能版，可部署在�
 
 Legacy LAN 是当前单进程、SQLite-first 的可信本机/私网部署。默认监听回环；`--allow-lan` 才允许私网监听。当前实现不是 public hosting 模式、凭据文件导入器、自动防火墙配置器、服务器 Lite 安装器或完整 Desktop 更新器。
 
+后端版本门禁（`middleware/edition.go`）：
+
+- `MYAPI_EDITION` 只接受空值（等同 `full`）、`full`、`lite`、`lan`（`lite` 的 Legacy 别名），大小写和首尾空格不敏感。其他非空值在启动阶段拒绝启动，进程以 `unsupported MYAPI_EDITION "<值>"` 退出，不再静默回落为 Full。
+- Lite 下返回 403 `MYAPI_LAN_ROUTE_DISABLED` 的范围包括支付、充值、商业订阅、签到、返利、公开定价与排行、外部 OAuth、公开注册，以及兑换码管理 `/api/redemption`、io.net 模型部署 `/api/deployments`、Midjourney（`/api/mj`、中继 `/mj/...` 与 `/:mode/mj/...`）。
+- Lite 下 `GET /api/subscription/self` 保持可用，让已有订阅的用户查看自己的订阅与额度（订阅重置任务在所有版本运行）；`/api/subscription/self/preference` 和其余 `/api/subscription/*` 仍返回 403。Key 分额 `/api/subscription-share/*`、渠道管理与 `/v1/*` 转发不受影响。
+
 The CLI and LAN backend never scan `~/.codex`, Claude credential files,
 Keychain, Windows Credential Manager, or any other local credential store.
 Administrators may still configure an upstream channel explicitly in the

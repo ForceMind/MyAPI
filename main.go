@@ -306,6 +306,11 @@ func InitResources() error {
 		}
 	}
 
+	// Reject an unknown edition before any database or background work starts.
+	if err = middleware.ValidateEdition(); err != nil {
+		return err
+	}
+
 	// 加载环境变量
 	common.InitEnv()
 
