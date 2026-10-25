@@ -421,7 +421,7 @@ export function DataTableRowActions<TData = ApiKey>(
         <Button
           variant='outline'
           size='sm'
-          className='min-h-9 max-w-full whitespace-normal pointer-coarse:min-h-11'
+          className='h-auto min-h-9 max-w-full wrap-break-word break-keep whitespace-normal pointer-coarse:min-h-11'
           autoFocus={requestFocusId === apiKey.id}
           onClick={() => {
             if (isCurrentSession()) viewRequests(apiKey)

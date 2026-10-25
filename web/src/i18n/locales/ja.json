@@ -7057,6 +7057,9 @@
     "{{count}} requests completed without a usage report": "{{count}} 件のリクエストが使用量の報告なしで完了",
     "{{count}} s": "{{count}} 秒",
     "{{remaining}} remaining of {{total}}": "残り {{remaining}} / {{total}}",
-    "{{value}}% used": "{{value}}% 使用"
+    "{{value}}% used": "{{value}}% 使用",
+    "Requests_section": "Requests",
+    "Admin_nav": "Admin",
+    "{{section}} sections": "{{section}} sections"
   }
 }

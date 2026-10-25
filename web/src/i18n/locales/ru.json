@@ -7057,6 +7057,9 @@
     "{{count}} requests completed without a usage report": "Завершено без отчёта об использовании: {{count}}",
     "{{count}} s": "{{count}} с",
     "{{remaining}} remaining of {{total}}": "Осталось {{remaining}} из {{total}}",
-    "{{value}}% used": "Использовано {{value}}%"
+    "{{value}}% used": "Использовано {{value}}%",
+    "Requests_section": "Requests",
+    "Admin_nav": "Admin",
+    "{{section}} sections": "{{section}} sections"
   }
 }

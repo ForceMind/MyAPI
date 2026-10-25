@@ -16,35 +16,30 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useLocation } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 
 import { NavigationProgress } from '@/components/navigation-progress'
 import { AnimatedOutlet } from '@/components/page-transition'
 import { SkipToMain } from '@/components/skip-to-main'
-import { useSidebar } from '@/components/ui/sidebar'
-import { useLayout } from '@/context/layout-provider'
+import { useConsoleNavigation } from '@/hooks/use-console-navigation'
 import { useMediaQuery } from '@/hooks/use-media-query'
-import { useSidebarView } from '@/hooks/use-sidebar-view'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 
+import { AppBreadcrumb } from './app-breadcrumb'
 import { DesktopHeader, MobileHeader } from './console-header'
-import { ConsoleSidebar } from './console-sidebar'
 import { MobileBottomNav } from './mobile-bottom-nav'
+import { PageTabs } from './page-tabs'
 
 /**
- * The single authenticated console shell. PC (>=1024px) and mobile are two
- * compositions around one route outlet: the outlet keeps its position in the
- * tree, so crossing the breakpoint never remounts the page or refetches.
+ * The single authenticated console shell (design direction 3): a top bar
+ * with the primary areas on PC (>=1024px), a top bar plus bottom navigation
+ * on mobile, and no sidebar. The content column holds the current area's
+ * page tabs, the breadcrumb and the route outlet; the outlet keeps its
+ * position in the tree, so crossing the breakpoint never remounts the page.
  */
 export function ConsoleShell(props: { children?: ReactNode }) {
-  const href = useLocation({ select: (location) => location.href })
-  const root = useSidebarView({ rootOnly: true })
-  const context = useSidebarView()
+  const navigation = useConsoleNavigation()
   const mobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
-  const { open, setOpen } = useSidebar()
-  const { collapsible, variant } = useLayout()
-  const collapsed = !open && collapsible !== 'none'
 
   return (
     <div
@@ -52,38 +47,30 @@ export function ConsoleShell(props: { children?: ReactNode }) {
       data-myapi-shell='authenticated'
       data-myapi-interface='platform'
       data-composition={mobile ? 'mobile' : 'desktop'}
-      data-collapsed={collapsed}
-      data-collapse-mode={collapsible}
-      data-sidebar-variant={variant}
     >
       <SkipToMain />
-      {!mobile && (
-        <ConsoleSidebar
-          href={href}
-          collapsed={collapsed}
-          root={root}
-          context={context}
-        />
-      )}
+      {mobile ? <MobileHeader /> : <DesktopHeader navigation={navigation} />}
       <div className='pc-workspace'>
         <NavigationProgress scope='workspace' />
-        {mobile ? (
-          <MobileHeader />
-        ) : (
-          <DesktopHeader
-            onExpandSidebar={
-              collapsed && collapsible === 'offcanvas'
-                ? () => setOpen(true)
-                : undefined
-            }
-          />
-        )}
         <div className='pc-route-content'>
-          {props.children ?? <AnimatedOutlet />}
+          <div className='pc-page-frame'>
+            {(navigation.tabs.length > 0 || !mobile) && (
+              <div className='pc-page-context'>
+                {navigation.tabsLabel && (
+                  <PageTabs
+                    label={navigation.tabsLabel}
+                    tabs={navigation.tabs}
+                  />
+                )}
+                {!mobile && (
+                  <AppBreadcrumb underTabs={navigation.tabs.length > 0} />
+                )}
+              </div>
+            )}
+            {props.children ?? <AnimatedOutlet />}
+          </div>
         </div>
-        {mobile && (
-          <MobileBottomNav href={href} root={root} context={context} />
-        )}
+        {mobile && <MobileBottomNav navigation={navigation} />}
       </div>
     </div>
   )

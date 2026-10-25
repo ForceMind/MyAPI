@@ -18,17 +18,16 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { Radio as RadioPrimitive } from '@base-ui/react/radio'
 import { RadioGroup as Radio } from '@base-ui/react/radio-group'
-import { CircleCheck, Palette, RotateCcw } from 'lucide-react'
+import {
+  CheckmarkCircle02Icon,
+  PaintBoardIcon,
+  RotateLeft01Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import type { SVGProps } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { IconDir } from '@/assets/custom/icon-dir'
-import { IconLayoutCompact } from '@/assets/custom/icon-layout-compact'
-import { IconLayoutDefault } from '@/assets/custom/icon-layout-default'
-import { IconLayoutFull } from '@/assets/custom/icon-layout-full'
-import { IconSidebarFloating } from '@/assets/custom/icon-sidebar-floating'
-import { IconSidebarInset } from '@/assets/custom/icon-sidebar-inset'
-import { IconSidebarSidebar } from '@/assets/custom/icon-sidebar-sidebar'
 import { IconThemeDark } from '@/assets/custom/icon-theme-dark'
 import { IconThemeLight } from '@/assets/custom/icon-theme-light'
 import { IconThemeSystem } from '@/assets/custom/icon-theme-system'
@@ -49,7 +48,6 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { useDirection } from '@/context/direction-provider'
-import { type Collapsible, useLayout } from '@/context/layout-provider'
 import { useThemeCustomization } from '@/context/theme-customization-provider'
 import { useTheme } from '@/context/theme-provider'
 import {
@@ -62,23 +60,17 @@ import {
 } from '@/lib/theme-customization'
 import { cn } from '@/lib/utils'
 
-import { useSidebar } from './ui/sidebar'
-
 const Item = RadioPrimitive.Root
 
 export function ConfigDrawer() {
   const { t } = useTranslation()
-  const { setOpen } = useSidebar()
   const { resetDir } = useDirection()
   const { resetTheme } = useTheme()
-  const { resetLayout } = useLayout()
   const { resetCustomization } = useThemeCustomization()
 
   const handleReset = () => {
-    setOpen(true)
     resetDir()
     resetTheme()
-    resetLayout()
     resetCustomization()
   }
 
@@ -95,7 +87,7 @@ export function ConfigDrawer() {
           />
         }
       >
-        <Palette className='size-[1.2rem]' aria-hidden='true' />
+        <HugeiconsIcon icon={PaintBoardIcon} aria-hidden='true' />
       </SheetTrigger>
       <SheetContent className={sideDrawerContentClassName('sm:max-w-md')}>
         <SheetHeader className={sideDrawerHeaderClassName()}>
@@ -110,8 +102,6 @@ export function ConfigDrawer() {
           <FontConfig />
           <RadiusConfig />
           <ScaleConfig />
-          <SidebarConfig />
-          <LayoutConfig />
           <ContentLayoutConfig />
           <DirConfig />
         </div>
@@ -151,7 +141,7 @@ function SectionTitle(props: {
           onClick={props.onReset}
           aria-label='Reset'
         >
-          <RotateCcw className='size-3' aria-hidden='true' />
+          <HugeiconsIcon icon={RotateLeft01Icon} aria-hidden='true' />
         </Button>
       )}
     </div>
@@ -187,9 +177,10 @@ function RadioGroupItem(props: {
           option: props.item.label,
         })}
       >
-        <CircleCheck
+        <HugeiconsIcon
+          icon={CheckmarkCircle02Icon}
           className={cn(
-            'fill-primary size-6 stroke-white',
+            'text-primary bg-background size-6 rounded-full',
             'group-data-unchecked:hidden',
             'absolute top-0 right-0 translate-x-1/2 -translate-y-1/2'
           )}
@@ -282,9 +273,10 @@ function PresetConfig() {
                 data-preset-swatch={preset.value}
                 className='absolute inset-0 rounded-md'
               />
-              <CircleCheck
+              <HugeiconsIcon
+                icon={CheckmarkCircle02Icon}
                 className={cn(
-                  'fill-primary absolute top-0 right-0 z-10 size-5 translate-x-1/2 -translate-y-1/2 stroke-white',
+                  'text-primary bg-background absolute top-0 right-0 z-10 size-5 translate-x-1/2 -translate-y-1/2 rounded-full',
                   'group-data-unchecked:hidden'
                 )}
                 aria-hidden='true'
@@ -354,9 +346,10 @@ function FontConfig() {
                 'group-hover:ring-primary/60'
               )}
             >
-              <CircleCheck
+              <HugeiconsIcon
+                icon={CheckmarkCircle02Icon}
                 className={cn(
-                  'fill-primary absolute top-0 right-0 z-10 size-5 translate-x-1/2 -translate-y-1/2 stroke-white',
+                  'text-primary bg-background absolute top-0 right-0 z-10 size-5 translate-x-1/2 -translate-y-1/2 rounded-full',
                   'group-data-unchecked:hidden'
                 )}
                 aria-hidden='true'
@@ -430,9 +423,10 @@ function RadiusConfig() {
                 'group-hover:ring-primary/60'
               )}
             >
-              <CircleCheck
+              <HugeiconsIcon
+                icon={CheckmarkCircle02Icon}
                 className={cn(
-                  'fill-primary absolute top-0 right-0 z-10 size-5 translate-x-1/2 -translate-y-1/2 stroke-white',
+                  'text-primary bg-background absolute top-0 right-0 z-10 size-5 translate-x-1/2 -translate-y-1/2 rounded-full',
                   'group-data-unchecked:hidden'
                 )}
                 aria-hidden='true'
@@ -517,9 +511,10 @@ function ScaleConfig() {
                 'group-hover:ring-primary/60'
               )}
             >
-              <CircleCheck
+              <HugeiconsIcon
+                icon={CheckmarkCircle02Icon}
                 className={cn(
-                  'fill-primary absolute top-0 right-0 z-10 size-5 translate-x-1/2 -translate-y-1/2 stroke-white',
+                  'text-primary bg-background absolute top-0 right-0 z-10 size-5 translate-x-1/2 -translate-y-1/2 rounded-full',
                   'group-data-unchecked:hidden'
                 )}
                 aria-hidden='true'
@@ -532,94 +527,6 @@ function ScaleConfig() {
           </Item>
         ))}
       </Radio>
-    </div>
-  )
-}
-
-function SidebarConfig() {
-  const { t } = useTranslation()
-  const { defaultVariant, variant, setVariant } = useLayout()
-  return (
-    <div className='max-md:hidden'>
-      <SectionTitle
-        title={t('Sidebar')}
-        showReset={defaultVariant !== variant}
-        onReset={() => setVariant(defaultVariant)}
-      />
-      <Radio
-        value={variant}
-        onValueChange={setVariant}
-        className='grid w-full max-w-md grid-cols-3 gap-4'
-        aria-label={t('Select sidebar style')}
-        aria-describedby='sidebar-description'
-      >
-        {[
-          { value: 'inset', label: t('Inset'), icon: IconSidebarInset },
-          {
-            value: 'floating',
-            label: t('Floating'),
-            icon: IconSidebarFloating,
-          },
-          { value: 'sidebar', label: t('Sidebar'), icon: IconSidebarSidebar },
-        ].map((item) => (
-          <RadioGroupItem key={item.value} item={item} />
-        ))}
-      </Radio>
-      <div id='sidebar-description' className='sr-only'>
-        {t('Choose between inset, floating, or standard sidebar layout')}
-      </div>
-    </div>
-  )
-}
-
-function LayoutConfig() {
-  const { t } = useTranslation()
-  const { open, setOpen } = useSidebar()
-  const { defaultCollapsible, collapsible, setCollapsible } = useLayout()
-
-  const radioState = open ? 'default' : collapsible
-
-  return (
-    <div className='max-md:hidden'>
-      <SectionTitle
-        title={t('Layout')}
-        showReset={radioState !== 'default'}
-        onReset={() => {
-          setOpen(true)
-          setCollapsible(defaultCollapsible)
-        }}
-      />
-      <Radio
-        value={radioState}
-        onValueChange={(v) => {
-          if (v === 'default') {
-            setOpen(true)
-            return
-          }
-          setOpen(false)
-          setCollapsible(v as Collapsible)
-        }}
-        className='grid w-full max-w-md grid-cols-3 gap-4'
-        aria-label={t('Select layout style')}
-        aria-describedby='layout-description'
-      >
-        {[
-          { value: 'default', label: t('Default'), icon: IconLayoutDefault },
-          { value: 'icon', label: t('Compact'), icon: IconLayoutCompact },
-          {
-            value: 'offcanvas',
-            label: t('Full layout'),
-            icon: IconLayoutFull,
-          },
-        ].map((item) => (
-          <RadioGroupItem key={item.value} item={item} />
-        ))}
-      </Radio>
-      <div id='layout-description' className='sr-only'>
-        {t(
-          'Choose between default expanded, compact icon-only, or full layout mode'
-        )}
-      </div>
     </div>
   )
 }
@@ -658,9 +565,10 @@ function ContentLayoutConfig() {
                 'group-hover:ring-primary/60'
               )}
             >
-              <CircleCheck
+              <HugeiconsIcon
+                icon={CheckmarkCircle02Icon}
                 className={cn(
-                  'fill-primary absolute top-0 right-0 z-10 size-5 translate-x-1/2 -translate-y-1/2 stroke-white',
+                  'text-primary bg-background absolute top-0 right-0 z-10 size-5 translate-x-1/2 -translate-y-1/2 rounded-full',
                   'group-data-unchecked:hidden'
                 )}
                 aria-hidden='true'

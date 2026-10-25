@@ -48,13 +48,14 @@ import { useConfirmedFundingMode } from './use-personal-workbench-mode'
 import { useProductEdition } from './use-product-edition'
 
 /**
- * Root navigation groups for the console shell, in the fixed order of the
- * design direction (5.1): overview and analytics, then Upstream, Access,
- * Records, Tools, System and Commerce.
+ * Root navigation groups for the console shell, in the order of design
+ * direction 3 (ui-design-v2 DESIGN_DIRECTION_V2.md 2.3): five primary areas
+ * (Overview, Upstream, API Keys, Requests, Settings), then the Admin menu
+ * areas (Users, Commerce, System) and Tools, which the shell offers under
+ * More. Every existing destination keeps exactly one entry.
  *
- * These are shown when the URL does not match any nested sidebar view
- * registered in `layout/lib/sidebar-view-registry.ts`. Role and
- * `sidebar_modules` narrowing happen in `useSidebarView`.
+ * Role and `sidebar_modules` narrowing happen in `useSidebarView`; the
+ * nested settings view is registered in `layout/lib/sidebar-view-registry.ts`.
  */
 export function useSidebarData(): SidebarData {
   const { t } = useTranslation()
@@ -66,20 +67,14 @@ export function useSidebarData(): SidebarData {
 
   const navGroups: SidebarData['navGroups'] = [
     {
-      id: 'general',
-      title: t('Console'),
-      titleHidden: true,
+      id: 'overview',
+      title: t('Overview'),
+      placement: 'primary',
       items: [
         {
           title: t('Overview'),
           url: '/dashboard/overview',
           icon: DashboardSquare01Icon,
-        },
-        {
-          title: t('Analytics'),
-          url: '/dashboard/models',
-          icon: Analytics01Icon,
-          activeUrls: ['/dashboard/flow', '/dashboard/users'],
         },
       ],
     },
@@ -87,6 +82,7 @@ export function useSidebarData(): SidebarData {
       id: 'upstream',
       title: t('Upstream'),
       shortTitle: t('Upstream'),
+      placement: 'primary',
       items: [
         {
           title: t('Connections'),
@@ -111,8 +107,10 @@ export function useSidebarData(): SidebarData {
       ],
     },
     {
-      id: 'access',
-      title: t('Access'),
+      id: 'keys',
+      title: t('API Keys', { context: 'nav' }),
+      shortTitle: t('Keys'),
+      placement: 'primary',
       items: [
         {
           title: t('API Keys', { context: 'nav' }),
@@ -120,21 +118,16 @@ export function useSidebarData(): SidebarData {
           url: '/keys',
           icon: Key01Icon,
         },
-        {
-          title: t('Users'),
-          url: '/users',
-          icon: UserGroupIcon,
-          requiredRole: ROLE.ADMIN,
-        },
       ],
     },
     {
-      id: 'records',
-      title: t('Records'),
+      id: 'requests',
+      title: t('Requests', { context: 'section' }),
+      shortTitle: t('Requests', { context: 'section' }),
+      placement: 'primary',
       items: [
         {
           title: t('Requests', { context: 'nav' }),
-          shortTitle: t('Records'),
           url: '/usage-logs/common',
           icon: Note01Icon,
         },
@@ -151,33 +144,19 @@ export function useSidebarData(): SidebarData {
           icon: Image01Icon,
           capability: 'midjourney',
         },
+        {
+          title: t('Analytics'),
+          url: '/dashboard/models',
+          icon: Analytics01Icon,
+          activeUrls: ['/dashboard/flow', '/dashboard/users'],
+        },
       ],
     },
     {
-      id: 'tools',
-      title: t('Tools'),
-      defaultCollapsed: true,
+      id: 'settings',
+      title: t('Settings'),
+      placement: 'primary',
       items: [
-        { title: t('Playground'), url: '/playground', icon: TestTube01Icon },
-        {
-          title: t('Prompt learning'),
-          url: '/prompt-learning',
-          icon: Mortarboard01Icon,
-        },
-        { title: t('Chat'), icon: Message01Icon, type: 'chat-presets' },
-      ],
-    },
-    {
-      id: 'system',
-      title: t('System'),
-      defaultCollapsed: true,
-      items: [
-        {
-          title: t('System status'),
-          url: '/system-info',
-          icon: ServerStack01Icon,
-          requiredRole: ROLE.SUPER_ADMIN,
-        },
         {
           title: t('Settings'),
           url: '/system-settings/site',
@@ -188,9 +167,22 @@ export function useSidebarData(): SidebarData {
       ],
     },
     {
+      id: 'users',
+      title: t('Users'),
+      placement: 'admin',
+      items: [
+        {
+          title: t('Users'),
+          url: '/users',
+          icon: UserGroupIcon,
+          requiredRole: ROLE.ADMIN,
+        },
+      ],
+    },
+    {
       id: 'commerce',
       title: t('Commerce'),
-      defaultCollapsed: true,
+      placement: 'admin',
       items: [
         {
           title: commercialEnabled ? t('Wallet') : t('Funding history'),
@@ -212,6 +204,33 @@ export function useSidebarData(): SidebarData {
           requiredRole: ROLE.ADMIN,
           capability: 'redemption_codes',
         },
+      ],
+    },
+    {
+      id: 'system',
+      title: t('System'),
+      placement: 'admin',
+      items: [
+        {
+          title: t('System status'),
+          url: '/system-info',
+          icon: ServerStack01Icon,
+          requiredRole: ROLE.SUPER_ADMIN,
+        },
+      ],
+    },
+    {
+      id: 'tools',
+      title: t('Tools'),
+      placement: 'more',
+      items: [
+        { title: t('Playground'), url: '/playground', icon: TestTube01Icon },
+        {
+          title: t('Prompt learning'),
+          url: '/prompt-learning',
+          icon: Mortarboard01Icon,
+        },
+        { title: t('Chat'), icon: Message01Icon, type: 'chat-presets' },
       ],
     },
   ]

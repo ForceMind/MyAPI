@@ -7057,6 +7057,9 @@
     "{{count}} requests completed without a usage report": "{{count}} yêu cầu hoàn tất nhưng không có báo cáo sử dụng",
     "{{count}} s": "{{count}} giây",
     "{{remaining}} remaining of {{total}}": "Còn {{remaining}} / {{total}}",
-    "{{value}}% used": "Đã dùng {{value}}%"
+    "{{value}}% used": "Đã dùng {{value}}%",
+    "Requests_section": "Requests",
+    "Admin_nav": "Admin",
+    "{{section}} sections": "{{section}} sections"
   }
 }

@@ -16,36 +16,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import {
-  ArrowRight01Icon,
-  LinkSquare02Icon,
-  Loading03Icon,
-} from '@hugeicons/core-free-icons'
+import { LinkSquare02Icon, Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Link, useLocation } from '@tanstack/react-router'
-import { useMemo, useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
-import {
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
-  useSidebar,
-} from '@/components/ui/sidebar'
 import { fetchActiveChatKey } from '@/features/chat/hooks/use-active-chat-key'
 import { useChatPresets } from '@/features/chat/hooks/use-chat-presets'
 import {
@@ -58,140 +40,22 @@ import { normalizeHref } from '../lib/url-utils'
 import type { NavChatPresets } from '../types'
 
 /**
- * Sub-menu item for a single chat preset
+ * Chat presets offered by the administrator. Web presets open the in-app
+ * chat page; external presets resolve their link (with the active Key when
+ * the template needs one) and open in a new tab.
  */
-function ChatMenuItem({
-  preset,
-  active,
-  loading,
-  onOpen,
-  onNavigate,
-  preload,
-}: {
-  preset: ChatPreset
-  active: boolean
-  loading: boolean
-  onOpen: (preset: ChatPreset) => void | Promise<void>
-  onNavigate: () => void
-  preload?: false
-}) {
-  if (preset.type === 'web') {
-    return (
-      <SidebarMenuSubItem>
-        <SidebarMenuSubButton
-          isActive={active}
-          render={
-            <Link
-              to='/chat/$chatId'
-              params={{ chatId: preset.id }}
-              preload={preload}
-              onClick={onNavigate}
-            />
-          }
-        >
-          <span className='min-w-0 flex-1 truncate whitespace-nowrap'>
-            {preset.name}
-          </span>
-        </SidebarMenuSubButton>
-      </SidebarMenuSubItem>
-    )
-  }
-
-  return (
-    <SidebarMenuSubItem>
-      <SidebarMenuSubButton
-        onClick={() => {
-          if (!loading) void onOpen(preset)
-        }}
-        aria-disabled={loading ? 'true' : undefined}
-        isActive={false}
-        className='justify-between'
-      >
-        <span className='min-w-0 flex-1 truncate whitespace-nowrap'>
-          {preset.name}
-        </span>
-        {loading ? (
-          <HugeiconsIcon
-            icon={Loading03Icon}
-            className='size-4 shrink-0 animate-spin'
-            aria-hidden='true'
-          />
-        ) : (
-          <HugeiconsIcon
-            icon={LinkSquare02Icon}
-            className='size-4 shrink-0'
-            aria-hidden='true'
-          />
-        )}
-      </SidebarMenuSubButton>
-    </SidebarMenuSubItem>
-  )
-}
-
-/**
- * Dropdown menu item for a single chat preset
- */
-function DropdownPresetItem({
-  preset,
-  loading,
-  onOpen,
-}: {
-  preset: ChatPreset
-  loading: boolean
-  onOpen: (preset: ChatPreset) => void | Promise<void>
-}) {
-  if (preset.type === 'web') {
-    return (
-      <DropdownMenuItem
-        render={<Link to='/chat/$chatId' params={{ chatId: preset.id }} />}
-      >
-        {preset.name}
-      </DropdownMenuItem>
-    )
-  }
-
-  return (
-    <DropdownMenuItem
-      disabled={loading}
-      onClick={() => {
-        if (!loading) void onOpen(preset)
-      }}
-    >
-      {preset.name}
-      {loading ? (
-        <HugeiconsIcon
-          icon={Loading03Icon}
-          className='ms-auto size-4 animate-spin opacity-70'
-          aria-hidden='true'
-        />
-      ) : (
-        <HugeiconsIcon
-          icon={LinkSquare02Icon}
-          className='ms-auto size-4 opacity-70'
-          aria-hidden='true'
-        />
-      )}
-    </DropdownMenuItem>
-  )
-}
-
-/**
- * Dynamic chat presets navigation item
- */
-export function ChatPresetsItem({ item }: { item: NavChatPresets }) {
+function useChatPresetEntries() {
   const { t } = useTranslation()
   const { chatPresets, serverAddress } = useChatPresets()
-  const { state, isMobile, setOpenMobile } = useSidebar()
-  const href = useLocation({ select: (location) => location.href })
   const [loadingPresetId, setLoadingPresetId] = useState<string | null>(null)
   const loadingPresetIdRef = useRef<string | null>(null)
 
-  const visiblePresets = useMemo(
+  const presets = useMemo(
     () => chatPresets.filter((preset) => preset.type !== 'fluent'),
     [chatPresets]
   )
 
-  const handleOpenExternal = useCallback(
+  const openExternal = useCallback(
     async (preset: ChatPreset) => {
       if (preset.type === 'web') return
 
@@ -237,95 +101,104 @@ export function ChatPresetsItem({ item }: { item: NavChatPresets }) {
       if (typeof window === 'undefined') return
 
       window.open(url, '_blank', 'noopener')
-      setOpenMobile(false)
     },
-    [serverAddress, setOpenMobile, t]
+    [serverAddress, t]
   )
 
-  const normalizedHref = normalizeHref(href)
+  return { presets, loadingPresetId, openExternal }
+}
 
-  // Don't render if no visible presets
-  if (visiblePresets.length === 0) {
-    return null
-  }
-
-  // Collapsed state on non-mobile - render dropdown menu
-  if (state === 'collapsed' && !isMobile) {
-    return (
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={<SidebarMenuButton tooltip={item.title} />}
-          >
-            {item.icon && (
-              <HugeiconsIcon
-                icon={item.icon}
-                className='size-4 shrink-0'
-                aria-hidden='true'
-              />
-            )}
-            <span className='min-w-0 flex-1 truncate'>{item.title}</span>
-            <HugeiconsIcon
-              icon={ArrowRight01Icon}
-              className='ms-auto size-4 shrink-0 opacity-70'
-              aria-hidden='true'
-            />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align='start'>
-            {visiblePresets.map((preset) => (
-              <DropdownPresetItem
-                key={preset.id}
-                preset={preset}
-                loading={loadingPresetId === preset.id}
-                onOpen={handleOpenExternal}
-              />
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    )
-  }
-
-  // Expanded state - render collapsible menu
+function PresetStatusIcon(props: { loading: boolean }) {
   return (
-    <Collapsible
-      defaultOpen={normalizedHref.startsWith('/chat')}
-      className='group/collapsible'
-      render={<SidebarMenuItem />}
-    >
-      <CollapsibleTrigger
-        className='group/collapsible-trigger'
-        render={<SidebarMenuButton />}
-      >
-        {item.icon && (
-          <HugeiconsIcon
-            icon={item.icon}
-            className='shrink-0'
-            aria-hidden='true'
-          />
-        )}
-        <span className='min-w-0 flex-1 truncate'>{item.title}</span>
-        <HugeiconsIcon
-          icon={ArrowRight01Icon}
-          className='ms-auto size-4 shrink-0 transition-transform duration-200 group-data-[panel-open]/collapsible-trigger:rotate-90'
-          aria-hidden='true'
-        />
-      </CollapsibleTrigger>
-      <CollapsibleContent className='CollapsibleContent'>
-        <SidebarMenuSub>
-          {visiblePresets.map((preset) => (
-            <ChatMenuItem
-              key={preset.id}
-              preset={preset}
-              active={normalizedHref === `/chat/${preset.id}`}
-              loading={loadingPresetId === preset.id}
-              onOpen={handleOpenExternal}
-              onNavigate={() => setOpenMobile(false)}
-              preload={isMobile ? false : undefined}
-            />
-          ))}
-        </SidebarMenuSub>
-      </CollapsibleContent>
-    </Collapsible>
+    <HugeiconsIcon
+      icon={props.loading ? Loading03Icon : LinkSquare02Icon}
+      className={props.loading ? 'ms-auto animate-spin' : 'ms-auto'}
+      aria-hidden='true'
+    />
   )
+}
+
+/** Chat presets as a labelled group of the top bar's More menu. */
+export function ChatPresetMenuItems(props: { item: NavChatPresets }) {
+  const entries = useChatPresetEntries()
+  if (entries.presets.length === 0) return null
+
+  return (
+    <DropdownMenuGroup>
+      <DropdownMenuLabel>{props.item.title}</DropdownMenuLabel>
+      {entries.presets.map((preset) => {
+        if (preset.type === 'web') {
+          return (
+            <DropdownMenuItem
+              key={preset.id}
+              render={
+                <Link to='/chat/$chatId' params={{ chatId: preset.id }} />
+              }
+            >
+              {preset.name}
+            </DropdownMenuItem>
+          )
+        }
+        const loading = entries.loadingPresetId === preset.id
+        return (
+          <DropdownMenuItem
+            key={preset.id}
+            disabled={loading}
+            onClick={() => {
+              if (!loading) void entries.openExternal(preset)
+            }}
+          >
+            {preset.name}
+            <PresetStatusIcon loading={loading} />
+          </DropdownMenuItem>
+        )
+      })}
+    </DropdownMenuGroup>
+  )
+}
+
+/** Chat presets as entries of the mobile More sheet. */
+export function ChatPresetLinks(props: {
+  item: NavChatPresets
+  onNavigate?: () => void
+}) {
+  const entries = useChatPresetEntries()
+  const href = useLocation({ select: (location) => location.href })
+  if (entries.presets.length === 0) return null
+  const current = normalizeHref(href)
+
+  return entries.presets.map((preset) => {
+    if (preset.type === 'web') {
+      return (
+        <Link
+          key={preset.id}
+          to='/chat/$chatId'
+          params={{ chatId: preset.id }}
+          className='pc-nav-link'
+          preload={false}
+          aria-current={current === `/chat/${preset.id}` ? 'page' : undefined}
+          onClick={props.onNavigate}
+        >
+          <span>{preset.name}</span>
+        </Link>
+      )
+    }
+    const loading = entries.loadingPresetId === preset.id
+    return (
+      <button
+        key={preset.id}
+        type='button'
+        className='pc-nav-link'
+        aria-disabled={loading ? 'true' : undefined}
+        onClick={() => {
+          if (loading) return
+          props.onNavigate?.()
+          void entries.openExternal(preset)
+        }}
+      >
+        <span>{preset.name}</span>
+        <PresetStatusIcon loading={loading} />
+      </button>
+    )
+  })
 }

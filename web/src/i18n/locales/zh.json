@@ -7057,6 +7057,9 @@
     "{{count}} requests completed without a usage report": "{{count}} 条请求已完成但未返回用量",
     "{{count}} s": "{{count}} 秒",
     "{{remaining}} remaining of {{total}}": "剩余 {{remaining}} / 共 {{total}}",
-    "{{value}}% used": "已用 {{value}}%"
+    "{{value}}% used": "已用 {{value}}%",
+    "Requests_section": "请求",
+    "Admin_nav": "管理",
+    "{{section}} sections": "{{section}}分区"
   }
 }

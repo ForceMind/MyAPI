@@ -1,12 +1,15 @@
-/* Console shell layout (one shell for every role and edition). Colours come
- * only from the semantic tokens in theme.css and theme-presets.css; this file
- * defines no palette. PC (>=1024px) and mobile are separate compositions in
- * console-shell.tsx; these rules size them. */
+/* Console shell layout (one shell for every role and edition), design
+ * direction 3: a 56px top bar with the primary areas on PC (>=1024px), a top
+ * bar plus bottom navigation on mobile, no sidebar. Colours come only from
+ * the semantic tokens in theme.css and theme-presets.css; this file defines
+ * no palette. console-shell.tsx composes PC and mobile; these rules size
+ * them. */
 .personal-console {
-  --pc-header-height: 64px;
+  --pc-header-height: 56px;
   --pc-page-gutter: 16px;
-  --pc-content-inset: 0px;
+  --pc-content-width: 1200px;
   display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100svh;
   overflow: hidden;
@@ -15,8 +18,8 @@
   overflow: clip;
   background: var(--background);
 }
-.pc-sidebar {
-  display: none;
+[data-theme-content-layout='full'] .personal-console {
+  --pc-content-width: none;
 }
 .pc-workspace {
   position: relative;
@@ -26,67 +29,171 @@
   min-width: 0;
   min-height: 0;
 }
+
+/* ── Top bar (PC) ─────────────────────────────────────────────────────── */
+.pc-topbar {
+  flex-shrink: 0;
+  height: var(--pc-header-height);
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
+}
+.pc-topbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  height: 100%;
+  max-width: var(--pc-content-width);
+  margin-inline: auto;
+  padding-inline: var(--pc-page-gutter);
+}
 .pc-brand {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 10px;
   min-width: 0;
+  color: var(--foreground);
   text-decoration: none;
 }
-.pc-brand strong {
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 26px;
-}
-.pc-brand small {
-  display: block;
-  font-size: 11px;
-  color: var(--muted-foreground);
-}
 .pc-brand img {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   object-fit: contain;
 }
-.pc-header {
+.pc-brand strong {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 700;
+}
+.pc-topnav {
+  display: flex;
+  align-self: stretch;
+  flex-shrink: 0;
+  gap: 4px;
+}
+.pc-topnav-link {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  justify-content: space-between;
-  height: var(--pc-header-height);
-  min-height: var(--pc-header-height);
+  gap: 4px;
+  margin-bottom: -1px;
+  padding-inline: 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  font-weight: 500;
+  white-space: nowrap;
+  word-break: keep-all;
+  cursor: pointer;
+}
+.pc-topnav-link:hover,
+.pc-topnav-link[data-popup-open] {
+  color: var(--foreground);
+}
+.pc-topnav-link[aria-current='page'],
+.pc-topnav-link[data-active] {
+  color: var(--foreground);
+  border-bottom-color: var(--primary);
+}
+.pc-topnav-link svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  transition: transform var(--duration-base) var(--ease-standard);
+}
+.pc-topnav-link[data-popup-open] svg {
+  transform: rotate(180deg);
+}
+.personal-console .pc-topnav-link:focus-visible {
+  outline-offset: -2px;
+}
+.pc-topnav-menu [data-slot='dropdown-menu-item'] {
+  min-height: 36px;
   gap: 8px;
-  padding: 8px var(--pc-page-gutter);
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
 }
-.pc-header > .pc-brand {
-  gap: 6px;
-}
-.pc-header > .pc-brand img {
-  width: 24px;
-  height: 24px;
-}
-.pc-header > .pc-brand strong {
-  font-size: 18px;
+.pc-topnav-menu [data-slot='dropdown-menu-item'][aria-current='page'] {
+  color: var(--accent-foreground);
+  font-weight: 600;
 }
 .pc-header-actions {
   display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  margin-inline-start: auto;
+}
+.pc-search-bar {
+  /* Shrinks before the navigation does; the hint ellipsizes. */
+  flex: 0 1 16.25rem;
+  min-width: 9rem;
+  height: 36px;
+  justify-content: flex-start;
+  gap: 8px;
+  padding-inline: 12px;
+  border-radius: 999px;
+  border-color: var(--border);
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+.pc-search-hint {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: start;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* Below 1280px the field folds to its icon and the bar tightens so the five
+ * areas, Admin and More keep their full labels on one row in every interface
+ * language; Ctrl/⌘ K and the accessible name remain. */
+@media (max-width: 1279px) {
+  .pc-topbar-inner {
+    gap: 12px;
+  }
+  .pc-topnav {
+    gap: 0;
+  }
+  .pc-topnav-link {
+    padding-inline: 8px;
+  }
+  .pc-search-bar {
+    flex: none;
+    width: 36px;
+    min-width: 0;
+    padding-inline: 0;
+    justify-content: center;
+  }
+  .pc-search-bar :is(.pc-search-hint, kbd) {
+    display: none;
+  }
+}
+
+/* ── Mobile top bar ───────────────────────────────────────────────────── */
+.pc-header-mobile {
+  display: flex;
   flex-shrink: 0;
   align-items: center;
+  gap: 4px;
+  height: var(--pc-header-height);
+  padding-inline: 8px 4px;
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
+}
+.pc-header-mobile .pc-header-actions {
   gap: 2px;
 }
 .personal-console .pc-header-actions > button,
 .personal-console .pc-header-mobile > button {
+  min-width: 36px;
+  min-height: 36px;
+}
+.personal-console .pc-header-mobile button {
   min-width: 44px;
   min-height: 44px;
-}
-/* Mobile top bar: brand or back, page title, search, notifications, account. */
-.pc-header-mobile {
-  --pc-header-height: 56px;
-  justify-content: flex-start;
-  gap: 4px;
-  padding-inline: 8px 4px;
 }
 .pc-mobile-brand {
   display: flex;
@@ -97,23 +204,22 @@
   height: 44px;
 }
 .pc-mobile-brand img {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   object-fit: contain;
 }
 .pc-mobile-title {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  font-size: var(--text-title);
-  line-height: var(--text-title--line-height);
+  font-size: 18px;
+  line-height: 26px;
   font-weight: 600;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.pc-mobile-title + .pc-header-actions {
-  margin-inline-start: auto;
-}
+
+/* ── Content column ───────────────────────────────────────────────────── */
 .pc-route-content {
   /* Containing block for positioned page descendants, so they scroll and
    * clip with the page instead of extending the shell. */
@@ -129,11 +235,109 @@
 .pc-route-content > div {
   min-height: 0;
 }
+.pc-page-frame {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  max-width: var(--pc-content-width);
+  margin-inline: auto;
+}
+.pc-page-context {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px var(--pc-page-gutter) 0;
+}
+.pc-page-context:empty {
+  display: none;
+}
+.personal-console .pc-page-context:not(:empty) ~ * .myapi-page-header {
+  padding-top: 12px;
+}
+.pc-breadcrumb {
+  font-size: 13px;
+  line-height: 20px;
+}
+.pc-breadcrumb [data-slot='breadcrumb-list'] {
+  font-size: inherit;
+}
+.pc-page-tab-list {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--border);
+}
+.pc-page-tab-list::-webkit-scrollbar {
+  display: none;
+}
+.pc-page-tab {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  min-height: 44px;
+  margin-bottom: -1px;
+  padding: 0 12px;
+  border-bottom: 2px solid transparent;
+  color: var(--muted-foreground);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  font-weight: 500;
+  white-space: nowrap;
+  word-break: keep-all;
+}
+.pc-page-tab:hover {
+  color: var(--foreground);
+}
+.pc-page-tab[aria-current] {
+  color: var(--foreground);
+  font-weight: 600;
+  border-bottom-color: var(--primary);
+}
+.personal-console .pc-page-tab:focus-visible {
+  outline-offset: -2px;
+}
+.pc-page-subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 12px;
+}
+.pc-page-subtab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 18px;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+.pc-page-subtab:hover {
+  color: var(--foreground);
+  border-color: var(--input);
+}
+.pc-page-subtab[aria-current] {
+  border-color: transparent;
+  background: var(--foreground);
+  color: var(--background);
+}
+
+/* ── Mobile bottom navigation and More ────────────────────────────────── */
 .pc-mobile-nav {
   display: flex;
   flex-shrink: 0;
   padding: 4px 4px max(4px, env(safe-area-inset-bottom));
-  background: var(--card);
+  background: var(--background);
   border-top: 1px solid var(--border);
 }
 .pc-mobile-nav > a,
@@ -169,8 +373,8 @@
   hyphens: manual;
 }
 .pc-mobile-nav svg {
-  width: 21px;
-  height: 21px;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
 }
 .pc-mobile-nav [aria-current='page'] {
@@ -180,41 +384,13 @@
 .pc-nav-group {
   padding-block: 8px;
 }
-.pc-nav-group h2,
-.pc-nav-group-toggle {
+.pc-nav-group h2 {
   margin: 4px 0 6px;
   padding-inline: 12px;
   font-size: var(--text-caption);
   line-height: var(--text-caption--line-height);
   font-weight: 500;
   color: var(--muted-foreground);
-}
-.pc-nav-group:has(> .pc-nav-group-toggle) {
-  padding-block: 2px;
-}
-.pc-nav-group-toggle {
-  display: flex;
-  width: 100%;
-  min-height: 36px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 0 0 2px;
-  border-radius: var(--radius-md);
-  text-align: start;
-  cursor: pointer;
-}
-.pc-nav-group-toggle:hover {
-  background: var(--muted);
-}
-.pc-nav-group-toggle svg {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  transition: transform var(--duration-base) var(--ease-standard);
-}
-.pc-nav-group-toggle[aria-expanded='false'] svg {
-  transform: rotate(-90deg);
 }
 .pc-nav-items {
   display: flex;
@@ -223,14 +399,16 @@
 }
 .pc-nav-link {
   display: flex;
+  width: 100%;
   min-width: 0;
-  min-height: 40px;
+  min-height: 48px;
   align-items: center;
   gap: 10px;
   padding: 9px 12px;
-  border-radius: 7px;
-  font-size: 13px;
+  border-radius: 8px;
+  font-size: 14px;
   line-height: 20px;
+  text-align: start;
   color: var(--muted-foreground);
 }
 .pc-nav-link svg {
@@ -246,10 +424,6 @@
   color: var(--accent-foreground);
   font-weight: 600;
 }
-.pc-more-modules .pc-nav-link {
-  min-height: 48px;
-  font-size: 14px;
-}
 .pc-more-modules .pc-nav-link span {
   min-width: 0;
   overflow-wrap: break-word;
@@ -258,6 +432,8 @@
 .pc-more-modules .pc-nav-group + .pc-nav-group {
   border-top: 1px solid var(--border);
 }
+
+/* ── Pages inside the shell ───────────────────────────────────────────── */
 .personal-console a:focus-visible,
 .personal-console button:focus-visible {
   outline: 2px solid var(--ring);
@@ -265,6 +441,19 @@
 }
 .personal-console .myapi-page {
   background: var(--background);
+}
+/* Only the top bar (and on mobile the bottom navigation) stays fixed, as in
+ * the direction 3 mockups: page tabs, breadcrumb, page header, content and
+ * pagination scroll as one column, so a short window keeps most of its
+ * height for content. Pages that contain their own scrolling
+ * (data-page-scroll='contained') keep it. */
+.personal-console .myapi-page:has(> [data-page-scroll='page']) {
+  flex: none;
+  overflow: visible;
+}
+.personal-console .myapi-page-content[data-page-scroll='page'] {
+  flex: none;
+  overflow: visible;
 }
 .personal-console .myapi-page-header {
   background: transparent;
@@ -284,8 +473,10 @@
   padding: 16px var(--pc-page-gutter) 24px;
   scrollbar-gutter: auto;
 }
+/* The pagination row sits on the page, not as a band wider than the cards. */
 .personal-console .myapi-page-footer {
   padding-inline: var(--pc-page-gutter);
+  background: transparent;
 }
 .personal-console .myapi-page-actions {
   min-width: 0;
@@ -316,7 +507,7 @@
 }
 .personal-console [data-slot='card'],
 .pc-card {
-  border-radius: var(--pc-card-radius, var(--radius-xl));
+  border-radius: var(--pc-card-radius, var(--radius-card));
   border: 1px solid var(--border);
   background: var(--card);
   box-shadow: none;
@@ -346,9 +537,13 @@
   min-height: 40px;
 }
 @media (width < 1024px) {
+  .pc-page-context {
+    padding-top: 8px;
+  }
   /* A full-screen inspector is the page: the top bar carries Back and the
    * object title, so the list page's own header and footer step aside. */
-  .personal-console .myapi-page:has([data-inspector='page'])
+  .personal-console
+    .myapi-page:has([data-inspector='page'])
     > :is(.myapi-page-header, .myapi-page-footer) {
     display: none;
   }
@@ -357,16 +552,8 @@
     > .myapi-page-content {
     padding: 0;
   }
-  /* Only the top bar and the bottom navigation stay fixed (design 5.2, M1):
-   * the page header, content and pagination scroll as one column. Pages that
-   * contain their own scrolling (data-page-scroll='contained') keep it. */
-  .personal-console .myapi-page:has(> [data-page-scroll='page']) {
-    flex: none;
-    overflow: visible;
-  }
-  .personal-console .myapi-page-content[data-page-scroll='page'] {
-    flex: none;
-    overflow: visible;
+  .pc-page-frame:has([data-inspector='page']) > .pc-page-context {
+    display: none;
   }
   .personal-console [data-slot='button'] {
     min-height: 40px;
@@ -393,8 +580,8 @@
   }
 }
 @media (width < 1024px) and (pointer: coarse) {
-  /* Touch screens get 44px targets (design 6.2, P5). The 40px heights above
-   * would otherwise win over the pointer: coarse contract in product-ui.css. */
+  /* Touch screens get 44px targets. The 40px heights above would otherwise
+   * win over the pointer: coarse contract in product-ui.css. */
   .personal-console
     .myapi-page
     :is(
@@ -402,6 +589,12 @@
       [data-slot='tabs-trigger'],
       [data-myapi-button]
     ) {
+    min-height: 44px;
+  }
+}
+@media (pointer: coarse) {
+  .pc-topnav-menu [data-slot='dropdown-menu-item'],
+  .pc-page-subtab {
     min-height: 44px;
   }
 }
@@ -421,169 +614,13 @@
   .personal-console {
     --pc-page-gutter: 24px;
   }
-  .personal-console[data-sidebar-variant='inset'] {
-    --pc-content-inset: 13px;
-  }
-  .personal-console[data-sidebar-variant='floating'] .pc-sidebar {
-    margin: 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
-  }
-  .personal-console[data-sidebar-variant='inset'] .pc-route-content {
-    margin: 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
-  }
-  .pc-sidebar {
-    display: flex;
-    flex-direction: column;
-    flex: 0 0 240px;
-    width: 240px;
-    min-height: 0;
-    padding: 0 12px 12px;
-    background: var(--card);
-    border-right: 1px solid var(--border);
-  }
-  .pc-sidebar .pc-brand {
-    height: var(--pc-header-height);
-    min-height: var(--pc-header-height);
-    flex-shrink: 0;
-    margin: 0 -12px 8px;
-    padding: 0 24px;
-    border-bottom: 1px solid var(--border);
-  }
-  .pc-sidebar .pc-brand strong {
-    font-size: 18px;
-  }
-  .pc-logo-tile {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    flex-shrink: 0;
-  }
-  .pc-desktop-nav {
-    flex: 1;
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior-y: contain;
-    scroll-padding-block: 8px;
-    scrollbar-width: none;
-  }
-  .pc-desktop-nav::-webkit-scrollbar {
-    display: none;
-  }
-  .pc-desktop-nav:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: -2px;
-    border-radius: 8px;
-  }
-  .pc-desktop-nav .pc-nav-link span {
-    min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-  .pc-desktop-nav .pc-nav-link {
-    min-height: 38px;
-    padding-block: 8px;
-  }
-  .pc-sidebar-bottom {
-    flex-shrink: 0;
-    margin-top: 8px;
-    border-top: 1px solid var(--border);
-    padding-top: 8px;
-  }
-  .pc-collapse {
-    width: 100%;
-    justify-content: flex-start;
-    color: var(--muted-foreground);
-  }
-  .pc-header {
-    display: flex;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 0 calc(var(--pc-page-gutter) + var(--pc-content-inset));
-    background: var(--card);
-    border-bottom: 1px solid var(--border);
-  }
-  .pc-header-context {
-    flex: 1;
-    min-width: 0;
-  }
-  .pc-search-bar {
-    width: clamp(14rem, 26vw, 22rem);
-    flex-shrink: 1;
-    justify-content: flex-start;
-    gap: 8px;
-    color: var(--muted-foreground);
-    font-weight: 400;
-  }
-  .pc-search-hint {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-align: start;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
   .pc-mobile-nav {
     display: none;
-  }
-  .personal-console .myapi-page-header {
-    padding: 24px 24px 8px;
-  }
-  .personal-console .myapi-page-content {
-    padding: 16px 24px 24px;
   }
   .personal-console .pc-page {
     padding: 24px;
   }
-  .personal-console[data-collapsed='true'] .pc-sidebar {
-    flex-basis: 64px;
-    width: 64px;
-    padding-inline: 6px;
-  }
-  .personal-console[data-collapsed='true'][data-collapse-mode='offcanvas']
-    .pc-sidebar {
-    visibility: hidden;
-    flex-basis: 0;
-    width: 0;
-    margin: 0;
-    padding: 0;
-    border: 0;
-  }
-  .personal-console[data-collapsed='true'] .pc-brand {
-    margin-inline: -6px;
-    padding-inline: 16px;
-  }
-  .personal-console[data-collapsed='true'] .pc-brand > span + span,
-  .personal-console[data-collapsed='true'] .pc-nav-link span,
-  .personal-console[data-collapsed='true'] .pc-nav-group h2,
-  .personal-console[data-collapsed='true'] .pc-collapse span {
-    display: none;
-  }
-  .personal-console[data-collapsed='true'] .pc-nav-group + .pc-nav-group {
-    border-top: 1px solid var(--border);
-  }
-  .personal-console[data-collapsed='true'] .pc-collapse {
-    justify-content: center;
-  }
-  .personal-console[data-collapsed='true'] .pc-nav-link {
-    justify-content: center;
-    padding-inline: 8px;
-  }
 }
 [data-theme-radius] .personal-console {
   --pc-card-radius: var(--radius);
-}
-[data-theme-content-layout='centered'] .pc-route-content .myapi-page,
-[data-theme-content-layout='centered'] .pc-route-content .pc-page {
-  width: 100%;
-  max-width: 80rem;
-  margin-inline: auto;
 }

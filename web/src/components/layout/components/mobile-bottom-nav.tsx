@@ -21,7 +21,7 @@ import {
   MoreHorizontalIcon,
   UserIcon,
 } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -35,80 +35,45 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import type { ConsoleNavigation } from '@/hooks/use-console-navigation'
 
-import { checkIsActive } from '../lib/url-utils'
-import type { NavGroup, NavLink, ResolvedSidebarView } from '../types'
+import type { NavGroup, NavLink } from '../types'
 import { ConsoleNavList } from './console-nav-list'
 
-type BottomTab = {
-  label: string
-  url: string
-  icon?: IconSvgElement
-  active: boolean
-}
+/** Areas with a bottom tab; Settings and every other area live in More. */
+const BOTTOM_SECTIONS = new Set(['overview', 'upstream', 'keys', 'requests'])
 
 /**
- * Bottom tabs: Overview, the Upstream group, API Keys and call records, as far
- * as the user can see them, followed by More (design 5.2).
+ * Mobile composition (<1024px): Overview, Upstream, Key and Requests as far
+ * as the user can see them, followed by More, a searchable sheet with every
+ * other destination.
  */
-function getBottomTabs(groups: NavGroup[], href: string): BottomTab[] {
-  const links = groups.flatMap((group) => group.items)
-  const tabs: BottomTab[] = []
-  const addLink = (url: string) => {
-    const link = links.find((item): item is NavLink => item.url === url)
-    if (!link) return
-    tabs.push({
-      label: link.shortTitle ?? link.title,
-      url,
-      icon: link.icon,
-      active: checkIsActive(href, link),
-    })
-  }
-  addLink('/dashboard/overview')
-  const upstream = groups.find((group) => group.id === 'upstream')
-  const upstreamLanding = upstream?.items.find(
-    (item): item is NavLink => typeof item.url === 'string'
-  )
-  if (upstream && upstreamLanding) {
-    tabs.push({
-      label: upstream.shortTitle ?? upstream.title,
-      url: String(upstreamLanding.url),
-      icon: upstreamLanding.icon,
-      active: upstream.items.some((item) => checkIsActive(href, item)),
-    })
-  }
-  addLink('/keys')
-  addLink('/usage-logs/common')
-  return tabs
-}
-
-type MobileBottomNavProps = {
-  href: string
-  root: ResolvedSidebarView
-  context: ResolvedSidebarView
-}
-
-/** Mobile composition (<1024px): four tabs and a searchable More drawer. */
-export function MobileBottomNav(props: MobileBottomNavProps) {
+export function MobileBottomNav(props: { navigation: ConsoleNavigation }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const modulesRef = useRef<HTMLElement>(null)
-  const tabs = getBottomTabs(props.root.navGroups, props.href)
+  const navigation = props.navigation
+  const tabs = navigation.sections.filter((section) =>
+    BOTTOM_SECTIONS.has(section.id)
+  )
   const tabUrls = new Set(tabs.map((tab) => tab.url))
   const normalizedQuery = query.trim().toLocaleLowerCase()
 
-  useEffect(() => setOpen(false), [props.href])
+  useEffect(() => setOpen(false), [navigation.href])
 
   const profile: NavLink = {
     title: t('Profile'),
     url: '/profile',
     icon: UserIcon,
   }
-  const remaining = [
-    ...props.root.navGroups,
+  const groups: NavGroup[] = [
+    ...navigation.sections.map((section) => section.group),
+    ...navigation.admin,
+    ...navigation.more,
     { id: 'account', title: t('Account'), items: [profile] },
   ]
+  const remaining = groups
     .map((group) => ({
       ...group,
       titleHidden: false,
@@ -119,20 +84,20 @@ export function MobileBottomNav(props: MobileBottomNavProps) {
       ),
     }))
     .filter((group) => group.items.length > 0)
-  const view = props.context.view
+  const view = navigation.view
 
   return (
     <nav className='pc-mobile-nav' aria-label={t('Mobile console navigation')}>
       {tabs.map((tab) => (
         <Link
-          key={tab.url}
+          key={tab.id}
           to={tab.url}
           preload={false}
           aria-current={tab.active ? 'page' : undefined}
-          title={tab.label}
+          title={tab.shortTitle}
         >
           {tab.icon && <HugeiconsIcon icon={tab.icon} aria-hidden='true' />}
-          <span>{tab.label}</span>
+          <span>{tab.shortTitle}</span>
         </Link>
       ))}
       <Sheet
@@ -190,15 +155,15 @@ export function MobileBottomNav(props: MobileBottomNavProps) {
                   <span>{t(view.parent.label)}</span>
                 </Link>
                 <ConsoleNavList
-                  groups={props.context.navGroups}
-                  href={props.href}
+                  groups={navigation.viewGroups}
+                  href={navigation.href}
                   onNavigate={() => setOpen(false)}
                 />
               </>
             )}
             <ConsoleNavList
               groups={remaining}
-              href={props.href}
+              href={navigation.href}
               onNavigate={() => setOpen(false)}
             />
           </nav>

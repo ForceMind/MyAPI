@@ -16,9 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ArrowLeft01Icon, SidebarLeft01Icon } from '@hugeicons/core-free-icons'
+import { ArrowDown01Icon, ArrowLeft01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Link, useRouter } from '@tanstack/react-router'
+import { Fragment } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfigDrawer } from '@/components/config-drawer'
@@ -27,11 +28,23 @@ import { NotificationPopover } from '@/components/notification-popover'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import type { ConsoleNavigation } from '@/hooks/use-console-navigation'
 import { useConsolePage } from '@/hooks/use-console-page'
 import { useNotifications } from '@/hooks/use-notifications'
 import { useInspectorStore } from '@/stores/inspector-store'
 
-import { AppBreadcrumb } from './app-breadcrumb'
+import { checkIsActive } from '../lib/url-utils'
+import type { NavGroup } from '../types'
+import { ChatPresetMenuItems } from './chat-presets-item'
 
 function Notifications() {
   const notifications = useNotifications()
@@ -49,38 +62,144 @@ function Notifications() {
   )
 }
 
-/** PC top bar: breadcrumb, global search, notifications, language, theme, account. */
-export function DesktopHeader(props: { onExpandSidebar?: () => void }) {
-  const { t } = useTranslation()
+type NavMenuProps = {
+  label: string
+  groups: NavGroup[]
+  active: boolean
+  href: string
+}
+
+/**
+ * A top-bar menu (Admin or More): one labelled group per area, its pages as
+ * link items. Base UI's menu gives arrow-key, Home/End, typeahead and Escape
+ * handling and returns focus to the trigger.
+ */
+function NavMenu(props: NavMenuProps) {
   return (
-    <header className='pc-header' data-myapi-header>
-      {props.onExpandSidebar && (
-        <Button
-          variant='ghost'
-          size='icon'
-          aria-label={t('Expand sidebar')}
-          onClick={props.onExpandSidebar}
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger
+        className='pc-topnav-link pc-topnav-menu-trigger'
+        data-active={props.active || undefined}
+      >
+        <span>{props.label}</span>
+        <HugeiconsIcon icon={ArrowDown01Icon} aria-hidden='true' />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className='pc-topnav-menu w-60' sideOffset={6}>
+        {props.groups.map((group, index) => (
+          <Fragment key={group.id ?? group.title}>
+            {index > 0 && <DropdownMenuSeparator />}
+            <DropdownMenuGroup>
+              {group.items.length > 1 && (
+                <DropdownMenuLabel>{group.title}</DropdownMenuLabel>
+              )}
+              {group.items.map((item) => {
+                if (item.type === 'chat-presets') {
+                  return <ChatPresetMenuItems key={item.title} item={item} />
+                }
+                if (typeof item.url !== 'string') return null
+                const current = checkIsActive(props.href, item)
+                return (
+                  <DropdownMenuItem
+                    key={item.url}
+                    render={
+                      <Link
+                        to={item.url}
+                        preload={false}
+                        aria-current={current ? 'page' : undefined}
+                      />
+                    }
+                  >
+                    {item.icon && (
+                      <HugeiconsIcon icon={item.icon} aria-hidden='true' />
+                    )}
+                    {item.title}
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuGroup>
+          </Fragment>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** The primary areas, Admin and More, as the top bar's navigation. */
+function TopNavigation(props: { navigation: ConsoleNavigation }) {
+  const { t } = useTranslation()
+  const navigation = props.navigation
+  return (
+    <nav
+      className='pc-topnav'
+      aria-label={t('Personal console navigation')}
+      data-myapi-navigation
+    >
+      {navigation.sections.map((section) => (
+        <Link
+          key={section.id}
+          to={section.url}
+          preload={false}
+          className='pc-topnav-link'
+          aria-current={section.active ? 'page' : undefined}
         >
-          <HugeiconsIcon icon={SidebarLeft01Icon} aria-hidden='true' />
-        </Button>
+          {section.title}
+        </Link>
+      ))}
+      {navigation.admin.length > 0 && (
+        <NavMenu
+          label={t('Admin', { context: 'nav' })}
+          groups={navigation.admin}
+          active={navigation.adminActive}
+          href={navigation.href}
+        />
       )}
-      <div className='pc-header-context min-w-0 flex-1' data-myapi-context>
-        <AppBreadcrumb />
-      </div>
-      <Search variant='bar' />
-      <div className='pc-header-actions'>
-        <Notifications />
-        <LanguageSwitcher />
-        <ConfigDrawer />
-        <ProfileDropdown />
+      {navigation.more.length > 0 && (
+        <NavMenu
+          label={t('More')}
+          groups={navigation.more}
+          active={navigation.moreActive}
+          href={navigation.href}
+        />
+      )}
+    </nav>
+  )
+}
+
+/**
+ * PC top bar (56px): brand, the five primary areas with Admin and More,
+ * global search, notifications, language, appearance and the account menu.
+ */
+export function DesktopHeader(props: { navigation: ConsoleNavigation }) {
+  const { t } = useTranslation()
+  const navigation = props.navigation
+  return (
+    <header className='pc-topbar' data-myapi-header>
+      <div className='pc-topbar-inner'>
+        <Link
+          className='pc-brand'
+          to='/dashboard/$section'
+          params={{ section: 'overview' }}
+          aria-label={t('Overview')}
+        >
+          <img src='/myapi-logo-v1.png' alt='' />
+          <strong>MyAPI</strong>
+        </Link>
+        <TopNavigation navigation={navigation} />
+        <div className='pc-header-actions'>
+          <Search variant='bar' />
+          <Notifications />
+          <LanguageSwitcher />
+          <ConfigDrawer />
+          <ProfileDropdown />
+        </div>
       </div>
     </header>
   )
 }
 
 /**
- * Mobile top bar: brand mark on main destinations, a back control elsewhere,
- * the page title, search and account. No build number (design 5.2, M2).
+ * Mobile top bar: brand mark on navigation destinations, a back control
+ * elsewhere, the page title, search, notifications and account.
  */
 export function MobileHeader() {
   const { t } = useTranslation()
@@ -103,7 +222,7 @@ export function MobileHeader() {
   const title = inspector?.title ?? page.title
 
   return (
-    <header className='pc-header pc-header-mobile' data-myapi-header>
+    <header className='pc-header-mobile' data-myapi-header>
       {page.topLevel && !inspector ? (
         <Link
           to='/dashboard/$section'

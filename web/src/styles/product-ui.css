@@ -6,22 +6,9 @@
 }
 
 @layer components {
-  [data-myapi-shell='authenticated'] {
-    background: var(--myapi-surface-sunken);
-  }
-
   [data-myapi-header] {
-    background: var(--card);
-    border-bottom: 1px solid var(--border);
-  }
-
-  [data-myapi-shell='authenticated'] [data-slot='sidebar-inner'] {
-    background: transparent;
-  }
-
-  [data-myapi-shell='authenticated'] [data-slot='sidebar-inset'] {
     background: var(--background);
-    box-shadow: 0 0 0 1px var(--border);
+    border-bottom: 1px solid var(--border);
   }
 
   .myapi-page-header {
@@ -53,20 +40,6 @@
 
   [data-myapi-button][data-variant='default']:not(:disabled):hover {
     filter: brightness(0.94);
-  }
-
-  [data-myapi-shell] [data-slot='sidebar-menu-button'] {
-    min-height: 2.5rem;
-    font-size: 0.8125rem;
-  }
-
-  [data-myapi-shell] [data-slot='sidebar-menu-button'][data-active='true'] {
-    font-weight: 600;
-    box-shadow: inset 3px 0 0 var(--primary);
-  }
-
-  [data-slot='sidebar'][data-mobile='true'] {
-    max-width: calc(100vw - 2rem);
   }
 
   .myapi-settings-section {
@@ -104,8 +77,6 @@
     }
 
     [data-myapi-button],
-    [data-slot='sidebar-menu-button'],
-    [data-slot='sidebar-menu-sub-button'],
     [data-slot='tabs-trigger'] {
       min-width: 2.75rem;
       min-height: 2.75rem;

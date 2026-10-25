@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { Fragment, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -12,74 +13,79 @@ import {
 import { useConsolePage } from '@/hooks/use-console-page'
 import { useInspectorStore } from '@/stores/inspector-store'
 
+type Crumb = { key: string; node: ReactNode }
+
 /**
- * Current location as group / page / current view (design 5.1). The group is
- * plain text; the parent page is a link that keeps the user's place. An open
- * inspector adds its object, and the page item then closes the inspector.
+ * Where the page sits: area / parent page / page, plus the object of an open
+ * inspector, at most three levels (design direction 3). The area is plain
+ * text, the parent page is a link that keeps the user's place, and with an
+ * inspector open the page item closes it. A page without a level above it
+ * shows no breadcrumb; its own heading names it. Under page tabs, which
+ * already show the area and the page, it appears only with a third level.
  */
-export function AppBreadcrumb() {
+export function AppBreadcrumb(props: { underTabs?: boolean }) {
   const { t } = useTranslation()
   const page = useConsolePage()
   const inspector = useInspectorStore((state) => state.current)
 
+  const crumbs: Crumb[] = []
+  if (page.group) {
+    crumbs.push({
+      key: 'group',
+      node: <span>{page.group}</span>,
+    })
+  }
+  if (page.parent) {
+    crumbs.push({
+      key: 'parent',
+      node: (
+        <BreadcrumbLink
+          render={<Link to={page.parent.url} preload={false} />}
+          title={page.parent.title}
+        >
+          {page.parent.title}
+        </BreadcrumbLink>
+      ),
+    })
+  }
+  crumbs.push({
+    key: 'page',
+    node: inspector ? (
+      <BreadcrumbLink
+        title={page.title}
+        render={<button type='button' onClick={inspector.close} />}
+      >
+        {page.title}
+      </BreadcrumbLink>
+    ) : (
+      <BreadcrumbPage title={page.title}>{page.title}</BreadcrumbPage>
+    ),
+  })
+  if (inspector) {
+    crumbs.push({
+      key: 'inspector',
+      node: (
+        <BreadcrumbPage title={inspector.title}>
+          {inspector.title}
+        </BreadcrumbPage>
+      ),
+    })
+  }
+  if (crumbs.length < (props.underTabs ? 3 : 2)) return null
+  const visible = crumbs.slice(-3)
+
   return (
-    <Breadcrumb aria-label={t('Current page')} className='min-w-0'>
-      <BreadcrumbList className='flex-nowrap gap-1.5 overflow-hidden'>
-        {page.group && (
-          <>
-            <BreadcrumbItem className='max-w-[30%] min-w-0 shrink'>
-              <span className='text-caption truncate' title={page.group}>
-                {page.group}
-              </span>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className='shrink-0' />
-          </>
-        )}
-        {page.parent && (
-          <>
-            <BreadcrumbItem className='max-w-[35%] min-w-0 shrink'>
-              <BreadcrumbLink
-                className='truncate text-sm'
-                title={page.parent.title}
-                render={<Link to={page.parent.url} preload={false} />}
-              >
-                {page.parent.title}
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className='shrink-0' />
-          </>
-        )}
-        {inspector ? (
-          <>
-            <BreadcrumbItem className='max-w-[35%] min-w-0 shrink'>
-              <BreadcrumbLink
-                className='truncate text-sm'
-                title={page.title}
-                render={<button type='button' onClick={inspector.close} />}
-              >
-                {page.title}
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className='shrink-0' />
-            <BreadcrumbItem className='min-w-0 flex-1'>
-              <BreadcrumbPage
-                className='truncate text-sm font-medium'
-                title={inspector.title}
-              >
-                {inspector.title}
-              </BreadcrumbPage>
-            </BreadcrumbItem>
-          </>
-        ) : (
-          <BreadcrumbItem className='min-w-0 flex-1'>
-            <BreadcrumbPage
-              className='truncate text-sm font-medium'
-              title={page.title}
-            >
-              {page.title}
-            </BreadcrumbPage>
-          </BreadcrumbItem>
-        )}
+    <Breadcrumb
+      aria-label={t('Current page')}
+      className='pc-breadcrumb min-w-0'
+    >
+      <BreadcrumbList>
+        {visible.map((crumb, index) => (
+          <Fragment key={crumb.key}>
+            {index > 0 && <BreadcrumbSeparator />}
+            <BreadcrumbItem className='min-w-0'>{crumb.node}</BreadcrumbItem>
+          </Fragment>
+        ))}
       </BreadcrumbList>
     </Breadcrumb>
   )

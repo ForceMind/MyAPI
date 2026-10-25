@@ -1,9 +1,7 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { SidebarProvider } from '@/components/ui/sidebar'
-import { LayoutProvider } from '@/context/layout-provider'
 import { SearchProvider } from '@/context/search-provider'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
@@ -31,13 +29,9 @@ function setMobileViewport() {
 
 function Shell(props: { children: React.ReactNode }) {
   return (
-    <LayoutProvider>
-      <SearchProvider>
-        <SidebarProvider>
-          <ConsoleShell>{props.children}</ConsoleShell>
-        </SidebarProvider>
-      </SearchProvider>
-    </LayoutProvider>
+    <SearchProvider>
+      <ConsoleShell>{props.children}</ConsoleShell>
+    </SearchProvider>
   )
 }
 
@@ -65,7 +59,7 @@ afterEach(() => {
 
 test('desktop navigation retains diagnostic and maintenance modules without commerce', async () => {
   const user = userEvent.setup()
-  await renderShellRoute(
+  const { router } = await renderShellRoute(
     <Shell>
       <main id='content'>Workspace</main>
     </Shell>
@@ -80,26 +74,41 @@ test('desktop navigation retains diagnostic and maintenance modules without comm
     within(desktop).getByRole('link', { name: 'API Keys' })
   ).toHaveAttribute('href', '/keys')
   expect(
+    within(desktop).getByRole('link', { name: 'Upstream' })
+  ).toHaveAttribute('href', '/connections')
+  expect(
     within(desktop).queryByRole('link', { name: /Wallet|Balance|Recharge/i })
   ).not.toBeInTheDocument()
+  // The record pages are the Requests area's tabs.
+  await user.click(within(desktop).getByRole('link', { name: 'Requests' }))
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe('/usage-logs/common')
+  )
+  const records = screen.getByRole('navigation', { name: 'Requests' })
   for (const [name, href] of [
     ['Bodies & SSE', '/full-content-logs'],
     ['Tasks', '/usage-logs/task'],
     ['Drawing', '/usage-logs/drawing'],
-    ['Connections', '/connections'],
   ]) {
-    expect(within(desktop).getByRole('link', { name })).toHaveAttribute(
+    expect(within(records).getByRole('link', { name })).toHaveAttribute(
       'href',
       href
     )
   }
-  const system = within(desktop).getByRole('button', { name: 'System' })
-  expect(system).toHaveAttribute('aria-expanded', 'false')
-  await user.click(system)
-  expect(system).toHaveAttribute('aria-expanded', 'true')
+  const admin = within(desktop).getByRole('button', { name: 'Admin' })
+  expect(admin).toHaveAttribute('aria-expanded', 'false')
+  await user.click(admin)
+  expect(admin).toHaveAttribute('aria-expanded', 'true')
+  const menu = await screen.findByRole('menu')
   expect(
-    within(desktop).getByRole('link', { name: 'System status' })
+    within(menu).getByRole('menuitem', { name: 'System status' })
   ).toHaveAttribute('href', '/system-info')
+  expect(
+    within(menu).queryByRole('menuitem', {
+      name: /Wallet|Balance|Recharge/i,
+    })
+  ).not.toBeInTheDocument()
+  await user.keyboard('{Escape}')
   await user.click(screen.getByRole('button', { name: 'Account menu' }))
   expect(await screen.findByTestId('console-build-revision')).toHaveTextContent(
     /^rv\./
@@ -157,7 +166,7 @@ test('a lower role cannot use the upstream destination and sidebar narrowing sti
     name: 'Personal console navigation',
   })
   expect(
-    within(navigation).queryByRole('link', { name: 'Account windows' })
+    within(navigation).queryByRole('link', { name: 'Upstream' })
   ).not.toBeInTheDocument()
   expect(
     within(navigation).queryByRole('link', { name: 'API Keys' })
@@ -175,10 +184,19 @@ test('channel management has its own destination instead of selecting the accoun
     name: 'Personal console navigation',
   })
   expect(
-    within(navigation).getByRole('link', { name: 'Connections' })
+    within(navigation).getByRole('link', { name: 'Upstream' })
+  ).toHaveAttribute('aria-current', 'page')
+  const pages = screen.getByRole('navigation', { name: 'Upstream' })
+  expect(
+    within(pages)
+      .getAllByRole('link')
+      .map((link) => link.textContent)
+  ).toEqual(['Connections', 'Account windows', 'Model catalog'])
+  expect(
+    within(pages).getByRole('link', { name: 'Connections' })
   ).toHaveAttribute('aria-current', 'page')
   expect(
-    within(navigation).getByRole('link', { name: 'Account windows' })
+    within(pages).getByRole('link', { name: 'Account windows' })
   ).not.toHaveAttribute('aria-current')
 })
 
@@ -199,24 +217,13 @@ test('keyboard users can reach the skip link before the navigation', async () =>
 
 test('confirmed personal mode retains context for existing maintenance and error pages', async () => {
   const { AuthenticatedLayout } = await import('../authenticated-layout')
-  const { useLayout } = await import('@/context/layout-provider')
   const { useSearch } = await import('@/context/search-provider')
-  const { useSidebar } = await import('@/components/ui/sidebar')
   const { ThemeProvider } = await import('@/context/theme-provider')
   function ExistingPage() {
-    const layout = useLayout()
     const search = useSearch()
-    const sidebar = useSidebar()
     return (
       <main id='content'>
-        <button
-          type='button'
-          onClick={() => {
-            layout.resetLayout()
-            search.setOpen(true)
-            sidebar.setOpen(false)
-          }}
-        >
+        <button type='button' onClick={() => search.setOpen(true)}>
           Find a page
         </button>
       </main>

@@ -7057,6 +7057,9 @@
     "{{count}} requests completed without a usage report": "{{count}} requests completed without a usage report",
     "{{count}} s": "{{count}} s",
     "{{remaining}} remaining of {{total}}": "{{remaining}} remaining of {{total}}",
-    "{{value}}% used": "{{value}}% used"
+    "{{value}}% used": "{{value}}% used",
+    "Requests_section": "Requests",
+    "Admin_nav": "Admin",
+    "{{section}} sections": "{{section}} sections"
   }
 }

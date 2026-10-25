@@ -76,7 +76,15 @@ export type NavChatPresets = BaseNavItem & {
 export type NavItem = NavCollapsible | NavLink | NavChatPresets
 
 /**
- * Navigation group type - a group of navigation items in sidebar
+ * Where a root navigation group is offered in the console shell:
+ * `primary` groups are the top-bar destinations (their items become the
+ * section's page tabs), `admin` groups form the Full edition's Admin menu for
+ * administrators (and otherwise join More), `more` groups always join More.
+ */
+type NavPlacement = 'primary' | 'admin' | 'more'
+
+/**
+ * Navigation group type - one destination area of the console
  */
 export type NavGroup = {
   id?: string
@@ -84,17 +92,13 @@ export type NavGroup = {
   items: NavItem[]
   /** The group heading is announced to assistive technology only. */
   titleHidden?: boolean
-  /** The sidebar shows the group folded unless it holds the current page. */
-  defaultCollapsed?: boolean
   /** Label for the group in the mobile bottom bar, when it has a tab. */
   shortTitle?: string
+  placement?: NavPlacement
 }
 
 /**
- * Root sidebar data type
- *
- * Used by the default (top-level) sidebar view that lists primary
- * application navigation (chat, dashboard, admin, etc).
+ * Root navigation data: the console's destination areas in display order.
  */
 export type SidebarData = {
   navGroups: NavGroup[]
@@ -123,12 +127,11 @@ export type SidebarViewParent = {
 }
 
 /**
- * Nested sidebar view configuration
+ * Nested view configuration
  *
- * A nested view replaces the root navigation when the user enters a
- * dedicated workspace (e.g. System Settings). It models the modern
- * Vercel / Cloudflare "drill-in" sidebar UX: clicking a top-level entry
- * swaps the sidebar to a contextual view with a "Back" affordance.
+ * A nested view lists the pages of a dedicated workspace (e.g. System
+ * Settings): its groups become the workspace's page tabs and are offered in
+ * the mobile More sheet while the user is inside it.
  */
 export type SidebarView = {
   /** Stable identifier (also drives transition animation keys) */

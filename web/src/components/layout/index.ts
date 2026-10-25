@@ -30,9 +30,7 @@ export { HeaderLogo } from './components/header-logo'
 export { NavLinkItem, NavLinkList } from './components/nav-link-item'
 export { Main } from './components/main'
 export { PageFooterPortal } from './components/page-footer'
-export { NavGroup } from './components/nav-group'
 export { SectionPageLayout } from './components/section-page-layout'
-export { SystemBrand } from './components/system-brand'
 export { MobileDrawer } from './components/mobile-drawer'
 
 // Configuration

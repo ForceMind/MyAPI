@@ -121,14 +121,6 @@ For commercial licensing, please contact support@quantumnous.com
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
 
   /* Legacy MyAPI aliases. They now point at the semantic tokens so there is
    * a single palette; new code uses the semantic utilities directly. */
@@ -260,14 +252,6 @@ For commercial licensing, please contact support@quantumnous.com
   --chart-3: oklch(0.5859 0.1107 224.73); /* #0089AD */
   --chart-4: oklch(0.5232 0.2129 293.06); /* #7442D6 */
   --chart-5: oklch(0.5111 0.1637 353.24); /* #A8326E */
-  --sidebar: oklch(0.9601 0.0103 261.79); /* #EEF2F9 */
-  --sidebar-foreground: oklch(0.313 0.0548 266.21); /* #24304D */
-  --sidebar-primary: oklch(0.4837 0.2864 264.08); /* #0035FC */
-  --sidebar-primary-foreground: oklch(1 0 0); /* #FFFFFF */
-  --sidebar-accent: oklch(0.9231 0.0367 270.47); /* #DCE5FF */
-  --sidebar-accent-foreground: oklch(0.403 0.2353 264.03); /* #0029C4 */
-  --sidebar-border: oklch(0.9118 0.0176 264.48); /* #DCE2EE */
-  --sidebar-ring: oklch(0.4837 0.2864 264.08); /* #0035FC */
   --skeleton-base: color-mix(in oklch, var(--foreground) 6%, var(--background));
   --skeleton-highlight: color-mix(
     in oklch,
@@ -405,14 +389,6 @@ For commercial licensing, please contact support@quantumnous.com
   --chart-3: oklch(0.6357 0.1209 225.45); /* #0099C2 */
   --chart-4: oklch(0.6652 0.1693 293.9); /* #9B7BF0 */
   --chart-5: oklch(0.6376 0.1747 355.9); /* #D9558F */
-  --sidebar: oklch(0.1514 0.0248 267.11); /* #070B16 */
-  --sidebar-foreground: oklch(0.863 0.0294 266.34); /* #C9D2E6 */
-  --sidebar-primary: oklch(0.6977 0.158 271.41); /* #7B95FF */
-  --sidebar-primary-foreground: oklch(0.1514 0.0248 267.11); /* #070B16 */
-  --sidebar-accent: oklch(0.2886 0.0795 270.02); /* #1C2752 */
-  --sidebar-accent-foreground: oklch(0.8776 0.0596 272.6); /* #C9D5FF */
-  --sidebar-border: oklch(0.3153 0.0475 265.59); /* #26314A */
-  --sidebar-ring: oklch(0.7414 0.1329 271.94); /* #8EA5FF */
   --skeleton-base: color-mix(in oklch, var(--foreground) 8%, var(--background));
   --skeleton-highlight: color-mix(
     in oklch,

@@ -56,13 +56,6 @@ For commercial licensing, please contact support@quantumnous.com
   --input: oklch(0.4076 0.0514 266.82); /* #3D4966 */
   --ring: oklch(0.403 0.2353 264.03); /* #0029C4 */
   --line: oklch(0.5141 0.0454 266.09); /* #5B6782 */
-  --sidebar: oklch(0.9392 0.0145 264.5); /* #E6EBF5 */
-  --sidebar-foreground: oklch(0.1463 0.0377 269.07); /* #05091A */
-  --sidebar-primary: oklch(0.403 0.2353 264.03); /* #0029C4 */
-  --sidebar-accent: oklch(0.9088 0.0438 271.34); /* #D6E0FF */
-  --sidebar-accent-foreground: oklch(0.314 0.1839 264.04); /* #001A8C */
-  --sidebar-border: oklch(0.5141 0.0454 266.09); /* #5B6782 */
-  --sidebar-ring: oklch(0.403 0.2353 264.03); /* #0029C4 */
 }
 .dark [data-theme-preset='high-contrast'] {
   --background: oklch(0.1071 0.0194 262.03); /* #02040A */
@@ -92,14 +85,6 @@ For commercial licensing, please contact support@quantumnous.com
   --border: oklch(0.659 0.043 264.91); /* #8592AD */
   --input: oklch(0.75 0.0367 265.91); /* #A3AEC6 */
   --ring: oklch(0.8776 0.0596 272.6); /* #C9D5FF */
-  --sidebar: oklch(0.1071 0.0194 262.03); /* #02040A */
-  --sidebar-foreground: oklch(1 0 0); /* #FFFFFF */
-  --sidebar-primary: oklch(0.8033 0.0987 272.59); /* #A9BBFF */
-  --sidebar-primary-foreground: oklch(0.1071 0.0194 262.03); /* #02040A */
-  --sidebar-accent: oklch(0.2809 0.0799 269.83); /* #1A2550 */
-  --sidebar-accent-foreground: oklch(1 0 0); /* #FFFFFF */
-  --sidebar-border: oklch(0.659 0.043 264.91); /* #8592AD */
-  --sidebar-ring: oklch(0.8776 0.0596 272.6); /* #C9D5FF */
 }
 
 /* ── Preset swatches (theme settings drawer) ─────────────────────────── */
@@ -219,14 +204,6 @@ For commercial licensing, please contact support@quantumnous.com
 }
 
 /* ── Content layout ───────────────────────────────────────────────────── */
-/* `centered` clamps inset content to a comfortable reading width on large screens.
- * Targets every direct child of <SidebarInset> so router outlet wrappers and
- * page content alike are centered. Only kicks in once the viewport exceeds the
- * clamp value. */
-@media (min-width: 1280px) {
-  [data-theme-content-layout='centered'] [data-slot='sidebar-inset'] > * {
-    max-width: var(--max-content-width, 1280px);
-    margin-inline: auto;
-    width: 100%;
-  }
-}
+/* `centered` (the default) keeps the console's top bar and content column at
+ * the 1200px width of design direction 3; `full` lets both span the window.
+ * The rules live with the shell in personal-console.css. */

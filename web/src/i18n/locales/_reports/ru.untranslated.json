@@ -70,5 +70,6 @@
   "This permanently deletes the selected full request and response records. This action cannot be undone.": "This permanently deletes the selected full request and response records. This action cannot be undone.",
   "Token name or ID": "Token name or ID",
   "View content": "View content",
-  "Windows PowerShell": "Windows PowerShell"
+  "Windows PowerShell": "Windows PowerShell",
+  "Requests_section": "Requests"
 }

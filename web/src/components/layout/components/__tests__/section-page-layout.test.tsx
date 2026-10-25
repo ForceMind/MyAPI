@@ -2,22 +2,20 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
-import { SidebarInset } from '@/components/ui/sidebar'
-
 import { PageFooterPortal } from '../page-footer'
 import { SectionPageLayout } from '../section-page-layout'
 
 describe('shared task page', () => {
-  it('provides one focusable main target inside the application inset', () => {
+  it('provides one focusable main target inside the console page frame', () => {
     render(
-      <SidebarInset>
+      <div className='pc-page-frame'>
         <SectionPageLayout>
           <SectionPageLayout.Title>API Keys</SectionPageLayout.Title>
           <SectionPageLayout.Content>
             Existing key list
           </SectionPageLayout.Content>
         </SectionPageLayout>
-      </SidebarInset>
+      </div>
     )
     const main = screen.getByRole('main')
     expect(main).toHaveAttribute('id', 'content')
