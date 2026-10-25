@@ -67,6 +67,8 @@ export function getRequestFacts(log: UsageLog) {
   return {
     completed: evidence.completed,
     usageKnown: evidence.usageKnown,
+    /** Usage provenance as recorded (`reported`, `estimated`, ...). */
+    accuracy: other?.usage_accuracy,
     outcome,
     httpStatus,
     usage,

@@ -17,11 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Link, getRouteApi, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useInspectorBack } from '@/components/inspector/inspector-history'
-import { InspectorLayout } from '@/components/inspector/inspector-layout'
 import { SectionPageLayout } from '@/components/layout'
 import type { NavGroup } from '@/components/layout/types'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -34,7 +32,6 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import { UserInfoDialog } from './components/dialogs/user-info-dialog'
 import { PendingUsageReviews } from './components/pending-usage-reviews'
-import { RequestLookupInspector } from './components/request-lookup-inspector'
 import {
   type LogsViewScope,
   UsageLogsProvider,
@@ -42,9 +39,6 @@ import {
   useUsageLogsContext,
 } from './components/usage-logs-provider'
 import { UsageLogsTable } from './components/usage-logs-table'
-import { useRequestLookup } from './hooks/use-request-lookup'
-import type { RequestInspectorTab } from './lib/request-inspector-tabs'
-import { getDefaultTimeRange } from './lib/utils'
 import {
   isUsageLogsSectionId,
   USAGE_LOGS_DEFAULT_SECTION,
@@ -85,67 +79,7 @@ function UsageLogsContent() {
     affinityDialogOpen,
     setAffinityDialogOpen,
   } = useUsageLogsContext()
-  const { canManageScope, viewScope, setViewScope, isAdminView } =
-    useLogsViewScope()
-  const goBack = useInspectorBack()
-  const routeNavigate = route.useNavigate()
-  const inspectedRequestId =
-    activeCategory === 'common' && contextSearch.inspect === 'request'
-      ? contextSearch.requestId || undefined
-      : undefined
-  const lookup = useRequestLookup({
-    requestId: inspectedRequestId,
-    isAdmin: isAdminView,
-    enabled: inspectedRequestId !== undefined,
-  })
-  const foundAt = lookup.data?.log?.created_at
-  const hasExplicitRange =
-    contextSearch.startTime !== undefined || contextSearch.endTime !== undefined
-  // The table keeps its default "today" range; widen it once to the day of
-  // the found record so the list behind the inspector shows the same row.
-  useEffect(() => {
-    if (foundAt === undefined || hasExplicitRange) return
-    const start = new Date(foundAt * 1000)
-    start.setHours(0, 0, 0, 0)
-    const { start: todayStart } = getDefaultTimeRange()
-    if (start.getTime() >= todayStart.getTime()) return
-    void routeNavigate({
-      search: (previous) => ({
-        ...previous,
-        startTime: start.getTime(),
-        endTime: start.getTime() + 24 * 3600 * 1000,
-      }),
-      replace: true,
-      state: (previous) => previous,
-    })
-  }, [foundAt, hasExplicitRange, routeNavigate])
-  const closeRequest = useCallback(
-    () =>
-      goBack(
-        () =>
-          void routeNavigate({
-            search: (previous) => ({
-              ...previous,
-              inspect: undefined,
-              requestTab: undefined,
-            }),
-            replace: true,
-          })
-      ),
-    [goBack, routeNavigate]
-  )
-  const changeRequestTab = useCallback(
-    (requestTab: RequestInspectorTab) =>
-      void routeNavigate({
-        search: (previous) => ({
-          ...previous,
-          requestTab: requestTab === 'diagnosis' ? undefined : requestTab,
-        }),
-        replace: true,
-        state: (previous) => previous,
-      }),
-    [routeNavigate]
-  )
+  const { canManageScope, viewScope, setViewScope } = useLogsViewScope()
   const tabNavGroups = useMemo<NavGroup[]>(
     () => [
       {
@@ -243,71 +177,45 @@ function UsageLogsContent() {
           </SectionPageLayout.Actions>
         )}
         <SectionPageLayout.Content>
-          <InspectorLayout
-            open={inspectedRequestId !== undefined}
-            label={t('Request {{requestId}}', {
-              requestId: inspectedRequestId ?? '',
-            })}
-            onClose={closeRequest}
-            fill={!isMobile}
-            inspector={
-              inspectedRequestId !== undefined && (
-                <RequestLookupInspector
-                  key={inspectedRequestId}
-                  requestId={inspectedRequestId}
-                  lookup={lookup}
-                  isAdmin={isAdminView}
-                  tab={contextSearch.requestTab ?? 'diagnosis'}
-                  onTabChange={changeRequestTab}
-                  onClose={closeRequest}
-                />
-              )
+          <div
+            className={
+              isMobile
+                ? 'flex min-h-full flex-col gap-4'
+                : 'flex h-full min-h-0 flex-col gap-4'
             }
-            list={
+          >
+            {contextSearch.tokenId && (
               <div
-                className={
-                  isMobile
-                    ? 'flex min-h-full flex-col gap-4'
-                    : 'flex h-full min-h-0 flex-col gap-4'
-                }
+                className='bg-muted/30 space-y-1 rounded-lg border p-3 text-sm'
+                role='status'
               >
-                {contextSearch.tokenId && (
-                  <div
-                    className='bg-muted/30 space-y-1 rounded-lg border p-3 text-sm'
-                    role='status'
-                  >
-                    <p className='font-medium'>
-                      {t('Requests for Key #{{id}}', {
-                        id: contextSearch.tokenId,
-                      })}
-                    </p>
-                    <p className='text-muted-foreground'>
-                      {t(
-                        'Requests are matched by the saved Key ID, including before a rename.'
-                      )}
-                    </p>
-                  </div>
-                )}
-                {showTaskSwitcher && (
-                  <Tabs
-                    value={activeCategory}
-                    onValueChange={handleSectionChange}
-                  >
-                    <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
-                      {visibleSections.map((section) => (
-                        <TabsTrigger key={section} value={section}>
-                          {t(SECTION_META[section].titleKey)}
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
-                  </Tabs>
-                )}
-                <div className='min-h-0 flex-1'>
-                  <UsageLogsTable logCategory={activeCategory} />
-                </div>
+                <p className='font-medium'>
+                  {t('Requests for Key #{{id}}', {
+                    id: contextSearch.tokenId,
+                  })}
+                </p>
+                <p className='text-muted-foreground'>
+                  {t(
+                    'Requests are matched by the saved Key ID, including before a rename.'
+                  )}
+                </p>
               </div>
-            }
-          />
+            )}
+            {showTaskSwitcher && (
+              <Tabs value={activeCategory} onValueChange={handleSectionChange}>
+                <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
+                  {visibleSections.map((section) => (
+                    <TabsTrigger key={section} value={section}>
+                      {t(SECTION_META[section].titleKey)}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            )}
+            <div className='min-h-0 flex-1'>
+              <UsageLogsTable logCategory={activeCategory} />
+            </div>
+          </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>
 

@@ -20,10 +20,11 @@ import { vi } from 'vitest'
 
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { api } from '@/lib/api'
+import { Route as keyPageRoute } from '@/routes/_authenticated/keys/$keyId/index'
+import { Route as keyRequestRoute } from '@/routes/_authenticated/keys/$keyId/requests/$requestId'
+import { Route as keysRoute } from '@/routes/_authenticated/keys/index'
 import { useAuthStore } from '@/stores/auth-store'
 
-import { ApiKeys } from '..'
-import { apiKeySearchSchema } from '../lib/keys-search'
 import { apiKeySchema, type ApiKey } from '../types'
 
 export const KEY_21 = apiKeySchema.parse({
@@ -134,10 +135,12 @@ export function mockKeysApi(
       const params = new URLSearchParams(path.split('?')[1])
       const tokenId = params.get('token_id')
       const requestId = params.get('request_id')
+      const type = params.get('type')
       const items = fixture.logs.filter(
         (log) =>
           (!tokenId || String(log.token_id) === tokenId) &&
-          (!requestId || log.request_id === requestId)
+          (!requestId || log.request_id === requestId) &&
+          (!type || String(log.type) === type)
       )
       return { data: { success: true, data: { items, total: items.length } } }
     }
@@ -226,11 +229,30 @@ export async function renderKeysPage(client: QueryClient, entry = '/keys') {
     id: '_authenticated',
     component: Outlet,
   })
+  // The real list, Key page and request page routes, including their
+  // redirects of earlier inspector links.
   const keys = createRoute({
     getParentRoute: () => authenticated,
     path: 'keys/',
-    validateSearch: apiKeySearchSchema,
-    component: ApiKeys,
+    validateSearch: keysRoute.options.validateSearch,
+    beforeLoad: (options) => keysRoute.options.beforeLoad?.(options as never),
+    component: keysRoute.options.component,
+  })
+  const keyPage = createRoute({
+    getParentRoute: () => authenticated,
+    path: 'keys/$keyId/',
+    validateSearch: keyPageRoute.options.validateSearch,
+    beforeLoad: (options) =>
+      keyPageRoute.options.beforeLoad?.(options as never),
+    component: keyPageRoute.options.component,
+  })
+  const keyRequest = createRoute({
+    getParentRoute: () => authenticated,
+    path: 'keys/$keyId/requests/$requestId',
+    validateSearch: keyRequestRoute.options.validateSearch,
+    beforeLoad: (options) =>
+      keyRequestRoute.options.beforeLoad?.(options as never),
+    component: keyRequestRoute.options.component,
   })
   const playground = createRoute({
     getParentRoute: () => authenticated,
@@ -244,7 +266,7 @@ export async function renderKeysPage(client: QueryClient, entry = '/keys') {
   })
   const router = createRouter({
     routeTree: root.addChildren([
-      authenticated.addChildren([keys, playground, logs]),
+      authenticated.addChildren([keys, keyPage, keyRequest, playground, logs]),
     ]),
     history: createMemoryHistory({ initialEntries: [entry] }),
   })

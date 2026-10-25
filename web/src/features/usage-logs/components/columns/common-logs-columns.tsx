@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { Link } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { GitBranch, Sparkles, KeyRound } from 'lucide-react'
 import { useState } from 'react'
@@ -51,6 +52,7 @@ import {
   renderAuditContent,
 } from '../../lib/format'
 import { getPersonalCallEvidence } from '../../lib/personal-call-evidence'
+import { isRequestLog } from '../../lib/request-facts'
 import {
   isDisplayableLogType,
   isTimingLogType,
@@ -795,6 +797,30 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
           )
         }
 
+        const label = (
+          <>
+            <span className='text-primary shrink-0 font-medium'>
+              {t('Details')}
+            </span>
+            {detailPreview}
+          </>
+        )
+        // A relayed request with an ID has its own page; other records
+        // (top-ups, audits, older rows without an ID) keep the dialog.
+        if (log.request_id && isRequestLog(log)) {
+          return (
+            <Link
+              to='/usage-logs/request/$requestId'
+              params={{ requestId: log.request_id }}
+              state={{ inspectorBack: true }}
+              className='group flex max-w-[200px] items-center gap-1 text-left text-xs'
+              title={t('Click to view full details')}
+            >
+              {label}
+            </Link>
+          )
+        }
+
         return (
           <>
             <button
@@ -803,10 +829,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
               onClick={() => setDialogOpen(true)}
               title={t('Click to view full details')}
             >
-              <span className='text-primary shrink-0 font-medium'>
-                {t('Details')}
-              </span>
-              {detailPreview}
+              {label}
             </button>
             <DetailsDialog
               log={log}

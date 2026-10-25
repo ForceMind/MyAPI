@@ -7,7 +7,7 @@ the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
 import type { QueryClient } from '@tanstack/react-query'
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18next from 'i18next'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -73,11 +73,17 @@ afterEach(() => {
 
 async function openKey() {
   const mocks = mockKeysApi({ keys: [KEY_21], logs, status: {} })
-  const result = await renderKeysPage(client, '/keys?inspect=21')
-  const inspector = await screen.findByRole('complementary', {
-    name: 'API Key #21',
-  })
+  const result = await renderKeysPage(client, '/keys/21')
+  const inspector = await screen.findByTestId('key-page')
   return { ...result, mocks, inspector }
+}
+
+/** What the breadcrumb and the mobile top bar's Back do. */
+async function stepBack() {
+  await waitFor(() =>
+    expect(useInspectorStore.getState().current?.page).toBe(true)
+  )
+  act(() => useInspectorStore.getState().current?.close())
 }
 
 test('a completed request without a usage report is successful and shows no invented tokens', async () => {
@@ -90,13 +96,13 @@ test('a completed request without a usage report is successful and shows no inve
   expect(within(rows[0]).getByText('Usage not provided')).toBeVisible()
   expect(within(rows[0]).queryByText(/0 Tokens/)).not.toBeInTheDocument()
   await user.click(rows[0])
-  const detail = await screen.findByTestId('request-inspector')
+  const detail = await screen.findByTestId('request-page')
   expect(
-    within(detail).getAllByText('Usage not provided').length
+    (await within(detail).findAllByText('Usage not provided')).length
   ).toBeGreaterThan(0)
   expect(
     within(detail).getByRole('button', { name: 'View this Key' })
-  ).toHaveAttribute('href', '/keys?inspect=21&tab=requests')
+  ).toHaveAttribute('href', '/keys/21')
   expect(screen.queryByText('Current Balance')).not.toBeInTheDocument()
   // An ordinary user reads only its own call records for this Key.
   const logCall = mocks.get.mock.calls
@@ -114,19 +120,17 @@ test('a failed request opens by keyboard and Back returns focus to it', async ()
   })
   rows[1].focus()
   await user.keyboard('{Enter}')
-  const detail = await screen.findByTestId('request-inspector')
-  expect(within(detail).getAllByText('Request failed').length).toBeGreaterThan(
-    0
-  )
+  const detail = await screen.findByTestId('request-page')
+  expect(
+    (await within(detail).findAllByText('Request failed')).length
+  ).toBeGreaterThan(0)
   expect(within(detail).getByText('Upstream rate limited')).toBeVisible()
-  await user.click(
-    within(detail).getByRole('button', { name: /Back to Desktop application/ })
-  )
+  await stepBack()
   await waitFor(() =>
     expect(
-      within(
-        screen.getByRole('complementary', { name: 'API Key #21' })
-      ).getAllByRole('button', { name: /synthetic-model/ })[1]
+      within(screen.getByTestId('key-page')).getAllByRole('button', {
+        name: /synthetic-model/,
+      })[1]
     ).toHaveFocus()
   )
 })
@@ -148,17 +152,20 @@ test('a failed read offers a retry and an empty answer then shows the empty stat
   if (!original) throw new Error('fixture has no GET handler')
   let failures = 1
   mocks.get.mockImplementation(async (url, config) => {
-    if (String(url).startsWith('/api/log') && failures > 0) {
+    // The Key's latest requests (not its 24-hour totals) fail once.
+    if (
+      String(url).startsWith('/api/log') &&
+      String(url).includes('page_size=20') &&
+      failures > 0
+    ) {
       failures--
       throw new Error('Synthetic unavailable')
     }
     return original(url, config)
   })
   const user = userEvent.setup()
-  await renderKeysPage(client, '/keys?inspect=21')
-  const inspector = await screen.findByRole('complementary', {
-    name: 'API Key #21',
-  })
+  await renderKeysPage(client, '/keys/21')
+  const inspector = await screen.findByTestId('key-page')
   expect(
     await within(inspector).findByText('Could not load requests for this Key')
   ).toBeVisible()

@@ -63,6 +63,7 @@ import {
   readPublishedPriceReference,
 } from '../../lib/format'
 import { getPersonalCallEvidence } from '../../lib/personal-call-evidence'
+import { relayAttemptOutcomeLabel } from '../../lib/relay-attempts'
 import {
   getLogTypeConfig,
   isCompletedUsageReview,
@@ -527,7 +528,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
 }
 
 /** Usage accuracy and log type, shown beside the details title. */
-export function LogDetailsBadges(props: { log: UsageLog }) {
+function LogDetailsBadges(props: { log: UsageLog }) {
   const { t } = useTranslation()
   const other = parseLogOther(props.log.other)
   const typeConfig = getLogTypeConfig(props.log.type, other)
@@ -548,8 +549,8 @@ export function LogDetailsBadges(props: { log: UsageLog }) {
 
 /**
  * Diagnosis of one call record: outcome, routing, timing, usage and billing
- * evidence. `embedded` is the request inspector, which shows saved bodies in
- * its own tabs instead of opening a second dialog.
+ * evidence. `embedded` is the request page, which shows saved bodies in its
+ * own tabs and relay attempts in its timeline instead of here.
  */
 export function LogDetailsContent(props: {
   log: UsageLog
@@ -746,9 +747,7 @@ export function LogDetailsContent(props: {
         <Button
           size='sm'
           variant='ghost'
-          render={
-            <a href={`/keys?inspect=${props.log.token_id}&tab=requests`} />
-          }
+          render={<a href={`/keys/${props.log.token_id}`} />}
         >
           {t('View this Key')}
         </Button>
@@ -1275,87 +1274,73 @@ export function LogDetailsContent(props: {
           />
         </DetailSection>
       )}
-      {props.isAdmin && !!other?.admin_info?.relay_attempts?.length && (
-        <DetailSection label={t('Relay attempts')}>
-          <p className='text-muted-foreground text-xs wrap-break-word'>
-            {t(
-              'Attempts are shown in recorded order. Selected means current at log time, not confirmed completion. Key indexes start at 0 and may change when keys are reordered.'
-            )}
-          </p>
-          <ol aria-label={t('Relay attempts')} className='min-w-0 space-y-3'>
-            {other.admin_info.relay_attempts.map((attempt, index) => {
-              let outcome = t('Unknown outcome')
-              switch (attempt.outcome) {
-                case 'selected':
-                  outcome = t('Selected at log time')
-                  break
-                case 'refused':
-                  outcome = t('Refused')
-                  break
-                case 'retryable_refusal':
-                  outcome = t('Refused; retry allowed')
-                  break
-                case 'failed':
-                  outcome = t('Failed')
-                  break
-                case 'completed':
-                  outcome = t('Completed')
-                  break
-              }
-              return (
-                // Log snapshots are immutable ordered evidence with no attempt ID.
-                // oxlint-disable-next-line react/no-array-index-key
-                <li key={index} className='min-w-0 space-y-1'>
-                  <p className='text-xs font-medium'>
-                    {t('Attempt {{number}}', { number: index + 1 })}
-                  </p>
-                  <DetailRow
-                    label={t('Connection ID')}
-                    value={String(attempt.channel_id)}
-                    mono
-                  />
-                  <DetailRow
-                    label={t('Key index (0-based)')}
-                    value={String(attempt.key_index)}
-                    mono
-                  />
-                  <DetailRow
-                    label={t('Upstream model')}
-                    value={attempt.upstream_model}
-                    mono
-                  />
-                  <DetailRow label={t('Outcome')} value={outcome} />
-                  {attempt.status != null && attempt.status > 0 && (
+      {/* The request page shows the attempts in its diagnosis timeline. */}
+      {props.isAdmin &&
+        !props.embedded &&
+        !!other?.admin_info?.relay_attempts?.length && (
+          <DetailSection label={t('Relay attempts')}>
+            <p className='text-muted-foreground text-xs wrap-break-word'>
+              {t(
+                'Attempts are shown in recorded order. Selected means current at log time, not confirmed completion. Key indexes start at 0 and may change when keys are reordered.'
+              )}
+            </p>
+            <ol aria-label={t('Relay attempts')} className='min-w-0 space-y-3'>
+              {other.admin_info.relay_attempts.map((attempt, index) => {
+                const outcome = t(relayAttemptOutcomeLabel(attempt.outcome))
+                return (
+                  // Log snapshots are immutable ordered evidence with no attempt ID.
+                  // oxlint-disable-next-line react/no-array-index-key
+                  <li key={index} className='min-w-0 space-y-1'>
+                    <p className='text-xs font-medium'>
+                      {t('Attempt {{number}}', { number: index + 1 })}
+                    </p>
                     <DetailRow
-                      label={t('Failure HTTP status')}
-                      value={String(attempt.status)}
+                      label={t('Connection ID')}
+                      value={String(attempt.channel_id)}
                       mono
                     />
-                  )}
-                  {attempt.cooldown_seconds != null &&
-                    attempt.cooldown_seconds > 0 && (
-                      <div className='flex min-w-0 flex-col gap-1 text-xs wrap-break-word'>
-                        <p>
-                          {t(
-                            'Future-request account hold: {{seconds}} seconds',
-                            {
-                              seconds: attempt.cooldown_seconds,
-                            }
-                          )}
-                        </p>
-                        <p className='text-muted-foreground'>
-                          {t(
-                            "This temporary hold is recorded for later requests. It does not prove quota exhaustion or extend this request's retry window."
-                          )}
-                        </p>
-                      </div>
+                    <DetailRow
+                      label={t('Key index (0-based)')}
+                      value={String(attempt.key_index)}
+                      mono
+                    />
+                    <DetailRow
+                      label={t('Upstream model')}
+                      value={attempt.upstream_model}
+                      mono
+                    />
+                    <DetailRow label={t('Outcome')} value={outcome} />
+                    {attempt.status != null && attempt.status > 0 && (
+                      <DetailRow
+                        label={t('Failure HTTP status')}
+                        value={String(attempt.status)}
+                        mono
+                      />
                     )}
-                </li>
-              )
-            })}
-          </ol>
-        </DetailSection>
-      )}
+                    {attempt.cooldown_seconds != null &&
+                      attempt.cooldown_seconds > 0 && (
+                        <div className='flex min-w-0 flex-col gap-1 text-xs wrap-break-word'>
+                          <p>
+                            {t(
+                              'Future-request account hold: {{seconds}} seconds',
+                              {
+                                seconds: attempt.cooldown_seconds,
+                              }
+                            )}
+                          </p>
+                          <p className='text-muted-foreground'>
+                            {t(
+                              "This temporary hold is recorded for later requests. It does not prove quota exhaustion or extend this request's retry window."
+                            )}
+                          </p>
+                        </div>
+                      )}
+                  </li>
+                )
+              })}
+            </ol>
+          </DetailSection>
+        )}
       {/* Model mapping */}
       {other?.is_model_mapped && other?.upstream_model_name && (
         <DetailSection label={t('Model Mapping')}>

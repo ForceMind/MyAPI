@@ -57,6 +57,7 @@ import { Route as AuthenticatedUsageLogsSectionRouteImport } from './routes/_aut
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
 import { Route as AuthenticatedWalletIndexRouteImport } from './routes/_authenticated/wallet/index'
 import { Route as PricingModelIdIndexRouteImport } from './routes/pricing/$modelId/index'
+import { Route as AuthenticatedKeysKeyIdIndexRouteImport } from './routes/_authenticated/keys/$keyId/index'
 import { Route as AuthenticatedSystemSettingsAuthIndexRouteImport } from './routes/_authenticated/system-settings/auth/index'
 import { Route as AuthenticatedSystemSettingsAuthSectionRouteImport } from './routes/_authenticated/system-settings/auth/$section'
 import { Route as AuthenticatedSystemSettingsBillingIndexRouteImport } from './routes/_authenticated/system-settings/billing/index'
@@ -71,6 +72,8 @@ import { Route as AuthenticatedSystemSettingsSecurityIndexRouteImport } from './
 import { Route as AuthenticatedSystemSettingsSecuritySectionRouteImport } from './routes/_authenticated/system-settings/security/$section'
 import { Route as AuthenticatedSystemSettingsSiteIndexRouteImport } from './routes/_authenticated/system-settings/site/index'
 import { Route as AuthenticatedSystemSettingsSiteSectionRouteImport } from './routes/_authenticated/system-settings/site/$section'
+import { Route as AuthenticatedUsageLogsRequestRequestIdRouteImport } from './routes/_authenticated/usage-logs/request/$requestId'
+import { Route as AuthenticatedKeysKeyIdRequestsRequestIdRouteImport } from './routes/_authenticated/keys/$keyId/requests/$requestId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -330,6 +333,12 @@ const PricingModelIdIndexRoute = PricingModelIdIndexRouteImport.update({
   path: '/pricing/$modelId/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedKeysKeyIdIndexRoute =
+  AuthenticatedKeysKeyIdIndexRouteImport.update({
+    id: '/keys/$keyId/',
+    path: '/keys/$keyId/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSystemSettingsAuthIndexRoute =
   AuthenticatedSystemSettingsAuthIndexRouteImport.update({
     id: '/auth/',
@@ -414,6 +423,18 @@ const AuthenticatedSystemSettingsSiteSectionRoute =
     path: '/site/$section',
     getParentRoute: () => AuthenticatedSystemSettingsRouteRoute,
   } as any)
+const AuthenticatedUsageLogsRequestRequestIdRoute =
+  AuthenticatedUsageLogsRequestRequestIdRouteImport.update({
+    id: '/usage-logs/request/$requestId',
+    path: '/usage-logs/request/$requestId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedKeysKeyIdRequestsRequestIdRoute =
+  AuthenticatedKeysKeyIdRequestsRequestIdRouteImport.update({
+    id: '/keys/$keyId/requests/$requestId',
+    path: '/keys/$keyId/requests/$requestId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -469,6 +490,8 @@ export interface FileRoutesByFullPath {
   '/system-settings/operations/$section': typeof AuthenticatedSystemSettingsOperationsSectionRoute
   '/system-settings/security/$section': typeof AuthenticatedSystemSettingsSecuritySectionRoute
   '/system-settings/site/$section': typeof AuthenticatedSystemSettingsSiteSectionRoute
+  '/usage-logs/request/$requestId': typeof AuthenticatedUsageLogsRequestRequestIdRoute
+  '/keys/$keyId/': typeof AuthenticatedKeysKeyIdIndexRoute
   '/system-settings/auth/': typeof AuthenticatedSystemSettingsAuthIndexRoute
   '/system-settings/billing/': typeof AuthenticatedSystemSettingsBillingIndexRoute
   '/system-settings/content/': typeof AuthenticatedSystemSettingsContentIndexRoute
@@ -476,6 +499,7 @@ export interface FileRoutesByFullPath {
   '/system-settings/operations/': typeof AuthenticatedSystemSettingsOperationsIndexRoute
   '/system-settings/security/': typeof AuthenticatedSystemSettingsSecurityIndexRoute
   '/system-settings/site/': typeof AuthenticatedSystemSettingsSiteIndexRoute
+  '/keys/$keyId/requests/$requestId': typeof AuthenticatedKeysKeyIdRequestsRequestIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -530,6 +554,8 @@ export interface FileRoutesByTo {
   '/system-settings/operations/$section': typeof AuthenticatedSystemSettingsOperationsSectionRoute
   '/system-settings/security/$section': typeof AuthenticatedSystemSettingsSecuritySectionRoute
   '/system-settings/site/$section': typeof AuthenticatedSystemSettingsSiteSectionRoute
+  '/usage-logs/request/$requestId': typeof AuthenticatedUsageLogsRequestRequestIdRoute
+  '/keys/$keyId': typeof AuthenticatedKeysKeyIdIndexRoute
   '/system-settings/auth': typeof AuthenticatedSystemSettingsAuthIndexRoute
   '/system-settings/billing': typeof AuthenticatedSystemSettingsBillingIndexRoute
   '/system-settings/content': typeof AuthenticatedSystemSettingsContentIndexRoute
@@ -537,6 +563,7 @@ export interface FileRoutesByTo {
   '/system-settings/operations': typeof AuthenticatedSystemSettingsOperationsIndexRoute
   '/system-settings/security': typeof AuthenticatedSystemSettingsSecurityIndexRoute
   '/system-settings/site': typeof AuthenticatedSystemSettingsSiteIndexRoute
+  '/keys/$keyId/requests/$requestId': typeof AuthenticatedKeysKeyIdRequestsRequestIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -595,6 +622,8 @@ export interface FileRoutesById {
   '/_authenticated/system-settings/operations/$section': typeof AuthenticatedSystemSettingsOperationsSectionRoute
   '/_authenticated/system-settings/security/$section': typeof AuthenticatedSystemSettingsSecuritySectionRoute
   '/_authenticated/system-settings/site/$section': typeof AuthenticatedSystemSettingsSiteSectionRoute
+  '/_authenticated/usage-logs/request/$requestId': typeof AuthenticatedUsageLogsRequestRequestIdRoute
+  '/_authenticated/keys/$keyId/': typeof AuthenticatedKeysKeyIdIndexRoute
   '/_authenticated/system-settings/auth/': typeof AuthenticatedSystemSettingsAuthIndexRoute
   '/_authenticated/system-settings/billing/': typeof AuthenticatedSystemSettingsBillingIndexRoute
   '/_authenticated/system-settings/content/': typeof AuthenticatedSystemSettingsContentIndexRoute
@@ -602,6 +631,7 @@ export interface FileRoutesById {
   '/_authenticated/system-settings/operations/': typeof AuthenticatedSystemSettingsOperationsIndexRoute
   '/_authenticated/system-settings/security/': typeof AuthenticatedSystemSettingsSecurityIndexRoute
   '/_authenticated/system-settings/site/': typeof AuthenticatedSystemSettingsSiteIndexRoute
+  '/_authenticated/keys/$keyId/requests/$requestId': typeof AuthenticatedKeysKeyIdRequestsRequestIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -659,6 +689,8 @@ export interface FileRouteTypes {
     | '/system-settings/operations/$section'
     | '/system-settings/security/$section'
     | '/system-settings/site/$section'
+    | '/usage-logs/request/$requestId'
+    | '/keys/$keyId/'
     | '/system-settings/auth/'
     | '/system-settings/billing/'
     | '/system-settings/content/'
@@ -666,6 +698,7 @@ export interface FileRouteTypes {
     | '/system-settings/operations/'
     | '/system-settings/security/'
     | '/system-settings/site/'
+    | '/keys/$keyId/requests/$requestId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -720,6 +753,8 @@ export interface FileRouteTypes {
     | '/system-settings/operations/$section'
     | '/system-settings/security/$section'
     | '/system-settings/site/$section'
+    | '/usage-logs/request/$requestId'
+    | '/keys/$keyId'
     | '/system-settings/auth'
     | '/system-settings/billing'
     | '/system-settings/content'
@@ -727,6 +762,7 @@ export interface FileRouteTypes {
     | '/system-settings/operations'
     | '/system-settings/security'
     | '/system-settings/site'
+    | '/keys/$keyId/requests/$requestId'
   id:
     | '__root__'
     | '/'
@@ -784,6 +820,8 @@ export interface FileRouteTypes {
     | '/_authenticated/system-settings/operations/$section'
     | '/_authenticated/system-settings/security/$section'
     | '/_authenticated/system-settings/site/$section'
+    | '/_authenticated/usage-logs/request/$requestId'
+    | '/_authenticated/keys/$keyId/'
     | '/_authenticated/system-settings/auth/'
     | '/_authenticated/system-settings/billing/'
     | '/_authenticated/system-settings/content/'
@@ -791,6 +829,7 @@ export interface FileRouteTypes {
     | '/_authenticated/system-settings/operations/'
     | '/_authenticated/system-settings/security/'
     | '/_authenticated/system-settings/site/'
+    | '/_authenticated/keys/$keyId/requests/$requestId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1150,6 +1189,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PricingModelIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/keys/$keyId/': {
+      id: '/_authenticated/keys/$keyId/'
+      path: '/keys/$keyId'
+      fullPath: '/keys/$keyId/'
+      preLoaderRoute: typeof AuthenticatedKeysKeyIdIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/system-settings/auth/': {
       id: '/_authenticated/system-settings/auth/'
       path: '/auth'
@@ -1247,6 +1293,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/system-settings/site/$section'
       preLoaderRoute: typeof AuthenticatedSystemSettingsSiteSectionRouteImport
       parentRoute: typeof AuthenticatedSystemSettingsRouteRoute
+    }
+    '/_authenticated/usage-logs/request/$requestId': {
+      id: '/_authenticated/usage-logs/request/$requestId'
+      path: '/usage-logs/request/$requestId'
+      fullPath: '/usage-logs/request/$requestId'
+      preLoaderRoute: typeof AuthenticatedUsageLogsRequestRequestIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/keys/$keyId/requests/$requestId': {
+      id: '/_authenticated/keys/$keyId/requests/$requestId'
+      path: '/keys/$keyId/requests/$requestId'
+      fullPath: '/keys/$keyId/requests/$requestId'
+      preLoaderRoute: typeof AuthenticatedKeysKeyIdRequestsRequestIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
   }
 }
@@ -1358,6 +1418,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedUsageLogsIndexRoute: typeof AuthenticatedUsageLogsIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
   AuthenticatedWalletIndexRoute: typeof AuthenticatedWalletIndexRoute
+  AuthenticatedUsageLogsRequestRequestIdRoute: typeof AuthenticatedUsageLogsRequestRequestIdRoute
+  AuthenticatedKeysKeyIdIndexRoute: typeof AuthenticatedKeysKeyIdIndexRoute
+  AuthenticatedKeysKeyIdRequestsRequestIdRoute: typeof AuthenticatedKeysKeyIdRequestsRequestIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -1388,6 +1451,11 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedUsageLogsIndexRoute: AuthenticatedUsageLogsIndexRoute,
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
   AuthenticatedWalletIndexRoute: AuthenticatedWalletIndexRoute,
+  AuthenticatedUsageLogsRequestRequestIdRoute:
+    AuthenticatedUsageLogsRequestRequestIdRoute,
+  AuthenticatedKeysKeyIdIndexRoute: AuthenticatedKeysKeyIdIndexRoute,
+  AuthenticatedKeysKeyIdRequestsRequestIdRoute:
+    AuthenticatedKeysKeyIdRequestsRequestIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

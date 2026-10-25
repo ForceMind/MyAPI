@@ -8,7 +8,7 @@ version.
 */
 import { FilterHorizontalIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -18,9 +18,9 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { quotaWindowLabel } from '@/features/channels/lib/quota-history'
 import { formatTimestampToDate } from '@/lib/format'
-import { useAuthStore } from '@/stores/auth-store'
 
-import { getSubscriptionShare } from '../../subscription-share-api'
+import { useKeySubscriptionShare } from '../../hooks/use-key-subscription-share'
+import { heldSharePools, shareUsedPercent } from '../../lib/share-usage'
 import type { ApiKey } from '../../types'
 import { SubscriptionShareDialog } from '../subscription-share-dialog'
 
@@ -32,15 +32,8 @@ import { SubscriptionShareDialog } from '../subscription-share-dialog'
 export function KeySharesPanel(props: { apiKey: ApiKey }) {
   const { t } = useTranslation()
   const client = useQueryClient()
-  const userId = useAuthStore((state) => state.auth.user?.id)
-  const role = useAuthStore((state) => state.auth.user?.role)
-  const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const [editing, setEditing] = useState(false)
-  const share = useQuery({
-    queryKey: ['subscription-share', userId, role, sessionId, props.apiKey.id],
-    queryFn: ({ signal }) => getSubscriptionShare(props.apiKey.id, signal),
-    retry: false,
-  })
+  const share = useKeySubscriptionShare(props.apiKey.id)
 
   if (editing) {
     return (
@@ -55,13 +48,7 @@ export function KeySharesPanel(props: { apiKey: ApiKey }) {
     )
   }
 
-  const pools =
-    share.data?.pools.filter(
-      (pool) =>
-        pool.pool_id > 0 &&
-        pool.state !== 'candidate' &&
-        pool.state !== 'closed'
-    ) ?? []
+  const pools = heldSharePools(share.data)
 
   return (
     <div className='flex min-w-0 flex-col gap-3'>
@@ -100,10 +87,7 @@ export function KeySharesPanel(props: { apiKey: ApiKey }) {
       {!share.isError &&
         pools.map((pool) => {
           const knownUsage = pool.baseline_time > 0
-          const used =
-            knownUsage && pool.share_bps > 0
-              ? pool.estimated_used_micro / (pool.share_bps * 100)
-              : null
+          const used = shareUsedPercent(pool)
           const paused =
             pool.share_bps === 0 ||
             pool.state !== 'active' ||

@@ -116,6 +116,7 @@ export function useSidebarData(): SidebarData {
           title: t('API Keys', { context: 'nav' }),
           shortTitle: t('Keys'),
           url: '/keys',
+          activePrefixes: ['/keys/'],
           icon: Key01Icon,
         },
       ],
@@ -129,6 +130,7 @@ export function useSidebarData(): SidebarData {
         {
           title: t('Requests', { context: 'nav' }),
           url: '/usage-logs/common',
+          activePrefixes: ['/usage-logs/request/'],
           icon: Note01Icon,
         },
         {

@@ -10,7 +10,6 @@ import {
   DashboardSpeed01Icon,
   Edit02Icon,
   FilterHorizontalIcon,
-  SecurityCheckIcon,
   UserSettings01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -28,11 +27,7 @@ import { useApiKeys } from '../api-keys-provider'
  * What a Key may reach and how long it lives, with the editors that change
  * them. Every editor is the existing dialog; nothing here writes directly.
  */
-export function KeyAccessPanel(props: {
-  apiKey: ApiKey
-  showQuota: boolean
-  onCredentialMaintenance?: () => void
-}) {
+export function KeyAccessPanel(props: { apiKey: ApiKey; showQuota: boolean }) {
   const { t } = useTranslation()
   const { setCurrentRow, setOpen } = useApiKeys()
   const key = props.apiKey
@@ -131,16 +126,6 @@ export function KeyAccessPanel(props: {
           />
           {t('Edit Key')}
         </Button>
-        {props.onCredentialMaintenance && (
-          <Button variant='ghost' onClick={props.onCredentialMaintenance}>
-            <HugeiconsIcon
-              icon={SecurityCheckIcon}
-              data-icon='inline-start'
-              aria-hidden='true'
-            />
-            {t('Credential maintenance')}
-          </Button>
-        )}
       </div>
     </div>
   )

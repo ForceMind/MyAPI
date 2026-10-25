@@ -13,7 +13,9 @@ import { afterEach, expect, test, vi } from 'vitest'
 
 import { api } from '@/lib/api'
 import { Route as usageLogsRoute } from '@/routes/_authenticated/usage-logs/$section'
+import { Route as requestRoute } from '@/routes/_authenticated/usage-logs/request/$requestId'
 import { useAuthStore } from '@/stores/auth-store'
+import { useInspectorStore } from '@/stores/inspector-store'
 
 import { UsageLogs } from '../index'
 
@@ -21,6 +23,7 @@ const clients: QueryClient[] = []
 afterEach(() => {
   clients.splice(0).forEach((client) => client.clear())
   useAuthStore.getState().auth.reset('idle')
+  useInspectorStore.setState({ current: null })
   vi.restoreAllMocks()
 })
 
@@ -57,7 +60,13 @@ async function renderWorkflow(
       }
     }
     if (url.pathname === '/api/log' || url.pathname === '/api/log/self') {
-      const page = Number(url.searchParams.get('p') ?? 1)
+      // An exact Request ID lookup answers with that record.
+      const exact = url.searchParams
+        .get('request_id')
+        ?.match(/^REQ-SYNTHETIC-(\d+)$/)
+      const page = exact
+        ? Number(exact[1])
+        : Number(url.searchParams.get('p') ?? 1)
       data = {
         total: 2,
         page,
@@ -68,6 +77,7 @@ async function renderWorkflow(
             user_id: 1,
             type: 5,
             created_at: 1792470000,
+            content: '',
             request_id: `REQ-SYNTHETIC-${page}`,
             username:
               url.pathname === '/api/log'
@@ -150,8 +160,14 @@ async function renderWorkflow(
     component: UsageLogs,
     validateSearch: usageLogsRoute.options.validateSearch,
   })
+  const request = createRoute({
+    getParentRoute: () => auth,
+    path: 'usage-logs/request/$requestId',
+    component: requestRoute.options.component,
+    validateSearch: requestRoute.options.validateSearch,
+  })
   const router = createRouter({
-    routeTree: root.addChildren([auth.addChildren([logs])]),
+    routeTree: root.addChildren([auth.addChildren([logs, request])]),
     history: createMemoryHistory({
       initialEntries: [initialEntry],
     }),
@@ -198,32 +214,27 @@ test('disabled funding preserves admin server pagination, saved content and retu
     )
   ).toBe(true)
   const before = router.state.location.href
+  // The request's details open as its page.
   await user.click(screen.getByTitle('Click to view full details'))
-  const detail = await screen.findByRole('dialog', { name: /Log Details/ })
-  expect(within(detail).getAllByText('Unknown').length).toBeGreaterThanOrEqual(
-    2
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe(
+      '/usage-logs/request/REQ-SYNTHETIC-2'
+    )
   )
+  const detail = await screen.findByTestId('request-page')
+  expect(
+    (await within(detail).findAllByText('Unknown')).length
+  ).toBeGreaterThanOrEqual(2)
   expect(within(detail).queryByText('Total Cost')).not.toBeInTheDocument()
-  await user.click(
-    within(detail).getByRole('button', { name: 'View request content' })
-  )
-  const content = await screen.findByRole('dialog', {
-    name: 'Full Content Log Detail',
-  })
-  await user.click(
-    await within(content).findByRole('tab', { name: /^Response/ })
-  )
-  await within(content).findByText('saved response', { exact: false })
-  await user.keyboard('{Escape}')
+  // The saved content is read in the page's Body tab.
+  await within(detail).findByText('saved response', { exact: false })
+  // Back returns to the same filtered page of the call records.
   await waitFor(() =>
-    expect(screen.getByRole('dialog', { name: /Log Details/ })).toBeVisible()
+    expect(useInspectorStore.getState().current?.page).toBe(true)
   )
-  await user.keyboard('{Escape}')
-  await waitFor(() =>
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-  )
-  expect(router.state.location.href).toBe(before)
-  expect(screen.getByText('REQ-SYNTHETIC-2')).toBeInTheDocument()
+  act(() => useInspectorStore.getState().current?.close())
+  await waitFor(() => expect(router.state.location.href).toBe(before))
+  expect(await screen.findByText('REQ-SYNTHETIC-2')).toBeInTheDocument()
 })
 
 test('ordinary role uses only the self endpoint and never receives an all-users control', async () => {
@@ -250,20 +261,23 @@ test('switching to self scope removes admin data while the self response is pend
   await screen.findByText('REQ-SYNTHETIC-1')
 })
 
-test('changing the signed-in actor closes request details from the previous actor', async () => {
+test('changing the signed-in actor removes request details read by the previous actor', async () => {
   const { user } = await renderWorkflow()
   await screen.findByText('REQ-SYNTHETIC-1')
   await user.click(screen.getByTitle('Click to view full details'))
-  await screen.findByRole('dialog', { name: /Log Details/ })
+  const detail = await screen.findByTestId('request-page')
+  await user.click(await within(detail).findByRole('tab', { name: 'Raw' }))
+  // The administrator's record names the other user.
+  expect(
+    await within(detail).findByText(/SYNTHETIC-ADMIN-ONLY/)
+  ).toBeInTheDocument()
   act(() =>
     useAuthStore
       .getState()
       .auth.setUser({ id: 2, username: 'synthetic-other-owner', role: 1 })
   )
   await waitFor(() =>
-    expect(
-      screen.queryByRole('dialog', { name: /Log Details/ })
-    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/SYNTHETIC-ADMIN-ONLY/)).not.toBeInTheDocument()
   )
   expect(screen.queryByRole('tab', { name: 'All' })).not.toBeInTheDocument()
 })

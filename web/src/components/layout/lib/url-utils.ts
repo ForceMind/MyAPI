@@ -64,6 +64,11 @@ export function checkIsActive(
   if (item.activeUrls?.some((url) => urlToString(url) === hrefWithoutQuery)) {
     return true
   }
+  if (
+    item.activePrefixes?.some((prefix) => hrefWithoutQuery.startsWith(prefix))
+  ) {
+    return true
+  }
 
   // For collapsible items (NavCollapsible), check sub-items first
   if ('items' in item && item.items) {

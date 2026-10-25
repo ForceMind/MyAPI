@@ -13,5 +13,6 @@
   "Sign in to Codex with ChatGPT": "使用 ChatGPT 登录 Codex",
   "Sign in with ChatGPT": "使用 ChatGPT 登录",
   "Windows PowerShell": "Windows PowerShell",
-  "API Key #{{id}}": "API Key #{{id}}"
+  "API Key #{{id}}": "API Key #{{id}}",
+  "HTTP {{status}}": "HTTP {{status}}"
 }

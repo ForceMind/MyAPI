@@ -15,13 +15,14 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { api } from '@/lib/api'
 import { Route as usageLogsRoute } from '@/routes/_authenticated/usage-logs/$section'
+import { Route as requestRoute } from '@/routes/_authenticated/usage-logs/request/$requestId'
 import { useAuthStore } from '@/stores/auth-store'
 import { useInspectorStore } from '@/stores/inspector-store'
 
@@ -128,9 +129,19 @@ async function renderPage(entry: string) {
     path: 'usage-logs/$section',
     component: UsageLogs,
     validateSearch: usageLogsRoute.options.validateSearch,
+    beforeLoad: (options) =>
+      usageLogsRoute.options.beforeLoad?.(options as never),
+  })
+  const request = createRoute({
+    getParentRoute: () => auth,
+    path: 'usage-logs/request/$requestId',
+    component: requestRoute.options.component,
+    validateSearch: requestRoute.options.validateSearch,
+    beforeLoad: (options) =>
+      requestRoute.options.beforeLoad?.(options as never),
   })
   const router = createRouter({
-    routeTree: root.addChildren([auth.addChildren([logs])]),
+    routeTree: root.addChildren([auth.addChildren([logs, request])]),
     history: createMemoryHistory({ initialEntries: [entry] }),
   })
   await router.load()
@@ -144,15 +155,18 @@ async function renderPage(entry: string) {
   return { router, user: userEvent.setup() }
 }
 
-const directLink = `/usage-logs/common?requestId=${REQUEST_ID}&inspect=request`
+const legacyLink = `/usage-logs/common?requestId=${REQUEST_ID}&inspect=request`
+const pageLink = `/usage-logs/request/${REQUEST_ID}`
 
-test('a Request ID link opens that request’s details directly, from any date', async () => {
-  const { router } = await renderPage(directLink)
-  const detail = await screen.findByTestId('request-inspector')
+test('an earlier Request ID link opens that request’s page directly, from any date', async () => {
+  const { router } = await renderPage(legacyLink)
+  const detail = await screen.findByTestId('request-page')
+  await waitFor(() => expect(router.state.location.pathname).toBe(pageLink))
+  expect(router.state.location.search).toEqual({})
   expect(within(detail).getAllByText(REQUEST_ID)[0]).toBeVisible()
-  expect(within(detail).getAllByText('Request failed').length).toBeGreaterThan(
-    0
-  )
+  expect(
+    await within(detail).findByTestId('request-result-grid')
+  ).toHaveTextContent('Request failed')
   // The exact ID lookup is not limited to today's default range.
   expect(
     requests.some(
@@ -162,28 +176,20 @@ test('a Request ID link opens that request’s details directly, from any date',
         !url.searchParams.has('end_timestamp')
     )
   ).toBe(true)
-  // The list behind the inspector is widened to the record's day.
-  await waitFor(() =>
-    expect(router.state.location.search).toMatchObject({
-      requestId: REQUEST_ID,
-      inspect: 'request',
-      startTime: new Date(2026, 9, 1).getTime(),
-    })
-  )
 })
 
-test('an unknown Request ID says so instead of showing an empty list as success', async () => {
+test('an unknown Request ID says so instead of showing an empty page as success', async () => {
   lookup = 'missing'
-  await renderPage(directLink)
+  await renderPage(pageLink)
   expect(
     await screen.findByText('No call record has this Request ID')
   ).toBeVisible()
-  expect(screen.queryByTestId('request-inspector')).not.toBeInTheDocument()
+  expect(screen.queryByTestId('request-result-grid')).not.toBeInTheDocument()
 })
 
 test('a failed lookup is an error with retry, not "not found"', async () => {
   lookup = 'error'
-  const { user } = await renderPage(directLink)
+  const { user } = await renderPage(pageLink)
   expect(
     await screen.findByText('Could not look up this Request ID')
   ).toBeVisible()
@@ -193,16 +199,16 @@ test('a failed lookup is an error with retry, not "not found"', async () => {
   expect(screen.queryByText(/private transport/)).not.toBeInTheDocument()
   lookup = 'found'
   await user.click(screen.getByRole('button', { name: 'Retry' }))
-  expect(await screen.findByTestId('request-inspector')).toBeVisible()
+  expect(await screen.findByTestId('request-result-grid')).toBeVisible()
 })
 
 test('the body tab reads the saved, redacted body and never resends the request', async () => {
-  await renderPage(`${directLink}&requestTab=body`)
-  const detail = await screen.findByTestId('request-inspector')
-  expect(within(detail).getByRole('tab', { name: 'Body' })).toHaveAttribute(
-    'aria-selected',
-    'true'
-  )
+  const { router } = await renderPage(`${legacyLink}&requestTab=body`)
+  const detail = await screen.findByTestId('request-page')
+  await waitFor(() => expect(router.state.location.pathname).toBe(pageLink))
+  expect(
+    await within(detail).findByRole('tab', { name: 'Body' })
+  ).toHaveAttribute('aria-selected', 'true')
   expect(await within(detail).findByText(/saved question/)).toBeVisible()
   expect(within(detail).getByText(/credentials stay redacted/)).toBeVisible()
   expect(
@@ -213,12 +219,28 @@ test('the body tab reads the saved, redacted body and never resends the request'
   expect(api.post).not.toHaveBeenCalled()
 })
 
-test('closing the details keeps the call records filtered to the same Request ID', async () => {
-  const { router, user } = await renderPage(directLink)
-  await screen.findByTestId('request-inspector')
-  await user.click(screen.getByRole('button', { name: 'Close details' }))
+test('an earlier SSE tab link keeps its tab on the page', async () => {
+  const { router } = await renderPage(`${legacyLink}&requestTab=sse`)
+  const detail = await screen.findByTestId('request-page')
   await waitFor(() =>
-    expect(router.state.location.search).not.toHaveProperty('inspect')
+    expect(router.state.location.search).toEqual({ tab: 'sse' })
+  )
+  expect(
+    await within(detail).findByRole('tab', { name: 'SSE' })
+  ).toHaveAttribute('aria-selected', 'true')
+})
+
+test('leaving a shared request page keeps the call records filtered to the same Request ID', async () => {
+  const { router } = await renderPage(pageLink)
+  await screen.findByTestId('request-result-grid')
+  // The breadcrumb and the mobile top bar's Back call this.
+  await waitFor(() =>
+    expect(useInspectorStore.getState().current?.page).toBe(true)
+  )
+  act(() => useInspectorStore.getState().current?.close())
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe('/usage-logs/common')
   )
   expect(router.state.location.search).toMatchObject({ requestId: REQUEST_ID })
+  expect(router.state.location.search).not.toHaveProperty('inspect')
 })

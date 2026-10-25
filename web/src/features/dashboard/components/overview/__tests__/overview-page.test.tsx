@@ -51,7 +51,7 @@ vi.mock('@tanstack/react-router', async () => {
       ...attributes
     }: AnchorHTMLAttributes<HTMLAnchorElement> & {
       to: string
-      params?: { section?: string }
+      params?: Record<string, string>
       search?: Record<string, unknown>
     }) => {
       const query = new URLSearchParams(
@@ -65,7 +65,7 @@ vi.mock('@tanstack/react-router', async () => {
       return (
         <a
           {...attributes}
-          href={`${to.replace('$section', params?.section ?? '')}${
+          href={`${to.replaceAll(/\$(\w+)/g, (_, name) => params?.[name] ?? '')}${
             query ? `?${query}` : ''
           }`}
         >
@@ -518,7 +518,7 @@ describe('selecting a flow node', () => {
         .map((link) => link.getAttribute('href'))
     ).toEqual(
       expect.arrayContaining([
-        '/usage-logs/common?requestId=R2&inspect=request',
+        '/usage-logs/request/R2',
         '/usage-logs/common?channel=2',
       ])
     )
@@ -583,9 +583,7 @@ describe('overview for a channel administrator', () => {
     const links = within(recent)
       .getAllByRole('link')
       .map((link) => link.getAttribute('href'))
-    expect(links).toContain(
-      '/usage-logs/common?requestId=REQ-FAIL&inspect=request'
-    )
+    expect(links).toContain('/usage-logs/request/REQ-FAIL')
     expect(
       screen.getByRole('link', { name: 'Add connection' })
     ).toHaveAttribute('href', '/connections')

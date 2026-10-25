@@ -21,5 +21,13 @@
   "Opened over the network": "Opened over the network",
   "Node counts come from the latest requests in 24 hours.": "Node counts come from the latest requests in 24 hours.",
   "Node counts come from the latest {{count}} requests; older ones in 24 hours are not counted.": "Node counts come from the latest {{count}} requests; older ones in 24 hours are not counted.",
-  "Who calls, through the gateway, to which upstream. Select a node to filter the requests below.": "Who calls, through the gateway, to which upstream. Select a node to filter the requests below."
+  "Who calls, through the gateway, to which upstream. Select a node to filter the requests below.": "Who calls, through the gateway, to which upstream. Select a node to filter the requests below.",
+  "Among the latest {{count}} requests": "Among the latest {{count}} requests",
+  "Credentials for people and clients; select one to open its page.": "Credentials for people and clients; select one to open its page.",
+  "From the server address setting": "From the server address setting",
+  "Routing details are visible to administrators only.": "Routing details are visible to administrators only.",
+  "Scope and shares": "Scope and shares",
+  "Successful and failed records": "Successful and failed records",
+  "The call record as saved for this account; request and response bodies are under Body and SSE.": "The call record as saved for this account; request and response bodies are under Body and SSE.",
+  "The full Key is read only when you reveal or copy it.": "The full Key is read only when you reveal or copy it."
 }

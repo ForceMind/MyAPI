@@ -112,11 +112,8 @@ export function CommandMenu() {
                   onSelect={() =>
                     runCommand(() =>
                       navigate({
-                        to: '/usage-logs/$section',
-                        params: { section: 'common' },
-                        // Opens the request's details directly; the call
-                        // records behind it stay filtered to the same ID.
-                        search: { requestId, inspect: 'request' },
+                        to: '/usage-logs/request/$requestId',
+                        params: { requestId },
                       })
                     )
                   }

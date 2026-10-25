@@ -13,13 +13,13 @@ import { useApiKeys } from './api-keys-provider'
 import { DataTableRowActions } from './data-table-row-actions'
 
 /**
- * Key name and ID; on the Keys page it opens the Key in the inspector.
+ * Key name and ID; on the Keys page it opens the Key's page.
  * Table cells are rendered as components, so this keeps a stable type: an
  * inline cell function would remount the button on every table render and
  * drop its focus.
  */
 export function ApiKeyNameCell(props: { row: Row<ApiKey> }) {
-  const { openKey, inspectedKeyId } = useApiKeys()
+  const { openKey } = useApiKeys()
   const apiKey = props.row.original
   if (!openKey) {
     return <span className='font-medium'>{apiKey.name}</span>
@@ -28,11 +28,12 @@ export function ApiKeyNameCell(props: { row: Row<ApiKey> }) {
     <button
       type='button'
       data-inspect-id={apiKey.id}
-      aria-expanded={inspectedKeyId === apiKey.id}
       onClick={() => openKey(apiKey)}
       className='hover:text-primary flex min-h-9 max-w-full min-w-0 flex-col items-start text-left focus-visible:outline-2 focus-visible:outline-offset-2 pointer-coarse:min-h-11'
     >
-      <span className='max-w-full truncate font-medium'>{apiKey.name}</span>
+      <span className='max-w-full truncate font-medium' title={apiKey.name}>
+        {apiKey.name}
+      </span>
       <span className='text-caption text-muted-foreground font-mono'>
         #{apiKey.id}
       </span>
@@ -40,7 +41,14 @@ export function ApiKeyNameCell(props: { row: Row<ApiKey> }) {
   )
 }
 
-/** Row actions reduced to the "more" menu beside an open inspector. */
-export function CompactApiKeyRowActions(props: { row: Row<ApiKey> }) {
-  return <DataTableRowActions row={props.row} menuOnly />
+/**
+ * Row actions kept on one line: the actions column is sized by its content,
+ * and without this it shrinks until every action stacks into a tall row.
+ */
+export function ApiKeyRowActionsCell(props: { row: Row<ApiKey> }) {
+  return (
+    <div className='w-max [&>div]:flex-nowrap'>
+      <DataTableRowActions row={props.row} />
+    </div>
+  )
 }

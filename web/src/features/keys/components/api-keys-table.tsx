@@ -21,19 +21,19 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 import type { Table as TanstackTable } from '@tanstack/react-table'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
   DISABLED_ROW_DESKTOP,
   DISABLED_ROW_MOBILE,
   DataTablePage,
+  DataTableRow,
   useDebouncedColumnFilter,
   useDataTable,
 } from '@/components/data-table'
 import { ErrorState } from '@/components/error-state'
-import { useInspectorFocusReturn } from '@/components/inspector/use-inspector-focus-return'
-import { useInspectorPresentation } from '@/components/inspector/use-inspector-presentation'
+import { useReturnFocus } from '@/components/object-page/return-focus'
 import { StatusBadge } from '@/components/status-badge'
 import {
   Empty,
@@ -67,6 +67,23 @@ import { DataTableRowActions } from './data-table-row-actions'
 
 const route = getRouteApi('/_authenticated/keys/')
 const API_KEYS_COLUMN_VISIBILITY_STORAGE_KEY = 'api-keys:column-visibility'
+// Long names truncate (the full name is the title) and short columns keep
+// their content readable; a narrow window scrolls the table sideways.
+const KEY_COLUMN_WIDTH: Record<string, string | undefined> = {
+  name: 'max-w-60',
+  status: 'min-w-24',
+  model_limits: 'min-w-36',
+  accessed_time: 'min-w-28',
+}
+// Name, status, Key, quota, model scope (a blocked scope must stay visible)
+// and last use by default (design direction 3); the other columns stay
+// available from the view options and on the Key's page.
+const API_KEYS_DEFAULT_HIDDEN_COLUMNS = {
+  group: false,
+  allow_ips: false,
+  created_time: false,
+  expired_time: false,
+}
 const API_KEYS_MOBILE_SKELETON_IDS = Array.from(
   { length: 5 },
   (_, index) => `api-key-mobile-skeleton-${index + 1}`
@@ -155,7 +172,7 @@ function ApiKeysMobileList({
   showQuota: boolean
 }) {
   const { t } = useTranslation()
-  const { openKey, inspectedKeyId, requestFocusId } = useApiKeys()
+  const { openKey, requestFocusId } = useApiKeys()
   const rows = table.getRowModel().rows
 
   if (isLoading) return <ApiKeysMobileSkeleton />
@@ -187,21 +204,17 @@ function ApiKeysMobileList({
         const statusConfig = API_KEY_STATUSES[apiKey.status]
 
         if (openKey) {
-          // On the Keys page a card is one tap into the Key's full-screen
-          // inspector, which holds every action (design 6.2).
+          // On the Keys page a card is one tap into the Key's page, which
+          // holds every action.
           return (
             <div
               key={row.id}
-              className={cn(
-                'bg-card flex min-w-0 items-start gap-2 border-b px-3 py-2 last:border-b-0',
-                inspectedKeyId === apiKey.id && 'bg-accent'
-              )}
+              className='bg-card flex min-w-0 items-start gap-2 border-b px-3 py-2 last:border-b-0'
             >
               <div className='flex min-w-0 flex-1 flex-col gap-1'>
                 <button
                   type='button'
                   data-inspect-id={apiKey.id}
-                  aria-expanded={inspectedKeyId === apiKey.id}
                   // Back from this Key's call records lands on the Key.
                   autoFocus={requestFocusId === apiKey.id}
                   onClick={() => openKey(apiKey)}
@@ -292,16 +305,11 @@ function ApiKeysMobileList({
 
 export function ApiKeysTable() {
   const { t } = useTranslation()
-  const { refreshTrigger, inspectedKeyId } = useApiKeys()
+  const { refreshTrigger, openKey } = useApiKeys()
   const [now, setNow] = useState(() => Date.now())
-  const presentation = useInspectorPresentation()
   // Personal workbench Keys carry no financial quota (funding disabled).
   const showQuota = !usePersonalWorkbenchMode()
-  const columns = useApiKeysColumns(now, {
-    compact: inspectedKeyId !== undefined && presentation === 'side',
-    showQuota,
-  })
-  const listRef = useRef<HTMLDivElement>(null)
+  const columns = useApiKeysColumns(now, { showQuota })
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -385,6 +393,7 @@ export function ApiKeysTable() {
     enableRowSelection: true,
     columnFilters,
     columnVisibilityStorageKey: API_KEYS_COLUMN_VISIBILITY_STORAGE_KEY,
+    initialColumnVisibility: API_KEYS_DEFAULT_HIDDEN_COLUMNS,
     globalFilter,
     pagination,
     globalFilterFn: () => true,
@@ -396,22 +405,23 @@ export function ApiKeysTable() {
     ensurePageInRange: isError ? undefined : ensurePageInRange,
   })
 
-  useInspectorFocusReturn({
-    selectedId:
-      inspectedKeyId === undefined ? undefined : String(inspectedKeyId),
-    listRef,
-    context: JSON.stringify([
-      pagination.pageIndex,
-      pagination.pageSize,
-      globalFilter,
-      tokenFilter,
-    ]),
-    settled: !isLoading,
+  // Back from a Key's page puts focus on the row that opened it.
+  useReturnFocus({
+    attribute: 'data-inspect-id',
+    settled: !isLoading && !isFetching,
     rows: data,
   })
+  // A pointer anywhere on a row opens the Key, except on the row's own
+  // controls (and portalled popovers, whose clicks bubble through React).
+  const openFromRow = (event: MouseEvent<HTMLElement>, apiKey: ApiKey) => {
+    const target = event.target as HTMLElement
+    if (!openKey || !event.currentTarget.contains(target)) return
+    if (target.closest('button,a,input,label,[role="checkbox"]')) return
+    openKey(apiKey)
+  }
 
   return (
-    <div ref={listRef} className='flex h-full min-h-0 min-w-0 flex-col'>
+    <div className='flex h-full min-h-0 min-w-0 flex-col'>
       <DataTablePage
         table={table}
         mobileQuery={CONSOLE_MOBILE_QUERY}
@@ -435,6 +445,7 @@ export function ApiKeysTable() {
         )}
         skeletonKeyPrefix='api-keys-skeleton'
         applyHeaderSize
+        getColumnClassName={(columnId) => KEY_COLUMN_WIDTH[columnId]}
         toolbarProps={{
           searchPlaceholder: t('Filter by name...'),
           searchDebounceMs: 500,
@@ -463,15 +474,21 @@ export function ApiKeysTable() {
             showQuota={showQuota}
           />
         }
-        getRowClassName={(row) => {
-          if (row.original.id === inspectedKeyId) {
-            // Pinned cells paint their own background, so they take it too.
-            return 'bg-accent [&>td]:bg-accent'
-          }
-          return isDisabledApiKeyRow(row.original)
-            ? DISABLED_ROW_DESKTOP
-            : undefined
-        }}
+        renderRow={(row, helpers) => (
+          <DataTableRow
+            key={row.id}
+            row={row}
+            className={cn(
+              openKey && 'cursor-pointer',
+              isDisabledApiKeyRow(row.original) && DISABLED_ROW_DESKTOP
+            )}
+            getColumnClassName={(columnId) =>
+              helpers.getCellClassName(columnId)
+            }
+            cellRenderColumns={table.options.columns}
+            onClick={(event) => openFromRow(event, row.original)}
+          />
+        )}
         bulkActions={<DataTableBulkActions table={table} />}
       />
     </div>

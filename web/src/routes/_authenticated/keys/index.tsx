@@ -27,8 +27,27 @@ import {
 export const Route = createFileRoute('/_authenticated/keys/')({
   validateSearch: apiKeySearchSchema,
   beforeLoad: ({ search }) => {
+    // Earlier inspector links now open the Key and request pages.
     const target = legacyKeyLinkTarget(search)
-    if (target) throw redirect({ to: '/keys', search: target, replace: true })
+    if (target?.page === 'request') {
+      throw redirect({
+        to: '/keys/$keyId/requests/$requestId',
+        params: {
+          keyId: String(target.keyId),
+          requestId: target.requestId,
+        },
+        search: target.search,
+        replace: true,
+      })
+    }
+    if (target) {
+      throw redirect({
+        to: '/keys/$keyId',
+        params: { keyId: String(target.keyId) },
+        search: target.search,
+        replace: true,
+      })
+    }
   },
   component: ApiKeys,
 })

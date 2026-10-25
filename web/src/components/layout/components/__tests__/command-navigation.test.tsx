@@ -134,7 +134,7 @@ describe('command search opens a pasted Request ID', () => {
     localStorage.clear()
   })
 
-  test('pasting a Request ID and pressing Enter opens that request’s details in the call records', async () => {
+  test('pasting a Request ID and pressing Enter opens that request’s page', async () => {
     const user = userEvent.setup()
     const { router } = await renderShellRoute(<SearchWorkspace />)
     const input = await screen.findByRole('combobox')
@@ -146,12 +146,10 @@ describe('command search opens a pasted Request ID', () => {
     expect(screen.queryByText('No results found.')).not.toBeInTheDocument()
     await user.keyboard('{Enter}')
     await waitFor(() =>
-      expect(router.state.location.pathname).toBe('/usage-logs/common')
+      expect(router.state.location.pathname).toBe(
+        `/usage-logs/request/${requestId}`
+      )
     )
-    expect(router.state.location.search).toMatchObject({
-      requestId,
-      inspect: 'request',
-    })
     await waitFor(() =>
       expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     )

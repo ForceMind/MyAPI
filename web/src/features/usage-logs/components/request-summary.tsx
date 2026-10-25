@@ -6,10 +6,9 @@ it under the terms of the GNU Affero General Public License as published by
 the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
-import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { StatusBadge, type StatusVariant } from '@/components/status-badge'
+import { StatusBadge } from '@/components/status-badge'
 import { toIntlLocale } from '@/i18n/languages'
 
 import type { UsageLog } from '../data/schema'
@@ -37,31 +36,19 @@ export function RequestTime(props: { seconds: number; withDate?: boolean }) {
   )
 }
 
-/** Status as dot plus text, never colour alone; long labels wrap. */
-export function FactBadge(props: {
-  variant: StatusVariant
-  children: ReactNode
-}) {
-  return (
-    <StatusBadge
-      variant={props.variant}
-      showDot
-      copyable={false}
-      className='h-auto min-h-5 whitespace-normal'
-    >
-      {props.children}
-    </StatusBadge>
-  )
-}
-
-/** Business outcome badge. */
+/** Business outcome as dot plus text, never colour alone; long labels wrap. */
 export function RequestOutcomeBadge(props: { log: UsageLog }) {
   const { t } = useTranslation()
   const facts = getRequestFacts(props.log)
   return (
-    <FactBadge variant={facts.outcome.variant}>
+    <StatusBadge
+      variant={facts.outcome.variant}
+      showDot
+      copyable={false}
+      className='h-auto min-h-5 whitespace-normal'
+    >
       {t(facts.outcome.label)}
-    </FactBadge>
+    </StatusBadge>
   )
 }
 
@@ -75,53 +62,5 @@ export function RequestDuration(props: { seconds: number }) {
     <span className='tabular-nums'>
       {t('{{count}} s', { count: props.seconds })}
     </span>
-  )
-}
-
-/** Four independent facts of one request (design 8.2). */
-export function RequestFacts(props: { log: UsageLog }) {
-  const { t } = useTranslation()
-  const facts = getRequestFacts(props.log)
-  return (
-    <dl className='grid grid-cols-2 gap-x-3 gap-y-2'>
-      <div className='min-w-0'>
-        <dt className='text-caption text-muted-foreground'>{t('Result')}</dt>
-        <dd>
-          <FactBadge variant={facts.outcome.variant}>
-            {t(facts.outcome.label)}
-          </FactBadge>
-        </dd>
-      </div>
-      <div className='min-w-0'>
-        <dt className='text-caption text-muted-foreground'>
-          {t('HTTP status')}
-        </dt>
-        <dd className='text-data tabular-nums'>
-          {facts.httpStatus ?? (
-            <span className='text-muted-foreground'>{t('Not recorded')}</span>
-          )}
-        </dd>
-      </div>
-      <div className='min-w-0'>
-        <dt className='text-caption text-muted-foreground'>
-          {t('Usage evidence')}
-        </dt>
-        <dd>
-          <FactBadge variant={facts.usage.variant}>
-            {t(facts.usage.label)}
-          </FactBadge>
-        </dd>
-      </div>
-      <div className='min-w-0'>
-        <dt className='text-caption text-muted-foreground'>
-          {t('Settlement')}
-        </dt>
-        <dd>
-          <FactBadge variant={facts.settlement.variant}>
-            {t(facts.settlement.label)}
-          </FactBadge>
-        </dd>
-      </div>
-    </dl>
   )
 }

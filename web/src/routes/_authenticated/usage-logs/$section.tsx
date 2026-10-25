@@ -25,7 +25,10 @@ import {
   savedKeyIdSchema,
 } from '@/features/keys/key-request-context'
 import { UsageLogs } from '@/features/usage-logs'
-import { requestInspectorTabSchema } from '@/features/usage-logs/lib/request-inspector-tabs'
+import {
+  legacyRequestLinkTarget,
+  legacyRequestTabSchema,
+} from '@/features/usage-logs/lib/request-page-search'
 import {
   isUsageLogsSectionId,
   USAGE_LOGS_DEFAULT_SECTION,
@@ -55,15 +58,25 @@ const usageLogsSearchSchema = z.object({
   username: z.string().optional().catch(''),
   requestId: z.string().optional().catch(''),
   upstreamRequestId: z.string().optional().catch(''),
-  // Opens the call record of `requestId` in the request inspector.
+  // Earlier links that opened `requestId` in the request inspector; the
+  // route sends them to the request page.
   inspect: z.literal('request').optional().catch(undefined),
-  requestTab: requestInspectorTabSchema,
+  requestTab: legacyRequestTabSchema,
   startTime: z.number().optional(),
   endTime: z.number().optional(),
 })
 
 export const Route = createFileRoute('/_authenticated/usage-logs/$section')({
   beforeLoad: ({ params, search }) => {
+    const request = legacyRequestLinkTarget(search)
+    if (request) {
+      throw redirect({
+        to: '/usage-logs/request/$requestId',
+        params: { requestId: request.requestId },
+        search: request.search,
+        replace: true,
+      })
+    }
     if (!isUsageLogsSectionId(params.section)) {
       throw redirect({
         to: '/usage-logs/$section',

@@ -67,9 +67,8 @@ function RequestLink(props: {
   }
   return (
     <Link
-      to='/usage-logs/$section'
-      params={{ section: 'common' }}
-      search={{ requestId: props.log.request_id, inspect: 'request' }}
+      to='/usage-logs/request/$requestId'
+      params={{ requestId: props.log.request_id }}
       className={props.className}
     >
       {props.children}

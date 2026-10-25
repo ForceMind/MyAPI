@@ -9,15 +9,27 @@ version.
 import { create } from 'zustand'
 
 /**
- * The object an open inspector shows. The console shell reads it so the
- * breadcrumb names the object on PC and the mobile top bar offers a back
- * control while the inspector fills the screen (design 5.1, 5.2).
+ * The object an open inspector or object page shows. The console shell
+ * reads it so the breadcrumb names the object on PC and the mobile top bar
+ * offers a back control while the object fills the screen (design 5.1, 5.2).
  */
 export type OpenInspector = {
   /** Accessible name of the object, e.g. "API Key #21". */
   title: string
-  /** Closes the inspector, normally by removing its URL parameter. */
+  /** Steps back one level, normally to where the object was opened from. */
   close: () => void
+  /**
+   * Objects between the page and this one, outermost first; on a request
+   * page inside a Key, the Key. Each crumb opens its object.
+   */
+  parents?: { title: string; open: () => void }[]
+  /** Leaves every object for the page's list; defaults to `close`. */
+  closeAll?: () => void
+  /**
+   * A full object page rather than an inspector beside a list: the
+   * breadcrumb is its only way up on PC, so it is always shown.
+   */
+  page?: boolean
 }
 
 type InspectorState = {

@@ -6,7 +6,7 @@ it under the terms of the GNU Affero General Public License as published by
 the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
-import type { QueryClient } from '@tanstack/react-query'
+import { QueryClient } from '@tanstack/react-query'
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -71,29 +71,40 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-async function openInspector(tab?: string) {
+/** The Key's page, on one of its tabs (requests by default). */
+async function openKeyPage(tab?: 'scope' | 'delivery') {
   const result = await renderKeysPage(
     client,
-    `/keys?inspect=21${tab ? `&tab=${tab}` : ''}`
+    `/keys/21${tab ? `?tab=${tab}` : ''}`
   )
-  const inspector = await screen.findByRole('complementary', {
-    name: 'API Key #21',
+  const page = await screen.findByTestId('key-page')
+  await within(page).findByRole('heading', {
+    level: 1,
+    name: 'Desktop application',
   })
-  await within(inspector).findByRole('heading', { name: 'Desktop application' })
-  return { ...result, inspector }
+  return { ...result, page }
 }
 
 test('in personal workbench mode Keys show no financial quota and no automatic Key is created', async () => {
   fixture.status = PERSONAL_STATUS
   mount()
-  const { inspector } = await openInspector('access')
+  const { page, router } = await openKeyPage('scope')
   await waitFor(() =>
     expect(
       screen.queryByRole('button', { name: 'My usage policy' })
     ).not.toBeInTheDocument()
   )
-  expect(screen.getByRole('button', { name: 'Create API Key' })).toBeVisible()
-  expect(within(inspector).getByText('Access profile')).toBeVisible()
+  expect(within(page).getByText('Access profile')).toBeVisible()
+  expect(
+    screen.queryByText(/remaining quota|used quota|balance|wallet|123456/i)
+  ).not.toBeInTheDocument()
+  // The list keeps creation available, still without quota figures.
+  await act(async () => {
+    await router.navigate({ to: '/keys' })
+  })
+  expect(
+    await screen.findByRole('button', { name: 'Create API Key' })
+  ).toBeVisible()
   expect(
     screen.queryByText(/remaining quota|used quota|balance|wallet|123456/i)
   ).not.toBeInTheDocument()
@@ -144,7 +155,7 @@ test.each([
           }
         : undefined
     )
-    await openInspector('shares')
+    await openKeyPage('scope')
     expect(
       await screen.findByRole('region', {
         name: `Subscription account A ${slotLabel}`,
@@ -161,7 +172,7 @@ test.each([
   }
 )
 
-test('explicit pause and resume change only the inspected Key status', async () => {
+test('explicit pause and resume change only this page’s Key status', async () => {
   mount()
   mocks.put.mockImplementation(async (_url, body) => {
     const next = (body as { status: number }).status
@@ -169,7 +180,7 @@ test('explicit pause and resume change only the inspected Key status', async () 
     return { data: { success: true } }
   })
   const user = userEvent.setup()
-  await openInspector()
+  await openKeyPage()
   await user.click(await screen.findByRole('button', { name: 'Pause Key' }))
   expect(
     await screen.findByRole('button', { name: 'Resume Key' })
@@ -185,12 +196,12 @@ test('explicit pause and resume change only the inspected Key status', async () 
   ])
 })
 
-test('copy reads the inspected Key only after a user click', async () => {
+test('copy reads this page’s Key only after a user click', async () => {
   mount()
   const user = userEvent.setup()
   const clipboard = vi.spyOn(navigator.clipboard, 'writeText')
-  const { inspector } = await openInspector()
-  const copy = within(inspector).getByRole('button', { name: 'Copy' })
+  const { page } = await openKeyPage()
+  const copy = within(page).getByRole('button', { name: 'Copy' })
   expect(mocks.post).not.toHaveBeenCalled()
   await user.click(copy)
   await waitFor(() =>
@@ -204,7 +215,7 @@ test('an unknown status write locks the toggle until the current state is reload
   mount()
   mocks.put.mockRejectedValueOnce(new Error('connection closed'))
   const user = userEvent.setup()
-  await openInspector()
+  await openKeyPage()
   await user.click(await screen.findByRole('button', { name: 'Pause Key' }))
   expect(
     await screen.findByText('Failed to update API key status')
@@ -243,7 +254,7 @@ test('a Key filter link from call logs applies its search and same-route navigat
   )
 })
 
-test('the Access tab opens model scope without entering the full metadata editor', async () => {
+test('the scope tab opens model scope without entering the full metadata editor', async () => {
   mount((path) =>
     path === '/api/token/21/model-limits'
       ? {
@@ -261,10 +272,8 @@ test('the Access tab opens model scope without entering the full metadata editor
       : undefined
   )
   const user = userEvent.setup()
-  const { inspector } = await openInspector('access')
-  await user.click(
-    within(inspector).getByRole('button', { name: 'Model scope' })
-  )
+  const { page } = await openKeyPage('scope')
+  await user.click(within(page).getByRole('button', { name: 'Model scope' }))
   expect(
     await screen.findByRole('dialog', { name: 'Model scope' })
   ).toBeVisible()
@@ -274,20 +283,22 @@ test('the Access tab opens model scope without entering the full metadata editor
   expect(mocks.put).not.toHaveBeenCalled()
 })
 
-test('the inspector keeps assigned access, budgets, client export and deletion reachable', async () => {
+test('the Key page keeps assigned access, budgets, credential maintenance, client export and deletion reachable', async () => {
   mount()
   const user = userEvent.setup()
-  const { inspector } = await openInspector('access')
+  const { page } = await openKeyPage('scope')
   expect(
-    within(inspector).getByRole('button', { name: 'Usage budgets' })
+    within(page).getByRole('button', { name: 'Usage budgets' })
   ).toBeVisible()
   expect(
-    within(inspector).getByRole('button', { name: 'Assigned access' })
+    within(page).getByRole('button', { name: 'Assigned access' })
   ).toBeVisible()
+  // Root maintains the stored credential from the delivery tab.
+  await user.click(within(page).getByRole('tab', { name: 'Delivery' }))
   expect(
-    within(inspector).getByRole('button', { name: 'Credential maintenance' })
+    await within(page).findByRole('button', { name: 'Credential maintenance' })
   ).toBeVisible()
-  await user.click(within(inspector).getByRole('button', { name: 'Open menu' }))
+  await user.click(within(page).getByRole('button', { name: 'Open menu' }))
   expect(
     await screen.findByRole('menuitem', { name: 'CC Switch' })
   ).toBeVisible()
@@ -297,8 +308,8 @@ test('the inspector keeps assigned access, budgets, client export and deletion r
 test('cancelling the delete confirmation keeps the Key and sends no deletion', async () => {
   mount()
   const user = userEvent.setup()
-  const { inspector } = await openInspector()
-  await user.click(within(inspector).getByRole('button', { name: 'Open menu' }))
+  const { page } = await openKeyPage()
+  await user.click(within(page).getByRole('button', { name: 'Open menu' }))
   await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
   const confirmation = await screen.findByRole('alertdialog', {
     name: 'Are you sure?',
@@ -311,26 +322,53 @@ test('cancelling the delete confirmation keeps the Key and sends no deletion', a
   expect(mocks.delete).not.toHaveBeenCalled()
 })
 
-test('deleting the open Key closes its inspector instead of showing a removed Key', async () => {
+test('deleting the open Key leaves its page for the list instead of showing a removed Key', async () => {
   mount()
   const user = userEvent.setup()
-  const { inspector, router } = await openInspector()
-  await user.click(within(inspector).getByRole('button', { name: 'Open menu' }))
+  const { page, router } = await openKeyPage()
+  await user.click(within(page).getByRole('button', { name: 'Open menu' }))
   await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
   const confirmation = await screen.findByRole('alertdialog', {
     name: 'Are you sure?',
   })
   await user.click(within(confirmation).getByRole('button', { name: 'Delete' }))
   await waitFor(() => expect(mocks.delete).toHaveBeenCalledTimes(1))
-  await waitFor(() =>
-    expect(router.state.location.search).not.toHaveProperty('inspect')
+  await waitFor(() => expect(router.state.location.pathname).toBe('/keys'))
+  expect(screen.queryByTestId('key-page')).not.toBeInTheDocument()
+})
+
+test('Back after deleting a Key from its page never shows the deleted Key from the list cache', async () => {
+  mount()
+  mocks.delete.mockImplementation(async () => {
+    fixture.keys = []
+    return { data: { success: true } }
+  })
+  // The application keeps list results fresh for 10 seconds.
+  client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: 10_000 } },
+  })
+  const user = userEvent.setup()
+  const { router } = await renderKeysPage(client)
+  await user.click(
+    await screen.findByRole('button', { name: /Desktop application/ })
   )
+  const page = await screen.findByTestId('key-page')
+  await user.click(
+    await within(page).findByRole('button', { name: 'Open menu' })
+  )
+  await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
+  const confirmation = await screen.findByRole('alertdialog', {
+    name: 'Are you sure?',
+  })
+  await user.click(within(confirmation).getByRole('button', { name: 'Delete' }))
+  await waitFor(() => expect(router.state.location.pathname).toBe('/keys'))
+  expect(await screen.findByText('No API Keys Found')).toBeVisible()
   expect(
-    screen.queryByRole('complementary', { name: 'API Key #21' })
+    screen.queryByRole('button', { name: /Desktop application/ })
   ).not.toBeInTheDocument()
 })
 
-test('Open Playground hands over only the inspected, available Key after a click', async () => {
+test('Open Playground hands over only this page’s available Key after a click', async () => {
   useAuthStore.getState().auth.setBundle({
     access_token: 'access-token',
     token_type: 'Bearer',
@@ -349,10 +387,10 @@ test('Open Playground hands over only the inspected, available Key after a click
   })
   mount()
   const user = userEvent.setup()
-  const { inspector, router } = await openInspector()
+  const { page, router } = await openKeyPage()
   expect(readPlaygroundKeyHandoff(7, 'session-a')).toEqual({ status: 'none' })
   await user.click(
-    within(inspector).getByRole('button', { name: 'Open Playground' })
+    within(page).getByRole('button', { name: 'Open Playground' })
   )
   expect(readPlaygroundKeyHandoff(7, 'session-a')).toMatchObject({
     status: 'accepted',
@@ -426,8 +464,8 @@ test('creating a Key through the existing drawer adds it to the list without rel
 test('Edit Key uses the existing drawer and Escape cancels without writing', async () => {
   mount(drawerReads)
   const user = userEvent.setup()
-  const { inspector } = await openInspector('access')
-  await user.click(within(inspector).getByRole('button', { name: 'Edit Key' }))
+  const { page } = await openKeyPage('scope')
+  await user.click(within(page).getByRole('button', { name: 'Edit Key' }))
   const drawer = await screen.findByRole('dialog', { name: 'Update API Key' })
   await waitFor(() =>
     expect(
@@ -451,8 +489,15 @@ test('Edit Key uses the existing drawer and Escape cancels without writing', asy
 test('a paused Key cannot open Playground', async () => {
   fixture.keys = [{ ...KEY_21, status: 2 }]
   mount()
-  const { inspector } = await openInspector()
+  const { page } = await openKeyPage()
   expect(
-    within(inspector).getByRole('button', { name: 'Open Playground' })
+    within(page).getByRole('button', { name: 'Open Playground' })
   ).toBeDisabled()
+})
+
+test('the scope tab labels an enabled empty model scope as blocking all models', async () => {
+  fixture.keys = [{ ...KEY_21, model_limits_enabled: true, model_limits: '' }]
+  mount()
+  const { page } = await openKeyPage('scope')
+  expect(within(page).getByText('Block all models')).toBeVisible()
 })

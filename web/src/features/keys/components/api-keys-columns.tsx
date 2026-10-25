@@ -39,7 +39,7 @@ import { API_KEY_STATUSES } from '../constants'
 import { checkedAddSafeIntegers } from '../lib/quota-display'
 import type { ApiKey } from '../types'
 import { ApiKeyGroupCell } from './api-key-group-cell'
-import { ApiKeyNameCell, CompactApiKeyRowActions } from './api-key-name-cell'
+import { ApiKeyNameCell, ApiKeyRowActionsCell } from './api-key-name-cell'
 import { ApiKeyTimestampCell } from './api-key-timestamp-cell'
 import {
   ApiKeyCell,
@@ -47,7 +47,6 @@ import {
   ModelLimitsCell,
   UnlimitedQuotaBadge,
 } from './api-keys-cells'
-import { DataTableRowActions } from './data-table-row-actions'
 
 function getQuotaProgressColor(percentage: number): string {
   if (percentage <= 10) {
@@ -78,17 +77,12 @@ function useGroupRatios(): Record<string, number | string> {
 }
 
 /**
- * Key table columns. `compact` keeps the columns that still fit beside an
- * open inspector (design 6.2 column priority) and reduces row actions to the
- * menu; `showQuota` is false where Keys carry no financial quota (personal
- * workbench mode).
+ * Key table columns. `showQuota` is false where Keys carry no financial
+ * quota (personal workbench mode).
  */
 export function useApiKeysColumns(
   now: number,
-  options: { compact: boolean; showQuota: boolean } = {
-    compact: false,
-    showQuota: true,
-  }
+  options: { showQuota: boolean } = { showQuota: true }
 ): ColumnDef<ApiKey>[] {
   const { t, i18n } = useTranslation()
   const groupRatios = useGroupRatios()
@@ -359,29 +353,10 @@ export function useApiKeysColumns(
     {
       id: 'actions',
       header: () => t('Actions'),
-      cell: options.compact ? CompactApiKeyRowActions : DataTableRowActions,
+      cell: ApiKeyRowActionsCell,
       meta: { pinned: 'right' as const },
     },
   ]
-  const hidden = new Set<string>()
-  if (!options.showQuota) hidden.add('quota')
-  if (options.compact) {
-    for (const id of [
-      'key',
-      'quota',
-      'group',
-      'model_limits',
-      'allow_ips',
-      'created_time',
-      'accessed_time',
-      'expired_time',
-    ]) {
-      hidden.add(id)
-    }
-  }
-  return columns.filter((column) => {
-    const id =
-      column.id ?? ('accessorKey' in column ? String(column.accessorKey) : '')
-    return !hidden.has(id)
-  })
+  if (options.showQuota) return columns
+  return columns.filter((column) => column.id !== 'quota')
 }

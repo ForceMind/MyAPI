@@ -16,15 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { getRouteApi } from '@tanstack/react-router'
+import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useInspectorBack } from '@/components/inspector/inspector-history'
-import { InspectorLayout } from '@/components/inspector/inspector-layout'
 import { SectionPageLayout } from '@/components/layout'
-import type { UsageLog } from '@/features/usage-logs/data/schema'
-import type { RequestInspectorTab } from '@/features/usage-logs/lib/request-inspector-tabs'
+import { useRememberReturnFocus } from '@/components/object-page/return-focus'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { usePersonalWorkbenchMode } from '@/hooks/use-personal-workbench-mode'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
@@ -35,16 +32,15 @@ import { ApiKeysPrimaryButtons } from './components/api-keys-primary-buttons'
 import { ApiKeysProvider } from './components/api-keys-provider'
 import { ApiKeysTable } from './components/api-keys-table'
 import { ConnectionKeyWorkspace } from './components/connection-key-workspace'
-import { KeyInspector } from './components/inspector/key-inspector'
-import type { KeyInspectorTab } from './lib/keys-search'
+import { keyListContext } from './lib/keys-search'
 import type { ApiKey } from './types'
 
 const route = getRouteApi('/_authenticated/keys/')
 
 /**
- * API Keys: one list for every role and edition, with the Key inspector
- * (recent requests, access, window shares) beside it. Everything the
- * inspector shows is in the URL (`inspect`, `tab`, `request`, `requestTab`).
+ * API Keys: one list for every role and edition. A row opens the Key's own
+ * page; Back from there returns here with the same filters and page, and
+ * focus on that row.
  */
 export function ApiKeys() {
   const { t } = useTranslation()
@@ -54,102 +50,21 @@ export function ApiKeys() {
   const role = useAuthStore((state) => state.auth.user?.role)
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const search = route.useSearch()
-  const navigate = route.useNavigate()
-  const goBack = useInspectorBack()
-  const inspected = search.inspect
-  const requestOpen =
-    search.request !== undefined || search.requestLog !== undefined
+  const navigate = useNavigate()
+  const rememberFocus = useRememberReturnFocus()
+  const listContext = keyListContext(search)
 
   const openKey = useCallback(
     (key: ApiKey) => {
-      const switching = inspected !== undefined
+      rememberFocus('data-inspect-id', key.id)
       void navigate({
-        search: (previous) => ({
-          ...previous,
-          inspect: key.id,
-          tab: undefined,
-          request: undefined,
-          requestLog: undefined,
-          requestTab: undefined,
-        }),
-        // Switching Keys replaces the entry, so Back still leaves the
-        // inspector instead of walking through every Key looked at.
-        replace: switching,
-        state: switching ? (previous) => previous : { inspectorBack: true },
+        to: '/keys/$keyId',
+        params: { keyId: String(key.id) },
+        search: { keyReturn: listContext },
+        state: { inspectorBack: true },
       })
     },
-    [inspected, navigate]
-  )
-  const closeKey = useCallback(
-    () =>
-      goBack(
-        () =>
-          void navigate({
-            search: (previous) => ({
-              ...previous,
-              inspect: undefined,
-              tab: undefined,
-              request: undefined,
-              requestLog: undefined,
-              requestTab: undefined,
-            }),
-            replace: true,
-          })
-      ),
-    [goBack, navigate]
-  )
-  const changeTab = useCallback(
-    (tab: KeyInspectorTab) =>
-      void navigate({
-        search: (previous) => ({
-          ...previous,
-          tab: tab === 'requests' ? undefined : tab,
-        }),
-        replace: true,
-        state: (previous) => previous,
-      }),
-    [navigate]
-  )
-  const openRequest = useCallback(
-    (log: UsageLog) =>
-      void navigate({
-        search: (previous) => ({
-          ...previous,
-          request: log.request_id || undefined,
-          requestLog: log.request_id ? undefined : log.id,
-          requestTab: undefined,
-        }),
-        state: { inspectorBack: true },
-      }),
-    [navigate]
-  )
-  const closeRequest = useCallback(
-    () =>
-      goBack(
-        () =>
-          void navigate({
-            search: (previous) => ({
-              ...previous,
-              request: undefined,
-              requestLog: undefined,
-              requestTab: undefined,
-            }),
-            replace: true,
-          })
-      ),
-    [goBack, navigate]
-  )
-  const changeRequestTab = useCallback(
-    (requestTab: RequestInspectorTab) =>
-      void navigate({
-        search: (previous) => ({
-          ...previous,
-          requestTab: requestTab === 'diagnosis' ? undefined : requestTab,
-        }),
-        replace: true,
-        state: (previous) => previous,
-      }),
-    [navigate]
+    [navigate, rememberFocus, listContext]
   )
 
   if (search.connectionContext) {
@@ -161,11 +76,7 @@ export function ApiKeys() {
       key={`${userId}:${role}:${sessionId}`}
       viewRequests={openKey}
       openKey={openKey}
-      inspectedKeyId={inspected}
       requestFocusId={search.focusKeyId}
-      onKeysDeleted={(ids) => {
-        if (inspected !== undefined && ids.includes(inspected)) closeKey()
-      }}
     >
       <SectionPageLayout fixedContent={!mobile}>
         {/* Same name as the navigation entry (design 5.4). */}
@@ -174,53 +85,14 @@ export function ApiKeys() {
         </SectionPageLayout.Title>
         <SectionPageLayout.Description>
           {t(
-            'Select a Key to see its recent requests, access and window shares.'
+            'Credentials for people and clients; select one to open its page.'
           )}
         </SectionPageLayout.Description>
         <SectionPageLayout.Actions>
           <ApiKeysPrimaryButtons personal={personal} />
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
-          <InspectorLayout
-            open={inspected !== undefined}
-            // With a request open, the top bar and Escape step back to the
-            // Key; the inspector's close control still closes everything.
-            label={
-              requestOpen
-                ? t('Request {{requestId}}', {
-                    requestId: search.request ?? `#${search.requestLog}`,
-                  })
-                : t('API Key #{{id}}', { id: inspected ?? '' })
-            }
-            onClose={requestOpen ? closeRequest : closeKey}
-            fill={!mobile}
-            list={<ApiKeysTable />}
-            inspector={
-              inspected !== undefined && (
-                <KeyInspector
-                  key={`${userId}:${sessionId}:${inspected}`}
-                  keyId={inspected}
-                  tab={search.tab ?? 'requests'}
-                  request={search.request}
-                  requestLog={search.requestLog}
-                  requestTab={search.requestTab ?? 'diagnosis'}
-                  personal={personal}
-                  returnContext={{
-                    page: search.page,
-                    pageSize: search.pageSize,
-                    filter: search.filter,
-                    status: search.status,
-                    focusKeyId: inspected,
-                  }}
-                  onTabChange={changeTab}
-                  onOpenRequest={openRequest}
-                  onCloseRequest={closeRequest}
-                  onRequestTabChange={changeRequestTab}
-                  onClose={closeKey}
-                />
-              )
-            }
-          />
+          <ApiKeysTable />
         </SectionPageLayout.Content>
       </SectionPageLayout>
 

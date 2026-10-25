@@ -32,6 +32,8 @@ type BaseNavItem = {
   badge?: string
   icon?: IconSvgElement
   activeUrls?: (LinkProps['to'] | (string & {}))[]
+  /** Path prefixes of object pages below this entry, e.g. `/keys/`. */
+  activePrefixes?: string[]
   configUrls?: (LinkProps['to'] | (string & {}))[]
   /**
    * Minimum role required to see this item in the sidebar. When set, the item
