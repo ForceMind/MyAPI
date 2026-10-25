@@ -259,12 +259,23 @@ async function checkTextContrast(locator, name, theme) {
   report.contrast.push(await assertTextContrast(locator, name, theme))
 }
 
+// A request's details open as its own page (design direction 3); `dialog`
+// keeps its name for the callers: the request page.
 async function openSettlementLog(page, requestId, language = 'en') {
   await page.getByTitle(label('Click to view full details', language), { exact: true }).filter({ hasText: requestId, visible: true }).click()
-  const dialog = page.getByRole('dialog')
+  const dialog = page.getByTestId('request-page')
   const panel = dialog.getByRole('region', { name: label('Usage pending review', language), exact: true })
   await panel.waitFor()
+  assert.equal(new URL(page.url()).pathname, `/usage-logs/request/${requestId}`)
   return { dialog, panel }
+}
+
+// Leaves a request page with the app's own way back: the breadcrumb on PC,
+// the top bar's Back on a phone.
+async function leaveRequestPage(page, language = 'en') {
+  const phone = (page.viewportSize()?.width ?? 1280) < 1024
+  if (phone) await page.locator('.pc-header-mobile').getByRole('button', { name: label('Back', language), exact: true }).click()
+  else await page.getByRole('navigation', { name: label('Current page', language), exact: true }).getByRole('button', { name: label('Requests_nav', language), exact: true }).click()
 }
 
 function assertSettlementReadOnly(start) {
@@ -298,7 +309,10 @@ async function measureSettlementLayout(panel, name) {
   await settled(panel.page())
   const geometry = await status.evaluate((element, name) => {
     const bounds = element.getBoundingClientRect()
-    const dialog = element.closest('[role="dialog"]')
+    // A dialog, or the request page (design direction 3), which scrolls with
+    // the console instead of fitting the viewport's height.
+    const dialog = element.closest('[role="dialog"]') ?? element.closest('main')
+    const page = dialog.tagName === 'MAIN'
     const box = dialog.getBoundingClientRect()
     const paragraphs = [...element.querySelectorAll('p')].map(paragraph => {
       const rect = paragraph.getBoundingClientRect()
@@ -321,11 +335,11 @@ async function measureSettlementLayout(panel, name) {
           parent.scrollTop = previous
         }
       }
-      if (parent === dialog) break
+      if (parent === dialog && !page) break
     }
-    return { name, viewport: { width: innerWidth, height: innerHeight }, dialog: { left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: box.width, height: box.height }, paragraphs, scrollers, verticallyReachable, horizontalOverflow: dialog.scrollWidth > dialog.clientWidth + 1 }
+    return { name, page, viewport: { width: innerWidth, height: innerHeight }, dialog: { left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: box.width, height: box.height }, paragraphs, scrollers, verticallyReachable, horizontalOverflow: dialog.scrollWidth > dialog.clientWidth + 1 }
   }, name)
-  assert(geometry.dialog.left >= -1 && geometry.dialog.right <= geometry.viewport.width + 1 && geometry.dialog.top >= -1 && geometry.dialog.bottom <= geometry.viewport.height + 1, `${name}: dialog stays within the viewport`)
+  assert(geometry.dialog.left >= -1 && geometry.dialog.right <= geometry.viewport.width + 1 && (geometry.page || (geometry.dialog.top >= -1 && geometry.dialog.bottom <= geometry.viewport.height + 1)), `${name}: dialog stays within the viewport`)
   assert(!geometry.horizontalOverflow && geometry.verticallyReachable && geometry.paragraphs.length === 2 && geometry.paragraphs.every(paragraph => paragraph.unclipped), `${name}: both translated status lines are readable without clipping: ${JSON.stringify(geometry)}`)
   assert(geometry.scrollers.length > 0 && geometry.scrollers.every(scroller => scroller.reachableBottom), `${name}: the real dialog can scroll to its lower content`)
   report.settlementLayouts.push(geometry)
@@ -741,7 +755,9 @@ try {
       if (width >= 768) {
         const quotaLayout = await page.locator('td[data-column-id="quota"]').filter({ visible: true }).first().evaluate(cell => {
           const content = cell.firstElementChild
-          const profile = cell.parentElement?.querySelector('td[data-column-id="group"]')
+          // The next column (the access profile when shown; it is off by
+          // default since direction 3).
+          const profile = cell.nextElementSibling
           const cellBox = cell.getBoundingClientRect()
           const contentBox = content?.getBoundingClientRect()
           const profileBox = profile?.getBoundingClientRect()
@@ -1206,21 +1222,26 @@ try {
         await checkTextContrast(panel.getByRole('status').locator('p').first(), `${name}-title`, 'light')
         await checkTextContrast(panel.getByRole('status').locator('p').last(), `${name}-description`, 'light')
         await screenshot(page, name)
-        await page.keyboard.press('Escape')
+        // The browser's Back leaves the page for the same call records.
+        await page.goBack()
         await dialog.waitFor({ state: 'hidden' })
         // A fresh click after dismissal must still be informational. No manual
         // form may reappear because a cached raw journal state is unresolved.
         const reopened = await openSettlementLog(page, requestId, language)
         await assertAutomaticSettlement(reopened.panel, index, language)
-        await reopened.dialog.getByRole('button', { name: label('Close', language), exact: true }).click()
+        await leaveRequestPage(page, language)
         await reopened.dialog.waitFor({ state: 'hidden' })
       }
       if (language === 'en' && width === 1280) {
         await openSettlementLog(page, SETTLEMENT_REVIEW_IDS[0], language)
+        // A reload of the page rereads the settlement state instead of
+        // showing a stale one, and stays informational.
+        const reread = page.waitForResponse(response => new URL(response.url()).pathname === `/api/usage-review/${SETTLEMENT_REVIEW_IDS[0]}` && response.request().method() === 'GET')
         await page.reload({ waitUntil: 'networkidle' })
-        assert.equal(await page.getByRole('dialog').count(), 0, 'reload dismisses stale status state')
-        const reloaded = await openSettlementLog(page, SETTLEMENT_REVIEW_IDS[0], language)
-        await assertAutomaticSettlement(reloaded.panel, 0, language)
+        await reread
+        const reloaded = page.getByTestId('request-page').getByRole('region', { name: label('Usage pending review', language), exact: true })
+        await reloaded.waitFor()
+        await assertAutomaticSettlement(reloaded, 0, language)
       }
       assertSettlementReadOnly(start)
       await context.close(); contexts.delete(context)
@@ -1290,7 +1311,7 @@ try {
         for (const key of ['Advanced: manual reconciliation', 'Confirm reconciliation', 'Frozen pricing evidence']) assert.equal(await panel.getByText(label(key), { exact: true }).count(), 0, key)
         const text = await page.locator('body').innerText()
         for (const sentinel of [SETTLEMENT_REVIEW_METADATA, 'synthetic_frozen_pricing', SETTLEMENT_REVIEW_DIAGNOSTIC]) assert(!text.includes(sentinel), 'raw frozen pricing and diagnostic metadata cannot be rendered to the owner')
-        await page.keyboard.press('Escape')
+        await page.goBack()
         await dialog.waitFor({ state: 'hidden' })
       }
       const reads = report.requests.slice(start)
@@ -1337,13 +1358,13 @@ try {
       await dialog.waitFor({ state: 'hidden' })
       await settled(page)
       if (width === 1280) assert.equal(await entry.evaluate(element => element === document.activeElement), true, 'keyboard policy entry regains focus after dismissal')
-      // Below 1024px a Key card opens the Key inspector; its Access tab holds
+      // Below 1024px a Key card opens the Key's page; its scope tab holds
       // the budget and edit actions that the desktop row shows inline.
       const phone = width < 1024
-      const inspector = page.locator('[data-inspector]')
+      const inspector = page.getByTestId('key-page')
       if (phone) {
         await page.locator('[data-inspect-id="21"]').first().click()
-        await inspector.getByRole('tab', { name: label('Access', language), exact: true }).click()
+        await inspector.getByRole('tab', { name: label('Scope and shares', language), exact: true }).click()
       }
       const budgetEntry = phone
         ? inspector.getByRole('button', { name: label('Usage budgets', language), exact: true })

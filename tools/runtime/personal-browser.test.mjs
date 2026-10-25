@@ -291,6 +291,17 @@ function journeyBrowser({ writer = 'legacy', corrupt, screenshotSecret = false, 
         if (failUsageScreenshot && path.basename(options.path).startsWith('usage-failed-')) throw new Error(base.password)
         screenshots.push(options)
       },
+      // Back from the request page returns to the call records, like the
+      // dialog's Escape before it.
+      async goBack() {
+        if (!page.logDetailsOpen) return
+        if (context.viewport.width === 320) {
+          assert.notEqual(corrupt, 'ui-log-detail-return')
+          page.closedLogDetails = (page.closedLogDetails || 0) + 1
+        }
+        page.logDetailsOpen = false
+        page.closedLogDialogs = (page.closedLogDialogs || 0) + 1
+      },
       keyboard: { async press(key) {
         if (key === 'Escape' && page.logDetailsOpen) {
           if (context.viewport.width === 320) {

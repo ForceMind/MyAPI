@@ -40,31 +40,33 @@ try {
       await page.screenshot({ path: resolve(output, file), animations: 'disabled' })
       screenshots.push(file)
     }
-    // Design 6.1: from 1280px the inspector sits beside the list; below
-    // 1024px it is a full page whose Back lives in the mobile top bar.
+    // Design direction 3: a Key and a request are each a full page. On PC
+    // the breadcrumb leads back up; below 1024px the mobile top bar's Back.
     const phone = width < 1024
-    const inspector = page.locator(phone ? '[data-inspector="page"]' : '[data-inspector="side"]')
-    const rows = inspector.locator('[data-request-row]')
-    const request = page.getByTestId('request-inspector')
+    const keyPage = page.getByTestId('key-page')
+    const rows = keyPage.locator('[data-request-row]')
+    const request = page.getByTestId('request-page')
     const keyName = 'Synthetic same-name Key · 合成同名 Key'
     const param = name => new URL(page.url()).searchParams.get(name)
+    const pathname = () => new URL(page.url()).pathname
     const focused = attribute => page.evaluate(name => document.activeElement?.getAttribute(name), attribute)
+    const breadcrumb = page.getByRole('navigation', { name: t('Current page'), exact: true })
     // One level back: request -> Key, or Key -> list.
     const stepBack = async fromRequest => {
       if (phone) await page.locator('.pc-header-mobile').getByRole('button', { name: t('Back'), exact: true }).click()
-      else if (fromRequest) await request.getByRole('button', { name: t('Back to {{name}}').replace('{{name}}', keyName), exact: true }).click()
-      else await inspector.getByRole('button', { name: t('Close details'), exact: true }).click()
+      else if (fromRequest) await breadcrumb.getByRole('button', { name: keyName, exact: true }).click()
+      else await breadcrumb.getByRole('button', { name: t('API Keys_nav'), exact: true }).click()
     }
     const openRequest = async (index, requestId) => {
       await rows.nth(index).click()
-      // The ID heads the details and may repeat in the diagnosis facts.
+      // The ID heads the page and may repeat in the diagnosis record.
       await request.getByText(requestId, { exact: true }).first().waitFor()
-      assert.equal(param('request'), requestId)
+      assert.equal(pathname(), `/keys/21/requests/${requestId}`)
     }
     const backToKey = async rowId => {
       await stepBack(true)
       await rows.first().waitFor()
-      assert.equal(param('request'), null)
+      assert.equal(pathname(), '/keys/21')
       assert.equal(await focused('data-request-row'), rowId)
     }
     try {
@@ -86,7 +88,7 @@ try {
       }
       await page.locator('[data-inspect-id="21"]').first().click()
       await rows.first().waitFor()
-      assert.equal(param('inspect'), '21')
+      assert.equal(pathname(), '/keys/21')
       // Only Key #21's four requests: the same-name Key #22 and the record
       // without a saved Key ID stay out.
       assert.equal(await rows.count(), 4)
@@ -95,13 +97,16 @@ try {
       await request.getByText(t('Estimated input Tokens'), { exact: true }).waitFor()
       await request.getByText(t('Input exceeds the upstream context window. Shorten the input and try again.'), { exact: true }).waitFor()
       await capture('request-diagnosis')
+      // The saved body is the default content tab (not in the URL).
       await request.getByRole('tab', { name: t('Body'), exact: true }).click()
+      assert.equal(await request.getByRole('tab', { name: t('Body'), exact: true }).getAttribute('aria-selected'), 'true')
       await request.getByRole('alert').filter({ hasText: /exceeds the context window/ }).waitFor()
       assert(await request.getByText('200', { exact: true }).count() > 0)
-      assert.equal(param('requestTab'), 'body')
+      assert.equal(param('tab'), null)
       await capture('stream-error')
       await request.getByRole('tab', { name: 'SSE', exact: true }).click()
       await request.getByText('context_length_exceeded', { exact: false }).last().waitFor()
+      assert.equal(param('tab'), 'sse')
       await capture('sse-raw')
       await backToKey('100')
       await openRequest(1, 'SYNTHETIC-COMPLETED-NO-USAGE')
@@ -124,7 +129,7 @@ try {
       await capture('preflight-body')
       await backToKey('95')
       // The full call records stay one link away, pinned to the Key ID.
-      await inspector.getByRole('link', { name: t('View all in call records'), exact: true }).click()
+      await keyPage.getByRole('link', { name: t('View all in call records'), exact: true }).click()
       await page.getByText(t('Requests for Key #{{id}}').replace('{{id}}', '21'), { exact: true }).waitFor({ state: 'visible' })
       assert.equal(param('tokenId'), '21')
       assert.equal(await page.getByText('SYNTHETIC-OTHER-KEY', { exact: true }).count(), 0)
@@ -149,24 +154,31 @@ try {
       await rows.first().waitFor()
       await stepBack(false)
       await page.locator('[data-inspect-id="21"]').first().waitFor()
-      assert.equal(param('inspect'), null)
+      assert.equal(pathname(), '/keys')
+      assert.equal(param('filter'), 'Synthetic')
       assert.equal(await focused('data-inspect-id'), '21')
-      // Older keyId links open the same Key inspector.
+      // Older keyId and inspect links open the same Key page.
       await page.goto(`${origin}/keys?keyId=21`, { waitUntil: 'networkidle' })
       await rows.first().waitFor()
-      assert.equal(param('inspect'), '21')
+      assert.equal(pathname(), '/keys/21')
       assert.equal(param('keyId'), null)
-      // A pasted Request ID opens its details directly.
+      await page.goto(`${origin}/keys?inspect=21&request=SYNTHETIC-CONTEXT-ERROR&requestTab=sse`, { waitUntil: 'networkidle' })
+      await request.getByText('SYNTHETIC-CONTEXT-ERROR', { exact: true }).first().waitFor()
+      assert.equal(pathname(), '/keys/21/requests/SYNTHETIC-CONTEXT-ERROR')
+      assert.equal(param('tab'), 'sse')
+      assert.equal(param('inspect'), null)
+      // A pasted Request ID (earlier link form) opens its page directly.
       await page.goto(`${origin}/usage-logs/common?requestId=SYNTHETIC-PREFLIGHT-REJECTED&inspect=request`, { waitUntil: 'networkidle' })
       await request.getByText('SYNTHETIC-PREFLIGHT-REJECTED', { exact: true }).first().waitFor()
       await request.getByText(t('Blocked before upstream'), { exact: true }).waitFor()
+      assert.equal(pathname(), '/usage-logs/request/SYNTHETIC-PREFLIGHT-REJECTED')
       await capture('direct-request')
       const reads = fixture.requests.slice(start)
       for (const path of ['/api/log', '/api/log/stat']) assert(reads.some(item => item.path === path && item.token_id === '21'), `${path} is pinned to Key ID`)
       assert(reads.some(item => item.path === '/api/log' && item.request_id === 'SYNTHETIC-PREFLIGHT-REJECTED'), 'The Request ID is looked up exactly')
       assert(!reads.some(item => /\/key$/.test(item.path)), 'No secret Key retrieval')
       assert.deepEqual(writes, []); assert.deepEqual(external, []); assert.deepEqual(pageErrors, [])
-      report.journeys.push({ language, width, result: 'passed', checks: ['key-row-opens-inspector', 'visible-key-id-scope', 'same-name-and-legacy-exclusion', 'request-diagnosis', 'http200-sse-error-body-tab', 'sse-tab-raw', 'completed-with-usage-not-provided', 'missing-body', 'back-one-level-with-focus', 'stable-id-list-and-stat', 'pagination', 'return-filter-and-focus', 'close-returns-focus', 'legacy-keyId-link', 'request-id-direct-open', 'no-external-or-write-or-secret-requests'], screenshots })
+      report.journeys.push({ language, width, result: 'passed', checks: ['key-row-opens-key-page', 'visible-key-id-scope', 'same-name-and-legacy-exclusion', 'request-diagnosis', 'http200-sse-error-body-tab', 'sse-tab-raw', 'completed-with-usage-not-provided', 'missing-body', 'back-one-level-with-focus', 'stable-id-list-and-stat', 'pagination', 'return-filter-and-focus', 'close-returns-focus', 'legacy-keyId-link', 'legacy-inspect-request-link', 'request-id-direct-open', 'no-external-or-write-or-secret-requests'], screenshots })
       persist()
     } catch (error) {
       await page.screenshot({ path: resolve(output, `key-request-failure-${language}-${width}.png`) }).catch(() => {})

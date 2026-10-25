@@ -422,9 +422,9 @@ try {
     assert.equal((await visibleVersion.textContent())?.trim(), version)
     await page.keyboard.press('Escape')
     await visibleVersion.waitFor({ state: 'hidden' })
-    // Key actions live in the Key inspector: open the Key, then Access.
+    // Credential maintenance lives on the Key's page, under Delivery.
     await page.locator('[data-inspect-id="21"]').first().click()
-    await page.getByRole('tab', { name: t('Access'), exact: true }).click()
+    await page.getByRole('tab', { name: t('Delivery'), exact: true }).click()
     const entry = page
       .getByRole('button', { name: t('Credential maintenance'), exact: true })
       .first()

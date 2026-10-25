@@ -85,6 +85,10 @@ try {
           return row
         }
         const empty = ['STATS-EMPTY', 'STATS-RETRY'].includes(url.searchParams.get('request_id'))
+        // Like the real API, a complete Request ID matches exactly (the
+        // request page looks one up); a prefix filters the list.
+        const exact = url.searchParams.get('request_id')?.match(/^REQ-SYNTHETIC-(\d+)$/)
+        if (exact) return route.fulfill({ json: { success: true, data: { items: [log(Number(exact[1]))], total: 1, page: 1, page_size: 10 } } })
         const items = empty ? [] : pageNumber === 1 ? Array.from({ length: 20 }, (_, i) => log(501 + i)) : [log(521)]
         return route.fulfill({ json: { success: true, data: { items, total: empty ? 0 : 21, page: pageNumber, page_size: 20 } } })
       }
@@ -179,20 +183,21 @@ try {
       await page.getByText('REQ-SYNTHETIC-521', { exact: true }).first().waitFor()
       assert(queries.some(query => query.params.p === '2'), 'Server pagination reads page 2')
       const before = page.url()
+      // The request's details open as its own page (design direction 3).
       await page.getByTitle(t('Click to view full details'), { exact: true }).first().click()
-      const detail = page.getByRole('dialog', { name: new RegExp(t('Log Details')) })
+      const detail = page.getByTestId('request-page')
+      await detail.getByText(t('Request succeeded'), { exact: true }).first().waitFor()
+      assert.equal(new URL(page.url()).pathname, '/usage-logs/request/REQ-SYNTHETIC-521')
       assert(await detail.getByText(t('Request succeeded'), { exact: true }).count(), 'Missing usage remains successful')
       assert(await detail.getByText(t('Unknown'), { exact: true }).count() >= 2, 'Input/output stay unknown')
       assert.equal(await detail.getByText(t('Total Cost'), { exact: true }).count(), 0)
       await capture('detail')
-      await detail.getByRole('button', { name: t('View request content'), exact: true }).click()
-      const content = page.getByRole('dialog', { name: t('Full Content Log Detail'), exact: true })
-      await content.getByRole('tab', { name: new RegExp(t('Response')) }).click()
-      await content.getByText('SYNTHETIC-SAVED-RESPONSE', { exact: false }).waitFor()
+      // The saved raw response is under the page's SSE tab.
+      await detail.getByRole('tab', { name: 'SSE', exact: true }).click()
+      await detail.getByText('SYNTHETIC-SAVED-RESPONSE', { exact: false }).first().waitFor()
       await capture('saved-content')
-      await page.keyboard.press('Escape')
-      await detail.waitFor()
-      await page.keyboard.press('Escape')
+      await page.goBack()
+      await detail.waitFor({ state: 'hidden' })
       assert.equal(page.url(), before, 'Filter and page URL survive return')
       await page.getByText('REQ-SYNTHETIC-521', { exact: true }).first().waitFor()
       await Promise.all([page.waitForResponse(response => /\/api\/log\/self\?/.test(response.url())), page.waitForResponse(response => new URL(response.url()).pathname === '/api/log/self/stat'), page.getByRole('tab', { name: t('Only Mine'), exact: true }).click()])

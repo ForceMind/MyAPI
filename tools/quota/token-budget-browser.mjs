@@ -22,9 +22,14 @@ export function tokenBudgetBrowserFixture() {
         await route.fulfill({ json: { success: true, data: { items: [key], total: 1, page: 1, page_size: 10 } } })
         return true
       }
-      // The Key inspector reads the opened Key by ID.
+      // The Key page reads the opened Key by ID, and its saved window
+      // shares (none here) for its share figure.
       if (path === '/api/token/1' && route.request().method() === 'GET') {
         await route.fulfill({ json: { success: true, data: key } })
+        return true
+      }
+      if (path === '/api/token/1/subscription-share' && route.request().method() === 'GET') {
+        await route.fulfill({ json: { success: true, data: { token_id: 1, pools: [] } } })
         return true
       }
       if (path !== '/api/token/1/budget' && path !== '/api/token/1/budget/recover') return false
@@ -310,11 +315,11 @@ export async function checkTokenBudgetBrowser({ page, origin, output, label, fix
   await dialog.waitFor({ state: 'hidden' })
   assert.equal(fixture.writes.length, 5, 'closing through the mobile footer does not resubmit the budget')
   await page.reload({ waitUntil: 'networkidle' })
-  // Below 1024px a Key card opens the Key inspector; its Access tab holds the
-  // budget action that the desktop row shows inline (design 6.1, 8.2).
+  // Below 1024px a Key card opens the Key's page; its scope tab holds the
+  // budget action that the desktop row shows inline (design direction 3).
   await page.locator('[data-inspect-id="1"]').first().click()
-  const inspector = page.locator('[data-inspector]')
-  await inspector.getByRole('tab', { name: label('Access'), exact: true }).click()
+  const inspector = page.getByTestId('key-page')
+  await inspector.getByRole('tab', { name: label('Scope and shares'), exact: true }).click()
   await inspector.getByRole('button', { name: label('Usage budgets'), exact: true }).click()
   await page.getByRole('dialog').getByText('20.01%', { exact: true }).waitFor()
   assert.equal(fixture.writes.length, 5, 'threshold reload never rewrites policy')

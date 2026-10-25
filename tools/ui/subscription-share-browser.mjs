@@ -129,12 +129,12 @@ try {
             screenshots.push(keyListImage)
             capturedKeyList = true
           }
-          // The share editor opens from the Key inspector's Window shares tab.
+          // The share editor opens from the Key page's scope and shares tab.
           await page.locator('[data-inspect-id="21"]').first().click()
-          await page.getByRole('tab', { name: t('Window shares'), exact: true }).click()
+          await page.getByRole('tab', { name: t('Scope and shares'), exact: true }).click()
           await page.getByRole('button', { name: t('Window share'), exact: true }).last().click()
           if (role === 100) {
-            // A region inside the Key inspector; the page keeps the only main.
+            // A region inside the Key page; the page keeps the only main.
             const editor = page.getByRole('region', {name: t('Adjust window share'), exact: true})
             await editor.waitFor({state: 'visible'})
             await editor.getByLabel(t('Subscription account'), {exact: true}).selectOption('9')

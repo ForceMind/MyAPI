@@ -935,8 +935,10 @@ async function showPersistedUsage(session, key, requestId, options, screenshots)
       log.token_name === key.name && log.model_name === model && log.type === 2 &&
       log.prompt_tokens === 10 && log.completion_tokens === 5, 'LOG_MISMATCH')
     session.scope.stage = 'usage-list-visible'
+    // The Details control is a link to the request page for a relayed
+    // request with an ID (design direction 3), a button otherwise.
     const row = main.getByText(requestId, { exact: true }).locator(
-      `xpath=ancestor::*[.//button[@title=${JSON.stringify(session.label('Click to view full details'))}]][1]`)
+      `xpath=ancestor::*[.//*[@title=${JSON.stringify(session.label('Click to view full details'))}]][1]`)
     const details = row.getByTitle(session.label('Click to view full details'), { exact: true })
     await row.getByText(key.name, { exact: true }).filter({ visible: true }).waitFor()
     await row.getByText(model, { exact: true }).filter({ visible: true }).waitFor()
@@ -944,7 +946,7 @@ async function showPersistedUsage(session, key, requestId, options, screenshots)
     await details.waitFor({ state: 'visible' })
     requireThat(await details.count() === 1, 'LOG_MISMATCH')
     await details.click()
-    const detail = session.page.getByRole('dialog', { name: new RegExp(session.label('Log Details')) })
+    const detail = session.page.locator('[data-testid="request-page"]')
     session.scope.stage = 'usage-details-request'
     await detail.getByText(requestId, { exact: true }).waitFor()
     session.scope.stage = 'usage-details-key'
@@ -1052,8 +1054,8 @@ export async function probePersonalBrowserJourney(options = {}) {
     await capture(root, options, 'fresh-success', screenshots)
     await showPersistedUsage(root, rootKey, rootRequest, options, screenshots)
     await capture(root, options, 'fresh-persisted-log', screenshots)
-    await root.page.keyboard.press('Escape')
-    await root.page.getByRole('dialog', { name: new RegExp(root.label('Log Details')) }).waitFor({ state: 'hidden' })
+    await root.page.goBack()
+    await root.page.locator('[data-testid="request-page"]').waitFor({ state: 'hidden' })
     checks.push({ name: 'real English desktop fresh Root selected-Key streaming request and persisted usage', ok: true, quota: usage, requests: 1 })
 
     // An ordinary pre-existing-style user starts with the existing stored-wallet
@@ -1134,8 +1136,8 @@ export async function probePersonalBrowserJourney(options = {}) {
     await capture(owner, options, 'existing-success', screenshots)
     await showPersistedUsage(owner, ownerKey, ownerRequest, options, screenshots)
     await capture(owner, options, 'existing-persisted-log', screenshots)
-    await owner.page.keyboard.press('Escape')
-    await owner.page.getByRole('dialog', { name: new RegExp(owner.label('Log Details')) }).waitFor({ state: 'hidden' })
+    await owner.page.goBack()
+    await owner.page.locator('[data-testid="request-page"]').waitFor({ state: 'hidden' })
     await owner.page.getByRole('main').getByText(ownerRequest, { exact: true }).waitFor({ state: 'visible' })
     checks.push({ name: 'real Chinese mobile ordinary owner rejects until explicit Root policy choice', ok: true, role: 1, policyChanges: 1, requests: 1, quota: usage })
 

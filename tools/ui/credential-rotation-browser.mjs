@@ -435,10 +435,10 @@ try {
       })
       screenshots.push(file)
     }
-    // Key actions live in the Key inspector: open the Key, then Access. The
+    // Credential maintenance lives on the Key's page, under Delivery. The
     // URL keeps both, so a reload reopens the same entry.
     await page.locator('[data-inspect-id="21"]').first().click()
-    await page.getByRole('tab', { name: t('Access'), exact: true }).click()
+    await page.getByRole('tab', { name: t('Delivery'), exact: true }).click()
     const maintenanceEntry = page
       .getByRole('button', {
         name: t('Credential maintenance'),

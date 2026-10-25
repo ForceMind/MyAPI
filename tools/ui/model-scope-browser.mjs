@@ -466,10 +466,13 @@ try {
       exact: true,
     })
     await keyList.waitFor({ state: 'visible' })
-    // Key actions live in the Key inspector: open the Key, then Access.
+    // Key actions live on the Key's page: open the Key, then its scope tab.
     await keyList.locator('[data-inspect-id="21"]').first().click()
-    await keyList.getByRole('tab', { name: t('Access'), exact: true }).click()
-    const entry = keyList
+    const keyPage = page.getByTestId('key-page')
+    await keyPage
+      .getByRole('tab', { name: t('Scope and shares'), exact: true })
+      .click()
+    const entry = keyPage
       .getByRole('button', { name: t('Model scope'), exact: true })
       .last()
     await entry.waitFor({ state: 'visible' })
@@ -849,7 +852,7 @@ try {
     }
 
     if (item.action !== 'cancel') {
-      const refreshedEntry = keyList
+      const refreshedEntry = keyPage
         .getByRole('button', { name: t('Model scope'), exact: true })
         .last()
       await refreshedEntry.click()

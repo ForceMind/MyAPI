@@ -248,8 +248,9 @@ async function verifyLogs(page, scenario) {
   for (const [index, log] of logs.entries()) {
     const record = page.getByText(log.request_id, { exact: true }).first()
     const row = scenario.width < 1024 ? record.locator('xpath=ancestor::*[@data-log-row]') : record.locator('xpath=ancestor::tr')
+    // The request's details open as its own page (design direction 3).
     await row.getByTitle(tr('Click to view full details', scenario.language), { exact: true }).click()
-    const detail = page.getByRole('dialog', { name: new RegExp(tr('Log Details', scenario.language)) })
+    const detail = page.getByTestId('request-page')
     await detail.getByText(tr(index < 2 ? 'Request succeeded' : 'Request failed', scenario.language), { exact: true }).first().waitFor()
     if (index === 1) {
       // Explicit upstream-reported zero is valid evidence, never Unknown.
@@ -261,7 +262,7 @@ async function verifyLogs(page, scenario) {
     assert.equal(await detail.getByText(tr('Total Cost', scenario.language), { exact: true }).count(), 0)
     assert.equal(await page.getByText(tr('Current Balance', scenario.language), { exact: true }).count(), 0)
     if (index === 0) await shot(page, scenario, 'details')
-    await page.keyboard.press('Escape')
+    await page.goBack()
     await detail.waitFor({ state: 'hidden' })
   }
   await noOverflow(page, scenario.name)

@@ -128,6 +128,12 @@ try {
     if (url.pathname.endsWith('/quota/history')) historyRequests.push(Object.fromEntries(url.searchParams))
     if (url.pathname.endsWith('/quota/changes')) changeRequests.push(Object.fromEntries(url.searchParams))
     if (url.pathname === '/api/usage-review/usage-review-fixture/reconcile' && route.request().method() === 'POST') reviewSubmissions.push(route.request().postDataJSON())
+    // The request page reads the request's saved, redacted body (a read; the
+    // request is never resent).
+    if (url.pathname === '/api/full-content-logs/usage-review-fixture' && route.request().method() === 'GET') {
+      await route.fulfill({ json: { success: true, data: { request_id: 'usage-review-fixture', timestamp: '2026-10-01T00:00:00Z', method: 'POST', path: '/v1/responses', status: 200, duration_ms: 1000, chunk_count: 1, request_bytes: 2, response_bytes: 2, request_body: '{"input":"synthetic"}', response_body: '{"output":"synthetic"}', request_content_type: 'application/json', response_content_type: 'application/json', request_headers: {}, response_headers: {}, query: {} } } })
+      return
+    }
     const response = quotaFixtures({ latestError, currentUsageMissing, currentUsagePercent }).response(url)
     if (!response) unexpected.add(`${route.request().method()} ${url.pathname}`)
     await route.fulfill({ status: response ? 200 : 501, json: response || { success: false, message: 'Unconfigured browser fixture' } })
@@ -445,8 +451,11 @@ try {
   await page.goto(`${origin}/usage-logs/common`, { waitUntil: 'networkidle' })
   const unknownRow = page.getByRole('row').filter({ has: page.getByText('fixture-unknown', { exact: true }) })
   await unknownRow.getByText(label('Usage pending review'), { exact: true }).waitFor({ state: 'visible' })
+  // The request's details open as its own page (design direction 3).
   await unknownRow.getByTitle(label('Click to view full details')).click()
-  const reviewDialog = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: label('Advanced: manual reconciliation'), exact: true }) })
+  const reviewDialog = page.getByTestId('request-page').filter({ has: page.getByRole('button', { name: label('Advanced: manual reconciliation'), exact: true }) })
+  await reviewDialog.waitFor()
+  assert.equal(new URL(page.url()).pathname, '/usage-logs/request/usage-review-fixture')
   assert.equal(await reviewDialog.getByLabel(label('Evidence reference'), { exact: true }).count(), 0, 'manual evidence form starts collapsed')
   await reviewDialog.getByRole('button', { name: label('Advanced: manual reconciliation'), exact: true }).click()
   await reviewDialog.getByLabel(label('Confirmed quota (internal units)'), { exact: true }).fill('120')
@@ -459,12 +468,12 @@ try {
   // The form disappears after success, so keep a dialog locator independent
   // of form controls when checking the returned resolved state.
   await reviewDialog.getByRole('button', { name: label('Confirm reconciliation'), exact: true }).click()
-  const resolvedDialog = page.getByRole('dialog').filter({ has: page.getByText(label('Reconciled'), { exact: true }) })
+  const resolvedDialog = page.getByTestId('request-page').filter({ has: page.getByText(label('Reconciled'), { exact: true }) })
   await resolvedDialog.getByText(label('Reconciled'), { exact: true }).waitFor({ state: 'visible' })
   assert.deepEqual(reviewSubmissions, [{ actual_quota: 120, evidence_reference: 'synthetic-verified-usage-evidence', confirmed_reliable_evidence: true }])
   assert.equal(await resolvedDialog.getByRole('button', { name: label('Confirm reconciliation'), exact: true }).count(), 0, 'resolved evidence cannot be submitted again from the form')
   await resolvedDialog.screenshot({ path: resolve(output, 'usage-review-resolved.png') })
-  await page.keyboard.press('Escape')
+  await page.goBack()
   await resolvedDialog.waitFor({ state: 'hidden' })
   // Reuse this isolated Chromium harness for the source -> publication ->
   // guarded rollback UI. SQL/authorization behavior is tested by Go contracts.

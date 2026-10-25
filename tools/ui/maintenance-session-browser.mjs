@@ -364,12 +364,12 @@ try {
           ),
           'Exact candidate build'
         )
-        // Every layout opens the same Key inspector; budgets and assigned
-        // access sit on its Access tab, Delete in its header menu.
+        // Every layout opens the same Key page; budgets and assigned access
+        // sit on its scope tab, Delete in its header menu.
         await main.locator('[data-inspect-id="21"]').first().click()
-        const inspector = main.locator('[data-inspector]')
+        const inspector = page.getByTestId('key-page')
         await inspector
-          .getByRole('tab', { name: t('Access'), exact: true })
+          .getByRole('tab', { name: t('Scope and shares'), exact: true })
           .click()
         if (action === 'budget') {
           await inspector
@@ -452,13 +452,10 @@ try {
         if (outcome === 'navigate-away') {
           // The request adapter is deliberately held until the page unmounts.
           assert.equal(writes.length, 1)
-          // The open inspector is its own history entry (design 5.1): the
-          // first Back closes the Key, the second leaves the Keys page.
+          // The Key's page is its own history entry: the first Back
+          // returns to the Keys list, the second leaves the Keys page.
           await page.goBack({ waitUntil: 'domcontentloaded' })
-          await page.waitForURL(
-            (url) =>
-              url.pathname === '/keys' && !url.searchParams.has('inspect')
-          )
+          await page.waitForURL((url) => url.pathname === '/keys')
           await page.goBack({ waitUntil: 'domcontentloaded' })
           await page
             .getByRole('main', { name: t('Profile'), exact: true })
@@ -505,11 +502,11 @@ try {
           assert.equal((await pendingResponse).status(), 200)
           if (action === 'delete') {
             await dialog.waitFor({ state: 'hidden' })
-            // The deleted Key's inspector closes onto the now empty list.
+            // The deleted Key's page closes onto the now empty list.
             await main
               .getByText(t('No API Keys Found'), { exact: true })
               .waitFor()
-            assert.equal(new URL(page.url()).searchParams.get('inspect'), null)
+            assert.equal(new URL(page.url()).pathname, '/keys')
           } else if (action === 'policy') {
             const assigned = dialog.getByText(
               t('Administrator assignment is present.'),

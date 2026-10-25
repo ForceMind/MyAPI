@@ -215,7 +215,7 @@ const safeKeys = [
   })),
 ]
 
-// The Keys page's list and Key inspector read the masked Key object; no
+// The Keys page's list and each Key's page read the masked Key object; no
 // secret is part of it.
 function keyListItem(key, fixture) {
   return { ...key, user_id: fixture.user.id, key: 'masked', used_quota: 0, created_time: now - 3600, accessed_time: now - 60, model_limits_enabled: false, model_limits: '', allow_ips: '' }
@@ -518,9 +518,9 @@ function scenarioResponse(fixture, scenario, url, method, reads, pagePath) {
     }
   }
   const legacyDashboardList = method === 'GET' && pagePath === '/dashboard/overview' && ['enabled', 'retirement'].includes(scenario.mode)
-  // Only the Keys page (its list and the Key inspector) reads Key objects;
+  // Only the Keys pages (the list and each Key's page) read Key objects;
   // the overview counts Keys from the safe /pg/keys list.
-  const keysPage = method === 'GET' && pagePath === '/keys'
+  const keysPage = method === 'GET' && (pagePath === '/keys' || pagePath.startsWith('/keys/'))
   const keyObject = path.match(/^\/api\/token\/(\d+)$/)
   if (keysPage && keyObject) {
     const key = safeKeys.find((item) => item.id === Number(keyObject[1]))
@@ -909,12 +909,14 @@ async function screenshot(page, scenario, suffix) {
   persist()
 }
 
-// The Playground handoff starts from the Key inspector on the Keys page.
+// The Playground handoff starts from the Key's page. The earlier inspector
+// link form is used on purpose: it must still lead to that page.
 async function openKeyInspector(page, value) {
   await page.goto(`${origin}/keys?inspect=${value}`, { waitUntil: 'networkidle' })
-  const inspector = page.locator('[data-inspector]')
+  const inspector = page.getByTestId('key-page')
   const key = safeKeys.find((item) => item.id === value)
-  await inspector.getByRole('heading', { level: 2, name: key.name, exact: true }).waitFor()
+  await inspector.getByRole('heading', { level: 1, name: key.name, exact: true }).waitFor()
+  assert.equal(new URL(page.url()).pathname, `/keys/${value}`)
   return inspector
 }
 

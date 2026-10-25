@@ -573,11 +573,14 @@ try {
     await page.getByText(secondaryName, { exact: true }).first().waitFor()
     await page.getByText('synthetic-text-model', { exact: true }).first().waitFor()
     await page.locator('[data-myapi-shell="authenticated"]').waitFor({ state: 'visible' })
+    // The request's details open as its own page (design direction 3); the
+    // Request ID shows in its heading area and in the saved record.
     await page.getByTitle(label('Click to view full details'), { exact: true }).click()
-    const usageDetails = page.getByRole('dialog')
-    await usageDetails.getByText(secondaryName, { exact: true }).waitFor()
-    await usageDetails.getByText('synthetic-playground-key-22', { exact: true }).waitFor()
-    await usageDetails.getByText(secondaryName, { exact: true }).scrollIntoViewIfNeeded()
+    const usageDetails = page.getByTestId('request-page')
+    await usageDetails.getByText(secondaryName, { exact: true }).first().waitFor()
+    await usageDetails.getByText('synthetic-playground-key-22', { exact: true }).first().waitFor()
+    assert.equal(new URL(page.url()).pathname, '/usage-logs/request/synthetic-playground-key-22')
+    await usageDetails.getByText(secondaryName, { exact: true }).first().scrollIntoViewIfNeeded()
     assert.equal(sent.length, 6, 'inspection and navigation cannot replay a canceled or restored chat')
     const usageName = `${name}-selected-key-usage.png`
     await page.screenshot({ path: resolve(output, usageName), fullPage: true }); report.screenshots.push(usageName)

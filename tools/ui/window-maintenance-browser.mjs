@@ -485,10 +485,10 @@ try {
         await keyList.waitFor({ state: 'visible' })
         await assertFits(keyList, width, `${name}: Key list`)
       }
-      // The share editor opens from the Key inspector's Window shares tab;
-      // after the editor closes the inspector is still open on that tab.
+      // The share editor opens from the Key page's scope and shares tab;
+      // after the editor closes the Key page is still open on that tab.
       const sharesTab = page.getByRole('tab', {
-        name: t('Window shares'),
+        name: t('Scope and shares'),
         exact: true,
       })
       if (!(await sharesTab.isVisible())) {
@@ -499,7 +499,7 @@ try {
         .getByRole('button', { name: t('Window share'), exact: true })
         .last()
         .click()
-      // A region inside the Key inspector; the page keeps the only main.
+      // A region inside the Key page; the page keeps the only main.
       const editor = page.getByRole('region', {
         name: t('Adjust window share'),
         exact: true,
@@ -898,7 +898,7 @@ try {
   assert.equal(ownerTheme, 'light', `${ownerName}: stored light theme is applied`)
   await ownerPage.locator('[data-inspect-id="21"]').first().click()
   await ownerPage
-    .getByRole('tab', { name: ownerT('Window shares'), exact: true })
+    .getByRole('tab', { name: ownerT('Scope and shares'), exact: true })
     .click()
   await ownerPage
     .getByRole('button', { name: ownerT('Window share'), exact: true })
