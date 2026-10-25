@@ -1,0 +1,3546 @@
+{
+  "origin": "http://127.0.0.1:4184",
+  "blockedExternalRequests": 0,
+  "checks": [
+    {
+      "name": "overview-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "overview-1280-light-zh: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "overview-1280-light-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "overview-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-requests-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "key-requests-1280-light-zh: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "key-requests-1280-light-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "key-requests-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "keys-1280-light-zh: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "keys-1280-light-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "keys-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "upstream-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "upstream-1280-light-zh: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "upstream-1280-light-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "upstream-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "account-windows-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "account-windows-1280-light-zh: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "account-windows-1280-light-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "account-windows-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "settings-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 191,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "settings-1280-light-zh: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 191,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "settings-1280-light-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 191,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "settings-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "profile-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "profile-1280-light-zh: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "profile-1280-light-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "profile-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "system-info-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "system-info-1280-light-zh: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "system-info-1280-light-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "system-info-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "overview-390-light-zh: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "overview-390-light-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "overview-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-requests-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "key-requests-390-light-zh: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "key-requests-390-light-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "key-requests-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "keys-390-light-zh: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "keys-390-light-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "keys-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "upstream-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "upstream-390-light-zh: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "upstream-390-light-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "upstream-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "account-windows-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "account-windows-390-light-zh: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "account-windows-390-light-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "account-windows-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "settings-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 164,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "settings-390-light-zh: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 164,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "settings-390-light-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 164,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "settings-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "profile-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "profile-390-light-zh: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "profile-390-light-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "profile-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "system-info-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "system-info-390-light-zh: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "system-info-390-light-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "system-info-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-1280-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "overview-1280-dark-zh: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "overview-1280-dark-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "overview-1280-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-requests-1280-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "key-requests-1280-dark-zh: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "key-requests-1280-dark-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "key-requests-1280-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "upstream-1280-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "upstream-1280-dark-zh: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "upstream-1280-dark-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "upstream-1280-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "account-windows-1280-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "account-windows-1280-dark-zh: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "account-windows-1280-dark-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "account-windows-1280-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "settings-1280-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 191,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "settings-1280-dark-zh: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 191,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "settings-1280-dark-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 191,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "settings-1280-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "profile-1280-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "profile-1280-dark-zh: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "profile-1280-dark-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "profile-1280-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-390-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "overview-390-dark-zh: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "overview-390-dark-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "overview-390-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-requests-390-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "key-requests-390-dark-zh: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "key-requests-390-dark-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "key-requests-390-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "upstream-390-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "upstream-390-dark-zh: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "upstream-390-dark-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "upstream-390-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "account-windows-390-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "account-windows-390-dark-zh: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "account-windows-390-dark-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "account-windows-390-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "settings-390-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 164,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "settings-390-dark-zh: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 164,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "settings-390-dark-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 164,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "settings-390-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "profile-390-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "profile-390-dark-zh: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "profile-390-dark-zh: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "profile-390-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-1280-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "overview-1280-light-en: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "overview-1280-light-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "overview-1280-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-requests-1280-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "key-requests-1280-light-en: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "key-requests-1280-light-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "key-requests-1280-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "upstream-1280-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "upstream-1280-light-en: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "upstream-1280-light-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "upstream-1280-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "account-windows-1280-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "account-windows-1280-light-en: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "account-windows-1280-light-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "account-windows-1280-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "settings-1280-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 191,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "settings-1280-light-en: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 191,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "settings-1280-light-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 191,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "settings-1280-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "profile-1280-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "profile-1280-light-en: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "profile-1280-light-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "profile-1280-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-390-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "overview-390-light-en: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "overview-390-light-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "overview-390-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-requests-390-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "key-requests-390-light-en: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "key-requests-390-light-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "key-requests-390-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "upstream-390-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "upstream-390-light-en: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "upstream-390-light-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "upstream-390-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "account-windows-390-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "account-windows-390-light-en: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "account-windows-390-light-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "account-windows-390-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "settings-390-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 214,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "settings-390-light-en: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 214,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "settings-390-light-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 214,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "settings-390-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "profile-390-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "profile-390-light-en: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "profile-390-light-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "profile-390-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-1280-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "overview-1280-dark-en: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "overview-1280-dark-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "overview-1280-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-requests-1280-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "key-requests-1280-dark-en: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "key-requests-1280-dark-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "key-requests-1280-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "upstream-1280-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "upstream-1280-dark-en: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "upstream-1280-dark-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "upstream-1280-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "account-windows-1280-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "account-windows-1280-dark-en: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "account-windows-1280-dark-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "account-windows-1280-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "settings-1280-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 191,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "settings-1280-dark-en: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 191,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "settings-1280-dark-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 191,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "settings-1280-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "profile-1280-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "profile-1280-dark-en: desktop composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "profile-1280-dark-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 860
+      }
+    },
+    {
+      "name": "profile-1280-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-390-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "overview-390-dark-en: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "overview-390-dark-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "overview-390-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-requests-390-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "key-requests-390-dark-en: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "key-requests-390-dark-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "key-requests-390-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "upstream-390-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "upstream-390-dark-en: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "upstream-390-dark-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "upstream-390-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "account-windows-390-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "account-windows-390-dark-en: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "account-windows-390-dark-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "account-windows-390-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "settings-390-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 214,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "settings-390-dark-en: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 214,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "settings-390-dark-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 214,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "settings-390-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "profile-390-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "profile-390-dark-en: mobile composition, no sidebar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "profile-390-dark-en: page not under the top bar",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 779,
+        "innerHeight": 844
+      }
+    },
+    {
+      "name": "profile-390-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-320-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 635,
+        "innerHeight": 700
+      }
+    },
+    {
+      "name": "overview-320-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-320-light-zh: five bottom targets >= 44px",
+      "pass": true,
+      "detail": [
+        {
+          "label": "概览",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "上游",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Key",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "请求",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "更多",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "name": "overview-320-light-zh: bottom labels one line, no word clipped",
+      "pass": true,
+      "detail": [
+        {
+          "label": "概览",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "上游",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Key",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "请求",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "更多",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "name": "key-requests-320-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 635,
+        "innerHeight": 700
+      }
+    },
+    {
+      "name": "key-requests-320-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-requests-320-light-zh: five bottom targets >= 44px",
+      "pass": true,
+      "detail": [
+        {
+          "label": "概览",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "上游",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Key",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "请求",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "更多",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "name": "key-requests-320-light-zh: bottom labels one line, no word clipped",
+      "pass": true,
+      "detail": [
+        {
+          "label": "概览",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "上游",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Key",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "请求",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "更多",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "name": "overview-320-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 635,
+        "innerHeight": 700
+      }
+    },
+    {
+      "name": "overview-320-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-320-light-en: five bottom targets >= 44px",
+      "pass": true,
+      "detail": [
+        {
+          "label": "Overview",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Upstream",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Keys",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Requests",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "More",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "name": "overview-320-light-en: bottom labels one line, no word clipped",
+      "pass": true,
+      "detail": [
+        {
+          "label": "Overview",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Upstream",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Keys",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Requests",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "More",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "name": "key-requests-320-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 635,
+        "innerHeight": 700
+      }
+    },
+    {
+      "name": "key-requests-320-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-requests-320-light-en: five bottom targets >= 44px",
+      "pass": true,
+      "detail": [
+        {
+          "label": "Overview",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Upstream",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Keys",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Requests",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "More",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "name": "key-requests-320-light-en: bottom labels one line, no word clipped",
+      "pass": true,
+      "detail": [
+        {
+          "label": "Overview",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Upstream",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Keys",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Requests",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "More",
+          "w": 62,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "name": "overview-768-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 959,
+        "innerHeight": 1024
+      }
+    },
+    {
+      "name": "overview-768-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-768-light-zh: five bottom targets >= 44px",
+      "pass": true,
+      "detail": [
+        {
+          "label": "概览",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "上游",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Key",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "请求",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "更多",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "name": "overview-768-light-zh: bottom labels one line, no word clipped",
+      "pass": true,
+      "detail": [
+        {
+          "label": "概览",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "上游",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Key",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "请求",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "更多",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "name": "key-requests-768-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 959,
+        "innerHeight": 1024
+      }
+    },
+    {
+      "name": "key-requests-768-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-requests-768-light-zh: five bottom targets >= 44px",
+      "pass": true,
+      "detail": [
+        {
+          "label": "概览",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "上游",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Key",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "请求",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "更多",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "name": "key-requests-768-light-zh: bottom labels one line, no word clipped",
+      "pass": true,
+      "detail": [
+        {
+          "label": "概览",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "上游",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Key",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "请求",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "更多",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "name": "overview-768-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": 959,
+        "innerHeight": 1024
+      }
+    },
+    {
+      "name": "overview-768-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-768-light-en: five bottom targets >= 44px",
+      "pass": true,
+      "detail": [
+        {
+          "label": "Overview",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Upstream",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Keys",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Requests",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "More",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "name": "overview-768-light-en: bottom labels one line, no word clipped",
+      "pass": true,
+      "detail": [
+        {
+          "label": "Overview",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Upstream",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Keys",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Requests",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "More",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "name": "key-requests-768-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "mobile",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 108,
+        "sidebar": false,
+        "bottomTop": 959,
+        "innerHeight": 1024
+      }
+    },
+    {
+      "name": "key-requests-768-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-requests-768-light-en: five bottom targets >= 44px",
+      "pass": true,
+      "detail": [
+        {
+          "label": "Overview",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Upstream",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Keys",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Requests",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "More",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "name": "key-requests-768-light-en: bottom labels one line, no word clipped",
+      "pass": true,
+      "detail": [
+        {
+          "label": "Overview",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Upstream",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Keys",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "Requests",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        },
+        {
+          "label": "More",
+          "w": 152,
+          "h": 56,
+          "lines": 1,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "name": "overview-1024-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 768
+      }
+    },
+    {
+      "name": "overview-1024-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-1024-light-zh: top navigation does not run into the actions",
+      "pass": true,
+      "detail": {
+        "items": [
+          {
+            "text": "概览",
+            "left": 122,
+            "right": 166,
+            "lines": 56
+          },
+          {
+            "text": "上游",
+            "left": 166,
+            "right": 210,
+            "lines": 56
+          },
+          {
+            "text": "API Key",
+            "left": 210,
+            "right": 278,
+            "lines": 56
+          },
+          {
+            "text": "请求",
+            "left": 278,
+            "right": 322,
+            "lines": 56
+          },
+          {
+            "text": "设置",
+            "left": 322,
+            "right": 366,
+            "lines": 56
+          },
+          {
+            "text": "管理",
+            "left": 366,
+            "right": 428,
+            "lines": 56
+          },
+          {
+            "text": "更多",
+            "left": 428,
+            "right": 490,
+            "lines": 56
+          }
+        ],
+        "actionsLeft": 804,
+        "actionsRight": 1000
+      }
+    },
+    {
+      "name": "key-requests-1024-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 768
+      }
+    },
+    {
+      "name": "key-requests-1024-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-requests-1024-light-zh: top navigation does not run into the actions",
+      "pass": true,
+      "detail": {
+        "items": [
+          {
+            "text": "概览",
+            "left": 122,
+            "right": 166,
+            "lines": 56
+          },
+          {
+            "text": "上游",
+            "left": 166,
+            "right": 210,
+            "lines": 56
+          },
+          {
+            "text": "API Key",
+            "left": 210,
+            "right": 278,
+            "lines": 56
+          },
+          {
+            "text": "请求",
+            "left": 278,
+            "right": 322,
+            "lines": 56
+          },
+          {
+            "text": "设置",
+            "left": 322,
+            "right": 366,
+            "lines": 56
+          },
+          {
+            "text": "管理",
+            "left": 366,
+            "right": 428,
+            "lines": 56
+          },
+          {
+            "text": "更多",
+            "left": 428,
+            "right": 490,
+            "lines": 56
+          }
+        ],
+        "actionsLeft": 804,
+        "actionsRight": 1000
+      }
+    },
+    {
+      "name": "overview-1024-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 56,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 768
+      }
+    },
+    {
+      "name": "overview-1024-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-1024-light-en: top navigation does not run into the actions",
+      "pass": true,
+      "detail": {
+        "items": [
+          {
+            "text": "Overview",
+            "left": 124,
+            "right": 200,
+            "lines": 56
+          },
+          {
+            "text": "Upstream",
+            "left": 200,
+            "right": 280,
+            "lines": 56
+          },
+          {
+            "text": "API Keys",
+            "left": 280,
+            "right": 355,
+            "lines": 56
+          },
+          {
+            "text": "Requests",
+            "left": 355,
+            "right": 432,
+            "lines": 56
+          },
+          {
+            "text": "Settings",
+            "left": 432,
+            "right": 503,
+            "lines": 56
+          },
+          {
+            "text": "Admin",
+            "left": 503,
+            "right": 579,
+            "lines": 56
+          },
+          {
+            "text": "More",
+            "left": 579,
+            "right": 647,
+            "lines": 56
+          }
+        ],
+        "actionsLeft": 804,
+        "actionsRight": 1000
+      }
+    },
+    {
+      "name": "key-requests-1024-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": {
+        "composition": "desktop",
+        "overflow": 0,
+        "headerBottom": 56,
+        "mainTop": 116,
+        "sidebar": false,
+        "bottomTop": null,
+        "innerHeight": 768
+      }
+    },
+    {
+      "name": "key-requests-1024-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-requests-1024-light-en: top navigation does not run into the actions",
+      "pass": true,
+      "detail": {
+        "items": [
+          {
+            "text": "Overview",
+            "left": 124,
+            "right": 200,
+            "lines": 56
+          },
+          {
+            "text": "Upstream",
+            "left": 200,
+            "right": 280,
+            "lines": 56
+          },
+          {
+            "text": "API Keys",
+            "left": 280,
+            "right": 355,
+            "lines": 56
+          },
+          {
+            "text": "Requests",
+            "left": 355,
+            "right": 432,
+            "lines": 56
+          },
+          {
+            "text": "Settings",
+            "left": 432,
+            "right": 503,
+            "lines": 56
+          },
+          {
+            "text": "Admin",
+            "left": 503,
+            "right": 579,
+            "lines": 56
+          },
+          {
+            "text": "More",
+            "left": 579,
+            "right": 647,
+            "lines": 56
+          }
+        ],
+        "actionsLeft": 804,
+        "actionsRight": 1000
+      }
+    },
+    {
+      "name": "lite-overview-1280-light-zh: no Admin menu",
+      "pass": true,
+      "detail": {
+        "top": [
+          "概览",
+          "上游",
+          "API Key",
+          "请求",
+          "设置",
+          "更多"
+        ],
+        "bottom": []
+      }
+    },
+    {
+      "name": "lite-overview-1280-light-zh: More holds users, system status and tools",
+      "pass": true,
+      "detail": [
+        "用户",
+        "运行状态",
+        "游乐场",
+        "提示词学习"
+      ]
+    },
+    {
+      "name": "lite-overview-390-light-zh: no Admin menu",
+      "pass": true,
+      "detail": {
+        "top": [],
+        "bottom": [
+          "概览",
+          "上游",
+          "Key",
+          "请求",
+          "更多"
+        ]
+      }
+    },
+    {
+      "name": "admin-menu-zh: users, commerce and system",
+      "pass": true,
+      "detail": [
+        "用户",
+        "运行状态"
+      ]
+    },
+    {
+      "name": "admin-menu-en: users, commerce and system",
+      "pass": true,
+      "detail": [
+        "Users",
+        "System status"
+      ]
+    },
+    {
+      "name": "ops: pasted Request ID + Enter opens the request in call records",
+      "pass": true,
+      "detail": {
+        "url": "http://127.0.0.1:4184/usage-logs/common?requestId=SYNTHETIC-CONTEXT-ERROR&inspect=request",
+        "id": "SYNTHETIC-CONTEXT-ERROR"
+      }
+    },
+    {
+      "name": "ops: keyboard opens Admin, focus moves into the menu and returns on Escape",
+      "pass": true,
+      "detail": {
+        "focused": "menuitem",
+        "back": true
+      }
+    },
+    {
+      "name": "ops: touch opens More and its items are >= 44px tall",
+      "pass": true,
+      "detail": {
+        "x": 552,
+        "y": 90,
+        "width": 232,
+        "height": 44
+      }
+    },
+    {
+      "name": "ops: tapping a More item navigates",
+      "pass": true,
+      "detail": "http://127.0.0.1:4184/playground"
+    },
+    {
+      "name": "ops: mobile More closes on Escape and focus returns to More",
+      "pass": true,
+      "detail": true
+    },
+    {
+      "name": "ops: choosing a More destination navigates and closes the sheet",
+      "pass": true,
+      "detail": "http://127.0.0.1:4184/upstream-accounts"
+    }
+  ],
+  "shots": [
+    "overview-1280-light-zh.png",
+    "key-requests-1280-light-zh.png",
+    "keys-1280-light-zh.png",
+    "upstream-1280-light-zh.png",
+    "account-windows-1280-light-zh.png",
+    "settings-1280-light-zh.png",
+    "profile-1280-light-zh.png",
+    "system-info-1280-light-zh.png",
+    "overview-390-light-zh.png",
+    "key-requests-390-light-zh.png",
+    "keys-390-light-zh.png",
+    "upstream-390-light-zh.png",
+    "account-windows-390-light-zh.png",
+    "settings-390-light-zh.png",
+    "profile-390-light-zh.png",
+    "system-info-390-light-zh.png",
+    "overview-1280-dark-zh.png",
+    "key-requests-1280-dark-zh.png",
+    "upstream-1280-dark-zh.png",
+    "account-windows-1280-dark-zh.png",
+    "settings-1280-dark-zh.png",
+    "profile-1280-dark-zh.png",
+    "overview-390-dark-zh.png",
+    "key-requests-390-dark-zh.png",
+    "upstream-390-dark-zh.png",
+    "account-windows-390-dark-zh.png",
+    "settings-390-dark-zh.png",
+    "profile-390-dark-zh.png",
+    "overview-1280-light-en.png",
+    "key-requests-1280-light-en.png",
+    "upstream-1280-light-en.png",
+    "account-windows-1280-light-en.png",
+    "settings-1280-light-en.png",
+    "profile-1280-light-en.png",
+    "overview-390-light-en.png",
+    "key-requests-390-light-en.png",
+    "upstream-390-light-en.png",
+    "account-windows-390-light-en.png",
+    "settings-390-light-en.png",
+    "profile-390-light-en.png",
+    "overview-1280-dark-en.png",
+    "key-requests-1280-dark-en.png",
+    "upstream-1280-dark-en.png",
+    "account-windows-1280-dark-en.png",
+    "settings-1280-dark-en.png",
+    "profile-1280-dark-en.png",
+    "overview-390-dark-en.png",
+    "key-requests-390-dark-en.png",
+    "upstream-390-dark-en.png",
+    "account-windows-390-dark-en.png",
+    "settings-390-dark-en.png",
+    "profile-390-dark-en.png",
+    "overview-320-light-zh.png",
+    "key-requests-320-light-zh.png",
+    "overview-320-light-en.png",
+    "key-requests-320-light-en.png",
+    "overview-768-light-zh.png",
+    "key-requests-768-light-zh.png",
+    "overview-768-light-en.png",
+    "key-requests-768-light-en.png",
+    "overview-1024-light-zh.png",
+    "key-requests-1024-light-zh.png",
+    "overview-1024-light-en.png",
+    "key-requests-1024-light-en.png",
+    "lite-overview-1280-light-zh.png",
+    "lite-more-menu-1280-light-zh.png",
+    "lite-overview-390-light-zh.png",
+    "lite-more-390-light-zh.png",
+    "admin-menu-1280-light-zh.png",
+    "admin-menu-1280-light-en.png",
+    "more-menu-1280-dark-zh.png",
+    "command-request-id-1280-light-zh.png",
+    "request-id-result-1280-light-zh.png",
+    "more-390-light-zh.png"
+  ]
+}
