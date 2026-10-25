@@ -1,0 +1,1947 @@
+{
+  "blocked": 0,
+  "shots": [
+    "overview-1280-light-zh.png",
+    "overview-390-light-zh.png",
+    "overview-1280-dark-zh.png",
+    "overview-390-dark-zh.png",
+    "overview-1280-light-en.png",
+    "overview-390-light-en.png",
+    "overview-1280-dark-en.png",
+    "overview-390-dark-en.png",
+    "overview-320-light-zh.png",
+    "overview-768-light-zh.png",
+    "overview-1024-light-zh.png",
+    "overview-320-light-en.png",
+    "overview-768-light-en.png",
+    "overview-1024-light-en.png",
+    "lite-overview-1280-light-zh.png",
+    "lite-overview-1280-light-en.png",
+    "lite-overview-390-light-zh.png",
+    "user-overview-1280-light-zh.png",
+    "user-overview-390-light-zh.png",
+    "empty-overview-1280-light-zh.png",
+    "empty-overview-1280-light-en.png",
+    "folded-overview-1280-light-zh.png",
+    "folded-overview-390-light-zh.png",
+    "loading-overview-1280-light-zh.png",
+    "selected-overview-1280-light-zh.png",
+    "selected-overview-1280-dark-en.png",
+    "ops-key-selected-1280-light-zh.png",
+    "ops-key-focus-1280-light-zh.png",
+    "ops-request-detail-1280-light-zh.png",
+    "ops-phone-selected-390-light-zh.png"
+  ],
+  "total": 166,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "overview-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "overview-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-1280-light-zh: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 239,
+        "bottom": 609,
+        "left": 64,
+        "right": 1216,
+        "width": 1152,
+        "height": 370
+      }
+    },
+    {
+      "name": "overview-1280-light-zh: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-1280-light-zh: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 239,
+          "bottom": 609,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 370
+        },
+        "core": {
+          "top": 296,
+          "bottom": 584,
+          "left": 490,
+          "right": 790,
+          "width": 300,
+          "height": 288
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 629,
+          "bottom": 1025,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 396
+        }
+      }
+    },
+    {
+      "name": "overview-1280-light-zh: three columns side by side",
+      "pass": true,
+      "detail": {
+        "top": 296,
+        "bottom": 584,
+        "left": 490,
+        "right": 790,
+        "width": 300,
+        "height": 288
+      }
+    },
+    {
+      "name": "overview-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "overview-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-390-light-zh: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 383,
+        "bottom": 1151,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 768
+      }
+    },
+    {
+      "name": "overview-390-light-zh: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-390-light-zh: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 383,
+          "bottom": 1151,
+          "left": 16,
+          "right": 374,
+          "width": 358,
+          "height": 768
+        },
+        "core": {
+          "top": 656,
+          "bottom": 952,
+          "left": 33,
+          "right": 357,
+          "width": 324,
+          "height": 296
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 1171,
+          "bottom": 1719,
+          "left": 16,
+          "right": 374,
+          "width": 358,
+          "height": 548
+        }
+      }
+    },
+    {
+      "name": "overview-390-light-zh: node targets >= 44px",
+      "pass": true,
+      "detail": 68
+    },
+    {
+      "name": "overview-1280-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "overview-1280-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-1280-dark-zh: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 239,
+        "bottom": 609,
+        "left": 64,
+        "right": 1216,
+        "width": 1152,
+        "height": 370
+      }
+    },
+    {
+      "name": "overview-1280-dark-zh: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-1280-dark-zh: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 239,
+          "bottom": 609,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 370
+        },
+        "core": {
+          "top": 296,
+          "bottom": 584,
+          "left": 490,
+          "right": 790,
+          "width": 300,
+          "height": 288
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 629,
+          "bottom": 1025,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 396
+        }
+      }
+    },
+    {
+      "name": "overview-1280-dark-zh: three columns side by side",
+      "pass": true,
+      "detail": {
+        "top": 296,
+        "bottom": 584,
+        "left": 490,
+        "right": 790,
+        "width": 300,
+        "height": 288
+      }
+    },
+    {
+      "name": "overview-390-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "overview-390-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-390-dark-zh: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 383,
+        "bottom": 1151,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 768
+      }
+    },
+    {
+      "name": "overview-390-dark-zh: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-390-dark-zh: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 383,
+          "bottom": 1151,
+          "left": 16,
+          "right": 374,
+          "width": 358,
+          "height": 768
+        },
+        "core": {
+          "top": 656,
+          "bottom": 952,
+          "left": 33,
+          "right": 357,
+          "width": 324,
+          "height": 296
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 1171,
+          "bottom": 1719,
+          "left": 16,
+          "right": 374,
+          "width": 358,
+          "height": 548
+        }
+      }
+    },
+    {
+      "name": "overview-390-dark-zh: node targets >= 44px",
+      "pass": true,
+      "detail": 68
+    },
+    {
+      "name": "overview-1280-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "overview-1280-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-1280-light-en: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 239,
+        "bottom": 625,
+        "left": 64,
+        "right": 1216,
+        "width": 1152,
+        "height": 386
+      }
+    },
+    {
+      "name": "overview-1280-light-en: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-1280-light-en: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 239,
+          "bottom": 625,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 386
+        },
+        "core": {
+          "top": 296,
+          "bottom": 600,
+          "left": 490,
+          "right": 790,
+          "width": 300,
+          "height": 304
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 645,
+          "bottom": 1041,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 396
+        }
+      }
+    },
+    {
+      "name": "overview-1280-light-en: three columns side by side",
+      "pass": true,
+      "detail": {
+        "top": 296,
+        "bottom": 600,
+        "left": 490,
+        "right": 790,
+        "width": 300,
+        "height": 304
+      }
+    },
+    {
+      "name": "overview-390-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "overview-390-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-390-light-en: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 404,
+        "bottom": 1188,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 784
+      }
+    },
+    {
+      "name": "overview-390-light-en: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-390-light-en: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 404,
+          "bottom": 1188,
+          "left": 16,
+          "right": 374,
+          "width": 358,
+          "height": 784
+        },
+        "core": {
+          "top": 677,
+          "bottom": 989,
+          "left": 33,
+          "right": 357,
+          "width": 324,
+          "height": 312
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 1208,
+          "bottom": 1808,
+          "left": 16,
+          "right": 374,
+          "width": 358,
+          "height": 600
+        }
+      }
+    },
+    {
+      "name": "overview-390-light-en: node targets >= 44px",
+      "pass": true,
+      "detail": 68
+    },
+    {
+      "name": "overview-1280-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "overview-1280-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-1280-dark-en: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 239,
+        "bottom": 625,
+        "left": 64,
+        "right": 1216,
+        "width": 1152,
+        "height": 386
+      }
+    },
+    {
+      "name": "overview-1280-dark-en: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-1280-dark-en: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 239,
+          "bottom": 625,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 386
+        },
+        "core": {
+          "top": 296,
+          "bottom": 600,
+          "left": 490,
+          "right": 790,
+          "width": 300,
+          "height": 304
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 645,
+          "bottom": 1041,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 396
+        }
+      }
+    },
+    {
+      "name": "overview-1280-dark-en: three columns side by side",
+      "pass": true,
+      "detail": {
+        "top": 296,
+        "bottom": 600,
+        "left": 490,
+        "right": 790,
+        "width": 300,
+        "height": 304
+      }
+    },
+    {
+      "name": "overview-390-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "overview-390-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-390-dark-en: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 404,
+        "bottom": 1188,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 784
+      }
+    },
+    {
+      "name": "overview-390-dark-en: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-390-dark-en: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 404,
+          "bottom": 1188,
+          "left": 16,
+          "right": 374,
+          "width": 358,
+          "height": 784
+        },
+        "core": {
+          "top": 677,
+          "bottom": 989,
+          "left": 33,
+          "right": 357,
+          "width": 324,
+          "height": 312
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 1208,
+          "bottom": 1808,
+          "left": 16,
+          "right": 374,
+          "width": 358,
+          "height": 600
+        }
+      }
+    },
+    {
+      "name": "overview-390-dark-en: node targets >= 44px",
+      "pass": true,
+      "detail": 68
+    },
+    {
+      "name": "overview-320-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "overview-320-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-320-light-zh: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 407,
+        "bottom": 1175,
+        "left": 16,
+        "right": 304,
+        "width": 288,
+        "height": 768
+      }
+    },
+    {
+      "name": "overview-320-light-zh: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-320-light-zh: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 407,
+          "bottom": 1175,
+          "left": 16,
+          "right": 304,
+          "width": 288,
+          "height": 768
+        },
+        "core": {
+          "top": 680,
+          "bottom": 976,
+          "left": 33,
+          "right": 287,
+          "width": 254,
+          "height": 296
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 1195,
+          "bottom": 1823,
+          "left": 16,
+          "right": 304,
+          "width": 288,
+          "height": 628
+        }
+      }
+    },
+    {
+      "name": "overview-320-light-zh: node targets >= 44px",
+      "pass": true,
+      "detail": 68
+    },
+    {
+      "name": "overview-768-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "overview-768-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-768-light-zh: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 303,
+        "bottom": 1055,
+        "left": 16,
+        "right": 752,
+        "width": 736,
+        "height": 752
+      }
+    },
+    {
+      "name": "overview-768-light-zh: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-768-light-zh: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 303,
+          "bottom": 1055,
+          "left": 16,
+          "right": 752,
+          "width": 736,
+          "height": 752
+        },
+        "core": {
+          "top": 576,
+          "bottom": 872,
+          "left": 33,
+          "right": 735,
+          "width": 702,
+          "height": 296
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 1075,
+          "bottom": 1471,
+          "left": 16,
+          "right": 752,
+          "width": 736,
+          "height": 396
+        }
+      }
+    },
+    {
+      "name": "overview-768-light-zh: node targets >= 44px",
+      "pass": true,
+      "detail": 68
+    },
+    {
+      "name": "overview-1024-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "overview-1024-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-1024-light-zh: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 239,
+        "bottom": 609,
+        "left": 24,
+        "right": 1000,
+        "width": 976,
+        "height": 370
+      }
+    },
+    {
+      "name": "overview-1024-light-zh: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-1024-light-zh: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 239,
+          "bottom": 609,
+          "left": 24,
+          "right": 1000,
+          "width": 976,
+          "height": 370
+        },
+        "core": {
+          "top": 296,
+          "bottom": 584,
+          "left": 362,
+          "right": 662,
+          "width": 300,
+          "height": 288
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 629,
+          "bottom": 1025,
+          "left": 24,
+          "right": 1000,
+          "width": 976,
+          "height": 396
+        }
+      }
+    },
+    {
+      "name": "overview-320-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "overview-320-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-320-light-en: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 501,
+        "bottom": 1301,
+        "left": 16,
+        "right": 304,
+        "width": 288,
+        "height": 800
+      }
+    },
+    {
+      "name": "overview-320-light-en: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-320-light-en: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 501,
+          "bottom": 1301,
+          "left": 16,
+          "right": 304,
+          "width": 288,
+          "height": 800
+        },
+        "core": {
+          "top": 774,
+          "bottom": 1102,
+          "left": 33,
+          "right": 287,
+          "width": 254,
+          "height": 328
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 1321,
+          "bottom": 2101,
+          "left": 16,
+          "right": 304,
+          "width": 288,
+          "height": 780
+        }
+      }
+    },
+    {
+      "name": "overview-320-light-en: node targets >= 44px",
+      "pass": true,
+      "detail": 68
+    },
+    {
+      "name": "overview-768-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "overview-768-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-768-light-en: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 307,
+        "bottom": 1059,
+        "left": 16,
+        "right": 752,
+        "width": 736,
+        "height": 752
+      }
+    },
+    {
+      "name": "overview-768-light-en: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-768-light-en: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 307,
+          "bottom": 1059,
+          "left": 16,
+          "right": 752,
+          "width": 736,
+          "height": 752
+        },
+        "core": {
+          "top": 580,
+          "bottom": 876,
+          "left": 33,
+          "right": 735,
+          "width": 702,
+          "height": 296
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 1079,
+          "bottom": 1475,
+          "left": 16,
+          "right": 752,
+          "width": 736,
+          "height": 396
+        }
+      }
+    },
+    {
+      "name": "overview-768-light-en: node targets >= 44px",
+      "pass": true,
+      "detail": 68
+    },
+    {
+      "name": "overview-1024-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "overview-1024-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-1024-light-en: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 239,
+        "bottom": 625,
+        "left": 24,
+        "right": 1000,
+        "width": 976,
+        "height": 386
+      }
+    },
+    {
+      "name": "overview-1024-light-en: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "overview-1024-light-en: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 239,
+          "bottom": 625,
+          "left": 24,
+          "right": 1000,
+          "width": 976,
+          "height": 386
+        },
+        "core": {
+          "top": 296,
+          "bottom": 600,
+          "left": 362,
+          "right": 662,
+          "width": 300,
+          "height": 304
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 645,
+          "bottom": 1215,
+          "left": 24,
+          "right": 1000,
+          "width": 976,
+          "height": 570
+        }
+      }
+    },
+    {
+      "name": "lite-overview-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "lite-overview-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "lite-overview-1280-light-zh: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 239,
+        "bottom": 625,
+        "left": 64,
+        "right": 1216,
+        "width": 1152,
+        "height": 386
+      }
+    },
+    {
+      "name": "lite-overview-1280-light-zh: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "lite-overview-1280-light-zh: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 239,
+          "bottom": 625,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 386
+        },
+        "core": {
+          "top": 296,
+          "bottom": 600,
+          "left": 490,
+          "right": 790,
+          "width": 300,
+          "height": 304
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 645,
+          "bottom": 1041,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 396
+        }
+      }
+    },
+    {
+      "name": "lite-overview-1280-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "lite-overview-1280-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "lite-overview-1280-light-en: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 239,
+        "bottom": 641,
+        "left": 64,
+        "right": 1216,
+        "width": 1152,
+        "height": 402
+      }
+    },
+    {
+      "name": "lite-overview-1280-light-en: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "lite-overview-1280-light-en: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 239,
+          "bottom": 641,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 402
+        },
+        "core": {
+          "top": 296,
+          "bottom": 616,
+          "left": 490,
+          "right": 790,
+          "width": 300,
+          "height": 320
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 661,
+          "bottom": 1057,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 396
+        }
+      }
+    },
+    {
+      "name": "lite-overview-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "lite-overview-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "lite-overview-390-light-zh: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 383,
+        "bottom": 1151,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 768
+      }
+    },
+    {
+      "name": "lite-overview-390-light-zh: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "lite-overview-390-light-zh: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 383,
+          "bottom": 1151,
+          "left": 16,
+          "right": 374,
+          "width": 358,
+          "height": 768
+        },
+        "core": {
+          "top": 656,
+          "bottom": 952,
+          "left": 33,
+          "right": 357,
+          "width": 324,
+          "height": 296
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 1171,
+          "bottom": 1719,
+          "left": 16,
+          "right": 374,
+          "width": 358,
+          "height": 548
+        }
+      }
+    },
+    {
+      "name": "lite-overview-390-light-zh: node targets >= 44px",
+      "pass": true,
+      "detail": 68
+    },
+    {
+      "name": "user-overview-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "user-overview-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "user-overview-1280-light-zh: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 229,
+        "bottom": 599,
+        "left": 64,
+        "right": 1216,
+        "width": 1152,
+        "height": 370
+      }
+    },
+    {
+      "name": "user-overview-1280-light-zh: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "user-overview-1280-light-zh: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 229,
+          "bottom": 599,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 370
+        },
+        "core": {
+          "top": 286,
+          "bottom": 574,
+          "left": 891,
+          "right": 1191,
+          "width": 300,
+          "height": 288
+        },
+        "nodes": 2,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 0,
+        "requests": {
+          "top": 619,
+          "bottom": 1015,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 396
+        }
+      }
+    },
+    {
+      "name": "user-overview-1280-light-zh: no upstream column for an ordinary user",
+      "pass": true,
+      "detail": [
+        "API Key · 2",
+        "MyAPI 网关"
+      ]
+    },
+    {
+      "name": "user-overview-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "user-overview-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "user-overview-390-light-zh: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 331,
+        "bottom": 917,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 586
+      }
+    },
+    {
+      "name": "user-overview-390-light-zh: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "user-overview-390-light-zh: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 331,
+          "bottom": 917,
+          "left": 16,
+          "right": 374,
+          "width": 358,
+          "height": 586
+        },
+        "core": {
+          "top": 604,
+          "bottom": 900,
+          "left": 33,
+          "right": 357,
+          "width": 324,
+          "height": 296
+        },
+        "nodes": 2,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 0,
+        "requests": {
+          "top": 937,
+          "bottom": 1485,
+          "left": 16,
+          "right": 374,
+          "width": 358,
+          "height": 548
+        }
+      }
+    },
+    {
+      "name": "user-overview-390-light-zh: node targets >= 44px",
+      "pass": true,
+      "detail": 68
+    },
+    {
+      "name": "user-overview-390-light-zh: no upstream column for an ordinary user",
+      "pass": true,
+      "detail": [
+        "API Key · 2",
+        "MyAPI 网关"
+      ]
+    },
+    {
+      "name": "empty-overview-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "empty-overview-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "empty-overview-1280-light-zh: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 239,
+        "bottom": 609,
+        "left": 64,
+        "right": 1216,
+        "width": 1152,
+        "height": 370
+      }
+    },
+    {
+      "name": "empty-overview-1280-light-zh: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "empty-overview-1280-light-zh: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 239,
+          "bottom": 609,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 370
+        },
+        "core": {
+          "top": 296,
+          "bottom": 584,
+          "left": 490,
+          "right": 790,
+          "width": 300,
+          "height": 288
+        },
+        "nodes": 0,
+        "minNodeHeight": null,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 0,
+        "requests": {
+          "top": 629,
+          "bottom": 868,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 239
+        }
+      }
+    },
+    {
+      "name": "empty-overview-1280-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "empty-overview-1280-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "empty-overview-1280-light-en: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 239,
+        "bottom": 625,
+        "left": 64,
+        "right": 1216,
+        "width": 1152,
+        "height": 386
+      }
+    },
+    {
+      "name": "empty-overview-1280-light-en: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "empty-overview-1280-light-en: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 239,
+          "bottom": 625,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 386
+        },
+        "core": {
+          "top": 296,
+          "bottom": 600,
+          "left": 490,
+          "right": 790,
+          "width": 300,
+          "height": 304
+        },
+        "nodes": 0,
+        "minNodeHeight": null,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 0,
+        "requests": {
+          "top": 645,
+          "bottom": 884,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 239
+        }
+      }
+    },
+    {
+      "name": "folded-overview-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "folded-overview-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "folded-overview-1280-light-zh: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 239,
+        "bottom": 925,
+        "left": 64,
+        "right": 1216,
+        "width": 1152,
+        "height": 686
+      }
+    },
+    {
+      "name": "folded-overview-1280-light-zh: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "folded-overview-1280-light-zh: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 239,
+          "bottom": 925,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 686
+        },
+        "core": {
+          "top": 454,
+          "bottom": 742,
+          "left": 490,
+          "right": 790,
+          "width": 300,
+          "height": 288
+        },
+        "nodes": 12,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 2,
+        "requests": {
+          "top": 945,
+          "bottom": 1341,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 396
+        }
+      }
+    },
+    {
+      "name": "folded-overview-1280-light-zh: eight Keys fold to six with view all",
+      "pass": true,
+      "detail": {
+        "keyNodes": 6,
+        "viewAll": 1
+      }
+    },
+    {
+      "name": "folded-overview-1280-light-zh: nine connections show six with view all",
+      "pass": true,
+      "detail": {
+        "connectionAll": 1
+      }
+    },
+    {
+      "name": "folded-overview-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "folded-overview-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "folded-overview-390-light-zh: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 409,
+        "bottom": 2031,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 1622
+      }
+    },
+    {
+      "name": "folded-overview-390-light-zh: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "folded-overview-390-light-zh: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 409,
+          "bottom": 2031,
+          "left": 16,
+          "right": 374,
+          "width": 358,
+          "height": 1622
+        },
+        "core": {
+          "top": 1058,
+          "bottom": 1354,
+          "left": 33,
+          "right": 357,
+          "width": 324,
+          "height": 296
+        },
+        "nodes": 12,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 2,
+        "requests": {
+          "top": 2051,
+          "bottom": 2599,
+          "left": 16,
+          "right": 374,
+          "width": 358,
+          "height": 548
+        }
+      }
+    },
+    {
+      "name": "folded-overview-390-light-zh: node targets >= 44px",
+      "pass": true,
+      "detail": 68
+    },
+    {
+      "name": "folded-overview-390-light-zh: eight Keys fold to six with view all",
+      "pass": true,
+      "detail": {
+        "keyNodes": 6,
+        "viewAll": 1
+      }
+    },
+    {
+      "name": "folded-overview-390-light-zh: nine connections show six with view all",
+      "pass": true,
+      "detail": {
+        "connectionAll": 1
+      }
+    },
+    {
+      "name": "loading-overview-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "loading-overview-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "loading-overview-1280-light-zh: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 239,
+        "bottom": 565,
+        "left": 64,
+        "right": 1216,
+        "width": 1152,
+        "height": 326
+      }
+    },
+    {
+      "name": "loading-overview-1280-light-zh: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "loading-overview-1280-light-zh: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 239,
+          "bottom": 565,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 326
+        },
+        "core": {
+          "top": 306,
+          "bottom": 530,
+          "left": 490,
+          "right": 790,
+          "width": 300,
+          "height": 224
+        },
+        "nodes": 0,
+        "minNodeHeight": null,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 0,
+        "requests": {
+          "top": 585,
+          "bottom": 811,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 226
+        }
+      }
+    },
+    {
+      "name": "loading-overview-1280-light-zh: columns show loading skeletons",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 239,
+          "bottom": 565,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 326
+        },
+        "core": {
+          "top": 306,
+          "bottom": 530,
+          "left": 490,
+          "right": 790,
+          "width": 300,
+          "height": 224
+        },
+        "nodes": 0,
+        "minNodeHeight": null,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 0,
+        "requests": {
+          "top": 585,
+          "bottom": 811,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 226
+        }
+      }
+    },
+    {
+      "name": "selected-overview-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "selected-overview-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "selected-overview-1280-light-zh: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 239,
+        "bottom": 609,
+        "left": 64,
+        "right": 1216,
+        "width": 1152,
+        "height": 370
+      }
+    },
+    {
+      "name": "selected-overview-1280-light-zh: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "selected-overview-1280-light-zh: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 239,
+          "bottom": 609,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 370
+        },
+        "core": {
+          "top": 296,
+          "bottom": 584,
+          "left": 490,
+          "right": 790,
+          "width": 300,
+          "height": 288
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 629,
+          "bottom": 1025,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 396
+        }
+      }
+    },
+    {
+      "name": "selected-overview-1280-light-zh: chip shown",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "selected-overview-1280-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "selected-overview-1280-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "selected-overview-1280-dark-en: board inside viewport",
+      "pass": true,
+      "detail": {
+        "top": 239,
+        "bottom": 625,
+        "left": 64,
+        "right": 1216,
+        "width": 1152,
+        "height": 386
+      }
+    },
+    {
+      "name": "selected-overview-1280-dark-en: no clipped node text",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "selected-overview-1280-dark-en: every ring writes its value",
+      "pass": true,
+      "detail": {
+        "overflow": 0,
+        "board": {
+          "top": 239,
+          "bottom": 625,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 386
+        },
+        "core": {
+          "top": 296,
+          "bottom": 600,
+          "left": 490,
+          "right": 790,
+          "width": 300,
+          "height": 304
+        },
+        "nodes": 3,
+        "minNodeHeight": 68,
+        "clippedNodes": [],
+        "ringsWithoutText": 0,
+        "rings": 1,
+        "requests": {
+          "top": 645,
+          "bottom": 1041,
+          "left": 64,
+          "right": 1216,
+          "width": 1152,
+          "height": 396
+        }
+      }
+    },
+    {
+      "name": "selected-overview-1280-dark-en: chip shown",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "ops: click a Key filters rows and writes ?key=",
+      "pass": true,
+      "detail": {
+        "before": 6,
+        "filtered": 1,
+        "keys": [
+          "Synthetic same-name Key · 合成同名 Key"
+        ],
+        "url": "http://127.0.0.1:4184/dashboard/overview?key=22"
+      }
+    },
+    {
+      "name": "ops: selected node is pressed",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "ops: refresh keeps the selection",
+      "pass": true,
+      "detail": "http://127.0.0.1:4184/dashboard/overview?key=22"
+    },
+    {
+      "name": "ops: Back restores the previous node",
+      "pass": true,
+      "detail": "http://127.0.0.1:4184/dashboard/overview?key=22"
+    },
+    {
+      "name": "ops: chip clears the filter and the URL",
+      "pass": true,
+      "detail": "http://127.0.0.1:4184/dashboard/overview"
+    },
+    {
+      "name": "ops: focused node shows a focus ring",
+      "pass": true,
+      "detail": "solid 2px"
+    },
+    {
+      "name": "ops: Enter selects and Space clears a focused node",
+      "pass": true,
+      "detail": "http://127.0.0.1:4184/dashboard/overview"
+    },
+    {
+      "name": "ops: copy puts the base URL on the clipboard",
+      "pass": true,
+      "detail": "http://127.0.0.1:4184/v1"
+    },
+    {
+      "name": "ops: time link opens the request details",
+      "pass": true,
+      "detail": {
+        "href": "/usage-logs/common?requestId=SYNTHETIC-CONTEXT-ERROR&inspect=request",
+        "detail": 1
+      }
+    },
+    {
+      "name": "ops: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "ops: phone tap scrolls the requests into view",
+      "pass": true,
+      "detail": {
+        "x": 16,
+        "y": 338.1875,
+        "width": 358,
+        "height": 244
+      }
+    },
+    {
+      "name": "ops: phone no page errors",
+      "pass": true,
+      "detail": []
+    }
+  ]
+}
