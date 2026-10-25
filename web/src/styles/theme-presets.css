@@ -55,6 +55,7 @@ For commercial licensing, please contact support@quantumnous.com
   --border: oklch(0.5141 0.0454 266.09); /* #5B6782 */
   --input: oklch(0.4076 0.0514 266.82); /* #3D4966 */
   --ring: oklch(0.403 0.2353 264.03); /* #0029C4 */
+  --line: oklch(0.5141 0.0454 266.09); /* #5B6782 */
   --sidebar: oklch(0.9392 0.0145 264.5); /* #E6EBF5 */
   --sidebar-foreground: oklch(0.1463 0.0377 269.07); /* #05091A */
   --sidebar-primary: oklch(0.403 0.2353 264.03); /* #0029C4 */

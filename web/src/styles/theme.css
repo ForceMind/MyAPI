@@ -17,11 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 /*
- * MyAPI design tokens (docs/evidence/redesign-20261024/ui-design/
- * DESIGN_DIRECTION.md section 4). Colours are derived from the logo: blue
- * #0035FC is the action colour, cyan #00CFFC marks telemetry only and is
- * never a text colour. The hex in each trailing comment is the value the
- * contrast audit was run against; keep both in sync when changing a token.
+ * MyAPI design tokens, direction 3 "flow" (docs/evidence/redesign-20261024/
+ * ui-design-v2/DESIGN_DIRECTION_V2.md 2.3 and 7.2). White page, light grey
+ * surfaces, ink text; the logo blue #0035FC is the action colour and the logo
+ * cyan #00CFFC marks flowing data only, never text on a light surface. The hex
+ * in each trailing comment is the value the contrast audit was run against
+ * (ui-design-v2/step1/contrast-report.md); keep both in sync.
  */
 @custom-variant dark (&:is(.dark *));
 
@@ -104,6 +105,13 @@ For commercial licensing, please contact support@quantumnous.com
   --color-neutral-foreground: var(--neutral-foreground);
   --color-telemetry: var(--telemetry);
   --color-telemetry-foreground: var(--telemetry-foreground);
+  --color-core: var(--core);
+  --color-core-foreground: var(--core-foreground);
+  --color-line: var(--line);
+  --color-meter: var(--meter);
+  --color-meter-track: var(--meter-track);
+  --color-meter-warning: var(--meter-warning);
+  --color-meter-critical: var(--meter-critical);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -133,8 +141,9 @@ For commercial licensing, please contact support@quantumnous.com
   --color-surface-tint: var(--myapi-surface-tint);
   --color-grid: var(--myapi-grid);
 
-  /* Radius (4.4): controls 8px, cards 12px, dialogs and sheet tops 16px at
-   * the default --radius of 0.5rem. */
+  /* Radius: controls 8px, dialogs and sheet tops 16px at the default --radius
+   * of 0.5rem; cards and panels use the 14px card radius (`rounded-card`). */
+  --radius-card: var(--card-radius);
   --radius-sm: calc(var(--radius) * 0.5);
   --radius-md: calc(var(--radius) * 0.75);
   --radius-lg: var(--radius);
@@ -158,6 +167,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 :root {
   --radius: 0.5rem;
+  --card-radius: 0.875rem;
   --app-header-height: 6rem;
   /* Static build-channel fallback consumed when JS hasn't booted yet. */
   --app-rev: '2k6e8r7p';
@@ -193,42 +203,55 @@ For commercial licensing, please contact support@quantumnous.com
   --elevation-modal: 0 24px 48px -24px oklch(0.204 0.0556 266.29 / 30%);
   --overlay: oklch(0.204 0.0556 266.29 / 40%);
 
-  --background: oklch(0.9787 0.0057 264.53); /* #F6F8FC */
-  --foreground: oklch(0.2088 0.0528 268.66); /* #0E1630 */
+  --background: oklch(1 0 0); /* #FFFFFF */
+  --foreground: oklch(0.1854 0.0342 267.44); /* #0C1222 */
   --card: oklch(1 0 0); /* #FFFFFF */
-  --card-foreground: oklch(0.2088 0.0528 268.66); /* #0E1630 */
+  --card-foreground: oklch(0.1854 0.0342 267.44); /* #0C1222 */
   --popover: oklch(1 0 0); /* #FFFFFF */
-  --popover-foreground: oklch(0.2088 0.0528 268.66); /* #0E1630 */
+  --popover-foreground: oklch(0.1854 0.0342 267.44); /* #0C1222 */
   --primary: oklch(0.4837 0.2864 264.08); /* #0035FC */
   --primary-foreground: oklch(1 0 0); /* #FFFFFF */
-  --secondary: oklch(0.9601 0.0103 261.79); /* #EEF2F9 */
+  --secondary: oklch(0.9701 0.007 268.55); /* #F3F5FA */
   --secondary-foreground: oklch(0.313 0.0548 266.21); /* #24304D */
-  --muted: oklch(0.9601 0.0103 261.79); /* #EEF2F9 */
-  --muted-foreground: oklch(0.4651 0.0482 266.53); /* #4D5975 */
+  /* The light grey surface: search field, flow board, filled chips. */
+  --muted: oklch(0.9701 0.007 268.55); /* #F3F5FA */
+  --muted-foreground: oklch(0.482 0.0447 265.42); /* #525E78 */
   --accent: oklch(0.9442 0.0264 271.87); /* #E6ECFF */
   --accent-foreground: oklch(0.403 0.2353 264.03); /* #0029C4 */
   --destructive: oklch(0.5383 0.1995 29.03); /* #C8241B */
   --destructive-foreground: oklch(1 0 0); /* #FFFFFF */
   --destructive-muted: oklch(0.956 0.0187 25.6); /* #FDECEA */
-  --success: oklch(0.4987 0.1168 157.07); /* #067647 */
+  --success: oklch(0.4772 0.1201 150.84); /* #146F37 */
   --success-foreground: oklch(1 0 0); /* #FFFFFF */
-  --success-muted: oklch(0.9591 0.0199 164.59); /* #E6F6EE */
+  --success-muted: oklch(0.9585 0.0214 158.59); /* #E6F6EC */
   --warning: oklch(0.4991 0.1135 63.31); /* #8F5200 */
   --warning-foreground: oklch(1 0 0); /* #FFFFFF */
-  --warning-muted: oklch(0.9695 0.0336 86.31); /* #FFF4DC */
+  --warning-muted: oklch(0.9673 0.034 84.59); /* #FFF3DB */
   --info: oklch(0.4714 0.1051 238.38); /* #00628F */
   --info-foreground: oklch(1 0 0); /* #FFFFFF */
-  --info-muted: oklch(0.9638 0.0236 223.67); /* #E3F7FF */
+  --info-muted: oklch(0.9549 0.0209 232.13); /* #E3F3FC */
   --neutral: oklch(0.5141 0.0454 266.09); /* #5B6782 */
   --neutral-foreground: oklch(1 0 0); /* #FFFFFF */
-  /* Telemetry: quota bars, live RPM/TPM, streaming markers. Never text, and
-   * only 1.85:1 against --card, so a telemetry fill always ships with its
-   * value as text. */
+  /* Telemetry: live markers such as the gateway card's hourly bars. Never
+   * text, and only 1.85:1 against --card, so it is used on --core or always
+   * ships with its value as text. */
   --telemetry: oklch(0.7913 0.1451 221.02); /* #00CFFC */
   --telemetry-foreground: oklch(0.204 0.0556 266.29); /* #0B1530 */
-  --border: oklch(0.9118 0.0176 264.48); /* #DCE2EE */
-  /* #8592AD (proposal) measured 2.94:1 on --background; darkened to clear 3:1
-   * on both --background and --card. */
+  /* Gateway core card of the flow board (blue with white text). */
+  --core: oklch(0.4837 0.2864 264.08); /* #0035FC */
+  --core-foreground: oklch(1 0 0); /* #FFFFFF */
+  /* Flow board connectors. The mockup's #8591AB is 2.90:1 on --muted, where
+   * the board sits; #808DA9 clears 3:1 on --muted and --card. */
+  --line: oklch(0.6428 0.0447 265.52); /* #808DA9 */
+  /* Quota meters (rings and bars): fill, track, >=60% and >=80% used. A
+   * meter always shows its value as text as well. */
+  --meter: oklch(0.5684 0.1091 226.41); /* #0083A8 */
+  --meter-track: oklch(0.9263 0.015 260.73); /* #E1E7F1 */
+  --meter-warning: var(--warning);
+  --meter-critical: var(--destructive);
+  --border: oklch(0.9119 0.0146 264.49); /* #DDE2EC */
+  /* #8591AB (mockup) is 2.90:1 on --muted; darkened to clear 3:1 on both
+   * --muted and --card. */
   --input: oklch(0.6428 0.0447 265.52); /* #808DA9 */
   --ring: oklch(0.4837 0.2864 264.08); /* #0035FC */
   /* Categorical chart order (4.7), validated with the dataviz validator. */
@@ -336,40 +359,47 @@ For commercial licensing, please contact support@quantumnous.com
   --elevation-modal: 0 24px 48px -24px oklch(0.1514 0.0248 267.11 / 70%);
   --overlay: oklch(0.1514 0.0248 267.11 / 60%);
 
-  --background: oklch(0.1721 0.0324 268.88); /* #0A0F1E */
-  --foreground: oklch(0.9452 0.0145 264.5); /* #E8EDF7 */
-  --card: oklch(0.2198 0.0375 265.22); /* #121A2C */
-  --card-foreground: oklch(0.9452 0.0145 264.5); /* #E8EDF7 */
-  --popover: oklch(0.246 0.0446 264.76); /* #162036 */
-  --popover-foreground: oklch(0.9452 0.0145 264.5); /* #E8EDF7 */
-  --primary: oklch(0.6977 0.158 271.41); /* #7B95FF */
-  --primary-foreground: oklch(0.1514 0.0248 267.11); /* #070B16 */
-  --secondary: oklch(0.2585 0.0418 265.86); /* #1A2338 */
+  --background: oklch(0.161 0.0243 268.23); /* #090D18 */
+  --foreground: oklch(0.9429 0.0141 268.49); /* #E8ECF6 */
+  --card: oklch(0.2193 0.0333 265.67); /* #131A2A */
+  --card-foreground: oklch(0.9429 0.0141 268.49); /* #E8ECF6 */
+  --popover: oklch(0.2503 0.0422 265.78); /* #182136 */
+  --popover-foreground: oklch(0.9429 0.0141 268.49); /* #E8ECF6 */
+  --primary: oklch(0.7276 0.1407 271.78); /* #88A0FF */
+  --primary-foreground: oklch(0.1545 0.0329 270.1); /* #070B1A */
+  --secondary: oklch(0.2503 0.0422 265.78); /* #182136 */
   --secondary-foreground: oklch(0.863 0.0294 266.34); /* #C9D2E6 */
-  --muted: oklch(0.246 0.0446 264.76); /* #162036 */
-  --muted-foreground: oklch(0.7272 0.0388 265.05); /* #9BA7C0 */
+  --muted: oklch(0.2503 0.0422 265.78); /* #182136 */
+  --muted-foreground: oklch(0.7244 0.0402 265.74); /* #9AA6C0 */
   --accent: oklch(0.2886 0.0795 270.02); /* #1C2752 */
   --accent-foreground: oklch(0.8776 0.0596 272.6); /* #C9D5FF */
   --destructive: oklch(0.7594 0.1435 26.08); /* #FF8A80 */
   --destructive-foreground: oklch(0.1542 0.0403 31.11); /* #1A0503 */
-  /* Dark *-muted: 15% of the status colour mixed into --card in OKLab. */
-  --destructive-muted: oklch(0.3002 0.0288 308.83); /* #322A39 */
+  --destructive-muted: oklch(0.2763 0.0469 20.53); /* #3C1E1E */
   --success: oklch(0.8057 0.1581 159.64); /* #4ADE9B */
-  --success-foreground: oklch(0.1721 0.0324 268.88); /* #0A0F1E */
-  --success-muted: oklch(0.3085 0.0341 220.6); /* #1B343C */
+  --success-foreground: oklch(0.161 0.0243 268.23); /* #090D18 */
+  --success-muted: oklch(0.2999 0.0461 162.92); /* #153527 */
   --warning: oklch(0.8102 0.1435 79.25); /* #F2B544 */
-  --warning-foreground: oklch(0.1721 0.0324 268.88); /* #0A0F1E */
-  --warning-muted: oklch(0.3066 0.0108 278.22); /* #2E2F35 */
+  --warning-foreground: oklch(0.161 0.0243 268.23); /* #090D18 */
+  --warning-muted: oklch(0.3055 0.0433 82.25); /* #3A2D14 */
   --info: oklch(0.7915 0.1258 233.72); /* #5CC8FF */
-  --info-foreground: oklch(0.1721 0.0324 268.88); /* #0A0F1E */
-  --info-muted: oklch(0.3045 0.0487 253.9); /* #1D3047 */
-  --neutral: oklch(0.7272 0.0388 265.05); /* #9BA7C0 */
-  --neutral-foreground: oklch(0.1721 0.0324 268.88); /* #0A0F1E */
+  --info-foreground: oklch(0.161 0.0243 268.23); /* #090D18 */
+  --info-muted: oklch(0.3046 0.0567 247.77); /* #15314A */
+  --neutral: oklch(0.7244 0.0402 265.74); /* #9AA6C0 */
+  --neutral-foreground: oklch(0.161 0.0243 268.23); /* #090D18 */
   --telemetry: oklch(0.8041 0.1424 220.88); /* #22D3FF */
   --telemetry-foreground: oklch(0.1767 0.0343 246.52); /* #04121F */
-  --border: oklch(0.3153 0.0475 265.59); /* #26314A */
+  --core: oklch(0.2886 0.0795 270.02); /* #1C2752 */
+  --core-foreground: oklch(0.9429 0.0141 268.49); /* #E8ECF6 */
+  /* The mockup's #3A4664 is 1.85:1 on --card; #5F6C8C clears 3:1. */
+  --line: oklch(0.533 0.0529 267.41); /* #5F6C8C */
+  --meter: oklch(0.8041 0.1424 220.88); /* #22D3FF */
+  --meter-track: oklch(0.3173 0.0445 262.9); /* #263249 */
+  --meter-warning: var(--warning);
+  --meter-critical: var(--destructive);
+  --border: oklch(0.2946 0.0427 265.15); /* #222C42 */
   --input: oklch(0.533 0.0529 267.41); /* #5F6C8C */
-  --ring: oklch(0.7414 0.1329 271.94); /* #8EA5FF */
+  --ring: oklch(0.7276 0.1407 271.78); /* #88A0FF */
   --chart-1: oklch(0.6349 0.1952 270.21); /* #5F7DFF */
   --chart-2: oklch(0.6169 0.1483 50.94); /* #C9661E */
   --chart-3: oklch(0.6357 0.1209 225.45); /* #0099C2 */
