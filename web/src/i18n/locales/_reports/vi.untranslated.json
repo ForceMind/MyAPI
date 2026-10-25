@@ -14,5 +14,12 @@
   "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.": "Request and response bodies are shown in full. Authorization, cookies and API key values are always redacted.",
   "This permanently deletes every full request and response log file. New requests will start a new file.": "This permanently deletes every full request and response log file. New requests will start a new file.",
   "This permanently deletes the selected full request and response records. This action cannot be undone.": "This permanently deletes the selected full request and response records. This action cannot be undone.",
-  "Token name or ID": "Token name or ID"
+  "Token name or ID": "Token name or ID",
+  "Add a connection so the gateway can forward requests.": "Add a connection so the gateway can forward requests.",
+  "No matching requests among the latest ones": "No matching requests among the latest ones",
+  "Older requests are in the call records.": "Older requests are in the call records.",
+  "Opened over the network": "Opened over the network",
+  "Node counts come from the latest requests in 24 hours.": "Node counts come from the latest requests in 24 hours.",
+  "Node counts come from the latest {{count}} requests; older ones in 24 hours are not counted.": "Node counts come from the latest {{count}} requests; older ones in 24 hours are not counted.",
+  "Who calls, through the gateway, to which upstream. Select a node to filter the requests below.": "Who calls, through the gateway, to which upstream. Select a node to filter the requests below."
 }

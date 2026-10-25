@@ -6,10 +6,14 @@ it under the terms of the GNU Affero General Public License as published by
 the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
-import { ArrowRight01Icon, InboxIcon } from '@hugeicons/core-free-icons'
+import {
+  ArrowRight01Icon,
+  Cancel01Icon,
+  InboxIcon,
+} from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode, type Ref } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -30,6 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
   RequestDuration,
   RequestOutcomeBadge,
@@ -42,10 +47,14 @@ import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 import { linkButtonClassName } from '@/lib/link-button'
 
+import type { FlowSelection } from '../../lib/overview-flow'
 import type { OverviewData } from './use-overview-data'
 
 const DESKTOP_ROWS = 8
 const MOBILE_ROWS = 5
+type Outcome = 'all' | 'failed' | 'usage'
+const outcomeItemClassName =
+  'h-auto min-h-7 min-w-0 shrink whitespace-normal max-lg:min-h-11'
 
 /** Opens the request's details directly (same contract as command search). */
 function RequestLink(props: {
@@ -68,21 +77,56 @@ function RequestLink(props: {
   )
 }
 
+/** Tokens when usage was reported; a completed request without it says so. */
+function UsageNote(props: { log: UsageLog }) {
+  const { t } = useTranslation()
+  const facts = getRequestFacts(props.log)
+  if (facts.usageKnown) {
+    const tokens = props.log.prompt_tokens + props.log.completion_tokens
+    if (tokens <= 0) return null
+    return <> · {t('{{count}} Tokens', { count: tokens })}</>
+  }
+  if (!facts.completed) return null
+  return <> · {t('Usage not provided')}</>
+}
+
 /**
- * Latest requests (design 8.1): time, result, Key, model, connection
- * (administrators) and duration. Content is never shown here. The "failed"
- * link opens the call records filtered to errors of the last 24 hours.
+ * Latest requests under the flow board: time (opens the request), result,
+ * Key, model with usage, connection (administrators) and duration. Content
+ * is never shown here. A selected flow node filters the rows and shows a
+ * clearable chip; the outcome switch narrows to failures or missing usage.
  */
-export function OverviewRecentRequests(props: { data: OverviewData }) {
+export function OverviewRecentRequests(props: {
+  data: OverviewData
+  selection: FlowSelection | null
+  selectionLabel: string
+  onClearSelection: () => void
+  ref?: Ref<HTMLElement>
+}) {
   const { t } = useTranslation()
   const mobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
   const showLogs = useIsSidebarModuleVisible('/usage-logs/common')
+  const [outcome, setOutcome] = useState<Outcome>('all')
   const query = props.data.sample
-  const rows = query.isError ? undefined : query.data
-  const failed =
-    rows?.filter((row) => !getRequestFacts(row).completed).length ?? 0
+  const selection = props.selection
+  const rows = (query.isError ? undefined : query.data?.rows)?.filter((row) => {
+    if (selection?.kind === 'key' && row.token_id !== selection.id) return false
+    if (selection?.kind === 'connection' && row.channel !== selection.id) {
+      return false
+    }
+    const facts = getRequestFacts(row)
+    if (outcome === 'failed') return !facts.completed
+    if (outcome === 'usage') return facts.completed && !facts.usageKnown
+    return true
+  })
   const shown = rows?.slice(0, mobile ? MOBILE_ROWS : DESKTOP_ROWS) ?? []
   const showConnection = props.data.isAdmin
+  const filtered = selection !== null || outcome !== 'all'
+  let recordsSearch = {}
+  if (selection?.kind === 'key') recordsSearch = { tokenId: selection.id }
+  if (selection?.kind === 'connection') {
+    recordsSearch = { channel: String(selection.id) }
+  }
 
   let body
   if (query.isPending) {
@@ -117,9 +161,15 @@ export function OverviewRecentRequests(props: { data: OverviewData }) {
           <EmptyMedia variant='icon'>
             <HugeiconsIcon icon={InboxIcon} aria-hidden='true' />
           </EmptyMedia>
-          <EmptyTitle>{t('No requests in the last 24 hours')}</EmptyTitle>
+          <EmptyTitle>
+            {filtered
+              ? t('No matching requests among the latest ones')
+              : t('No requests in the last 24 hours')}
+          </EmptyTitle>
           <EmptyDescription>
-            {t('Requests appear here once a client uses one of your Keys.')}
+            {filtered
+              ? t('Older requests are in the call records.')
+              : t('Requests appear here once a client uses one of your Keys.')}
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -142,7 +192,8 @@ export function OverviewRecentRequests(props: { data: OverviewData }) {
                 </span>
                 <span className='text-data min-w-0 wrap-anywhere'>
                   {row.token_name || t('Unknown Key')} ·{' '}
-                  {row.model_name || t('Unknown model')} ·{' '}
+                  {row.model_name || t('Unknown model')}
+                  <UsageNote log={row} /> ·{' '}
                   <RequestDuration seconds={row.use_time} />
                 </span>
               </span>
@@ -172,8 +223,6 @@ export function OverviewRecentRequests(props: { data: OverviewData }) {
               <TableHead className='text-right'>{t('Duration')}</TableHead>
             </TableRow>
           </TableHeader>
-          {/* Single-line rows: the overview's first screen at 1280x800
-              holds several latest requests below health and windows. */}
           <TableBody className='[&>tr]:h-11'>
             {shown.map((row) => (
               <TableRow key={row.id}>
@@ -191,8 +240,11 @@ export function OverviewRecentRequests(props: { data: OverviewData }) {
                 <TableCell className='max-w-48 truncate' title={row.token_name}>
                   {row.token_name || t('Unknown Key')}
                 </TableCell>
-                <TableCell className='max-w-48 truncate' title={row.model_name}>
+                <TableCell className='max-w-72 truncate' title={row.model_name}>
                   {row.model_name || t('Unknown model')}
+                  <span className='text-muted-foreground'>
+                    <UsageNote log={row} />
+                  </span>
                 </TableCell>
                 {showConnection && (
                   <TableCell
@@ -216,44 +268,64 @@ export function OverviewRecentRequests(props: { data: OverviewData }) {
 
   return (
     <section
+      ref={props.ref}
       aria-labelledby='overview-recent-title'
-      className='bg-card p-card flex min-w-0 flex-col gap-3 rounded-xl border'
+      className='bg-card p-card flex min-w-0 scroll-mt-20 flex-col gap-3 rounded-xl border'
     >
-      <div className='flex min-w-0 flex-wrap items-center justify-between gap-2'>
-        <h2 id='overview-recent-title' className='text-title'>
+      <div className='flex min-w-0 flex-wrap items-center gap-2'>
+        <h2 id='overview-recent-title' className='text-title me-auto'>
           {t('Recent requests')}
         </h2>
-        {showLogs && (
-          <div className='flex flex-wrap items-center gap-1'>
-            {failed > 0 && (
-              <Link
-                to='/usage-logs/$section'
-                params={{ section: 'common' }}
-                search={{
-                  type: ['5'],
-                  startTime: props.data.since * 1000,
-                  endTime: Date.now() + 3600 * 1000,
-                }}
-                data-myapi-button=''
-                className={linkButtonClassName({ variant: 'ghost' })}
-              >
-                {t('Failed {{count}}', { count: failed })}
-                <HugeiconsIcon
-                  icon={ArrowRight01Icon}
-                  data-icon='inline-end'
-                  aria-hidden='true'
-                />
-              </Link>
-            )}
-            <Link
-              to='/usage-logs/$section'
-              params={{ section: 'common' }}
-              data-myapi-button=''
-              className={linkButtonClassName({ variant: 'ghost' })}
+        {selection && (
+          <span
+            data-testid='flow-filter-chip'
+            className='bg-primary text-primary-foreground text-data inline-flex h-8 max-w-full min-w-0 items-center gap-1 rounded-full ps-3'
+          >
+            <span className='truncate'>{props.selectionLabel}</span>
+            <Button
+              variant='ghost'
+              size='icon-sm'
+              aria-label={t('Clear filter')}
+              onClick={props.onClearSelection}
+              className='text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground rounded-full'
             >
-              {t('View call records')}
-            </Link>
-          </div>
+              <HugeiconsIcon icon={Cancel01Icon} aria-hidden='true' />
+            </Button>
+          </span>
+        )}
+        <ToggleGroup
+          aria-label={t('Request outcome')}
+          variant='outline'
+          size='sm'
+          value={[outcome]}
+          onValueChange={(value) => {
+            const next = value[0] as Outcome | undefined
+            if (next) setOutcome(next)
+          }}
+          className='max-w-full'
+        >
+          {/* Long labels wrap inside their segment instead of widening the
+              card; phones get 44px targets. */}
+          <ToggleGroupItem value='all' className={outcomeItemClassName}>
+            {t('All')}
+          </ToggleGroupItem>
+          <ToggleGroupItem value='failed' className={outcomeItemClassName}>
+            {t('Failed')}
+          </ToggleGroupItem>
+          <ToggleGroupItem value='usage' className={outcomeItemClassName}>
+            {t('Usage not provided')}
+          </ToggleGroupItem>
+        </ToggleGroup>
+        {showLogs && (
+          <Link
+            to='/usage-logs/$section'
+            params={{ section: 'common' }}
+            search={recordsSearch}
+            data-myapi-button=''
+            className={linkButtonClassName({ variant: 'ghost' })}
+          >
+            {t('View call records')}
+          </Link>
         )}
       </div>
       {body}

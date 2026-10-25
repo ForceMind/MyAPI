@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { Dashboard } from '@/features/dashboard'
+import { overviewSearchSchema } from '@/features/dashboard/lib/overview-flow'
 import {
   DASHBOARD_SECTION_IDS,
   DASHBOARD_DEFAULT_SECTION,
@@ -40,5 +41,6 @@ export const Route = createFileRoute('/_authenticated/dashboard/$section')({
       })
     }
   },
+  validateSearch: overviewSearchSchema,
   component: Dashboard,
 })

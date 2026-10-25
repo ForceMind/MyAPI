@@ -6,60 +6,30 @@ it under the terms of the GNU Affero General Public License as published by
 the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
-import {
-  Alert02Icon,
-  ArrowRight01Icon,
-  CheckmarkCircle02Icon,
-  FileSearchIcon,
-  Plug01Icon,
-} from '@hugeicons/core-free-icons'
+import { Alert02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Skeleton } from '@/components/ui/skeleton'
 import { PendingUsageReviews } from '@/features/usage-logs/components/pending-usage-reviews'
 import { getRequestFacts } from '@/features/usage-logs/lib/request-facts'
 import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
+import { ROLE } from '@/lib/roles'
+import { cn } from '@/lib/utils'
 
 import type { OverviewData } from './use-overview-data'
 
-function AttentionLink(props: {
-  icon: typeof Alert02Icon
-  children: ReactNode
-  render: (className: string, content: ReactNode) => ReactNode
-}) {
-  const content = (
-    <>
-      <HugeiconsIcon
-        icon={props.icon}
-        className='text-warning size-4 shrink-0'
-        aria-hidden='true'
-      />
-      <span className='min-w-0 flex-1'>{props.children}</span>
-      <HugeiconsIcon
-        icon={ArrowRight01Icon}
-        className='text-muted-foreground size-4 shrink-0'
-        aria-hidden='true'
-      />
-    </>
-  )
-  return (
-    <li>
-      {props.render(
-        'hover:bg-muted text-body flex min-h-11 items-center gap-3 rounded-lg px-2 py-2 focus-visible:outline-2',
-        content
-      )}
-    </li>
-  )
-}
+const linkClassName =
+  'underline underline-offset-3 hover:no-underline focus-visible:outline-2'
 
 /**
- * Needs attention (design 8.1), grouped by object: disabled connections,
- * failed requests and requests without a usage report among the latest
- * ones, failing account samples and body capture being off. Each item links
- * to the filtered place where it can be handled.
+ * Needs attention (design v2 home): one amber strip listing what to handle,
+ * each item linking to the filtered place where it can be handled: disabled
+ * connections, failed requests and requests without a usage report among
+ * the latest ones, failing account samples and body capture being off. It
+ * takes no space when nothing needs attention, except for the root operator,
+ * who always reaches the pending settlement reviews here.
  */
 export function OverviewAttention(props: { data: OverviewData }) {
   const { t } = useTranslation()
@@ -67,7 +37,9 @@ export function OverviewAttention(props: { data: OverviewData }) {
   const showConnections = useIsSidebarModuleVisible('/connections')
   const showAccounts = useIsSidebarModuleVisible('/upstream-accounts')
   const showBodies = useIsSidebarModuleVisible('/full-content-logs')
-  const rows = props.data.sample.isError ? undefined : props.data.sample.data
+  const rows = props.data.sample.isError
+    ? undefined
+    : props.data.sample.data?.rows
   const facts = rows?.map(getRequestFacts) ?? []
   const failed = facts.filter((fact) => !fact.completed).length
   const usageMissing = facts.filter(
@@ -88,151 +60,123 @@ export function OverviewAttention(props: { data: OverviewData }) {
     startTime: props.data.since * 1000,
     endTime: Date.now() + 3600 * 1000,
   }
+  const root = props.data.user?.role === ROLE.SUPER_ADMIN
 
-  const items: ReactNode[] = []
+  const items: { id: string; link: ReactNode }[] = []
   if (props.data.canReadChannels && showConnections && disabled > 0) {
-    items.push(
-      <AttentionLink
-        key='connections'
-        icon={Plug01Icon}
-        render={(className, content) => (
-          <Link
-            to='/connections'
-            search={{ status: 'disabled' }}
-            className={className}
-          >
-            {content}
-          </Link>
-        )}
-      >
-        {t('{{count}} connections are disabled', { count: disabled })}
-      </AttentionLink>
-    )
+    items.push({
+      id: 'connections',
+      link: (
+        <Link
+          to='/connections'
+          search={{ status: 'disabled' }}
+          className={linkClassName}
+        >
+          {t('{{count}} connections are disabled', { count: disabled })}
+        </Link>
+      ),
+    })
   }
   if (showLogs && failed > 0) {
-    items.push(
-      <AttentionLink
-        key='failed'
-        icon={Alert02Icon}
-        render={(className, content) => (
-          <Link
-            to='/usage-logs/$section'
-            params={{ section: 'common' }}
-            search={errorSearch}
-            className={className}
-          >
-            {content}
-          </Link>
-        )}
-      >
-        {t('{{count}} of the latest requests failed', { count: failed })}
-      </AttentionLink>
-    )
+    items.push({
+      id: 'failed',
+      link: (
+        <Link
+          to='/usage-logs/$section'
+          params={{ section: 'common' }}
+          search={errorSearch}
+          className={linkClassName}
+        >
+          {t('{{count}} of the latest requests failed', { count: failed })}
+        </Link>
+      ),
+    })
   }
   if (showLogs && usageMissing > 0) {
-    items.push(
-      <AttentionLink
-        key='usage'
-        icon={Alert02Icon}
-        render={(className, content) => (
-          <Link
-            to='/usage-logs/$section'
-            params={{ section: 'common' }}
-            search={errorSearch}
-            className={className}
-          >
-            {content}
-          </Link>
-        )}
-      >
-        {t('{{count}} requests completed without a usage report', {
-          count: usageMissing,
-        })}
-      </AttentionLink>
-    )
+    items.push({
+      id: 'usage',
+      link: (
+        <Link
+          to='/usage-logs/$section'
+          params={{ section: 'common' }}
+          search={errorSearch}
+          className={linkClassName}
+        >
+          {t('{{count}} requests completed without a usage report', {
+            count: usageMissing,
+          })}
+        </Link>
+      ),
+    })
   }
   if (showAccounts && failingAccounts > 0) {
-    items.push(
-      <AttentionLink
-        key='accounts'
-        icon={Alert02Icon}
-        render={(className, content) => (
-          <Link to='/upstream-accounts' className={className}>
-            {content}
-          </Link>
-        )}
-      >
-        {t('Accounts with failed samples: {{count}}', {
-          count: failingAccounts,
-        })}
-      </AttentionLink>
-    )
+    items.push({
+      id: 'accounts',
+      link: (
+        <Link to='/upstream-accounts' className={linkClassName}>
+          {t('Accounts with failed samples: {{count}}', {
+            count: failingAccounts,
+          })}
+        </Link>
+      ),
+    })
   }
   if (showBodies && props.data.capture.capturing === false) {
-    items.push(
-      <AttentionLink
-        key='capture'
-        icon={FileSearchIcon}
-        render={(className, content) => (
-          <Link to='/full-content-logs' className={className}>
-            {content}
-          </Link>
-        )}
-      >
-        {t(
-          'Body capture is off (FULL_CONTENT_LOG_ENABLED). New requests save no body.'
-        )}
-      </AttentionLink>
-    )
+    items.push({
+      id: 'capture',
+      link: (
+        <Link to='/full-content-logs' className={linkClassName}>
+          {t(
+            'Body capture is off (FULL_CONTENT_LOG_ENABLED). New requests save no body.'
+          )}
+        </Link>
+      ),
+    })
   }
 
-  let body: ReactNode
-  if (props.data.sample.isPending) {
-    body = (
-      <div className='flex flex-col gap-2' aria-busy='true'>
-        <span className='sr-only'>{t('Loading...')}</span>
-        <Skeleton className='h-9 w-full' />
-        <Skeleton className='h-9 w-full' />
-      </div>
+  let summary: ReactNode = null
+  if (items.length > 0) {
+    summary = (
+      <strong className='font-semibold'>
+        {t('{{count}} items need attention:', { count: items.length })}
+      </strong>
     )
-  } else if (items.length > 0) {
-    body = <ul className='flex flex-col gap-1'>{items}</ul>
   } else if (props.data.sample.isError) {
-    body = (
-      <p className='text-body text-muted-foreground flex items-center gap-2'>
-        <HugeiconsIcon
-          icon={Alert02Icon}
-          className='text-warning size-4 shrink-0'
-          aria-hidden='true'
-        />
-        {t('Recent requests could not be checked.')}
-      </p>
-    )
-  } else {
-    body = (
-      <p className='text-body text-muted-foreground flex items-center gap-2'>
-        <HugeiconsIcon
-          icon={CheckmarkCircle02Icon}
-          className='text-success size-4 shrink-0'
-          aria-hidden='true'
-        />
-        {t('Nothing needs attention right now.')}
-      </p>
-    )
+    summary = t('Recent requests could not be checked.')
+  } else if (root && props.data.sample.isPending) {
+    summary = t('Loading...')
+  } else if (root) {
+    summary = t('Nothing needs attention right now.')
   }
+  const reviews = showLogs && root
+  if (summary === null && !reviews) return null
+  const warning = items.length > 0 || props.data.sample.isError
 
   return (
     <section
-      aria-labelledby='overview-attention-title'
-      className='bg-card p-card flex min-w-0 flex-col gap-3 rounded-xl border'
+      aria-label={t('Needs attention')}
+      className={cn(
+        'text-body flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-lg px-3.5 py-2.5',
+        warning ? 'bg-warning-muted text-warning' : 'bg-muted text-foreground'
+      )}
     >
-      <div className='flex min-w-0 flex-wrap items-center justify-between gap-2'>
-        <h2 id='overview-attention-title' className='text-title'>
-          {t('Needs attention')}
-        </h2>
-        {showLogs && <PendingUsageReviews />}
-      </div>
-      {body}
+      {warning && (
+        <HugeiconsIcon
+          icon={Alert02Icon}
+          className='size-4 shrink-0'
+          aria-hidden='true'
+        />
+      )}
+      <p className='min-w-0 flex-1 basis-64 wrap-anywhere'>
+        {summary}
+        {items.map((item, index) => (
+          <span key={item.id}>
+            {index === 0 ? ' ' : ' · '}
+            {item.link}
+          </span>
+        ))}
+      </p>
+      {reviews && <PendingUsageReviews />}
     </section>
   )
 }
