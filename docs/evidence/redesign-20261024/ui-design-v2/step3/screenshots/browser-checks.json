@@ -1,0 +1,2388 @@
+{
+  "blocked": 0,
+  "shots": [
+    "keys-1280-light-zh.png",
+    "key-1280-light-zh.png",
+    "request-1280-light-zh.png",
+    "keys-390-light-zh.png",
+    "key-390-light-zh.png",
+    "request-390-light-zh.png",
+    "keys-1280-dark-zh.png",
+    "key-1280-dark-zh.png",
+    "request-1280-dark-zh.png",
+    "keys-390-dark-zh.png",
+    "key-390-dark-zh.png",
+    "request-390-dark-zh.png",
+    "keys-1280-light-en.png",
+    "key-1280-light-en.png",
+    "request-1280-light-en.png",
+    "keys-390-light-en.png",
+    "key-390-light-en.png",
+    "request-390-light-en.png",
+    "keys-1280-dark-en.png",
+    "key-1280-dark-en.png",
+    "request-1280-dark-en.png",
+    "keys-390-dark-en.png",
+    "key-390-dark-en.png",
+    "request-390-dark-en.png",
+    "keys-320-light-zh.png",
+    "key-320-light-zh.png",
+    "request-320-light-zh.png",
+    "keys-768-light-zh.png",
+    "key-768-light-zh.png",
+    "request-768-light-zh.png",
+    "keys-1024-light-zh.png",
+    "key-1024-light-zh.png",
+    "request-1024-light-zh.png",
+    "key-320-light-en.png",
+    "request-320-light-en.png",
+    "key-768-light-en.png",
+    "request-768-light-en.png",
+    "key-1024-light-en.png",
+    "request-1024-light-en.png",
+    "key-scope-1280-light-zh.png",
+    "key-delivery-1280-light-zh.png",
+    "request-sse-1280-light-zh.png",
+    "request-raw-1280-light-zh.png",
+    "key-scope-390-light-zh.png",
+    "key-delivery-390-light-zh.png",
+    "request-sse-390-light-zh.png",
+    "request-raw-390-light-zh.png",
+    "request-full-1280-light-zh.png",
+    "lite-keys-1280-light-zh.png",
+    "lite-key-1280-light-zh.png",
+    "lite-request-390-light-zh.png",
+    "user-key-1280-light-zh.png",
+    "user-request-1280-light-zh.png",
+    "user-request-390-light-zh.png",
+    "empty-keys-1280-light-zh.png",
+    "empty-keys-390-light-en.png",
+    "empty-key-requests-1280-light-zh.png",
+    "missing-request-1280-light-zh.png",
+    "missing-request-390-light-en.png",
+    "error-key-1280-light-zh.png",
+    "error-request-1280-light-zh.png",
+    "no-body-capture-on-1280-light-zh.png",
+    "no-body-capture-off-1280-light-en.png",
+    "rejected-request-1280-light-zh.png",
+    "ops-back-to-list-1280-light-zh.png",
+    "ops-request-from-key-1280-light-zh.png",
+    "ops-paused-1280-light-zh.png",
+    "ops-legacy-request-1280-light-zh.png",
+    "ops-command-search-1280-light-zh.png",
+    "ops-phone-actions-390-light-zh.png"
+  ],
+  "total": 344,
+  "failed": 6,
+  "checks": [
+    {
+      "name": "keys-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "keys-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-1280-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 64,
+        "right": 1077,
+        "width": 1013,
+        "height": 32
+      }
+    },
+    {
+      "name": "keys-1280-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "key-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-1280-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 64,
+        "right": 787,
+        "width": 723,
+        "height": 32
+      }
+    },
+    {
+      "name": "key-1280-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "request-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-1280-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 64,
+        "right": 946,
+        "width": 882,
+        "height": 32
+      }
+    },
+    {
+      "name": "request-1280-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "keys-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-390-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 32
+      }
+    },
+    {
+      "name": "keys-390-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-390-light-zh: touch targets >= 44px",
+      "pass": false,
+      "detail": [
+        {
+          "name": "前往第 1 页1",
+          "height": 44,
+          "width": 32
+        }
+      ]
+    },
+    {
+      "name": "keys-390-light-zh: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 569,
+        "nav": 779
+      }
+    },
+    {
+      "name": "key-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "key-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-390-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 144,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 64
+      }
+    },
+    {
+      "name": "key-390-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-390-light-zh: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-390-light-zh: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 746,
+        "nav": 779
+      }
+    },
+    {
+      "name": "request-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "request-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-390-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 32
+      }
+    },
+    {
+      "name": "request-390-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-390-light-zh: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-390-light-zh: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 738,
+        "nav": 779
+      }
+    },
+    {
+      "name": "keys-1280-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "keys-1280-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-1280-dark-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 64,
+        "right": 1077,
+        "width": 1013,
+        "height": 32
+      }
+    },
+    {
+      "name": "keys-1280-dark-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-1280-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "key-1280-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-1280-dark-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 64,
+        "right": 787,
+        "width": 723,
+        "height": 32
+      }
+    },
+    {
+      "name": "key-1280-dark-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-1280-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "request-1280-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-1280-dark-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 64,
+        "right": 946,
+        "width": 882,
+        "height": 32
+      }
+    },
+    {
+      "name": "request-1280-dark-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-390-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "keys-390-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-390-dark-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 32
+      }
+    },
+    {
+      "name": "keys-390-dark-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-390-dark-zh: touch targets >= 44px",
+      "pass": false,
+      "detail": [
+        {
+          "name": "前往第 1 页1",
+          "height": 44,
+          "width": 32
+        }
+      ]
+    },
+    {
+      "name": "keys-390-dark-zh: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 569,
+        "nav": 779
+      }
+    },
+    {
+      "name": "key-390-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "key-390-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-390-dark-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 144,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 64
+      }
+    },
+    {
+      "name": "key-390-dark-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-390-dark-zh: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-390-dark-zh: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 746,
+        "nav": 779
+      }
+    },
+    {
+      "name": "request-390-dark-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "request-390-dark-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-390-dark-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 32
+      }
+    },
+    {
+      "name": "request-390-dark-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-390-dark-zh: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-390-dark-zh: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 738,
+        "nav": 779
+      }
+    },
+    {
+      "name": "keys-1280-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "keys-1280-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-1280-light-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 64,
+        "right": 1064,
+        "width": 1000,
+        "height": 32
+      }
+    },
+    {
+      "name": "keys-1280-light-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-1280-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "key-1280-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-1280-light-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 64,
+        "right": 765,
+        "width": 701,
+        "height": 32
+      }
+    },
+    {
+      "name": "key-1280-light-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-1280-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "request-1280-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-1280-light-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 136,
+        "left": 64,
+        "right": 922,
+        "width": 858,
+        "height": 33
+      }
+    },
+    {
+      "name": "request-1280-light-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-390-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "keys-390-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-390-light-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 32
+      }
+    },
+    {
+      "name": "keys-390-light-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-390-light-en: touch targets >= 44px",
+      "pass": false,
+      "detail": [
+        {
+          "name": "Go to page 11",
+          "height": 44,
+          "width": 32
+        }
+      ]
+    },
+    {
+      "name": "keys-390-light-en: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 590,
+        "nav": 779
+      }
+    },
+    {
+      "name": "key-390-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "key-390-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-390-light-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 144,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 64
+      }
+    },
+    {
+      "name": "key-390-light-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-390-light-en: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-390-light-en: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 746,
+        "nav": 779
+      }
+    },
+    {
+      "name": "request-390-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "request-390-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-390-light-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 113,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 33
+      }
+    },
+    {
+      "name": "request-390-light-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-390-light-en: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-390-light-en: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 738,
+        "nav": 779
+      }
+    },
+    {
+      "name": "keys-1280-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "keys-1280-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-1280-dark-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 64,
+        "right": 1064,
+        "width": 1000,
+        "height": 32
+      }
+    },
+    {
+      "name": "keys-1280-dark-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-1280-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "key-1280-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-1280-dark-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 64,
+        "right": 765,
+        "width": 701,
+        "height": 32
+      }
+    },
+    {
+      "name": "key-1280-dark-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-1280-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "request-1280-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-1280-dark-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 136,
+        "left": 64,
+        "right": 922,
+        "width": 858,
+        "height": 33
+      }
+    },
+    {
+      "name": "request-1280-dark-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-390-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "keys-390-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-390-dark-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 32
+      }
+    },
+    {
+      "name": "keys-390-dark-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-390-dark-en: touch targets >= 44px",
+      "pass": false,
+      "detail": [
+        {
+          "name": "Go to page 11",
+          "height": 44,
+          "width": 32
+        }
+      ]
+    },
+    {
+      "name": "keys-390-dark-en: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 590,
+        "nav": 779
+      }
+    },
+    {
+      "name": "key-390-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "key-390-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-390-dark-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 144,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 64
+      }
+    },
+    {
+      "name": "key-390-dark-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-390-dark-en: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-390-dark-en: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 746,
+        "nav": 779
+      }
+    },
+    {
+      "name": "request-390-dark-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "request-390-dark-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-390-dark-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 113,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 33
+      }
+    },
+    {
+      "name": "request-390-dark-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-390-dark-en: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-390-dark-en: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 738,
+        "nav": 779
+      }
+    },
+    {
+      "name": "keys-320-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "keys-320-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-320-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 16,
+        "right": 304,
+        "width": 288,
+        "height": 32
+      }
+    },
+    {
+      "name": "keys-320-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-320-light-zh: touch targets >= 44px",
+      "pass": false,
+      "detail": [
+        {
+          "name": "前往第 1 页1",
+          "height": 44,
+          "width": 32
+        }
+      ]
+    },
+    {
+      "name": "keys-320-light-zh: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 590,
+        "nav": 779
+      }
+    },
+    {
+      "name": "key-320-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "key-320-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-320-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 144,
+        "left": 16,
+        "right": 304,
+        "width": 288,
+        "height": 64
+      }
+    },
+    {
+      "name": "key-320-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-320-light-zh: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-320-light-zh: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 746,
+        "nav": 779
+      }
+    },
+    {
+      "name": "request-320-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "request-320-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-320-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 16,
+        "right": 304,
+        "width": 288,
+        "height": 32
+      }
+    },
+    {
+      "name": "request-320-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-320-light-zh: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-320-light-zh: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 738,
+        "nav": 779
+      }
+    },
+    {
+      "name": "keys-768-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "keys-768-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-768-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 16,
+        "right": 752,
+        "width": 736,
+        "height": 32
+      }
+    },
+    {
+      "name": "keys-768-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-768-light-zh: touch targets >= 44px",
+      "pass": false,
+      "detail": [
+        {
+          "name": "前往第 1 页1",
+          "height": 44,
+          "width": 32
+        }
+      ]
+    },
+    {
+      "name": "keys-768-light-zh: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 475,
+        "nav": 779
+      }
+    },
+    {
+      "name": "key-768-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "key-768-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-768-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 16,
+        "right": 752,
+        "width": 736,
+        "height": 32
+      }
+    },
+    {
+      "name": "key-768-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-768-light-zh: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-768-light-zh: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 746,
+        "nav": 779
+      }
+    },
+    {
+      "name": "request-768-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "request-768-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-768-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 16,
+        "right": 752,
+        "width": 736,
+        "height": 32
+      }
+    },
+    {
+      "name": "request-768-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-768-light-zh: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-768-light-zh: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 738,
+        "nav": 779
+      }
+    },
+    {
+      "name": "keys-1024-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "keys-1024-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "keys-1024-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 24,
+        "right": 861,
+        "width": 837,
+        "height": 32
+      }
+    },
+    {
+      "name": "keys-1024-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-1024-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "key-1024-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-1024-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 24,
+        "right": 571,
+        "width": 547,
+        "height": 32
+      }
+    },
+    {
+      "name": "key-1024-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-1024-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "request-1024-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-1024-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 24,
+        "right": 730,
+        "width": 706,
+        "height": 32
+      }
+    },
+    {
+      "name": "request-1024-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-320-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "key-320-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-320-light-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 144,
+        "left": 16,
+        "right": 304,
+        "width": 288,
+        "height": 64
+      }
+    },
+    {
+      "name": "key-320-light-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-320-light-en: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-320-light-en: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 746,
+        "nav": 779
+      }
+    },
+    {
+      "name": "request-320-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "request-320-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-320-light-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 113,
+        "left": 16,
+        "right": 304,
+        "width": 288,
+        "height": 33
+      }
+    },
+    {
+      "name": "request-320-light-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-320-light-en: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-320-light-en: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 738,
+        "nav": 779
+      }
+    },
+    {
+      "name": "key-768-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "key-768-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-768-light-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 16,
+        "right": 752,
+        "width": 736,
+        "height": 32
+      }
+    },
+    {
+      "name": "key-768-light-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-768-light-en: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-768-light-en: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 746,
+        "nav": 779
+      }
+    },
+    {
+      "name": "request-768-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "request-768-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-768-light-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 113,
+        "left": 16,
+        "right": 752,
+        "width": 736,
+        "height": 33
+      }
+    },
+    {
+      "name": "request-768-light-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-768-light-en: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-768-light-en: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 738,
+        "nav": 779
+      }
+    },
+    {
+      "name": "key-1024-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "key-1024-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-1024-light-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 24,
+        "right": 549,
+        "width": 525,
+        "height": 32
+      }
+    },
+    {
+      "name": "key-1024-light-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-1024-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "request-1024-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-1024-light-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 136,
+        "left": 24,
+        "right": 706,
+        "width": 682,
+        "height": 33
+      }
+    },
+    {
+      "name": "request-1024-light-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-scope-1280-light-zh: tab selected from the URL",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "key-scope-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "key-scope-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-scope-1280-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 64,
+        "right": 787,
+        "width": 723,
+        "height": 32
+      }
+    },
+    {
+      "name": "key-scope-1280-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-delivery-1280-light-zh: tab selected from the URL",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "key-delivery-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "key-delivery-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-delivery-1280-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 64,
+        "right": 787,
+        "width": 723,
+        "height": 32
+      }
+    },
+    {
+      "name": "key-delivery-1280-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-sse-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "request-sse-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-sse-1280-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 64,
+        "right": 946,
+        "width": 882,
+        "height": 32
+      }
+    },
+    {
+      "name": "request-sse-1280-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-raw-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "request-raw-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-raw-1280-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 64,
+        "right": 946,
+        "width": 882,
+        "height": 32
+      }
+    },
+    {
+      "name": "request-raw-1280-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-scope-390-light-zh: tab selected from the URL",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "key-scope-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "key-scope-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-scope-390-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 144,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 64
+      }
+    },
+    {
+      "name": "key-scope-390-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-scope-390-light-zh: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-scope-390-light-zh: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 721,
+        "nav": 779
+      }
+    },
+    {
+      "name": "key-delivery-390-light-zh: tab selected from the URL",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "key-delivery-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "key-delivery-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-delivery-390-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 144,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 64
+      }
+    },
+    {
+      "name": "key-delivery-390-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-delivery-390-light-zh: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "key-delivery-390-light-zh: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 723,
+        "nav": 779
+      }
+    },
+    {
+      "name": "request-sse-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "request-sse-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-sse-390-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 32
+      }
+    },
+    {
+      "name": "request-sse-390-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-sse-390-light-zh: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-sse-390-light-zh: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 738,
+        "nav": 779
+      }
+    },
+    {
+      "name": "request-raw-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "request-raw-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-raw-390-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 32
+      }
+    },
+    {
+      "name": "request-raw-390-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-raw-390-light-zh: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "request-raw-390-light-zh: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 738,
+        "nav": 779
+      }
+    },
+    {
+      "name": "lite-keys-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "lite-keys-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "lite-keys-1280-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 64,
+        "right": 1077,
+        "width": 1013,
+        "height": 32
+      }
+    },
+    {
+      "name": "lite-keys-1280-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "lite-key-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "lite-key-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "lite-key-1280-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 64,
+        "right": 787,
+        "width": 723,
+        "height": 32
+      }
+    },
+    {
+      "name": "lite-key-1280-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "lite-request-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "lite-request-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "lite-request-390-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 32
+      }
+    },
+    {
+      "name": "lite-request-390-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "lite-request-390-light-zh: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "lite-request-390-light-zh: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 738,
+        "nav": 779
+      }
+    },
+    {
+      "name": "user-key-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "user-key-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "user-key-1280-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 64,
+        "right": 787,
+        "width": 723,
+        "height": 32
+      }
+    },
+    {
+      "name": "user-key-1280-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "user-request-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "user-request-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "user-request-1280-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 64,
+        "right": 946,
+        "width": 882,
+        "height": 32
+      }
+    },
+    {
+      "name": "user-request-1280-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "user-request-1280-light-zh: an ordinary user sees no routing details and no body",
+      "pass": true,
+      "detail": "SYNTHETI…-ERROR\n请求失败\n10/25 11:39:05\nsynthetic-text-model\nSYNTHETIC-CONTEXT-ERROR\n复制 ID\n在调用记录中查看\n业务结果\n请求失败\nHTTP 状态\n200\n用量可信度\n用量未提供\n结算\n结算待核对\n诊断\n2 秒\n\n收到请求\n\nAPI Key: Synthetic name before rename · synthetic-text-model\n\n路由\n\n路由细节仅管理员可见。\n\n请求失败\n\nHTTP 200\n\n上游错误码: context_length_exceeded\n\n结算待核对\n\n用量未提供\n\n记录于 10/25 11:39:05\n\n已保存的记录\n请求失败\n输入超过上游上下文窗口，请缩短输入后再试。\n输入 Token 估算\n922,000\n\n本地估算，不作为上游实际用量或结算依据。\n\n上游错误码: co"
+    },
+    {
+      "name": "user-request-390-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "user-request-390-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "user-request-390-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 32
+      }
+    },
+    {
+      "name": "user-request-390-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "user-request-390-light-zh: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "user-request-390-light-zh: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 713,
+        "nav": 779
+      }
+    },
+    {
+      "name": "user-request-390-light-zh: an ordinary user sees no routing details and no body",
+      "pass": true,
+      "detail": "SYNTHETI…-ERROR\n请求失败\n10/25 11:39:05\nsynthetic-text-model\nSYNTHETIC-CONTEXT-ERROR\n复制 ID\n在调用记录中查看\n业务结果\n请求失败\nHTTP 状态\n200\n用量可信度\n用量未提供\n结算\n结算待核对\n诊断\n2 秒\n\n收到请求\n\nAPI Key: Synthetic name before rename · synthetic-text-model\n\n路由\n\n路由细节仅管理员可见。\n\n请求失败\n\nHTTP 200\n\n上游错误码: context_length_exceeded\n\n结算待核对\n\n用量未提供\n\n记录于 10/25 11:39:05\n\n已保存的记录\n请求失败\n输入超过上游上下文窗口，请缩短输入后再试。\n输入 Token 估算\n922,000\n\n本地估算，不作为上游实际用量或结算依据。\n\n上游错误码: co"
+    },
+    {
+      "name": "empty-keys-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "empty-keys-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "empty-keys-1280-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 64,
+        "right": 1077,
+        "width": 1013,
+        "height": 32
+      }
+    },
+    {
+      "name": "empty-keys-1280-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "empty-keys-1280-light-zh: empty list says so",
+      "pass": true,
+      "detail": "API Key\n\n发给同事或客户端的凭据；点一行进入它的页面。\n\n创建 API Key\n状态\n查看\n\t\n名称\n\t\n状态\n\t\nAPI Key\n\t\n模型\n\t\n最后使用时间\n\t操作\n\n未找到 API Key\n还没有 API Key。创建第一个 API Key 即可开始使用。\n总计：\n0\n\n每页行数\n\n20\n前往首页\n前往上一页\n前往下一页\n前往末页"
+    },
+    {
+      "name": "empty-keys-390-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "empty-keys-390-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "empty-keys-390-light-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 80,
+        "bottom": 112,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 32
+      }
+    },
+    {
+      "name": "empty-keys-390-light-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "empty-keys-390-light-en: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "empty-keys-390-light-en: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 647,
+        "nav": 779
+      }
+    },
+    {
+      "name": "empty-keys-390-light-en: empty list says so",
+      "pass": true,
+      "detail": "API Keys\n\nCredentials for people and clients; select one to open its page.\n\nCreate API Key\nStatus\nView\nNo API Keys Found\nNo API keys available. Create your first API key to get started.\nTotal:\n0\n20\nGo"
+    },
+    {
+      "name": "empty-key-requests-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "empty-key-requests-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "empty-key-requests-1280-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 64,
+        "right": 787,
+        "width": 723,
+        "height": 32
+      }
+    },
+    {
+      "name": "empty-key-requests-1280-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "empty-key-requests-1280-light-zh: empty requests say so",
+      "pass": true,
+      "detail": "Synthetic same-name Key · 合成同名 Key\n已启用\n#21\nsk-masked-synthetic-21\n创建时间: 2026-10-25 10:39:05\n过期: 永不\n最后使用: 2026-10-25 11:39:05\n暂停 Key\n复制\n打开 Playground\n24 小时请求\n0\n成功与失败记录合计\n失败\n0\n最近 0 次请求中\n5 小时额度窗口 · 分额已用\n75%\n近似值，基于 Synthetic subscription connection\n请求\n范围与分额\n交付\n最近请求\n全部 0\n失败 0\n用量未提供 0\n该 Key 的最近请求\n这个 Key 还没有请求\n客户端使用此 Key 后，请求会显示在这里。\n在调用记录中查看全部"
+    },
+    {
+      "name": "missing-request-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "missing-request-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "missing-request-1280-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 159,
+        "bottom": 191,
+        "left": 64,
+        "right": 946,
+        "width": 882,
+        "height": 32
+      }
+    },
+    {
+      "name": "missing-request-1280-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "missing-request-1280-light-zh: not found is not success",
+      "pass": true,
+      "detail": "SYNTHETI…UCH-ID\nSYNTHETIC-NO-SUCH-ID\n复制 ID\n在调用记录中查看\n没有调用记录使用这个 Request ID\n请检查 ID。已被日志清理删除的记录无法查到。"
+    },
+    {
+      "name": "missing-request-390-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "missing-request-390-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "missing-request-390-light-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 120,
+        "bottom": 153,
+        "left": 16,
+        "right": 374,
+        "width": 358,
+        "height": 33
+      }
+    },
+    {
+      "name": "missing-request-390-light-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "missing-request-390-light-en: touch targets >= 44px",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "missing-request-390-light-en: last content clears the bottom navigation",
+      "pass": true,
+      "detail": {
+        "bottom": 406,
+        "nav": 779
+      }
+    },
+    {
+      "name": "missing-request-390-light-en: not found is not success",
+      "pass": true,
+      "detail": "SYNTHETI…UCH-ID\nSYNTHETIC-NO-SUCH-ID\nCopy ID\nShow in call records\nNo call record has this Request ID\nCheck the ID. Records removed by log cleanup cannot be found."
+    },
+    {
+      "name": "error-key-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "error-key-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "error-key-1280-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 64,
+        "right": 1216,
+        "width": 1152,
+        "height": 32
+      }
+    },
+    {
+      "name": "error-key-1280-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "error-key-1280-light-zh: unavailable Key with retry",
+      "pass": true,
+      "detail": "API Key #21\n此 Key 不可用或属于其他账号。\n重试\n返回 API Key 列表"
+    },
+    {
+      "name": "error-request-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "error-request-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "error-request-1280-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 159,
+        "bottom": 191,
+        "left": 64,
+        "right": 946,
+        "width": 882,
+        "height": 32
+      }
+    },
+    {
+      "name": "error-request-1280-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "error-request-1280-light-zh: lookup failure is an error with retry",
+      "pass": true,
+      "detail": "SYNTHETI…-ERROR\nSYNTHETIC-CONTEXT-ERROR\n复制 ID\n在调用记录中查看\n无法查询此 Request ID\n无法读取调用记录，请重试。\n重试"
+    },
+    {
+      "name": "no-body-capture-on-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "no-body-capture-on-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "no-body-capture-on-1280-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 64,
+        "right": 946,
+        "width": 882,
+        "height": 32
+      }
+    },
+    {
+      "name": "no-body-capture-on-1280-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "no-body-capture-on-1280-light-zh: body capture status explained",
+      "pass": true,
+      "detail": "tic-text-model\nSYNTHETIC-NOT-RECORDED\n复制 ID\n在调用记录中查看\n业务结果\n请求成功\nHTTP 状态\n200\n用量可信度\n上游报告用量\n结算\n已结算\n诊断\n2 秒\n\n收到请求\n\nAPI Key: Synthetic same-name Key · 合成同名 Key · synthetic-text-model\n\n路由\n\n连接: Synthetic connection · 合成连接\n\n上游已完成\n\nHTTP 200\n\n已结算\n\n已返回用量\n\n记录于 10/25 11:38:05\n\n已保存的记录\n输入 Token 估算\n98\n\n本地估算，不作为上游实际用量或结算依据。\n\n查看这个 Key\n\n请求成功\n\n请求 ID\nSYNTHETIC-NOT-RECORDED\nHTTP 状态\n200\n上游请求 ID\nSYN-UP-3\n连接\n1 (Synthetic connection · 合成连接)\nAPI Key\nSynthetic same-name Key · 合成同名 Key\n分组\ndefault\n响应时间\n2.0s\nToken 明细\n输入 Token\n100\n输出 Token\n20\n内容\n\nSynthetic request completed\n\n正文\nSSE\n原始\n此请求没有已保存的正文\n正文采集已开启。此请求可能早于开启时间，或其保存文件已过期。"
+    },
+    {
+      "name": "no-body-capture-off-1280-light-en: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "no-body-capture-off-1280-light-en: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "no-body-capture-off-1280-light-en: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 136,
+        "left": 64,
+        "right": 922,
+        "width": 858,
+        "height": 33
+      }
+    },
+    {
+      "name": "no-body-capture-off-1280-light-en: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "no-body-capture-off-1280-light-en: capture off explained",
+      "pass": true,
+      "detail": "led\n\nUsage reported\n\nRecorded at 10/25, 11:38:05 AM\n\nSaved record\nEstimated input Tokens\n98\n\nLocal estimate; not used as reported usage or for settlement.\n\nView this Key\n\nRequest succeeded\n\nRequest ID\nSYNTHETIC-NOT-RECORDED\nHTTP status\n200\nUpstream Request ID\nSYN-UP-3\nConnection\n1 (Synthetic connection · 合成连接)\nAPI Key\nSynthetic same-name Key · 合成同名 Key\nGroup\ndefault\nResponse Time\n2.0s\nToken Breakdown\nInput Tokens\n100\nOutput Tokens\n20\nContent\n\nSynthetic request completed\n\nBody\nSSE\nRaw\nNo saved body for this request\nBody capture is off (FULL_CONTENT_LOG_ENABLED). Existing files remain available."
+    },
+    {
+      "name": "rejected-request-1280-light-zh: no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "rejected-request-1280-light-zh: no page errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "rejected-request-1280-light-zh: heading inside the viewport",
+      "pass": true,
+      "detail": {
+        "top": 103,
+        "bottom": 135,
+        "left": 64,
+        "right": 946,
+        "width": 882,
+        "height": 32
+      }
+    },
+    {
+      "name": "rejected-request-1280-light-zh: no text cut off without an ellipsis",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "ops: a Key row opens its page",
+      "pass": true,
+      "detail": "http://127.0.0.1:4184/keys/22?keyReturn=%7B%22page%22%3A2%2C%22pageSize%22%3A1%2C%22filter%22%3A%22Synthetic%22%7D"
+    },
+    {
+      "name": "ops: breadcrumb Back keeps the filter and page and focuses the row",
+      "pass": true,
+      "detail": {
+        "url": "http://127.0.0.1:4184/keys?filter=Synthetic&pageSize=1&page=2",
+        "focused": "22"
+      }
+    },
+    {
+      "name": "ops: a click on the row (not its controls) opens the Key",
+      "pass": true,
+      "detail": "http://127.0.0.1:4184/keys/22?keyReturn=%7B%22page%22%3A2%2C%22pageSize%22%3A1%2C%22filter%22%3A%22Synthetic%22%7D"
+    },
+    {
+      "name": "ops: browser Back returns to the Key with focus on the request",
+      "pass": true,
+      "detail": "http://127.0.0.1:4184/keys/21"
+    },
+    {
+      "name": "ops: pause, resume and copy act on this Key only after clicks",
+      "pass": true,
+      "detail": {
+        "copied": "sk-synthetic-copied-secret"
+      }
+    },
+    {
+      "name": "ops: list and pages without errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "ops: ?inspect=21&tab=access opens the Key page on scope",
+      "pass": true,
+      "detail": "http://127.0.0.1:4184/keys/21?tab=scope"
+    },
+    {
+      "name": "ops: an earlier request link opens the request page on SSE",
+      "pass": true,
+      "detail": "http://127.0.0.1:4184/keys/21/requests/SYNTHETIC-CONTEXT-ERROR?tab=sse"
+    },
+    {
+      "name": "ops: an earlier call-record link opens the request page",
+      "pass": true,
+      "detail": "http://127.0.0.1:4184/usage-logs/request/SYNTHETIC-PREFLIGHT-REJECTED?tab=body"
+    },
+    {
+      "name": "ops: a pasted Request ID opens its page",
+      "pass": true,
+      "detail": "http://127.0.0.1:4184/usage-logs/request/SYNTHETIC-COMPLETED-NO-USAGE"
+    },
+    {
+      "name": "ops: the overview time link opens the request page",
+      "pass": true,
+      "detail": "/usage-logs/request/SYNTHETIC-CONTEXT-ERROR"
+    },
+    {
+      "name": "ops: call records Details opens the request page and Back returns",
+      "pass": true,
+      "detail": "http://127.0.0.1:4184/usage-logs/common?tokenId=21"
+    },
+    {
+      "name": "ops: links without errors",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "ops: phone actions sit above the bottom navigation",
+      "pass": true,
+      "detail": {
+        "actions": {
+          "x": 16,
+          "y": 230,
+          "width": 358,
+          "height": 96
+        },
+        "nav": {
+          "x": 0,
+          "y": 779,
+          "width": 390,
+          "height": 65
+        }
+      }
+    },
+    {
+      "name": "ops: phone Back steps out one level at a time",
+      "pass": true,
+      "detail": "http://127.0.0.1:4184/keys?focusKeyId=21"
+    },
+    {
+      "name": "ops: request tabs scroll sideways at 320px instead of wrapping",
+      "pass": true,
+      "detail": {
+        "overflowX": "auto",
+        "scroll": 254,
+        "client": 254
+      }
+    },
+    {
+      "name": "ops: phone without errors",
+      "pass": true,
+      "detail": []
+    }
+  ]
+}
