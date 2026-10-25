@@ -29,6 +29,8 @@ import { isIP } from 'node:net'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
+import { runDeploymentDiagnostics } from './lib/deployment-diagnostics.mjs'
+
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const packageMetadata = JSON.parse(
   readFileSync(path.join(packageRoot, 'package.json'), 'utf8')
@@ -96,6 +98,18 @@ function argumentValue(args, name) {
   const index = args.indexOf(name)
   if (index === -1 || index === args.length - 1) return undefined
   return args[index + 1]
+}
+
+// The first argument that is neither an option nor the value of one.
+function firstPositional(args, valueOptions) {
+  for (let index = 0; index < args.length; index++) {
+    if (valueOptions.includes(args[index])) {
+      index += 1
+      continue
+    }
+    if (!args[index].startsWith('-')) return args[index]
+  }
+  return undefined
 }
 
 function validateArguments(
@@ -563,8 +577,8 @@ function shouldCopySource(sourcePath) {
   return !/\.(?:db(?:-.*)?|sqlite3?|log|tgz)$/i.test(basename)
 }
 
-function initProject(args, showNextStep = true) {
-  const positional = args.find((arg) => !arg.startsWith('-'))
+function initProject(args) {
+  const positional = firstPositional(args, ['--public-url'])
   const destination = path.resolve(positional || 'myapi-source')
   if (existsSync(destination) && readdirSync(destination).length > 0) {
     throw new Error(`refusing to overwrite non-empty directory ${destination}`)
@@ -601,7 +615,29 @@ function initProject(args, showNextStep = true) {
   if (existsSync(destination)) rmSync(destination, { recursive: true })
   renameSync(staging, destination)
   console.log(`MyAPI source initialized at ${destination}`)
-  if (showNextStep) console.log(`Next: myapi configure --project-dir ${destination}`)
+  return destination
+}
+
+// Full path: the public HTTPS origin comes from the operator and is never
+// guessed. With --public-url the deployment file is generated in the same step.
+function initFullProject(args) {
+  const publicUrl = argumentValue(args, '--public-url')
+  if (publicUrl !== undefined && !validatePublicOrigin(publicUrl)) {
+    throw new Error('--public-url must be an exact non-placeholder HTTPS origin such as https://api.your-domain.com')
+  }
+  const destination = initProject(args)
+  if (publicUrl === undefined) {
+    console.log('Next:')
+    console.log(`  myapi configure --project-dir ${destination} --public-url https://<your-domain>`)
+    console.log('The public HTTPS origin is required and is not guessed. For a personal install on this machine, use "myapi lan init" instead.')
+    return
+  }
+  try {
+    configureProject(['--project-dir', destination, '--public-url', publicUrl])
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(`${message}; the source was initialized at ${destination} but its deployment file was not created`)
+  }
 }
 
 function assertFreshDeploymentData(paths, selectedData) {
@@ -622,7 +658,8 @@ function assertFreshDeploymentData(paths, selectedData) {
   }
 }
 
-function configureProject(args) {
+// `lanInstall` is set by `lan init`, which supplies its own local origin and next steps.
+function configureProject(args, { lanInstall = false } = {}) {
   const paths = deploymentPaths(projectRootFromArgs(args))
   assertDeploymentSource(paths)
   if (existsSync(paths.envFile)) {
@@ -664,10 +701,24 @@ function configureProject(args) {
     { recursive: true }
   )
 
-  console.log(`Created ${paths.envFile} with mode 0600.`)
-  if (!publicUrl) {
-    console.log('Set MYAPI_PUBLIC_URL in that file before running myapi up.')
+  if (lanInstall) {
+    console.log(`Created ${paths.envFile} with mode 0600.`)
+    return
   }
+  if (publicUrl && !validatePublicOrigin(publicUrl)) {
+    console.error(
+      `MyAPI: warning: MYAPI_PUBLIC_URL ${JSON.stringify(publicUrl)} is not an exact HTTPS origin; ` +
+        'Full edition will refuse to start until it is changed (use "myapi lan init" for a local Lite install).'
+    )
+  }
+  console.log(`Created ${paths.envFile} with mode 0600 and a generated session secret (not shown).`)
+  console.log('Next:')
+  if (!publicUrl) {
+    console.log(`  1. Set MYAPI_PUBLIC_URL in ${paths.envFile} to your public HTTPS origin.`)
+    console.log(`     MYAPI_PUBLIC_URL is still the placeholder ${deploymentDefaults.MYAPI_PUBLIC_URL}; myapi up will refuse to start until you set your own HTTPS origin.`)
+  }
+  console.log(`  ${publicUrl ? '1' : '2'}. myapi doctor --project-dir ${paths.projectRoot}`)
+  console.log(`  ${publicUrl ? '2' : '3'}. myapi up --project-dir ${paths.projectRoot}`)
 }
 
 function lanImageForVersion() {
@@ -676,19 +727,7 @@ function lanImageForVersion() {
 
 function lanProjectDirectory(args) {
   const explicit = argumentValue(args, '--project-dir')
-  let positional
-  const valueOptions = new Set(['--project-dir', '--bind-address', '--port'])
-  for (let index = 0; index < args.length; index++) {
-    const argument = args[index]
-    if (valueOptions.has(argument)) {
-      index += 1
-      continue
-    }
-    if (!argument.startsWith('-')) {
-      positional = argument
-      break
-    }
-  }
+  const positional = firstPositional(args, ['--project-dir', '--bind-address', '--port'])
   return path.resolve(explicit || positional || defaultLANProjectDirectory())
 }
 
@@ -758,17 +797,20 @@ function lanInit(args) {
   if (existsSync(destination) && readdirSync(destination).length > 0) {
     throw new Error(`refusing to overwrite non-empty directory ${destination}`)
   }
-  initProject([destination], false)
+  initProject([destination])
   configureProject([
     '--project-dir',
     destination,
     '--public-url',
     `http://${lanPublicHost(options.bindAddress)}:${options.port}`,
-  ])
+  ], { lanInstall: true })
   const paths = writeLANEnvironment(destination, options)
   console.log(`LAN edition configured at ${paths.envFile}.`)
   console.log(`Data hint for ${platform()}: ${defaultLANDataHint()}`)
   printLANEndpoint(parseEnvFile(paths.envFile))
+  console.log('Next:')
+  console.log(`  myapi doctor --project-dir ${destination}`)
+  console.log(`  myapi lan start --project-dir ${destination}`)
 }
 
 function lanCommand(command, args) {
@@ -851,26 +893,23 @@ function adoptDataPaths(args) {
   console.log('Updated deployment data and log paths without moving any files.')
 }
 
-function doctor(args) {
-  const paths = deploymentPaths(projectRootFromArgs(args))
+async function doctor(args) {
+  const projectRoot = projectRootFromArgs(args)
+  const paths = deploymentPaths(projectRoot)
   const checks = []
-  const record = (name, ok, detail) => checks.push({ name, ok, detail })
+  const record = (name, ok, detail, fix) => checks.push({ name, status: ok ? 'ok' : 'fail', detail, fix })
 
-  record('Node.js >= 20', Number(process.versions.node.split('.')[0]) >= 20, process.version)
-  const docker = run('docker', ['version', '--format', '{{.Server.Version}}'], {
-    capture: true,
-  })
-  record('Docker daemon', docker.status === 0, docker.status === 0 ? docker.stdout.trim() : 'unavailable')
-  const compose = run('docker', ['compose', 'version', '--short'], {
-    capture: true,
-  })
-  record('Docker Compose', compose.status === 0, compose.status === 0 ? compose.stdout.trim() : 'unavailable')
-  record('Compose template', existsSync(paths.composeFile), paths.composeFile)
-  record('Environment file', existsSync(paths.envFile), paths.envFile)
+  record('Node.js >= 20', Number(process.versions.node.split('.')[0]) >= 20, process.version, 'install Node.js 20 or newer')
+  record('Compose template', existsSync(paths.composeFile), paths.composeFile, `run "myapi init" to create a project, or pass --project-dir to an existing one`)
+  record(
+    'Environment file',
+    existsSync(paths.envFile),
+    paths.envFile,
+    `run myapi configure --project-dir ${projectRoot} --public-url https://<your-domain>`
+  )
 
   const values = parseEnvFile(paths.envFile)
   normalizeLANRuntimeValues(values)
-  warnLegacyDeploymentKeys(values)
   const publicUrl = deploymentValue(values, 'MYAPI_PUBLIC_URL') || ''
   const edition = deploymentEdition(values)
   const restricted = isRestrictedEdition(edition)
@@ -880,42 +919,69 @@ function doctor(args) {
   record(
     'LAN binding',
     ['true', 'false'].includes(allowLAN) && !bindingError,
-    bindingError || `bind=${bindAddress}, allow-lan=${allowLAN}`
+    bindingError || `bind=${bindAddress}, allow-lan=${allowLAN}`,
+    'set MYAPI_BIND_ADDRESS to 127.0.0.1, or to a private address together with MYAPI_ALLOW_LAN=true'
   )
   record(
     restricted ? 'LAN origin' : 'Public HTTPS URL',
     restricted ? validateLanOrigin(publicUrl) : validatePublicOrigin(publicUrl),
-    publicUrl ? 'configured' : 'missing'
+    publicUrl ? 'configured' : 'missing',
+    restricted
+      ? 'set MYAPI_PUBLIC_URL to a localhost or private-network origin such as http://localhost:3000'
+      : 'set MYAPI_PUBLIC_URL to your exact public HTTPS origin, for example https://api.your-domain.com'
   )
   const sessionSecret = values.SESSION_SECRET || ''
   record(
     'Session secret',
     sessionSecret.length >= 48 && !sessionSecret.includes('replace-with'),
-    sessionSecret ? 'configured' : 'missing'
-  )
-  const composeConfig = existsSync(paths.envFile)
-      ? run(
-        'docker',
-        composeArguments(paths, ['config', '--quiet']),
-        {
-          cwd: paths.projectRoot,
-          capture: true,
-          env: composeEnvironment(values),
-        }
-      )
-    : { status: 1, stderr: 'environment file is missing' }
-  record(
-    'Docker Compose configuration',
-    composeConfig.status === 0,
-    composeConfig.status === 0
-      ? 'valid'
-      : (composeConfig.stderr || 'invalid').trim()
+    sessionSecret ? 'configured' : 'missing',
+    'create a new deployment file with "myapi configure", which generates a random SESSION_SECRET; never reuse a secret from another installation'
   )
 
-  for (const check of checks) {
-    console.log(`${check.ok ? 'OK' : 'FAIL'}  ${check.name}: ${check.detail}`)
+  const deployRelative = (key, fallback) =>
+    path.resolve(paths.deployDir, deploymentValue(values, key) || fallback)
+  const diagnostics = await runDeploymentDiagnostics({
+    projectDir: projectRoot,
+    rawEdition: values.MYAPI_EDITION,
+    bindAddress,
+    port: Number(deploymentValue(values, 'MYAPI_PORT') || deploymentDefaults.MYAPI_PORT),
+    allowLan: allowLAN,
+    publicUrl,
+    publicUrlIsLocal: validateLanOrigin(publicUrl),
+    dataDir: deployRelative('MYAPI_DATA_DIR', deploymentDefaults.MYAPI_DATA_DIR),
+    logsDir: deployRelative('MYAPI_LOGS_DIR', deploymentDefaults.MYAPI_LOGS_DIR),
+    legacyKeys: legacyDeploymentKeys(values),
+  })
+  checks.push(...diagnostics.checks)
+
+  if (!existsSync(paths.envFile)) {
+    record('Docker Compose configuration', false, 'environment file is missing', 'create the environment file first (see above)')
+  } else if (!diagnostics.dockerFound) {
+    checks.push({ name: 'Docker Compose configuration', status: 'warn', detail: 'skipped because docker was not found' })
+  } else {
+    const composeConfig = run('docker', composeArguments(paths, ['config', '--quiet']), {
+      cwd: paths.projectRoot,
+      capture: true,
+      env: composeEnvironment(values),
+      timeout: 30000,
+      maxBuffer: 65536,
+    })
+    record(
+      'Docker Compose configuration',
+      composeConfig.status === 0,
+      composeConfig.status === 0
+        ? 'valid'
+        : (composeConfig.error?.code === 'ETIMEDOUT' ? 'docker compose did not answer within 30 seconds' : (composeConfig.stderr || 'invalid').trim()),
+      'fix the value named in the message in deploy/.env, then run myapi doctor again'
+    )
   }
-  if (checks.some((check) => !check.ok)) process.exitCode = 1
+
+  const labels = { ok: 'OK', warn: 'WARN', fail: 'FAIL' }
+  for (const check of checks) {
+    console.log(`${labels[check.status]}  ${check.name}: ${check.detail}`)
+    if (check.status !== 'ok' && check.fix) console.log(`      fix: ${check.fix}`)
+  }
+  if (checks.some((check) => check.status === 'fail')) process.exitCode = 1
 }
 
 function verifyExistingAccountingConfiguration(paths, values) {
@@ -1300,8 +1366,8 @@ const [command = 'help', ...args] = process.argv.slice(2)
 
 try {
   if (command === 'init') {
-    validateArguments(args, { positional: 1 })
-    initProject(args)
+    validateArguments(args, { values: ['--public-url'], positional: 1 })
+    initFullProject(args)
   } else if (command === 'configure') {
     validateArguments(args, {
       values: [
@@ -1318,7 +1384,7 @@ try {
     migrateDeploymentEnv(args)
   } else if (command === 'doctor') {
     validateArguments(args, { values: ['--project-dir'] })
-    doctor(args)
+    await doctor(args)
   } else if (command === 'upgrade') {
     validateArguments(args, {
       values: ['--project-dir', '--version'],

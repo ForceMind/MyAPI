@@ -109,6 +109,10 @@ MYAPI_ALLOW_LAN=false
 该脚本按 `KEY=VALUE` 读取 `.env`，不会执行其中的 shell 命令替换或函数；请不要依赖
 变量展开语法，敏感值应直接写入并将文件保持为 `0600`。
 
+首次配置 Full（源码检出）：`myapi init ./my-api --public-url https://api.your-domain.com` 复制源码并一步生成 `deploy/.env`（权限 0600，随机 `SESSION_SECRET` 不会被打印，`BATCH_UPDATE_ENABLED=false` 与 `MYAPI_ACCOUNTING_CONFIG_VERSION=1` 仅用于全新安装）。公网 HTTPS 地址必须由你提供，CLI 不会编造默认值；省略 `--public-url` 时 `init` 只复制源码并提示后续的 `myapi configure --public-url ...`。已存在的 `deploy/.env` 永不被覆盖（包括 `--force`）。Lite 本机路径仍是 `myapi lan init`（回环监听、`http://localhost:<端口>`、本地 HTTP cookie）。
+
+`myapi doctor --project-dir DIR` 是只读检查，不修改任何文件，失败项附 `fix:` 修复提示：`MYAPI_EDITION` 取值、Docker 与 Compose（需 v2.17 或更新；未安装 docker 时只给出警告并跳过依赖项）、监听端口占用、数据/日志目录可写与剩余空间（低于 1 GiB 警告）、监听范围与 `MYAPI_ALLOW_LAN`/公开地址是否一致、仍在使用的旧 `NEW_API_*` 变量。外部命令均有超时。警告不改变退出码，失败项使退出码为 1。
+
 执行 `myapi up` 或 `deploy/install.sh` 时会先拉取该镜像。只有明确设置
 `MYAPI_BUILD_LOCAL=true`（或使用 `local/...` 镜像名）才会从源码构建。
 
