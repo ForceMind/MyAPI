@@ -128,6 +128,12 @@ function checkStaticContracts(checks) {
   record(checks, 'installer derives the default image from VERSION', /distribution_version=/.test(installer) && /myapi:v\$\{distribution_version\}/.test(installer))
   record(checks, 'installer requires explicit LAN opt-in', /MYAPI_ALLOW_LAN/.test(installer) && /LAN binding is disabled by default/.test(installer))
   record(checks, 'installer parses env without shell evaluation', /load_env_file\(\)/.test(installer) && !/source\s+"\$env_file"/.test(installer))
+  record(checks, 'installer accepts full, lite, and the Legacy lan alias', /MYAPI_EDITION must be full, lite, or lan/.test(installer) && /"\$MYAPI_EDITION" == "lite"/.test(installer))
+
+  const dockerfile = readFileSync(path.join(repositoryRoot, 'Dockerfile'), 'utf8')
+  record(checks, 'Dockerfile builds the restricted frontend for lan and lite', /case "\$\{edition\}" in lan\|lite\) minimal=true/.test(dockerfile))
+  const cliSource = readFileSync(path.join(repositoryRoot, 'cli', 'myapi.mjs'), 'utf8')
+  record(checks, 'CLI accepts full, lite, and the Legacy lan alias', /MYAPI_EDITION must be full, lite, or lan/.test(cliSource))
 }
 
 function validateGeneratedProject(
@@ -142,7 +148,7 @@ function validateGeneratedProject(
 
   const envContents = readFileSync(envPath, 'utf8')
   const values = parseEnv(envContents)
-  record(checks, 'LAN edition is selected', values.MYAPI_EDITION === 'lan')
+  record(checks, 'LAN edition is selected', ['lan', 'lite'].includes((values.MYAPI_EDITION || '').trim().toLowerCase()))
   record(checks, 'LAN sharing opt-in is explicit', values.MYAPI_ALLOW_LAN === (expectLoopback ? 'false' : 'true'))
   record(checks, 'LAN image is version-pinned GHCR', /^ghcr\.io\/forcemind\/myapi-lan:v\d+\.\d+\.\d+/.test(values.MYAPI_IMAGE || ''))
   record(
@@ -316,6 +322,23 @@ function checkInstallerEnvParsing(checks) {
         .replace(/^MYAPI_PUBLIC_URL=.*$/m, 'MYAPI_PUBLIC_URL=https://evil.example.com'),
     )
     record(checks, 'installer rejects non-private LAN origins', runInstaller().status !== 0)
+    // lite is the current spelling of the Legacy lan edition and must follow the same rules.
+    writeFileSync(
+      envPath,
+      env
+        .replace(/^MYAPI_EDITION=.*$/m, 'MYAPI_EDITION=lite')
+        .replace(/^MYAPI_PUBLIC_URL=.*$/m, 'MYAPI_PUBLIC_URL=http://localhost:3000'),
+    )
+    record(checks, 'installer accepts the lite edition with a local origin', runInstaller().status === 0)
+    writeFileSync(
+      envPath,
+      env
+        .replace(/^MYAPI_EDITION=.*$/m, 'MYAPI_EDITION=lite')
+        .replace(/^MYAPI_PUBLIC_URL=.*$/m, 'MYAPI_PUBLIC_URL=https://evil.example.com'),
+    )
+    record(checks, 'installer rejects non-private lite origins', runInstaller().status !== 0)
+    writeFileSync(envPath, env.replace(/^MYAPI_EDITION=.*$/m, 'MYAPI_EDITION=lit'))
+    record(checks, 'installer rejects unknown edition values', runInstaller().status !== 0)
     writeFileSync(
       envPath,
       env.replace(/^SESSION_SECRET=.*$/m, 'SESSION_SECRET=short'),
@@ -347,7 +370,7 @@ function main() {
       record(checks, 'requested LAN project exists', existsSync(envPath), envPath)
       if (existsSync(envPath)) {
         const values = parseEnv(readFileSync(envPath, 'utf8'))
-        record(checks, 'requested project selects LAN edition', values.MYAPI_EDITION === 'lan')
+        record(checks, 'requested project selects the lite or Legacy lan edition', ['lan', 'lite'].includes((values.MYAPI_EDITION || '').trim().toLowerCase()))
       }
     } else {
       output = runCli('lan', 'init', project)

@@ -15,6 +15,7 @@ Legacy LAN 是当前单进程、SQLite-first 的可信本机/私网部署。默�
 后端版本门禁（`middleware/edition.go`）：
 
 - `MYAPI_EDITION` 只接受空值（等同 `full`）、`full`、`lite`、`lan`（`lite` 的 Legacy 别名），大小写和首尾空格不敏感。其他非空值在启动阶段拒绝启动，进程以 `unsupported MYAPI_EDITION "<值>"` 退出，不再静默回落为 Full。
+- 部署侧与后端接受同一组值：`Dockerfile`、`cli/myapi.mjs`、`deploy/install.sh` 对 `lite` 与 `lan` 的处理完全一致（精简前端构建、默认本地 HTTP cookie、本机/私网来源与监听规则、`myapi-lan` 镜像仓库），非法值会被 CLI 与安装脚本拒绝（`MYAPI_EDITION must be full, lite, or lan`）。`myapi lan init` 仍写入 Legacy 的 `lan`；已有部署的 `lan` 或 `lite` 值不会被自动改写成另一种拼写，`myapi lan start` 在持久化监听设置时也保持原值。Lite 镜像坐标仍是 `ghcr.io/forcemind/myapi-lan`，没有新的镜像仓库或 tag。
 - Lite 下返回 403 `MYAPI_LAN_ROUTE_DISABLED` 的范围包括支付、充值、商业订阅、签到、返利、公开定价与排行、外部 OAuth、公开注册，以及兑换码管理 `/api/redemption`、io.net 模型部署 `/api/deployments`、Midjourney（`/api/mj`、中继 `/mj/...` 与 `/:mode/mj/...`）。
 - Lite 下 `GET /api/subscription/self` 保持可用，让已有订阅的用户查看自己的订阅与额度（订阅重置任务在所有版本运行）；`/api/subscription/self/preference` 和其余 `/api/subscription/*` 仍返回 403。Key 分额 `/api/subscription-share/*`、渠道管理与 `/v1/*` 转发不受影响。
 

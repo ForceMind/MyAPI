@@ -101,6 +101,8 @@ MYAPI_BIND_ADDRESS=127.0.0.1
 MYAPI_ALLOW_LAN=false
 ```
 
+`MYAPI_EDITION` 的取值为 `full`、`lite`、`lan`（`lan` 是 `lite` 的 Legacy 别名；大小写和首尾空格不敏感，空值等同 `full`），CLI 与 `deploy/install.sh` 对其他值报 `MYAPI_EDITION must be full, lite, or lan`。把已有部署的 `lan` 改成 `lite` 是维护者的显式选择：两者的镜像仓库（`myapi-lan`）、监听规则和 cookie 默认值完全一致；CLI 不会自动在两种拼写之间改写，`myapi lan init` 仍写入 `lan`。
+
 当前 Legacy LAN 默认只绑定本机；确认局域网访问范围后，再将 `MYAPI_BIND_ADDRESS` 设置为
 私网接口地址并将 `MYAPI_ALLOW_LAN=true`，然后为每位同事创建独立的下游 API Key。
 `deploy/install.sh` 会拒绝公网/格式错误的地址，也会在缺少显式 opt-in 时停止；上游凭据不会显示给下游用户。

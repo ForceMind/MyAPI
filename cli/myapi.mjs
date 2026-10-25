@@ -62,6 +62,21 @@ const deploymentDefaults = Object.freeze({
   MYAPI_LOGS_DIR: './logs',
 })
 
+// MYAPI_EDITION accepts full, lite, and the Legacy alias lan. Like the backend
+// (middleware/edition.go) the comparison ignores case and surrounding blanks.
+// lan and lite are the same restricted edition; the value already present in a
+// deployment file is never rewritten from one spelling to the other.
+const knownEditions = Object.freeze(['full', 'lite', 'lan'])
+
+function deploymentEdition(values) {
+  const edition = String(values.MYAPI_EDITION ?? '').trim().toLowerCase()
+  return edition || deploymentDefaults.MYAPI_EDITION
+}
+
+function isRestrictedEdition(edition) {
+  return edition === 'lite' || edition === 'lan'
+}
+
 const excludedSourceParts = new Set([
   '.git',
   '.github',
@@ -182,8 +197,8 @@ function composeEnvironment(values) {
   ]) {
     if (values[key] !== undefined && values[key] !== '') environment[key] = values[key]
   }
-  const edition = values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION
-  const secure = values.MYAPI_SESSION_COOKIE_SECURE || (edition === 'lan' ? 'false' : 'true')
+  const edition = deploymentEdition(values)
+  const secure = values.MYAPI_SESSION_COOKIE_SECURE || (isRestrictedEdition(edition) ? 'false' : 'true')
   environment.MYAPI_SESSION_COOKIE_SECURE = secure
   // Insecure local cookies must not carry the HTTPS-only trusted-origin list.
   // Derive both inputs from this configuration, never from stale process env.
@@ -211,11 +226,12 @@ function validateRuntimeConfiguration(values) {
   } else if (values.BATCH_UPDATE_ENABLED === 'true') {
     errors.push('BATCH_UPDATE_ENABLED=true needs review: this cache-free deployment helper cannot verify the existing writer mode or Redis accounting state; keep the running instance and review its original deployment, do not disable batching to bypass this check')
   }
-  const edition = values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION
-  if (!['full', 'lan'].includes(edition)) {
-    errors.push('MYAPI_EDITION must be full or lan')
+  const edition = deploymentEdition(values)
+  if (!knownEditions.includes(edition)) {
+    errors.push('MYAPI_EDITION must be full, lite, or lan')
   }
-  const secure = values.MYAPI_SESSION_COOKIE_SECURE || (edition === 'lan' ? 'false' : 'true')
+  const restricted = isRestrictedEdition(edition)
+  const secure = values.MYAPI_SESSION_COOKIE_SECURE || (restricted ? 'false' : 'true')
   if (!['true', 'false'].includes(secure)) {
     errors.push('MYAPI_SESSION_COOKIE_SECURE must be true or false')
   } else if (edition === 'full' && secure !== 'true') {
@@ -223,14 +239,14 @@ function validateRuntimeConfiguration(values) {
   }
   const publicUrl = deploymentValue(values, 'MYAPI_PUBLIC_URL') || ''
   const lanPlaceholder =
-    edition === 'lan' &&
+    restricted &&
     (publicUrl === '' ||
       publicUrl === 'https://my-api.example.com' ||
       publicUrl === 'https://new-api.example.com')
-  const lanOrigin = edition === 'lan' && validateLanOrigin(publicUrl)
+  const lanOrigin = restricted && validateLanOrigin(publicUrl)
   if (!lanPlaceholder && !lanOrigin && !validatePublicOrigin(publicUrl)) {
     errors.push(
-      edition === 'lan'
+      restricted
         ? 'MYAPI_PUBLIC_URL must be a localhost or private-network origin in LAN edition'
         : 'MYAPI_PUBLIC_URL must be an exact non-placeholder HTTPS origin'
     )
@@ -272,7 +288,7 @@ function validateRuntimeConfiguration(values) {
 }
 
 function normalizeLANRuntimeValues(values) {
-  if ((values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION) !== 'lan') return
+  if (!isRestrictedEdition(deploymentEdition(values))) return
   const publicUrl = deploymentValue(values, 'MYAPI_PUBLIC_URL') || ''
   if (
     publicUrl === '' ||
@@ -695,7 +711,11 @@ function writeLANEnvironment(projectRoot, options) {
     throw new Error('run "myapi lan init" or "myapi configure" before LAN commands')
   }
   let contents = readFileSync(paths.envFile, 'utf8')
-  contents = setEnvValue(contents, 'MYAPI_EDITION', 'lan')
+  // Legacy installs and `lan init` keep the lan value; an installation that
+  // already selected lite is not rewritten back to the Legacy spelling.
+  if (!isRestrictedEdition(deploymentEdition(parseEnvFileContents(contents)))) {
+    contents = setEnvValue(contents, 'MYAPI_EDITION', 'lan')
+  }
   contents = setEnvValue(contents, 'MYAPI_IMAGE', lanImageForVersion())
   contents = setEnvValue(contents, 'MYAPI_BIND_ADDRESS', options.bindAddress)
   contents = setEnvValue(contents, 'MYAPI_ALLOW_LAN', isLoopbackBindAddress(options.bindAddress) ? 'false' : 'true')
@@ -763,8 +783,8 @@ function lanCommand(command, args) {
     throw new Error('run "myapi lan init" or "myapi configure" before LAN commands')
   }
   const values = parseEnvFile(paths.envFile)
-  if ((values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION) !== 'lan') {
-    throw new Error(`${paths.envFile} is not configured for MYAPI_EDITION=lan`)
+  if (!isRestrictedEdition(deploymentEdition(values))) {
+    throw new Error(`${paths.envFile} is not configured for MYAPI_EDITION=lan or lite`)
   }
   const configuredBind = values.MYAPI_BIND_ADDRESS || deploymentDefaults.MYAPI_BIND_ADDRESS
   const configuredPort = Number(deploymentValue(values, 'MYAPI_PORT') || deploymentDefaults.MYAPI_PORT)
@@ -852,7 +872,8 @@ function doctor(args) {
   normalizeLANRuntimeValues(values)
   warnLegacyDeploymentKeys(values)
   const publicUrl = deploymentValue(values, 'MYAPI_PUBLIC_URL') || ''
-  const edition = values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION
+  const edition = deploymentEdition(values)
+  const restricted = isRestrictedEdition(edition)
   const bindAddress = values.MYAPI_BIND_ADDRESS || deploymentDefaults.MYAPI_BIND_ADDRESS
   const allowLAN = values.MYAPI_ALLOW_LAN || 'false'
   const bindingError = validateLANBinding(bindAddress, allowLAN === 'true')
@@ -862,8 +883,8 @@ function doctor(args) {
     bindingError || `bind=${bindAddress}, allow-lan=${allowLAN}`
   )
   record(
-    edition === 'lan' ? 'LAN origin' : 'Public HTTPS URL',
-    edition === 'lan' ? validateLanOrigin(publicUrl) : validatePublicOrigin(publicUrl),
+    restricted ? 'LAN origin' : 'Public HTTPS URL',
+    restricted ? validateLanOrigin(publicUrl) : validatePublicOrigin(publicUrl),
     publicUrl ? 'configured' : 'missing'
   )
   const sessionSecret = values.SESSION_SECRET || ''
@@ -954,7 +975,7 @@ function deploymentCommand(command, args) {
         '--build-arg',
         `MYAPI_BRAND_LOGO=${values.MYAPI_BRAND_LOGO || '/myapi-logo-v1.png'}`,
         '--build-arg',
-        `MYAPI_EDITION=${values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION}`,
+        `MYAPI_EDITION=${deploymentEdition(values)}`,
         '--build-arg',
         `MYAPI_BUILD_PARALLELISM=${values.MYAPI_BUILD_PARALLELISM || '2'}`,
         '-t',
@@ -1008,7 +1029,7 @@ function deploymentCommand(command, args) {
 }
 
 function imageRepositoryForEdition(edition) {
-  return edition === 'lan'
+  return isRestrictedEdition(edition)
     ? 'ghcr.io/forcemind/myapi-lan'
     : 'ghcr.io/forcemind/myapi'
 }
@@ -1097,9 +1118,9 @@ function buildUpgradePlan(args) {
   const version = normalizeReleaseVersion(argumentValue(args, '--version'))
   const originalContents = readFileSync(paths.envFile, 'utf8')
   const values = parseEnvFileContents(originalContents)
-  const edition = values.MYAPI_EDITION || deploymentDefaults.MYAPI_EDITION
-  if (!['full', 'lan'].includes(edition)) {
-    throw new Error('upgrade preflight failed: MYAPI_EDITION must be full or lan')
+  const edition = deploymentEdition(values)
+  if (!knownEditions.includes(edition)) {
+    throw new Error('upgrade preflight failed: MYAPI_EDITION must be full, lite, or lan')
   }
   const image = `${imageRepositoryForEdition(edition)}:${version}`
   const targetValues = { ...values, MYAPI_IMAGE: image }
@@ -1267,9 +1288,12 @@ The CLI never deploys during npm install, never removes Docker volumes, and
 never prints SESSION_SECRET or API credentials. 'myapi up' pulls the pinned
 MyAPI image from GHCR. For a local build, run 'myapi build' first with
 MYAPI_BUILD_LOCAL=true (or a local/* image), then run 'myapi up'. Existing NEW_API_* deployment variables are read as
-compatibility aliases; migrate writes MYAPI_* settings. Set MYAPI_EDITION=lan
-for the private LAN edition (it keeps the host binding at 127.0.0.1 unless
-MYAPI_BIND_ADDRESS is explicitly changed).`)
+compatibility aliases; migrate writes MYAPI_* settings. MYAPI_EDITION accepts
+full, lite, and lan (case-insensitive); lan is the Legacy alias of lite. Set
+MYAPI_EDITION=lite or lan for the restricted private edition (it keeps the host
+binding at 127.0.0.1 unless MYAPI_BIND_ADDRESS is explicitly changed); 'myapi
+lan init' keeps writing the Legacy lan value and both values use the
+myapi-lan image.`)
 }
 
 const [command = 'help', ...args] = process.argv.slice(2)

@@ -9,8 +9,13 @@ ARG MYAPI_BRAND_NAME=MyAPI
 ARG MYAPI_BRAND_LOGO=/myapi-logo-v1.png
 ARG MYAPI_EDITION=full
 ARG MYAPI_BUILD_ID=local
-RUN DISABLE_ESLINT_PLUGIN='true' \
-    VITE_SELF_USE_MINIMAL="$([ "${MYAPI_EDITION}" = lan ] && echo true || echo false)" \
+# lan is the Legacy alias of lite; both build the restricted frontend. The
+# comparison ignores case and surrounding blanks like the backend's
+# MYAPI_EDITION parsing (middleware/edition.go).
+RUN edition="$(printf '%s' "${MYAPI_EDITION}" | tr '[:upper:]' '[:lower:]' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')" && \
+    case "${edition}" in lan|lite) minimal=true ;; *) minimal=false ;; esac && \
+    DISABLE_ESLINT_PLUGIN='true' \
+    VITE_SELF_USE_MINIMAL="${minimal}" \
     VITE_BRAND_NAME="${MYAPI_BRAND_NAME}" \
     VITE_BRAND_LOGO="${MYAPI_BRAND_LOGO}" \
     VITE_REACT_APP_VERSION=$(cat /build/VERSION) \

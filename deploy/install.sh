@@ -135,6 +135,9 @@ if [[ ! "$distribution_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$
   exit 1
 fi
 MYAPI_IMAGE="${MYAPI_IMAGE:-ghcr.io/forcemind/myapi:v${distribution_version}}"
+# lan is the Legacy alias of lite. Like the backend, ignore case and
+# surrounding blanks; the value is never rewritten from one spelling to the other.
+MYAPI_EDITION="$(printf '%s' "${MYAPI_EDITION:-full}" | tr '[:upper:]' '[:lower:]' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 MYAPI_EDITION="${MYAPI_EDITION:-full}"
 MYAPI_BUILD_LOCAL="${MYAPI_BUILD_LOCAL:-false}"
 MYAPI_PORT="${MYAPI_PORT:-3000}"
@@ -151,14 +154,20 @@ if [[ ! "$MYAPI_PORT" =~ ^[0-9]+$ ]] || (( 10#$MYAPI_PORT < 1 || 10#$MYAPI_PORT 
   echo "MYAPI_PORT must be an integer between 1 and 65535." >&2
   exit 1
 fi
-if [[ "$MYAPI_EDITION" != "full" && "$MYAPI_EDITION" != "lan" ]]; then
-  echo "MYAPI_EDITION must be full or lan." >&2
+if [[ "$MYAPI_EDITION" != "full" && "$MYAPI_EDITION" != "lite" && "$MYAPI_EDITION" != "lan" ]]; then
+  echo "MYAPI_EDITION must be full, lite, or lan." >&2
   exit 1
 fi
-if [[ "$MYAPI_EDITION" == "lan" && "$MYAPI_IMAGE" == "ghcr.io/forcemind/myapi:"* ]]; then
-  MYAPI_IMAGE="${MYAPI_IMAGE/ghcr.io\/forcemind\/myapi:/ghcr.io\/forcemind\/myapi-lan:}"
+is_restricted_edition=false
+if [[ "$MYAPI_EDITION" == "lite" || "$MYAPI_EDITION" == "lan" ]]; then
+  is_restricted_edition=true
 fi
-if [[ "$MYAPI_EDITION" == "lan" ]]; then
+if [[ "$is_restricted_edition" == "true" && "$MYAPI_IMAGE" == "ghcr.io/forcemind/myapi:"* ]]; then
+  # Prefix removal keeps the slashes literal; escaped slashes in a pattern
+  # substitution leave stray backslashes in the replacement on bash 3.2 (macOS).
+  MYAPI_IMAGE="ghcr.io/forcemind/myapi-lan:${MYAPI_IMAGE#ghcr.io/forcemind/myapi:}"
+fi
+if [[ "$is_restricted_edition" == "true" ]]; then
   MYAPI_SESSION_COOKIE_SECURE="${MYAPI_SESSION_COOKIE_SECURE:-false}"
 else
   MYAPI_SESSION_COOKIE_SECURE="${MYAPI_SESSION_COOKIE_SECURE:-true}"
@@ -251,17 +260,17 @@ if [[ "$MYAPI_EDITION" == "full" ]] && ! is_valid_public_origin "$MYAPI_PUBLIC_U
   echo "MYAPI_PUBLIC_URL must be an exact non-placeholder HTTPS origin in full edition." >&2
   exit 1
 fi
-if [[ "$MYAPI_EDITION" == "lan" && ( -z "${MYAPI_PUBLIC_URL:-}" || "$MYAPI_PUBLIC_URL" == "https://my-api.example.com" || "$MYAPI_PUBLIC_URL" == "https://new-api.example.com" ) ]]; then
+if [[ "$is_restricted_edition" == "true" && ( -z "${MYAPI_PUBLIC_URL:-}" || "$MYAPI_PUBLIC_URL" == "https://my-api.example.com" || "$MYAPI_PUBLIC_URL" == "https://new-api.example.com" ) ]]; then
   MYAPI_PUBLIC_URL="http://localhost:${MYAPI_PORT}"
   export MYAPI_PUBLIC_URL
 fi
-if [[ "$MYAPI_EDITION" == "lan" ]]; then
+if [[ "$is_restricted_edition" == "true" ]]; then
   if ! is_valid_lan_origin "$MYAPI_PUBLIC_URL"; then
     echo "MYAPI_PUBLIC_URL must be a localhost, loopback, or private-network origin in LAN edition." >&2
     exit 1
   fi
 fi
-if [[ "$MYAPI_EDITION" == "lan" && "$MYAPI_PUBLIC_URL" == http://* && "$MYAPI_SESSION_COOKIE_SECURE" == "true" ]]; then
+if [[ "$is_restricted_edition" == "true" && "$MYAPI_PUBLIC_URL" == http://* && "$MYAPI_SESSION_COOKIE_SECURE" == "true" ]]; then
   # The example file targets the HTTPS full edition. LAN's default local
   # origin is HTTP, so avoid issuing cookies browsers will never send.
   MYAPI_SESSION_COOKIE_SECURE=false

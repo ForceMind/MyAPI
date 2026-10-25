@@ -79,7 +79,7 @@ MyAPI 是用户可见的发行品牌；机器安全 slug 使用 `my-api`。API�
 
 ### 7. Full 与 LAN Lite 构建及有限日志轮转
 
-- Docker 构建通过 `MYAPI_EDITION=full|lan` 选择发行版，Full 默认不启用精简前端，LAN Lite 启用 `VITE_SELF_USE_MINIMAL=true`；
+- Docker 构建通过 `MYAPI_EDITION=full|lite|lan` 选择发行版（`lan` 是 `lite` 的 Legacy 别名，大小写和首尾空格不敏感），Full 默认不启用精简前端，`lite` 与 `lan` 均启用 `VITE_SELF_USE_MINIMAL=true`；
 - 保留渠道、模型、Key、游乐场、用量日志、完整内容日志、系统设置、登录/OAuth、初始化和 About；
 - 不构建充值、订阅、兑换码、公开定价、排行榜、用户管理和内置聊天路由；
 - 前端只打包简体中文和英文；

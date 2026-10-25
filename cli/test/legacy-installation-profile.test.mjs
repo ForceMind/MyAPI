@@ -29,6 +29,22 @@ test('maps explicit Legacy LAN loopback configuration to Lite local without chan
   })
 })
 
+test('maps lite to the same Lite profile as lan without inventing a Legacy identity', () => {
+  const lan = resolveLegacyInstallationProfile({ edition: 'lan', bindAddress: '127.0.0.1', allowLan: false })
+  const lite = resolveLegacyInstallationProfile({ edition: 'lite', bindAddress: '127.0.0.1', allowLan: false })
+
+  assert.deepEqual(lite, { ...lan, legacy_identity: null })
+  assert.equal(lite.product_edition, 'lite')
+  assert.equal(lite.desired_access_mode, 'local')
+  assert.equal(lite.migration_status, 'compatible')
+
+  const shared = resolveLegacyInstallationProfile({ edition: 'lite', bindAddress: '192.168.10.8', allowLan: true })
+  assert.equal(shared.desired_access_mode, 'lan')
+  const broad = resolveLegacyInstallationProfile({ edition: 'lite', bindAddress: '0.0.0.0', allowLan: true })
+  assert.equal(broad.desired_access_mode, 'needs_manual')
+  assert.equal(broad.migration_status, 'needs_manual')
+})
+
 test('accepts only the Legacy localhost loopback hostname', () => {
   const profile = resolveLegacyInstallationProfile({
     edition: 'lan',
@@ -112,9 +128,11 @@ test('rejects unknown fields, prototypes, accessors, control characters, invalid
   assertProfileError('invalid_value', () =>
     resolveLegacyInstallationProfile({ edition: 'lan\n', bindAddress: '127.0.0.1', allowLan: false })
   )
-  assertProfileError('invalid_value', () =>
-    resolveLegacyInstallationProfile({ edition: 'lite', bindAddress: '127.0.0.1', allowLan: false })
-  )
+  for (const edition of ['Lite', 'LITE', 'LAN', ' lite', 'lite ', 'pro']) {
+    assertProfileError('invalid_value', () =>
+      resolveLegacyInstallationProfile({ edition, bindAddress: '127.0.0.1', allowLan: false })
+    )
+  }
   assertProfileError('invalid_value', () =>
     resolveLegacyInstallationProfile({ edition: 'lan', bindAddress: '127.0.0.1', allowLan: 'false' })
   )

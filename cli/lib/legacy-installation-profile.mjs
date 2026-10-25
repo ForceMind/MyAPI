@@ -132,8 +132,11 @@ export function resolveLegacyInstallationProfile(input) {
     } else if (input.edition === 'lan') {
       productEdition = 'lite'
       legacyIdentity = 'lan'
+    } else if (input.edition === 'lite') {
+      // An installation that already selected lite has no Legacy identity.
+      productEdition = 'lite'
     } else {
-      profileError('invalid_value', 'legacy installation profile input.edition must be full or lan')
+      profileError('invalid_value', 'legacy installation profile input.edition must be full, lite, or lan')
     }
   } else {
     warnings.push('Legacy edition is missing; product edition requires manual confirmation.')
