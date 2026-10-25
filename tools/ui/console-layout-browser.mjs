@@ -38,33 +38,39 @@ try {
       // Every layout lists each Key as one control that opens its inspector.
       await page.locator('[data-inspect-id]').first().waitFor()
       if (width >= 1024) {
-        // Without a saved preference the sidebar starts as an icon rail below 1280px.
-        const startsAsRail = width < 1280
-        assert.equal(await page.locator('.personal-console').getAttribute('data-collapsed'), String(startsAsRail), 'Default sidebar state follows the window width')
-        if (startsAsRail) await page.getByRole('button', { name: t('Expand sidebar'), exact: true }).click()
+        // Design direction 3: one 56px top bar holds the brand, the primary
+        // areas with Admin and More, and the actions; there is no sidebar.
+        assert.equal(await page.locator('.pc-sidebar, [data-myapi-sidebar]').count(), 0, 'The console has no sidebar')
         const nav = page.getByRole('navigation', { name: t('Personal console navigation') })
-        const aligned = await page.evaluate(() => {
-          const brand = document.querySelector('.pc-sidebar .pc-brand').getBoundingClientRect()
-          const header = document.querySelector('.pc-header').getBoundingClientRect()
-          return brand.top === header.top && brand.height === header.height
+        const bar = await page.evaluate(() => {
+          const header = document.querySelector('[data-myapi-header]').getBoundingClientRect()
+          const brand = document.querySelector('.pc-brand').getBoundingClientRect()
+          const nav = document.querySelector('.pc-topnav')
+          const items = [...nav.children].map(e => e.getBoundingClientRect())
+          const actions = document.querySelector('.pc-header-actions').getBoundingClientRect()
+          return {
+            height: header.height,
+            brandInside: brand.top >= header.top && brand.bottom <= header.bottom && brand.left >= 0,
+            navRow: items.every(r => r.top >= header.top - 1 && r.bottom <= header.bottom + 1),
+            clear: items.at(-1).right <= actions.left && actions.right <= innerWidth && nav.scrollWidth <= nav.clientWidth + 1,
+            overflow: document.documentElement.scrollWidth > innerWidth,
+          }
         })
-        assert(aligned, 'Sidebar brand and workspace toolbar share one aligned header row')
-        assert.equal(await nav.evaluate(e => getComputedStyle(e).scrollbarWidth), 'none', 'Sidebar has no persistent scrollbar rail')
-        await nav.focus()
-        assert(await nav.evaluate(e => e === document.activeElement), 'Overflowing navigation can receive keyboard focus')
-        await page.keyboard.press('End')
-        await page.waitForFunction(() => { const e = document.querySelector('.pc-desktop-nav'); return e.scrollHeight <= e.clientHeight || e.scrollTop > 0 })
-        const last = nav.getByRole('link').last()
-        await last.focus()
-        assert(await last.evaluate(e => { const r = e.getBoundingClientRect(), p = e.closest('nav').getBoundingClientRect(); return r.top >= p.top && r.bottom <= p.bottom + 1 }), 'Last navigation destination stays reachable')
-        await page.getByRole('button', { name: t('Collapse sidebar'), exact: true }).click()
-        assert(await page.locator('.personal-console').getAttribute('data-collapsed') === 'true')
-        assert(await page.evaluate(() => {
-          const image = document.querySelector('.pc-sidebar .pc-brand img').getBoundingClientRect()
-          const sidebar = document.querySelector('.pc-sidebar').getBoundingClientRect()
-          return image.left >= sidebar.left && image.right <= sidebar.right && document.documentElement.scrollWidth <= innerWidth
-        }), 'Collapsed branding stays inside its sidebar without overflowing the workspace')
-        await page.getByRole('button', { name: t('Expand sidebar'), exact: true }).click()
+        assert(bar.height === 56 && bar.brandInside && bar.navRow, `Brand, navigation and actions share one 56px row: ${JSON.stringify(bar)}`)
+        assert(bar.clear && !bar.overflow, `Every top-bar destination keeps its full label clear of the actions: ${JSON.stringify(bar)}`)
+        // Keyboard: the links and the two menu buttons are tab stops, and a
+        // menu opened with Enter returns focus to its button on Escape.
+        const first = nav.getByRole('link').first()
+        await first.focus()
+        const stops = (await nav.getByRole('link').count()) + (await nav.getByRole('button').count())
+        for (let index = 1; index < stops; index++) await page.keyboard.press('Tab')
+        const more = nav.getByRole('button', { name: t('More'), exact: true })
+        assert(await more.evaluate(e => e === document.activeElement), 'The last top-bar destination is reachable by Tab')
+        await page.keyboard.press('Enter')
+        await page.getByRole('menu').waitFor()
+        await page.keyboard.press('Escape')
+        await page.getByRole('menu').waitFor({ state: 'hidden' })
+        assert(await more.evaluate(e => e === document.activeElement), 'Escape returns focus to the menu button')
       } else {
         await page.getByRole('button', { name: t('More'), exact: true }).click()
         const more = page.getByRole('dialog', { name: t('All modules'), exact: true })

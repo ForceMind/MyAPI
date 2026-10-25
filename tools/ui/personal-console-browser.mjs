@@ -122,16 +122,19 @@ try {
         }
         await capture('more')
         await page.keyboard.press('Escape')
-      } else {
-        assert.equal(await nav.getByRole('link', { name: t('Bodies & SSE'), exact: true }).getAttribute('href'), '/full-content-logs')
       }
-      // Profile moved to the account menu; the call records entry is the
-      // active destination whose contrast is checked on desktop.
-      const callRecords = nav.getByRole('link', { name: t(mobile ? 'Records' : 'Requests_nav'), exact: true })
+      // Profile lives in the account menu; the Requests area opens the call
+      // records and is the active destination whose contrast is checked on
+      // desktop, where its pages (Bodies & SSE among them) are its tabs.
+      const callRecords = nav.getByRole('link', { name: t('Requests_section'), exact: true })
       await callRecords.click()
       await page.getByRole('heading', { name: t('Call records'), level: 1 }).waitFor()
-      // Below 1280px the sidebar starts as an icon rail without visible labels.
-      if (item.width >= 1280) await assertTextContrast(callRecords.locator('span'), 'active platform navigation', 'light')
+      if (!mobile) {
+        assert.equal(await callRecords.getAttribute('aria-current'), 'page')
+        await assertTextContrast(callRecords, 'active platform navigation', 'light')
+        const recordPages = page.getByRole('navigation', { name: t('Requests_section'), exact: true })
+        assert.equal(await recordPages.getByRole('link', { name: t('Bodies & SSE'), exact: true }).getAttribute('href'), '/full-content-logs')
+      }
       // This bookmarked server-filtered list must survive detail and return.
       await page.goto(`${origin}/usage-logs/common?pageSize=20&model=synthetic-text-model`, { waitUntil: 'networkidle' })
       const statistics = page.getByRole('region', { name: t('Token usage statistics'), exact: true })

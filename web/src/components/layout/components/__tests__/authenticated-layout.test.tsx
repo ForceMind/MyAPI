@@ -21,7 +21,7 @@ import { AuthenticatedLayout } from '../authenticated-layout'
 import { renderShellRoute } from './shell-test-utils'
 
 beforeEach(() => {
-  // A wide desktop window, where the sidebar starts expanded.
+  // A wide desktop window, where the top bar carries the navigation.
   vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
     matches: query.includes('min-width'),
     media: query,
@@ -99,17 +99,15 @@ test.each(['enabled', 'retirement', 'unconfirmed'] as const)(
       name: 'Personal console navigation',
     })
     const user = userEvent.setup()
-    await user.click(within(navigation).getByRole('button', { name: 'System' }))
+    await user.click(within(navigation).getByRole('button', { name: 'Admin' }))
+    const menu = await screen.findByRole('menu')
     expect(
-      within(navigation).getByRole('link', { name: 'System status' })
+      within(menu).getByRole('menuitem', { name: 'System status' })
     ).toHaveAttribute('href', '/system-info')
-    const commerce = within(navigation).queryByRole('button', {
-      name: 'Commerce',
-    })
-    if (commerce) await user.click(commerce)
-    const wallet = within(navigation).queryByRole('link', { name: 'Wallet' })
+    const wallet = within(menu).queryByRole('menuitem', { name: 'Wallet' })
     if (mode === 'enabled') expect(wallet).toHaveAttribute('href', '/wallet')
     else expect(wallet).not.toBeInTheDocument()
+    await user.keyboard('{Escape}')
     expect(screen.getByLabelText('Request filter')).toHaveValue('request-42')
     queryClient.clear()
   }
@@ -142,14 +140,12 @@ test('a Root settings page exposes existing setting sections on desktop', async 
       status: fundingStatus('disabled'),
     }
   )
-  const navigation = screen.getByRole('navigation', {
-    name: 'Personal console navigation',
-  })
+  const pages = screen.getByRole('navigation', { name: 'Settings' })
   await userEvent
     .setup()
-    .click(within(navigation).getByRole('button', { name: 'Operations' }))
+    .click(within(pages).getByRole('link', { name: 'Operations' }))
   expect(
-    within(navigation).getByRole('link', { name: 'Log Maintenance' })
+    await within(pages).findByRole('link', { name: 'Log Maintenance' })
   ).toHaveAttribute('href', '/system-settings/operations/logs')
   queryClient.clear()
 })
@@ -172,7 +168,7 @@ test('a Root settings page exposes existing setting sections in mobile More', as
   expect(
     within(
       screen.getByRole('navigation', { name: 'Mobile console navigation' })
-    ).getByRole('link', { name: 'Records' })
+    ).getByRole('link', { name: 'Requests' })
   ).toHaveAttribute('href', '/usage-logs/common')
   await userEvent.setup().click(screen.getByRole('button', { name: 'More' }))
   const dialog = await screen.findByRole('dialog', { name: 'All modules' })

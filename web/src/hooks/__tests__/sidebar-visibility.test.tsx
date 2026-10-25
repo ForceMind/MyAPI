@@ -161,19 +161,32 @@ describe('sidebar role and module visibility', () => {
     const regions = screen
       .getAllByRole('region')
       .map((region) => region.getAttribute('aria-label'))
-    expect(regions.indexOf('Upstream')).toBeGreaterThanOrEqual(0)
-    expect(regions.indexOf('Upstream')).toBeLessThan(regions.indexOf('Access'))
-    expect(regions.indexOf('Access')).toBeLessThan(regions.indexOf('Records'))
+    // The five primary areas of design direction 3, then the admin areas.
+    expect(regions.slice(0, 5)).toEqual([
+      'Overview',
+      'Upstream',
+      'API Keys',
+      'Requests',
+      'Settings',
+    ])
+    expect(regions.indexOf('Users')).toBeGreaterThan(
+      regions.indexOf('Settings')
+    )
     expect(
       within(screen.getByRole('region', { name: 'Upstream' }))
         .getAllByRole('link')
         .map((link) => link.textContent)
     ).toEqual(['Connections', 'Account windows', 'Model catalog'])
     expect(
-      within(screen.getByRole('region', { name: 'Access' }))
+      within(screen.getByRole('region', { name: 'Requests' }))
         .getAllByRole('link')
         .map((link) => link.textContent)
-    ).toEqual(['API Keys', 'Users'])
+    ).toEqual(['Requests', 'Bodies & SSE', 'Tasks', 'Drawing', 'Analytics'])
+    expect(
+      within(screen.getByRole('region', { name: 'Users' }))
+        .getAllByRole('link')
+        .map((link) => link.textContent)
+    ).toEqual(['Users'])
   })
 
   test('ordinary users do not receive upstream or settings destinations in the console', async () => {

@@ -69,6 +69,21 @@ try {
     }
     try {
       await page.goto(`${origin}/keys?filter=Synthetic`, { waitUntil: 'networkidle' })
+      if (!phone) {
+        // The row's request action grows with its wrapped label, keeps every
+        // word whole and overlaps nothing else in the actions cell.
+        const actions = await page.getByRole('button', { name: t('View Key requests'), exact: true }).first().evaluate(button => {
+          const style = getComputedStyle(button)
+          const canvas = document.createElement('canvas').getContext('2d')
+          canvas.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+          const inner = button.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+          const widest = Math.max(...button.textContent.trim().split(/\s+/).map(word => canvas.measureText(word).width))
+          const boxes = [...button.parentElement.children].map(element => element.getBoundingClientRect()).filter(box => box.width > 0)
+          const overlaps = boxes.some((a, i) => boxes.some((b, j) => i < j && a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1))
+          return { fits: button.scrollHeight <= button.clientHeight + 1 && button.scrollWidth <= button.clientWidth + 1, wordsWhole: widest <= inner + 1, overlaps, widest, inner }
+        })
+        assert(actions.fits && actions.wordsWhole && !actions.overlaps, `Key row request action keeps its label inside with whole words: ${JSON.stringify(actions)}`)
+      }
       await page.locator('[data-inspect-id="21"]').first().click()
       await rows.first().waitFor()
       assert.equal(param('inspect'), '21')

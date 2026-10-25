@@ -125,6 +125,22 @@ async function open(page, path, { shell = true, title, headingLevel = 1, expecte
   await settled(page)
 }
 
+// Every destination the PC top bar offers: its links plus the items of its
+// Admin and More menus, each opened and closed like a user would.
+async function navigationHrefs(page) {
+  const navigation = page.getByRole('navigation', { name: label('Personal console navigation'), exact: true })
+  const hrefs = await navigation.getByRole('link').evaluateAll(links => links.map(link => link.getAttribute('href')))
+  for (const trigger of await navigation.getByRole('button').all()) {
+    await trigger.click()
+    const menu = page.getByRole('menu')
+    await menu.waitFor()
+    hrefs.push(...await menu.getByRole('menuitem').evaluateAll(items => items.map(item => item.getAttribute('href')).filter(Boolean)))
+    await page.keyboard.press('Escape')
+    await menu.waitFor({ state: 'hidden' })
+  }
+  return hrefs
+}
+
 async function screenshot(page, name, { shell = true, touch = false, headingLevel = 1 } = {}) {
   await settled(page)
   const geometry = await page.evaluate(({ authenticated, headingLevel }) => {
@@ -353,41 +369,30 @@ try {
   report.browser = browser.version()
 
   await run('platform-shell-layout-preferences', async () => {
-    const { page } = await session({ width: 1280 })
+    // Design direction 3: a top bar and no sidebar; the content width
+    // preference is the remaining layout choice and must change the page.
+    const { page } = await session({ width: 1920 })
     await open(page, '/keys')
-    const sidebar = page.locator('.pc-sidebar')
-    const expanded = await sidebar.boundingBox()
-    const chooseLayout = async (name) => {
+    assert.equal(await page.locator('.pc-sidebar, [data-myapi-sidebar]').count(), 0, 'The console has no sidebar')
+    const widths = () => page.evaluate(() => ({ main: document.querySelector('main#content').getBoundingClientRect().width, bar: document.querySelector('.pc-topbar-inner').getBoundingClientRect().width }))
+    const chooseWidth = async (name) => {
       await page.getByRole('button', { name: label('Open theme settings'), exact: true }).click()
       const preferences = page.getByRole('dialog', { name: label('Theme Settings'), exact: true })
-      await preferences.getByRole('radiogroup', { name: label('Select layout style'), exact: true }).getByRole('radio', { name: label('Select {{option}}').replace('{{option}}', label(name)), exact: true }).click()
+      await preferences.getByRole('radiogroup', { name: label('Select content width'), exact: true }).getByRole('radio', { name: label(name), exact: true }).click()
       await preferences.getByRole('button', { name: label('Close'), exact: true }).click()
       await preferences.waitFor({ state: 'hidden' })
       await settled(page)
     }
-    await chooseLayout('Compact')
-    const compact = await sidebar.boundingBox()
-    assert(expanded && compact && compact.width < expanded.width, 'The saved compact preference changes the actual desktop rail')
-    await screenshot(page, 'platform-compact-sidebar-1280')
-    await chooseLayout('Full layout')
-    assert.equal(await sidebar.isVisible(), false, 'Full layout releases the desktop sidebar space')
-    await page.getByRole('button', { name: label('Expand sidebar'), exact: true }).click()
-    // The rail expands with the 200ms panel transition (design 4.5).
-    await settled(page)
-    const restored = await sidebar.boundingBox()
-    assert(restored && restored.width === expanded.width, 'The header restores navigation from full layout')
-    await page.setViewportSize({ width: 1920, height: 900 })
-    await page.getByRole('button', { name: label('Open theme settings'), exact: true }).click()
-    const preferences = page.getByRole('dialog', { name: label('Theme Settings'), exact: true })
-    await preferences.getByRole('radiogroup', { name: label('Select sidebar style'), exact: true }).getByRole('radio', { name: label('Select {{option}}').replace('{{option}}', label('Floating')), exact: true }).click()
-    await preferences.getByRole('radiogroup', { name: label('Select content width'), exact: true }).getByRole('radio', { name: label('Centered'), exact: true }).click()
-    await preferences.getByRole('button', { name: label('Close'), exact: true }).click()
-    await preferences.waitFor({ state: 'hidden' })
-    await settled(page)
-    const floating = await sidebar.evaluate(element => ({ margin: parseFloat(getComputedStyle(element).marginTop), radius: parseFloat(getComputedStyle(element).borderTopLeftRadius) }))
-    const main = await page.locator('main#content').boundingBox()
-    assert(floating.margin > 0 && floating.radius > 0 && main && main.width <= 1280, 'Floating navigation and centered content apply to the visible platform')
-    await screenshot(page, 'platform-floating-centered-1920')
+    const centered = await widths()
+    assert(centered.main <= 1200 && centered.bar <= 1200, `The default content width keeps the top bar and page at 1200px: ${JSON.stringify(centered)}`)
+    await screenshot(page, 'platform-centered-1920')
+    await chooseWidth('Full width')
+    const full = await widths()
+    assert(full.main > 1200 && full.bar > 1200, `The saved full-width preference widens the actual top bar and page: ${JSON.stringify(full)}`)
+    await screenshot(page, 'platform-full-width-1920')
+    await chooseWidth('Centered')
+    const restored = await widths()
+    assert.deepEqual(restored, centered, 'Centered restores the 1200px column')
   })
 
   await run('existing-page-families', async () => {
@@ -468,9 +473,10 @@ try {
     for (const options of [{ role: 1 }, { role: 10 }, { role: 10, sidebar: true }]) {
       const { page } = await session(options)
       await open(page, '/dashboard/overview')
-      const sidebar = page.locator('[data-myapi-sidebar]')
-      for (const href of ['/system-settings/site', '/system-info']) assert.equal(await sidebar.locator(`a[href="${href}"]`).count(), 0, 'Root destinations hidden from lower roles')
-      if (options.role === 1) for (const href of ['/connections', '/channels', '/users', '/models/metadata']) assert.equal(await sidebar.locator(`a[href="${href}"]`).count(), 0, 'ordinary users see no admin destinations')
+      const reachable = await navigationHrefs(page)
+      assert(reachable.includes('/dashboard/overview'), `navigation destinations were read: ${JSON.stringify(reachable)}`)
+      for (const href of ['/system-settings/site', '/system-info']) assert(!reachable.includes(href), `Root destinations hidden from lower roles: ${href}`)
+      if (options.role === 1) for (const href of ['/connections', '/channels', '/users', '/models/metadata']) assert(!reachable.includes(href), `ordinary users see no admin destinations: ${href}`)
       await page.getByRole('button', { name: label('Search'), exact: true }).click()
       const command = page.getByRole('dialog')
       await command.getByRole('combobox').waitFor()
@@ -478,7 +484,7 @@ try {
         assert.equal(await command.getByRole('option', { name: label(title), exact: true }).count(), 0, `command honors role/sidebar narrowing: ${title}`)
       }
       if (options.sidebar) {
-        assert.equal(await sidebar.locator('a[href="/keys"], a[href="/usage-logs/common"]').count(), 0, 'both admin and user sidebar preferences narrow navigation')
+        assert(!reachable.includes('/keys') && !reachable.includes('/usage-logs/common'), 'both admin and user sidebar preferences narrow navigation')
         assert.equal(await command.getByRole('option', { name: label('Connections'), exact: true }).count(), 1, 'allowed admin commands remain available')
       }
       await screenshot(page, `navigation-role-${options.role}${options.sidebar ? '-narrowed' : ''}`)

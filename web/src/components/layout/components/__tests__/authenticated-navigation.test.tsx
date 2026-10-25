@@ -68,7 +68,6 @@ describe('authenticated operator navigation', () => {
     })
     setViewport(1440)
     localStorage.clear()
-    document.cookie = 'sidebar_state=; max-age=0; path=/'
     useAuthStore
       .getState()
       .auth.setUser({ id: 1, username: 'operator', role: ROLE.SUPER_ADMIN })
@@ -86,13 +85,12 @@ describe('authenticated operator navigation', () => {
       Object.defineProperty(window, 'innerWidth', originalInnerWidth)
     }
     useAuthStore.getState().auth.reset('idle')
-    document.cookie = 'sidebar_state=; max-age=0; path=/'
     localStorage.clear()
     await i18next.changeLanguage('en')
     i18next.removeResourceBundle('fr', 'translation')
   })
 
-  test('daily tasks lead the navigation and administration precedes optional chat', async () => {
+  test('daily tasks lead the navigation and administration precedes optional tools', async () => {
     await renderShellRoute(<OperatorWorkspace />)
     const navigation = await screen.findByRole('navigation', {
       name: 'Personal console navigation',
@@ -101,21 +99,21 @@ describe('authenticated operator navigation', () => {
     expect(
       within(navigation)
         .getAllByRole('link')
-        .slice(0, 6)
         .map((link) => link.textContent)
+    ).toEqual(['Overview', 'Upstream', 'API Keys', 'Requests', 'Settings'])
+    expect(
+      [...navigation.querySelectorAll('a, button')].map(
+        (control) => control.textContent
+      )
     ).toEqual([
       'Overview',
-      'Analytics',
-      'Connections',
-      'Account windows',
-      'Model catalog',
+      'Upstream',
       'API Keys',
+      'Requests',
+      'Settings',
+      'Admin',
+      'More',
     ])
-    expect(
-      within(navigation)
-        .getAllByRole('group')
-        .map((group) => group.getAttribute('aria-label'))
-    ).toEqual(['Console', 'Upstream', 'Access', 'Records', 'Tools', 'System'])
     expect(
       within(navigation).getByRole('link', { name: 'Overview' })
     ).toHaveAttribute('aria-current', 'page')
@@ -136,18 +134,23 @@ describe('authenticated operator navigation', () => {
     ).not.toBeInTheDocument()
   })
 
-  test('the header identifies the actual tab and preserves compact access to every primary action', async () => {
+  test('the page context identifies the actual tab and the header keeps compact access to every primary action', async () => {
     await renderShellRoute(<OperatorWorkspace />, {
       path: '/dashboard/flow?period=7d',
     })
     const header = screen.getByRole('banner')
-    const context = within(header).getByRole('navigation', {
+    const context = screen.getByRole('navigation', {
       name: 'Current page',
     })
 
     expect(
       within(context).getByRole('link', { current: 'page' })
     ).toHaveTextContent('Flow')
+    // Requests › Analytics › Flow: area, parent page and the current tab.
+    expect(
+      within(context).getByRole('link', { name: 'Analytics' })
+    ).toHaveAttribute('href', '/dashboard/models')
+    expect(within(context).getByText('Requests')).toBeInTheDocument()
     const search = within(header).getByRole('button', { name: 'Search' })
     expect(search).toBeEnabled()
     expect(search).toHaveAttribute('aria-keyshortcuts', 'Control+K')
@@ -160,18 +163,20 @@ describe('authenticated operator navigation', () => {
     expect(
       within(header).getByRole('button', { name: 'Account menu' })
     ).toBeInTheDocument()
-    // Column shrinkage is the contract; touch/desktop row placement and actual
-    // clipping are qualified by the production-build browser journey.
-    expect(context.parentElement).toHaveClass('min-w-0')
+    // Column shrinkage is the contract; actual wrapping and clipping are
+    // qualified by the production-build browser journey.
+    expect(context).toHaveClass('min-w-0')
   })
 
   test('long translated page context updates live without losing its accessible full name', async () => {
-    await renderShellRoute(<OperatorWorkspace />, { path: '/dashboard/models' })
+    // Under the Requests tabs the breadcrumb shows only with a third level:
+    // Requests › Analytics › Flow.
+    await renderShellRoute(<OperatorWorkspace />, { path: '/dashboard/flow' })
     const longTitle =
-      'Analyse détaillée des appels aux modèles et de leur utilisation quotidienne'
+      'Flux détaillé des appels aux modèles et de leur utilisation quotidienne'
     i18next.addResourceBundle('fr', 'translation', {
       'Current page': 'Page actuelle',
-      Analytics: longTitle,
+      Flow: longTitle,
     })
 
     await act(async () => {
@@ -182,7 +187,9 @@ describe('authenticated operator navigation', () => {
     const currentPage = within(context).getByRole('link', { current: 'page' })
     expect(currentPage).toHaveAccessibleName(longTitle)
     expect(currentPage).toHaveAttribute('title', longTitle)
-    expect(currentPage).toHaveClass('truncate')
+    // The breadcrumb wraps instead of clipping, so the whole name is shown.
+    expect(currentPage).not.toHaveClass('truncate')
+    expect(currentPage).toHaveTextContent(longTitle)
   })
 
   test('appearance choices expose translated accessible names and previews after switching language', async () => {
@@ -196,7 +203,7 @@ describe('authenticated operator navigation', () => {
       await i18next.changeLanguage('fr')
     })
     const layout = screen.getByRole('radiogroup', {
-      name: frenchLocale.translation['Select layout style'],
+      name: frenchLocale.translation['Select theme preference'],
     })
     expect(
       within(layout).getAllByRole('radio', { name: /^Choisir / })
@@ -305,8 +312,7 @@ describe('authenticated operator navigation', () => {
     )
   })
 
-  test('collapsed desktop settings remain reachable by keyboard', async () => {
-    document.cookie = 'sidebar_state=false; path=/'
+  test('desktop settings sections remain reachable by keyboard', async () => {
     const user = userEvent.setup()
     const { router } = await renderShellRoute(<OperatorWorkspace />, {
       path: '/system-settings/site/system-info',
@@ -314,16 +320,22 @@ describe('authenticated operator navigation', () => {
     const navigation = screen.getByRole('navigation', {
       name: 'Personal console navigation',
     })
-    const operations = within(navigation).getByRole('button', {
-      name: 'Operations',
-    })
+    expect(
+      within(navigation).getByRole('link', { name: 'Settings' })
+    ).toHaveAttribute('aria-current', 'page')
+    const pages = screen.getByRole('navigation', { name: 'Settings' })
+    const operations = within(pages).getByRole('link', { name: 'Operations' })
     operations.focus()
 
     await user.keyboard('{Enter}')
-    const maintenance = await screen.findByRole('menuitem', {
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        '/system-settings/operations/behavior'
+      )
+    )
+    const maintenance = await within(pages).findByRole('link', {
       name: 'System maintenance',
     })
-    expect(operations).toHaveAttribute('aria-expanded', 'true')
     maintenance.focus()
     await user.keyboard('{Enter}')
 
@@ -332,8 +344,12 @@ describe('authenticated operator navigation', () => {
         '/system-settings/operations/update-checker'
       )
     )
-    await waitFor(() =>
-      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-    )
+    expect(
+      within(pages).getByRole('link', { name: 'System maintenance' })
+    ).toHaveAttribute('aria-current', 'page')
+    // The category holding the section is the current location.
+    expect(
+      within(pages).getByRole('link', { name: 'Operations' })
+    ).toHaveAttribute('aria-current', 'true')
   })
 })

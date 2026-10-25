@@ -58,7 +58,7 @@ describe('colour presets', () => {
       setCookie('theme_preset', retired)
       setCookie('theme_radius', 'lg')
       setCookie('theme_scale', 'xl')
-      setCookie('theme_content_layout', 'centered')
+      setCookie('theme_content_layout', 'full')
 
       render(
         <ThemeCustomizationProvider>
@@ -67,7 +67,7 @@ describe('colour presets', () => {
       )
 
       expect(screen.getByLabelText('preferences')).toHaveTextContent(
-        'default|lg|xl|centered'
+        'default|lg|xl|full'
       )
       expect(document.body).not.toHaveAttribute('data-theme-preset')
       expect(document.body).toHaveAttribute('data-theme-radius', 'lg')
@@ -85,7 +85,7 @@ describe('colour presets', () => {
     )
 
     expect(screen.getByLabelText('preferences')).toHaveTextContent(
-      'high-contrast|default|default|full'
+      'high-contrast|default|default|centered'
     )
     expect(document.body).toHaveAttribute('data-theme-preset', 'high-contrast')
   })

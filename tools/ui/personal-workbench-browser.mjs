@@ -1190,8 +1190,11 @@ async function inspectWindowStates(scenario) {
     if (scenario.width < 1024) {
       assert(search && search.width === search.height && search.width >= 44, 'The mobile console search is a compact square control with an accessible target')
     } else {
-      // Design 5.1: the PC header carries a wide global search bar with its Ctrl/Cmd K shortcut.
-      assert(search && search.width > search.height * 3 && search.height >= 36, 'The desktop console search is a wide bar with a pointer-sized target')
+      // Design direction 3: from 1280px the top bar carries a wide search
+      // field; between 1024 and 1279px it folds to a square icon so the
+      // primary areas keep their labels. Both keep the Ctrl/Cmd K shortcut.
+      if (scenario.width >= 1280) assert(search && search.width > search.height * 3 && search.height >= 36, 'The desktop console search is a wide bar with a pointer-sized target')
+      else assert(search && search.width === search.height && search.width >= 36, 'The narrow desktop console search is a square control with a pointer-sized target')
       assert.match(await searchControl.getAttribute('aria-keyshortcuts') ?? '', /^(Control|Meta)\+K$/, 'The desktop console search announces its keyboard shortcut')
     }
     // The overview's health strip carries the connection totals; the
