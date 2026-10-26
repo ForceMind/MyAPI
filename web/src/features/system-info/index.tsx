@@ -16,10 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Check, Copy } from 'lucide-react'
+import { Copy01Icon, Tick02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
+import { StatTile } from '@/components/stat-tile'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -31,20 +34,47 @@ import {
 } from '@/components/ui/card'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { getBuildRevision } from '@/lib/build-metadata'
+import { linkButtonClassName } from '@/lib/link-button'
 
 import { SystemInstancesPanel } from './components/system-instances-panel'
 import { SystemTasksPanel } from './components/system-tasks-panel'
+import {
+  TASK_LIMIT,
+  isActiveTaskStatus,
+  useSystemInstances,
+  useSystemTasks,
+} from './hooks'
 
+/**
+ * Runtime status (Root): figures for instances and background tasks, the
+ * running build, where logging is switched, then the instance and task
+ * lists. Figures that could not be read show "Unknown", never 0.
+ */
 export function SystemInfo() {
   const { t } = useTranslation()
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const buildRevision = getBuildRevision()
+  const instancesQuery = useSystemInstances()
+  const tasksQuery = useSystemTasks()
+
+  const instances = instancesQuery.data ?? []
+  const tasks = tasksQuery.data ?? []
+  const unknown = t('Unknown')
+  const onlineCount = instances.filter(
+    (instance) => instance.status === 'online'
+  ).length
+  const staleCount = instances.length - onlineCount
+  const activeCount = tasks.filter((task) =>
+    isActiveTaskStatus(task.status)
+  ).length
+  const failedCount = tasks.filter((task) => task.status === 'failed').length
 
   return (
     <SectionPageLayout>
       <SectionPageLayout.Title>
         <span className='inline-flex min-w-0 flex-wrap items-center gap-2'>
-          <span className='wrap-break-word'>{t('System Info')}</span>
+          {/* Same name as the navigation entry. */}
+          <span className='wrap-break-word'>{t('System status')}</span>
           <Badge variant='outline' className='shrink-0'>
             Root
           </Badge>
@@ -54,10 +84,39 @@ export function SystemInfo() {
         {t('Runtime identity, instances and background tasks.')}
       </SectionPageLayout.Description>
       <SectionPageLayout.Content>
-        <div className='space-y-4'>
-          <Card>
+        <div className='flex flex-col gap-4'>
+          <dl className='grid min-w-0 grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:gap-3 lg:grid-cols-4'>
+            <StatTile
+              label={t('Online instances')}
+              value={instancesQuery.isError ? unknown : onlineCount}
+              loading={instancesQuery.isLoading}
+            />
+            <StatTile
+              label={t('Stale instances')}
+              value={instancesQuery.isError ? unknown : staleCount}
+              loading={instancesQuery.isLoading}
+            />
+            <StatTile
+              label={t('Active Tasks')}
+              value={tasksQuery.isError ? unknown : activeCount}
+              loading={tasksQuery.isLoading}
+            />
+            <StatTile
+              label={t('Failed tasks')}
+              value={tasksQuery.isError ? unknown : failedCount}
+              detail={t('Among the latest {{count}} tasks', {
+                count: TASK_LIMIT,
+              })}
+              loading={tasksQuery.isLoading}
+              danger={!tasksQuery.isError && failedCount > 0}
+            />
+          </dl>
+
+          <Card data-card-hover='false'>
             <CardHeader>
-              <CardTitle>{t('Runtime build')}</CardTitle>
+              <CardTitle>
+                <h2>{t('Runtime build')}</h2>
+              </CardTitle>
               <CardDescription>
                 {t(
                   'Use this read-only identifier to confirm which MyAPI frontend build is running.'
@@ -76,14 +135,14 @@ export function SystemInfo() {
                   type='button'
                   variant='outline'
                   size='sm'
-                  className='shrink-0'
+                  className='shrink-0 self-start sm:self-auto'
                   onClick={() => void copyToClipboard(buildRevision)}
                 >
-                  {copiedText === buildRevision ? (
-                    <Check className='mr-2 size-4' aria-hidden='true' />
-                  ) : (
-                    <Copy className='mr-2 size-4' aria-hidden='true' />
-                  )}
+                  <HugeiconsIcon
+                    icon={copiedText === buildRevision ? Tick02Icon : Copy01Icon}
+                    data-icon='inline-start'
+                    aria-hidden='true'
+                  />
                   {copiedText === buildRevision
                     ? t('Copied')
                     : t('Copy build revision')}
@@ -91,6 +150,39 @@ export function SystemInfo() {
               </div>
             </CardContent>
           </Card>
+
+          <Card data-card-hover='false'>
+            <CardHeader>
+              <CardTitle>
+                <h2>{t('Log collection')}</h2>
+              </CardTitle>
+              <CardDescription>
+                {t(
+                  'Whether calls are recorded is switched in Log Maintenance; whether request bodies are saved is shown on Bodies & SSE.'
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className='flex flex-wrap gap-2'>
+              <Link
+                to='/system-settings/operations/$section'
+                params={{ section: 'logs' }}
+                preload={false}
+                data-myapi-button=''
+                className={linkButtonClassName({ variant: 'outline' })}
+              >
+                {t('Log Maintenance')}
+              </Link>
+              <Link
+                to='/full-content-logs'
+                preload={false}
+                data-myapi-button=''
+                className={linkButtonClassName({ variant: 'outline' })}
+              >
+                {t('Bodies & SSE')}
+              </Link>
+            </CardContent>
+          </Card>
+
           <SystemInstancesPanel />
           <SystemTasksPanel />
         </div>
