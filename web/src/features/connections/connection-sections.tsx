@@ -66,8 +66,11 @@ export function ConnectionStatusBadge(props: {
 export function ConnectionKindBadge(props: { kind: ConnectionKind }) {
   const { t } = useTranslation()
   let label = t('API Key')
-  if (props.kind === 'subscription') label = t('Subscription')
-  else if (props.kind === 'local') label = t('Local')
+  if (props.kind === 'subscription') {
+    label = t('Subscription')
+  } else if (props.kind === 'local') {
+    label = t('Local')
+  }
   return (
     <StatusBadge
       variant='neutral'

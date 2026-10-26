@@ -134,8 +134,11 @@ export function ConnectionNode(props: {
 
   let kind = t('Metered')
   const connectionType = connectionKind(connection, Boolean(window))
-  if (connectionType === 'subscription') kind = t('Subscription')
-  else if (connectionType === 'local') kind = t('Local')
+  if (connectionType === 'subscription') {
+    kind = t('Subscription')
+  } else if (connectionType === 'local') {
+    kind = t('Local')
+  }
   let aside = <span className='text-caption text-muted-foreground'>{kind}</span>
   if (used !== null) {
     aside = (
