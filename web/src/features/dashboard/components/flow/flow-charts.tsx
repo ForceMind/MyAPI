@@ -24,7 +24,6 @@ import {
   ChevronRight,
   CircleAlert,
   EyeOff,
-  GitBranch,
   Hash,
   Info,
   Loader2,
@@ -50,7 +49,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
-import { IconBadge } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Toggle } from '@/components/ui/toggle'
@@ -86,6 +84,7 @@ import type {
 } from '@/features/dashboard/types'
 import { formatQuota } from '@/lib/format'
 import { ROLE } from '@/lib/roles'
+import { useChartPalette } from '@/lib/chart-palette'
 import { computeTimeRange } from '@/lib/time'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { cn } from '@/lib/utils'
@@ -255,6 +254,7 @@ function formatFlowMetricNumber(value: number): string {
 export function FlowCharts(props: FlowChartsProps) {
   const { t } = useTranslation()
   const { resolvedTheme, themeReady } = useChartTheme()
+  const palette = useChartPalette(resolvedTheme)
   const chartInstanceRef = useRef<IVChart | null>(null)
   const user = useAuthStore((state) => state.auth.user)
   const isRoot = Boolean(user?.role && user.role >= ROLE.SUPER_ADMIN)
@@ -357,8 +357,11 @@ export function FlowCharts(props: FlowChartsProps) {
         maskSensitive,
         deletedTokenLabel: (tokenId) => t('Deleted ({{id}})', { id: tokenId }),
         otherNodeLabel: (kind) => t(FLOW_OTHER_NODE_LABEL_KEYS[kind]),
+        // Token colours; the flow labels its nodes, so they may repeat.
+        colorPalette: palette?.series,
       }),
     [
+      palette,
       flowRole,
       flowRows,
       isLoading,
@@ -478,6 +481,7 @@ export function FlowCharts(props: FlowChartsProps) {
     maskSensitive ? 'masked' : 'plain',
     flowRows?.length ?? 0,
     resolvedTheme,
+    palette ? 'tokens' : 'default',
   ].join('-')
   const displayState = flowDisplayState({
     isLoading,
@@ -664,14 +668,9 @@ export function FlowCharts(props: FlowChartsProps) {
         </div>
       </div>
 
-      <div className='overflow-hidden rounded-lg border'>
-        <div className='flex w-full flex-col gap-2 border-b px-3 py-2 sm:px-5 sm:py-3 lg:flex-row lg:items-center lg:justify-between'>
-          <div className='flex min-w-0 items-center gap-2'>
-            <IconBadge tone='info' size='sm'>
-              <GitBranch />
-            </IconBadge>
-            <div className='text-sm font-semibold'>{chartTitle}</div>
-          </div>
+      <section className='bg-card overflow-hidden rounded-xl border'>
+        <div className='flex w-full flex-col gap-2 border-b px-4 py-3 lg:flex-row lg:items-center lg:justify-between'>
+          <h2 className='min-w-0 text-sm font-semibold'>{chartTitle}</h2>
           <TooltipProvider>
             <div className='flex min-w-0 items-center gap-1 overflow-x-auto pb-1 lg:justify-end lg:pb-0'>
               <Tooltip>
@@ -725,7 +724,7 @@ export function FlowCharts(props: FlowChartsProps) {
         <div className='h-[560px] p-1.5 sm:h-[680px] sm:p-2 2xl:h-[760px]'>
           {chartContent}
         </div>
-      </div>
+      </section>
     </div>
   )
 }

@@ -20,8 +20,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { IconBadge } from '@/components/ui/icon-badge'
-import { Skeleton } from '@/components/ui/skeleton'
+import { StatTile } from '@/components/stat-tile'
 import { getUserQuotaDates } from '@/features/dashboard/api'
 import { useModelStatCardsConfig } from '@/features/dashboard/hooks/use-dashboard-config'
 import {
@@ -36,7 +35,6 @@ import type {
 import { toIntlLocale } from '@/i18n/languages'
 import { formatCompactNumber, formatNumber, formatQuota } from '@/lib/format'
 import { computeTimeRange } from '@/lib/time'
-import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
 interface LogStatCardsProps {
@@ -147,79 +145,30 @@ export function LogStatCards(props: LogStatCardsProps) {
       value: formatted.displayValue,
       fullValue: formatted.fullValue,
       desc: config.description,
-      icon: config.icon,
-      iconTone: config.iconTone,
     }
   })
 
+  // The same figures as the Key and connection pages (design v2 StatInline);
+  // a failed read shows "--", never zero.
   return (
-    <div className='overflow-hidden rounded-xl border'>
-      <div className='bg-border grid min-w-0 grid-cols-2 gap-px sm:grid-cols-3 lg:grid-cols-5'>
-        {items.map((it, idx) => {
-          const Icon = it.icon
-          let valueContent
-          if (loading) {
-            valueContent = (
-              <div className='mt-1 flex flex-col gap-1 sm:mt-2 sm:gap-1.5'>
-                <Skeleton className='h-5 w-16 sm:h-7 sm:w-20' />
-                <Skeleton className='hidden h-3.5 w-28 md:block' />
-              </div>
-            )
-          } else if (error) {
-            valueContent = (
-              <>
-                <div className='text-muted-foreground mt-1 font-mono text-base leading-tight font-bold tracking-tight tabular-nums sm:mt-2 sm:text-2xl sm:leading-normal'>
-                  --
-                </div>
-                <div className='text-muted-foreground mt-1 hidden text-xs md:block'>
-                  {it.desc}
-                </div>
-              </>
-            )
-          } else {
-            valueContent = (
-              <>
-                <div
-                  className='text-foreground mt-1 max-w-full truncate font-mono text-base leading-tight font-bold tracking-tight tabular-nums sm:mt-2 sm:text-2xl sm:leading-normal'
-                  title={it.fullValue}
-                >
-                  {it.value}
-                </div>
-                <div className='text-muted-foreground mt-1 hidden text-xs md:block'>
-                  {it.desc}
-                </div>
-              </>
+    <dl className='grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5'>
+      {items.map((it) => (
+        <StatTile
+          key={it.title}
+          label={it.title}
+          loading={loading}
+          value={
+            error ? (
+              <span className='text-muted-foreground'>--</span>
+            ) : (
+              <span className='block truncate' title={it.fullValue}>
+                {it.value}
+              </span>
             )
           }
-
-          return (
-            <div
-              key={it.title}
-              className={cn(
-                'bg-card min-w-0 p-4 sm:p-5',
-                idx === items.length - 1 &&
-                  items.length % 2 !== 0 &&
-                  'col-span-2 sm:col-span-1'
-              )}
-            >
-              <div className='flex min-w-0 items-center gap-1.5 sm:gap-2'>
-                <IconBadge
-                  tone={it.iconTone}
-                  size='stat'
-                  className='size-4 rounded-sm sm:size-7 sm:rounded-md [&>svg]:size-2.5 sm:[&>svg]:size-3.5'
-                >
-                  <Icon />
-                </IconBadge>
-                <div className='text-muted-foreground truncate text-[11px] leading-4 font-medium tracking-wide uppercase sm:text-xs sm:tracking-wider'>
-                  {it.title}
-                </div>
-              </div>
-
-              {valueContent}
-            </div>
-          )
-        })}
-      </div>
-    </div>
+          detail={<span className='max-md:hidden'>{it.desc}</span>}
+        />
+      ))}
+    </dl>
   )
 }

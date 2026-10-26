@@ -27,6 +27,7 @@ import type {
   ProcessedChartData,
   ProcessedUserChartData,
 } from '@/features/dashboard/types'
+import type { ChartPalette } from '@/lib/chart-palette'
 import { getCurrencyDisplay } from '@/lib/currency'
 import {
   formatChartTime,
@@ -58,6 +59,39 @@ export function getDashboardChartColors(domainLength: number): string[] {
   )
 }
 
+type ChartSpec = ProcessedChartData['spec_pie']
+
+/**
+ * Colours of a chart's series from the design tokens. The busiest series, in
+ * `ranked` order, take `--chart-1` … `--chart-5`; every other series and
+ * "Other" take the neutral colour and are told apart by the legend, the axis
+ * or the tooltip. Five colours keep each hue distinct (dataviz validation).
+ */
+function tokenSeriesColors(
+  domain: string[],
+  ranked: string[],
+  palette: ChartPalette
+): string[] {
+  const colorBySeries = new Map(
+    ranked
+      .slice(0, palette.series.length)
+      .map((series, index): [string, string] => [
+        series,
+        palette.series[index],
+      ])
+  )
+  return domain.map((series) => colorBySeries.get(series) ?? palette.neutral)
+}
+
+/** On a phone the legend sits under the chart, where it wraps into rows. */
+export function placeLegendForPhone(
+  spec: ChartSpec,
+  phone: boolean
+): ChartSpec {
+  if (!phone || !spec.legends?.visible) return spec
+  return { ...spec, legends: { ...spec.legends, orient: 'bottom' } }
+}
+
 function renderQuotaCompat(rawQuota: number, digits = 4): string {
   const { config, meta } = getCurrencyDisplay()
   if (meta.kind === 'tokens') return rawQuota.toLocaleString()
@@ -80,7 +114,8 @@ export function processChartData(
   timeGranularity: TimeGranularity = 'day',
   t?: TFunction,
   chartCornerRadius?: number,
-  timezoneOffsetMinutes?: number
+  timezoneOffsetMinutes?: number,
+  palette?: ChartPalette | null
 ): ProcessedChartData {
   const tt: TFunction = t ?? ((x) => x)
   const otherLabel = tt('Other')
@@ -276,7 +311,13 @@ export function processChartData(
   const sortedTimes = [...timeModelMap.keys()].sort((a, b) => a - b)
   const sortedModels = [...allModels].sort()
   const modelColorDomain = [...new Set([...sortedModels, otherLabel])]
-  const modelColorRange = getDashboardChartColors(modelColorDomain.length)
+  // One colour per model across every chart on the page, ranked by calls.
+  const modelsByCount = [...modelTotalsMap.entries()]
+    .sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]))
+    .map(([model]) => model)
+  const modelColorRange = palette
+    ? tokenSeriesColors(modelColorDomain, modelsByCount, palette)
+    : getDashboardChartColors(modelColorDomain.length)
   const otherColor = modelColorRange[modelColorDomain.indexOf(otherLabel)]
   const otherTooltipColor =
     typeof otherColor === 'string' ? otherColor : '#FF8A00'
@@ -694,31 +735,20 @@ export function processChartData(
   }
 }
 
-const USER_COLORS = [
-  '#5B8FF9',
-  '#5AD8A6',
-  '#F6BD16',
-  '#E8684A',
-  '#6DC8EC',
-  '#9270CA',
-  '#FF9D4D',
-  '#269A99',
-  '#FF99C3',
-  '#5D7092',
-]
-
 export function processUserChartData(
   data: QuotaDataItem[],
   timeGranularity: TimeGranularity = 'day',
   t?: TFunction,
   limit = 10,
-  timezoneOffsetMinutes?: number
+  timezoneOffsetMinutes?: number,
+  palette?: ChartPalette | null
 ): ProcessedUserChartData {
   const tt: TFunction = t ?? ((x) => x)
   const { config } = getCurrencyDisplay()
   const quotaPerUnit = config.quotaPerUnit
 
   const formatVal = (raw: number) => renderQuotaCompat(raw, 2)
+  const emptyColors = palette?.series ?? getDashboardChartColors(limit)
 
   const emptyResult: ProcessedUserChartData = {
     spec_user_rank: {
@@ -734,7 +764,7 @@ export function processUserChartData(
         subtext: tt('No data available'),
       },
       legends: { visible: false },
-      color: { type: 'ordinal', range: USER_COLORS },
+      color: { type: 'ordinal', range: emptyColors },
       background: { fill: 'transparent' },
     },
     spec_user_trend: {
@@ -749,7 +779,7 @@ export function processUserChartData(
         subtext: tt('No data available'),
       },
       legends: { visible: true, selectMode: 'single' },
-      color: { type: 'ordinal', range: USER_COLORS },
+      color: { type: 'ordinal', range: emptyColors },
       point: { visible: false },
       background: { fill: 'transparent' },
     },
@@ -775,9 +805,13 @@ export function processUserChartData(
     Usage: Number((quota / quotaPerUnit).toFixed(4)),
   }))
 
+  // Users are ranked by consumption, so the busiest take the token colours.
+  const userColors = palette
+    ? tokenSeriesColors(topUsers, topUsers, palette)
+    : getDashboardChartColors(topUsers.length)
   const userColorMap = topUsers.reduce<Record<string, string>>(
     (acc, user, i) => {
-      acc[user] = USER_COLORS[i % USER_COLORS.length]
+      acc[user] = userColors[i % userColors.length]
       return acc
     },
     {}

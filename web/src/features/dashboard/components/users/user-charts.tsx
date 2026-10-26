@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
 import { VChart } from '@visactor/react-vchart'
-import { Users, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import {
   useEffect,
   useMemo,
@@ -30,9 +30,9 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { IconBadge } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useThemeCustomization } from '@/context/theme-customization-provider'
 import { useTheme } from '@/context/theme-provider'
 import { getUserQuotaDataByUsers } from '@/features/dashboard/api'
 import {
@@ -46,10 +46,14 @@ import {
   saveGranularity,
   processUserChartData,
 } from '@/features/dashboard/lib'
+import { placeLegendForPhone } from '@/features/dashboard/lib/charts'
 import type {
   ProcessedUserChartData,
   UserChartsFilters,
 } from '@/features/dashboard/types'
+import { useMediaQuery } from '@/hooks'
+import { useChartPalette } from '@/lib/chart-palette'
+import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 import { getRollingDateRange, type TimeGranularity } from '@/lib/time'
 import { VCHART_OPTION } from '@/lib/vchart'
 
@@ -84,6 +88,9 @@ interface UserChartsProps {
 export function UserCharts(props: UserChartsProps) {
   const { t } = useTranslation()
   const { resolvedTheme } = useTheme()
+  const { customization } = useThemeCustomization()
+  const palette = useChartPalette(`${resolvedTheme}:${customization.preset}`)
+  const isMobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
   const [themeReady, setThemeReady] = useState(false)
   const themeManagerRef = useRef<
     (typeof import('@visactor/vchart'))['ThemeManager'] | null
@@ -189,7 +196,8 @@ export function UserCharts(props: UserChartsProps) {
         timeGranularity,
         t,
         topUserLimit,
-        queryParams.timezone_offset
+        queryParams.timezone_offset,
+        palette
       ),
     [
       userData,
@@ -198,6 +206,7 @@ export function UserCharts(props: UserChartsProps) {
       t,
       topUserLimit,
       queryParams.timezone_offset,
+      palette,
     ]
   )
 
@@ -285,9 +294,9 @@ export function UserCharts(props: UserChartsProps) {
             } else if (themeReady && spec) {
               chartContent = (
                 <VChart
-                  key={`user-${chart.value}-${topUserLimit}-${resolvedTheme}`}
+                  key={`user-${chart.value}-${topUserLimit}-${resolvedTheme}-${palette ? 'tokens' : 'default'}-${isMobile ? 'phone' : 'wide'}`}
                   spec={{
-                    ...spec,
+                    ...placeLegendForPhone(spec, isMobile),
                     theme: resolvedTheme === 'dark' ? 'dark' : 'light',
                     background: 'transparent',
                   }}
@@ -300,21 +309,18 @@ export function UserCharts(props: UserChartsProps) {
           }
 
           return (
-            <div
+            <section
               key={chart.value}
-              className='overflow-hidden rounded-lg border'
+              className='bg-card overflow-hidden rounded-xl border'
             >
-              <div className='flex w-full items-center gap-2 border-b px-3 py-2 sm:px-5 sm:py-3'>
-                <IconBadge tone='info' size='sm'>
-                  <Users />
-                </IconBadge>
-                <div className='text-sm font-semibold'>{t(chart.labelKey)}</div>
+              <div className='flex w-full items-center gap-2 border-b px-4 py-3'>
+                <h2 className='text-sm font-semibold'>{t(chart.labelKey)}</h2>
               </div>
 
-              <div className='h-[300px] p-1.5 sm:h-96 sm:p-2'>
+              <div className='h-[340px] p-1.5 sm:h-96 sm:p-2'>
                 {chartContent}
               </div>
-            </div>
+            </section>
           )
         })}
       </div>
