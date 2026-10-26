@@ -65,7 +65,7 @@
   .myapi-auth-panel {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: var(--radius-card);
+    border-radius: var(--card-radius);
   }
 
   @media (max-width: 639px) {
