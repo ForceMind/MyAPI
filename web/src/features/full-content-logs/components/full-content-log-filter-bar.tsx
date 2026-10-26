@@ -17,14 +17,21 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { ChevronDown, RotateCcw, Search } from 'lucide-react'
+import {
+  ArrowDown01Icon,
+  RotateLeft01Icon,
+  Search01Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useMediaQuery } from '@/hooks'
+import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 import { cn } from '@/lib/utils'
 
 import type { FullContentLogFilters, FullContentLogTokenOption } from '../types'
@@ -38,10 +45,18 @@ interface FullContentLogFilterBarProps {
   tokenOptions: FullContentLogTokenOption[]
 }
 
+/**
+ * Filters of the saved request list. A phone shows one "Filters" line with
+ * the number of filters in use; the fields open below it, so the first
+ * screen still reaches the records.
+ */
 export function FullContentLogFilterBar(props: FullContentLogFilterBarProps) {
   const { t } = useTranslation()
-  const isMobile = useMediaQuery('(max-width: 640px)')
+  const isMobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const activeCount = Object.values(props.filters).filter(
+    (value) => value.trim() !== ''
+  ).length
 
   const updateField = (field: keyof FullContentLogFilters, value: string) => {
     props.onChange({ ...props.filters, [field]: value })
@@ -49,7 +64,7 @@ export function FullContentLogFilterBar(props: FullContentLogFilterBarProps) {
 
   return (
     <form
-      className='rounded-lg border p-3'
+      className='bg-card rounded-xl border p-3'
       onSubmit={(event) => {
         event.preventDefault()
         props.onApply()
@@ -59,24 +74,31 @@ export function FullContentLogFilterBar(props: FullContentLogFilterBarProps) {
       {isMobile && (
         <button
           type='button'
-          className='flex w-full items-center justify-between gap-2 text-left text-sm font-medium'
+          className='flex min-h-11 w-full items-center gap-2 text-left text-sm font-medium'
           aria-expanded={mobileOpen}
           onClick={() => setMobileOpen((open) => !open)}
         >
           <span>{t('Filters')}</span>
-          <ChevronDown
+          {activeCount > 0 && (
+            <Badge className='size-5 justify-center p-0 text-[10px]'>
+              {activeCount}
+            </Badge>
+          )}
+          <HugeiconsIcon
+            icon={ArrowDown01Icon}
+            aria-hidden='true'
             className={cn(
-              'size-4 transition-transform',
+              'ms-auto size-4 transition-transform',
               mobileOpen && 'rotate-180'
             )}
           />
         </button>
       )}
       <div
+        hidden={isMobile && !mobileOpen}
         className={cn(
           'grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6',
-          isMobile && !mobileOpen && 'hidden',
-          isMobile && mobileOpen && 'mt-3'
+          isMobile && 'mt-3'
         )}
       >
         <div className='space-y-1.5'>
@@ -143,7 +165,11 @@ export function FullContentLogFilterBar(props: FullContentLogFilterBarProps) {
         </div>
         <div className='flex items-end gap-2'>
           <Button type='submit' className='flex-1'>
-            <Search />
+            <HugeiconsIcon
+              icon={Search01Icon}
+              data-icon='inline-start'
+              aria-hidden='true'
+            />
             {t('Search')}
           </Button>
           <Button
@@ -155,7 +181,7 @@ export function FullContentLogFilterBar(props: FullContentLogFilterBarProps) {
               setMobileOpen(false)
             }}
           >
-            <RotateCcw />
+            <HugeiconsIcon icon={RotateLeft01Icon} aria-hidden='true' />
           </Button>
         </div>
       </div>

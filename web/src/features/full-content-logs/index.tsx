@@ -16,13 +16,26 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import {
+  Database01Icon,
+  InboxIcon,
+  Refresh01Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from '@tanstack/react-query'
-import { Database, RefreshCw } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
+import { StatTile } from '@/components/stat-tile'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -35,6 +48,7 @@ import {
 import { useMediaQuery } from '@/hooks'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 import { ROLE } from '@/lib/roles'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { getFullContentLogs } from './api'
@@ -65,6 +79,16 @@ const EMPTY_FILTERS: FullContentLogFilters = {
   startTime: '',
   endTime: '',
 }
+// Fixed columns; the model and endpoint take the rest, so the table fits the
+// content column from 1024px without scrolling sideways.
+const COLUMN_WIDTH = {
+  time: 'w-48',
+  key: 'w-36',
+  status: 'w-20',
+  bytes: 'w-40',
+  duration: 'w-24',
+  actions: 'w-36',
+} as const
 
 export function FullContentLogs() {
   const { t } = useTranslation()
@@ -110,6 +134,12 @@ export function FullContentLogs() {
 
   const data = canRead && !logsQuery.isError ? logsQuery.data : undefined
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE))
+  const errorMessage =
+    logsQuery.error instanceof Error
+      ? logsQuery.error.message
+      : t('Failed to load full content logs')
+  const isEmpty =
+    !logsQuery.isLoading && !logsQuery.isError && (data?.items.length ?? 0) === 0
 
   const applyFilters = () => {
     setPage(1)
@@ -122,6 +152,47 @@ export function FullContentLogs() {
     setAppliedFilters(EMPTY_FILTERS)
   }
 
+  let mobileList: ReactNode = null
+  if (logsQuery.isLoading) {
+    mobileList = (
+      <div className='bg-card flex flex-col gap-2 rounded-xl border p-3'>
+        {SKELETON_ROWS.slice(0, 3).map((row) => (
+          <Skeleton key={row} className='h-14 w-full' />
+        ))}
+      </div>
+    )
+  } else if (logsQuery.isError) {
+    mobileList = (
+      <Alert variant='destructive'>
+        <AlertDescription>{errorMessage}</AlertDescription>
+      </Alert>
+    )
+  } else if (isEmpty) {
+    mobileList = (
+      <Empty className='bg-card rounded-xl border'>
+        <EmptyHeader>
+          <EmptyMedia variant='icon'>
+            <HugeiconsIcon icon={InboxIcon} aria-hidden='true' />
+          </EmptyMedia>
+          <EmptyTitle>{t('No matching full content logs')}</EmptyTitle>
+        </EmptyHeader>
+      </Empty>
+    )
+  } else if (data) {
+    mobileList = (
+      <ul
+        role='list'
+        className='bg-card flex min-w-0 flex-col divide-y overflow-hidden rounded-xl border'
+      >
+        {data.items.map((log) => (
+          <li key={log.request_id}>
+            <FullContentLogMobileCard log={log} onView={setDetailRequestId} />
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
   return (
     <>
       <SectionPageLayout fixedContent={!isMobile}>
@@ -130,7 +201,11 @@ export function FullContentLogs() {
         </SectionPageLayout.Title>
         <SectionPageLayout.Actions>
           <Button variant='outline' onClick={() => setFilesOpen(true)}>
-            <Database />
+            <HugeiconsIcon
+              icon={Database01Icon}
+              data-icon='inline-start'
+              aria-hidden='true'
+            />
             {t('Raw log storage')}
           </Button>
           <Button
@@ -138,7 +213,12 @@ export function FullContentLogs() {
             disabled={logsQuery.isFetching}
             onClick={() => void logsQuery.refetch()}
           >
-            <RefreshCw className={logsQuery.isFetching ? 'animate-spin' : ''} />
+            <HugeiconsIcon
+              icon={Refresh01Icon}
+              data-icon='inline-start'
+              aria-hidden='true'
+              className={logsQuery.isFetching ? 'animate-spin' : undefined}
+            />
             {t('Refresh')}
           </Button>
         </SectionPageLayout.Actions>
@@ -150,61 +230,58 @@ export function FullContentLogs() {
                 : 'flex h-full min-h-0 flex-col gap-4'
             }
           >
-            <div className='bg-muted/30 rounded-lg border p-3 text-sm'>
-              <div className='font-medium'>{t('Online request explorer')}</div>
-              <div className='text-muted-foreground mt-1'>
-                {t(
-                  'Saved request and response bodies, including streaming events. Opening a record never resends it.'
-                )}
-              </div>
-            </div>
+            <p className='text-muted-foreground text-sm'>
+              {t(
+                'Saved request and response bodies, including streaming events. Opening a record never resends it.'
+              )}
+            </p>
 
             {!canRead && (
-              <p role='alert'>
-                {t('Request content is available to administrators only.')}
-              </p>
+              <Alert>
+                <AlertDescription>
+                  {t('Request content is available to administrators only.')}
+                </AlertDescription>
+              </Alert>
             )}
             {data?.enabled && (
-              <p className='rounded-lg border p-3 text-sm' role='status'>
-                {t(
-                  'Body capture is enabled for new requests. Earlier content cannot be recovered.'
-                )}
-              </p>
+              <Alert role='status'>
+                <AlertDescription>
+                  {t(
+                    'Body capture is enabled for new requests. Earlier content cannot be recovered.'
+                  )}
+                </AlertDescription>
+              </Alert>
             )}
             {data && !data.enabled && (
-              <div className='border-warning/40 bg-warning/10 text-warning rounded-lg border p-3 text-sm'>
-                {t(
-                  'Full content logging is disabled. Existing files remain available.'
-                )}
-              </div>
+              <Alert
+                role='status'
+                className='border-warning/40 bg-warning-muted text-foreground'
+              >
+                <AlertDescription className='text-foreground'>
+                  {t(
+                    'Full content logging is disabled. Existing files remain available.'
+                  )}
+                </AlertDescription>
+              </Alert>
             )}
 
-            <div className='grid gap-3 min-[360px]:grid-cols-3'>
-              <div className='bg-card min-w-0 rounded-xl border p-3'>
-                <div className='text-muted-foreground text-xs'>
-                  {t('Matching Requests')}
-                </div>
-                <div className='mt-1 text-base font-semibold whitespace-nowrap tabular-nums sm:text-xl'>
-                  {data?.total ?? '—'}
-                </div>
-              </div>
-              <div className='bg-card min-w-0 rounded-xl border p-3'>
-                <div className='text-muted-foreground text-xs'>
-                  {t('Log Files')}
-                </div>
-                <div className='mt-1 text-base font-semibold whitespace-nowrap tabular-nums sm:text-xl'>
-                  {data?.files.count ?? '—'}
-                </div>
-              </div>
-              <div className='bg-card min-w-0 rounded-xl border p-3'>
-                <div className='text-muted-foreground text-xs'>
-                  {t('Disk Usage')}
-                </div>
-                <div className='mt-1 text-base font-semibold whitespace-nowrap tabular-nums sm:text-xl'>
-                  {data ? formatLogBytes(data.files.total_size) : '—'}
-                </div>
-              </div>
-            </div>
+            <dl className='grid min-w-0 grid-cols-1 gap-2 min-[360px]:grid-cols-3 sm:gap-3'>
+              <StatTile
+                label={t('Matching Requests')}
+                value={data?.total ?? '—'}
+                loading={canRead && logsQuery.isLoading}
+              />
+              <StatTile
+                label={t('Log Files')}
+                value={data?.files.count ?? '—'}
+                loading={canRead && logsQuery.isLoading}
+              />
+              <StatTile
+                label={t('Disk Usage')}
+                value={data ? formatLogBytes(data.files.total_size) : '—'}
+                loading={canRead && logsQuery.isLoading}
+              />
+            </dl>
 
             <FullContentLogFilterBar
               filters={draftFilters}
@@ -216,53 +293,31 @@ export function FullContentLogs() {
             />
 
             {isMobile ? (
-              <div className='space-y-3'>
-                {logsQuery.isLoading &&
-                  SKELETON_ROWS.slice(0, 3).map((row) => (
-                    <div
-                      key={row}
-                      className='rounded-lg border p-3'
-                      aria-label={t('Loading')}
-                    >
-                      <Skeleton className='h-24 w-full' />
-                    </div>
-                  ))}
-                {logsQuery.isError && (
-                  <div className='text-destructive rounded-lg border p-6 text-center text-sm'>
-                    {logsQuery.error instanceof Error
-                      ? logsQuery.error.message
-                      : t('Failed to load full content logs')}
-                  </div>
-                )}
-                {!logsQuery.isLoading &&
-                  !logsQuery.isError &&
-                  (data?.items.length ?? 0) === 0 && (
-                    <div className='text-muted-foreground rounded-lg border p-8 text-center text-sm'>
-                      {t('No matching full content logs')}
-                    </div>
-                  )}
-                {!logsQuery.isError &&
-                  data?.items.map((log) => (
-                    <FullContentLogMobileCard
-                      key={log.request_id}
-                      log={log}
-                      onView={setDetailRequestId}
-                    />
-                  ))}
-              </div>
+              mobileList
             ) : (
               <div className='bg-card min-h-0 flex-1 overflow-auto rounded-xl border'>
-                <Table className='min-w-[1120px]'>
+                <Table className='table-fixed'>
                   <TableHeader className='bg-muted sticky top-0 z-10'>
                     <TableRow>
-                      <TableHead>{t('Time')}</TableHead>
+                      <TableHead className={COLUMN_WIDTH.time}>
+                        {t('Time')}
+                      </TableHead>
                       <TableHead>{t('Model / Endpoint')}</TableHead>
-                      <TableHead>{t('API Key')}</TableHead>
-                      <TableHead>{t('Status')}</TableHead>
-                      <TableHead>{t('Request / Response')}</TableHead>
-                      <TableHead>{t('Duration')}</TableHead>
-                      <TableHead>{t('Request ID')}</TableHead>
-                      <TableHead className='bg-muted sticky right-0 z-10 border-l text-right'>
+                      <TableHead className={COLUMN_WIDTH.key}>
+                        {t('API Key')}
+                      </TableHead>
+                      <TableHead className={COLUMN_WIDTH.status}>
+                        {t('Status')}
+                      </TableHead>
+                      <TableHead className={COLUMN_WIDTH.bytes}>
+                        {t('Request / Response')}
+                      </TableHead>
+                      <TableHead className={COLUMN_WIDTH.duration}>
+                        {t('Duration')}
+                      </TableHead>
+                      <TableHead
+                        className={cn(COLUMN_WIDTH.actions, 'text-right')}
+                      >
                         {t('Actions')}
                       </TableHead>
                     </TableRow>
@@ -271,7 +326,7 @@ export function FullContentLogs() {
                     {logsQuery.isLoading &&
                       SKELETON_ROWS.map((row) => (
                         <TableRow key={row}>
-                          <TableCell colSpan={8}>
+                          <TableCell colSpan={7}>
                             <Skeleton className='h-8 w-full' />
                           </TableCell>
                         </TableRow>
@@ -280,28 +335,24 @@ export function FullContentLogs() {
                     {logsQuery.isError && (
                       <TableRow>
                         <TableCell
-                          colSpan={8}
-                          className='text-destructive h-32 text-center'
+                          colSpan={7}
+                          className='text-destructive h-32 text-center whitespace-normal'
                         >
-                          {logsQuery.error instanceof Error
-                            ? logsQuery.error.message
-                            : t('Failed to load full content logs')}
+                          {errorMessage}
                         </TableCell>
                       </TableRow>
                     )}
 
-                    {!logsQuery.isLoading &&
-                      !logsQuery.isError &&
-                      (data?.items.length ?? 0) === 0 && (
-                        <TableRow>
-                          <TableCell
-                            colSpan={8}
-                            className='text-muted-foreground h-32 text-center'
-                          >
-                            {t('No matching full content logs')}
-                          </TableCell>
-                        </TableRow>
-                      )}
+                    {isEmpty && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={7}
+                          className='text-muted-foreground h-32 text-center whitespace-normal'
+                        >
+                          {t('No matching full content logs')}
+                        </TableCell>
+                      </TableRow>
+                    )}
 
                     {!logsQuery.isError &&
                       data?.items.map((log) => (

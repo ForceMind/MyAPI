@@ -20,10 +20,21 @@ For commercial licensing, please contact support@quantumnous.com
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
-import { describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
+
+import { useMediaQuery } from '@/hooks'
 
 import type { FullContentLogFilters } from '../../types'
 import { FullContentLogFilterBar } from '../full-content-log-filter-bar'
+
+vi.mock('@/hooks', async () => {
+  const actual = await vi.importActual<typeof import('@/hooks')>('@/hooks')
+  return { ...actual, useMediaQuery: vi.fn(() => false) }
+})
+
+beforeEach(() => {
+  vi.mocked(useMediaQuery).mockReturnValue(false)
+})
 
 const EMPTY_FILTERS: FullContentLogFilters = {
   model: '',
@@ -76,5 +87,20 @@ describe('full content log filters', () => {
     await user.click(screen.getByRole('button', { name: 'Reset filters' }))
 
     expect(onReset).toHaveBeenCalledTimes(1)
+  })
+
+  test('a phone keeps the filters behind one line that counts the filters in use', async () => {
+    vi.mocked(useMediaQuery).mockReturnValue(true)
+    const user = userEvent.setup()
+
+    render(<FilterHarness onApply={() => undefined} onReset={() => undefined} />)
+    const toggle = screen.getByRole('button', { name: 'Filters' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByLabelText('Model')).not.toBeVisible()
+
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await user.type(screen.getByLabelText('Model'), 'gpt-5.6-luna')
+    expect(toggle).toHaveTextContent('1')
   })
 })
