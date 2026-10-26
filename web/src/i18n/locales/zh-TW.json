@@ -7168,6 +7168,7 @@
     "{{window}} left": "{{window}} left",
     "{{window}} sample: {{state}}": "{{window}} sample: {{state}}",
     "{{window}} sample: {{value}}% left": "{{window}} sample: {{value}}% left",
-    "{{window}}: {{state}}": "{{window}}: {{state}}"
+    "{{window}}: {{state}}": "{{window}}: {{state}}",
+    "User: {{name}}": "User: {{name}}"
   }
 }

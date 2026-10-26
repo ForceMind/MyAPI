@@ -7168,6 +7168,7 @@
     "{{window}} left": "{{window}}剩余",
     "{{window}} sample: {{state}}": "{{window}}采样：{{state}}",
     "{{window}} sample: {{value}}% left": "{{window}}采样：剩余 {{value}}%",
-    "{{window}}: {{state}}": "{{window}}：{{state}}"
+    "{{window}}: {{state}}": "{{window}}：{{state}}",
+    "User: {{name}}": "用户：{{name}}"
   }
 }
