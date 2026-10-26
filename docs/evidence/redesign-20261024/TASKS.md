@@ -86,7 +86,9 @@ UI 设计（`ui-design/DESIGN_DIRECTION.md` 第 11 节）：
 - 第 4 步完成情况（2026-10-26）：代码已推送（`1a025f6b`、`ae4a9f63`、`58be988e`），按维护者"构建等工作都在 GitHub 上完成，不要占用本机空间"的要求，最终提交未在本机构建与测试，完全由 CI 验证。CI 运行 40206993990（提交 `cddc648d`）：后端、数据库、Redis、ClickHouse、桌面合同、发行合同、凭据维护真实 Go 后端等全部作业通过；前端作业的类型检查、全量测试、全部 Chromium 浏览器验收步骤通过，唯一失败是 Lint 步骤的两处 `Expected { after 'if' condition`（`connection-sections.tsx`、`flow-nodes.tsx` 中的无花括号 else-if 链，主会话据此推断并加花括号，待下一次 CI 确认）。
 - 部署 B1、B2（`80f9185b`、`cddc648d`）：同一 CI 运行中"Distribution and release contracts"与"Desktop cross-platform contract"作业通过。待维护者决定：docker-build / docker-smoke 工作流是否改用 `lite`（推荐暂不改）；命令行与安装脚本对公网 HTTPS 来源的不一致是否对齐到安装脚本的更严格规则（推荐对齐）。
 - 本机清理（2026-10-26）：已删除会话临时目录、`web/node_modules`、`web/dist`、Go 构建缓存与 bun 缓存并停止预览服务；此后构建、测试、浏览器验收全部在 GitHub 上完成。
-- 第 5 步 其余页面（调用记录列表、设置、用户、分析、正文日志、任务、系统信息、商业、个人资料其余部分）：未开始。
+- 第 5a 步 请求区（调用记录、任务、绘图、正文与 SSE、分析）：已推送，CI 运行 40271665685 通过（首次失败于偶发的 `window-maintenance` 对话框隐藏超时，只重跑失败作业后通过）。
+- 第 5b 步 设置、用户、系统信息、个人资料（`df2b96ba`、`acd53ee5`、`403cca15`、`470d0860`、`6e89abd3`）与第 5c 步 商业、认证、安装向导、公共页、Playground / 聊天 / 提示词学习、模型目录与账号窗口（`496dafc5`、`5844e5b8`、`107daf1b`、`58d8ce2c`、`5bbf6cb1`、`3ca80983`、`e44f4056`、`c531c0a8`、`e1aad933`、`ad33f977`）：在不能编译的条件下写成，**未经 CI 验证**，随接手文档一并推送。接手后第一件事是读 CI 并修复。
+- 接手交接（2026-10-26）：见 [handoff/README.md](handoff/README.md)、[PROMPT.md](handoff/PROMPT.md)、[OPERATIONS.md](handoff/OPERATIONS.md)、[DIRECTORY_GUIDE.md](handoff/DIRECTORY_GUIDE.md)。主会话额度用尽，后续由其他 AI 接手。
 
 方向 3 已知风险（来自方案文档）：流向板是全新组件，对象多时拓扑感减弱；顶部导航在俄语、法语下最敏感（1024–1279 宽度需把一项收进"更多"）；任务 1、7 的步数比方向 1 多 1 步；实现代价为三个方向中最高。
 
