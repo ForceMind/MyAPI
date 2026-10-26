@@ -44,3 +44,13 @@ test('explicit commercial presentation retains the old balance card', () => {
   )
   expect(screen.getByText('Current Balance')).toBeInTheDocument()
 })
+
+test('an account that could not be read shows Unknown, never a zero balance or usage', () => {
+  render(<WalletStatsCard showBalance user={null} />)
+  for (const label of ['Current Balance', 'Total Usage', 'API Requests']) {
+    // The figure follows its label in the stat tile.
+    expect(screen.getByText(label).nextElementSibling).toHaveTextContent(
+      /^Unknown$/
+    )
+  }
+})
