@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
 import type { Cell, Table } from '@tanstack/react-table'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -54,6 +54,18 @@ vi.mock('@tanstack/react-router', () => ({
     useSearch: () => ({}),
     useNavigate: () => vi.fn(),
   }),
+  Link: (props: {
+    children?: ReactNode
+    title?: string
+    params: { requestId: string }
+  }) => (
+    <a
+      href={`/usage-logs/request/${props.params.requestId}`}
+      title={props.title}
+    >
+      {props.children}
+    </a>
+  ),
 }))
 
 vi.mock('@/hooks', async () => {
@@ -186,12 +198,16 @@ describe('usage logs mobile integration', () => {
     vi.mocked(useDataTable).mockReturnValue({ table: makeTable() } as never)
   })
 
-  test('renders API log card and details action through the real page shell', () => {
+  test('renders the API log row and its details action through the real page shell', () => {
     render(<UsageLogsTable logCategory='common' />)
 
-    expect(screen.getByText('gpt-5')).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'View content' })
-    ).toBeInTheDocument()
+    // The whole two-line row is the details action on a phone.
+    const row = screen.getByTitle('Click to view full details')
+    expect(row).toHaveAttribute(
+      'href',
+      '/usage-logs/request/req-mobile-integration'
+    )
+    expect(within(row).getByText('gpt-5')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 })

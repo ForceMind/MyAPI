@@ -52,13 +52,14 @@ import { useLogsViewScope } from './usage-logs-provider'
 const route = getRouteApi('/_authenticated/usage-logs/$section')
 
 const logTypeRowTint: Record<number, string> = {
-  [LOG_TYPE_ENUM.ERROR]: 'bg-rose-50/40 dark:bg-rose-950/20',
-  [LOG_TYPE_ENUM.REFUND]: 'bg-blue-50/30 dark:bg-blue-950/15',
+  [LOG_TYPE_ENUM.ERROR]: 'bg-destructive-muted/50',
+  [LOG_TYPE_ENUM.REFUND]: 'bg-info-muted/50',
 }
+const usageReviewRowTint = 'bg-warning-muted/50'
 
 // Warning tint for logs where a quota conversion saturated (admin-only marker).
 // Takes precedence over the per-type tint since it flags a billing anomaly.
-const quotaSaturationRowTint = 'bg-amber-50/60 dark:bg-amber-950/25'
+const quotaSaturationRowTint = 'bg-warning-muted'
 
 function getColumnVisibilityStorageKey(
   logCategory: LogCategory,
@@ -211,6 +212,7 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   return (
     <DataTablePage
       table={table}
+      mobileQuery={CONSOLE_MOBILE_QUERY}
       columns={columns as ColumnDef<Record<string, unknown>>[]}
       isLoading={isLoadingData}
       isFetching={isFetching}
@@ -236,9 +238,6 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
       }
       skeletonKeyPrefix='usage-log-skeleton'
       applyHeaderSize
-      tableClassName={cn(
-        '[&_[data-slot=table]]:text-[13px] [&_[data-slot=table]_td]:text-[13px] [&_[data-slot=table]_td_*]:text-[13px] [&_[data-slot=table]_th]:text-[13px] [&_[data-slot=table]_th_*]:text-[13px]'
-      )}
       mobile={
         isError ? (
           <ErrorState
@@ -276,7 +275,7 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
             )
           )
         ) {
-          tintClass = 'bg-amber-50/40 dark:bg-amber-950/20'
+          tintClass = usageReviewRowTint
         }
         const outcome = parseLogOther(
           ((row.original as Record<string, unknown>).other as string) ?? ''
@@ -303,7 +302,6 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
             key={row.id}
             row={row}
             className={cn('transition-colors', tintClass)}
-            getColumnClassName={() => (isCommon ? 'py-2' : 'py-3.5')}
           />
         )
       }}

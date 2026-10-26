@@ -317,9 +317,8 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
             <StatusBadge
               label={t(config.label)}
               variant={config.color as StatusBadgeProps['variant']}
-              size='sm'
               copyable={false}
-              className='-ml-1.5 h-auto min-h-5 !text-xs [&_span]:!text-xs'
+              className='h-auto min-h-5 w-fit whitespace-normal'
             >
               <span className='min-w-0 leading-snug break-keep whitespace-normal'>
                 {t(config.label)}

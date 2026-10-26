@@ -16,18 +16,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Link, getRouteApi, useNavigate } from '@tanstack/react-router'
-import { useCallback, useMemo } from 'react'
+import { Link, getRouteApi } from '@tanstack/react-router'
+import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
-import type { NavGroup } from '@/components/layout/types'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { connectionListContext } from '@/features/connections/connection-state'
 import { CacheStatsDialog } from '@/features/system-settings/general/channel-affinity/cache-stats-dialog'
 import { useMediaQuery } from '@/hooks'
 import { useFundingPresentation } from '@/hooks/use-funding-presentation'
-import { useSidebarConfig } from '@/hooks/use-sidebar-config'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 import { linkButtonClassName } from '@/lib/link-button'
 import { useAuthStore } from '@/stores/auth-store'
@@ -48,7 +46,6 @@ import {
 } from './section-registry'
 
 const route = getRouteApi('/_authenticated/usage-logs/$section')
-const TASK_LOG_SECTIONS = ['drawing', 'task'] as const
 
 const SECTION_META: Record<UsageLogsSectionId, { titleKey: string }> = {
   common: {
@@ -65,7 +62,6 @@ const SECTION_META: Record<UsageLogsSectionId, { titleKey: string }> = {
 function UsageLogsContent() {
   const { t } = useTranslation()
   const isMobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
-  const navigate = useNavigate()
   const params = route.useParams()
   const contextSearch = route.useSearch()
   const connectionContext = contextSearch.connectionContext
@@ -82,41 +78,6 @@ function UsageLogsContent() {
     setAffinityDialogOpen,
   } = useUsageLogsContext()
   const { canManageScope, viewScope, setViewScope } = useLogsViewScope()
-  const tabNavGroups = useMemo<NavGroup[]>(
-    () => [
-      {
-        title: 'Task Logs',
-        items: TASK_LOG_SECTIONS.map((section) => ({
-          title: SECTION_META[section].titleKey,
-          url: `/usage-logs/${section}`,
-        })),
-      },
-    ],
-    []
-  )
-  const filteredTabGroups = useSidebarConfig(tabNavGroups)
-  const visibleSections = useMemo(
-    () =>
-      (filteredTabGroups[0]?.items ?? [])
-        .map((item) => {
-          if (!('url' in item) || typeof item.url !== 'string') return null
-          return item.url.split('/').pop() ?? null
-        })
-        .filter((section): section is UsageLogsSectionId =>
-          Boolean(section && isUsageLogsSectionId(section))
-        ),
-    [filteredTabGroups]
-  )
-
-  const handleSectionChange = useCallback(
-    (section: string) => {
-      void navigate({
-        to: '/usage-logs/$section',
-        params: { section: section as UsageLogsSectionId },
-      })
-    },
-    [navigate]
-  )
 
   const handleViewScopeChange = useCallback(
     (scope: string) => {
@@ -127,10 +88,9 @@ function UsageLogsContent() {
     [setViewScope]
   )
 
-  const pageMeta =
-    activeCategory === 'common' ? SECTION_META.common : SECTION_META.task
-  const showTaskSwitcher =
-    activeCategory !== 'common' && visibleSections.length > 1
+  // The area's page tabs (call records, bodies, tasks, drawing, analytics)
+  // come from the console shell; each page keeps its own title.
+  const pageMeta = SECTION_META[activeCategory]
 
   return (
     <>
@@ -192,7 +152,7 @@ function UsageLogsContent() {
           <div
             className={
               isMobile
-                ? 'flex min-h-full flex-col gap-4'
+                ? 'flex min-h-full flex-col gap-3'
                 : 'flex h-full min-h-0 flex-col gap-4'
             }
           >
@@ -244,17 +204,6 @@ function UsageLogsContent() {
                   </Link>
                 </div>
               )}
-            {showTaskSwitcher && (
-              <Tabs value={activeCategory} onValueChange={handleSectionChange}>
-                <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
-                  {visibleSections.map((section) => (
-                    <TabsTrigger key={section} value={section}>
-                      {t(SECTION_META[section].titleKey)}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-              </Tabs>
-            )}
             <div className='min-h-0 flex-1'>
               <UsageLogsTable logCategory={activeCategory} />
             </div>

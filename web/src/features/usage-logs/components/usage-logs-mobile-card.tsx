@@ -16,15 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { flexRender, type Cell, type Table } from '@tanstack/react-table'
-import { Database } from 'lucide-react'
+import { ArrowRight01Icon, Database01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Link } from '@tanstack/react-router'
+import { flexRender, type Row, type Table } from '@tanstack/react-table'
+import { Fragment, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import {
-  dotColorMap,
-  textColorMap,
-  type StatusVariant,
-} from '@/components/status-badge'
+import { StatusBadge, type StatusBadgeProps } from '@/components/status-badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   Empty,
@@ -35,28 +34,38 @@ import {
 } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
-import { formatTimestampToDate } from '@/lib/format'
+import { formatLogQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-import { LOG_TYPE_ENUM } from '../constants'
 import type { UsageLog } from '../data/schema'
-import { parseLogOther } from '../lib/format'
+import { parseLogOther, renderAuditContent } from '../lib/format'
 import { getPersonalCallEvidence } from '../lib/personal-call-evidence'
-import {
-  getLogTypeConfig,
-  isCompletedUsageReview,
-  isDisplayableLogType,
-  isTimingLogType,
-} from '../lib/utils'
+import { isRequestLog } from '../lib/request-facts'
+import { getLogTypeConfig, isTimingLogType } from '../lib/utils'
 import type { LogCategory } from '../types'
+import { DetailsDialog } from './dialogs/details-dialog'
+import { RequestTime } from './request-summary'
 import { StreamTpsCell, TimingMetricsCell } from './timing-metrics-cell'
-import { useUsageLogsContext } from './usage-logs-provider'
+import {
+  useLogMoneyVisibility,
+  useLogsViewScope,
+  useUsageLogsContext,
+} from './usage-logs-provider'
 
-const logTypeRowTint: Record<number, string> = {
-  [LOG_TYPE_ENUM.ERROR]:
-    'bg-rose-50/40 dark:bg-rose-950/20 border-rose-200/50 dark:border-rose-900/30',
-  [LOG_TYPE_ENUM.REFUND]:
-    'bg-blue-50/30 dark:bg-blue-950/15 border-blue-200/50 dark:border-blue-900/30',
+// Same row as the Key page's recent requests: the whole row is one target.
+const ROW_TARGET_CLASS =
+  'hover:bg-muted flex min-h-12 min-w-0 flex-1 items-center gap-3 px-4 py-2.5 text-left focus-visible:outline-2 focus-visible:-outline-offset-2'
+const SKELETON_ROWS = ['first', 'second', 'third', 'fourth'] as const
+
+type TaskRowFields = {
+  /** What names the task, on the first line. */
+  headline: string[]
+  /** Its state, at the end of the first line. */
+  status: string[]
+  /** Time, duration, progress and (for an administrator) who and where. */
+  meta: string[]
+  /** Results with their own dialogs, each with a label. */
+  details: { id: string; label: string }[]
 }
 
 interface UsageLogsMobileListProps<TData> {
@@ -67,504 +76,321 @@ interface UsageLogsMobileListProps<TData> {
   logCategory: LogCategory
 }
 
-function UsageLogsMobileSkeleton() {
-  return (
-    <div className='border-border/50 bg-card overflow-hidden rounded-lg border'>
-      {[1, 2, 3].map((i) => (
-        <div
-          key={i}
-          className='border-border/40 space-y-2.5 border-b p-3 last:border-b-0'
-        >
-          <div className='flex items-center justify-between gap-3'>
-            <Skeleton className='h-5 w-40 rounded-md' />
-            <Skeleton className='h-5 w-16 rounded-md' />
-          </div>
-          <div className='grid grid-cols-2 gap-x-4 gap-y-2'>
-            {[1, 2, 3, 4, 5, 6].map((j) => (
-              <div key={j} className='min-w-0 space-y-1'>
-                <Skeleton className='h-3 w-10 rounded' />
-                <Skeleton className='h-4 w-full rounded' />
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function CompactCell<TData>({
-  cell,
-  fallback = '-',
-  className,
-  primaryOnly = false,
-}: {
-  cell?: Cell<TData, unknown>
-  fallback?: string
-  className?: string
-  primaryOnly?: boolean
-}) {
-  return (
-    <div
-      className={cn(
-        'min-w-0 overflow-hidden leading-tight [&_button]:max-w-full [&_span]:max-w-full',
-        primaryOnly &&
-          '[&_.flex-col]:min-w-0 [&_.flex-col>*:not(:first-child)]:hidden',
-        className
-      )}
-    >
-      {cell ? (
-        flexRender(cell.column.columnDef.cell, cell.getContext())
-      ) : (
-        <span className='text-muted-foreground/50'>{fallback}</span>
-      )}
-    </div>
-  )
-}
-
-function SummaryField<TData>({
-  label,
-  cell,
-  className,
-  valueClassName,
-  primaryOnly = false,
-}: {
-  label?: string
-  cell?: Cell<TData, unknown>
-  className?: string
-  valueClassName?: string
-  primaryOnly?: boolean
-}) {
-  if (!cell) return null
-
-  return (
-    <div
-      className={cn('bg-muted/20 min-w-0 rounded-md px-2 py-1.5', className)}
-    >
-      {label != null && label !== '' && (
-        <div className='text-muted-foreground mb-1 text-[11px] leading-none font-medium select-none'>
-          {label}
-        </div>
-      )}
-      <CompactCell
-        cell={cell}
-        primaryOnly={primaryOnly}
-        className={valueClassName}
-      />
-    </div>
-  )
-}
-
-function MobileLogTimeStatus({
-  createdAt,
-  type,
-  other,
-}: {
-  createdAt: unknown
-  type: unknown
-  other?: string
-}) {
+/**
+ * One call record on a phone: time, type and Request ID; then model, usage,
+ * Key and (for an administrator) connection and user; then the timing. The
+ * whole row opens the request page, or the record's dialog when it is not a
+ * relayed request with an ID. Missing usage is "not provided", never zero.
+ */
+function CommonLogRow(props: { log: UsageLog }) {
   const { t } = useTranslation()
-  const timestamp = typeof createdAt === 'number' ? createdAt : undefined
-  const logType = typeof type === 'number' ? type : undefined
-  const config = getLogTypeConfig(
-    logType ?? LOG_TYPE_ENUM.UNKNOWN,
-    parseLogOther(other ?? '')
-  )
-  const variant = config.color as StatusVariant
-
-  return (
-    <div className='space-y-1'>
-      <div className='font-mono text-xs leading-tight tabular-nums'>
-        {formatTimestampToDate(timestamp)}
-      </div>
-      <div
-        className={cn(
-          'inline-flex max-w-full items-start gap-1 text-xs font-medium',
-          textColorMap[variant]
-        )}
-      >
-        <span
-          className={cn(
-            'mt-1 size-1.5 shrink-0 rounded-full',
-            dotColorMap[variant]
-          )}
-          aria-hidden='true'
-        />
-        <span className='min-w-0 leading-snug break-keep whitespace-normal'>
-          {t(config.label)}
-        </span>
-      </div>
-    </div>
-  )
-}
-
-/** Mobile-only Tokens block: always show cache ↓/↑ when present (no label). */
-function MobileTokensField({ log }: { log: UsageLog }) {
-  const { t } = useTranslation()
-
-  if (!isDisplayableLogType(log.type)) return null
-
-  const promptTokens = log.prompt_tokens || 0
-  const completionTokens = log.completion_tokens || 0
-  if (!getPersonalCallEvidence(log).usageKnown) {
-    return (
-      <div className='bg-muted/20 text-muted-foreground min-w-0 rounded-md px-2 py-1.5 text-xs'>
-        {t('Unknown')}
-      </div>
-    )
-  }
-
-  const other = parseLogOther(log.other)
-  const cacheReadTokens = other?.cache_tokens || 0
-  const cacheWrite5m = other?.cache_creation_tokens_5m || 0
-  const cacheWrite1h = other?.cache_creation_tokens_1h || 0
-  const hasSplitCache = cacheWrite5m > 0 || cacheWrite1h > 0
-  const cacheWriteTokens = hasSplitCache
-    ? cacheWrite5m + cacheWrite1h
-    : other?.cache_creation_tokens || 0
-  const showCache = cacheReadTokens > 0 || cacheWriteTokens > 0
-
-  return (
-    <div className='bg-muted/20 min-w-0 rounded-md px-2 py-1.5'>
-      <div className='flex flex-col gap-0.5'>
-        <span className='font-mono text-xs font-medium tabular-nums'>
-          {promptTokens.toLocaleString()} / {completionTokens.toLocaleString()}
-        </span>
-        {showCache ? (
-          <div className='text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] leading-none'>
-            {cacheReadTokens > 0 && (
-              <span>
-                {t('Cache')}↓ {cacheReadTokens.toLocaleString()}
-              </span>
-            )}
-            {cacheWriteTokens > 0 && (
-              <span>↑ {cacheWriteTokens.toLocaleString()}</span>
-            )}
-          </div>
-        ) : (
-          <span className='text-muted-foreground/50 text-[11px] leading-none'>
-            —
-          </span>
-        )}
-      </div>
-    </div>
-  )
-}
-
-/** Mobile-only User block: own layout so avatar/name always line up on the same baseline. */
-function MobileUserField({ log }: { log: UsageLog }) {
+  const showCosts = useLogMoneyVisibility()
+  const { isAdminView } = useLogsViewScope()
   const { sensitiveVisible, setSelectedUserId, setUserInfoDialogOpen } =
     useUsageLogsContext()
-
-  if (!log.username) return null
-
-  return (
-    <button
-      type='button'
-      className='bg-muted/20 flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-left'
-      onClick={(e) => {
-        e.stopPropagation()
-        setSelectedUserId(log.user_id)
-        setUserInfoDialogOpen(true)
-      }}
-    >
-      <Avatar className='ring-border/60 size-6 shrink-0 ring-1'>
-        <AvatarFallback
-          className={cn(
-            'text-[11px] font-semibold',
-            !sensitiveVisible && 'bg-muted text-muted-foreground'
-          )}
-          style={
-            sensitiveVisible ? getUserAvatarStyle(log.username) : undefined
-          }
-        >
-          {sensitiveVisible ? getUserAvatarFallback(log.username) : '•'}
-        </AvatarFallback>
-      </Avatar>
-      <span className='text-foreground min-w-0 truncate text-sm'>
-        {sensitiveVisible ? log.username : '••••'}
-      </span>
-    </button>
-  )
-}
-
-/** Give timing and stream evidence a full card row, wrapping when needed. */
-function MobileStreamTimingField({ log }: { log: UsageLog }) {
-  if (!isTimingLogType(log.type)) return null
-
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const log = props.log
   const other = parseLogOther(log.other)
-  const useTime = log.use_time || 0
-  const tokensPerSecond =
-    useTime > 0 && log.completion_tokens > 0
-      ? log.completion_tokens / useTime
-      : null
+  const config = getLogTypeConfig(log.type, other)
+  const relayed = isRequestLog(log)
+  const hidden = '••••'
 
-  return (
-    <div
-      data-slot='mobile-log-timing'
-      className='bg-muted/20 col-span-full flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-md px-2 py-1.5'
-    >
-      <TimingMetricsCell
-        useTimeSec={useTime}
-        completionTokens={log.completion_tokens}
-        frtMs={other?.frt}
-        isStream={log.is_stream}
-        indicator='dot'
-        className='min-w-0 flex-1 basis-36'
-      />
-      <StreamTpsCell
-        isStream={log.is_stream}
-        tokensPerSecond={tokensPerSecond}
-        streamStatus={other?.stream_status}
-        className='shrink-0'
-      />
-    </div>
-  )
-}
-
-function CommonLogsCard<TData>({
-  cells,
-}: {
-  cells: Map<string, Cell<TData, unknown>>
-}) {
-  const { t } = useTranslation()
-
-  const modelCell = cells.get('model_name')
-  const quotaCell = cells.get('quota')
-  const rowData = cells.get('created_at')?.row.original as UsageLog | undefined
-
-  return (
-    <div className='space-y-2.5'>
-      <div className='flex min-w-0 items-center justify-between gap-3'>
-        <CompactCell
-          cell={modelCell}
-          className='min-w-0 flex-1 [&_.flex-col]:max-w-full [&_.flex-col]:min-w-0'
-        />
-        {quotaCell && (
-          <CompactCell
-            cell={quotaCell}
-            className='shrink-0 text-right [&_.flex-col]:items-end'
-          />
-        )}
-      </div>
-
-      {rowData?.request_id && (
-        <p
-          className='text-muted-foreground truncate font-mono text-xs'
-          title={rowData.request_id}
-        >
-          {rowData.request_id}
-        </p>
-      )}
-      <div className='grid grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] gap-1.5'>
-        <div className='bg-muted/20 min-w-0 rounded-md px-2 py-1.5'>
-          <MobileLogTimeStatus
-            createdAt={rowData?.created_at}
-            type={rowData?.type}
-            other={rowData?.other}
-          />
-        </div>
-        <SummaryField
-          cell={cells.get('channel')}
-          valueClassName='[&_.flex-col]:max-w-none'
-        />
-        {rowData && cells.has('user') ? (
-          <MobileUserField log={rowData} />
-        ) : (
-          <SummaryField cell={cells.get('user')} />
-        )}
-        <SummaryField
-          cell={cells.get('token_name')}
-          valueClassName='[&_.flex-col]:max-w-none [&_.flex-col>*:not(:first-child)]:text-[11px] [&_.flex-col>*:not(:first-child)]:leading-none'
-        />
-        {rowData ? (
-          <MobileStreamTimingField log={rowData} />
-        ) : (
-          <SummaryField cell={cells.get('use_time')} />
-        )}
-        {rowData ? (
-          <MobileTokensField log={rowData} />
-        ) : (
-          <SummaryField cell={cells.get('prompt_tokens')} />
-        )}
-        <SummaryField
-          label={t('Details')}
-          cell={cells.get('content')}
-          className='col-span-2 bg-transparent px-0 py-0'
-        />
-      </div>
-    </div>
-  )
-}
-
-function TaskLogsCard<TData>({
-  cells,
-}: {
-  cells: Map<string, Cell<TData, unknown>>
-}) {
-  const { t } = useTranslation()
-
-  const taskIdCell = cells.get('task_id')
-  const statusCell = cells.get('status')
-  const submitTimeCell = cells.get('submit_time')
-
-  return (
-    <div className='space-y-2.5'>
-      <div className='flex min-w-0 items-start justify-between gap-3'>
-        <CompactCell cell={taskIdCell} className='flex-1' />
-        <CompactCell cell={statusCell} className='shrink-0 text-right' />
-      </div>
-
-      <div className='grid grid-cols-2 gap-1.5'>
-        <SummaryField label={t('Submit Time')} cell={submitTimeCell} />
-        <SummaryField label={t('User')} cell={cells.get('user')} primaryOnly />
-        <SummaryField
-          label={t('Result')}
-          cell={cells.get('fail_reason')}
-          className='col-span-2 bg-transparent px-0 py-0'
-        />
-      </div>
-    </div>
-  )
-}
-
-function DrawingLogsCard<TData>({
-  cells,
-}: {
-  cells: Map<string, Cell<TData, unknown>>
-}) {
-  const { t } = useTranslation()
-
-  const actionCell = cells.get('action')
-  const codeCell = cells.get('code')
-  const submitTimeCell = cells.get('submit_time')
-
-  return (
-    <div className='space-y-2.5'>
-      <div className='flex min-w-0 items-start justify-between gap-3'>
-        <CompactCell cell={actionCell} className='flex-1' />
-        <CompactCell cell={codeCell} className='shrink-0 text-right' />
-      </div>
-
-      <div className='grid grid-cols-2 gap-1.5'>
-        <SummaryField label={t('Submit Time')} cell={submitTimeCell} />
-        <SummaryField
-          label={t('Channel')}
-          cell={cells.get('channel')}
-          primaryOnly
-        />
-        <SummaryField label={t('Task ID')} cell={cells.get('mj_id')} />
-        <SummaryField
-          label={t('Duration')}
-          cell={cells.get('duration')}
-          primaryOnly
-        />
-        <SummaryField label={t('Image')} cell={cells.get('image_url')} />
-        <SummaryField
-          label={t('Prompt')}
-          cell={cells.get('prompt')}
-          primaryOnly
-        />
-        <SummaryField
-          label={t('Fail Reason')}
-          cell={cells.get('fail_reason')}
-          className='col-span-2 bg-transparent px-0 py-0'
-        />
-      </div>
-    </div>
-  )
-}
-
-export function UsageLogsMobileList<TData>({
-  table,
-  isLoading = false,
-  emptyTitle,
-  emptyDescription,
-  logCategory,
-}: UsageLogsMobileListProps<TData>) {
-  const { t } = useTranslation()
-
-  const resolvedEmptyTitle = emptyTitle ?? t('No Logs Found')
-  const resolvedEmptyDescription =
-    emptyDescription ??
-    t('No usage logs available. Logs will appear here once API calls are made.')
-
-  if (isLoading) {
-    return <UsageLogsMobileSkeleton />
+  const facts: { key: string; text: string; className?: string }[] = []
+  if (relayed) {
+    facts.push({
+      key: 'model',
+      text: log.model_name || t('Unknown model'),
+      className: 'text-foreground font-mono',
+    })
+    facts.push({
+      key: 'usage',
+      text: getPersonalCallEvidence(log).usageKnown
+        ? t('{{count}} Tokens', {
+            count: log.prompt_tokens + log.completion_tokens,
+          })
+        : t('Usage not provided'),
+    })
+    if (log.token_name) {
+      facts.push({
+        key: 'key',
+        text: sensitiveVisible ? log.token_name : hidden,
+      })
+    }
+    if (isAdminView && log.channel) {
+      facts.push({
+        key: 'connection',
+        text:
+          sensitiveVisible && log.channel_name
+            ? log.channel_name
+            : `#${log.channel}`,
+      })
+    }
+  } else {
+    const content = renderAuditContent(other, t) ?? log.content
+    if (content) facts.push({ key: 'content', text: content })
+  }
+  if (isAdminView && log.username) {
+    facts.push({
+      key: 'user',
+      text: sensitiveVisible ? log.username : hidden,
+    })
+  }
+  if (showCosts && (log.type === 2 || log.type === 6)) {
+    facts.push({ key: 'cost', text: formatLogQuota(log.quota) })
   }
 
-  const rows = table.getRowModel().rows
+  const useTime = log.use_time || 0
+  const body = (
+    <>
+      <div className='flex min-w-0 flex-1 flex-col gap-1'>
+        <div className='flex min-w-0 items-center gap-2'>
+          <span className='text-muted-foreground shrink-0 font-mono text-xs'>
+            <RequestTime seconds={log.created_at} />
+          </span>
+          <StatusBadge
+            label={t(config.label)}
+            variant={config.color as StatusBadgeProps['variant']}
+            copyable={false}
+            className='h-auto min-h-5 shrink-0 whitespace-normal'
+          />
+          {log.request_id && (
+            <span className='text-muted-foreground min-w-0 truncate font-mono text-xs'>
+              {log.request_id}
+            </span>
+          )}
+        </div>
+        {facts.length > 0 && (
+          <div className='text-muted-foreground flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-xs'>
+            {facts.map((fact, index) => (
+              <Fragment key={fact.key}>
+                {index > 0 && <span aria-hidden='true'>·</span>}
+                <span className={cn('min-w-0 wrap-anywhere', fact.className)}>
+                  {fact.text}
+                </span>
+              </Fragment>
+            ))}
+          </div>
+        )}
+        {isTimingLogType(log.type) && (
+          <div
+            data-slot='mobile-log-timing'
+            className='flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2'
+          >
+            <TimingMetricsCell
+              useTimeSec={useTime}
+              completionTokens={log.completion_tokens}
+              frtMs={other?.frt}
+              isStream={log.is_stream}
+              indicator='dot'
+              className='min-w-0 flex-1 basis-36'
+            />
+            <StreamTpsCell
+              isStream={log.is_stream}
+              tokensPerSecond={
+                useTime > 0 && log.completion_tokens > 0
+                  ? log.completion_tokens / useTime
+                  : null
+              }
+              streamStatus={other?.stream_status}
+              className='shrink-0'
+            />
+          </div>
+        )}
+      </div>
+      <HugeiconsIcon
+        icon={ArrowRight01Icon}
+        className='text-muted-foreground size-4 shrink-0'
+        aria-hidden='true'
+      />
+    </>
+  )
 
-  if (!rows || rows.length === 0) {
+  return (
+    <li data-log-row='' className='flex min-w-0 items-stretch'>
+      {log.request_id && relayed ? (
+        <Link
+          to='/usage-logs/request/$requestId'
+          params={{ requestId: log.request_id }}
+          state={{ inspectorBack: true }}
+          title={t('Click to view full details')}
+          className={ROW_TARGET_CLASS}
+        >
+          {body}
+        </Link>
+      ) : (
+        <button
+          type='button'
+          title={t('Click to view full details')}
+          className={ROW_TARGET_CLASS}
+          onClick={() => setDialogOpen(true)}
+        >
+          {body}
+        </button>
+      )}
+      {isAdminView && log.username && (
+        <button
+          type='button'
+          className='flex shrink-0 items-center justify-center px-2'
+          aria-label={t('User: {{name}}', {
+            name: sensitiveVisible ? log.username : hidden,
+          })}
+          onClick={() => {
+            setSelectedUserId(log.user_id)
+            setUserInfoDialogOpen(true)
+          }}
+        >
+          <Avatar className='ring-border/60 size-7 ring-1'>
+            <AvatarFallback
+              className={cn(
+                'text-[11px] font-semibold',
+                !sensitiveVisible && 'bg-muted text-muted-foreground'
+              )}
+              style={
+                sensitiveVisible ? getUserAvatarStyle(log.username) : undefined
+              }
+            >
+              {sensitiveVisible ? getUserAvatarFallback(log.username) : '•'}
+            </AvatarFallback>
+          </Avatar>
+        </button>
+      )}
+      {!(log.request_id && relayed) && (
+        <DetailsDialog
+          log={log}
+          isAdmin={isAdminView}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+        />
+      )}
+    </li>
+  )
+}
+
+/**
+ * A task or drawing on a phone, in the same row as a call record. Its cells
+ * come from the PC columns so previews, prompts and failure reasons keep
+ * their own dialogs.
+ */
+function TaskLogRow<TData>(props: { row: Row<TData>; fields: TaskRowFields }) {
+  const cells = new Map(
+    props.row.getVisibleCells().map((cell) => [cell.column.id, cell])
+  )
+  // Results stay reachable on a phone even when the PC view hid them.
+  for (const detail of props.fields.details) {
+    if (cells.has(detail.id)) continue
+    const cell = props.row
+      .getAllCells()
+      .find((candidate) => candidate.column.id === detail.id)
+    if (cell) cells.set(detail.id, cell)
+  }
+  const render = (id: string): ReactNode => {
+    const cell = cells.get(id)
+    if (!cell) return null
     return (
-      <div className='rounded-lg border p-6'>
-        <Empty className='border-none p-0'>
-          <EmptyHeader>
-            <EmptyMedia variant='icon'>
-              <Database className='size-6' />
-            </EmptyMedia>
-            <EmptyTitle>{resolvedEmptyTitle}</EmptyTitle>
-            <EmptyDescription>{resolvedEmptyDescription}</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+      <div key={id} className='min-w-0'>
+        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+      </div>
+    )
+  }
+  const details = props.fields.details.filter((detail) => cells.has(detail.id))
+
+  return (
+    <li data-log-row='' className='flex min-w-0 flex-col gap-1.5 px-4 py-2.5'>
+      <div className='flex min-w-0 items-start justify-between gap-3'>
+        <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
+          {props.fields.headline.map(render)}
+        </div>
+        <div className='flex shrink-0 items-center gap-1.5'>
+          {props.fields.status.map(render)}
+        </div>
+      </div>
+      <div className='text-muted-foreground flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs'>
+        {props.fields.meta.map(render)}
+      </div>
+      {details.length > 0 && (
+        <dl className='flex min-w-0 flex-col gap-1 text-xs'>
+          {details.map((detail) => (
+            <div key={detail.id} className='flex min-w-0 items-center gap-2'>
+              <dt className='text-muted-foreground shrink-0'>{detail.label}</dt>
+              <dd className='min-w-0'>{render(detail.id)}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </li>
+  )
+}
+
+export function UsageLogsMobileList<TData>(
+  props: UsageLogsMobileListProps<TData>
+) {
+  const { t } = useTranslation()
+
+  if (props.isLoading) {
+    return (
+      <div
+        className='bg-card flex flex-col gap-2 rounded-xl border p-3'
+        aria-busy='true'
+      >
+        <span className='sr-only'>{t('Loading...')}</span>
+        {SKELETON_ROWS.map((id) => (
+          <Skeleton key={id} className='h-14 w-full' />
+        ))}
       </div>
     )
   }
 
+  const rows = props.table.getRowModel().rows
+  if (rows.length === 0) {
+    return (
+      <Empty className='bg-card rounded-xl border'>
+        <EmptyHeader>
+          <EmptyMedia variant='icon'>
+            <HugeiconsIcon icon={Database01Icon} aria-hidden='true' />
+          </EmptyMedia>
+          <EmptyTitle>{props.emptyTitle ?? t('No Logs Found')}</EmptyTitle>
+          <EmptyDescription>
+            {props.emptyDescription ??
+              t(
+                'No usage logs available. Logs will appear here once API calls are made.'
+              )}
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    )
+  }
+
+  const taskFields: TaskRowFields =
+    props.logCategory === 'drawing'
+      ? {
+          headline: ['action', 'mj_id'],
+          status: ['code'],
+          meta: ['submit_time', 'duration', 'progress', 'channel_id'],
+          details: [
+            { id: 'image_url', label: t('Image') },
+            { id: 'prompt', label: t('Prompt') },
+            { id: 'fail_reason', label: t('Fail Reason') },
+          ],
+        }
+      : {
+          headline: ['task_id'],
+          status: ['status'],
+          meta: ['submit_time', 'duration', 'progress', 'user', 'channel_id'],
+          details: [{ id: 'fail_reason', label: t('Details') }],
+        }
+
   return (
-    <div className='border-border/50 bg-card overflow-hidden rounded-lg border'>
-      {rows.map((row) => {
-        const cells = new Map(
-          row.getVisibleCells().map((cell) => [cell.column.id, cell])
+    <ul
+      role='list'
+      className='bg-card flex min-w-0 flex-col divide-y overflow-hidden rounded-xl border'
+    >
+      {rows.map((row) =>
+        props.logCategory === 'common' ? (
+          <CommonLogRow key={row.id} log={row.original as UsageLog} />
+        ) : (
+          <TaskLogRow key={row.id} row={row} fields={taskFields} />
         )
-        // Details are the primary payload of an API log. Keep that action
-        // available on mobile even when a desktop column-visibility choice
-        // hid the Details column; all other fields still respect visibility.
-        if (!cells.has('content')) {
-          const detailsCell = row
-            .getAllCells()
-            .find((cell) => cell.column.id === 'content')
-          if (detailsCell) cells.set('content', detailsCell)
-        }
-
-        const logType = (row.original as Record<string, unknown>).type as
-          | number
-          | undefined
-        const other = parseLogOther(
-          ((row.original as Record<string, unknown>).other as string) ?? ''
-        )
-        let tintClass = logType != null ? (logTypeRowTint[logType] ?? '') : ''
-        if (
-          logCategory === 'common' &&
-          logType === 5 &&
-          other?.request_outcome === 'completed'
-        ) {
-          tintClass = ''
-        }
-        if (
-          logCategory === 'common' &&
-          isCompletedUsageReview(logType ?? LOG_TYPE_ENUM.UNKNOWN, other)
-        ) {
-          tintClass =
-            'bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/50 dark:border-amber-900/30'
-        }
-
-        return (
-          <div
-            key={row.id}
-            data-log-row=''
-            className={cn(
-              'border-border/40 border-b border-l-2 border-l-transparent p-3 transition-colors last:border-b-0',
-              tintClass
-            )}
-          >
-            {logCategory === 'common' && <CommonLogsCard cells={cells} />}
-            {logCategory === 'task' && <TaskLogsCard cells={cells} />}
-            {logCategory === 'drawing' && <DrawingLogsCard cells={cells} />}
-          </div>
-        )
-      })}
-    </div>
+      )}
+    </ul>
   )
 }

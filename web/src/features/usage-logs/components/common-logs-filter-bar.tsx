@@ -37,6 +37,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { useMediaQuery } from '@/hooks'
+import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 
 import { LOG_TYPE_ALL_VALUE, LOG_TYPE_FILTERS } from '../constants'
 import { buildSearchParams } from '../lib/filter'
@@ -119,6 +121,7 @@ export function CommonLogsFilterBar<TData>(
   const { isAdminView: isAdmin } = useLogsViewScope()
   const { sensitiveVisible, setSensitiveVisible } = useUsageLogsContext()
   const fetchingLogs = useIsFetching({ queryKey: ['logs'] })
+  const isMobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
 
   const searchState = useMemo<CommonLogDraft>(() => {
     const { start, end } = getDefaultTimeRange()
@@ -185,41 +188,47 @@ export function CommonLogsFilterBar<TData>(
     [searchState]
   )
 
-  const handleApply = useCallback(() => {
-    const filterParams = buildSearchParams(filters, 'common')
-    navigate({
-      to: '/usage-logs/$section',
-      params: { section: 'common' },
-      search: {
-        ...filterParams,
-        type: [logType],
-        // The failure filter narrows error records; another type ends it.
-        result:
-          logType === '5' || logType === LOG_TYPE_ALL_VALUE
-            ? searchParams.result
-            : undefined,
-        page: 1,
-        pageSize: searchParams.pageSize,
-        tokenId: searchParams.tokenId,
-        keyReturn: searchParams.keyReturn,
-        connectionContext: searchParams.connectionContext,
-        returnToKeys: searchParams.returnToKeys,
-      },
-    })
-    queryClient.invalidateQueries({ queryKey: ['logs'] })
-    queryClient.invalidateQueries({ queryKey: ['usage-logs-stats'] })
-  }, [
-    filters,
-    logType,
-    navigate,
-    queryClient,
-    searchParams.result,
-    searchParams.pageSize,
-    searchParams.tokenId,
-    searchParams.keyReturn,
-    searchParams.connectionContext,
-    searchParams.returnToKeys,
-  ])
+  const applyFilters = useCallback(
+    (nextFilters: CommonLogFilters) => {
+      const filterParams = buildSearchParams(nextFilters, 'common')
+      navigate({
+        to: '/usage-logs/$section',
+        params: { section: 'common' },
+        search: {
+          ...filterParams,
+          type: [logType],
+          // The failure filter narrows error records; another type ends it.
+          result:
+            logType === '5' || logType === LOG_TYPE_ALL_VALUE
+              ? searchParams.result
+              : undefined,
+          page: 1,
+          pageSize: searchParams.pageSize,
+          tokenId: searchParams.tokenId,
+          keyReturn: searchParams.keyReturn,
+          connectionContext: searchParams.connectionContext,
+          returnToKeys: searchParams.returnToKeys,
+        },
+      })
+      queryClient.invalidateQueries({ queryKey: ['logs'] })
+      queryClient.invalidateQueries({ queryKey: ['usage-logs-stats'] })
+    },
+    [
+      logType,
+      navigate,
+      queryClient,
+      searchParams.result,
+      searchParams.pageSize,
+      searchParams.tokenId,
+      searchParams.keyReturn,
+      searchParams.connectionContext,
+      searchParams.returnToKeys,
+    ]
+  )
+  const handleApply = useCallback(
+    () => applyFilters(filters),
+    [applyFilters, filters]
+  )
 
   const handleReset = useCallback(() => {
     const { start, end } = getDefaultTimeRange()
@@ -297,11 +306,6 @@ export function CommonLogsFilterBar<TData>(
   const logTypeLabel =
     logTypeItems.find((type) => type.value === logType)?.label ?? t('All Types')
 
-  const statsBar = (
-    <div className='flex flex-wrap items-center gap-2'>
-      <CommonLogsStats />
-    </div>
-  )
   const sensitiveToggle = (
     <Tooltip>
       <TooltipTrigger
@@ -311,7 +315,7 @@ export function CommonLogsFilterBar<TData>(
             size='icon'
             onClick={() => setSensitiveVisible(!sensitiveVisible)}
             aria-label={sensitiveVisible ? t('Hide') : t('Show')}
-            className='text-muted-foreground hover:text-foreground size-7'
+            className='text-muted-foreground hover:text-foreground size-7 shrink-0 pointer-coarse:size-11'
           />
         }
       >
@@ -329,6 +333,12 @@ export function CommonLogsFilterBar<TData>(
         start={filters.startTime}
         end={filters.endTime}
         onChange={({ start, end }) => {
+          // A phone keeps only the range on the page, so a new range applies
+          // at once instead of waiting for the Search in the filter sheet.
+          if (isMobile) {
+            applyFilters({ ...filters, startTime: start, endTime: end })
+            return
+          }
           handleChange('startTime', start)
           handleChange('endTime', end)
         }}
@@ -446,7 +456,7 @@ export function CommonLogsFilterBar<TData>(
   return (
     <LogsFilterToolbar
       table={props.table}
-      stats={statsBar}
+      stats={<CommonLogsStats />}
       actionStart={sensitiveToggle}
       primaryFilters={
         <>

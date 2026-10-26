@@ -22,6 +22,9 @@ import type { Table } from '@tanstack/react-table'
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useMediaQuery } from '@/hooks'
+import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
+
 import { buildSearchParams } from '../lib/filter'
 import { getDefaultTimeRange } from '../lib/utils'
 import type { DrawingLogFilters, LogCategory, TaskLogFilters } from '../types'
@@ -71,6 +74,7 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
   const searchParams = route.useSearch()
   const { isAdminView: isAdmin } = useLogsViewScope()
   const fetchingLogs = useIsFetching({ queryKey: ['logs'] })
+  const isMobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
 
   const [filters, setFilters] = useState<TaskLogsFilters>(() => {
     const { start, end } = getDefaultTimeRange()
@@ -115,18 +119,25 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
     []
   )
 
-  const handleApply = useCallback(() => {
-    const filterParams = buildSearchParams(filters, props.logCategory)
-    navigate({
-      to: '/usage-logs/$section',
-      params: { section: props.logCategory },
-      search: {
-        ...filterParams,
-        page: 1,
-      },
-    })
-    queryClient.invalidateQueries({ queryKey: ['logs'] })
-  }, [filters, navigate, props.logCategory, queryClient])
+  const applyFilters = useCallback(
+    (nextFilters: TaskLogsFilters) => {
+      const filterParams = buildSearchParams(nextFilters, props.logCategory)
+      navigate({
+        to: '/usage-logs/$section',
+        params: { section: props.logCategory },
+        search: {
+          ...filterParams,
+          page: 1,
+        },
+      })
+      queryClient.invalidateQueries({ queryKey: ['logs'] })
+    },
+    [navigate, props.logCategory, queryClient]
+  )
+  const handleApply = useCallback(
+    () => applyFilters(filters),
+    [applyFilters, filters]
+  )
 
   const handleReset = useCallback(() => {
     const { start, end } = getDefaultTimeRange()
@@ -171,6 +182,12 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
         start={filters.startTime}
         end={filters.endTime}
         onChange={({ start, end }) => {
+          // A phone keeps only the range on the page, so a new range applies
+          // at once instead of waiting for the Search in the filter sheet.
+          if (isMobile) {
+            applyFilters({ ...filters, startTime: start, endTime: end })
+            return
+          }
           handleChange('startTime', start)
           handleChange('endTime', end)
         }}

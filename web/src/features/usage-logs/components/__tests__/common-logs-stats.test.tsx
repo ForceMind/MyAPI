@@ -11,6 +11,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
+import { useMediaQuery } from '@/hooks'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -21,6 +22,10 @@ const route = vi.hoisted(() => ({ search: {} as Record<string, unknown> }))
 vi.mock('@tanstack/react-router', () => ({
   getRouteApi: () => ({ useSearch: () => route.search }),
 }))
+vi.mock('@/hooks', async () => {
+  const actual = await vi.importActual<typeof import('@/hooks')>('@/hooks')
+  return { ...actual, useMediaQuery: vi.fn(() => false) }
+})
 const original = useAuthStore.getState()
 const clients: QueryClient[] = []
 const partial = {
@@ -42,6 +47,7 @@ const partial = {
 
 beforeEach(() => {
   route.search = {}
+  vi.mocked(useMediaQuery).mockReturnValue(false)
   useAuthStore.setState({
     auth: { ...original.auth, user: { id: 1, username: 'owner', role: 100 } },
   })
@@ -369,6 +375,30 @@ test('a failed statistics read exposes retry and never fabricates zero usage', a
     await screen.findByRole('region', { name: 'Token usage statistics' })
   ).toHaveTextContent('1,100')
   expect(get).toHaveBeenCalledTimes(2)
+})
+
+test('a phone keeps the four figures on one line and the evidence under the statistics basis', async () => {
+  vi.mocked(useMediaQuery).mockReturnValue(true)
+  vi.spyOn(api, 'get').mockResolvedValue({
+    data: {
+      success: true,
+      data: { quota: 0, rpm: 3, tpm: 4, token_usage: partial },
+    },
+  })
+  renderStats()
+  const stats = await screen.findByRole('region', {
+    name: 'Token usage statistics',
+  })
+  expect(stats.querySelectorAll('dd')).toHaveLength(4)
+  expect(within(stats).getByText('1,100')).toBeVisible()
+  expect(within(stats).getByText('Known Token subtotal')).toBeVisible()
+  const basis = within(stats).getByText('Statistics basis')
+  expect(basis.tagName).toBe('SUMMARY')
+  expect(basis.closest('details')).toHaveTextContent(
+    '1 record with unknown usage'
+  )
+  expect(basis.closest('details')).toHaveTextContent('RPM')
+  expect(basis.closest('details')).not.toHaveAttribute('open')
 })
 
 test('an older statistics API cannot manufacture Token or cache totals', async () => {

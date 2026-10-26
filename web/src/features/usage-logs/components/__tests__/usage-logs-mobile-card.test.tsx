@@ -1,5 +1,3 @@
-import type { Cell, Table } from '@tanstack/react-table'
-import { render, screen } from '@testing-library/react'
 /*
 Copyright (C) 2026 ForceMind
 
@@ -8,19 +6,60 @@ it under the terms of the GNU Affero General Public License as published by
 the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
+import type { Cell, Table } from '@tanstack/react-table'
+import { render, screen, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 
 import { LOG_TYPE_ENUM } from '../../constants'
 import type { UsageLog } from '../../data/schema'
 import { UsageLogsMobileList } from '../usage-logs-mobile-card'
 import { UsageLogsProvider } from '../usage-logs-provider'
 
-function makeCell(
+vi.mock('@tanstack/react-router', () => ({
+  Link: (props: {
+    children?: ReactNode
+    title?: string
+    params: { requestId: string }
+  }) => (
+    <a
+      href={`/usage-logs/request/${props.params.requestId}`}
+      title={props.title}
+    >
+      {props.children}
+    </a>
+  ),
+}))
+
+const LOG: UsageLog = {
+  id: 1,
+  user_id: 2,
+  created_at: 1_756_560_000,
+  type: LOG_TYPE_ENUM.CONSUME,
+  content: 'request payload',
+  username: 'teammate',
+  token_name: 'research-key',
+  model_name: 'gpt-5',
+  quota: 12,
+  prompt_tokens: 10,
+  completion_tokens: 8,
+  use_time: 1,
+  is_stream: false,
+  channel: 3,
+  channel_name: 'Codex',
+  token_id: 4,
+  group: 'default',
+  ip: '',
+  other: '',
+  request_id: 'req-mobile',
+  upstream_request_id: '',
+}
+
+function makeCell<TData>(
   id: string,
   value: ReactNode,
-  row: { original: UsageLog }
-): Cell<UsageLog, unknown> {
+  row: { original: TData }
+): Cell<TData, unknown> {
   return {
     column: {
       id,
@@ -28,92 +67,125 @@ function makeCell(
     },
     getContext: () => ({}),
     row,
-  } as unknown as Cell<UsageLog, unknown>
+  } as unknown as Cell<TData, unknown>
 }
 
-function makeTable({
-  includeContent = true,
-  rows = true,
-} = {}): Table<UsageLog> {
-  if (!rows) {
-    return { getRowModel: () => ({ rows: [] }) } as unknown as Table<UsageLog>
-  }
-
-  const original: UsageLog = {
-    id: 1,
-    user_id: 2,
-    created_at: 1_756_560_000,
-    type: LOG_TYPE_ENUM.CONSUME,
-    content: 'request payload',
-    username: 'teammate',
-    token_name: 'research-key',
-    model_name: 'gpt-5',
-    quota: 12,
-    prompt_tokens: 10,
-    completion_tokens: 8,
-    use_time: 1,
-    is_stream: false,
-    channel: 3,
-    channel_name: 'Codex',
-    token_id: 4,
-    group: 'default',
-    ip: '',
-    other: '',
-    request_id: 'req-mobile',
-    upstream_request_id: '',
-  }
-  const row = { original } as { original: UsageLog }
-  const allCells = [
-    makeCell('created_at', 'time', row),
-    makeCell('model_name', 'gpt-5', row),
-    makeCell('quota', '12', row),
-    makeCell('channel', 'Codex', row),
-    makeCell('user', 'teammate', row),
-    makeCell('token_name', 'research-key', row),
-    makeCell('use_time', '1s', row),
-    makeCell('prompt_tokens', '10', row),
-    makeCell('content', <button type='button'>View content</button>, row),
-  ]
-  const visibleCells = includeContent
-    ? allCells
-    : allCells.filter((cell) => cell.column.id !== 'content')
+/** A table whose rows carry these records; call records read the record. */
+function makeTable<TData>(
+  originals: TData[],
+  cellsFor: (row: { original: TData }) => {
+    visible: Cell<TData, unknown>[]
+    all: Cell<TData, unknown>[]
+  } = () => ({ visible: [], all: [] })
+): Table<TData> {
   return {
     getRowModel: () => ({
-      rows: [
-        {
-          id: 'row-1',
+      rows: originals.map((original, index) => {
+        const row = { original }
+        const cells = cellsFor(row)
+        return {
+          id: `row-${index + 1}`,
           original,
-          getVisibleCells: () => visibleCells,
-          getAllCells: () => allCells,
-        },
-      ],
+          getVisibleCells: () => cells.visible,
+          getAllCells: () => cells.all,
+        }
+      }),
     }),
-  } as unknown as Table<UsageLog>
+  } as unknown as Table<TData>
 }
 
-function renderList(
-  table: Table<UsageLog>,
-  props: Record<string, unknown> = {}
+function renderList<TData>(
+  table: Table<TData>,
+  props: { isLoading?: boolean; logCategory?: 'common' | 'task' } = {}
 ) {
   return render(
     <UsageLogsProvider>
-      <UsageLogsMobileList table={table} logCategory='common' {...props} />
+      <UsageLogsMobileList
+        table={table}
+        logCategory={props.logCategory ?? 'common'}
+        isLoading={props.isLoading}
+      />
     </UsageLogsProvider>
   )
 }
 
 describe('usage logs mobile list', () => {
-  test('keeps the details action visible when desktop content column is hidden', () => {
-    renderList(makeTable({ includeContent: false }))
+  test('a relayed request opens its request page from the whole row', () => {
+    renderList(makeTable([LOG]))
 
-    expect(screen.getByText('gpt-5')).toBeInTheDocument()
+    const row = screen.getByTitle('Click to view full details')
+    expect(row).toHaveAttribute('href', '/usage-logs/request/req-mobile')
+    expect(within(row).getByText('gpt-5')).toBeInTheDocument()
+    expect(within(row).getByText('req-mobile')).toBeInTheDocument()
+    expect(within(row).getByText('research-key')).toBeInTheDocument()
+    expect(within(row).getByText('18 Tokens')).toBeInTheDocument()
+  })
+
+  test('a record without a Request ID keeps its details as a button', () => {
+    renderList(makeTable([{ ...LOG, request_id: '' }]))
+
+    const row = screen.getByTitle('Click to view full details')
+    expect(row.tagName).toBe('BUTTON')
+    expect(within(row).getByText('gpt-5')).toBeInTheDocument()
+  })
+
+  test('missing usage reads as not provided and never as zero Tokens', () => {
+    renderList(
+      makeTable([
+        {
+          ...LOG,
+          type: LOG_TYPE_ENUM.ERROR,
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          other: JSON.stringify({
+            request_outcome: 'completed',
+            usage_outcome: 'missing',
+          }),
+        },
+      ])
+    )
+
+    const row = screen.getByTitle('Click to view full details')
+    expect(within(row).getByText('Usage not provided')).toBeInTheDocument()
+    expect(within(row).queryByText('0 Tokens')).not.toBeInTheDocument()
+  })
+
+  test('a relayed request shows its timing beside the stream mode', () => {
+    renderList(makeTable([LOG]))
+
+    const timing = document.querySelector('[data-slot="mobile-log-timing"]')
+    expect(timing?.children).toHaveLength(2)
+    expect(timing).toHaveTextContent('Duration')
+    expect(timing).toHaveTextContent('Non-stream')
+  })
+
+  test('a task keeps its result reachable when the PC view hid that column', () => {
+    const task = { id: 9, task_id: 'task-9' }
+    const table = makeTable([task], (row) => {
+      const visible = [
+        makeCell('task_id', 'task-9', row),
+        makeCell('status', 'Succeeded', row),
+        makeCell('submit_time', 'submitted', row),
+      ]
+      const result = makeCell(
+        'fail_reason',
+        <button type='button'>View reason</button>,
+        row
+      )
+      return { visible, all: [...visible, result] }
+    })
+
+    renderList(table, { logCategory: 'task' })
+
+    expect(screen.getByText('task-9')).toBeInTheDocument()
+    expect(screen.getByText('Succeeded')).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'View content' })
+      screen.getByRole('button', { name: 'View reason' })
     ).toBeInTheDocument()
   })
 
-  test('renders loading and empty states without a table row', () => {
-    const { rerender } = renderList(makeTable({ rows: false }), {
+  test('renders loading and empty states without a record row', () => {
+    const { rerender } = renderList(makeTable<UsageLog>([]), {
       isLoading: true,
     })
     expect(
@@ -123,11 +195,12 @@ describe('usage logs mobile list', () => {
     rerender(
       <UsageLogsProvider>
         <UsageLogsMobileList
-          table={makeTable({ rows: false })}
+          table={makeTable<UsageLog>([])}
           logCategory='common'
         />
       </UsageLogsProvider>
     )
     expect(screen.getByText('No Logs Found')).toBeInTheDocument()
+    expect(document.querySelector('[data-log-row]')).toBeNull()
   })
 })
