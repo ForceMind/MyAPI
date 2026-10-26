@@ -33,10 +33,11 @@
 
 ## 你的第一步（不需要问维护者的部分）
 
-1. 准备工作区，两种方式任选其一：
-   - **方式 A（之前的会话一直在用，推荐继续用）**：维护者的移动硬盘 `/Volumes/Work/Prive/MyAPI`（exFAT 格式）里已有一个 `dev` 分支的 git 工作区 `/Volumes/Work/Prive/MyAPI/.claude/worktrees/dev-work`。进入它，执行 `git -c core.fileMode=false fetch origin` 和 `git -c core.fileMode=false pull --ff-only`。exFAT 上每条 git 命令都要加 `-c core.fileMode=false`（否则每个文件显示权限位变化），并用 `2>&1 | grep -v 'non-monotonic'` 过滤 `._*.idx` 报错噪音；不要 `git add -A`，只添加自己的文件。硬盘上的主检出 `/Volumes/Work/Prive/MyAPI` 停在旧分支，不要在那里工作。
-   - **方式 B**：在本机内置磁盘的普通文件系统上重新克隆（`git clone` 后 `git checkout dev`），没有上面的噪音问题。
-   无论哪种方式，都要确认 `dev` 的最新提交包含接手文档（`docs/evidence/redesign-20261024/handoff/`），`git log` 里应能看到提交 `2f5b7420` 或更新的提交。
+1. 准备工作区。项目**只放在维护者的移动硬盘上**（exFAT 格式），维护者已决定本机内置磁盘上的旧版本项目会删除，所以**不要在本机内置磁盘另建副本或克隆**。
+   - 工作区是硬盘上的 `dev` 分支 git 工作区：`/Volumes/Work/Prive/MyAPI/.claude/worktrees/dev-work`。进入它，执行 `git -c core.fileMode=false fetch origin` 和 `git -c core.fileMode=false pull --ff-only`。
+   - 它依赖硬盘上主检出 `/Volumes/Work/Prive/MyAPI` 里的 `.git` 目录，**不要删除、移动或重命名 `/Volumes/Work/Prive/MyAPI`**；主检出本身停在旧分支，不要在那里工作。
+   - exFAT 上每条 git 命令都要加 `-c core.fileMode=false`（否则每个文件显示权限位变化），并用 `2>&1 | grep -v 'non-monotonic'` 过滤 `._*.idx` 报错噪音；不要 `git add -A`，只添加自己的文件。
+   - 确认 `dev` 的最新提交包含接手文档（`docs/evidence/redesign-20261024/handoff/`），`git log` 里应能看到提交 `2f5b7420` 或更新的提交。
 2. 用 `gh run list --repo ForceMind/MyAPI --branch dev --limit 5` 看最近 CI。最后一个已确认全绿的提交是 `a53973d4`（运行 40271665685，经重跑通过）。其后的第 5b、5c 步代码**从未经过 CI**，推送后期望会红。
 3. 读最新一次 CI 的失败步骤和日志，按接手文档第六节的优先排查点逐个修，修一批、推一次（同一分支新推送会取消未跑完的旧运行）。
 4. CI 全绿后，用 CI 上传的浏览器截图检查 5b、5c 各页面的实际效果，对照 `ui-design-v2/mockups/3-flow/` 样稿与 `step1`–`step4` 截图，不一致的返工。
