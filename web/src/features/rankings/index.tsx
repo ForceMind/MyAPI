@@ -99,9 +99,9 @@ export function Rankings() {
 function RankingsLoading() {
   return (
     <div className='space-y-6'>
-      <Skeleton className='rounded-card h-[420px] w-full' />
-      <Skeleton className='rounded-card h-[360px] w-full' />
-      <Skeleton className='rounded-card h-[180px] w-full' />
+      <Skeleton className='h-[420px] w-full rounded-xl' />
+      <Skeleton className='h-[360px] w-full rounded-xl' />
+      <Skeleton className='h-[180px] w-full rounded-xl' />
     </div>
   )
 }
