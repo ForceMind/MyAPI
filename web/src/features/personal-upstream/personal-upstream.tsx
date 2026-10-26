@@ -88,7 +88,7 @@ export function PersonalUpstream() {
               {/* One account list for every width; on a phone it scrolls
                   sideways instead of a native select (design 6.2). */}
               <aside
-                className='pc-card min-w-0 self-start p-3'
+                className='bg-card rounded-card min-w-0 self-start border p-3'
                 aria-label={t('Select upstream account')}
               >
                 <p className='text-caption text-muted-foreground px-2 py-2'>
