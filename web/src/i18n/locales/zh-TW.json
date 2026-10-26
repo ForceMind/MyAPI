@@ -7169,6 +7169,16 @@
     "{{window}} sample: {{state}}": "{{window}} sample: {{state}}",
     "{{window}} sample: {{value}}% left": "{{window}} sample: {{value}}% left",
     "{{window}}: {{state}}": "{{window}}: {{state}}",
-    "User: {{name}}": "User: {{name}}"
+    "User: {{name}}": "User: {{name}}",
+    "Console modules": "Console modules",
+    "Save console modules": "Save console modules",
+    "Custom console area": "Custom console area",
+    "Choose which console entries you see.": "Choose which console entries you see.",
+    "Online instances": "Online instances",
+    "Stale instances": "Stale instances",
+    "Failed tasks": "Failed tasks",
+    "Among the latest {{count}} tasks": "Among the latest {{count}} tasks",
+    "Log collection": "Log collection",
+    "Whether calls are recorded is switched in Log Maintenance; whether request bodies are saved is shown on Bodies & SSE.": "Whether calls are recorded is switched in Log Maintenance; whether request bodies are saved is shown on Bodies & SSE."
   }
 }

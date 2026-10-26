@@ -7169,6 +7169,16 @@
     "{{window}} sample: {{state}}": "{{window}}采样：{{state}}",
     "{{window}} sample: {{value}}% left": "{{window}}采样：剩余 {{value}}%",
     "{{window}}: {{state}}": "{{window}}：{{state}}",
-    "User: {{name}}": "用户：{{name}}"
+    "User: {{name}}": "用户：{{name}}",
+    "Console modules": "控制台模块",
+    "Save console modules": "保存控制台模块",
+    "Custom console area": "自定义控制台区域",
+    "Choose which console entries you see.": "选择你在控制台中看到的入口。",
+    "Online instances": "在线实例",
+    "Stale instances": "失联实例",
+    "Failed tasks": "失败任务",
+    "Among the latest {{count}} tasks": "最近 {{count}} 个任务中",
+    "Log collection": "日志采集",
+    "Whether calls are recorded is switched in Log Maintenance; whether request bodies are saved is shown on Bodies & SSE.": "是否记录调用在「日志维护」中开关；请求正文是否保存请在「正文与 SSE」查看。"
   }
 }
