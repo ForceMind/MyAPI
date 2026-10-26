@@ -59,10 +59,12 @@ function WindowsLine(props: {
     return <span>{t('Account windows could not be read')}</span>
   }
   if (props.windows.length === 0) {
-    if (kind === 'local')
+    if (kind === 'local') {
       return <span>{t('Local server, no quota window')}</span>
-    if (kind === 'api')
+    }
+    if (kind === 'api') {
       return <span>{t('Metered, no subscription window')}</span>
+    }
     return <span>{t('No saved window sample')}</span>
   }
   const now = Date.now() / 1000
