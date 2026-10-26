@@ -88,7 +88,7 @@ export function PersonalUpstream() {
               {/* One account list for every width; on a phone it scrolls
                   sideways instead of a native select (design 6.2). */}
               <aside
-                className='bg-card min-w-0 self-start rounded-xl border p-3'
+                className='pc-card min-w-0 self-start p-3'
                 aria-label={t('Select upstream account')}
               >
                 <p className='text-caption text-muted-foreground px-2 py-2'>
@@ -115,7 +115,7 @@ export function PersonalUpstream() {
                 </div>
               </aside>
               <div className='flex min-w-0 flex-col gap-4'>
-                <h2 className='min-w-0 text-lg font-semibold wrap-anywhere'>
+                <h2 className='text-section min-w-0 wrap-anywhere'>
                   {selectedAccount?.account_label || selectedAccount?.name}
                 </h2>
                 {data.accountsQuery.data?.items_complete === false ||

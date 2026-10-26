@@ -26,6 +26,7 @@ import { SectionPageLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useProductEdition } from '@/hooks/use-product-edition'
+import { OBJECT_PAGE_TABS_LIST_CLASS } from '@/lib/console-layout'
 
 import { listDeployments } from './api'
 import { DeploymentAccessGuard } from './components/deployment-access-guard'
@@ -133,7 +134,8 @@ function ModelsContent() {
           <div className='flex h-full min-h-0 flex-col gap-4'>
             {sections.length > 1 && (
               <Tabs value={activeSection} onValueChange={handleSectionChange}>
-                <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
+                {/* The object pages' line tabs (design direction 3). */}
+                <TabsList variant='line' className={OBJECT_PAGE_TABS_LIST_CLASS}>
                   {sections.map((section) => (
                     <TabsTrigger key={section} value={section}>
                       {t(SECTION_META[section].titleKey)}
