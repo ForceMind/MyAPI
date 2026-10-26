@@ -83,6 +83,9 @@ UI 设计（`ui-design/DESIGN_DIRECTION.md` 第 11 节）：
 - 第 3 步 Key 列表、Key 对象页、请求页：已完成并推送（`67be4186`、`b2607555`、`f3b29ffe`、`20ec63f1`，与后端 `07207713`、`eb08c3f3` 同批推送）。主会话重跑 `typecheck` 无错误、`lint` 只有既有 warning、前端全量测试 1843 个用例 4 个失败（credential-maintenance-dialog、credential-rotation-dialog 为基线既有；account-switch、strict-parameter-selection 为高负载偶发，基线与前几步也出现过），并查看了 Key 对象页 1280 与 Key 列表 390 截图。新地址：`/keys/<id>`、`/keys/<id>/requests/<requestId>`、`/usage-logs/request/<requestId>`，旧 `?inspect=` 链接重定向。子代理另报：Key 页删除后列表仍显示已删 Key 的缓存缺陷已修；共享分页组件手机页码按钮 32px 宽（低于 44px 触控合同）留到第 4 步收尾项处理。待 CI 验证。
 - 后端门禁与日志筛选（`07207713`、`eb08c3f3`）：已推送，主会话重跑 `go build ./...`、`go vet`、`middleware` / `controller` / `model` 三个包测试通过；MySQL 与 PostgreSQL 上的日志筛选测试接入 CI 的 S1 作业，待 CI 验证。
 - 第 4 步 上游卡片网格与连接对象页，加三个收尾项（概览"失败 N"接入 `result=failed`、分页按钮手机 ≥44px、Lite 个人资料页"我的订阅"只读卡片）：代码与单测已本地提交（未推送），待验证。新地址 `/connections/<id>`，旧 `?connection=` 链接重定向。子代理报：最终工作区 `typecheck` 通过；全量前端测试与浏览器验收按维护者要求改由 CI 运行，本机只跑过中途一轮（详见 [step4/README.md](ui-design-v2/step4/README.md) 第 5 节）。
+- 第 4 步完成情况（2026-10-26）：代码已推送（`1a025f6b`、`ae4a9f63`、`58be988e`），按维护者"构建等工作都在 GitHub 上完成，不要占用本机空间"的要求，最终提交未在本机构建与测试，完全由 CI 验证。CI 运行 40206993990（提交 `cddc648d`）：后端、数据库、Redis、ClickHouse、桌面合同、发行合同、凭据维护真实 Go 后端等全部作业通过；前端作业的类型检查、全量测试、全部 Chromium 浏览器验收步骤通过，唯一失败是 Lint 步骤的两处 `Expected { after 'if' condition`（`connection-sections.tsx`、`flow-nodes.tsx` 中的无花括号 else-if 链，主会话据此推断并加花括号，待下一次 CI 确认）。
+- 部署 B1、B2（`80f9185b`、`cddc648d`）：同一 CI 运行中"Distribution and release contracts"与"Desktop cross-platform contract"作业通过。待维护者决定：docker-build / docker-smoke 工作流是否改用 `lite`（推荐暂不改）；命令行与安装脚本对公网 HTTPS 来源的不一致是否对齐到安装脚本的更严格规则（推荐对齐）。
+- 本机清理（2026-10-26）：已删除会话临时目录、`web/node_modules`、`web/dist`、Go 构建缓存与 bun 缓存并停止预览服务；此后构建、测试、浏览器验收全部在 GitHub 上完成。
 - 第 5 步 其余页面（调用记录列表、设置、用户、分析、正文日志、任务、系统信息、商业、个人资料其余部分）：未开始。
 
 方向 3 已知风险（来自方案文档）：流向板是全新组件，对象多时拓扑感减弱；顶部导航在俄语、法语下最敏感（1024–1279 宽度需把一项收进"更多"）；任务 1、7 的步数比方向 1 多 1 步；实现代价为三个方向中最高。
