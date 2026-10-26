@@ -46,7 +46,7 @@ const SITE_SECTIONS = [
   { id: 'system-info', titleKey: 'System Information' },
   { id: 'notice', titleKey: 'System Notice' },
   { id: 'header-navigation', titleKey: 'Header navigation' },
-  { id: 'sidebar-modules', titleKey: 'Sidebar modules' },
+  { id: 'sidebar-modules', titleKey: 'Console modules' },
 ] as const
 
 const AUTH_SECTIONS = [

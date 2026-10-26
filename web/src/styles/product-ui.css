@@ -45,7 +45,8 @@
   .myapi-settings-section {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
+    /* The console card radius (14px, or the user's radius preset). */
+    border-radius: var(--pc-card-radius, var(--card-radius));
     padding: 1.25rem;
   }
 

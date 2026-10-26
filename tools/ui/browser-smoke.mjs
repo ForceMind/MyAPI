@@ -621,6 +621,24 @@ try {
       const save = touchPage.getByRole('button', { name: label('Save all settings', 'fr'), exact: true })
       await save.waitFor()
       assert.equal((await save.innerText()).trim(), label('Save all settings', 'fr'), 'the long translated settings action is rendered in full')
+      // Settings actions stick to the bottom of the scrolling column, above
+      // the bottom navigation, while the long payment form is still unread.
+      const saveGeometry = await save.evaluate(button => {
+        const rect = button.getBoundingClientRect()
+        const navigation = document.querySelector('.pc-mobile-nav')?.getBoundingClientRect()
+        const target = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
+        return { top: rect.top, bottom: rect.bottom, navigationTop: navigation ? navigation.top : null, reachable: target === button || button.contains(target) }
+      })
+      assert(saveGeometry.navigationTop !== null && saveGeometry.top >= 0 && saveGeometry.bottom <= saveGeometry.navigationTop + 1 && saveGeometry.reachable, `the settings save action stays in view above the bottom navigation: ${JSON.stringify(saveGeometry)}`)
+      // Section pills keep one row that scrolls sideways, with the current
+      // section scrolled into view.
+      const sectionRow = await touchPage.locator('.pc-page-subtabs').evaluate(row => {
+        const bounds = row.getBoundingClientRect()
+        const current = row.querySelector('[aria-current]')?.getBoundingClientRect()
+        const rows = new Set([...row.querySelectorAll('a')].map(pill => Math.round(pill.getBoundingClientRect().top)))
+        return { rows: rows.size, currentInView: Boolean(current && current.left >= bounds.left - 1 && current.right <= bounds.right + 1) }
+      })
+      assert(sectionRow.rows === 1 && sectionRow.currentInView, `settings section pills stay on one sideways row with the current section in view: ${JSON.stringify(sectionRow)}`)
       await screenshot(touchPage, `touch-long-settings-action-${width}`, { touch: true })
       const compliance = touchPage.getByRole('alert').filter({ hasText: label('Compliance confirmation required', 'fr') })
       const complianceLayout = await compliance.evaluate(element => {

@@ -185,7 +185,7 @@ export function SidebarModulesSection({
   const sections = Object.entries(config)
 
   return (
-    <SettingsSection title={t('Sidebar modules')}>
+    <SettingsSection title={t('Console modules')}>
       <Form {...form}>
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
           <SettingsPageFormActions
@@ -193,12 +193,12 @@ export function SidebarModulesSection({
             onReset={resetToDefault}
             isSaving={updateOption.isPending}
             resetLabel='Reset to default'
-            saveLabel='Save sidebar modules'
+            saveLabel='Save console modules'
           />
           {sections.map(([sectionKey, sectionConfig]) => {
             const sectionInfo = sectionMeta[sectionKey] ?? {
               title: toTitleCase(sectionKey),
-              description: t('Custom sidebar section'),
+              description: t('Custom console area'),
             }
             const modules = Object.entries(sectionConfig).filter(
               ([moduleKey]) => moduleKey !== 'enabled'

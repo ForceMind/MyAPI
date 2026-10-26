@@ -72,8 +72,10 @@ const SITE_SECTIONS = [
     },
   },
   {
+    // The URL keeps its original id; the shell has no sidebar, and these
+    // switches decide which console entries the top bar and More offer.
     id: 'sidebar-modules',
-    titleKey: 'Sidebar modules',
+    titleKey: 'Console modules',
     build: (settings: SiteSettings) => {
       const sidebarConfig = parseSidebarModulesAdmin(
         settings.SidebarModulesAdmin

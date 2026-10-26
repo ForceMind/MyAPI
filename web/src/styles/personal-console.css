@@ -304,6 +304,9 @@
   outline-offset: -2px;
 }
 .pc-page-subtabs {
+  /* Offset parent of the pills, so the current one can be scrolled into
+   * view where the row scrolls sideways (below 1024px). */
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -536,9 +539,57 @@
 .personal-console .pc-page form select {
   min-height: 40px;
 }
+
+/* ── Settings sections ────────────────────────────────────────────────── */
+/* Inside a section card: group headings sit one level under the page title
+ * and field help reads as secondary text a step below its label. */
+.personal-console .myapi-settings-section :is(h3, h4) {
+  font-size: var(--text-body-lg);
+  line-height: var(--text-body-lg--line-height);
+  font-weight: 600;
+}
+.personal-console .myapi-settings-section [data-slot='form-description'] {
+  font-size: var(--text-data);
+  line-height: var(--text-data--line-height);
+}
+/* The section's actions (save, reset, editor mode) follow its card and stick
+ * to the bottom of the route scrollport, which ends above the mobile bottom
+ * navigation, so they stay reachable without covering it. */
+.personal-console .myapi-settings-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin-top: 16px;
+  padding-block: 12px;
+  border-top: 1px solid var(--border);
+  background: var(--background);
+}
+.personal-console .myapi-settings-actions:not(:has(button, a)) {
+  display: none;
+}
+.personal-console .myapi-settings-actions .myapi-page-actions {
+  justify-content: flex-end;
+}
 @media (width < 1024px) {
   .pc-page-context {
     padding-top: 8px;
+  }
+  /* Section pills stay on one row and scroll sideways, like the page tabs. */
+  .pc-page-subtabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .pc-page-subtabs::-webkit-scrollbar {
+    display: none;
+  }
+  .pc-page-subtab {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .personal-console .pc-page-subtab:focus-visible {
+    outline-offset: -2px;
   }
   /* An object page fills the phone screen: the top bar carries Back and the
    * object's name, so the area's page tabs step aside. */

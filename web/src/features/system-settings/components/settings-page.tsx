@@ -78,15 +78,18 @@ function SettingsPageFrame(props: SettingsPageFrameProps) {
             />
           </span>
         </SectionPageLayout.Title>
-        <SectionPageLayout.Actions>
-          <div
-            ref={setActionsContainer}
-            className='flex flex-wrap items-center justify-end gap-2'
-          />
-        </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
           <div className='flex h-full min-h-0 w-full flex-col gap-4'>
             {props.children}
+          </div>
+          {/* The section's save and editing actions sit below its card and
+              stick to the bottom of the window while a long form scrolls,
+              above the mobile bottom navigation. */}
+          <div className='myapi-settings-actions'>
+            <div
+              ref={setActionsContainer}
+              className='myapi-page-actions flex flex-wrap items-center justify-end gap-2'
+            />
           </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>

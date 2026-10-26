@@ -33,18 +33,22 @@ type PageTabsProps = {
 export function PageTabs(props: PageTabsProps) {
   const { t } = useTranslation()
   const listRef = useRef<HTMLDivElement>(null)
+  const sectionsRef = useRef<HTMLDivElement>(null)
   const active = props.tabs.find((tab) => tab.active)
   const activeUrl = active?.url
+  const activeSectionUrl = active?.children?.find((child) => child.active)?.url
+  const sectionCount = active?.children?.length ?? 0
 
   useEffect(() => {
-    const list = listRef.current
-    const current = list?.querySelector<HTMLElement>('[aria-current]')
-    if (!list || !current) return
-    // Only the tab row scrolls; never the page.
-    const offset =
-      current.offsetLeft - (list.clientWidth - current.offsetWidth) / 2
-    list.scrollLeft = Math.max(0, offset)
-  }, [activeUrl])
+    // Only the tab and section rows scroll; never the page.
+    for (const row of [listRef.current, sectionsRef.current]) {
+      const current = row?.querySelector<HTMLElement>('[aria-current]')
+      if (!row || !current) continue
+      const offset =
+        current.offsetLeft - (row.clientWidth - current.offsetWidth) / 2
+      row.scrollLeft = Math.max(0, offset)
+    }
+  }, [activeUrl, activeSectionUrl, sectionCount])
 
   if (props.tabs.length === 0) return null
 
@@ -65,6 +69,7 @@ export function PageTabs(props: PageTabsProps) {
       </div>
       {active?.children && active.children.length > 1 && (
         <div
+          ref={sectionsRef}
           className='pc-page-subtabs'
           role='group'
           aria-label={t('{{section}} sections', { section: active.title })}
