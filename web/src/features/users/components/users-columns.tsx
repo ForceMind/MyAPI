@@ -87,7 +87,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
         )
       },
       size: 80,
-      meta: { mobileOrder: 10 },
     },
     {
       accessorKey: 'username',
@@ -126,7 +125,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
       },
       enableHiding: false,
       size: 220,
-      meta: { mobileTitle: true },
     },
     {
       accessorKey: 'status',
@@ -165,7 +163,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
       },
       enableSorting: false,
       size: 120,
-      meta: { mobileBadge: true },
     },
     {
       id: 'quota',
@@ -214,10 +211,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
       },
       size: 300,
       minSize: 260,
-      meta: {
-        mobileOrder: 40,
-        mobileFullWidth: !funding.commercialEnabled,
-      },
     },
     {
       accessorKey: 'group',
@@ -236,7 +229,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
         return group.includes(searchValue)
       },
       size: 140,
-      meta: { mobileOrder: 30 },
     },
     {
       accessorKey: 'role',
@@ -263,7 +255,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
       },
       enableSorting: false,
       size: 120,
-      meta: { mobileOrder: 20 },
     },
     {
       id: 'invite_info',
@@ -339,7 +330,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
       },
       size: 240,
       enableSorting: false,
-      meta: { mobileHidden: true },
     },
     {
       accessorKey: 'created_at',
@@ -353,7 +343,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
         )
       },
       size: 180,
-      meta: { mobileHidden: true },
     },
     {
       accessorKey: 'last_login_at',
@@ -367,7 +356,6 @@ export function useUsersColumns(): ColumnDef<User>[] {
         )
       },
       size: 180,
-      meta: { mobileHidden: true },
     },
     {
       id: 'actions',

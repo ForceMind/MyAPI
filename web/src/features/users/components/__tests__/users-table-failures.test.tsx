@@ -14,6 +14,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { renderListRoute } from '@/components/data-table/layout/__tests__/list-route-fixture'
 import { api } from '@/lib/api'
+import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 import { useAuthStore } from '@/stores/auth-store'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
@@ -108,7 +109,10 @@ test.each([
       const matchMedia = window.matchMedia
       vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
         ...matchMedia(query),
-        matches: query === '(max-width: 640px)',
+        // A phone: the list switches to its records with the console shell
+        // and uses the phone page size.
+        matches:
+          query === CONSOLE_MOBILE_QUERY || query === '(max-width: 640px)',
       }))
     }
     outcome = failure
@@ -127,6 +131,22 @@ test.each([
     ).not.toBeInTheDocument()
   }
 )
+
+test('a phone shows each user as one record with identity, status and its own actions, without table columns', async () => {
+  const matchMedia = window.matchMedia
+  vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+    ...matchMedia(query),
+    matches: query === CONSOLE_MOBILE_QUERY,
+  }))
+  await renderTable()
+  expect(await screen.findByText('needle-user')).toBeVisible()
+  expect(screen.getByText('List fixture')).toBeVisible()
+  expect(screen.getByText('#22')).toBeVisible()
+  expect(screen.getByText('Standard account')).toBeVisible()
+  expect(screen.getByText('Enabled')).toBeVisible()
+  expect(screen.getAllByRole('button', { name: 'Open menu' })).toHaveLength(1)
+  expect(screen.queryAllByRole('columnheader')).toHaveLength(0)
+})
 
 test('keyboard retry restores actual data without changing the selected search and page', async () => {
   const user = userEvent.setup()

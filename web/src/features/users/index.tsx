@@ -20,6 +20,8 @@ import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
 import { AccessPolicyDialog } from '@/features/access-policy/components/access-policy-dialog'
+import { useMediaQuery } from '@/hooks/use-media-query'
+import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 
 import { UserUsagePolicyDialog } from './components/user-usage-policy-dialog'
 import { UsersDeleteDialog } from './components/users-delete-dialog'
@@ -31,10 +33,12 @@ import { UsersTable } from './components/users-table'
 function UsersContent() {
   const { t } = useTranslation()
   const { open, setOpen, currentRow, triggerRefresh } = useUsers()
+  // Phones and tablets scroll the records with the page, as the API Key list.
+  const mobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
 
   return (
     <>
-      <SectionPageLayout fixedContent>
+      <SectionPageLayout fixedContent={!mobile}>
         <SectionPageLayout.Title>{t('Users')}</SectionPageLayout.Title>
         <SectionPageLayout.Description>
           {t('Manage users and their assigned access.')}

@@ -16,9 +16,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { Database01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
-import type { OnChangeFn, SortingState } from '@tanstack/react-table'
+import {
+  flexRender,
+  type OnChangeFn,
+  type SortingState,
+  type Table as TanstackTable,
+} from '@tanstack/react-table'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -29,22 +36,41 @@ import {
   useDataTable,
 } from '@/components/data-table'
 import { ErrorState } from '@/components/error-state'
+import { StatusBadge } from '@/components/status-badge'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useMediaQuery } from '@/hooks'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
+import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
+import { cn } from '@/lib/utils'
 
 import { getUsers, searchUsers } from '../api'
 import {
+  USER_ROLES,
   USER_STATUS,
+  USER_STATUSES,
   getUserStatusOptions,
   getUserRoleOptions,
   isUserDeleted,
 } from '../constants'
+import { getAccountTierLabel } from '../lib'
 import type { User, UserSortBy } from '../types'
 import { DataTableBulkActions } from './data-table-bulk-actions'
+import { DataTableRowActions } from './data-table-row-actions'
 import { useUsersColumns } from './users-columns'
 import { useUsers } from './users-provider'
 
 const route = getRouteApi('/_authenticated/users/')
+const USERS_MOBILE_SKELETON_IDS = Array.from(
+  { length: 5 },
+  (_, index) => `user-mobile-skeleton-${index + 1}`
+)
 
 const USER_SORTABLE_COLUMNS = new Set<UserSortBy>([
   'id',
@@ -57,6 +83,133 @@ const USER_SORTABLE_COLUMNS = new Set<UserSortBy>([
 
 function isDisabledUserRow(user: User) {
   return isUserDeleted(user) || user.status === USER_STATUS.DISABLED
+}
+
+/**
+ * Phone and tablet records (design direction 3, same form as the API Key
+ * list): name and status, then ID, role and account tier, then the usage or
+ * quota summary; the row's actions stay on its right.
+ */
+function UsersMobileList(props: {
+  table: TanstackTable<User>
+  isLoading: boolean
+}) {
+  const { t } = useTranslation()
+  const rows = props.table.getRowModel().rows
+
+  if (props.isLoading) {
+    return (
+      <div className='divide-border overflow-hidden rounded-lg border'>
+        {USERS_MOBILE_SKELETON_IDS.map((id) => (
+          <div
+            key={id}
+            className='flex flex-col gap-2 border-b px-3 py-2.5 last:border-b-0'
+          >
+            <div className='flex items-center justify-between'>
+              <Skeleton className='h-4 w-32' />
+              <Skeleton className='h-5 w-16 rounded-md' />
+            </div>
+            <Skeleton className='h-3 w-40' />
+            <Skeleton className='h-12 w-full' />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (!rows.length) {
+    return (
+      <div className='rounded-lg border p-8'>
+        <Empty className='border-none p-0'>
+          <EmptyHeader>
+            <EmptyMedia variant='icon'>
+              <HugeiconsIcon icon={Database01Icon} className='size-6' />
+            </EmptyMedia>
+            <EmptyTitle>{t('No Users Found')}</EmptyTitle>
+            <EmptyDescription>
+              {t('No users available. Try adjusting your search or filters.')}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </div>
+    )
+  }
+
+  return (
+    <div className='divide-border overflow-hidden rounded-lg border'>
+      {rows.map((row) => {
+        const user = row.original
+        const statusConfig = isUserDeleted(user)
+          ? USER_STATUSES[USER_STATUS.DELETED]
+          : USER_STATUSES[user.status as keyof typeof USER_STATUSES]
+        const roleConfig = USER_ROLES[user.role as keyof typeof USER_ROLES]
+        // The usage cell carries the funding and usage-policy rules of the
+        // table column, so the record renders that same cell.
+        const quotaCell = row
+          .getVisibleCells()
+          .find((cell) => cell.column.id === 'quota')
+
+        return (
+          <div
+            key={row.id}
+            className={cn(
+              'bg-card flex min-w-0 items-start gap-2 border-b px-3 py-2.5 last:border-b-0',
+              isDisabledUserRow(user) && DISABLED_ROW_MOBILE
+            )}
+          >
+            <div className='flex min-w-0 flex-1 flex-col gap-1.5'>
+              <div className='flex min-w-0 items-start justify-between gap-2'>
+                <div className='min-w-0'>
+                  <div
+                    className='truncate text-sm font-semibold'
+                    title={user.username}
+                  >
+                    {user.username}
+                  </div>
+                  {user.display_name &&
+                    user.display_name !== user.username && (
+                      <div
+                        className='text-caption text-muted-foreground truncate'
+                        title={user.display_name}
+                      >
+                        {user.display_name}
+                      </div>
+                    )}
+                </div>
+                {statusConfig && (
+                  <StatusBadge
+                    label={t(statusConfig.labelKey)}
+                    variant={statusConfig.variant}
+                    copyable={false}
+                    className='shrink-0'
+                  />
+                )}
+              </div>
+              <div className='text-caption text-muted-foreground flex min-w-0 flex-wrap gap-x-2'>
+                <span className='font-mono'>#{user.id}</span>
+                {roleConfig && <span>{t(roleConfig.labelKey)}</span>}
+                <span>{getAccountTierLabel(user.group, t)}</span>
+                {user.remark && (
+                  <span className='max-w-full truncate' title={user.remark}>
+                    {user.remark}
+                  </span>
+                )}
+              </div>
+              {quotaCell && (
+                <div className='min-w-0 text-xs'>
+                  {flexRender(
+                    quotaCell.column.columnDef.cell,
+                    quotaCell.getContext()
+                  )}
+                </div>
+              )}
+            </div>
+            <DataTableRowActions row={row} />
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 export function UsersTable() {
@@ -202,6 +355,7 @@ export function UsersTable() {
   return (
     <DataTablePage
       table={table}
+      mobileQuery={CONSOLE_MOBILE_QUERY}
       columns={columns}
       isLoading={isLoading}
       isFetching={isFetching}
@@ -240,12 +394,10 @@ export function UsersTable() {
           },
         ],
       }}
-      getRowClassName={(row, { isMobile }) => {
-        if (!isDisabledUserRow(row.original)) {
-          return undefined
-        }
-        return isMobile ? DISABLED_ROW_MOBILE : DISABLED_ROW_DESKTOP
-      }}
+      mobile={<UsersMobileList table={table} isLoading={isLoading} />}
+      getRowClassName={(row) =>
+        isDisabledUserRow(row.original) ? DISABLED_ROW_DESKTOP : undefined
+      }
       bulkActions={<DataTableBulkActions table={table} />}
     />
   )
