@@ -7179,6 +7179,14 @@
     "Failed tasks": "失败任务",
     "Among the latest {{count}} tasks": "最近 {{count}} 个任务中",
     "Log collection": "日志采集",
-    "Whether calls are recorded is switched in Log Maintenance; whether request bodies are saved is shown on Bodies & SSE.": "是否记录调用在「日志维护」中开关；请求正文是否保存请在「正文与 SSE」查看。"
+    "Whether calls are recorded is switched in Log Maintenance; whether request bodies are saved is shown on Bodies & SSE.": "是否记录调用在「日志维护」中开关；请求正文是否保存请在「正文与 SSE」查看。",
+    "Referral link": "推荐链接",
+    "Pay {{amount}}": "支付 {{amount}}",
+    "Save {{amount}}": "节省 {{amount}}",
+    "Minimum {{amount}}": "最低 {{amount}}",
+    "Balance, top-up, subscriptions and referral rewards.": "余额、充值、订阅与推荐奖励。",
+    "Recorded usage and past orders stay available.": "已记录的用量与历史订单仍可查看。",
+    "Plans users can buy from their wallet.": "用户可在钱包中购买的套餐。",
+    "Codes that add quota to a wallet when redeemed.": "兑换后为钱包增加额度的兑换码。"
   }
 }

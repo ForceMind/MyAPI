@@ -7179,6 +7179,14 @@
     "Failed tasks": "Failed tasks",
     "Among the latest {{count}} tasks": "Among the latest {{count}} tasks",
     "Log collection": "Log collection",
-    "Whether calls are recorded is switched in Log Maintenance; whether request bodies are saved is shown on Bodies & SSE.": "Whether calls are recorded is switched in Log Maintenance; whether request bodies are saved is shown on Bodies & SSE."
+    "Whether calls are recorded is switched in Log Maintenance; whether request bodies are saved is shown on Bodies & SSE.": "Whether calls are recorded is switched in Log Maintenance; whether request bodies are saved is shown on Bodies & SSE.",
+    "Referral link": "Referral link",
+    "Pay {{amount}}": "Pay {{amount}}",
+    "Save {{amount}}": "Save {{amount}}",
+    "Minimum {{amount}}": "Minimum {{amount}}",
+    "Balance, top-up, subscriptions and referral rewards.": "Balance, top-up, subscriptions and referral rewards.",
+    "Recorded usage and past orders stay available.": "Recorded usage and past orders stay available.",
+    "Plans users can buy from their wallet.": "Plans users can buy from their wallet.",
+    "Codes that add quota to a wallet when redeemed.": "Codes that add quota to a wallet when redeemed."
   }
 }
