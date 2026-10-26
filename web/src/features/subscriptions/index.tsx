@@ -21,6 +21,8 @@ import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { useMediaQuery } from '@/hooks/use-media-query'
+import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 
 import { SubscriptionsDialogs } from './components/subscriptions-dialogs'
 import { SubscriptionsPrimaryButtons } from './components/subscriptions-primary-buttons'
@@ -33,25 +35,20 @@ import { SubscriptionsTable } from './components/subscriptions-table'
 function SubscriptionsContent() {
   const { t } = useTranslation()
   const { complianceConfirmed } = useSubscriptions()
+  // Phones and tablets scroll the records with the page, as the users list.
+  const mobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
 
   return (
     <>
-      <SectionPageLayout fixedContent>
+      <SectionPageLayout fixedContent={!mobile}>
         <SectionPageLayout.Title>
           {t('Subscription Management')}
         </SectionPageLayout.Title>
+        <SectionPageLayout.Description>
+          {t('Plans users can buy from their wallet.')}
+        </SectionPageLayout.Description>
         <SectionPageLayout.Actions>
-          <div className='flex items-center gap-2'>
-            <Alert variant='default' className='hidden px-3 py-2 sm:flex'>
-              <Info className='h-4 w-4' />
-              <AlertDescription className='text-xs'>
-                {t(
-                  'Stripe/Creem requires creating products on the third-party platform and entering the ID'
-                )}
-              </AlertDescription>
-            </Alert>
-            <SubscriptionsPrimaryButtons />
-          </div>
+          <SubscriptionsPrimaryButtons />
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
           <div className='flex h-full min-h-0 flex-col gap-4'>
@@ -64,6 +61,14 @@ function SubscriptionsContent() {
                 </AlertDescription>
               </Alert>
             ) : null}
+            <Alert className='shrink-0'>
+              <Info className='h-4 w-4' />
+              <AlertDescription>
+                {t(
+                  'Stripe/Creem requires creating products on the third-party platform and entering the ID'
+                )}
+              </AlertDescription>
+            </Alert>
             <div className='min-h-0 flex-1'>
               <SubscriptionsTable />
             </div>

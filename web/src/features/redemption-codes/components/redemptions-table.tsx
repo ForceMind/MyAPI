@@ -30,6 +30,7 @@ import {
 } from '@/components/data-table'
 import { useMediaQuery } from '@/hooks'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
+import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 
 import { getRedemptions, searchRedemptions } from '../api'
 import {
@@ -160,6 +161,7 @@ export function RedemptionsTable() {
   return (
     <DataTablePage
       table={table}
+      mobileQuery={CONSOLE_MOBILE_QUERY}
       columns={columns}
       isLoading={isLoading}
       isFetching={isFetching}

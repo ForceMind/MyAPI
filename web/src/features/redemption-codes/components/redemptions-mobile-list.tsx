@@ -16,8 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { Database01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import type { Table as TanstackTable } from '@tanstack/react-table'
-import { Database } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { DISABLED_ROW_MOBILE } from '@/components/data-table'
@@ -87,7 +88,7 @@ export function RedemptionsMobileList(props: RedemptionsMobileListProps) {
         <Empty className='border-none p-0'>
           <EmptyHeader>
             <EmptyMedia variant='icon'>
-              <Database className='size-6' />
+              <HugeiconsIcon icon={Database01Icon} className='size-6' />
             </EmptyMedia>
             <EmptyTitle>{t('No Redemption Codes Found')}</EmptyTitle>
             <EmptyDescription>
@@ -116,40 +117,39 @@ export function RedemptionsMobileList(props: RedemptionsMobileListProps) {
           <div
             key={row.id}
             className={cn(
-              'bg-card space-y-2.5 border-b px-3 py-2.5 last:border-b-0',
+              'bg-card flex min-w-0 items-start gap-2 border-b px-3 py-2.5 last:border-b-0',
               expired || redemption.status !== REDEMPTION_STATUS.ENABLED
                 ? DISABLED_ROW_MOBILE
                 : undefined
             )}
           >
-            <div className='flex items-start justify-between gap-3'>
-              <div className='min-w-0'>
-                <div className='truncate text-sm font-semibold'>
+            <div className='flex min-w-0 flex-1 flex-col gap-1.5'>
+              <div className='flex min-w-0 items-start justify-between gap-2'>
+                <div
+                  className='min-w-0 truncate text-sm font-semibold'
+                  title={redemption.name}
+                >
                   {redemption.name}
                 </div>
-                <div className='text-muted-foreground text-[11px]'>
-                  {t('Redemption Code')}
-                </div>
-              </div>
-              {expired ? (
-                <StatusBadge
-                  label={t('Expired')}
-                  variant='warning'
-                  copyable={false}
-                />
-              ) : (
-                statusConfig && (
+                {expired ? (
                   <StatusBadge
-                    label={t(statusConfig.labelKey)}
-                    variant={statusConfig.variant}
+                    label={t('Expired')}
+                    variant='warning'
                     copyable={false}
+                    className='shrink-0'
                   />
-                )
-              )}
-            </div>
-
-            <div className='flex min-w-0 items-center justify-between gap-2'>
-              <div className='min-w-0 flex-1 [&_button:first-child]:max-w-full [&_button:first-child]:truncate [&_button:first-child]:px-0'>
+                ) : (
+                  statusConfig && (
+                    <StatusBadge
+                      label={t(statusConfig.labelKey)}
+                      variant={statusConfig.variant}
+                      copyable={false}
+                      className='shrink-0'
+                    />
+                  )
+                )}
+              </div>
+              <div className='min-w-0 [&_button:first-child]:max-w-full [&_button:first-child]:truncate [&_button:first-child]:px-0'>
                 <MaskedValueDisplay
                   label={t('Full Code')}
                   fullValue={redemption.key}
@@ -158,15 +158,17 @@ export function RedemptionsMobileList(props: RedemptionsMobileListProps) {
                   copyAriaLabel={t('Copy redemption code')}
                 />
               </div>
-              <DataTableRowActions row={row} />
+              <div className='text-caption text-muted-foreground flex min-w-0 flex-wrap gap-x-2'>
+                <span className='font-mono'>#{redemption.id}</span>
+                <span>
+                  {t('Quota')}{' '}
+                  <span className='text-foreground font-medium tabular-nums'>
+                    {formatQuota(redemption.quota)}
+                  </span>
+                </span>
+              </div>
             </div>
-
-            <div className='flex items-center justify-between gap-2 text-xs'>
-              <span className='text-muted-foreground'>{t('Quota')}</span>
-              <span className='font-medium tabular-nums'>
-                {formatQuota(redemption.quota)}
-              </span>
-            </div>
+            <DataTableRowActions row={row} />
           </div>
         )
       })}

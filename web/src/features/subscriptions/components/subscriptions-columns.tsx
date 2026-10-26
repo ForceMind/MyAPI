@@ -39,7 +39,6 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
         accessorFn: (row) => row.plan.id,
         id: 'id',
         header: t('ID'),
-        meta: { mobileHidden: true },
         cell: ({ row }) => <TableId value={row.original.plan.id} />,
         size: 60,
       },
@@ -47,7 +46,6 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
         accessorFn: (row) => row.plan.title,
         id: 'title',
         header: t('Plan'),
-        meta: { mobileTitle: true },
         cell: ({ row }) => {
           const plan = row.original.plan
           return (
@@ -68,7 +66,7 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
         id: 'price',
         header: t('Price'),
         cell: ({ row }) => (
-          <span className='font-semibold text-emerald-600'>
+          <span className='font-semibold tabular-nums'>
             ${Number(row.original.plan.price_amount || 0).toFixed(2)}
           </span>
         ),
@@ -87,7 +85,6 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
       {
         id: 'reset',
         header: t('Quota Reset'),
-        meta: { mobileHidden: true },
         cell: ({ row }) => (
           <span className='text-muted-foreground'>
             {formatResetPeriod(row.original.plan, t)}
@@ -99,7 +96,6 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
         accessorFn: (row) => row.plan.sort_order,
         id: 'sort_order',
         header: t('Priority'),
-        meta: { mobileHidden: true },
         cell: ({ row }) => (
           <span className='text-muted-foreground'>
             {row.original.plan.sort_order}
@@ -111,7 +107,6 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
         accessorFn: (row) => row.plan.enabled,
         id: 'enabled',
         header: t('Status'),
-        meta: { mobileBadge: true },
         cell: ({ row }) =>
           row.original.plan.enabled ? (
             <StatusBadge
@@ -133,7 +128,6 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
       {
         id: 'payment',
         header: t('Payment Channel'),
-        meta: { mobileHidden: true },
         cell: ({ row }) => {
           const plan = row.original.plan
           return (
@@ -163,7 +157,6 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
       {
         id: 'total_amount',
         header: t('Plan Quota'),
-        meta: { mobileHidden: true },
         cell: ({ row }) => {
           const total = Number(row.original.plan.total_amount || 0)
           return (
@@ -177,7 +170,6 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
       {
         id: 'upgrade_group',
         header: t('Upgrade Group'),
-        meta: { mobileHidden: true },
         cell: ({ row }) => {
           const group = row.original.plan.upgrade_group
           if (!group) {

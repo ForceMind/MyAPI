@@ -34,7 +34,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -185,25 +184,27 @@ export function BillingHistoryDialog({
               </div>
             )}
             {!loading && records.length > 0 && (
-              <div className='space-y-3'>
+              <ul className='divide-border divide-y overflow-hidden rounded-lg border'>
                 {records.map((record) => {
                   const statusConfig = getStatusConfig(record.status)
                   return (
-                    <div
+                    <li
                       key={record.id}
-                      className='rounded-lg border p-3 sm:p-4'
+                      className='bg-card flex min-w-0 flex-col gap-2 px-3 py-2.5 sm:px-4 sm:py-3'
                     >
-                      {/* Header Row */}
+                      {/* Order number, time and status */}
                       <div className='flex items-start justify-between gap-2'>
-                        <div className='flex-1 space-y-1'>
+                        <div className='flex min-w-0 flex-1 flex-col gap-0.5'>
                           <div className='flex min-w-0 items-center gap-2'>
                             <code className='text-foreground truncate font-mono text-sm'>
                               {record.trade_no}
                             </code>
                             <Button
+                              type='button'
                               variant='ghost'
                               size='sm'
-                              className='h-5 w-5 p-0'
+                              className='h-6 w-6 shrink-0 p-0'
+                              aria-label={t('Copy')}
                               onClick={() => copyToClipboard(record.trade_no)}
                             >
                               {copiedText === record.trade_no ? (
@@ -233,42 +234,43 @@ export function BillingHistoryDialog({
                         />
                       </div>
 
-                      {/* Details Grid */}
-                      <div className='mt-3 grid grid-cols-2 gap-3 sm:mt-4 sm:grid-cols-3 sm:gap-4'>
-                        <div className='space-y-1'>
-                          <Label className='text-muted-foreground text-xs'>
+                      {/* Payment method, credited amount and paid money */}
+                      <dl className='grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:grid-cols-3'>
+                        <div className='flex min-w-0 flex-col'>
+                          <dt className='text-muted-foreground'>
                             {t('Payment Method')}
-                          </Label>
-                          <div className='text-sm font-medium'>
+                          </dt>
+                          <dd className='text-sm font-medium wrap-anywhere'>
                             {getPaymentMethodName(record.payment_method, t)}
-                          </div>
+                          </dd>
                         </div>
-                        <div className='space-y-1'>
-                          <Label className='text-muted-foreground text-xs'>
+                        <div className='flex min-w-0 flex-col'>
+                          <dt className='text-muted-foreground'>
                             {t('Amount')}
-                          </Label>
-                          <div className='text-sm font-semibold'>
+                          </dt>
+                          <dd className='text-sm font-semibold tabular-nums'>
                             {formatCurrencyFromUSD(record.amount, {
                               digitsLarge: 2,
                               digitsSmall: 2,
                               abbreviate: false,
                             })}
-                          </div>
+                          </dd>
                         </div>
-                        <div className='space-y-1'>
-                          <Label className='text-muted-foreground text-xs'>
+                        <div className='flex min-w-0 flex-col'>
+                          <dt className='text-muted-foreground'>
                             {t('Payment')}
-                          </Label>
-                          <div className='text-sm font-semibold text-red-600'>
+                          </dt>
+                          <dd className='text-sm font-semibold tabular-nums'>
                             {formatNumber(record.money)}
-                          </div>
+                          </dd>
                         </div>
-                      </div>
+                      </dl>
 
                       {/* Admin Actions */}
                       {isAdmin && record.status === 'pending' && (
-                        <div className='mt-4 flex justify-end'>
+                        <div className='flex justify-end'>
                           <Button
+                            type='button'
                             size='sm'
                             variant='outline'
                             onClick={() => setConfirmTradeNo(record.trade_no)}
@@ -278,10 +280,10 @@ export function BillingHistoryDialog({
                           </Button>
                         </div>
                       )}
-                    </div>
+                    </li>
                   )
                 })}
-              </div>
+              </ul>
             )}
           </div>
 
@@ -294,11 +296,13 @@ export function BillingHistoryDialog({
               </div>
               <div className='flex items-center gap-2'>
                 <Button
+                  type='button'
                   variant='outline'
                   size='sm'
                   onClick={() => handlePageChange(page - 1)}
                   disabled={page <= 1}
                   className='h-8 w-8 p-0'
+                  aria-label={t('Previous page')}
                 >
                   <ChevronLeft className='h-4 w-4' />
                 </Button>
@@ -308,11 +312,13 @@ export function BillingHistoryDialog({
                   <span>{totalPages}</span>
                 </div>
                 <Button
+                  type='button'
                   variant='outline'
                   size='sm'
                   onClick={() => handlePageChange(page + 1)}
                   disabled={page >= totalPages}
                   className='h-8 w-8 p-0'
+                  aria-label={t('Next page')}
                 >
                   <ChevronRight className='h-4 w-4' />
                 </Button>

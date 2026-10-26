@@ -19,6 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
+import { useMediaQuery } from '@/hooks/use-media-query'
+import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 
 import { RedemptionsDialogs } from './components/redemptions-dialogs'
 import { RedemptionsPrimaryButtons } from './components/redemptions-primary-buttons'
@@ -27,12 +29,17 @@ import { RedemptionsTable } from './components/redemptions-table'
 
 export function Redemptions() {
   const { t } = useTranslation()
+  // Phones and tablets scroll the records with the page, as the users list.
+  const mobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
   return (
     <RedemptionsProvider>
-      <SectionPageLayout fixedContent>
+      <SectionPageLayout fixedContent={!mobile}>
         <SectionPageLayout.Title>
           {t('Redemption Codes')}
         </SectionPageLayout.Title>
+        <SectionPageLayout.Description>
+          {t('Codes that add quota to a wallet when redeemed.')}
+        </SectionPageLayout.Description>
         <SectionPageLayout.Actions>
           <RedemptionsPrimaryButtons />
         </SectionPageLayout.Actions>
