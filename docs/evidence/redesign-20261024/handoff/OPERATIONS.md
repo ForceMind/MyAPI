@@ -5,7 +5,7 @@
 ## 1. 准备环境
 
 1. 工具：`git`、`gh`（GitHub CLI，已登录对 `ForceMind/MyAPI` 有推送权限的账号；`gh auth status` 检查）。读写代码的编辑器即可，不需要 Node、Bun、Go、Docker。
-2. 工作区：项目**只放在维护者的移动硬盘上**（exFAT 格式），维护者已决定本机内置磁盘上的旧版本项目会删除，所以**不要在本机内置磁盘另建副本或克隆**。工作区是硬盘上的 `dev` 分支 git 工作区 `/Volumes/Work/Prive/MyAPI/.claude/worktrees/dev-work`，直接在其中工作。它依赖硬盘上主检出 `/Volumes/Work/Prive/MyAPI` 里的 `.git` 目录，**不要删除、移动或重命名 `/Volumes/Work/Prive/MyAPI`**；主检出本身停在旧分支，不要在那里工作。
+2. 工作区：项目**只放在维护者的移动硬盘上**（exFAT 格式），维护者已决定本机内置磁盘上的旧版本项目会删除，所以**不要在本机内置磁盘另建副本或克隆**。先在 `/Volumes/Work/Prive/MyAPI` 里运行 `git -c core.fileMode=false branch --show-current`：显示 `dev` 说明维护者已运行过整理脚本，该目录本身就是工作区；显示别的分支说明还没运行，工作区是 `/Volumes/Work/Prive/MyAPI/.claude/worktrees/dev-work`（`dev` 分支），并请维护者在终端运行 `handoff/consolidate-workspace.sh`（用法见脚本开头注释；它会移除 dev-work 与另一个嵌套工作区、把主检出切到 `dev`，运行前会逐项检查并要求输入 yes；接手 AI 自己不要运行它）。无论哪种情况，**不要删除、移动或重命名 `/Volumes/Work/Prive/MyAPI`**：工作区依赖其中的 `.git`，而且 `.git` 里还保存着几条远端已不存在的历史分支的本地独有提交。
 3. exFAT 注意事项：每条 git 命令加 `-c core.fileMode=false`（否则每个已跟踪文件显示权限位变化）；输出会有大量 `non-monotonic index ... ._pack-*.idx` 报错噪音，用 `2>&1 | grep -v 'non-monotonic'` 过滤，不影响结果；不要 `git add -A`，只添加自己的文件；Go 与 Node 会忽略 `._*` 文件，但统计代码行数或 grep 时要排除它们（用 `git ls-files`、`git grep` 更可靠）。
 4. 确认 Git 身份是仓库维护者既有身份，不要修改 Git 用户配置。
 5. 不要创建新分支；所有工作在 `dev`。

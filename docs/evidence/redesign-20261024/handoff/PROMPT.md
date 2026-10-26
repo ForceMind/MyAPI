@@ -34,8 +34,11 @@
 ## 你的第一步（不需要问维护者的部分）
 
 1. 准备工作区。项目**只放在维护者的移动硬盘上**（exFAT 格式），维护者已决定本机内置磁盘上的旧版本项目会删除，所以**不要在本机内置磁盘另建副本或克隆**。
-   - 工作区是硬盘上的 `dev` 分支 git 工作区：`/Volumes/Work/Prive/MyAPI/.claude/worktrees/dev-work`。进入它，执行 `git -c core.fileMode=false fetch origin` 和 `git -c core.fileMode=false pull --ff-only`。
-   - 它依赖硬盘上主检出 `/Volumes/Work/Prive/MyAPI` 里的 `.git` 目录，**不要删除、移动或重命名 `/Volumes/Work/Prive/MyAPI`**；主检出本身停在旧分支，不要在那里工作。
+   - 先在 `/Volumes/Work/Prive/MyAPI` 里运行 `git -c core.fileMode=false branch --show-current`：
+     - 如果显示 `dev`：维护者已经运行过整理脚本，这个目录本身就是工作区，直接用。
+     - 如果显示别的分支（例如 `codex/r1-usage-review-20261002`）：整理脚本还没运行，工作区是 `/Volumes/Work/Prive/MyAPI/.claude/worktrees/dev-work`（`dev` 分支）。请维护者在终端运行 `docs/evidence/redesign-20261024/handoff/consolidate-workspace.sh`（用法写在脚本开头注释里），**你自己不要运行它**（它会删除你正在使用的 dev-work 目录）。运行前先用 dev-work 继续工作。
+   - 进入工作区后执行 `git -c core.fileMode=false fetch origin` 和 `git -c core.fileMode=false pull --ff-only`。
+   - 工作区依赖硬盘上 `/Volumes/Work/Prive/MyAPI/.git`，**不要删除、移动或重命名 `/Volumes/Work/Prive/MyAPI`**；该 `.git` 里还保存着几条远端已不存在的历史分支的本地独有提交。
    - exFAT 上每条 git 命令都要加 `-c core.fileMode=false`（否则每个文件显示权限位变化），并用 `2>&1 | grep -v 'non-monotonic'` 过滤 `._*.idx` 报错噪音；不要 `git add -A`，只添加自己的文件。
    - 确认 `dev` 的最新提交包含接手文档（`docs/evidence/redesign-20261024/handoff/`），`git log` 里应能看到提交 `2f5b7420` 或更新的提交。
 2. 用 `gh run list --repo ForceMind/MyAPI --branch dev --limit 5` 看最近 CI。最后一个已确认全绿的提交是 `a53973d4`（运行 40271665685，经重跑通过）。其后的第 5b、5c 步代码**从未经过 CI**，推送后期望会红。
