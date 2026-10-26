@@ -88,6 +88,7 @@ UI 设计（`ui-design/DESIGN_DIRECTION.md` 第 11 节）：
 - 本机清理（2026-10-26）：已删除会话临时目录、`web/node_modules`、`web/dist`、Go 构建缓存与 bun 缓存并停止预览服务；此后构建、测试、浏览器验收全部在 GitHub 上完成。
 - 第 5a 步 请求区（调用记录、任务、绘图、正文与 SSE、分析）：已推送，CI 运行 40271665685 通过（首次失败于偶发的 `window-maintenance` 对话框隐藏超时，只重跑失败作业后通过）。
 - 第 5b 步 设置、用户、系统信息、个人资料（`df2b96ba`、`acd53ee5`、`403cca15`、`470d0860`、`6e89abd3`）与第 5c 步 商业、认证、安装向导、公共页、Playground / 聊天 / 提示词学习、模型目录与账号窗口（`496dafc5`、`5844e5b8`、`107daf1b`、`58d8ce2c`、`5bbf6cb1`、`3ca80983`、`e44f4056`、`c531c0a8`、`e1aad933`、`ad33f977`）：在不能编译的条件下写成，**未经 CI 验证**，随接手文档一并推送。接手后第一件事是读 CI 并修复。
+- 维护者确认（2026-10-26，原话"都按你推荐的"）：Docker 工作流暂不改用 `lite`；命令行对齐安装脚本更严格的来源规则（待实现）；分析图表第 6 名起用中性灰。
 - 接手交接（2026-10-26）：见 [handoff/README.md](handoff/README.md)、[PROMPT.md](handoff/PROMPT.md)、[OPERATIONS.md](handoff/OPERATIONS.md)、[DIRECTORY_GUIDE.md](handoff/DIRECTORY_GUIDE.md)。主会话额度用尽，后续由其他 AI 接手。
 
 方向 3 已知风险（来自方案文档）：流向板是全新组件，对象多时拓扑感减弱；顶部导航在俄语、法语下最敏感（1024–1279 宽度需把一项收进"更多"）；任务 1、7 的步数比方向 1 多 1 步；实现代价为三个方向中最高。
