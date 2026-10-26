@@ -98,7 +98,7 @@ function Chat2LinkPage() {
       <Main className='items-center justify-center p-6'>
         <section
           role={error ? 'alert' : 'status'}
-          className='bg-card flex w-full max-w-xl flex-col items-center gap-4 rounded-xl border p-6 text-center'
+          className='bg-card rounded-card flex w-full max-w-xl flex-col items-center gap-4 border p-6 text-center'
         >
           <h1 className='text-xl font-semibold'>
             {error ? t('Unable to open chat') : t('Chat preset not found')}

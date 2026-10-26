@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Main } from '@/components/layout'
+import { SectionPageLayout } from '@/components/layout'
 import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -102,21 +102,20 @@ export function PromptLearning() {
   const canChangePolicy = policyReady && !policyQuery.isFetching
 
   return (
-    <Main>
-      <div className='min-h-0 flex-1 overflow-auto px-3 py-3 sm:px-4 sm:py-6'>
-        <div className='mx-auto flex w-full max-w-5xl flex-col gap-4 sm:gap-6'>
-          <div>
-            <h1 className='text-xl font-semibold'>{t('Prompt learning')}</h1>
-            <p className='text-muted-foreground mt-1 text-sm'>
-              {t(
-                'Build versioned instructions from explicitly authorized, redacted user requests.'
-              )}
-            </p>
-          </div>
-
-          <Card>
+    <SectionPageLayout>
+      <SectionPageLayout.Title>{t('Prompt learning')}</SectionPageLayout.Title>
+      <SectionPageLayout.Description>
+        {t(
+          'Build versioned instructions from explicitly authorized, redacted user requests.'
+        )}
+      </SectionPageLayout.Description>
+      <SectionPageLayout.Content>
+        <div className='flex w-full min-w-0 flex-col gap-4 sm:gap-5'>
+          <Card data-card-hover='false'>
             <CardHeader>
-              <CardTitle>{t('Learning policy')}</CardTitle>
+              <CardTitle>
+                <h2>{t('Learning policy')}</h2>
+              </CardTitle>
               <CardDescription>
                 {t('Only dashboard sessions can change this authorization.')}
               </CardDescription>
@@ -165,9 +164,11 @@ export function PromptLearning() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-card-hover='false'>
             <CardHeader>
-              <CardTitle>{t('Run history')}</CardTitle>
+              <CardTitle>
+                <h2>{t('Run history')}</h2>
+              </CardTitle>
               <CardDescription>
                 {t(
                   'Run history shows pending, completed, cancelled, and unknown analysis work.'
@@ -244,9 +245,11 @@ export function PromptLearning() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-card-hover='false'>
             <CardHeader>
-              <CardTitle>{t('Create manual version')}</CardTitle>
+              <CardTitle>
+                <h2>{t('Create manual version')}</h2>
+              </CardTitle>
               <CardDescription>
                 {t(
                   'Manual edits create an immutable version and never apply it to a file automatically.'
@@ -280,9 +283,11 @@ export function PromptLearning() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-card-hover='false'>
             <CardHeader>
-              <CardTitle>{t('Version history')}</CardTitle>
+              <CardTitle>
+                <h2>{t('Version history')}</h2>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {versionsQuery.isPending && (
@@ -350,7 +355,7 @@ export function PromptLearning() {
             </CardContent>
           </Card>
         </div>
-      </div>
-    </Main>
+      </SectionPageLayout.Content>
+    </SectionPageLayout>
   )
 }

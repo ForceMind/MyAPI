@@ -84,39 +84,47 @@ function ChatRouteContent() {
 
   if (!preset) {
     return (
-      <div className='flex h-full flex-col items-center justify-center gap-4 p-6 text-center'>
-        <MessageCircleWarning className='text-muted-foreground h-12 w-12' />
-        <div className='space-y-1'>
-          <h2 className='text-lg font-semibold'>
-            {t('Chat preset not found')}
-          </h2>
-          <p className='text-muted-foreground'>
-            {t('The requested chat preset does not exist or has been removed.')}
-          </p>
-        </div>
-        <Button variant='outline' render={<Link to='/dashboard' />}>
-          {t('Return to dashboard')}
-        </Button>
+      <div className='flex h-full flex-col items-center justify-center p-4 sm:p-6'>
+        <section className='bg-card rounded-card flex w-full max-w-xl flex-col items-center gap-4 border p-6 text-center'>
+          <MessageCircleWarning className='text-muted-foreground size-8' />
+          <div className='space-y-1'>
+            <h2 className='text-lg font-semibold'>
+              {t('Chat preset not found')}
+            </h2>
+            <p className='text-muted-foreground text-sm'>
+              {t(
+                'The requested chat preset does not exist or has been removed.'
+              )}
+            </p>
+          </div>
+          <Button variant='outline' render={<Link to='/dashboard' />}>
+            {t('Return to dashboard')}
+          </Button>
+        </section>
       </div>
     )
   }
 
   if (!isWebLink) {
     return (
-      <div className='flex h-full flex-col items-center justify-center gap-4 p-6 text-center'>
-        <MessageCircleWarning className='text-muted-foreground h-12 w-12' />
-        <div className='space-y-1'>
-          <h2 className='text-lg font-semibold'>{t('Use sidebar shortcut')}</h2>
-          <p className='text-muted-foreground'>
-            {preset.name}{' '}
-            {t(
-              'opens in an external client. Trigger it from the sidebar or API key actions to launch the configured application.'
-            )}
-          </p>
-        </div>
-        <Button variant='outline' render={<Link to='/dashboard' />}>
-          {t('Return to dashboard')}
-        </Button>
+      <div className='flex h-full flex-col items-center justify-center p-4 sm:p-6'>
+        <section className='bg-card rounded-card flex w-full max-w-xl flex-col items-center gap-4 border p-6 text-center'>
+          <MessageCircleWarning className='text-muted-foreground size-8' />
+          <div className='space-y-1'>
+            <h2 className='text-lg font-semibold'>
+              {t('Use sidebar shortcut')}
+            </h2>
+            <p className='text-muted-foreground text-sm'>
+              {preset.name}{' '}
+              {t(
+                'opens in an external client. Trigger it from the sidebar or API key actions to launch the configured application.'
+              )}
+            </p>
+          </div>
+          <Button variant='outline' render={<Link to='/dashboard' />}>
+            {t('Return to dashboard')}
+          </Button>
+        </section>
       </div>
     )
   }

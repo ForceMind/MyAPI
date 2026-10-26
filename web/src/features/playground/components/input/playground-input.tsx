@@ -211,7 +211,7 @@ export function PlaygroundInput(props: PlaygroundInputProps) {
           void addAttachments([...event.dataTransfer.files])
         }}
       >
-        <InputGroup className='bg-background/95 border-border/70 overflow-hidden rounded-xl shadow-lg has-disabled:opacity-100'>
+        <InputGroup className='bg-background/95 border-border/70 overflow-hidden rounded-xl has-disabled:opacity-100'>
           <input
             type='file'
             ref={fileInputRef}
