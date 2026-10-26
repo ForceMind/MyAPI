@@ -59,12 +59,12 @@ export function TwoFACard({
 
   if (pageLoading || loading) {
     return (
-      <Card data-card-hover='false' className='gap-0 overflow-hidden py-0'>
-        <CardHeader className='p-3 sm:p-5'>
-          <Skeleton className='h-6 w-48' />
-          <Skeleton className='mt-2 h-4 w-64' />
+      <Card data-card-hover='false'>
+        <CardHeader>
+          <Skeleton className='h-5 w-48' />
+          <Skeleton className='h-4 w-64' />
         </CardHeader>
-        <CardContent className='p-3 sm:p-5'>
+        <CardContent>
           <Skeleton className='h-20 w-full' />
         </CardContent>
       </Card>
@@ -73,16 +73,16 @@ export function TwoFACard({
 
   if (error || !status) {
     return (
-      <Card data-card-hover='false' className='gap-0 overflow-hidden py-0'>
-        <CardHeader className='p-3 sm:p-5'>
-          <CardTitle className='text-lg tracking-tight sm:text-xl'>
-            {t('Two-Factor Authentication')}
+      <Card data-card-hover='false'>
+        <CardHeader>
+          <CardTitle>
+            <h2>{t('Two-Factor Authentication')}</h2>
           </CardTitle>
-          <CardDescription className='text-xs sm:text-sm'>
+          <CardDescription>
             {t('Add an extra layer of security to your account')}
           </CardDescription>
         </CardHeader>
-        <CardContent className='p-3 sm:p-5'>
+        <CardContent>
           <ErrorState
             title={t('Unable to load settings')}
             onRetry={() => void refetch()}
@@ -95,17 +95,17 @@ export function TwoFACard({
 
   return (
     <>
-      <Card data-card-hover='false' className='gap-0 overflow-hidden py-0'>
-        <CardHeader className='p-3 sm:p-5'>
-          <CardTitle className='text-lg tracking-tight sm:text-xl'>
-            {t('Two-Factor Authentication')}
+      <Card data-card-hover='false'>
+        <CardHeader>
+          <CardTitle>
+            <h2>{t('Two-Factor Authentication')}</h2>
           </CardTitle>
-          <CardDescription className='text-xs sm:text-sm'>
+          <CardDescription>
             {t('Add an extra layer of security to your account')}
           </CardDescription>
         </CardHeader>
 
-        <CardContent className='p-3 sm:p-5'>
+        <CardContent>
           <div className='space-y-6'>
             {/* Status Section */}
             <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between xl:flex-col 2xl:flex-row'>

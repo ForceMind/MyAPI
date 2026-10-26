@@ -21,6 +21,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Field, FieldLabel } from '@/components/ui/field'
 import {
   Select,
@@ -30,7 +37,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { TitledCard } from '@/components/ui/titled-card'
 import {
   AVAILABLE_INTERFACE_LANGUAGE_OPTIONS,
   normalizeInterfaceLanguage,
@@ -167,24 +173,26 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
   }
 
   return (
-    <TitledCard
-      title={t('Language Preferences')}
-      description={t('Set the language used across the interface')}
-      icon={<Languages className='h-4 w-4' />}
-      iconTone='chart-4'
-      disableHoverEffect
-    >
-      <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4'>
-        <div className='space-y-1'>
+    <Card data-card-hover='false'>
+      <CardHeader>
+        <CardTitle>
+          <h2>{t('Language Preferences')}</h2>
+        </CardTitle>
+        <CardDescription>
+          {t('Set the language used across the interface')}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4'>
+        <div className='flex flex-col gap-1'>
           <div className='text-sm font-medium'>{t('Interface Language')}</div>
-          <p className='text-muted-foreground line-clamp-2 text-xs sm:text-sm'>
+          <p className='text-muted-foreground text-xs sm:text-sm'>
             {t(
               'Language preferences sync across your signed-in devices and affect API error messages.'
             )}
           </p>
         </div>
         {languageSelect}
-      </div>
-    </TitledCard>
+      </CardContent>
+    </Card>
   )
 }

@@ -200,12 +200,12 @@ export function PasskeyCard({
 
   if (pageLoading || loading) {
     return (
-      <Card data-card-hover='false' className='gap-0 overflow-hidden py-0'>
-        <CardHeader className='p-3 sm:p-5'>
-          <Skeleton className='h-6 w-48' />
-          <Skeleton className='mt-2 h-4 w-64' />
+      <Card data-card-hover='false'>
+        <CardHeader>
+          <Skeleton className='h-5 w-48' />
+          <Skeleton className='h-4 w-64' />
         </CardHeader>
-        <CardContent className='p-3 sm:p-5'>
+        <CardContent>
           <Skeleton className='h-20 w-full' />
         </CardContent>
       </Card>
@@ -214,16 +214,16 @@ export function PasskeyCard({
 
   if (error || !status) {
     return (
-      <Card data-card-hover='false' className='gap-0 overflow-hidden py-0'>
-        <CardHeader className='p-3 sm:p-5'>
-          <CardTitle className='text-lg tracking-tight sm:text-xl'>
-            {t('Passkey Login')}
+      <Card data-card-hover='false'>
+        <CardHeader>
+          <CardTitle>
+            <h2>{t('Passkey Login')}</h2>
           </CardTitle>
-          <CardDescription className='text-xs sm:text-sm'>
+          <CardDescription>
             {t('Use Passkey to sign in without entering your password.')}
           </CardDescription>
         </CardHeader>
-        <CardContent className='p-3 sm:p-5'>
+        <CardContent>
           <ErrorState
             title={t('Failed to load Passkey status')}
             onRetry={() => void fetchStatus()}
@@ -261,17 +261,17 @@ export function PasskeyCard({
 
   return (
     <>
-      <Card data-card-hover='false' className='gap-0 overflow-hidden py-0'>
-        <CardHeader className='p-3 sm:p-5'>
-          <CardTitle className='text-lg tracking-tight sm:text-xl'>
-            {t('Passkey Login')}
+      <Card data-card-hover='false'>
+        <CardHeader>
+          <CardTitle>
+            <h2>{t('Passkey Login')}</h2>
           </CardTitle>
-          <CardDescription className='text-xs sm:text-sm'>
+          <CardDescription>
             {t('Use Passkey to sign in without entering your password.')}
           </CardDescription>
         </CardHeader>
 
-        <CardContent className='p-3 sm:p-5'>
+        <CardContent>
           <div className='space-y-6'>
             <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between xl:flex-col 2xl:flex-row'>
               <div className='flex items-start gap-4'>
@@ -373,7 +373,7 @@ export function PasskeyCard({
 
             {showUnsupportedNotice && (
               <div className='bg-muted/60 text-muted-foreground flex items-start gap-3 rounded-md p-4 text-sm'>
-                <ShieldAlert className='mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500' />
+                <ShieldAlert className='text-warning mt-0.5 h-4 w-4 flex-shrink-0' />
                 <div>
                   <p className='text-foreground font-medium'>
                     {t('Passkey not supported on this device')}

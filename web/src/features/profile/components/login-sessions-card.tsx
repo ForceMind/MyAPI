@@ -194,7 +194,9 @@ export function LoginSessionsCard(props: LoginSessionsCardProps) {
     <>
       <Card data-card-hover='false'>
         <CardHeader className='has-data-[slot=card-action]:grid-cols-1 lg:has-data-[slot=card-action]:grid-cols-[1fr_auto]'>
-          <CardTitle>{t('Login sessions')}</CardTitle>
+          <CardTitle>
+            <h2>{t('Login sessions')}</h2>
+          </CardTitle>
           <CardDescription>
             {t('Review and sign out devices currently using your account.')}
           </CardDescription>

@@ -25,7 +25,6 @@ import {
   CardStaggerContainer,
   CardStaggerItem,
 } from '@/components/page-transition'
-import { buttonVariants } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -37,6 +36,7 @@ import { useFundingPresentation } from '@/hooks/use-funding-presentation'
 import { useConfirmedFundingMode } from '@/hooks/use-personal-workbench-mode'
 import { useProductEdition } from '@/hooks/use-product-edition'
 import { useStatus } from '@/hooks/use-status'
+import { linkButtonClassName } from '@/lib/link-button'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { CheckinCalendarCard } from './components/checkin-calendar-card'
@@ -104,7 +104,7 @@ export function Profile() {
 
             <CardStaggerItem>
               <div className='grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.46fr)] xl:items-start'>
-                <div className='min-w-0 space-y-5'>
+                <div className='flex min-w-0 flex-col gap-5'>
                   <ProfileSettingsCard
                     key={`settings:${securityScopeKey}`}
                     profile={profile}
@@ -115,9 +115,11 @@ export function Profile() {
                       fundingMode === 'enabled' || fundingMode === 'retirement'
                     }
                   />
-                  <Card>
+                  <Card data-card-hover='false'>
                     <CardHeader>
-                      <CardTitle>{t('Prompt learning workspace')}</CardTitle>
+                      <CardTitle>
+                        <h2>{t('Prompt learning workspace')}</h2>
+                      </CardTitle>
                       <CardDescription>
                         {t(
                           'Review authorized learning settings and instruction versions.'
@@ -125,9 +127,11 @@ export function Profile() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
+                      {/* A link drawn as a button: 44px on touch screens. */}
                       <Link
                         to='/prompt-learning'
-                        className={buttonVariants({ variant: 'outline' })}
+                        data-myapi-button=''
+                        className={linkButtonClassName({ variant: 'outline' })}
                       >
                         {t('Open prompt learning')}
                       </Link>
@@ -149,7 +153,7 @@ export function Profile() {
                   />
                 </div>
 
-                <div className='min-w-0 space-y-5'>
+                <div className='flex min-w-0 flex-col gap-5'>
                   <MySubscriptionCard
                     key={`subscriptions:${securityScopeKey}`}
                     canManage={

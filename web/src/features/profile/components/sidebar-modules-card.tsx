@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { LayoutDashboard } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -29,7 +28,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { IconBadge } from '@/components/ui/icon-badge'
 import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
@@ -200,29 +198,24 @@ export function SidebarModulesCard({
   }
 
   return (
-    <Card data-card-hover='false' className='gap-0 overflow-hidden py-0'>
-      <CardHeader className='border-b p-3 !pb-3 sm:p-5 sm:!pb-5'>
-        <div className='flex items-center gap-3'>
-          <IconBadge tone='info' size='title'>
-            <LayoutDashboard />
-          </IconBadge>
-          <div className='min-w-0'>
-            <CardTitle className='text-lg tracking-tight sm:text-xl'>
-              {t('Sidebar Personal Settings')}
-            </CardTitle>
-            <CardDescription className='text-xs sm:text-sm'>
-              {t('Customize sidebar display content')}
-            </CardDescription>
-          </div>
-        </div>
+    <Card data-card-hover='false'>
+      <CardHeader>
+        {/* The shell has no sidebar: these switches choose which console
+            entries the top bar, More and search offer to this account. */}
+        <CardTitle>
+          <h2>{t('Console modules')}</h2>
+        </CardTitle>
+        <CardDescription>
+          {t('Choose which console entries you see.')}
+        </CardDescription>
       </CardHeader>
-      <CardContent className='space-y-4 p-3 sm:space-y-5 sm:p-5'>
+      <CardContent className='flex flex-col gap-4'>
         {sectionDefs.map((section) => {
           const sectionEnabled = config[section.key]?.enabled !== false
           return (
             <div
               key={section.key}
-              className='bg-background/60 rounded-xl border p-3'
+              className='rounded-lg border p-3'
             >
               <div className='flex items-start justify-between gap-3'>
                 <div className='min-w-0'>
