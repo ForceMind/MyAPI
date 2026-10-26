@@ -5,16 +5,17 @@
 ## 1. 准备环境
 
 1. 工具：`git`、`gh`（GitHub CLI，已登录对 `ForceMind/MyAPI` 有推送权限的账号；`gh auth status` 检查）。读写代码的编辑器即可，不需要 Node、Bun、Go、Docker。
-2. 在**普通文件系统**上克隆（避免外置 exFAT 卷的 `._*` 文件和权限位噪音）：
-   ```bash
-   git clone https://github.com/ForceMind/MyAPI.git
-   cd MyAPI
-   git checkout dev
-   ```
-3. 确认 Git 身份是仓库维护者既有身份，不要修改 Git 用户配置。
-4. 不要创建新分支；所有工作在 `dev`。
-
-> 之前的会话在 `/Volumes/Work/Prive/MyAPI/.claude/worktrees/dev-work`（exFAT 卷）工作。在那里的 git 命令会输出大量 `non-monotonic index ... ._pack-*.idx` 噪音，且每个已跟踪文件显示权限位变化；必须用 `git -c core.fileMode=false ...` 并过滤噪音。在普通文件系统克隆则没有这些问题。
+2. 工作区两种方式任选其一：
+   - **方式 A（之前的会话一直在用）**：维护者的移动硬盘 `/Volumes/Work/Prive/MyAPI` 是 exFAT 格式，里面有一个 `dev` 分支的 git 工作区 `/Volumes/Work/Prive/MyAPI/.claude/worktrees/dev-work`，直接在其中工作。硬盘上的主检出 `/Volumes/Work/Prive/MyAPI` 停在旧分支，不要在那里工作。
+   - **方式 B**：在本机内置磁盘重新克隆：
+     ```bash
+     git clone https://github.com/ForceMind/MyAPI.git
+     cd MyAPI
+     git checkout dev
+     ```
+3. 方式 A 的 exFAT 注意事项：每条 git 命令加 `-c core.fileMode=false`（否则每个已跟踪文件显示权限位变化）；输出会有大量 `non-monotonic index ... ._pack-*.idx` 报错噪音，用 `2>&1 | grep -v 'non-monotonic'` 过滤，不影响结果；不要 `git add -A`，只添加自己的文件；Go 与 Node 会忽略 `._*` 文件，但统计代码行数或 grep 时要排除它们（用 `git ls-files`、`git grep` 更可靠）。方式 B 没有这些问题。
+4. 确认 Git 身份是仓库维护者既有身份，不要修改 Git 用户配置。
+5. 不要创建新分支；所有工作在 `dev`。
 
 ## 2. 了解当前状态
 
