@@ -143,7 +143,9 @@ function CommonLogRow(props: { log: UsageLog }) {
   const body = (
     <>
       <div className='flex min-w-0 flex-1 flex-col gap-1'>
-        <div className='flex min-w-0 items-center gap-2'>
+        {/* A long type label pushes the Request ID to its own line instead
+            of squeezing it to nothing. */}
+        <div className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5'>
           <span className='text-muted-foreground shrink-0 font-mono text-xs'>
             <RequestTime seconds={log.created_at} />
           </span>
