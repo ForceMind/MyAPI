@@ -336,38 +336,49 @@ export function SetupWizard() {
     !statusResponse?.data?.status
 
   return (
-    <div className='myapi-auth-surface min-h-svh px-4 py-4 sm:px-6 sm:py-6'>
-      <div className='mx-auto flex w-full max-w-5xl flex-col gap-6 sm:gap-8'>
-        <header className='flex items-start justify-between gap-4'>
-          <div className='min-w-0 space-y-3'>
-            <div className='flex items-center gap-3'>
-              <div className='relative size-10 shrink-0'>
-                {systemConfigLoading ? (
-                  <Skeleton className='absolute inset-0 rounded-lg' />
-                ) : (
-                  <img
-                    src={logo}
-                    alt={t('System logo')}
-                    className='size-10 rounded-lg object-contain'
-                  />
-                )}
-              </div>
+    <div className='myapi-auth-surface flex min-h-svh min-w-0 flex-col'>
+      {/* The sign-in pages' brand bar, with the interface language. */}
+      <header className='myapi-auth-bar'>
+        <div className='mx-auto flex min-h-14 w-full max-w-[1200px] min-w-0 items-center justify-between gap-4 px-4 py-2 lg:px-6'>
+          <div className='flex min-w-0 items-center gap-2.5'>
+            <div className='relative size-7 shrink-0'>
               {systemConfigLoading ? (
-                <Skeleton className='h-7 w-40' />
+                <Skeleton className='absolute inset-0 rounded-lg' />
               ) : (
-                <h1 className='min-w-0 text-xl font-semibold tracking-tight wrap-anywhere sm:text-2xl'>
-                  {t('Initialize')} {systemName}
-                </h1>
+                <img
+                  src={logo}
+                  alt={t('System logo')}
+                  className='size-7 rounded-lg object-contain'
+                />
               )}
             </div>
-            <p className='text-muted-foreground max-w-2xl text-sm leading-relaxed'>
-              {t(
-                'Follow the guided steps to prepare your workspace before the first login.'
-              )}
-            </p>
+            {systemConfigLoading ? (
+              <Skeleton className='h-5 w-24' />
+            ) : (
+              <span className='min-w-0 text-base leading-6 font-bold wrap-anywhere'>
+                {systemName}
+              </span>
+            )}
           </div>
           <LanguageSwitcher />
-        </header>
+        </div>
+      </header>
+
+      <div className='mx-auto flex w-full max-w-5xl min-w-0 flex-col gap-5 px-4 py-6 sm:gap-6 sm:py-8 lg:px-6'>
+        <div className='flex min-w-0 flex-col gap-1.5'>
+          {systemConfigLoading ? (
+            <Skeleton className='h-8 w-56' />
+          ) : (
+            <h1 className='text-2xl leading-8 font-semibold tracking-tight wrap-anywhere'>
+              {t('Initialize')} {systemName}
+            </h1>
+          )}
+          <p className='text-muted-foreground max-w-2xl text-sm leading-relaxed'>
+            {t(
+              'Follow the guided steps to prepare your workspace before the first login.'
+            )}
+          </p>
+        </div>
 
         <main id='content' tabIndex={-1} className='min-w-0 outline-none'>
           <Card className='gap-0'>
@@ -387,17 +398,15 @@ export function SetupWizard() {
                       key={step.titleKey}
                       aria-current={isActive ? 'step' : undefined}
                       className={cn(
-                        'min-w-0 rounded-lg border p-3',
-                        isActive
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border bg-muted/30'
+                        'min-w-0 rounded-lg border px-3 py-2.5',
+                        isActive ? 'border-primary bg-accent' : 'bg-card'
                       )}
                     >
                       <div className='flex items-start gap-2.5'>
                         <span
                           aria-hidden='true'
                           className={cn(
-                            'flex size-6 shrink-0 items-center justify-center rounded-md text-xs font-semibold',
+                            'flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums',
                             isActive || isCompleted
                               ? 'bg-primary text-primary-foreground'
                               : 'bg-muted text-muted-foreground'

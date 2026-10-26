@@ -50,15 +50,22 @@
     padding: 1.25rem;
   }
 
+  /* Sign-in, setup and error pages: the console's brand bar over the light
+   * surface, the task in one bordered card of the console card radius. */
   .myapi-auth-surface {
     background: var(--myapi-surface-sunken);
+  }
+
+  .myapi-auth-bar {
+    flex-shrink: 0;
+    background: var(--background);
+    border-bottom: 1px solid var(--border);
   }
 
   .myapi-auth-panel {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--elevation-popover);
+    border-radius: var(--radius-card);
   }
 
   @media (max-width: 639px) {
