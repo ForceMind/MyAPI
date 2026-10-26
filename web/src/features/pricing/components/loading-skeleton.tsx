@@ -76,7 +76,7 @@ function CardContentSkeleton() {
   return (
     <div className='grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3'>
       {CARD_SKELETON_IDS.map((id) => (
-        <div key={id} className='rounded-xl border p-5'>
+        <div key={id} className='rounded-card border p-5'>
           <div className='flex items-start justify-between gap-3'>
             <div className='flex min-w-0 items-start gap-3'>
               <Skeleton className='size-10 shrink-0 rounded-xl' />

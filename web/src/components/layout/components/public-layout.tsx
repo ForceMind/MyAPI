@@ -47,7 +47,8 @@ export function PublicLayout(props: PublicLayoutProps) {
       />
 
       {props.showMainContainer !== false ? (
-        <main className='container px-4 py-6 pt-20 md:px-4'>
+        // The console's 1200px column; the header above stays in the flow.
+        <main className='mx-auto w-full max-w-[1200px] min-w-0 px-4 py-6 sm:py-8 lg:px-6'>
           {props.children}
         </main>
       ) : (

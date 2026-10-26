@@ -85,7 +85,7 @@ export function Home() {
   if (!isLoaded) {
     return (
       <PublicLayout showMainContainer={false}>
-        <main className='flex min-h-screen items-center justify-center'>
+        <main className='flex min-h-[calc(100svh-3.5rem)] items-center justify-center'>
           <div className='text-muted-foreground'>{t('Loading...')}</div>
         </main>
       </PublicLayout>
@@ -107,7 +107,7 @@ export function Home() {
           <iframe
             ref={iframeRef}
             src={content}
-            className='h-screen w-full border-none'
+            className='h-[calc(100svh-3.5rem)] w-full border-none'
             title={t('Custom Home Page')}
             sandbox='allow-forms allow-popups allow-popups-to-escape-sandbox allow-scripts allow-top-navigation-by-user-activation'
             onLoad={syncIframePreferences}
@@ -133,7 +133,7 @@ export function Home() {
 
     return (
       <PublicLayout>
-        <div className='mx-auto max-w-6xl px-4 py-8'>
+        <div className='min-w-0'>
           <RichContent
             mode='markdown'
             content={content}
@@ -170,7 +170,7 @@ export function Home() {
 
   return (
     <PublicLayout showMainContainer={false}>
-      <main className='mx-auto w-full max-w-6xl px-5 py-12 sm:px-8 sm:py-20'>
+      <main className='mx-auto w-full max-w-[1200px] min-w-0 px-4 py-10 sm:py-16 lg:px-6'>
         {failed && (
           <Alert
             aria-label={t('Failed to load home page content')}
@@ -239,10 +239,10 @@ export function Home() {
             </div>
           </section>
           <section
-            className='bg-card min-w-0 overflow-hidden rounded-2xl border shadow-sm'
+            className='bg-card rounded-card min-w-0 overflow-hidden border'
             aria-label={t('Platform workflow')}
           >
-            <div className='bg-muted/30 flex items-center justify-between border-b px-5 py-4'>
+            <div className='bg-muted flex items-center justify-between border-b px-5 py-3.5'>
               <span className='font-semibold'>MyAPI</span>
               <span className='text-muted-foreground text-xs'>
                 {t('Console')}
@@ -254,7 +254,7 @@ export function Home() {
                   key={item.title}
                   className='flex min-w-0 items-start gap-4 py-5'
                 >
-                  <span className='bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-xl'>
+                  <span className='bg-accent text-accent-foreground flex size-10 shrink-0 items-center justify-center rounded-lg'>
                     <item.icon className='size-5' aria-hidden='true' />
                   </span>
                   <div className='min-w-0'>
@@ -274,7 +274,7 @@ export function Home() {
           </section>
         </div>
         <section
-          className='mt-12 rounded-xl border border-dashed p-5 sm:mt-16'
+          className='rounded-card bg-card mt-10 border p-5 sm:mt-14'
           aria-labelledby='home-entry-title'
         >
           <h2 id='home-entry-title' className='text-sm font-semibold'>

@@ -185,8 +185,8 @@ export function Footer(props: FooterProps) {
           props.className
         )}
       >
-        <div className='mx-auto w-full max-w-6xl px-6 py-5'>
-          <div className='bg-muted/20 border-border/50 flex flex-col items-center justify-between gap-4 rounded-2xl border px-4 py-4 backdrop-blur-sm sm:flex-row sm:px-5'>
+        <div className='mx-auto w-full max-w-[1200px] px-4 py-5 lg:px-6'>
+          <div className='bg-card rounded-card flex flex-col items-center justify-between gap-4 border px-4 py-4 sm:flex-row sm:px-5'>
             <div
               className='custom-footer text-muted-foreground min-w-0 text-center text-sm sm:text-left'
               dangerouslySetInnerHTML={{ __html: footerHtml }}
@@ -205,7 +205,7 @@ export function Footer(props: FooterProps) {
     <footer
       className={cn('border-border/40 relative z-10 border-t', props.className)}
     >
-      <div className='mx-auto max-w-6xl px-6 py-8 md:py-10'>
+      <div className='mx-auto w-full max-w-[1200px] px-4 py-8 md:py-10 lg:px-6'>
         <div className='flex flex-col justify-between gap-10 md:flex-row md:gap-16'>
           {/* Brand column */}
           <div className='shrink-0'>

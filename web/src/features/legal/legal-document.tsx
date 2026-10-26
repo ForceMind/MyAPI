@@ -17,13 +17,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { FileWarning } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { PublicLayout } from '@/components/layout'
 import { RichContent } from '@/components/rich-content'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { isHttpUrl, isLikelyHtml } from '@/lib/content-format'
 
@@ -58,7 +63,7 @@ export function LegalDocument({
   if (isLoading) {
     return (
       <PublicLayout>
-        <div className='mx-auto flex max-w-4xl flex-col gap-4 py-12'>
+        <div className='mx-auto flex max-w-3xl flex-col gap-4'>
           <Skeleton className='h-8 w-[45%]' />
           <Skeleton className='h-4 w-full' />
           <Skeleton className='h-4 w-[90%]' />
@@ -71,18 +76,13 @@ export function LegalDocument({
   if (!success || !hasContent) {
     return (
       <PublicLayout>
-        <div className='mx-auto max-w-2xl py-12'>
-          <Card className='border-dashed'>
-            <CardHeader className='flex flex-row items-center gap-4'>
-              <div className='bg-muted rounded-lg p-2'>
-                <FileWarning className='text-muted-foreground h-5 w-5' />
-              </div>
-              <div className='space-y-1'>
-                <CardTitle className='text-lg font-semibold'>{title}</CardTitle>
-                <p className='text-muted-foreground text-sm'>
-                  {data?.message || emptyMessage}
-                </p>
-              </div>
+        <div className='mx-auto max-w-2xl'>
+          <Card data-card-hover='false'>
+            <CardHeader>
+              <CardTitle>
+                <h1 className='text-lg'>{title}</h1>
+              </CardTitle>
+              <CardDescription>{data?.message || emptyMessage}</CardDescription>
             </CardHeader>
           </Card>
         </div>
@@ -93,10 +93,12 @@ export function LegalDocument({
   if (isUrl) {
     return (
       <PublicLayout>
-        <div className='mx-auto max-w-2xl py-12'>
-          <Card>
+        <div className='mx-auto max-w-2xl'>
+          <Card data-card-hover='false'>
             <CardHeader>
-              <CardTitle>{title}</CardTitle>
+              <CardTitle>
+                <h1 className='text-lg'>{title}</h1>
+              </CardTitle>
             </CardHeader>
             <CardContent className='space-y-4'>
               <p className='text-muted-foreground text-sm'>
@@ -127,10 +129,10 @@ export function LegalDocument({
       {contentIsHtml ? (
         <RichContent mode='html' htmlVariant='isolated' content={rawContent} />
       ) : (
-        <div className='mx-auto max-w-4xl space-y-6 py-12'>
-          <div className='space-y-2'>
-            <h1 className='text-3xl font-semibold tracking-tight'>{title}</h1>
-          </div>
+        <div className='mx-auto flex max-w-3xl min-w-0 flex-col gap-6'>
+          <h1 className='text-2xl leading-8 font-semibold tracking-tight wrap-break-word'>
+            {title}
+          </h1>
 
           <RichContent
             mode='markdown'

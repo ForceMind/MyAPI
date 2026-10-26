@@ -32,7 +32,7 @@ export function ErrorPageLayout(props: ErrorPageLayoutProps) {
         props.className
       )}
     >
-      <div className='myapi-auth-panel mx-auto my-auto w-full max-w-xl p-6 sm:p-10'>
+      <div className='myapi-auth-panel mx-auto my-auto w-full max-w-xl min-w-0 p-5 sm:p-8'>
         {!props.minimal && (
           <p className='text-primary mb-3 font-mono text-sm font-semibold tracking-widest'>
             {props.code}
@@ -40,7 +40,7 @@ export function ErrorPageLayout(props: ErrorPageLayoutProps) {
         )}
         <Heading
           id={titleId}
-          className='text-xl leading-tight font-semibold tracking-tight wrap-break-word sm:text-2xl'
+          className='text-2xl leading-8 font-semibold tracking-tight wrap-break-word'
         >
           {props.title}
         </Heading>

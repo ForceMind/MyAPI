@@ -17,11 +17,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { Construction } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { PublicLayout } from '@/components/layout'
 import { RichContent } from '@/components/rich-content'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import {
@@ -39,20 +45,19 @@ function EmptyAboutState() {
   const currentYear = new Date().getFullYear()
 
   return (
-    <div className='flex min-h-[60vh] items-center justify-center p-8'>
-      <div className='max-w-2xl space-y-6 text-center'>
-        <div className='flex justify-center'>
-          <Construction className='text-muted-foreground h-24 w-24' />
-        </div>
-        <div className='space-y-2'>
-          <h2 className='text-2xl font-bold'>{t('No About Content Set')}</h2>
-          <p className='text-muted-foreground'>
-            {t(
-              'The administrator has not configured any about content yet. You can set it in the settings page, supporting HTML or URL.'
-            )}
-          </p>
-        </div>
-        <div className='space-y-4 text-sm'>
+    <Card data-card-hover='false' className='mx-auto max-w-2xl'>
+      <CardHeader>
+        <CardTitle>
+          <h1 className='text-lg'>{t('No About Content Set')}</h1>
+        </CardTitle>
+        <CardDescription>
+          {t(
+            'The administrator has not configured any about content yet. You can set it in the settings page, supporting HTML or URL.'
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className='flex flex-col gap-3 text-sm wrap-anywhere'>
           <p>
             {t('MyAPI Project Repository:')}{' '}
             <a
@@ -95,7 +100,7 @@ function EmptyAboutState() {
             </a>
             .
           </p>
-          <p className='text-muted-foreground/70 text-xs'>
+          <p className='text-muted-foreground text-xs'>
             <a
               href={MYAPI_NOTICES_URL}
               target='_blank'
@@ -106,8 +111,8 @@ function EmptyAboutState() {
             </a>
           </p>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -126,7 +131,7 @@ export function About() {
   if (isLoading) {
     return (
       <PublicLayout>
-        <div className='mx-auto flex max-w-4xl flex-col gap-4 py-12'>
+        <div className='mx-auto flex max-w-3xl flex-col gap-4'>
           <Skeleton className='h-8 w-[45%]' />
           <Skeleton className='h-4 w-full' />
           <Skeleton className='h-4 w-[90%]' />
@@ -149,7 +154,7 @@ export function About() {
       <PublicLayout showMainContainer={false}>
         <iframe
           src={rawContent}
-          className='h-[calc(100vh-3.5rem)] w-full border-0'
+          className='h-[calc(100svh-3.5rem)] w-full border-0'
           title={t('About')}
           sandbox='allow-forms allow-popups allow-popups-to-escape-sandbox allow-scripts'
         />
@@ -172,7 +177,7 @@ export function About() {
 
   return (
     <PublicLayout>
-      <div className='mx-auto max-w-6xl px-4 py-8'>
+      <div className='min-w-0'>
         <RichContent
           mode='markdown'
           content={rawContent}

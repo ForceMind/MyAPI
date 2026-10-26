@@ -57,57 +57,41 @@ export function Rankings() {
 
   return (
     <PublicLayout showMainContainer={false}>
-      <div className='relative'>
-        <div
-          aria-hidden
-          className='pointer-events-none absolute inset-x-0 top-0 h-[600px] opacity-20 dark:opacity-[0.10]'
-          style={{
-            background: [
-              'radial-gradient(ellipse 60% 50% at 20% 20%, oklch(0.72 0.18 250 / 80%) 0%, transparent 70%)',
-              'radial-gradient(ellipse 50% 40% at 80% 15%, oklch(0.65 0.15 200 / 60%) 0%, transparent 70%)',
-              'radial-gradient(ellipse 40% 35% at 50% 70%, oklch(0.70 0.12 280 / 40%) 0%, transparent 70%)',
-            ].join(', '),
-            maskImage:
-              'linear-gradient(to bottom, black 40%, transparent 100%)',
-            WebkitMaskImage:
-              'linear-gradient(to bottom, black 40%, transparent 100%)',
-          }}
-        />
-        <PageTransition className='relative mx-auto w-full max-w-[1280px] space-y-8 px-3 pt-16 pb-10 sm:px-6 sm:pt-20 sm:pb-12 xl:px-8'>
-          <RankingsHero period={period} onPeriodChange={handlePeriodChange} />
+      {/* The console's 1200px column (design direction 3). */}
+      <PageTransition className='mx-auto flex w-full max-w-[1200px] min-w-0 flex-col gap-6 px-4 py-6 sm:gap-8 sm:py-8 lg:px-6'>
+        <RankingsHero period={period} onPeriodChange={handlePeriodChange} />
 
-          {rankingsQuery.isLoading && <RankingsLoading />}
-          {!rankingsQuery.isLoading && !snapshot && (
-            <RankingsError
-              message={
-                rankingsQuery.error instanceof Error
-                  ? rankingsQuery.error.message
-                  : t('Unable to load rankings data')
-              }
+        {rankingsQuery.isLoading && <RankingsLoading />}
+        {!rankingsQuery.isLoading && !snapshot && (
+          <RankingsError
+            message={
+              rankingsQuery.error instanceof Error
+                ? rankingsQuery.error.message
+                : t('Unable to load rankings data')
+            }
+          />
+        )}
+        {!rankingsQuery.isLoading && snapshot && (
+          <>
+            <ModelsSection
+              history={snapshot.models_history}
+              rows={snapshot.models}
+              period={period}
             />
-          )}
-          {!rankingsQuery.isLoading && snapshot && (
-            <>
-              <ModelsSection
-                history={snapshot.models_history}
-                rows={snapshot.models}
-                period={period}
-              />
 
-              <MarketShareSection
-                history={snapshot.vendor_share_history}
-                rows={snapshot.vendors}
-                period={period}
-              />
+            <MarketShareSection
+              history={snapshot.vendor_share_history}
+              rows={snapshot.vendors}
+              period={period}
+            />
 
-              <PulseSection
-                movers={snapshot.top_movers}
-                droppers={snapshot.top_droppers}
-              />
-            </>
-          )}
-        </PageTransition>
-      </div>
+            <PulseSection
+              movers={snapshot.top_movers}
+              droppers={snapshot.top_droppers}
+            />
+          </>
+        )}
+      </PageTransition>
     </PublicLayout>
   )
 }
@@ -115,9 +99,9 @@ export function Rankings() {
 function RankingsLoading() {
   return (
     <div className='space-y-6'>
-      <Skeleton className='h-[420px] w-full rounded-xl' />
-      <Skeleton className='h-[360px] w-full rounded-xl' />
-      <Skeleton className='h-[180px] w-full rounded-xl' />
+      <Skeleton className='rounded-card h-[420px] w-full' />
+      <Skeleton className='rounded-card h-[360px] w-full' />
+      <Skeleton className='rounded-card h-[180px] w-full' />
     </div>
   )
 }
@@ -125,7 +109,7 @@ function RankingsLoading() {
 function RankingsError(props: { message: string }) {
   const { t } = useTranslation()
   return (
-    <div className='bg-card rounded-xl border border-dashed px-6 py-12 text-center'>
+    <div className='bg-card rounded-card border px-6 py-12 text-center'>
       <h2 className='text-foreground text-base font-semibold'>
         {t('Unable to load rankings')}
       </h2>
