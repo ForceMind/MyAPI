@@ -104,9 +104,11 @@ func TestUpstreamAcceptanceRelayRetainsOperationThroughControllerReturn(t *testi
 		assert.Equal(t, "Bearer synthetic-relay-access", r.Header.Get("Authorization"))
 		assert.Equal(t, "synthetic-relay-account", r.Header.Get("ChatGPT-Account-ID"))
 		var request struct {
-			Model  string `json:"model"`
-			Stream bool   `json:"stream"`
-			Store  bool   `json:"store"`
+			Model                string `json:"model"`
+			Stream               bool   `json:"stream"`
+			Store                bool   `json:"store"`
+			PromptCacheKey       string `json:"prompt_cache_key"`
+			PromptCacheRetention string `json:"prompt_cache_retention"`
 		}
 		if !assert.NoError(t, common.DecodeJson(r.Body, &request)) {
 			w.WriteHeader(http.StatusBadRequest)
@@ -115,6 +117,8 @@ func TestUpstreamAcceptanceRelayRetainsOperationThroughControllerReturn(t *testi
 		assert.Equal(t, "gpt-5-codex", request.Model)
 		assert.True(t, request.Stream)
 		assert.False(t, request.Store)
+		assert.Equal(t, "synthetic-cache-session", request.PromptCacheKey)
+		assert.Equal(t, "24h", request.PromptCacheRetention)
 		payload := "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"acceptance-relay-response\",\"object\":\"response\",\"status\":\"completed\",\"model\":\"gpt-5-codex\",\"output\":[{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"synthetic reply\"}]}],\"usage\":{\"input_tokens\":10,\"output_tokens\":5,\"total_tokens\":15}}}\n\n"
 		w.Header().Set("Content-Type", "text/event-stream")
 		// An exact finite length makes EOF observable in the final upstream read,
@@ -158,7 +162,7 @@ func TestUpstreamAcceptanceRelayRetainsOperationThroughControllerReturn(t *testi
 		controller.Relay(c, types.RelayFormatOpenAI)
 		afterRelay, afterRelayErr = service.GetUpstreamAcceptanceStatus(context.Background(), run.ID)
 	})
-	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-5-codex","messages":[{"role":"user","content":"synthetic hello"}],"max_tokens":10,"stream":false}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-5-codex","messages":[{"role":"user","content":"synthetic hello"}],"max_tokens":10,"stream":false,"prompt_cache_key":"synthetic-cache-session","prompt_cache_retention":"24h"}`))
 	req.Header.Set("Authorization", "Bearer sk-"+token.Key)
 	req.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()

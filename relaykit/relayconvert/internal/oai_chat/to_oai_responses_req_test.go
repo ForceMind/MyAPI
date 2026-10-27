@@ -71,6 +71,42 @@ func TestChatCompletionsRequestToResponsesRequestPreservesPromptCacheKey(t *test
 	})
 }
 
+func TestChatCompletionsRequestToResponsesRequestPreservesPromptCacheRetention(t *testing.T) {
+	tests := []struct {
+		name      string
+		key       string
+		retention json.RawMessage
+	}{
+		{name: "24h with cache key", key: "session-cache", retention: json.RawMessage(`"24h"`)},
+		{name: "in-memory with cache key", key: "session-cache", retention: json.RawMessage(`"in-memory"`)},
+		{name: "retention without cache key", retention: json.RawMessage(`"24h"`)},
+		{name: "cache key without retention", key: "session-cache"},
+		{name: "both absent"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ChatCompletionsRequestToResponsesRequest(&dto.GeneralOpenAIRequest{
+				Model:                "gpt-test",
+				Messages:             []dto.Message{{Role: "user", Content: "hello"}},
+				PromptCacheKey:       tt.key,
+				PromptCacheRetention: tt.retention,
+			})
+			require.NoError(t, err)
+			assert.Equal(t, tt.retention, got.PromptCacheRetention)
+
+			encoded, err := kitutil.Marshal(got)
+			require.NoError(t, err)
+			retention := gjson.GetBytes(encoded, "prompt_cache_retention")
+			assert.Equal(t, len(tt.retention) > 0, retention.Exists(), "missing retention must not be defaulted")
+			assert.Equal(t, string(tt.retention), retention.Raw)
+			key := gjson.GetBytes(encoded, "prompt_cache_key")
+			assert.Equal(t, tt.key != "", key.Exists(), "retention must not generate a cache key")
+			assert.Equal(t, tt.key, key.String())
+		})
+	}
+}
+
 func TestChatCompletionsRequestToResponsesRequestPreservesQwenThinkingBudget(t *testing.T) {
 	tests := []struct {
 		name   string
