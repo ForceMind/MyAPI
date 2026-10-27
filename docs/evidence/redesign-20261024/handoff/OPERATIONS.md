@@ -5,7 +5,7 @@
 ## 1. 准备环境
 
 1. 工具：`git`、`gh`（GitHub CLI，已登录对 `ForceMind/MyAPI` 有推送权限的账号；`gh auth status` 检查）。读写代码的编辑器即可，不需要 Node、Bun、Go、Docker。
-2. 工作区：项目**只放在维护者的移动硬盘上**（exFAT 格式），维护者已决定本机内置磁盘上的旧版本项目会删除，所以**不要在本机内置磁盘另建副本或克隆**。先在 `/Volumes/Work/Prive/MyAPI` 里运行 `git -c core.fileMode=false branch --show-current`：显示 `dev` 说明维护者已运行过整理脚本，该目录本身就是工作区；显示别的分支说明还没运行，工作区是 `/Volumes/Work/Prive/MyAPI/.claude/worktrees/dev-work`（`dev` 分支），并请维护者在终端运行 `handoff/consolidate-workspace.sh`（用法见脚本开头注释；它会移除 dev-work 与另一个嵌套工作区、把主检出切到 `dev`，运行前会逐项检查并要求输入 yes；接手 AI 自己不要运行它）。无论哪种情况，**不要删除、移动或重命名 `/Volumes/Work/Prive/MyAPI`**：工作区依赖其中的 `.git`，而且 `.git` 里还保存着几条远端已不存在的历史分支的本地独有提交。
+2. 工作区：项目**只放在维护者的移动硬盘上**（exFAT 格式），不要在内置磁盘另建副本或克隆。**2026-10-27 已整理成功，`/Volumes/Work/Prive/MyAPI` 本身为 dev，两个嵌套工作区已移除。不要重跑仓库旧 consolidate-workspace.sh。** 先只读核对当前分支；若不是 dev，停止并问维护者，不自行切换或重建工作区。不要删除、移动、重命名仓库或 `.git`，其中有本地独有历史提交。内置磁盘两个 Codex 工作区未动，删旧项目后的 prune 由维护者处理。
 3. exFAT 注意事项：每条 git 命令加 `-c core.fileMode=false`（否则每个已跟踪文件显示权限位变化）；输出会有大量 `non-monotonic index ... ._pack-*.idx` 报错噪音，用 `2>&1 | grep -v 'non-monotonic'` 过滤，不影响结果；不要 `git add -A`，只添加自己的文件；Go 与 Node 会忽略 `._*` 文件，但统计代码行数或 grep 时要排除它们（用 `git ls-files`、`git grep` 更可靠）。
 4. 确认 Git 身份是仓库维护者既有身份，不要修改 Git 用户配置。
 5. 不要创建新分支；所有工作在 `dev`。
@@ -13,13 +13,14 @@
 ## 2. 了解当前状态
 
 ```bash
-git fetch origin
-git log --oneline -15 origin/dev
+git -c core.fileMode=false fetch origin
+git -c core.fileMode=false log --oneline -15 origin/dev
 gh run list --repo ForceMind/MyAPI --branch dev --limit 5
 ```
 
-- 先读 `handoff/README.md`，再读 `TASKS.md`。
-- 最后一个已确认全绿的提交：`a53973d4`（CI 运行 40271665685，首次失败于偶发的 `window-maintenance`，重跑通过）。之后的 5b、5c 代码未经过 CI。
+- 先读 `handoff/README.md` 零节和 `CACHE_REVIEW_20261027.md`，再按阅读顺序了解原任务。
+- 最近全绿：`e7eef352` / CI 40447186866（11/11 成功），含保留策略修复 `6392caf9`。5b、5c 已通过 CI，不能再当作未验证构建。
+- `e8652185` / CI 40462005121：仅会话头新测试的 5 个子场景失败，后端作业 122048552508；其余10作业成功。接手交接文档的新 CI 仍可能同样红，先核对 exact SHA 和失败集。**会话头产品修复未获授权；不得以“修红”为由直接改产品或放宽测试。**
 
 ## 3. CI 循环（核心操作）
 
@@ -41,6 +42,8 @@ gh run view <RUN_ID> --repo ForceMind/MyAPI --job <JOB_ID> --log-failed > ci.log
 grep -n -E "##\[error\]|AssertionError|Error:|FAIL" ci.log | head -30
 ```
 
+- 若整轮仍运行，`gh run view --log-failed` 会拒绝。确认目标 job 已 completed 后，可用 `gh api repos/ForceMind/MyAPI/actions/jobs/<JOB_ID>/logs --allow-escape-sequences > <自己创建的临时日志>`；该选项仅允许 ANSI 原样写文件，不执行日志正文。日志查完清理，长期引用 Actions 与缓存专项摘要。
+- exFAT 上新文件的原子硬链接可能报 ENOTSUP；只在确认不是 sandbox 拒绝、目标不存在后，用支持独占创建的方式写新文件，禁止覆盖其他文件。既有文件先读再定向编辑。
 - Lint 的注解不带文件名：`##[error]Expected { after 'if' condition.` 表示有 `if (...)` 后语句体换行但没加花括号；用 `git diff <基线>..HEAD -U0 -- web/src | grep -nE '^\+\s*(\} else )?if \(.*\)\s*$'` 找新增代码里的这种写法。
 - 浏览器验收的失败信息在日志里的 `AssertionError [ERR_ASSERTION]: ...` 或 `locator.waitFor: Timeout`；脚本在 `tools/ui/*.mjs`、`tools/runtime/*.mjs`、`tools/quota`、`tools/routing`。
 - 只重跑失败作业（判断是否偶发）：`gh run rerun <RUN_ID> --repo ForceMind/MyAPI --failed`。

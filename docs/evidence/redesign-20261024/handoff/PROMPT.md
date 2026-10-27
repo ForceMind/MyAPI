@@ -1,6 +1,8 @@
-# 接手提示词（可直接复制给接手 AI）
+# 接手提示词（2026-10-27 更新，可直接复制给接手 AI）
 
-以下内容整体复制。方括号里的是需要接手者自己填写或确认的位置。
+以下内容整体复制。先读最新状态，不要按旧版提示重做工作区整理或把 5b/5c 当作尚未编译。
+
+> 当前开发线包含有意保留的会话头取证红灯。维护者仅授权了测试，没有授权产品修复。最新任务是交接，不是继续自动修红。
 
 ---
 
@@ -21,7 +23,7 @@
 
 ## 先读这些，按顺序
 
-1. `docs/evidence/redesign-20261024/handoff/README.md`（接手文档：已完成、未完成、风险、约定）
+1. `docs/evidence/redesign-20261024/handoff/README.md`（先读零节最新状态），紧接着读同目录 `CACHE_REVIEW_20261027.md`（缓存专项、红绿证据与授权边界）
 2. `docs/evidence/redesign-20261024/handoff/OPERATIONS.md`（操作引导：CI 循环、命令、提交规则）
 3. `docs/evidence/redesign-20261024/handoff/DIRECTORY_GUIDE.md`（目录引导）
 4. `docs/evidence/redesign-20261024/TASKS.md`（任务清单与已确认决定）
@@ -33,17 +35,14 @@
 
 ## 你的第一步（不需要问维护者的部分）
 
-1. 准备工作区。项目**只放在维护者的移动硬盘上**（exFAT 格式），维护者已决定本机内置磁盘上的旧版本项目会删除，所以**不要在本机内置磁盘另建副本或克隆**。
-   - 先在 `/Volumes/Work/Prive/MyAPI` 里运行 `git -c core.fileMode=false branch --show-current`：
-     - 如果显示 `dev`：维护者已经运行过整理脚本，这个目录本身就是工作区，直接用。
-     - 如果显示别的分支（例如 `codex/r1-usage-review-20261002`）：整理脚本还没运行，工作区是 `/Volumes/Work/Prive/MyAPI/.claude/worktrees/dev-work`（`dev` 分支）。请维护者在终端运行 `docs/evidence/redesign-20261024/handoff/consolidate-workspace.sh`（用法写在脚本开头注释里），**你自己不要运行它**（它会删除你正在使用的 dev-work 目录）。运行前先用 dev-work 继续工作。
-   - 进入工作区后执行 `git -c core.fileMode=false fetch origin` 和 `git -c core.fileMode=false pull --ff-only`。
-   - 工作区依赖硬盘上 `/Volumes/Work/Prive/MyAPI/.git`，**不要删除、移动或重命名 `/Volumes/Work/Prive/MyAPI`**；该 `.git` 里还保存着几条远端已不存在的历史分支的本地独有提交。
-   - exFAT 上每条 git 命令都要加 `-c core.fileMode=false`（否则每个文件显示权限位变化），并用 `2>&1 | grep -v 'non-monotonic'` 过滤 `._*.idx` 报错噪音；不要 `git add -A`，只添加自己的文件。
-   - 确认 `dev` 的最新提交包含接手文档（`docs/evidence/redesign-20261024/handoff/`），`git log` 里应能看到提交 `2f5b7420` 或更新的提交。
-2. 用 `gh run list --repo ForceMind/MyAPI --branch dev --limit 5` 看最近 CI。最后一个已确认全绿的提交是 `a53973d4`（运行 40271665685，经重跑通过）。其后的第 5b、5c 步代码**从未经过 CI**，推送后期望会红。
-3. 读最新一次 CI 的失败步骤和日志，按接手文档第六节的优先排查点逐个修，修一批、推一次（同一分支新推送会取消未跑完的旧运行）。
-4. CI 全绿后，用 CI 上传的浏览器截图检查 5b、5c 各页面的实际效果，对照 `ui-design-v2/mockups/3-flow/` 样稿与 `step1`–`step4` 截图，不一致的返工。
+1. 主检出 `/Volumes/Work/Prive/MyAPI`（exFAT）已直接位于 `dev`，嵌套 `dev-work` 与旧 fetch-latest 工作区已移除。只读核对 `git -c core.fileMode=false branch --show-current`；若不是 dev，停下问维护者，不强切。不要重跑仓库旧整理脚本，不删除/移动仓库或 `.git`，不在内置磁盘另克隆。内置磁盘两个 Codex 工作区未动。
+2. 每条 git 命令加 `-c core.fileMode=false`，用 `set -o pipefail` 保留退出码并过滤 non-monotonic 噪音；只 add 自己的路径。先核对工作区，再 fetch；无脏改动和分歧才 `pull --ff-only origin dev`，不得 reset/stash/强推。
+3. 最新最近全绿是 `e7eef352` / CI40447186866；保留策略修复 `6392caf9` / CI40443871659 也11/11成功。`d3beeeef` / CI40284651016 已证明5b/5c通过，后续只需继续视觉收口，不重做页面。
+4. 当前测试基线 `e8652185` / CI40462005121 失败于 `router/codex_session_headers_test.go` 的5个新子场景：无缓存键、模型不匹配、Chat转Responses、渠道正文直通、全局正文直通，均丢失 Session_id/Thread_id/X-Codex-Turn-State。其余10个作业成功。后续交接提交只改文档，CI可能仍同样失败，先读真实结果。
+5. 先读 `handoff/CACHE_REVIEW_20261027.md`，其中有准确SHA、CI、日志节选、调用链、测试隔离、拟修范围和严格门禁风险。原生OpenAI/Codex已有缓存参数支持；已完成的修复只保证保留策略不丢，不证明真实缓存命中。
+6. **下一项产品修复尚未获批准**：只在Codex白名单会话头内解耦亲和/正文流程，保留显式覆盖和删除、凭据隔离、严格门禁、不重放。先向维护者给成功标准/验证方法/涉及文件/风险并等明确同意；不得因为CI红擅自修产品、删测试或改为空值期望。
+7. 原UI验收只抽查17张英文亮色320/1280原图，下载已清理；固定列边缘文字及安装向导滚动后品牌待核对是否可完整滚动访问，不能凭一张截图武断修布局。中文/暗色/其他宽度/全部页面仍待验收，之后恢复P1/P2。所有浏览器执行只在CI。
+
 
 ## 之后的工作（先向维护者给出方案并等确认）
 
@@ -60,4 +59,4 @@
 
 ## 开工前向维护者确认一件事
 
-本次接手的优先级是否与接手文档第四节一致。如果维护者给出新的需求，以维护者最新一句话为准，但不要因此丢掉已商定的剩余任务。除此之外不需要再问，直接按"你的第一步"开始。
+本次先只读汇报精确分支、提交和CI，说明会话头丢失已取证、产品未修，再向维护者确认是否执行缓存专项第5节的修复方案。维护者最后只授权把成果更新到仓库交接，没有回复“同意修会话头”；不要擅自继续，也不要重问已确认的UI方向和部署五项决定。

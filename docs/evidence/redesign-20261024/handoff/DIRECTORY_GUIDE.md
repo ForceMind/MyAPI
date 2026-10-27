@@ -41,13 +41,22 @@
 
 | 路径 | 内容 |
 | --- | --- |
-| `handoff/` | **接手文档四件套**：`README.md`（状态、待办、风险）、`PROMPT.md`（提示词）、`OPERATIONS.md`（操作引导）、本文件 |
+| `handoff/` | 接手入口 `README.md`（先看零节）、`PROMPT.md`、`OPERATIONS.md`、本文件；新增 `CACHE_REVIEW_20261027.md`（缓存专项CI红绿证据、未批准修复与代码路径） |
 | `TASKS.md` | 任务清单、已确认决定、各步进度与 CI 记录。每完成一步在这里追加 |
 | `PLAN_PHASE2.md` | 第二阶段计划（结构审查与重构 A1–A6、部署脚本 B1–B7、收口 C1–C3） |
 | `architecture-review.md` | 第一性原理架构评估（价值链、模块归属表、重复与死代码、版本差距、A/B/C/D 精简分级） |
 | `ui-design/` | 第一版设计方向与截图（已被取代，仅留档）：`DESIGN_DIRECTION.md`、`baseline/`（改版前现状截图）、`foundation/`、`shell/`、`pages/` |
 | `ui-design-v2/` | **第二版设计（当前依据）**：`DESIGN_DIRECTION_V2.md`、`RESEARCH.md`、`mockups/{1-switchboard,2-control-room,3-flow}/`（三个可点击静态样稿，维护者选定 `3-flow`）、`screenshots/` |
 | `ui-design-v2/step1/` 到 `step4/` | 各实施步骤的说明与截图：`step1`（令牌与外壳，含 `IA_MAPPING.md`、`contrast-report.md`）、`step2`（流向板首页）、`step3`（Key 与请求页，含路由与旧链接兼容表）、`step4`（上游页与收尾项）。5a 之后没有写 README 与截图（本机不能运行浏览器） |
+
+## 2.2 缓存专项代码索引（2026-10-27）
+
+- `router/codex_session_headers_test.go`：新增合成出站取证，当前5个会话头子场景失败；不含产品修复。
+- `relaykit/relayconvert/internal/oai_chat/to_oai_responses_req.go` 及其测试：保留策略已修并全绿。
+- `setting/operation_setting/channel_affinity_setting.go`、`service/channel_affinity.go`、`service/channel_account_affinity.go`：默认规则、模板、渠道/账号亲和。
+- `middleware/distributor.go`、`relay/responses_handler.go`、`relay/chat_completions_via_responses.go`：分发与正文/协议转换顺序。
+- `relay/channel/codex/adaptor.go`、`relay/channel/api_request.go`、`relay/common/override.go`：出站头、运行时覆盖/删除和普通/严格门禁。
+- `relay/channel/openai/usage.go`、`service/log_token_evidence.go`：原生缓存计数与未知/零证据；其他统计疑点未修。
 
 ## 3. 前端（`web/`）
 
