@@ -23,6 +23,7 @@ const (
 	paramOverrideContextRequestHeaders = "request_headers"
 	paramOverrideContextHeaderOverride = "header_override"
 	paramOverrideContextAuditRecorder  = "__param_override_audit_recorder"
+	paramOverrideContextCodexSession   = "__codex_session_headers"
 )
 
 var errSourceHeaderNotFound = errors.New("source header does not exist")
@@ -1565,6 +1566,13 @@ func getHeaderValueFromContext(context map[string]interface{}, headerName string
 			continue
 		}
 		value := strings.TrimSpace(fmt.Sprintf("%v", raw))
+		if key == paramOverrideContextHeaderOverride && context[paramOverrideContextCodexSession] == true && value == "{client_header:"+headerName+"}" {
+			switch headerName {
+			case "session_id", "thread_id", "x-codex-turn-state":
+				// Header operations read the client value behind our default reference.
+				continue
+			}
+		}
 		if value != "" {
 			return value, true
 		}
@@ -2146,6 +2154,9 @@ func BuildParamOverrideContext(info *RelayInfo) map[string]interface{} {
 	}
 
 	ctx[paramOverrideContextRequestHeaders] = buildRequestHeadersContext(info.RequestHeaders)
+	if info.ChannelMeta != nil && info.ChannelType == constant.ChannelTypeCodex && !info.IsChannelTest {
+		ctx[paramOverrideContextCodexSession] = true
+	}
 
 	headerOverrideSource := GetEffectiveHeaderOverride(info)
 	ctx[paramOverrideContextHeaderOverride] = sanitizeHeaderOverrideMap(headerOverrideSource)

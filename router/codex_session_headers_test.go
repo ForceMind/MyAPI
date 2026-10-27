@@ -131,6 +131,10 @@ func TestCodexSessionHeadersHonorHeaderOperations(t *testing.T) {
 			operations: []any{map[string]any{"mode": "set_header", "path": "Session_id", "value": "operator-session"}},
 		},
 		{
+			name: "explicit mapping reads client session", cacheKey: true, wantSession: "mapped-session",
+			operations: []any{map[string]any{"mode": "set_header", "path": "Session_id", "value": map[string]any{"client-session": "mapped-session"}}},
+		},
+		{
 			name: "unrelated body operation retains defaults", wantSession: "client-session",
 			operations: []any{map[string]any{"mode": "set", "path": "instructions", "value": "synthetic instruction"}},
 		},
