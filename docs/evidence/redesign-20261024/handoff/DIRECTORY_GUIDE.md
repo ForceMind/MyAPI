@@ -41,7 +41,7 @@
 
 | 路径 | 内容 |
 | --- | --- |
-| `handoff/` | 接手入口 `README.md`（先看零节）、`PROMPT.md`、`OPERATIONS.md`、本文件；新增 `CACHE_REVIEW_20261027.md`（缓存专项CI红绿证据、未批准修复与代码路径） |
+| `handoff/` | 接手入口 `README.md`（先看零节）、`PROMPT.md`、`OPERATIONS.md`、本文件；`CACHE_REVIEW_20261027.md`（缓存专项CI红绿证据、已验证修复与其余待办） |
 | `TASKS.md` | 任务清单、已确认决定、各步进度与 CI 记录。每完成一步在这里追加 |
 | `PLAN_PHASE2.md` | 第二阶段计划（结构审查与重构 A1–A6、部署脚本 B1–B7、收口 C1–C3） |
 | `architecture-review.md` | 第一性原理架构评估（价值链、模块归属表、重复与死代码、版本差距、A/B/C/D 精简分级） |
@@ -51,11 +51,12 @@
 
 ## 2.2 缓存专项代码索引（2026-10-27）
 
-- `router/codex_session_headers_test.go`：新增合成出站取证，当前5个会话头子场景失败；不含产品修复。
+- `router/codex_session_headers_test.go`：原合成取证在 `e8652185` / `50bad4db` 的5个子场景失败；`069f67d7` 保留原断言并增加删除、keep_origin、显式set与无关正文操作保护；`9795c0f5` 增加显式值映射对照。两提交均完整CI 11/11成功。
 - `relaykit/relayconvert/internal/oai_chat/to_oai_responses_req.go` 及其测试：保留策略已修并全绿。
 - `setting/operation_setting/channel_affinity_setting.go`、`service/channel_affinity.go`、`service/channel_account_affinity.go`：默认规则、模板、渠道/账号亲和。
 - `middleware/distributor.go`、`relay/responses_handler.go`、`relay/chat_completions_via_responses.go`：分发与正文/协议转换顺序。
 - `relay/channel/codex/adaptor.go`、`relay/channel/api_request.go`、`relay/common/override.go`：出站头、运行时覆盖/删除和普通/严格门禁。
+- 本次产品修复只在 `relay/common/override.go` 默认提供三个Codex会话头引用，并保护参数操作读取真实客户端值；运行时映射仍是最终结果。`relay/channel/api_request_test.go` 增加客户端占位符字面值、供应商/渠道测试隔离对照。CI与授权状态见README零节及缓存专项。
 - `relay/channel/openai/usage.go`、`service/log_token_evidence.go`：原生缓存计数与未知/零证据；其他统计疑点未修。
 
 ## 3. 前端（`web/`）

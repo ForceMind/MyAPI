@@ -112,15 +112,16 @@ UI 设计（`ui-design/DESIGN_DIRECTION.md` 第 11 节）：
 - **[交接]** 最新入口为 [handoff/README.md](handoff/README.md) 零节，[CACHE_REVIEW_20261027.md](handoff/CACHE_REVIEW_20261027.md) 含精确SHA/CI、日志消息节选、调用链、拟修范围与显式删除/严格门禁风险，OPERATIONS和PROMPT同步更新。原P1/P2任务保留。交接文档的新CI需按实际结果读取，预计仍含上述已知取证红灯，不冒称全绿。
 - **[UI 进一步读码]** 已见截图裁切现象仍待定向验收；表格具有横向滚动/固定列，setup品牌是普通栏且切步会focus标题，可能随正常滚动出屏。须验证滚动可读和控件可达后才定性，不能因自动验收passed就称细节全合格，也不能凭静态边缘裁切就武断返工。没有产品UI修改。
 
-### Codex 会话头最小修复（2026-10-27，已获批准，待 CI）
+### Codex 会话头最小修复（2026-10-27，已获批准并通过完整 CI）
 
 - **[维护者]** 本次明确同意按缓存专项第5节修复会话头；保持最小范围、不放宽断言，提交推送 `origin/dev` 后读取完整 CI，构建与测试全部在 GitHub Actions。
 - **[已读取 CI]** 接手提交 `50bad4dbc5bbe1ca40e5da195d79f0a81a456026` / [40474459858](https://github.com/ForceMind/MyAPI/actions/runs/40474459858)：10/11作业成功，后端仍仅同一测试族的5个会话头子场景失败。该提交相对 `e8652185` 只更新6份文档，没有产品修复。
-- **[实现，待 CI 验证]** 写入范围收窄为 `relay/common/override.go` 的有效头映射、`relay/channel/api_request_test.go`、`router/codex_session_headers_test.go` 与本记录。仅 Codex 普通转发默认提供 Session_id / Thread_id / X-Codex-Turn-State 的 `client_header` 引用；在参数操作前建立默认项，运行时最终映射不补回缺失项，使显式覆盖、keep_origin、delete_header 继续生效。使用引用而非插入客户端原文，避免客户端内容被当作配置占位符展开；不改冻结渠道配置。
+- **[实现已通过CI]** 产品写入范围收窄为 `relay/common/override.go` 的有效头映射及参数读取上下文，测试只补 `relay/channel/api_request_test.go`、`router/codex_session_headers_test.go`。仅 Codex 普通转发默认提供 Session_id / Thread_id / X-Codex-Turn-State 的 `client_header` 引用；在参数操作前建立默认项，运行时最终映射不补回缺失项，使显式覆盖、keep_origin、delete_header 继续生效。使用引用而非插入客户端原文，避免客户端内容被当作配置占位符展开；不改冻结渠道配置。正文直通保留跳过参数操作的原有语义。
 - **成功标准**：原5条失败路径转绿，缺失不生成，显式覆盖/删除、请求间隔离、凭据隔离、严格门禁、不重放保持。**验证方法**：保留原取证断言；补删除（匹配/不匹配亲和）、keep_origin（客户端/显式配置）、显式set、无关正文操作、客户端占位符字面值、供应商和渠道测试隔离对照，全部由完整 CI 执行；通过后记录提交与运行号。
-- **[本机轻量检查]** 仅格式化本次 Go 文件并检查 Git 差异；没有在本机安装依赖、构建、运行测试、浏览器或 Docker。当前不声明修复验证完成，原 UI 与 P1/P2 待办继续保留。
-- **[读码自查补充，待下一次CI]** 默认会话头采用 `client_header` 引用，显式 `set_header` 值映射等参数操作仍须读到真实客户端值。仅在Codex普通请求的三个会话头读取中跳过默认引用、回读既有请求头上下文；其他供应商/渠道测试不启用此内部标记。增加匹配亲和后的显式映射对照，原断言保留；该补充只涉及同一个产品文件与现有router测试。
-- **[首轮完整CI已通过]** 修复提交 `069f67d7afa5931c2bb2086d3361c7dfe36acf36` / [40500636411](https://github.com/ForceMind/MyAPI/actions/runs/40500636411) 为success，11/11作业成功。已读取后端日志，`router`、`relay/channel`、`relay/common`、relaykit转换与两模块全套测试通过，relaykit独立构建和后续全部竞态检查成功，未被跳过。原5条会话头失败路径及原保护断言随完整测试转绿；新增显式映射边界补充仍须下一提交CI验证，不将首轮结果套用到未提交修改。
+- **[本机轻量检查]** 仅格式化本次 Go 文件并检查 Git 差异；没有在本机安装依赖、构建、运行测试、浏览器或 Docker。最终验证均来自下列完整CI，原 UI 与 P1/P2 待办继续保留。
+- **[自查补充，已随9795c0f5验证]** 默认会话头采用 `client_header` 引用，显式 `set_header` 值映射等参数操作仍须读到真实客户端值。仅在Codex普通请求的三个会话头读取中跳过默认引用、回读既有请求头上下文；其他供应商/渠道测试不启用此内部标记。增加匹配亲和后的显式映射对照，原断言保留；该补充只涉及同一个产品文件与现有router测试。
+- **[首轮完整CI已通过]** 修复提交 `069f67d7afa5931c2bb2086d3361c7dfe36acf36` / [40500636411](https://github.com/ForceMind/MyAPI/actions/runs/40500636411) 为success，11/11作业成功。已读取后端日志，`router`、`relay/channel`、`relay/common`、relaykit转换与两模块全套测试通过，relaykit独立构建和后续全部竞态检查成功，未被跳过。原5条会话头失败路径及原保护断言随完整测试转绿；新增显式映射边界补充不在该提交中，以后续9795c0f5的CI为准。
+- **[补充提交完整CI已通过]** `9795c0f5d4c3cc52beffcebebee1757364f7a3cf` 已推送并回读 `origin/dev`；[40504125721](https://github.com/ForceMind/MyAPI/actions/runs/40504125721) 为success，11/11作业成功。已读取本轮后端日志：相关包、relaykit独立构建、两模块全套测试与全部后续竞态检查通过；前端类型、lint、测试、浏览器验收及既有数据库/Redis/发行/桌面回归作业成功。保护断言未放宽。验证目标为合成上游，不证明真实缓存命中。
 
 方向 3 已知风险（来自方案文档）：流向板是全新组件，对象多时拓扑感减弱；顶部导航在俄语、法语下最敏感（1024–1279 宽度需把一项收进"更多"）；任务 1、7 的步数比方向 1 多 1 步；实现代价为三个方向中最高。
 

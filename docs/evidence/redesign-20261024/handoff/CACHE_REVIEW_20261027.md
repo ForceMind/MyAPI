@@ -4,8 +4,8 @@
 
 - 维护者要求检查 OpenAI/Codex 缓存支持，并要求按代码设计自行查清链路。
 - **已批准并验证完成**：只修复 Chat → Responses 漏传 `prompt_cache_retention`；缺失不补值、不生成缓存键，不改渠道配置、请求头、路由或计费。
-- **已批准且已取证，产品未修**：仅新增合成会话头测试。已向维护者提出产品修复方案，但**没有收到批准**。
-- 最后要求：“你把所有工作都更新到仓库，我会让其他 ai 接手你的工作”。当前只交接，不继续产品实现。
+- **修复前已批准并取证**：新增合成会话头测试，`e8652185`、仅文档交接的 `50bad4db` 均复现5条路径丢失头。
+- **后续已明确批准并验证产品修复**：维护者同意按第5节最小修复，不放宽断言；核心修复 `069f67d7` / CI40500636411及显式头值映射补充 `9795c0f5` / CI40504125721均已11/11成功，远端已回读，原五条失败路径转绿。上一轮“只交接、产品未获批准”是历史边界。
 - 全程没有真实供应商请求、生产变更、发布、部署、本机安装依赖/构建/测试/浏览器/Docker。运行证据均来自 GitHub Actions。
 
 ## 2. 准确基线与 CI
@@ -17,10 +17,13 @@
 | `d3beeeef0e2cc26e04a21e3ab6eed095580653f2` | 原交接基线，含 5b/5c | [40284651016](https://github.com/ForceMind/MyAPI/actions/runs/40284651016) | 11/11 成功，原文“5b/5c 未验证”已过时 |
 | `92e81914c7da9ceda516285660de94e51ceb3cc4` | 保留策略回归 | [40441341548](https://github.com/ForceMind/MyAPI/actions/runs/40441341548) | 10/11 成功，合成出站 expected `24h`、actual 空；根测试失败后未执行 relaykit 单测 |
 | `6392caf96e449af740400736035d0898c04d2fc8` | 保留策略最小修复 | [40443871659](https://github.com/ForceMind/MyAPI/actions/runs/40443871659) | 11/11 成功，两模块测试及 relaykit 独立构建通过 |
-| `e7eef3522a92af977a0d26888d8c0de2c3d1cca7` | 修复与部分 UI 记录 | [40447186866](https://github.com/ForceMind/MyAPI/actions/runs/40447186866) | 11/11 成功，最近全绿基线 |
+| `e7eef3522a92af977a0d26888d8c0de2c3d1cca7` | 修复与部分 UI 记录 | [40447186866](https://github.com/ForceMind/MyAPI/actions/runs/40447186866) | 11/11 成功，会话头修复前的全绿基线 |
 | `e8652185be292ad676417a67cee0dee041df5af1` | 仅新增会话头测试 | [40462005121](https://github.com/ForceMind/MyAPI/actions/runs/40462005121) | 10/11 成功，后端仅新增会话头测试族失败；前端成功 |
+| `50bad4dbc5bbe1ca40e5da195d79f0a81a456026` | 仅更新6份交接文档 | [40474459858](https://github.com/ForceMind/MyAPI/actions/runs/40474459858) | 10/11成功，已读取后端日志，仍仅原会话头测试族的5个子场景失败 |
+| `069f67d7afa5931c2bb2086d3361c7dfe36acf36` | 已批准的会话头最小修复及回归保护 | [40500636411](https://github.com/ForceMind/MyAPI/actions/runs/40500636411) | 11/11成功，已读取后端日志；两模块测试、relaykit独立构建及全部后续竞态检查通过 |
+| `9795c0f5d4c3cc52beffcebebee1757364f7a3cf` | 显式头值映射的读取语义补充 | [40504125721](https://github.com/ForceMind/MyAPI/actions/runs/40504125721) | 11/11成功，已读取后端日志；相关包、两模块测试、relaykit独立构建及全部后续竞态检查通过；前端与其余回归作业成功 |
 
-交接文档提交在 `e8652185` 之后，不包含产品修复；其 CI 若同样失败必须照实汇报，不称全绿。接手时重新核对最新 Actions 和 git log。
+`50bad4db` 不包含产品修复；`069f67d7` 与范围内的显式映射补充 `9795c0f5` 均已完整CI全绿。其后交接提交只更新文档，接手时重新核对最新 Actions 和 git log。
 
 ## 3. 已修保留策略
 
@@ -29,9 +32,9 @@
 - `router/upstream_acceptance_relay_lifecycle_test.go:100` 在既有合成 Codex 生命周期测试中加入缓存字段出站断言。
 - 只证明转换与合成出站不丢参数，不证明供应商接受所有策略或真实缓存命中。Chat → Responses 默认关闭策略没有改变。
 
-## 4. 会话头实测证据（产品尚未修）
+## 4. 修复前会话头实测证据（保留红灯基线）
 
-文件 `router/codex_session_headers_test.go`（303 行），后端作业 `122048552508`，失败步骤 `Test root and relaykit modules`。
+以下为 `e8652185` 的 `router/codex_session_headers_test.go`（当时303行），后端作业 `122048552508`，失败步骤 `Test root and relaykit modules`。后续新增保护用例使行号移动，原断言未改。
 
 ### 4.1 隔离与保护
 
@@ -82,17 +85,20 @@ make: *** [makefile:52: test] Error 1
 
 已验证的是头信息丢失；“缺头必然不命中”和“生产某次不命中由此引起”均未验证。未核对最新上游在线规范：web_fetch 地址解析拒绝、web_search 缺凭据，不能伪造已查官方资料。
 
-## 5. 交给下一位的产品修复方案（必须先获批准）
+## 5. 已批准的产品修复及验证
 
-维护者未批准上一轮提出的产品修复；交接请求不构成授权。建议先说明：
+维护者已明确回复同意按本方案修复；下列批准范围继续有效。`069f67d7` 与 `9795c0f5` 均已完整CI全绿：
 
 - 成功标准：5 条路径保留客户端提供的 Codex 会话头，不生成不存在的值，显式覆盖/删除与请求间隔离不变。
 - 范围：优先仅 Codex 适配器与出站白名单头处理，解耦亲和和正文转换。不全量转发、不扩展其他供应商、不自动改亲和规则或实例配置。
-- 涉及：`relay/channel/codex/adaptor.go`、必要时 `relay/channel/api_request.go`、`relay/common/override.go` 及现有新测试。
+- 实际涉及：产品只改 `relay/common/override.go` 的有效头映射与参数头读取上下文，测试只补 `relay/channel/api_request_test.go` 与 `router/codex_session_headers_test.go`。无需改适配器或 `api_request.go`。
+- 实现：仅对Codex普通转发，把客户端已提供的三种会话头作为默认 `client_header` 引用加入有效头映射；显式配置优先，参数操作可覆盖/删除，运行时映射是最终结果，缺失项不再补回。未修改 `info.HeadersOverride` 等冻结配置，也不把客户端原文作为配置模板展开。
+- **[读码范围]** 正文直通继续跳过参数操作，这是原有行为；本次独立处理三种默认会话头，没有让直通路径执行正文/参数操作。`delete_header` 等操作在既有参数处理路径生效，显式 Header Override 在直通路径仍有优先级。删除对照验证已执行的运行时最终映射不会被默认值复活，不将其描述为直通下所有参数操作的新支持。
+- 自查补充：参数操作的显式值映射需要真实客户端值；只对Codex普通请求的这三种默认引用，参数读取会回读既有请求头上下文。出站仍只解析一次引用。新增匹配亲和后的显式值映射保护，已在 `9795c0f5` / CI40504125721的完整测试通过。
 - **显式删除风险**：简单在 adaptor 复制可能绕过 `delete_header` 意图。务必核对 `GetEffectiveHeaderOverride` 的 runtime final map、keep_origin、delete_header。不能为了新测试通过破坏管理员删除语义。
 - **严格门禁**：acceptance（`relay/channel/api_request.go:505`）、`service/account_quota_threshold.go:19`、`service/subscription_share.go:80` 检查非空 override、地址、TLS、精确身份。不得删掉/放宽。普通转发正确不等于严格模式都可用。
 - **路由安全**：`service/relay_failover_dispatch.go:123` 重新核对 DB 配置及 override；不得随意改 info 制造冻结配置不一致，不改权限与账号选择。
-- 验证：保留取证红灯测试，获准后补显式删除对照、原生/直通/Chat、严格门禁、Cookie/密钥隔离、不重放；只在 CI 跑。影响 relaykit 则必须独立构建。
+- 验证：原取证断言全部保留；新增删除（匹配/不匹配亲和）、keep_origin（客户端/显式配置）、显式set、无关正文操作、客户端占位符字面值、供应商和渠道测试隔离对照。原生/直通/Chat、严格门禁、Cookie/密钥隔离、不重放沿用既有测试；只在完整CI运行。当前没有改relaykit；CI仍须读取其独立构建及单测结果。
 
 ## 6. 其他缓存待办（仅读码，未批准）
 
@@ -134,5 +140,5 @@ gh api repos/ForceMind/MyAPI/actions/jobs/122048552508/logs --allow-escape-seque
 
 - 整轮未结束时 gh run view --log-failed 会拒绝，即使后端已结束；确认 job completed 后可读 jobs/{id}/logs。转义选项仅用于写临时文本，不执行日志内容。临时文件查看后清理，长期证据在 Actions 与本摘要。
 - exFAT 新文件的原子硬链接写入可能 ENOTSUP；先确认目标不存在，再 Python open(path,'x') 独占创建，本轮未安装工具。不是 sandbox 拒绝，不覆盖别人文件。既有文件先 read 再 edit。
-- 当前红灯是获批取证留下的缺口，不是发布候选；不 reset/stash/强推、不删测试/改为空值断言。无本机后台构建、浏览器、预览服务；无需依赖临时脚本或会话日志即可接手。
+- 历史取证红灯保留，当前修复已在CI全绿，不构成发布/部署授权；不 reset/stash/强推、不删测试/改为空值断言。无本机后台构建、浏览器、预览服务；无需依赖临时脚本或会话日志即可接手。
 - 维护者曾问“卡住了吗”：等待 CI 时应及时汇报明确结论和待办，不持续沉默，也不要反复输出整份监视日志。
