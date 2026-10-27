@@ -106,6 +106,77 @@ func TestCodexSessionHeadersReachSyntheticUpstream(t *testing.T) {
 	}
 }
 
+func TestCodexSessionHeadersHonorHeaderOperations(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		cacheKey     bool
+		headerConfig string
+		operations   []any
+		wantSession  string
+		wantNext     string
+		deleteAll    bool
+	}{
+		{name: "delete defaults without affinity", deleteAll: true},
+		{name: "delete after matching affinity", cacheKey: true, deleteAll: true},
+		{
+			name: "keep origin retains client session", wantSession: "client-session", wantNext: "operator-session",
+			operations: []any{map[string]any{"mode": "set_header", "path": "Session_id", "value": "operator-session", "keep_origin": true}},
+		},
+		{
+			name: "keep origin retains explicit channel session", headerConfig: `{"Session_id":"configured-session"}`, wantSession: "configured-session", wantNext: "configured-session",
+			operations: []any{map[string]any{"mode": "set_header", "path": "Session_id", "value": "operator-session", "keep_origin": true}},
+		},
+		{
+			name: "explicit operation replaces client session", wantSession: "operator-session", wantNext: "operator-session",
+			operations: []any{map[string]any{"mode": "set_header", "path": "Session_id", "value": "operator-session"}},
+		},
+		{
+			name: "unrelated body operation retains defaults", wantSession: "client-session",
+			operations: []any{map[string]any{"mode": "set", "path": "instructions", "value": "synthetic instruction"}},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			fixture := newCodexSessionHeadersFixture(t, "gpt-5-codex", false, false, test.headerConfig)
+			operations := test.operations
+			if test.deleteAll {
+				for _, header := range []string{"Session_id", "Thread_id", "X-Codex-Turn-State"} {
+					operations = append(operations, map[string]any{"mode": "delete_header", "path": header})
+				}
+			}
+			paramConfig, err := common.Marshal(map[string]any{"operations": operations})
+			require.NoError(t, err)
+			require.NoError(t, model.DB.Model(&model.Channel{}).Where("id = ?", fixture.channelID).Update("param_override", string(paramConfig)).Error)
+			payload := map[string]any{"model": "gpt-5-codex", "input": "synthetic hello", "instructions": "", "stream": true}
+			if test.cacheKey {
+				payload["prompt_cache_key"] = "synthetic-header-cache-key"
+			}
+			body, err := common.Marshal(payload)
+			require.NoError(t, err)
+			response := fixture.request(t, "/v1/responses", body, true)
+			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+			require.EqualValues(t, 1, fixture.calls.Load())
+			first := <-fixture.observed
+			assert.Equal(t, test.wantSession, first.Get("Session_id"))
+			if test.deleteAll {
+				assert.Empty(t, first.Values("Session_id"), "deleted headers must be absent, not reintroduced or sent empty")
+				assert.Empty(t, first.Values("Thread_id"))
+				assert.Empty(t, first.Values("X-Codex-Turn-State"))
+			} else {
+				assert.Equal(t, "client-thread", first.Get("Thread_id"))
+				assert.Equal(t, "client-turn-state", first.Get("X-Codex-Turn-State"))
+			}
+			next := fixture.request(t, "/v1/responses", body, false)
+			require.Equal(t, http.StatusOK, next.Code, next.Body.String())
+			require.EqualValues(t, 2, fixture.calls.Load())
+			second := <-fixture.observed
+			assert.Equal(t, test.wantNext, second.Get("Session_id"))
+			assert.Empty(t, second.Get("Thread_id"))
+			assert.Empty(t, second.Get("X-Codex-Turn-State"))
+			assert.Zero(t, fixture.external.Load())
+		})
+	}
+}
+
 func TestCodexSessionHeadersDoNotReplayAmbiguousGeneration(t *testing.T) {
 	fixture := newCodexSessionHeadersFixture(t, "gpt-5-codex", false, false, "")
 	fixture.disconnect.Store(true)

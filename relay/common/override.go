@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/relaykit/types"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
@@ -486,7 +487,23 @@ func GetEffectiveHeaderOverride(info *RelayInfo) map[string]interface{} {
 	if info.UseRuntimeHeadersOverride {
 		return sanitizeHeaderOverrideMap(info.RuntimeHeadersOverride)
 	}
-	return sanitizeHeaderOverrideMap(getHeaderOverrideMap(info))
+	headers := sanitizeHeaderOverrideMap(getHeaderOverrideMap(info))
+	if info.ChannelMeta == nil || info.ChannelType != constant.ChannelTypeCodex || info.IsChannelTest {
+		return headers
+	}
+	// Seed defaults before parameter operations so explicit overrides and deletions
+	// stay authoritative. The runtime map above is final, including absent keys.
+	for name, value := range info.RequestHeaders {
+		key := normalizeHeaderContextKey(name)
+		switch key {
+		case "session_id", "thread_id", "x-codex-turn-state":
+			if _, exists := headers[key]; !exists && strings.TrimSpace(value) != "" {
+				// Resolve client content once at dispatch, never as an override template.
+				headers[key] = "{client_header:" + key + "}"
+			}
+		}
+	}
+	return headers
 }
 
 func tryParseOperations(paramOverride map[string]interface{}) ([]ParamOperation, bool) {

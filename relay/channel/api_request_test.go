@@ -5,10 +5,59 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/ForceMind/MyAPI/constant"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+func TestProcessHeaderOverrideCodexSessionDefaults(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		channelType int
+		channelTest bool
+		passHeaders bool
+		want        map[string]string
+	}{
+		{
+			name: "client values are literal", channelType: constant.ChannelTypeCodex,
+			want: map[string]string{"session_id": "{api_key}", "thread_id": "{client_header:Cookie}", "x-codex-turn-state": "prefix-{api_key}"},
+		},
+		{
+			name: "affinity passthrough preserves literal values", channelType: constant.ChannelTypeCodex, passHeaders: true,
+			want: map[string]string{"session_id": "{api_key}", "thread_id": "{client_header:Cookie}", "x-codex-turn-state": "prefix-{api_key}"},
+		},
+		{name: "other providers do not inherit defaults", channelType: constant.ChannelTypeOpenAI, want: map[string]string{}},
+		{name: "channel tests do not inherit client headers", channelType: constant.ChannelTypeCodex, channelTest: true, want: map[string]string{}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+			ctx.Request.Header.Set("Cookie", "private-cookie")
+			requestHeaders := map[string]string{
+				"sEsSiOn_Id": "{api_key}", "Thread_id": "{client_header:Cookie}", "X-Codex-Turn-State": "prefix-{api_key}",
+			}
+			for key, value := range requestHeaders {
+				ctx.Request.Header.Set(key, value)
+			}
+			info := &relaycommon.RelayInfo{
+				IsChannelTest: test.channelTest, RequestHeaders: requestHeaders,
+				ChannelMeta: &relaycommon.ChannelMeta{ChannelType: test.channelType, ApiKey: "private-upstream-key"},
+			}
+			if test.passHeaders {
+				info.ParamOverride = map[string]any{"operations": []any{map[string]any{
+					"mode": "pass_headers", "value": []any{"Session_id", "Thread_id", "X-Codex-Turn-State"}, "keep_origin": true,
+				}}}
+				_, err := relaycommon.ApplyParamOverrideWithRelayInfo([]byte(`{}`), info)
+				require.NoError(t, err)
+			}
+			headers, err := processHeaderOverride(info, ctx)
+			require.NoError(t, err)
+			require.Equal(t, test.want, headers)
+			require.Empty(t, info.HeadersOverride, "request defaults must not mutate frozen channel configuration")
+		})
+	}
+}
 
 func TestProcessHeaderOverride_ChannelTestSkipsPassthroughRules(t *testing.T) {
 	t.Parallel()
