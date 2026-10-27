@@ -91,6 +91,18 @@ UI 设计（`ui-design/DESIGN_DIRECTION.md` 第 11 节）：
 - 维护者确认（2026-10-26，原话"都按你推荐的"）：Docker 工作流暂不改用 `lite`；命令行对齐安装脚本更严格的来源规则（待实现）；分析图表第 6 名起用中性灰。
 - 接手交接（2026-10-26）：见 [handoff/README.md](handoff/README.md)、[PROMPT.md](handoff/PROMPT.md)、[OPERATIONS.md](handoff/OPERATIONS.md)、[DIRECTORY_GUIDE.md](handoff/DIRECTORY_GUIDE.md)。主会话额度用尽，后续由其他 AI 接手。
 
+### 接手核对与缓存专项（2026-10-27）
+
+- **[本机轻量检查]** 主检出已整理为 `dev`，两个嵌套工作区已移除；历史分支、仓库 `.git` 和内置磁盘上的 Codex 工作区保留。整理只使用获维护者逐项确认的临时脚本副本，未修改仓库原脚本。未在本机安装依赖、构建、测试或启动浏览器。
+- **[CI]** 接手基线 `d3beeeef` 的 [40284651016](https://github.com/ForceMind/MyAPI/actions/runs/40284651016) 实际为 success，11 个作业全部通过。因此上面的“5b、5c 未经 CI”是交接时历史状态，不是当前构建状态；仍不能据此认定视觉验收完成。
+- **[维护者]** 优先检查 OpenAI/Codex 缓存链路；读码报告后仅批准修复 Chat → Responses 丢失 `prompt_cache_retention`，不修改渠道配置、请求头策略、计费或生产，不调用真实供应商。
+- **[CI 先红]** 回归提交 `92e81914` 的 [40441341548](https://github.com/ForceMind/MyAPI/actions/runs/40441341548) 已结束：10 个作业成功，后端作业失败于 `TestUpstreamAcceptanceRelayRetainsOperationThroughControllerReturn`。Actions runner 上回环地址的合成 HTTP 上游断言缓存键正确、保留策略预期 `24h` 而实际为空；后端根模块失败后 `make test` 未继续执行 relaykit 单测，不冒称独立转换测试已在这一轮变红。
+- **[CI 后绿]** 修复提交 `6392caf9` 仅增加已有 `PromptCacheRetention` 的传递，其余差异是字段对齐空白；[40443871659](https://github.com/ForceMind/MyAPI/actions/runs/40443871659) 为 success，11 个作业全部通过。已读取后端日志：`router`、`relaykit/relayconvert/internal/oai_chat` 及完整两模块测试通过，`Build relaykit independently` 通过（作业 `GOWORK=off`）。新增测试覆盖 `24h`、`in-memory`、只提供保留策略、只提供缓存键及两者缺失；缺失不补值，不生成缓存键，原缓存键特殊字符测试保留。未放宽断言。
+- **[验证边界]** 以上只证明转换和合成出站不再丢失参数，不证明真实供应商接受所有缓存保留策略，也不证明生产请求命中缓存；未发布、未部署、未调用供应商。
+- **[读码，未修]** 默认 Codex 会话头透传模板依赖亲和规则匹配（原始模型 `^gpt-.*$`、入站 `/v1/responses`、非空 `prompt_cache_key`）；请求体直通绕过参数操作，因此也绕过模板中的 `pass_headers`，显式渠道 Header Override 不同。Chat 转换路径未同等保留原始缓存计数存在性证据；亲和统计的未知用量可能降低其命中比。具体修复均需维护者另行确认，不把这些条件性风险断言为生产不命中根因。
+- **[查看 CI 原图，抽查]** 从 `d3beeeef` 的 `myapi-ui-browser-d3beeeef0e2cc26e04a21e3ab6eed095580653f2` 构件（ID `12634283151`）查看 17 张 320/1280 亮色英文代表截图：设置、用户、个人资料、运行状态、钱包、订阅、兑换码、登录、首页、安装向导、Playground、模型目录；对照方向 3 样稿与 step1–step4 说明。报告 `qualification.json` 标明准确提交且 33 个旅程通过，但截图人工检查不是全量：中英文/暗色/其他宽度和全部页面仍待覆盖。下载内容看完已清理，未在本机运行浏览器。
+- **[看图待核对，未修]** `models-1280.png` 中固定操作列左侧的 Official Sync 表头/状态只剩首字母；`users-1280.png` 邀请信息在固定操作列边缘只露出部分字符；`setup-interrupted-320.png` 步骤切换后的顶部品牌被裁切。现有页面级几何断言仍通过，不能替代单元格遮挡和公共页品牌完整性验收。尚未在 CI 增加定向复现，不能把这些现象全部认定为本批新增回归；未放宽断言、未擅自改 UI。
+
 方向 3 已知风险（来自方案文档）：流向板是全新组件，对象多时拓扑感减弱；顶部导航在俄语、法语下最敏感（1024–1279 宽度需把一项收进"更多"）；任务 1、7 的步数比方向 1 多 1 步；实现代价为三个方向中最高。
 
 ## 需求来源与已识别的文档冲突
