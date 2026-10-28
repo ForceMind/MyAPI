@@ -2,6 +2,10 @@
 
 面向接手者的逐步操作。所有构建、测试、浏览器验收都在 GitHub Actions 上进行，本机不安装依赖。
 
+**2026-10-28 最新任务优先于下文临时部署记录**：UI先行，每个页面先画桌面/手机线稿，维护者确认后才改产品。[线稿目录](../ui-design-v2/wireframes/index.html)和[覆盖/审阅说明](../ui-design-v2/wireframes/README.md)为本批交付；CLI来源规则后移。线稿为纯设计源文件，不连接API，默认查看无需任何依赖。未运行浏览器，不把线稿或静态覆盖核对写成视觉/交互验收通过。
+
+维护者已单独授权并完成main快进到c916051e，main CI40664697561首次通过。合并额外触发网站浏览器40664697462，取消时已结束，必须如实保留；`.github/workflows/website-browser.yml`仍需显式授权门禁，不能只看ci.yml的浏览器开关就宣称所有入口受控。本批只改docs，不修改该工作流或再次合main；推送后检查全部实际触发的工作流，发现未授权浏览器运行时立即请求取消并报告实际状态。
+
 **2026-10-28 当前任务**：已批准 GitHub Actions 内的 Full + SQLite 临时测试部署。浏览器默认不运行，只有当前任务明确授权后才手动开启 `run_browser`；推送dev只执行非浏览器检查，混合Go/浏览器作业也按此规则跳过，报告须注明“浏览器未验证”。不要把跳过项写成已执行通过。本次Docker手动入口为既有 `docker-smoke.yml`、ref=dev，输入 `api_only=true, run_browser=false, personal=false`；只准备Full镜像并在另一Runner加载同一构件做HTTP/API、重启和同版本SQLite/WAL恢复验证。构件保留7天，不下载到本机，不发布GHCR、不打Git tag、不部署生产。SHA、镜像ID、包哈希和producer attempt校验继续保留，不回退到旧包。
 
 ## 1. 准备环境

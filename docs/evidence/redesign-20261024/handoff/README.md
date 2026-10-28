@@ -2,6 +2,10 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**2026-10-28 当前转回UI设计，产品实现尚未开始**：维护者要求全站页面/按钮/组件统一设计与合理精简，**每页先画线稿**。当前设计提案在[全站线稿目录](../ui-design-v2/wireframes/index.html)与[说明](../ui-design-v2/wireframes/README.md)：284个页面/分区/交互视图、568张桌面/手机SVG，覆盖66条路由并展开42个设置分区，含详情页签、安装步骤、弹层与状态，不把视图数写成实际路由数或已实现页数。优先设计正文与SSE直接跳页、每页条数和同一日历选择时间范围；产品代码未改，浏览器未验证，待维护者审阅后分批实施。CLI来源规则后移，UI方向3与Logo不重做。
+
+维护者已单独授权将dev快进合入main，当前两分支基线均为`c916051e`；[main CI40664697561](https://github.com/ForceMind/MyAPI/actions/runs/40664697561)首次success（10成功、1个混合浏览器作业跳过）。**执行偏差必须保留**：main推送还触发了既有[网站浏览器40664697462](https://github.com/ForceMind/MyAPI/actions/runs/40664697462)，Chromium在GitHub执行成功，发现并请求取消时已结束；不能声称该轮完全未跑浏览器。网站显式授权开关尚未落实；此线稿批次只改docs，仍须读取真实CI。后续不因此获得自动合main、发布、部署或真实供应商授权。
+
 **2026-10-28 临时测试部署已验收**：测试源码 `cf6773fdf7c5c1365291cdee06d7b25897fa7e4f` 的 [主CI40640242136](https://github.com/ForceMind/MyAPI/actions/runs/40640242136) 为success（10个作业成功、1个混合浏览器作业按规则跳过）；[Docker smoke 40640591332](https://github.com/ForceMind/MyAPI/actions/runs/40640591332) 为success（Full打包、独立加载验收成功，LAN安装跳过）。Full + SQLite、linux/amd64 报告20项全true，含7个静态资源的HTTP读取、鉴权、合成上游精确用量、原容器重启和SQLite/WAL同版本恢复，`browser=not_run` / 浏览器未验证。镜像ID、manifest SHA-256、镜像包与报告链接在TASKS同名条目，交付物有效期至2026-11-04。其后收尾提交只改文档，不重建镜像；镜像继续绑定cf6773fd，不能重标记成文档提交SHA。全程标准GitHub-hosted Ubuntu runner，本机仅编辑文本，不安装依赖或下载产物，不触碰生产或真实供应商；公开仓库、10GiB缓存上限，不启用付费资源。临时容器清理已成功，不提供常驻测试网址，不代表生产迁移、真实供应商或跨版本回滚验收。原会话头修复基线及历史全绿证据保留；当前不得沿用11/11全执行口径。
 
 维护者已明确批准 **Codex 会话头最小修复**，要求不放宽断言、提交推送 `origin/dev` 后读取完整 CI，构建与测试全部在 GitHub Actions。核心修复 `069f67d7` / [CI 40500636411](https://github.com/ForceMind/MyAPI/actions/runs/40500636411) 与显式头值映射补充 `9795c0f5d4c3cc52beffcebebee1757364f7a3cf` / [CI 40504125721](https://github.com/ForceMind/MyAPI/actions/runs/40504125721) 均已11/11成功，远端已回读。其后的交接提交仅更新文档，接手时仍须核对最新Git与Actions。缓存专项细节和日志节选见 [CACHE_REVIEW_20261027.md](CACHE_REVIEW_20261027.md)。
@@ -31,7 +35,7 @@
 
 ## 一、项目与目标
 
-- 仓库：`ForceMind/MyAPI`，开发分支 `dev`，稳定分支 `main`（本批工作没有动 `main`，仍是 `92fa1182`）。只用这两个分支，不新建分支，不合入 `main`，不发布，不部署生产。
+- 仓库：`ForceMind/MyAPI`，开发分支 `dev`，稳定分支 `main`。历史“main仍是92fa1182”已由2026-10-28获单独授权的快进合并更新，见零节。只用这两个分支；后续开发仍只推dev，不新建分支、不自动合main、不发布、不部署生产。
 - 项目：Go（Gin + GORM）与 React 19（Bun、Rsbuild、Base UI、Tailwind）的 AI API 网关。三个版本：Full 完整版、Lite 个人版、Desktop 本地版（Lite 的桌面形态，默认只开放本机）。定义见 `docs/MYAPI_MASTER_PLAN.md` 第 1、8 节与 `docs/RELEASE_MANIFEST.md` 第 2 节。
 - 维护者本批需求原话 **[维护者]**：遵循第一性原理评估整个项目；审查代码结构，精简代码；按项目计划制作完整版、个人版、本地版；保留现有 Logo，整个 UI 重新设计，要易用，PC 与手机都要适配度高；使用设计 skill；部署脚本也要完善。
 - 本批起点：维护者给定的已验证基线 `46a39080`（`0.2.0-beta.26` 候选，CI 运行 39943576911 全部通过）。
