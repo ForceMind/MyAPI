@@ -7,6 +7,10 @@ on:
     types: [opened, synchronize, closed]
   workflow_dispatch:
     inputs:
+      run_browser:
+        description: 'Explicitly authorize browser installation and browser qualification for this run'
+        type: boolean
+        default: false
       baseline_red:
         description: 'Reproduce the personal Key handoff regression on the fixed pre-fix source before testing the candidate'
         type: boolean
@@ -724,9 +728,20 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - name: Record browser authorization
+        if: always()
+        env:
+          RUN_BROWSER: ${{ github.event_name == 'workflow_dispatch' && inputs.run_browser && '1' || '0' }}
+        run: |
+          if [[ "$RUN_BROWSER" == '1' ]]; then
+            echo 'Browser qualification explicitly enabled for this manual run.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Browser qualification: not run (no explicit authorization). 浏览器未验证。' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Install isolated browser test dependencies
         id: browser-dependencies
-        if: ${{ !cancelled() && steps.frontend-build.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.frontend-build.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.run_browser }}
         working-directory: .
         run: |
           npm install --prefix "$RUNNER_TEMP/myapi-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1
@@ -759,7 +774,7 @@ jobs:
           exit "$failed"
 
       - name: Upload advanced maintenance screenshots and reports
-        if: always()
+        if: ${{ always() && steps.browser-dependencies.outcome == 'success' }}
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: myapi-advanced-maintenance-${{ github.sha }}
@@ -820,7 +835,7 @@ jobs:
           exit "$failed"
 
       - name: Upload personal console screenshots and qualification reports
-        if: always()
+        if: ${{ always() && steps.browser-dependencies.outcome == 'success' }}
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: myapi-personal-console-${{ github.sha }}
@@ -854,7 +869,7 @@ jobs:
           exit "$failed"
 
       - name: Upload full UI screenshots and qualification report
-        if: always()
+        if: ${{ always() && steps.browser-dependencies.outcome == 'success' }}
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: myapi-ui-browser-${{ github.sha }}
@@ -865,7 +880,7 @@ jobs:
           retention-days: 7
 
       - name: Upload assigned access browser screenshots
-        if: always()
+        if: ${{ always() && steps.browser-dependencies.outcome == 'success' }}
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: myapi-access-browser-${{ github.sha }}
@@ -874,7 +889,7 @@ jobs:
           retention-days: 7
 
       - name: Upload routing browser screenshots
-        if: always()
+        if: ${{ always() && steps.browser-dependencies.outcome == 'success' }}
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: myapi-routing-browser-${{ github.sha }}
@@ -883,7 +898,7 @@ jobs:
           retention-days: 7
 
       - name: Upload quota browser screenshots
-        if: always()
+        if: ${{ always() && steps.browser-dependencies.outcome == 'success' }}
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: myapi-quota-browser-${{ github.sha }}
@@ -949,7 +964,7 @@ jobs:
 
   credential-maintenance:
     name: Isolated credential maintenance browser and real API
-    if: ${{ !cancelled() && (github.event.action != 'closed' || github.event.pull_request.merged == true) }}
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.run_browser && (github.event.action != 'closed' || github.event.pull_request.merged == true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

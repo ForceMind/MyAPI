@@ -3,8 +3,10 @@
 // Initializes only a fresh, explicitly selected loopback SQLite test instance.
 // No credentials, cookies or API response bodies are returned in the report.
 import { randomBytes } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { runRuntimeProbe } from './auth-probe.mjs'
 import { verifySQLiteRestore, withRestoredSQLite } from './sqlite-restore-smoke.mjs'
@@ -676,6 +678,69 @@ export async function appendFrontendAcceptance(report, { personalEnabled, baseUr
   return report
 }
 
+export function smokeExecutionMode({ browser = '0', personal = '0', apiOnly = '0', restore = '0', edition } = {}) {
+  if (![browser, personal, apiOnly, restore].every(value => value === '0' || value === '1') ||
+      personal === '1' && browser !== '1' ||
+      apiOnly === '1' && (browser !== '0' || personal !== '0' || restore !== '1' || edition !== 'full')) {
+    throw new Error('SMOKE_EXECUTION_MODE_REJECTED')
+  }
+  return { runBrowser: browser === '1', personalEnabled: personal === '1', apiOnly: apiOnly === '1' }
+}
+
+export async function probeStaticFrontend({ baseUrl, edition, sha, fetchImpl = globalThis.fetch }) {
+  const origin = validateSmokeTarget(baseUrl, edition, sha)
+  const response = await fetchImpl(origin + '/', { redirect: 'error', signal: AbortSignal.timeout(5000) })
+  if (response.status !== 200 || !/^text\/html\b/i.test(response.headers.get('content-type') || '')) {
+    throw new Error('SMOKE_FRONTEND_STATIC_FAILED')
+  }
+  const html = await response.text()
+  const assets = new Map()
+  for (const match of html.matchAll(/<(?:script|link)\b[^>]*\b(?:src|href)=["']([^"']+)["'][^>]*>/gi)) {
+    const url = new URL(match[1], origin)
+    if (!/\.(js|css)$/.test(url.pathname)) continue
+    if (url.origin !== origin || url.username || url.password || url.hash) throw new Error('SMOKE_FRONTEND_STATIC_FAILED')
+    assets.set(url.href, url.pathname.endsWith('.css') ? 'css' : 'js')
+  }
+  if (![...assets.values()].includes('js')) throw new Error('SMOKE_FRONTEND_STATIC_FAILED')
+  for (const [url, kind] of assets) {
+    const asset = await fetchImpl(url, { redirect: 'error', signal: AbortSignal.timeout(5000) })
+    const type = asset.headers.get('content-type') || ''
+    if (asset.status !== 200 || !(kind === 'css' ? /^text\/css\b/i.test(type) : /javascript|ecmascript/i.test(type)) ||
+        (await asset.arrayBuffer()).byteLength === 0) throw new Error('SMOKE_FRONTEND_STATIC_FAILED')
+  }
+  return { name: 'embedded HTML and same-origin JS/CSS are served over HTTP (no browser rendering)', ok: true, assets: assets.size }
+}
+
+export async function restartOwnedSmokeContainer({ sha, edition, baseUrl, env = process.env,
+  runDocker = args => execFileSync('docker', args, { encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024 }).trim(),
+  fetchImpl = globalThis.fetch, wait = delay } = {}) {
+  if (env.GITHUB_ACTIONS !== 'true' || env.MYAPI_ISOLATED_SMOKE !== '1' || env.MYAPI_SMOKE_API_ONLY !== '1' ||
+      edition !== 'full' || !/^[a-f0-9]{40}$/.test(sha || '') || baseUrl !== 'http://127.0.0.1:18080' ||
+      !path.isAbsolute(env.RUNNER_TEMP || '') || !/^sha256:[a-f0-9]{64}$/.test(env.SMOKE_APP_IMAGE_ID || '')) {
+    throw new Error('SMOKE_RESTART_SCOPE_REJECTED')
+  }
+  const source = `myapi-smoke-full-${sha}`
+  const data = path.join(env.RUNNER_TEMP, `myapi-smoke-data-full-${sha}`)
+  if (env.SMOKE_CONTAINER !== source || env.SMOKE_DATA_DIR !== data ||
+      runDocker(['inspect', '--format', '{{index .Config.Labels "io.myapi.smoke.sha"}}', source]) !== sha ||
+      runDocker(['inspect', '--format', '{{.Image}}', source]) !== env.SMOKE_APP_IMAGE_ID ||
+      runDocker(['inspect', '--format', '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Type}}:{{.Source}}{{end}}{{end}}', source]) !== `bind:${data}`) {
+    throw new Error('SMOKE_RESTART_SCOPE_REJECTED')
+  }
+  runDocker(['restart', source])
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    try {
+      const response = await fetchImpl(baseUrl + '/api/status', { redirect: 'error', signal: AbortSignal.timeout(2000) })
+      const body = await response.json()
+      if (response.status === 200 && body?.success === true && body.data?.setup === true) {
+        return { name: 'owned container restarts with initialized persistent SQLite before exact-state restore verification', ok: true }
+      }
+    } catch { /* Readiness reads cannot replay fixture writes. */ }
+    await wait(1000)
+  }
+  throw new Error('SMOKE_RESTART_READINESS_FAILED')
+}
+
 async function main() {
   try {
     if (process.env.GITHUB_ACTIONS !== 'true' || process.env.MYAPI_ISOLATED_SMOKE !== '1') {
@@ -685,7 +750,11 @@ async function main() {
     const sha = process.env.GITHUB_SHA
     const edition = process.env.MYAPI_SMOKE_EDITION
     const upstreamBaseUrl = process.env.MYAPI_FAKE_UPSTREAM_URL
-    const personalEnabled = process.env.MYAPI_SMOKE_PERSONAL === '1'
+    const mode = smokeExecutionMode({ browser: process.env.MYAPI_SMOKE_BROWSER || '0',
+      personal: process.env.MYAPI_SMOKE_PERSONAL || '0', apiOnly: process.env.MYAPI_SMOKE_API_ONLY || '0',
+      restore: process.env.MYAPI_SMOKE_RESTORE || '0', edition })
+    const personalEnabled = mode.personalEnabled
+    let restartCheck
     const personalOptions = personalEnabled ? {
       playwrightModule: process.env.MYAPI_PLAYWRIGHT_MODULE,
       artifactDir: process.env.MYAPI_PERSONAL_ARTIFACT_DIR,
@@ -698,20 +767,37 @@ async function main() {
       personalFixture: personalDriver ? args => personalDriver.probePersonalBrowserJourney({ ...args, ...personalOptions }) : undefined,
       fullContentExpected: process.env.MYAPI_SMOKE_FULL_CONTENT === '1', upstreamBaseUrl,
       restoreFixture: process.env.MYAPI_SMOKE_RESTORE === '1'
-        ? (args) => verifySQLiteRestore({ ...args, restore: (verify) => withRestoredSQLite({ sha, edition, verify }) })
+        ? async (args) => {
+          if (mode.apiOnly) restartCheck = await restartOwnedSmokeContainer({ sha, edition, baseUrl })
+          return verifySQLiteRestore({ ...args, restore: (verify) => withRestoredSQLite({ sha, edition, verify }) })
+        }
         : undefined })
     // Preserve the complete personal journey before any independent follow-up
     // check can fail. This artifact remains a stage result, not overall success.
     if (personalEnabled && report.personal) writeFileSync(path.join(personalOptions.artifactDir, 'qualification.json'), JSON.stringify(report.personal, null, 2))
     const version = readFileSync(new URL('../../VERSION', import.meta.url), 'utf8').trim()
-    await appendFrontendAcceptance(report, { personalEnabled, baseUrl, sha, version,
-      playwrightModule: process.env.MYAPI_PLAYWRIGHT_MODULE })
+    report.version = version
+    report.test_deployment = mode.apiOnly
+    if (mode.runBrowser) {
+      await appendFrontendAcceptance(report, { personalEnabled, baseUrl, sha, version,
+        playwrightModule: process.env.MYAPI_PLAYWRIGHT_MODULE })
+      report.browser = report.passed ? 'verified' : 'not_run'
+    } else {
+      report.browser = 'not_run'
+      if (report.passed) report.checks.push(await probeStaticFrontend({ baseUrl, sha, edition }))
+    }
+    if (mode.apiOnly && report.passed) {
+      if (!restartCheck?.ok) throw new Error('SMOKE_RESTART_READINESS_FAILED')
+      report.checks.push(restartCheck)
+    }
     console.log(JSON.stringify(report, null, 2))
     if (!report.passed) process.exitCode = 1
   } catch (error) {
     // Only our fixed error codes may be printed; external exception text may
     // contain URLs, request bodies or credentials.
     const safeCodes = new Set(['INVALID_ISOLATED_SMOKE_TARGET', 'ISOLATED_SMOKE_OPT_IN_REQUIRED',
+      'SMOKE_EXECUTION_MODE_REJECTED', 'SMOKE_FRONTEND_STATIC_FAILED',
+      'SMOKE_RESTART_SCOPE_REJECTED', 'SMOKE_RESTART_READINESS_FAILED',
       'SMOKE_ORIGIN_MISMATCH', 'SMOKE_REQUIRES_FRESH_SQLITE', 'SMOKE_SETUP_FAILED',
       'SMOKE_ANONYMOUS_ACCESS_NOT_REJECTED', 'SMOKE_RUNTIME_MODE_MISMATCH',
       'INVALID_SMOKE_UPSTREAM_TARGET', 'SMOKE_FIXTURE_AUTH_UNAVAILABLE',

@@ -2,12 +2,85 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import { appendFrontendAcceptance, hasAppliedSettlementProof, probeFrontend, probeFreshSQLite, probeRelayFixture,
-  personalSmokeWebRateLimit, probeSelfUseRelayFixture, preparePersonalWriterFixture, validatePersonalFrontendEvidence, validateSmokeTarget } from './docker-smoke.mjs'
+  personalSmokeWebRateLimit, probeSelfUseRelayFixture, preparePersonalWriterFixture, probeStaticFrontend,
+  restartOwnedSmokeContainer, smokeExecutionMode, validatePersonalFrontendEvidence, validateSmokeTarget } from './docker-smoke.mjs'
 import { fakeOpenAIListenHost, startFakeOpenAI } from './fake-openai.mjs'
 
 const sha = 'a'.repeat(40)
 const baseUrl = 'http://127.0.0.1:18080'
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status })
+
+test('browser execution requires explicit opt-in and Full API-only requires restoration without browser capabilities', () => {
+  assert.deepEqual(smokeExecutionMode(), { runBrowser: false, personalEnabled: false, apiOnly: false })
+  assert.deepEqual(smokeExecutionMode({ browser: '1', personal: '1' }), { runBrowser: true, personalEnabled: true, apiOnly: false })
+  const api = { apiOnly: '1', restore: '1', edition: 'full' }
+  assert.deepEqual(smokeExecutionMode(api), { runBrowser: false, personalEnabled: false, apiOnly: true })
+  for (const options of [{ personal: '1' }, { browser: 'true' }, { ...api, browser: '1' },
+    { ...api, personal: '1' }, { ...api, restore: '0' }, { ...api, edition: 'lan' }]) {
+    assert.throws(() => smokeExecutionMode(options), /^Error: SMOKE_EXECUTION_MODE_REJECTED$/)
+  }
+})
+
+test('HTTP-only frontend checks require real HTML and readable same-origin JavaScript and CSS', async () => {
+  const calls = []
+  const fetchImpl = async (url, options) => {
+    calls.push(url)
+    assert.equal(options.redirect, 'error')
+    if (url === baseUrl + '/') return new Response('<script defer src="/static/app.js"></script><link rel="stylesheet" href="/static/app.css">', { headers: { 'content-type': 'text/html' } })
+    if (url === baseUrl + '/static/app.js') return new Response('console.log("fixture")', { headers: { 'content-type': 'application/javascript' } })
+    if (url === baseUrl + '/static/app.css') return new Response('body {}', { headers: { 'content-type': 'text/css' } })
+    throw new Error('unexpected target')
+  }
+  const result = await probeStaticFrontend({ baseUrl, edition: 'full', sha, fetchImpl })
+  assert.equal(result.ok, true)
+  assert.equal(result.assets, 2)
+  assert.deepEqual(calls, [baseUrl + '/', baseUrl + '/static/app.js', baseUrl + '/static/app.css'])
+  for (const html of ['', '<script src="https://provider.invalid/app.js"></script>']) {
+    const requested = []
+    await assert.rejects(probeStaticFrontend({ baseUrl, edition: 'full', sha,
+      fetchImpl: async url => { requested.push(url); return new Response(html, { headers: { 'content-type': 'text/html' } }) },
+    }), /^Error: SMOKE_FRONTEND_STATIC_FAILED$/)
+    assert.deepEqual(requested, [baseUrl + '/'], 'external assets must never be fetched')
+  }
+  await assert.rejects(probeStaticFrontend({ baseUrl, edition: 'full', sha,
+    fetchImpl: async url => new Response(url === baseUrl + '/' ? '<script src="/static/app.js"></script>' : '<html>fallback</html>', { headers: { 'content-type': 'text/html' } }),
+  }), /^Error: SMOKE_FRONTEND_STATIC_FAILED$/, 'a 200 HTML fallback must not masquerade as JavaScript')
+})
+
+test('container restart refuses other instances and preserves a single restart with read-only readiness polling', async () => {
+  const imageId = 'sha256:' + 'b'.repeat(64)
+  const source = `myapi-smoke-full-${sha}`
+  const data = `/runner/temp/myapi-smoke-data-full-${sha}`
+  const valid = { GITHUB_ACTIONS: 'true', MYAPI_ISOLATED_SMOKE: '1', MYAPI_SMOKE_API_ONLY: '1',
+    RUNNER_TEMP: '/runner/temp', SMOKE_CONTAINER: source, SMOKE_DATA_DIR: data, SMOKE_APP_IMAGE_ID: imageId }
+  for (const changes of [{}, { SMOKE_CONTAINER: 'production' }, { SMOKE_DATA_DIR: '/production/data' }, { GITHUB_ACTIONS: 'false' }]) {
+    const calls = []
+    const runDocker = args => {
+      calls.push(args)
+      assert.equal(args.at(-1), source)
+      if (args[0] === 'restart') return source
+      if (args[2] === '{{.Image}}') return imageId
+      if (args[2].includes('.Mounts')) return `bind:${data}`
+      return sha
+    }
+    const task = restartOwnedSmokeContainer({ sha, edition: 'full', baseUrl, env: { ...valid, ...changes }, runDocker,
+      fetchImpl: async url => { assert.equal(url, baseUrl + '/api/status'); return json({ success: true, data: { setup: true } }) },
+      wait: async () => { throw new Error('unexpected readiness retry') },
+    })
+    if (Object.keys(changes).length) {
+      await assert.rejects(task, /^Error: SMOKE_RESTART_SCOPE_REJECTED$/)
+      assert.equal(calls.some(args => args[0] === 'restart'), false)
+    } else {
+      assert.equal((await task).ok, true)
+      assert.equal(calls.filter(args => args[0] === 'restart').length, 1)
+    }
+  }
+  const calls = []
+  await assert.rejects(restartOwnedSmokeContainer({ sha, edition: 'full', baseUrl, env: valid,
+    runDocker: args => { calls.push(args); return 'wrong-owner' },
+  }), /^Error: SMOKE_RESTART_SCOPE_REJECTED$/)
+  assert.equal(calls.some(args => args[0] === 'restart'), false)
+})
 
 test('isolated personal cold-cache journey has a bounded Web request budget', () => {
   assert.equal(personalSmokeWebRateLimit({ baseUrl, edition: 'full', sha, isolated: true, personal: true }), 1120)

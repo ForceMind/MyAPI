@@ -123,6 +123,16 @@ UI 设计（`ui-design/DESIGN_DIRECTION.md` 第 11 节）：
 - **[首轮完整CI已通过]** 修复提交 `069f67d7afa5931c2bb2086d3361c7dfe36acf36` / [40500636411](https://github.com/ForceMind/MyAPI/actions/runs/40500636411) 为success，11/11作业成功。已读取后端日志，`router`、`relay/channel`、`relay/common`、relaykit转换与两模块全套测试通过，relaykit独立构建和后续全部竞态检查成功，未被跳过。原5条会话头失败路径及原保护断言随完整测试转绿；新增显式映射边界补充不在该提交中，以后续9795c0f5的CI为准。
 - **[补充提交完整CI已通过]** `9795c0f5d4c3cc52beffcebebee1757364f7a3cf` 已推送并回读 `origin/dev`；[40504125721](https://github.com/ForceMind/MyAPI/actions/runs/40504125721) 为success，11/11作业成功。已读取本轮后端日志：相关包、relaykit独立构建、两模块全套测试与全部后续竞态检查通过；前端类型、lint、测试、浏览器验收及既有数据库/Redis/发行/桌面回归作业成功。保护断言未放宽。验证目标为合成上游，不证明真实缓存命中。
 
+### GitHub Actions Full + SQLite 临时测试部署（2026-10-28，已批准，进行中）
+
+- **批准范围**：维护者已同意 Full + SQLite、linux/amd64 的临时容器部署。打包和验证全部在 GitHub Actions；不跑浏览器，不在本机安装依赖或下载产物，不连接服务器、生产数据或真实供应商。交付镜像包、脱敏验证报告与CI结果；构件保留7天。
+- **资源边界**：已只读确认仓库为public，标准ubuntu-latest runner、缓存上限10GiB；按GitHub当前公开仓库免费规则执行，不增加缓存配额、不启用付费runner、不修改账单设置。此结论不覆盖账户其他项目或既有账单。
+- **基线**：产品提交 `d611da46141503ca81842d1daf1c8885e63be4e0`，原会话头修复及其完整CI证据保留。本批只调整现有CI入口、Docker测试脚本/合同测试和直接相关交接记录，不修改Go业务代码、数据库结构或生产Compose。
+- **实现与验收**：现有CI浏览器步骤需显式手动 `run_browser=true` 才能运行，混合Go/浏览器作业同样受控；本次关闭。Docker smoke以 `api_only=true, run_browser=false, personal=false` 手动触发，只构建Full一次、跳过LAN安装与历史升级场景。独立消费者校验同一运行的包哈希、镜像ID、SHA、tree和producer attempt后加载；不回退旧镜像、不重新构建替代验证。
+- **本轮验证目标**：真实应用容器的健康、初始化、鉴权拒绝、合成账号/Key/连接/上游、精确用量与日志，HTTP读取嵌入的HTML及JS/CSS，归属校验后的原容器重启和含WAL快照的同版本恢复。HTTP检查不运行前端脚本，报告明确 `browser=not_run` / “浏览器未验证”。不将同版本恢复描述为生产迁移或跨版本回滚验证。
+- **补充范围已批准**：维护者明确同意仅同步 `tools/runtime/installer-workflow.test.mjs`。为既有personal用例显式提供 `run_browser=true`，保留“两种Full writer均覆盖”等原断言；补充API-only只运行Full/fresh/legacy、不启动LAN安装或浏览器的对照。
+- **当前状态**：本机仅编辑源码并检查差异；未安装依赖、编译、运行测试、启动Docker或浏览器，也未下载镜像/构件。当前实现待提交并由GitHub Actions验证。
+
 方向 3 已知风险（来自方案文档）：流向板是全新组件，对象多时拓扑感减弱；顶部导航在俄语、法语下最敏感（1024–1279 宽度需把一项收进"更多"）；任务 1、7 的步数比方向 1 多 1 步；实现代价为三个方向中最高。
 
 ## 需求来源与已识别的文档冲突

@@ -3,8 +3,16 @@ name: Docker build smoke
 on:
   workflow_dispatch:
     inputs:
+      api_only:
+        description: 'Full + fresh SQLite temporary test deployment, HTTP/API only, no browser or publishing'
+        type: boolean
+        default: false
+      run_browser:
+        description: 'Explicitly authorize browser qualification (incompatible with api_only)'
+        type: boolean
+        default: false
       personal:
-        description: 'Run the existing isolated personal workflow in both writers (no deployment or publishing)'
+        description: 'Run both personal browser writer journeys; requires run_browser and cannot use api_only'
         type: boolean
         default: false
   pull_request:
@@ -39,7 +47,8 @@ jobs:
       lan-manifest: ${{ steps.publish.outputs.lan_manifest_sha256 }}
     env:
       BUNDLE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      BUNDLE_PERSONAL: ${{ (github.event_name == 'workflow_dispatch' && inputs.personal || github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'dev') && '1' || '0' }}
+      BUNDLE_PERSONAL: ${{ (github.event_name == 'workflow_dispatch' && inputs.personal || github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'dev') && inputs.run_browser && !inputs.api_only && '1' || '0' }}
+      BUNDLE_API_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.api_only && '1' || '0' }}
     steps:
       - name: Check out
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -53,8 +62,14 @@ jobs:
 
       - name: Bind exact source and producer attempt
         id: identity
+        env:
+          RUN_BROWSER: ${{ inputs.run_browser && '1' || '0' }}
+          REQUEST_PERSONAL: ${{ inputs.personal && '1' || '0' }}
+          PUBLIC_REPOSITORY: ${{ !github.event.repository.private && '1' || '0' }}
         run: |
           set -euo pipefail
+          [[ "$BUNDLE_API_ONLY" != '1' || ( "$PUBLIC_REPOSITORY" == '1' && "$RUN_BROWSER" == '0' && "$REQUEST_PERSONAL" == '0' ) ]]
+          [[ "$REQUEST_PERSONAL" != '1' || "$RUN_BROWSER" == '1' ]]
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
           echo "tree=$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
           echo "attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
@@ -127,14 +142,14 @@ jobs:
             ${{ runner.temp }}/smoke-bundle-full/manifest.json
             ${{ runner.temp }}/smoke-bundle-full/images.tar
           if-no-files-found: error
-          retention-days: 30
+          retention-days: ${{ inputs.api_only && 7 || 30 }}
           compression-level: 0
 
       - name: Build lan smoke image
         id: build-lan
         continue-on-error: true
         timeout-minutes: 20
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && !inputs.api_only
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
@@ -180,7 +195,7 @@ jobs:
             ${{ runner.temp }}/smoke-bundle-lan/manifest.json
             ${{ runner.temp }}/smoke-bundle-lan/images.tar
           if-no-files-found: error
-          retention-days: 30
+          retention-days: ${{ inputs.api_only && 7 || 30 }}
           compression-level: 0
 
       - name: Publish only successfully uploaded edition identities
@@ -220,13 +235,13 @@ jobs:
           echo "Full bundle: build=$FULL_BUILD export=$FULL_EXPORT upload=$FULL_UPLOAD" >> "$GITHUB_STEP_SUMMARY"
           echo "LAN bundle: build=$LAN_BUILD export=$LAN_EXPORT upload=$LAN_UPLOAD" >> "$GITHUB_STEP_SUMMARY"
           [[ "$FULL_BUILD/$FULL_EXPORT/$FULL_UPLOAD" == 'success/success/success' ]]
-          if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' && "${BUNDLE_API_ONLY:-0}" != '1' ]]; then
             [[ "$LAN_BUILD/$LAN_EXPORT/$LAN_UPLOAD" == 'success/success/success' ]]
           fi
 
   installer-local-build:
     # Exercise the actual source installer, separately from the direct-run probe.
-    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft && github.event.pull_request.head.ref == 'dev')
+    if: (github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft && github.event.pull_request.head.ref == 'dev')) && !inputs.api_only
     name: LAN source installer and fresh SQLite
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -333,18 +348,20 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        edition: ${{ fromJSON(github.event_name == 'pull_request' && '["full"]' || '["full","lan"]') }}
+        edition: ${{ fromJSON((github.event_name == 'pull_request' || inputs.api_only) && '["full"]' || '["full","lan"]') }}
         scenario: [fresh]
         writer: [legacy]
         # The dev branch retains both owned writer fixtures, historical handoff,
         # and the independent LAN source installer.
-        include: ${{ fromJSON((github.event_name == 'workflow_dispatch' && inputs.personal || github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'dev') && '[{"edition":"full","scenario":"fresh","writer":"authoritative"},{"edition":"full","scenario":"handoff","writer":"legacy"}]' || '[{"edition":"full","scenario":"handoff","writer":"legacy"}]') }}
+        include: ${{ fromJSON(inputs.api_only && '[]' || (github.event_name == 'workflow_dispatch' && inputs.personal || github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'dev') && inputs.run_browser && '[{"edition":"full","scenario":"fresh","writer":"authoritative"},{"edition":"full","scenario":"handoff","writer":"legacy"}]' || '[{"edition":"full","scenario":"handoff","writer":"legacy"}]') }}
     env:
       MYAPI_SMOKE_EDITION: ${{ matrix.edition }}
       MYAPI_SMOKE_BASE_URL: http://127.0.0.1:18080
       MYAPI_ISOLATED_SMOKE: '1'
-      BUNDLE_PERSONAL: ${{ (github.event_name == 'workflow_dispatch' && inputs.personal || github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'dev') && '1' || '0' }}
-      MYAPI_SMOKE_PERSONAL: ${{ matrix.edition == 'full' && matrix.scenario == 'fresh' && (github.event_name == 'workflow_dispatch' && inputs.personal || github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'dev') && '1' || '0' }}
+      BUNDLE_PERSONAL: ${{ (github.event_name == 'workflow_dispatch' && inputs.personal || github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'dev') && inputs.run_browser && !inputs.api_only && '1' || '0' }}
+      MYAPI_SMOKE_PERSONAL: ${{ matrix.edition == 'full' && matrix.scenario == 'fresh' && (github.event_name == 'workflow_dispatch' && inputs.personal || github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'dev') && inputs.run_browser && !inputs.api_only && '1' || '0' }}
+      MYAPI_SMOKE_BROWSER: ${{ github.event_name == 'workflow_dispatch' && inputs.run_browser && !inputs.api_only && '1' || '0' }}
+      MYAPI_SMOKE_API_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.api_only && '1' || '0' }}
       MYAPI_SMOKE_WRITER: ${{ matrix.writer }}
       SMOKE_NETWORK: myapi-personal-${{ github.sha }}-${{ matrix.writer }}
       SMOKE_REDIS_CONTAINER: myapi-personal-redis-${{ github.sha }}-${{ matrix.writer }}
@@ -588,7 +605,7 @@ jobs:
           exit 1
 
       - name: Install isolated browser test runtime
-        if: matrix.scenario == 'fresh'
+        if: matrix.scenario == 'fresh' && env.MYAPI_SMOKE_BROWSER == '1'
         run: |
           npm install --prefix "$RUNNER_TEMP/myapi-smoke-browser" --no-save --no-package-lock --ignore-scripts playwright@1.61.1
           "$RUNNER_TEMP/myapi-smoke-browser/node_modules/.bin/playwright" install --with-deps chromium
@@ -616,7 +633,7 @@ jobs:
           name: myapi-personal-${{ matrix.writer }}-${{ github.sha }}
           path: ${{ runner.temp }}/myapi-personal-artifacts
           if-no-files-found: warn
-          retention-days: 30
+          retention-days: ${{ inputs.api_only && 7 || 30 }}
 
       - name: Verify empty-history migration, historical startup refusal, and original-backup recovery
         if: matrix.scenario == 'handoff'
@@ -635,7 +652,7 @@ jobs:
           name: myapi-smoke-report-${{ matrix.edition }}-${{ matrix.scenario }}-${{ matrix.writer }}-${{ github.sha }}
           path: ${{ runner.temp }}/myapi-smoke-report/
           if-no-files-found: error
-          retention-days: 30
+          retention-days: ${{ inputs.api_only && 7 || 30 }}
 
       - name: Record safe image identity
         run: |
@@ -645,6 +662,9 @@ jobs:
           [[ "$image_edition" == "$MYAPI_SMOKE_EDITION" ]]
           echo "source_sha=$GITHUB_SHA edition=$MYAPI_SMOKE_EDITION"
           docker image inspect --format 'image_id={{.Id}} os={{.Os}} architecture={{.Architecture}}' "$SMOKE_IMAGE"
+          if [[ "$MYAPI_SMOKE_API_ONLY" == '1' ]]; then
+            echo 'Full + SQLite temporary test deployment: HTTP/API checks, restart and same-image restore. 浏览器未验证。 No registry publication or production deployment.' >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Safe container diagnostics
         if: failure()

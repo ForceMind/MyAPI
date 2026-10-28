@@ -2,6 +2,8 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**2026-10-28 新任务进行中**：维护者已批准在GitHub Actions执行 Full + SQLite、linux/amd64 的临时Docker测试部署，交付镜像包、报告和CI结果。全部打包/测试在标准GitHub-hosted Ubuntu runner，本机仅编辑文本，不安装依赖或下载产物；不触碰现有生产、真实账户和供应商。现有工作流新增浏览器显式开关，默认关闭，本次也不运行浏览器；跳过项须标“浏览器未验证”，不能继续套用过去11/11全执行的口径。本批源码待Actions验证，进度集中在TASKS的同名条目；产品基线仍为下列 `d611da46` / `9795c0f5`。GitHub公开仓库标准runner按当前免费规则执行，缓存上限保持10GiB，不配置付费资源或扩大预算。
+
 维护者已明确批准 **Codex 会话头最小修复**，要求不放宽断言、提交推送 `origin/dev` 后读取完整 CI，构建与测试全部在 GitHub Actions。核心修复 `069f67d7` / [CI 40500636411](https://github.com/ForceMind/MyAPI/actions/runs/40500636411) 与显式头值映射补充 `9795c0f5d4c3cc52beffcebebee1757364f7a3cf` / [CI 40504125721](https://github.com/ForceMind/MyAPI/actions/runs/40504125721) 均已11/11成功，远端已回读。其后的交接提交仅更新文档，接手时仍须核对最新Git与Actions。缓存专项细节和日志节选见 [CACHE_REVIEW_20261027.md](CACHE_REVIEW_20261027.md)。
 
 - **工作区已整理成功**：主检出 `/Volumes/Work/Prive/MyAPI` 本身就是 `dev`。`dev-work`、`fetch-latest-repo-2c038a` 两个嵌套工作区已移除，未删除任何分支、仓库 `.git`，未执行 prune。**不要重跑仓库里的旧整理脚本**；它不是本轮获批加固后执行的临时副本。

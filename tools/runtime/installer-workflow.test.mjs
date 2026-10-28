@@ -193,9 +193,10 @@ test('personal candidates keep both writers, historical restore and the source i
     assert.equal(evaluate(line(section, 'if'), event('', true, 'workflow_dispatch')), true)
   }
   const cases = [
-    [event(branch), ['full'], ['authoritative:fresh:full', 'legacy:handoff:full']],
-    [event('', true, 'workflow_dispatch'), ['full', 'lan'], ['legacy:handoff:full'], { personal: false }],
-    [event('', true, 'workflow_dispatch'), ['full', 'lan'], ['authoritative:fresh:full', 'legacy:handoff:full'], { personal: true }],
+    [event(branch), ['full'], ['legacy:handoff:full']],
+    [event('', true, 'workflow_dispatch'), ['full', 'lan'], ['legacy:handoff:full'], { personal: false, run_browser: false }],
+    [event('', true, 'workflow_dispatch'), ['full', 'lan'], ['authoritative:fresh:full', 'legacy:handoff:full'], { personal: true, run_browser: true }],
+    [event('', true, 'workflow_dispatch'), ['full'], [], { api_only: true, personal: false, run_browser: false }],
   ]
   for (const [github, editions, extra, inputs = {}] of cases) {
     assert.deepEqual(evaluate(line(consumer, 'edition'), github, {}, inputs), editions)
@@ -213,6 +214,14 @@ test('personal candidates keep both writers, historical restore and the source i
     }
     assert.equal(new Set(evidenceNames).size, evidenceNames.length, 'Personal artifacts must be unique within one run')
     if (inputs.personal) assert.equal(evidenceNames.length, 2, 'Manual personal acceptance must cover exactly both Full writers')
+    if (inputs.api_only) {
+      assert.equal(evaluate(line(installer, 'if'), github, {}, inputs), false, 'API-only must not start a separate LAN installer build')
+      assert.equal(rows.length, 1)
+      assert.deepEqual(rows[0], { edition: 'full', scenario: 'fresh', writer: 'legacy' })
+      assert.equal(evaluate(line(consumer, 'MYAPI_SMOKE_BROWSER'), github, rows[0], inputs), '0')
+      assert.equal(evaluate(line(consumer, 'MYAPI_SMOKE_API_ONLY'), github, rows[0], inputs), '1')
+      assert.equal(evidenceNames.length, 0)
+    }
   }
   assert.match(consumer, /--personal "\$BUNDLE_PERSONAL"/)
   assert.match(consumer, /MYAPI_SMOKE_RESTORE: \$\{\{ env\.MYAPI_SMOKE_PERSONAL == '1' && '0' \|\| '1' \}\}/)

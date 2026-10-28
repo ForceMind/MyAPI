@@ -2,6 +2,8 @@
 
 面向接手者的逐步操作。所有构建、测试、浏览器验收都在 GitHub Actions 上进行，本机不安装依赖。
 
+**2026-10-28 当前任务**：已批准 GitHub Actions 内的 Full + SQLite 临时测试部署。浏览器默认不运行，只有当前任务明确授权后才手动开启 `run_browser`；推送dev只执行非浏览器检查，混合Go/浏览器作业也按此规则跳过，报告须注明“浏览器未验证”。不要把跳过项写成已执行通过。本次Docker手动入口为既有 `docker-smoke.yml`、ref=dev，输入 `api_only=true, run_browser=false, personal=false`；只准备Full镜像并在另一Runner加载同一构件做HTTP/API、重启和同版本SQLite/WAL恢复验证。构件保留7天，不下载到本机，不发布GHCR、不打Git tag、不部署生产。SHA、镜像ID、包哈希和producer attempt校验继续保留，不回退到旧包。
+
 ## 1. 准备环境
 
 1. 工具：`git`、`gh`（GitHub CLI，已登录对 `ForceMind/MyAPI` 有推送权限的账号；`gh auth status` 检查）。读写代码的编辑器即可，不需要 Node、Bun、Go、Docker。
@@ -68,10 +70,10 @@ gh run download <RUN_ID> --repo ForceMind/MyAPI -D /tmp/myapi-shots
 5. 路径限定提交（避免带入暂存区里别人的文件）：
    ```bash
    git add <路径...>
-   git commit -m "type(scope): 说明" -m "<署名行>" -- <同样的路径...>
+   git commit -m "type(scope): 说明" -- <同样的路径...>
    git show --stat HEAD        # 核对只含自己的文件
    ```
-   提交信息沿用既有风格：`feat(web): ...`、`fix(web): ...`、`test(tools): ...`、`docs: ...`、`feat(cli): ...`。
+   提交信息沿用既有风格：`feat(web): ...`、`fix(web): ...`、`test(tools): ...`、`docs: ...`、`feat(cli): ...`。按维护者最新约定，新的提交标题、正文与附注不添加代理生成标记、代理署名或相关Co-authored-by；不重写历史提交。
 6. 推送：`git push origin dev`。不要强推、不要 reset、不要 stash、不要 `git add -A`。
 7. 推送后记录 CI 运行号，等结果。通过才能在 `TASKS.md` 里把该步标为已验证。
 

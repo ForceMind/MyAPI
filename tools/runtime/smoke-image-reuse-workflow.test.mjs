@@ -49,7 +49,7 @@ test('consumer uses exact original producer identity across failed-job reruns an
   assert.doesNotMatch(consumer.split('      # Historical source')[0], /pattern:|merge-multiple:|github-token:|run-id:|overwrite:/)
   assert.match(producer, /full-manifest: \$\{\{ steps.publish.outputs.full_manifest_sha256 \}\}/)
   assert.match(producer, /lan-manifest: \$\{\{ steps.publish.outputs.lan_manifest_sha256 \}\}/)
-  assert.equal((producer.match(/retention-days: 30/g) || []).length, 2)
+  assert.equal((producer.match(/retention-days: \$\{\{ inputs.api_only && 7 \|\| 30 \}\}/g) || []).length, 2)
   assert.equal((producer.match(/if-no-files-found: error/g) || []).length, 2)
   for (const edition of ['full', 'lan']) {
     assert.match(producer, new RegExp(`smoke-bundle-${edition}/manifest\\.json`))
@@ -70,6 +70,10 @@ test('continue-on-error cannot turn any required build export or upload failure 
     [outcomes(['success', 'failure', 'skipped'], good), false, false, true],
     [outcomes(['success', 'success', 'failure'], good), false, false, true],
     [outcomes(absent, absent), false, false, false],
+    [{ ...outcomes(good, absent), BUNDLE_API_ONLY: '1' }, true, true, false],
+    [{ ...outcomes(['failure', 'skipped', 'skipped'], absent), BUNDLE_API_ONLY: '1' }, false, false, false],
+    [{ ...outcomes(['success', 'failure', 'skipped'], absent), BUNDLE_API_ONLY: '1' }, false, false, false],
+    [{ ...outcomes(['success', 'success', 'failure'], absent), BUNDLE_API_ONLY: '1' }, false, false, false],
   ]
   for (const [extra, passed, full, lan] of cases) {
     writeFileSync(output, ''); writeFileSync(summary, '')
@@ -82,6 +86,48 @@ test('continue-on-error cannot turn any required build export or upload failure 
   assert.match(consumer, /if: always\(\) && !cancelled\(\)/)
   assert.match(consumer, /outputs.full-manifest != '' \|\| needs.prepare-smoke-images.outputs.lan-manifest != ''/)
   assert.doesNotMatch(producer, /steps\.[\w-]+\.conclusion/)
+})
+
+test('API-only deployment requests Full fresh legacy only and rejects private or browser-capable runs before build', t => {
+  assert.match(workflow, /api_only:\n[\s\S]*?default: false/)
+  assert.match(workflow, /run_browser:\n[\s\S]*?default: false/)
+  assert.match(producer, /if: github.event_name == 'workflow_dispatch' && !inputs.api_only/)
+  assert.match(installer, /&& !inputs.api_only/)
+  assert.match(consumer, /\(github.event_name == 'pull_request' \|\| inputs.api_only\) && '\["full"\]'/)
+  assert.match(consumer, /include:.*inputs.api_only && '\[\]'/)
+  assert.match(consumer, /if: matrix.scenario == 'fresh' && env.MYAPI_SMOKE_BROWSER == '1'/)
+  assert.match(consumer, /MYAPI_SMOKE_API_ONLY:/)
+  assert.match(consumer, /MYAPI_SMOKE_RESTORE:.*'0' \|\| '1'/)
+  const temp = mkdtempSync(path.join(os.tmpdir(), 'myapi-api-only-identity-'))
+  t.after(() => rmSync(temp, { recursive: true, force: true }))
+  const source = spawnSync('git', ['-c', 'core.fileMode=false', 'rev-parse', 'HEAD'], { encoding: 'utf8' })
+  assert.equal(source.status, 0)
+  const output = path.join(temp, 'output')
+  for (const [changes, expected] of [[{}, true], [{ PUBLIC_REPOSITORY: '0' }, false],
+    [{ RUN_BROWSER: '1' }, false], [{ REQUEST_PERSONAL: '1' }, false]]) {
+    writeFileSync(output, '')
+    const env = { ...process.env, BUNDLE_API_ONLY: '1', PUBLIC_REPOSITORY: '1', RUN_BROWSER: '0', REQUEST_PERSONAL: '0',
+      GITHUB_SHA: source.stdout.trim(), GITHUB_RUN_ID: '123', GITHUB_RUN_ATTEMPT: '1', GITHUB_OUTPUT: output, ...changes }
+    const result = spawnSync('bash', ['-c', shellStep('Bind exact source and producer attempt')], { env })
+    assert.equal(result.status === 0, expected)
+    assert.equal(readFileSync(output, 'utf8').includes('prefix=myapi-smoke-images-'), expected)
+  }
+})
+
+test('push CI never installs or starts browsers without an explicit manual opt-in', () => {
+  const ci = readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8')
+  assert.match(ci, /run_browser:\n[\s\S]*?type: boolean\n\s+default: false/)
+  const dependencies = ci.split('      - name: Install isolated browser test dependencies\n')[1].split('      - name:')[0]
+  assert.match(dependencies, /if:.*github.event_name == 'workflow_dispatch' && inputs.run_browser/)
+  const credential = ci.split('  credential-maintenance:\n')[1]
+  assert.match(credential, /if:.*github.event_name == 'workflow_dispatch' && inputs.run_browser/)
+  for (const name of ['Qualify advanced personal maintenance in Chromium', 'Verify real quota charts and responsive interactions',
+    'Verify model discovery and routing workflow in real Chromium', 'Verify assigned access and account events in real Chromium',
+    'Qualify personal console pages and native-window shares in Chromium', 'Qualify shared UI, roles, settings and responsive pages in Chromium']) {
+    const step = ci.split(`      - name: ${name}\n`)[1].split('      - name:')[0]
+    assert.match(step, /if:.*steps.browser-dependencies.outcome == 'success'/)
+  }
+  assert.match(ci, /浏览器未验证/)
 })
 
 test('consumer runtime cannot implicitly pull and preserves isolated source restore and personal cleanup', () => {
