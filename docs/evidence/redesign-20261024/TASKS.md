@@ -131,7 +131,8 @@ UI 设计（`ui-design/DESIGN_DIRECTION.md` 第 11 节）：
 - **实现与验收**：现有CI浏览器步骤需显式手动 `run_browser=true` 才能运行，混合Go/浏览器作业同样受控；本次关闭。Docker smoke以 `api_only=true, run_browser=false, personal=false` 手动触发，只构建Full一次、跳过LAN安装与历史升级场景。独立消费者校验同一运行的包哈希、镜像ID、SHA、tree和producer attempt后加载；不回退旧镜像、不重新构建替代验证。
 - **本轮验证目标**：真实应用容器的健康、初始化、鉴权拒绝、合成账号/Key/连接/上游、精确用量与日志，HTTP读取嵌入的HTML及JS/CSS，归属校验后的原容器重启和含WAL快照的同版本恢复。HTTP检查不运行前端脚本，报告明确 `browser=not_run` / “浏览器未验证”。不将同版本恢复描述为生产迁移或跨版本回滚验证。
 - **补充范围已批准**：维护者明确同意仅同步 `tools/runtime/installer-workflow.test.mjs`。为既有personal用例显式提供 `run_browser=true`，保留“两种Full writer均覆盖”等原断言；补充API-only只运行Full/fresh/legacy、不启动LAN安装或浏览器的对照。
-- **当前状态**：本机仅编辑源码并检查差异；未安装依赖、编译、运行测试、启动Docker或浏览器，也未下载镜像/构件。当前实现待提交并由GitHub Actions验证。
+- **首轮CI取证**：实现提交 `dd04079be283d7977f981ae59c7276a0ff81ae80` 已推送；CI40639639962的Distribution作业通过，日志确认浏览器能力开关、HTTP静态资源和容器归属/重启用例通过，混合浏览器作业跳过。随后核对发现原CI命令未选中两份工作流合同测试，已补入同一检查入口；首轮结果不代替这些未执行用例的验证，尚未触发Docker打包。
+- **当前状态**：本机仅编辑源码并检查差异；未安装依赖、编译、运行测试、启动Docker或浏览器，也未下载镜像/构件。补齐合同测试入口后继续推送并读取GitHub Actions结果。
 
 方向 3 已知风险（来自方案文档）：流向板是全新组件，对象多时拓扑感减弱；顶部导航在俄语、法语下最敏感（1024–1279 宽度需把一项收进"更多"）；任务 1、7 的步数比方向 1 多 1 步；实现代价为三个方向中最高。
 

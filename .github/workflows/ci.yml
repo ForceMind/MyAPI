@@ -957,6 +957,8 @@ jobs:
       - name: Verify Docker smoke fixture and restore contracts
         run: >-
           node --test tools/runtime/docker-smoke.test.mjs
+          tools/runtime/installer-workflow.test.mjs
+          tools/runtime/smoke-image-reuse-workflow.test.mjs
           tools/runtime/sqlite-restore-smoke.test.mjs
           tools/runtime/handoff-upgrade-smoke.test.mjs
           tools/runtime/upstream-acceptance.test.mjs
