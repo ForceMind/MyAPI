@@ -21,7 +21,7 @@ route,kind,source,wireframe_ids,note
 /_authenticated/dashboard/$section,dynamic,web/src/routes/_authenticated/dashboard/$section.tsx,overview;analytics-models;analytics-flow;analytics-users,对象ID共用该对象类型布局，具体权限和数据不在设计图中模拟成功。
 /_authenticated/dashboard/,alias,web/src/routes/_authenticated/dashboard/index.tsx,overview,同一实际界面的别名共用线稿，不把别名虚增为独立产品页。
 /_authenticated/errors/$error,dynamic,web/src/routes/_authenticated/errors/$error.tsx,console-error-401;console-error-403;console-error-404;console-error-500;console-error-503,对象ID共用该对象类型布局，具体权限和数据不在设计图中模拟成功。
-/_authenticated/full-content-logs/,page,web/src/routes/_authenticated/full-content-logs/index.tsx,request-bodies;body-detail;body-files,源码登记与设计提案对应，不是运行时验收证据。
+/_authenticated/full-content-logs/,page,web/src/routes/_authenticated/full-content-logs/index.tsx,request-bodies;request-filters;body-detail;body-files,源码登记与设计提案对应，不是运行时验收证据。
 /_authenticated/keys/$keyId/,page,web/src/routes/_authenticated/keys/$keyId/index.tsx,key-requests;key-scope;key-delivery,对象ID共用该对象类型布局，具体权限和数据不在设计图中模拟成功。
 /_authenticated/keys/$keyId/requests/$requestId,page,web/src/routes/_authenticated/keys/$keyId/requests/$requestId.tsx,key-request-detail;key-request-body;key-request-sse;key-request-raw,对象ID共用该对象类型布局，具体权限和数据不在设计图中模拟成功。
 /_authenticated/keys/,page,web/src/routes/_authenticated/keys/index.tsx,keys,源码登记与设计提案对应，不是运行时验收证据。

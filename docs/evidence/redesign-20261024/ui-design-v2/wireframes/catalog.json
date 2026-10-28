@@ -61,6 +61,11 @@
           "label": "查看内容",
           "target": "body-detail",
           "effect": "仅跳转到对应线稿，不发出产品请求"
+        },
+        {
+          "label": "手机：展开筛选",
+          "target": "request-filters",
+          "effect": "仅手机显示；展开完整字段，应用前不改变已用筛选"
         }
       ],
       "tabs": [],
@@ -77,6 +82,63 @@
       ],
       "merge": "请求工作区共享筛选和分页；正文权限保持独立，不把正文复制到普通用户的调用记录缓存。",
       "access": "管理员；沿用既有正文路由和API权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "request-filters",
+      "title": "正文与 SSE · 手机筛选展开态",
+      "group": "01 请求工作区",
+      "url": "/full-content-logs〔手机筛选〕",
+      "kind": "overlay",
+      "sources": [
+        "web/src/features/full-content-logs/components/full-content-log-filter-bar.tsx"
+      ],
+      "sections": [],
+      "fields": [
+        "日期范围〔同一日历〕",
+        "模型",
+        "API Key名称 / ID",
+        "Request ID"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用并查询",
+          "target": "request-bodies",
+          "effect": "仅GET列表，应用当前草稿并回到第1页"
+        },
+        {
+          "label": "日期范围",
+          "target": "date-range",
+          "effect": "在同一个日历选择起止日期；取消时保留已应用值"
+        },
+        {
+          "label": "重置筛选",
+          "target": "request-filters",
+          "effect": "清空草稿，不删除日志"
+        },
+        {
+          "label": "取消",
+          "target": "request-bodies",
+          "effect": "返回已应用的筛选和原列表，不发送查询或写入"
+        }
+      ],
+      "tabs": [],
+      "stats": [],
+      "notes": [
+        "展开态与正文列表主屏分开画；默认一行筛选摘要，避免手机首屏全被表单占据。",
+        "键盘提交与查询按钮等价；日期无效或起止倒置时就近报错并保留草稿。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
       "status": "设计提案，待维护者确认",
       "common_notes": [
         "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
@@ -304,7 +366,7 @@
       "url": "/usage-logs/request/$requestId?tab=detail",
       "kind": "detail",
       "sources": [
-        "web/src/routes/_authenticated/usage-logs/request/$requestId.tsx"
+        "web/src/features/usage-logs/request-page.tsx"
       ],
       "sections": [
         {
@@ -392,7 +454,7 @@
       "url": "/usage-logs/request/$requestId?tab=body",
       "kind": "detail",
       "sources": [
-        "web/src/routes/_authenticated/usage-logs/request/$requestId.tsx"
+        "web/src/features/usage-logs/request-page.tsx"
       ],
       "sections": [
         {
@@ -478,7 +540,7 @@
       "url": "/usage-logs/request/$requestId?tab=sse",
       "kind": "detail",
       "sources": [
-        "web/src/routes/_authenticated/usage-logs/request/$requestId.tsx"
+        "web/src/features/usage-logs/request-page.tsx"
       ],
       "sections": [
         {
@@ -565,7 +627,7 @@
       "url": "/usage-logs/request/$requestId?tab=raw",
       "kind": "detail",
       "sources": [
-        "web/src/routes/_authenticated/usage-logs/request/$requestId.tsx"
+        "web/src/features/usage-logs/request-page.tsx"
       ],
       "sections": [
         {
@@ -2857,6 +2919,11 @@
           "label": "提示词学习",
           "target": "learning-policy",
           "effect": "仅跳转到对应线稿，不发出产品请求"
+        },
+        {
+          "label": "账户绑定",
+          "target": "profile-bindings",
+          "effect": "进入当前身份的绑定管理；不自动绑定、解绑或切换账户"
         }
       ],
       "tabs": [
@@ -4299,13 +4366,13 @@
           "effect": "仅跳转到对应线稿，不发出产品请求"
         },
         {
-          "label": "登录",
-          "target": "sign-in",
+          "label": "查看模型目录",
+          "target": "pricing",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         },
         {
-          "label": "查看模型",
-          "target": "model-price",
+          "label": "了解MyAPI",
+          "target": "about",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         }
       ],
@@ -4358,18 +4425,18 @@
       "filters": [],
       "actions": [
         {
-          "label": "进入控制台",
-          "target": "overview",
+          "label": "返回首页",
+          "target": "home",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         },
         {
-          "label": "登录",
-          "target": "sign-in",
+          "label": "隐私政策",
+          "target": "privacy",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         },
         {
-          "label": "查看模型",
-          "target": "model-price",
+          "label": "用户协议",
+          "target": "terms",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         }
       ],
@@ -4425,18 +4492,18 @@
       ],
       "actions": [
         {
-          "label": "进入控制台",
-          "target": "overview",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
-        },
-        {
-          "label": "登录",
-          "target": "sign-in",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
-        },
-        {
-          "label": "查看模型",
+          "label": "查看模型详情",
           "target": "model-price",
+          "effect": "仅跳转到对应线稿，不发出产品请求"
+        },
+        {
+          "label": "按现有要求登录",
+          "target": "sign-in",
+          "effect": "仅在服务端要求认证时显示登录提示"
+        },
+        {
+          "label": "返回首页",
+          "target": "home",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         }
       ],
@@ -4489,22 +4556,30 @@
       "filters": [],
       "actions": [
         {
-          "label": "进入控制台",
-          "target": "overview",
+          "label": "返回定价目录",
+          "target": "pricing",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         },
         {
-          "label": "登录",
-          "target": "sign-in",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
-        },
-        {
-          "label": "查看模型",
-          "target": "model-price",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
+          "label": "查看接入示例",
+          "target": "model-price-view-api",
+          "effect": "只展示合成示例，不发出请求"
         }
       ],
-      "tabs": [],
+      "tabs": [
+        [
+          "model-price-view-overview",
+          "能力与价格概览"
+        ],
+        [
+          "model-price-view-performance",
+          "性能信息"
+        ],
+        [
+          "model-price-view-api",
+          "API接入示例"
+        ]
+      ],
       "stats": [],
       "notes": [
         "公开内容按现有开关与权限显示；模型名 / 提供方名不作项目品牌替换。",
@@ -4553,18 +4628,13 @@
       ],
       "actions": [
         {
-          "label": "进入控制台",
-          "target": "overview",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
+          "label": "应用榜单筛选",
+          "target": "rankings",
+          "effect": "只读取允许公开的聚合统计"
         },
         {
-          "label": "登录",
-          "target": "sign-in",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
-        },
-        {
-          "label": "查看模型",
-          "target": "model-price",
+          "label": "返回首页",
+          "target": "home",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         }
       ],
@@ -4610,18 +4680,13 @@
       "filters": [],
       "actions": [
         {
-          "label": "进入控制台",
-          "target": "overview",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
+          "label": "返回来源页",
+          "target": "home",
+          "effect": "恢复实际调用页；目录以首页作为示意"
         },
         {
-          "label": "登录",
-          "target": "sign-in",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
-        },
-        {
-          "label": "查看模型",
-          "target": "model-price",
+          "label": "用户协议",
+          "target": "terms",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         }
       ],
@@ -4667,18 +4732,13 @@
       "filters": [],
       "actions": [
         {
-          "label": "进入控制台",
-          "target": "overview",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
+          "label": "返回来源页",
+          "target": "home",
+          "effect": "恢复实际调用页；目录以首页作为示意"
         },
         {
-          "label": "登录",
-          "target": "sign-in",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
-        },
-        {
-          "label": "查看模型",
-          "target": "model-price",
+          "label": "隐私政策",
+          "target": "privacy",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         }
       ],
@@ -4739,19 +4799,14 @@
       "filters": [],
       "actions": [
         {
-          "label": "进入控制台",
-          "target": "overview",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
+          "label": "产品版本说明",
+          "target": "website",
+          "effect": "导航到官网的版本说明区"
         },
         {
-          "label": "登录",
-          "target": "sign-in",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
-        },
-        {
-          "label": "查看模型",
-          "target": "model-price",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
+          "label": "部署文档入口",
+          "target": "website",
+          "effect": "保留实际已存在的文档地址，不执行安装、构建或部署"
         }
       ],
       "tabs": [],
@@ -4795,13 +4850,13 @@
       "filters": [],
       "actions": [
         {
-          "label": "返回上一页",
-          "target": "overview",
+          "label": "重新登录",
+          "target": "sign-in",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         },
         {
-          "label": "重新登录",
-          "target": "sign-in",
+          "label": "返回首页",
+          "target": "home",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         }
       ],
@@ -4845,13 +4900,13 @@
       "filters": [],
       "actions": [
         {
-          "label": "返回上一页",
-          "target": "overview",
+          "label": "重新登录",
+          "target": "sign-in",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         },
         {
-          "label": "重新登录",
-          "target": "sign-in",
+          "label": "返回首页",
+          "target": "overview",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         }
       ],
@@ -4895,13 +4950,8 @@
       "filters": [],
       "actions": [
         {
-          "label": "返回上一页",
-          "target": "overview",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
-        },
-        {
-          "label": "重新登录",
-          "target": "sign-in",
+          "label": "返回可用页面",
+          "target": "home",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         }
       ],
@@ -4945,13 +4995,8 @@
       "filters": [],
       "actions": [
         {
-          "label": "返回上一页",
+          "label": "返回可用页面",
           "target": "overview",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
-        },
-        {
-          "label": "重新登录",
-          "target": "sign-in",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         }
       ],
@@ -4995,13 +5040,8 @@
       "filters": [],
       "actions": [
         {
-          "label": "返回上一页",
-          "target": "overview",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
-        },
-        {
-          "label": "重新登录",
-          "target": "sign-in",
+          "label": "返回可用页面",
+          "target": "home",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         }
       ],
@@ -5045,13 +5085,8 @@
       "filters": [],
       "actions": [
         {
-          "label": "返回上一页",
+          "label": "返回可用页面",
           "target": "overview",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
-        },
-        {
-          "label": "重新登录",
-          "target": "sign-in",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         }
       ],
@@ -5095,14 +5130,14 @@
       "filters": [],
       "actions": [
         {
-          "label": "返回上一页",
-          "target": "overview",
+          "label": "返回可用页面",
+          "target": "home",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         },
         {
-          "label": "重新登录",
-          "target": "sign-in",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
+          "label": "重新读取页面状态",
+          "target": "error-500",
+          "effect": "仅重试读取，绝不重新提交失败或结果未知的业务写入"
         }
       ],
       "tabs": [],
@@ -5145,14 +5180,14 @@
       "filters": [],
       "actions": [
         {
-          "label": "返回上一页",
+          "label": "返回可用页面",
           "target": "overview",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         },
         {
-          "label": "重新登录",
-          "target": "sign-in",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
+          "label": "重新读取页面状态",
+          "target": "console-error-500",
+          "effect": "仅重试读取，绝不重新提交失败或结果未知的业务写入"
         }
       ],
       "tabs": [],
@@ -5195,14 +5230,14 @@
       "filters": [],
       "actions": [
         {
-          "label": "返回上一页",
-          "target": "overview",
+          "label": "返回可用页面",
+          "target": "home",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         },
         {
-          "label": "重新登录",
-          "target": "sign-in",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
+          "label": "重新读取页面状态",
+          "target": "error-503",
+          "effect": "仅重试读取，绝不重新提交失败或结果未知的业务写入"
         }
       ],
       "tabs": [],
@@ -5245,14 +5280,14 @@
       "filters": [],
       "actions": [
         {
-          "label": "返回上一页",
+          "label": "返回可用页面",
           "target": "overview",
           "effect": "仅跳转到对应线稿，不发出产品请求"
         },
         {
-          "label": "重新登录",
-          "target": "sign-in",
-          "effect": "仅跳转到对应线稿，不发出产品请求"
+          "label": "重新读取页面状态",
+          "target": "console-error-503",
+          "effect": "仅重试读取，绝不重新提交失败或结果未知的业务写入"
         }
       ],
       "tabs": [],
@@ -5629,7 +5664,32 @@
           "effect": "只有存在未保存修改才要求确认"
         }
       ],
-      "tabs": [],
+      "tabs": [
+        [
+          "settings-auth-oauth-view-github",
+          "GitHub"
+        ],
+        [
+          "settings-auth-oauth-view-discord",
+          "Discord"
+        ],
+        [
+          "settings-auth-oauth-view-oidc",
+          "OIDC"
+        ],
+        [
+          "settings-auth-oauth-view-telegram",
+          "Telegram"
+        ],
+        [
+          "settings-auth-oauth-view-linuxdo",
+          "LinuxDO"
+        ],
+        [
+          "settings-auth-oauth-view-wechat",
+          "WeChat"
+        ]
+      ],
       "stats": [],
       "notes": [
         "分区顶部只保留一个主保存入口；底部未保存栏在手机不遮挡最后一个字段或验证信息。",
@@ -6023,7 +6083,24 @@
           "effect": "仅跳转到对应线稿，不发出产品请求"
         }
       ],
-      "tabs": [],
+      "tabs": [
+        [
+          "settings-billing-model-pricing-view-models",
+          "已配置模型价格"
+        ],
+        [
+          "settings-billing-model-pricing-view-unset-models",
+          "未设置价格模型"
+        ],
+        [
+          "settings-billing-model-pricing-view-tool-prices",
+          "工具价格"
+        ],
+        [
+          "settings-billing-model-pricing-view-upstream-sync",
+          "上游价格同步预览"
+        ]
+      ],
       "stats": [],
       "notes": [
         "分区顶部只保留一个主保存入口；底部未保存栏在手机不遮挡最后一个字段或验证信息。",
@@ -6168,7 +6245,32 @@
           "effect": "仅跳转到对应线稿，不发出产品请求"
         }
       ],
-      "tabs": [],
+      "tabs": [
+        [
+          "settings-billing-payment-view-general",
+          "资金模式与通用设置"
+        ],
+        [
+          "settings-billing-payment-view-epay",
+          "Epay"
+        ],
+        [
+          "settings-billing-payment-view-stripe",
+          "Stripe"
+        ],
+        [
+          "settings-billing-payment-view-creem",
+          "Creem"
+        ],
+        [
+          "settings-billing-payment-view-waffo-pancake",
+          "Waffo Pancake"
+        ],
+        [
+          "settings-billing-payment-view-waffo",
+          "Waffo"
+        ]
+      ],
       "stats": [],
       "notes": [
         "分区顶部只保留一个主保存入口；底部未保存栏在手机不遮挡最后一个字段或验证信息。",
@@ -7915,7 +8017,16 @@
           "effect": "只有存在未保存修改才要求确认"
         }
       ],
-      "tabs": [],
+      "tabs": [
+        [
+          "settings-content-chat-view-visual",
+          "聊天预设列表"
+        ],
+        [
+          "settings-content-chat-view-json",
+          "聊天预设JSON"
+        ]
+      ],
       "stats": [],
       "notes": [
         "分区顶部只保留一个主保存入口；底部未保存栏在手机不遮挡最后一个字段或验证信息。",
@@ -8039,12 +8150,37 @@
         {
           "label": "应用范围",
           "target": "request-bodies",
-          "effect": "应用到来源页草稿或明确查询；不隐式修改其他筛选"
+          "effect": "应用到来源页草稿；来源页确认查询后才读取列表，不隐式修改其他筛选"
         },
         {
           "label": "取消",
           "target": "request-bodies",
           "effect": "丢弃当前弹层草稿，保留已应用范围"
+        },
+        {
+          "label": "今天",
+          "target": "date-range",
+          "effect": "只选定当前日历时区下今天的草稿范围"
+        },
+        {
+          "label": "近7天",
+          "target": "date-range",
+          "effect": "只更新包含今天的7个日历日草稿"
+        },
+        {
+          "label": "近30天",
+          "target": "date-range",
+          "effect": "只更新包含今天的30个日历日草稿"
+        },
+        {
+          "label": "本月",
+          "target": "date-range",
+          "effect": "只更新当前月的草稿范围"
+        },
+        {
+          "label": "清空",
+          "target": "date-range",
+          "effect": "清空草稿，应用前保留原筛选"
         }
       ],
       "tabs": [],
@@ -8740,6 +8876,11 @@
           "label": "提交 / 执行当前动作",
           "target": "connection-edit",
           "effect": "图中仅说明；实际动作沿用既有确认、权限、幂等和防重放规则"
+        },
+        {
+          "label": "编辑模型映射",
+          "target": "connection-mapping",
+          "effect": "进入模型分区的映射草稿，不保存连接或触发测试"
         }
       ],
       "tabs": [],
@@ -10128,7 +10269,16 @@
           "effect": "仅设计该既有动作的位置；权限、确认、状态与是否对外调用仍按原实现"
         }
       ],
-      "tabs": [],
+      "tabs": [
+        [
+          "surface-features-auth-secure-verification-components-secure-verification-dialog-view-2fa",
+          "两步验证码验证"
+        ],
+        [
+          "surface-features-auth-secure-verification-components-secure-verification-dialog-view-passkey",
+          "Passkey验证"
+        ]
+      ],
       "stats": [],
       "notes": [
         "按单个弹层而非整个文件提取标题、字段标签和动作，避免把相邻编辑器或确认框的按钮混入。",
@@ -10560,7 +10710,24 @@
           "effect": "仅设计该既有动作的位置；权限、确认、状态与是否对外调用仍按原实现"
         }
       ],
-      "tabs": [],
+      "tabs": [
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-forwarding",
+          "转发路由"
+        ],
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-models",
+          "模型规则"
+        ],
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-balance",
+          "余额查询规则"
+        ],
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-json",
+          "原始JSON"
+        ]
+      ],
       "stats": [],
       "notes": [
         "按单个弹层而非整个文件提取标题、字段标签和动作，避免把相邻编辑器或确认框的按钮混入。",
@@ -10830,7 +10997,16 @@
           "effect": "仅设计该既有动作的位置；权限、确认、状态与是否对外调用仍按原实现"
         }
       ],
-      "tabs": [],
+      "tabs": [
+        [
+          "surface-features-channels-components-dialogs-codex-usage-dialog-view-current",
+          "当前用量与窗口"
+        ],
+        [
+          "surface-features-channels-components-dialogs-codex-usage-dialog-view-history",
+          "历史观察"
+        ]
+      ],
       "stats": [],
       "notes": [
         "按单个弹层而非整个文件提取标题、字段标签和动作，避免把相邻编辑器或确认框的按钮混入。",
@@ -11038,7 +11214,20 @@
           "effect": "仅设计该既有动作的位置；权限、确认、状态与是否对外调用仍按原实现"
         }
       ],
-      "tabs": [],
+      "tabs": [
+        [
+          "surface-features-channels-components-dialogs-fetch-models-dialog-view-new",
+          "新增模型候选"
+        ],
+        [
+          "surface-features-channels-components-dialogs-fetch-models-dialog-view-existing",
+          "已存在模型"
+        ],
+        [
+          "surface-features-channels-components-dialogs-fetch-models-dialog-view-removed",
+          "上游已移除候选"
+        ]
+      ],
       "stats": [],
       "notes": [
         "按单个弹层而非整个文件提取标题、字段标签和动作，避免把相邻编辑器或确认框的按钮混入。",
@@ -11528,7 +11717,16 @@
           "effect": "仅设计该既有动作的位置；权限、确认、状态与是否对外调用仍按原实现"
         }
       ],
-      "tabs": [],
+      "tabs": [
+        [
+          "surface-features-channels-components-dialogs-upstream-update-dialog-view-add",
+          "待新增模型"
+        ],
+        [
+          "surface-features-channels-components-dialogs-upstream-update-dialog-view-remove",
+          "待移除模型"
+        ]
+      ],
       "stats": [],
       "notes": [
         "按单个弹层而非整个文件提取标题、字段标签和动作，避免把相邻编辑器或确认框的按钮混入。",
@@ -15236,7 +15434,20 @@
           "effect": "设计稿不提交任何业务请求"
         }
       ],
-      "tabs": [],
+      "tabs": [
+        [
+          "surface-features-system-settings-models-model-pricing-sheet-view-per-token",
+          "按Token计费"
+        ],
+        [
+          "surface-features-system-settings-models-model-pricing-sheet-view-per-request",
+          "按请求计费"
+        ],
+        [
+          "surface-features-system-settings-models-model-pricing-sheet-view-tiered_expr",
+          "分层 / 表达式计费"
+        ]
+      ],
       "stats": [],
       "notes": [
         "按单个弹层而非整个文件提取标题、字段标签和动作，避免把相邻编辑器或确认框的按钮混入。",
@@ -16183,6 +16394,2868 @@
         "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
       ],
       "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "settings-auth-oauth-view-github",
+      "title": "外部登录提供方 · GitHub",
+      "group": "04 设置 · auth",
+      "url": "/system-settings/auth/oauth〔github〕",
+      "kind": "form",
+      "sources": [
+        "web/src/features/system-settings/auth/oauth-section.tsx"
+      ],
+      "sections": [
+        {
+          "title": "GitHub的任务范围",
+          "items": [
+            "仅配置GitHub登录",
+            "回调地址可复制",
+            "密钥不进入摘要与截图"
+          ]
+        }
+      ],
+      "fields": [
+        "启用状态",
+        "Client ID",
+        "Client Secret〔掩码〕",
+        "回调地址"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "settings-auth-oauth-view-github",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "settings-auth-oauth",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "settings-auth-oauth-view-github",
+          "GitHub"
+        ],
+        [
+          "settings-auth-oauth-view-discord",
+          "Discord"
+        ],
+        [
+          "settings-auth-oauth-view-oidc",
+          "OIDC"
+        ],
+        [
+          "settings-auth-oauth-view-telegram",
+          "Telegram"
+        ],
+        [
+          "settings-auth-oauth-view-linuxdo",
+          "LinuxDO"
+        ],
+        [
+          "settings-auth-oauth-view-wechat",
+          "WeChat"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "管理员 / Root按既有设置权限，Lite按既有能力裁剪",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "settings-auth-oauth-view-discord",
+      "title": "外部登录提供方 · Discord",
+      "group": "04 设置 · auth",
+      "url": "/system-settings/auth/oauth〔discord〕",
+      "kind": "form",
+      "sources": [
+        "web/src/features/system-settings/auth/oauth-section.tsx"
+      ],
+      "sections": [
+        {
+          "title": "Discord的任务范围",
+          "items": [
+            "Discord专属登录配置",
+            "不改变提供方协议"
+          ]
+        }
+      ],
+      "fields": [
+        "启用状态",
+        "Client ID",
+        "Client Secret〔掩码〕",
+        "回调地址"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "settings-auth-oauth-view-discord",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "settings-auth-oauth",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "settings-auth-oauth-view-github",
+          "GitHub"
+        ],
+        [
+          "settings-auth-oauth-view-discord",
+          "Discord"
+        ],
+        [
+          "settings-auth-oauth-view-oidc",
+          "OIDC"
+        ],
+        [
+          "settings-auth-oauth-view-telegram",
+          "Telegram"
+        ],
+        [
+          "settings-auth-oauth-view-linuxdo",
+          "LinuxDO"
+        ],
+        [
+          "settings-auth-oauth-view-wechat",
+          "WeChat"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "管理员 / Root按既有设置权限，Lite按既有能力裁剪",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "settings-auth-oauth-view-oidc",
+      "title": "外部登录提供方 · OIDC",
+      "group": "04 设置 · auth",
+      "url": "/system-settings/auth/oauth〔oidc〕",
+      "kind": "form",
+      "sources": [
+        "web/src/features/system-settings/auth/oauth-section.tsx"
+      ],
+      "sections": [
+        {
+          "title": "OIDC的任务范围",
+          "items": [
+            "发现配置与显式端点分组",
+            "高级端点可以展开完整访问"
+          ]
+        }
+      ],
+      "fields": [
+        "启用状态 / 显示名",
+        "Client ID / Secret〔掩码〕",
+        "Well-known URL",
+        "授权 / Token / 用户信息端点"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "settings-auth-oauth-view-oidc",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "settings-auth-oauth",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "settings-auth-oauth-view-github",
+          "GitHub"
+        ],
+        [
+          "settings-auth-oauth-view-discord",
+          "Discord"
+        ],
+        [
+          "settings-auth-oauth-view-oidc",
+          "OIDC"
+        ],
+        [
+          "settings-auth-oauth-view-telegram",
+          "Telegram"
+        ],
+        [
+          "settings-auth-oauth-view-linuxdo",
+          "LinuxDO"
+        ],
+        [
+          "settings-auth-oauth-view-wechat",
+          "WeChat"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "管理员 / Root按既有设置权限，Lite按既有能力裁剪",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "settings-auth-oauth-view-telegram",
+      "title": "外部登录提供方 · Telegram",
+      "group": "04 设置 · auth",
+      "url": "/system-settings/auth/oauth〔telegram〕",
+      "kind": "form",
+      "sources": [
+        "web/src/features/system-settings/auth/oauth-section.tsx"
+      ],
+      "sections": [
+        {
+          "title": "Telegram的任务范围",
+          "items": [
+            "账户展示名与凭据分开",
+            "不在设计阶段联系Telegram"
+          ]
+        }
+      ],
+      "fields": [
+        "启用状态",
+        "Bot名称",
+        "Bot Token〔掩码〕"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "settings-auth-oauth-view-telegram",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "settings-auth-oauth",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "settings-auth-oauth-view-github",
+          "GitHub"
+        ],
+        [
+          "settings-auth-oauth-view-discord",
+          "Discord"
+        ],
+        [
+          "settings-auth-oauth-view-oidc",
+          "OIDC"
+        ],
+        [
+          "settings-auth-oauth-view-telegram",
+          "Telegram"
+        ],
+        [
+          "settings-auth-oauth-view-linuxdo",
+          "LinuxDO"
+        ],
+        [
+          "settings-auth-oauth-view-wechat",
+          "WeChat"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "管理员 / Root按既有设置权限，Lite按既有能力裁剪",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "settings-auth-oauth-view-linuxdo",
+      "title": "外部登录提供方 · LinuxDO",
+      "group": "04 设置 · auth",
+      "url": "/system-settings/auth/oauth〔linuxdo〕",
+      "kind": "form",
+      "sources": [
+        "web/src/features/system-settings/auth/oauth-section.tsx"
+      ],
+      "sections": [
+        {
+          "title": "LinuxDO的任务范围",
+          "items": [
+            "保留信任等级与认证边界"
+          ]
+        }
+      ],
+      "fields": [
+        "启用状态",
+        "Client ID / Secret〔掩码〕",
+        "最低信任等级"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "settings-auth-oauth-view-linuxdo",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "settings-auth-oauth",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "settings-auth-oauth-view-github",
+          "GitHub"
+        ],
+        [
+          "settings-auth-oauth-view-discord",
+          "Discord"
+        ],
+        [
+          "settings-auth-oauth-view-oidc",
+          "OIDC"
+        ],
+        [
+          "settings-auth-oauth-view-telegram",
+          "Telegram"
+        ],
+        [
+          "settings-auth-oauth-view-linuxdo",
+          "LinuxDO"
+        ],
+        [
+          "settings-auth-oauth-view-wechat",
+          "WeChat"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "管理员 / Root按既有设置权限，Lite按既有能力裁剪",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "settings-auth-oauth-view-wechat",
+      "title": "外部登录提供方 · WeChat",
+      "group": "04 设置 · auth",
+      "url": "/system-settings/auth/oauth〔wechat〕",
+      "kind": "form",
+      "sources": [
+        "web/src/features/system-settings/auth/oauth-section.tsx"
+      ],
+      "sections": [
+        {
+          "title": "WeChat的任务范围",
+          "items": [
+            "既有登录与绑定语义不改变",
+            "不载入真实二维码或外部图片"
+          ]
+        }
+      ],
+      "fields": [
+        "启用状态",
+        "服务地址",
+        "服务Token〔掩码〕",
+        "二维码图片地址"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "settings-auth-oauth-view-wechat",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "settings-auth-oauth",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "settings-auth-oauth-view-github",
+          "GitHub"
+        ],
+        [
+          "settings-auth-oauth-view-discord",
+          "Discord"
+        ],
+        [
+          "settings-auth-oauth-view-oidc",
+          "OIDC"
+        ],
+        [
+          "settings-auth-oauth-view-telegram",
+          "Telegram"
+        ],
+        [
+          "settings-auth-oauth-view-linuxdo",
+          "LinuxDO"
+        ],
+        [
+          "settings-auth-oauth-view-wechat",
+          "WeChat"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "管理员 / Root按既有设置权限，Lite按既有能力裁剪",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "settings-billing-payment-view-general",
+      "title": "支付网关 · 资金模式与通用设置",
+      "group": "04 设置 · billing",
+      "url": "/system-settings/billing/payment〔general〕",
+      "kind": "form",
+      "sources": [
+        "web/src/features/system-settings/integrations/payment-settings-section.tsx"
+      ],
+      "sections": [
+        {
+          "title": "资金模式与通用设置的任务范围",
+          "items": [
+            "当前能力与配置影响摘要",
+            "不将未知配置当作允许充值"
+          ]
+        }
+      ],
+      "fields": [
+        "资金模式",
+        "能力与配置版本",
+        "金额预设 / 折扣",
+        "支付方式",
+        "最低充值",
+        "合规确认"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "settings-billing-payment-view-general",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "settings-billing-payment",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "settings-billing-payment-view-general",
+          "资金模式与通用设置"
+        ],
+        [
+          "settings-billing-payment-view-epay",
+          "Epay"
+        ],
+        [
+          "settings-billing-payment-view-stripe",
+          "Stripe"
+        ],
+        [
+          "settings-billing-payment-view-creem",
+          "Creem"
+        ],
+        [
+          "settings-billing-payment-view-waffo-pancake",
+          "Waffo Pancake"
+        ],
+        [
+          "settings-billing-payment-view-waffo",
+          "Waffo"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "管理员 / Root按既有设置权限，Lite按既有能力裁剪",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "settings-billing-payment-view-epay",
+      "title": "支付网关 · Epay",
+      "group": "04 设置 · billing",
+      "url": "/system-settings/billing/payment〔epay〕",
+      "kind": "form",
+      "sources": [
+        "web/src/features/system-settings/integrations/payment-settings-section.tsx"
+      ],
+      "sections": [
+        {
+          "title": "Epay的任务范围",
+          "items": [
+            "Epay参数按任务归组",
+            "配置保存不发起支付"
+          ]
+        }
+      ],
+      "fields": [
+        "服务地址",
+        "商户ID",
+        "密钥〔掩码〕",
+        "单价 / 最小金额",
+        "回调地址",
+        "支付方式"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "settings-billing-payment-view-epay",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "settings-billing-payment",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "settings-billing-payment-view-general",
+          "资金模式与通用设置"
+        ],
+        [
+          "settings-billing-payment-view-epay",
+          "Epay"
+        ],
+        [
+          "settings-billing-payment-view-stripe",
+          "Stripe"
+        ],
+        [
+          "settings-billing-payment-view-creem",
+          "Creem"
+        ],
+        [
+          "settings-billing-payment-view-waffo-pancake",
+          "Waffo Pancake"
+        ],
+        [
+          "settings-billing-payment-view-waffo",
+          "Waffo"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "管理员 / Root按既有设置权限，Lite按既有能力裁剪",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "settings-billing-payment-view-stripe",
+      "title": "支付网关 · Stripe",
+      "group": "04 设置 · billing",
+      "url": "/system-settings/billing/payment〔stripe〕",
+      "kind": "form",
+      "sources": [
+        "web/src/features/system-settings/integrations/payment-settings-section.tsx"
+      ],
+      "sections": [
+        {
+          "title": "Stripe的任务范围",
+          "items": [
+            "支付与Webhook凭据分开",
+            "单位清楚，不修改计费或回调契约"
+          ]
+        }
+      ],
+      "fields": [
+        "API Secret〔掩码〕",
+        "Webhook Secret〔掩码〕",
+        "Price ID",
+        "单价 / 最小金额",
+        "优惠码开关"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "settings-billing-payment-view-stripe",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "settings-billing-payment",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "settings-billing-payment-view-general",
+          "资金模式与通用设置"
+        ],
+        [
+          "settings-billing-payment-view-epay",
+          "Epay"
+        ],
+        [
+          "settings-billing-payment-view-stripe",
+          "Stripe"
+        ],
+        [
+          "settings-billing-payment-view-creem",
+          "Creem"
+        ],
+        [
+          "settings-billing-payment-view-waffo-pancake",
+          "Waffo Pancake"
+        ],
+        [
+          "settings-billing-payment-view-waffo",
+          "Waffo"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "管理员 / Root按既有设置权限，Lite按既有能力裁剪",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "settings-billing-payment-view-creem",
+      "title": "支付网关 · Creem",
+      "group": "04 设置 · billing",
+      "url": "/system-settings/billing/payment〔creem〕",
+      "kind": "form",
+      "sources": [
+        "web/src/features/system-settings/integrations/payment-settings-section.tsx"
+      ],
+      "sections": [
+        {
+          "title": "Creem的任务范围",
+          "items": [
+            "商品配置与实际购买分开",
+            "不把测试模式当作调用授权"
+          ]
+        }
+      ],
+      "fields": [
+        "API Key〔掩码〕",
+        "Webhook Secret〔掩码〕",
+        "测试模式",
+        "商品列表"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "settings-billing-payment-view-creem",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "settings-billing-payment",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "settings-billing-payment-view-general",
+          "资金模式与通用设置"
+        ],
+        [
+          "settings-billing-payment-view-epay",
+          "Epay"
+        ],
+        [
+          "settings-billing-payment-view-stripe",
+          "Stripe"
+        ],
+        [
+          "settings-billing-payment-view-creem",
+          "Creem"
+        ],
+        [
+          "settings-billing-payment-view-waffo-pancake",
+          "Waffo Pancake"
+        ],
+        [
+          "settings-billing-payment-view-waffo",
+          "Waffo"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "管理员 / Root按既有设置权限，Lite按既有能力裁剪",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "settings-billing-payment-view-waffo-pancake",
+      "title": "支付网关 · Waffo Pancake",
+      "group": "04 设置 · billing",
+      "url": "/system-settings/billing/payment〔waffo-pancake〕",
+      "kind": "form",
+      "sources": [
+        "web/src/features/system-settings/integrations/payment-settings-section.tsx"
+      ],
+      "sections": [
+        {
+          "title": "Waffo Pancake的任务范围",
+          "items": [
+            "保留当前提供方必需字段",
+            "不联系支付服务"
+          ]
+        }
+      ],
+      "fields": [
+        "商户ID",
+        "私钥〔掩码〕",
+        "返回地址",
+        "App / SubApp ID",
+        "支付类型"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "settings-billing-payment-view-waffo-pancake",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "settings-billing-payment",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "settings-billing-payment-view-general",
+          "资金模式与通用设置"
+        ],
+        [
+          "settings-billing-payment-view-epay",
+          "Epay"
+        ],
+        [
+          "settings-billing-payment-view-stripe",
+          "Stripe"
+        ],
+        [
+          "settings-billing-payment-view-creem",
+          "Creem"
+        ],
+        [
+          "settings-billing-payment-view-waffo-pancake",
+          "Waffo Pancake"
+        ],
+        [
+          "settings-billing-payment-view-waffo",
+          "Waffo"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "管理员 / Root按既有设置权限，Lite按既有能力裁剪",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "settings-billing-payment-view-waffo",
+      "title": "支付网关 · Waffo",
+      "group": "04 设置 · billing",
+      "url": "/system-settings/billing/payment〔waffo〕",
+      "kind": "form",
+      "sources": [
+        "web/src/features/system-settings/integrations/payment-settings-section.tsx"
+      ],
+      "sections": [
+        {
+          "title": "Waffo的任务范围",
+          "items": [
+            "生产和沙盒分组可见",
+            "切换时不静默覆盖另一组凭据"
+          ]
+        }
+      ],
+      "fields": [
+        "生产 / 沙盒模式",
+        "API Key / 私钥〔掩码〕",
+        "证书配置",
+        "商户 / 币种",
+        "单价 / 最低充值",
+        "支付方式"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "settings-billing-payment-view-waffo",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "settings-billing-payment",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "settings-billing-payment-view-general",
+          "资金模式与通用设置"
+        ],
+        [
+          "settings-billing-payment-view-epay",
+          "Epay"
+        ],
+        [
+          "settings-billing-payment-view-stripe",
+          "Stripe"
+        ],
+        [
+          "settings-billing-payment-view-creem",
+          "Creem"
+        ],
+        [
+          "settings-billing-payment-view-waffo-pancake",
+          "Waffo Pancake"
+        ],
+        [
+          "settings-billing-payment-view-waffo",
+          "Waffo"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "管理员 / Root按既有设置权限，Lite按既有能力裁剪",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "settings-billing-model-pricing-view-models",
+      "title": "模型价格 · 已配置模型价格",
+      "group": "04 设置 · billing",
+      "url": "/system-settings/billing/model-pricing〔models〕",
+      "kind": "table",
+      "sources": [
+        "web/src/features/system-settings/models/ratio-settings-card.tsx"
+      ],
+      "sections": [
+        {
+          "title": "已配置模型价格的任务范围",
+          "items": [
+            "价格与比例明细在编辑器内展示",
+            "默认未知不补零"
+          ]
+        }
+      ],
+      "fields": [],
+      "columns": [
+        "模型",
+        "计费模式",
+        "价格来源",
+        "单位",
+        "编辑"
+      ],
+      "filters": [],
+      "actions": [
+        {
+          "label": "查看 / 编辑选定条目",
+          "target": "settings-billing-model-pricing-view-models",
+          "effect": "打开或选择当前条目的编辑草稿；确认与提交沿用既有契约"
+        },
+        {
+          "label": "返回来源页",
+          "target": "settings-billing-model-pricing",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "settings-billing-model-pricing-view-models",
+          "已配置模型价格"
+        ],
+        [
+          "settings-billing-model-pricing-view-unset-models",
+          "未设置价格模型"
+        ],
+        [
+          "settings-billing-model-pricing-view-tool-prices",
+          "工具价格"
+        ],
+        [
+          "settings-billing-model-pricing-view-upstream-sync",
+          "上游价格同步预览"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "管理员 / Root按既有设置权限，Lite按既有能力裁剪",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "settings-billing-model-pricing-view-unset-models",
+      "title": "模型价格 · 未设置价格模型",
+      "group": "04 设置 · billing",
+      "url": "/system-settings/billing/model-pricing〔unset-models〕",
+      "kind": "table",
+      "sources": [
+        "web/src/features/system-settings/models/ratio-settings-card.tsx"
+      ],
+      "sections": [
+        {
+          "title": "未设置价格模型的任务范围",
+          "items": [
+            "未设置明确提示",
+            "不得把缺失价格默认为免费"
+          ]
+        }
+      ],
+      "fields": [],
+      "columns": [
+        "模型",
+        "使用范围",
+        "缺失项",
+        "配置入口"
+      ],
+      "filters": [],
+      "actions": [
+        {
+          "label": "查看 / 编辑选定条目",
+          "target": "settings-billing-model-pricing-view-unset-models",
+          "effect": "打开或选择当前条目的编辑草稿；确认与提交沿用既有契约"
+        },
+        {
+          "label": "返回来源页",
+          "target": "settings-billing-model-pricing",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "settings-billing-model-pricing-view-models",
+          "已配置模型价格"
+        ],
+        [
+          "settings-billing-model-pricing-view-unset-models",
+          "未设置价格模型"
+        ],
+        [
+          "settings-billing-model-pricing-view-tool-prices",
+          "工具价格"
+        ],
+        [
+          "settings-billing-model-pricing-view-upstream-sync",
+          "上游价格同步预览"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "管理员 / Root按既有设置权限，Lite按既有能力裁剪",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "settings-billing-model-pricing-view-tool-prices",
+      "title": "模型价格 · 工具价格",
+      "group": "04 设置 · billing",
+      "url": "/system-settings/billing/model-pricing〔tool-prices〕",
+      "kind": "table",
+      "sources": [
+        "web/src/features/system-settings/models/ratio-settings-card.tsx"
+      ],
+      "sections": [
+        {
+          "title": "工具价格的任务范围",
+          "items": [
+            "保留工具单位与精度",
+            "不修改计算规则"
+          ]
+        }
+      ],
+      "fields": [],
+      "columns": [
+        "工具",
+        "计费单位",
+        "价格",
+        "来源",
+        "编辑"
+      ],
+      "filters": [],
+      "actions": [
+        {
+          "label": "查看 / 编辑选定条目",
+          "target": "settings-billing-model-pricing-view-tool-prices",
+          "effect": "打开或选择当前条目的编辑草稿；确认与提交沿用既有契约"
+        },
+        {
+          "label": "返回来源页",
+          "target": "settings-billing-model-pricing",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "settings-billing-model-pricing-view-models",
+          "已配置模型价格"
+        ],
+        [
+          "settings-billing-model-pricing-view-unset-models",
+          "未设置价格模型"
+        ],
+        [
+          "settings-billing-model-pricing-view-tool-prices",
+          "工具价格"
+        ],
+        [
+          "settings-billing-model-pricing-view-upstream-sync",
+          "上游价格同步预览"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "管理员 / Root按既有设置权限，Lite按既有能力裁剪",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "settings-billing-model-pricing-view-upstream-sync",
+      "title": "模型价格 · 上游价格同步预览",
+      "group": "04 设置 · billing",
+      "url": "/system-settings/billing/model-pricing〔upstream-sync〕",
+      "kind": "table",
+      "sources": [
+        "web/src/features/system-settings/models/ratio-settings-card.tsx"
+      ],
+      "sections": [
+        {
+          "title": "上游价格同步预览的任务范围",
+          "items": [
+            "拉取预览与应用变更分开",
+            "冲突逐项确认",
+            "线稿不读取供应商"
+          ]
+        }
+      ],
+      "fields": [],
+      "columns": [
+        "来源连接",
+        "模型",
+        "差异",
+        "冲突",
+        "待应用项"
+      ],
+      "filters": [],
+      "actions": [
+        {
+          "label": "查看 / 编辑选定条目",
+          "target": "settings-billing-model-pricing-view-upstream-sync",
+          "effect": "打开或选择当前条目的编辑草稿；确认与提交沿用既有契约"
+        },
+        {
+          "label": "返回来源页",
+          "target": "settings-billing-model-pricing",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "settings-billing-model-pricing-view-models",
+          "已配置模型价格"
+        ],
+        [
+          "settings-billing-model-pricing-view-unset-models",
+          "未设置价格模型"
+        ],
+        [
+          "settings-billing-model-pricing-view-tool-prices",
+          "工具价格"
+        ],
+        [
+          "settings-billing-model-pricing-view-upstream-sync",
+          "上游价格同步预览"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "管理员 / Root按既有设置权限，Lite按既有能力裁剪",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "surface-features-system-settings-models-model-pricing-sheet-view-per-token",
+      "title": "模型价格明细编辑 · 按Token计费",
+      "group": "08 编辑与弹层",
+      "url": "弹层：模型价格明细编辑〔per-token〕",
+      "kind": "overlay",
+      "sources": [
+        "web/src/features/system-settings/models/model-pricing-sheet.tsx"
+      ],
+      "sections": [
+        {
+          "title": "按Token计费的任务范围",
+          "items": [
+            "仅重组既有价格字段",
+            "不改变估算、预扣、结算与饱和审计"
+          ]
+        }
+      ],
+      "fields": [
+        "模型",
+        "输入 / 输出价格",
+        "缓存读取 / 写入",
+        "图像 / 音频等既有价格项",
+        "单位与来源"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "surface-features-system-settings-models-model-pricing-sheet-view-per-token",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "surface-features-system-settings-models-model-pricing-sheet",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "surface-features-system-settings-models-model-pricing-sheet-view-per-token",
+          "按Token计费"
+        ],
+        [
+          "surface-features-system-settings-models-model-pricing-sheet-view-per-request",
+          "按请求计费"
+        ],
+        [
+          "surface-features-system-settings-models-model-pricing-sheet-view-tiered_expr",
+          "分层 / 表达式计费"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "surface-features-system-settings-models-model-pricing-sheet-view-per-request",
+      "title": "模型价格明细编辑 · 按请求计费",
+      "group": "08 编辑与弹层",
+      "url": "弹层：模型价格明细编辑〔per-request〕",
+      "kind": "overlay",
+      "sources": [
+        "web/src/features/system-settings/models/model-pricing-sheet.tsx"
+      ],
+      "sections": [
+        {
+          "title": "按请求计费的任务范围",
+          "items": [
+            "固定价格与Token价格清楚区分",
+            "不把模式切换当作价格推断"
+          ]
+        }
+      ],
+      "fields": [
+        "模型",
+        "每请求价格",
+        "货币 / 单位",
+        "生效范围"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "surface-features-system-settings-models-model-pricing-sheet-view-per-request",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "surface-features-system-settings-models-model-pricing-sheet",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "surface-features-system-settings-models-model-pricing-sheet-view-per-token",
+          "按Token计费"
+        ],
+        [
+          "surface-features-system-settings-models-model-pricing-sheet-view-per-request",
+          "按请求计费"
+        ],
+        [
+          "surface-features-system-settings-models-model-pricing-sheet-view-tiered_expr",
+          "分层 / 表达式计费"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "surface-features-system-settings-models-model-pricing-sheet-view-tiered_expr",
+      "title": "模型价格明细编辑 · 分层 / 表达式计费",
+      "group": "08 编辑与弹层",
+      "url": "弹层：模型价格明细编辑〔tiered_expr〕",
+      "kind": "overlay",
+      "sources": [
+        "web/src/features/system-settings/models/model-pricing-sheet.tsx"
+      ],
+      "sections": [
+        {
+          "title": "分层 / 表达式计费的任务范围",
+          "items": [
+            "只设计已有表达式编辑布局",
+            "不改语言、计算规则或金额安全边界"
+          ]
+        }
+      ],
+      "fields": [
+        "模型",
+        "现有表达式版本",
+        "表达式编辑",
+        "参数与单位说明",
+        "校验错误"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "surface-features-system-settings-models-model-pricing-sheet-view-tiered_expr",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "surface-features-system-settings-models-model-pricing-sheet",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "surface-features-system-settings-models-model-pricing-sheet-view-per-token",
+          "按Token计费"
+        ],
+        [
+          "surface-features-system-settings-models-model-pricing-sheet-view-per-request",
+          "按请求计费"
+        ],
+        [
+          "surface-features-system-settings-models-model-pricing-sheet-view-tiered_expr",
+          "分层 / 表达式计费"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-forwarding",
+      "title": "高级自定义路由 · 转发路由",
+      "group": "08 编辑与弹层",
+      "url": "弹层：高级自定义路由〔forwarding〕",
+      "kind": "overlay",
+      "sources": [
+        "web/src/features/channels/components/dialogs/advanced-custom-editor-dialog.tsx"
+      ],
+      "sections": [
+        {
+          "title": "转发路由的任务范围",
+          "items": [
+            "路由按优先级排列",
+            "移动规则与替换全部路由分开确认"
+          ]
+        }
+      ],
+      "fields": [
+        "路径匹配",
+        "上游路径",
+        "认证方式 / 凭据掩码",
+        "协议转换",
+        "规则顺序",
+        "兜底路由"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-forwarding",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "surface-features-channels-components-dialogs-advanced-custom-editor-dialog",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-forwarding",
+          "转发路由"
+        ],
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-models",
+          "模型规则"
+        ],
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-balance",
+          "余额查询规则"
+        ],
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-json",
+          "原始JSON"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-models",
+      "title": "高级自定义路由 · 模型规则",
+      "group": "08 编辑与弹层",
+      "url": "弹层：高级自定义路由〔models〕",
+      "kind": "overlay",
+      "sources": [
+        "web/src/features/channels/components/dialogs/advanced-custom-editor-dialog.tsx"
+      ],
+      "sections": [
+        {
+          "title": "模型规则的任务范围",
+          "items": [
+            "显式模型映射",
+            "未知字段与不支持能力保持原语义"
+          ]
+        }
+      ],
+      "fields": [
+        "客户端模型匹配",
+        "上游模型名",
+        "允许模型",
+        "转换器参数"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-models",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "surface-features-channels-components-dialogs-advanced-custom-editor-dialog",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-forwarding",
+          "转发路由"
+        ],
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-models",
+          "模型规则"
+        ],
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-balance",
+          "余额查询规则"
+        ],
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-json",
+          "原始JSON"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-balance",
+      "title": "高级自定义路由 · 余额查询规则",
+      "group": "08 编辑与弹层",
+      "url": "弹层：高级自定义路由〔balance〕",
+      "kind": "overlay",
+      "sources": [
+        "web/src/features/channels/components/dialogs/advanced-custom-editor-dialog.tsx"
+      ],
+      "sections": [
+        {
+          "title": "余额查询规则的任务范围",
+          "items": [
+            "配置与实际查询分开",
+            "未知不补零",
+            "不调用供应商"
+          ]
+        }
+      ],
+      "fields": [
+        "余额查询路径",
+        "认证方式〔掩码〕",
+        "结果字段 / 单位",
+        "错误处理"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-balance",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "surface-features-channels-components-dialogs-advanced-custom-editor-dialog",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-forwarding",
+          "转发路由"
+        ],
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-models",
+          "模型规则"
+        ],
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-balance",
+          "余额查询规则"
+        ],
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-json",
+          "原始JSON"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-json",
+      "title": "高级自定义路由 · 原始JSON",
+      "group": "08 编辑与弹层",
+      "url": "弹层：高级自定义路由〔json〕",
+      "kind": "overlay",
+      "sources": [
+        "web/src/features/channels/components/dialogs/advanced-custom-editor-dialog.tsx"
+      ],
+      "sections": [
+        {
+          "title": "原始JSON的任务范围",
+          "items": [
+            "保留未知或直通字段",
+            "切换视图不静默丢失配置"
+          ]
+        }
+      ],
+      "fields": [
+        "完整JSON草稿",
+        "结构校验错误",
+        "与结构化视图差异",
+        "替换确认"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-json",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "surface-features-channels-components-dialogs-advanced-custom-editor-dialog",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-forwarding",
+          "转发路由"
+        ],
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-models",
+          "模型规则"
+        ],
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-balance",
+          "余额查询规则"
+        ],
+        [
+          "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-json",
+          "原始JSON"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "surface-features-channels-components-dialogs-codex-usage-dialog-view-current",
+      "title": "Codex 账户和用量 · 当前用量与窗口",
+      "group": "08 编辑与弹层",
+      "url": "弹层：Codex 账户和用量〔current〕",
+      "kind": "detail",
+      "sources": [
+        "web/src/features/channels/components/dialogs/codex-usage-dialog.tsx"
+      ],
+      "sections": [
+        {
+          "title": "当前用量与窗口的任务范围",
+          "items": [
+            "账号身份〔掩码〕",
+            "窗口周期 / 剩余额度证据",
+            "观察时间",
+            "未知与错误分开"
+          ]
+        }
+      ],
+      "fields": [],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "返回来源页",
+          "target": "surface-features-channels-components-dialogs-codex-usage-dialog",
+          "effect": "只读查看，不发起生成、购买或配置变更"
+        }
+      ],
+      "tabs": [
+        [
+          "surface-features-channels-components-dialogs-codex-usage-dialog-view-current",
+          "当前用量与窗口"
+        ],
+        [
+          "surface-features-channels-components-dialogs-codex-usage-dialog-view-history",
+          "历史观察"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "surface-features-channels-components-dialogs-codex-usage-dialog-view-history",
+      "title": "Codex 账户和用量 · 历史观察",
+      "group": "08 编辑与弹层",
+      "url": "弹层：Codex 账户和用量〔history〕",
+      "kind": "table",
+      "sources": [
+        "web/src/features/channels/components/dialogs/codex-usage-dialog.tsx"
+      ],
+      "sections": [
+        {
+          "title": "历史观察的任务范围",
+          "items": [
+            "只展示已存历史",
+            "读取失败不冒充空历史"
+          ]
+        }
+      ],
+      "fields": [],
+      "columns": [
+        "时间",
+        "窗口",
+        "用量证据",
+        "来源",
+        "错误"
+      ],
+      "filters": [],
+      "actions": [
+        {
+          "label": "返回来源页",
+          "target": "surface-features-channels-components-dialogs-codex-usage-dialog",
+          "effect": "只读查看，不发起生成、购买或配置变更"
+        }
+      ],
+      "tabs": [
+        [
+          "surface-features-channels-components-dialogs-codex-usage-dialog-view-current",
+          "当前用量与窗口"
+        ],
+        [
+          "surface-features-channels-components-dialogs-codex-usage-dialog-view-history",
+          "历史观察"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "surface-features-channels-components-dialogs-fetch-models-dialog-view-new",
+      "title": "获取模型 · 新增模型候选",
+      "group": "08 编辑与弹层",
+      "url": "弹层：获取模型〔new〕",
+      "kind": "table",
+      "sources": [
+        "web/src/features/channels/components/dialogs/fetch-models-dialog.tsx"
+      ],
+      "sections": [
+        {
+          "title": "新增模型候选的任务范围",
+          "items": [
+            "显式选择要添加的模型",
+            "不直接改变已有模型范围"
+          ]
+        }
+      ],
+      "fields": [],
+      "columns": [
+        "模型",
+        "已选状态",
+        "来源",
+        "计划动作"
+      ],
+      "filters": [],
+      "actions": [
+        {
+          "label": "查看 / 编辑选定条目",
+          "target": "surface-features-channels-components-dialogs-fetch-models-dialog-view-new",
+          "effect": "打开或选择当前条目的编辑草稿；确认与提交沿用既有契约"
+        },
+        {
+          "label": "返回来源页",
+          "target": "surface-features-channels-components-dialogs-fetch-models-dialog",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "surface-features-channels-components-dialogs-fetch-models-dialog-view-new",
+          "新增模型候选"
+        ],
+        [
+          "surface-features-channels-components-dialogs-fetch-models-dialog-view-existing",
+          "已存在模型"
+        ],
+        [
+          "surface-features-channels-components-dialogs-fetch-models-dialog-view-removed",
+          "上游已移除候选"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "surface-features-channels-components-dialogs-fetch-models-dialog-view-existing",
+      "title": "获取模型 · 已存在模型",
+      "group": "08 编辑与弹层",
+      "url": "弹层：获取模型〔existing〕",
+      "kind": "table",
+      "sources": [
+        "web/src/features/channels/components/dialogs/fetch-models-dialog.tsx"
+      ],
+      "sections": [
+        {
+          "title": "已存在模型的任务范围",
+          "items": [
+            "明确当前值与新观察的差异",
+            "查看不写入"
+          ]
+        }
+      ],
+      "fields": [],
+      "columns": [
+        "模型",
+        "当前配置",
+        "来源",
+        "差异"
+      ],
+      "filters": [],
+      "actions": [
+        {
+          "label": "查看 / 编辑选定条目",
+          "target": "surface-features-channels-components-dialogs-fetch-models-dialog-view-existing",
+          "effect": "打开或选择当前条目的编辑草稿；确认与提交沿用既有契约"
+        },
+        {
+          "label": "返回来源页",
+          "target": "surface-features-channels-components-dialogs-fetch-models-dialog",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "surface-features-channels-components-dialogs-fetch-models-dialog-view-new",
+          "新增模型候选"
+        ],
+        [
+          "surface-features-channels-components-dialogs-fetch-models-dialog-view-existing",
+          "已存在模型"
+        ],
+        [
+          "surface-features-channels-components-dialogs-fetch-models-dialog-view-removed",
+          "上游已移除候选"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "surface-features-channels-components-dialogs-fetch-models-dialog-view-removed",
+      "title": "获取模型 · 上游已移除候选",
+      "group": "08 编辑与弹层",
+      "url": "弹层：获取模型〔removed〕",
+      "kind": "table",
+      "sources": [
+        "web/src/features/channels/components/dialogs/fetch-models-dialog.tsx"
+      ],
+      "sections": [
+        {
+          "title": "上游已移除候选的任务范围",
+          "items": [
+            "不得因上游缺失自动删除已有路由",
+            "移除需明确确认"
+          ]
+        }
+      ],
+      "fields": [],
+      "columns": [
+        "模型",
+        "当前使用范围",
+        "影响",
+        "待移除选择"
+      ],
+      "filters": [],
+      "actions": [
+        {
+          "label": "查看 / 编辑选定条目",
+          "target": "surface-features-channels-components-dialogs-fetch-models-dialog-view-removed",
+          "effect": "打开或选择当前条目的编辑草稿；确认与提交沿用既有契约"
+        },
+        {
+          "label": "返回来源页",
+          "target": "surface-features-channels-components-dialogs-fetch-models-dialog",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "surface-features-channels-components-dialogs-fetch-models-dialog-view-new",
+          "新增模型候选"
+        ],
+        [
+          "surface-features-channels-components-dialogs-fetch-models-dialog-view-existing",
+          "已存在模型"
+        ],
+        [
+          "surface-features-channels-components-dialogs-fetch-models-dialog-view-removed",
+          "上游已移除候选"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "surface-features-channels-components-dialogs-upstream-update-dialog-view-add",
+      "title": "上游模型更新 · 待新增模型",
+      "group": "08 编辑与弹层",
+      "url": "弹层：上游模型更新〔add〕",
+      "kind": "table",
+      "sources": [
+        "web/src/features/channels/components/dialogs/upstream-update-dialog.tsx"
+      ],
+      "sections": [
+        {
+          "title": "待新增模型的任务范围",
+          "items": [
+            "预览后只应用明确选中的新增项"
+          ]
+        }
+      ],
+      "fields": [],
+      "columns": [
+        "模型",
+        "来源",
+        "待添加范围",
+        "选择"
+      ],
+      "filters": [],
+      "actions": [
+        {
+          "label": "查看 / 编辑选定条目",
+          "target": "surface-features-channels-components-dialogs-upstream-update-dialog-view-add",
+          "effect": "打开或选择当前条目的编辑草稿；确认与提交沿用既有契约"
+        },
+        {
+          "label": "返回来源页",
+          "target": "surface-features-channels-components-dialogs-upstream-update-dialog",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "surface-features-channels-components-dialogs-upstream-update-dialog-view-add",
+          "待新增模型"
+        ],
+        [
+          "surface-features-channels-components-dialogs-upstream-update-dialog-view-remove",
+          "待移除模型"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "surface-features-channels-components-dialogs-upstream-update-dialog-view-remove",
+      "title": "上游模型更新 · 待移除模型",
+      "group": "08 编辑与弹层",
+      "url": "弹层：上游模型更新〔remove〕",
+      "kind": "table",
+      "sources": [
+        "web/src/features/channels/components/dialogs/upstream-update-dialog.tsx"
+      ],
+      "sections": [
+        {
+          "title": "待移除模型的任务范围",
+          "items": [
+            "移除动作与新增分开",
+            "保留原配置与取消入口"
+          ]
+        }
+      ],
+      "fields": [],
+      "columns": [
+        "模型",
+        "现有配置",
+        "影响范围",
+        "选择"
+      ],
+      "filters": [],
+      "actions": [
+        {
+          "label": "查看 / 编辑选定条目",
+          "target": "surface-features-channels-components-dialogs-upstream-update-dialog-view-remove",
+          "effect": "打开或选择当前条目的编辑草稿；确认与提交沿用既有契约"
+        },
+        {
+          "label": "返回来源页",
+          "target": "surface-features-channels-components-dialogs-upstream-update-dialog",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "surface-features-channels-components-dialogs-upstream-update-dialog-view-add",
+          "待新增模型"
+        ],
+        [
+          "surface-features-channels-components-dialogs-upstream-update-dialog-view-remove",
+          "待移除模型"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "connection-mapping",
+      "title": "连接模型映射编辑器",
+      "group": "08 编辑与弹层",
+      "url": "组件：连接模型映射",
+      "kind": "form",
+      "sources": [
+        "web/src/features/channels/components/model-mapping-editor.tsx"
+      ],
+      "sections": [],
+      "fields": [
+        "客户端模型名",
+        "上游模型名",
+        "映射规则草稿"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "返回连接编辑",
+          "target": "connection-edit",
+          "effect": "仅跳转到对应线稿，不发出产品请求"
+        }
+      ],
+      "tabs": [
+        [
+          "connection-mapping-view-visual",
+          "结构化模型映射"
+        ],
+        [
+          "connection-mapping-view-json",
+          "JSON模型映射"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "嵌入连接编辑器的模型分区，结构化 / JSON只是此组件的两种视图，不增加连接编辑器的全局导航层级。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "connection-mapping-view-visual",
+      "title": "连接模型映射编辑器 · 结构化模型映射",
+      "group": "08 编辑与弹层",
+      "url": "组件：连接模型映射〔visual〕",
+      "kind": "form",
+      "sources": [
+        "web/src/features/channels/components/model-mapping-editor.tsx"
+      ],
+      "sections": [
+        {
+          "title": "结构化模型映射的任务范围",
+          "items": [
+            "明确映射方向",
+            "重复或冲突规则就近提示"
+          ]
+        }
+      ],
+      "fields": [
+        "客户端模型名",
+        "上游模型名",
+        "规则列表",
+        "新增 / 删除草稿"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "connection-mapping-view-visual",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "connection-mapping",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "connection-mapping-view-visual",
+          "结构化模型映射"
+        ],
+        [
+          "connection-mapping-view-json",
+          "JSON模型映射"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "connection-mapping-view-json",
+      "title": "连接模型映射编辑器 · JSON模型映射",
+      "group": "08 编辑与弹层",
+      "url": "组件：连接模型映射〔json〕",
+      "kind": "form",
+      "sources": [
+        "web/src/features/channels/components/model-mapping-editor.tsx"
+      ],
+      "sections": [
+        {
+          "title": "JSON模型映射的任务范围",
+          "items": [
+            "JSON与结构化视图往返不丢值",
+            "保存仍由来源连接编辑器明确提交"
+          ]
+        }
+      ],
+      "fields": [
+        "完整JSON草稿",
+        "校验错误",
+        "原始字段保留说明"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "connection-mapping-view-json",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "connection-mapping",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "connection-mapping-view-visual",
+          "结构化模型映射"
+        ],
+        [
+          "connection-mapping-view-json",
+          "JSON模型映射"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "settings-content-chat-view-visual",
+      "title": "聊天预设 · 聊天预设列表",
+      "group": "04 设置 · content",
+      "url": "/system-settings/content/chat〔visual〕",
+      "kind": "table",
+      "sources": [
+        "web/src/features/system-settings/content/chat-settings-section.tsx"
+      ],
+      "sections": [
+        {
+          "title": "聊天预设列表的任务范围",
+          "items": [
+            "安全提示与模板变量可见",
+            "预览不打开外部客户端"
+          ]
+        }
+      ],
+      "fields": [],
+      "columns": [
+        "名称",
+        "Web / 客户端",
+        "链接模板",
+        "顺序",
+        "编辑"
+      ],
+      "filters": [],
+      "actions": [
+        {
+          "label": "查看 / 编辑选定条目",
+          "target": "settings-content-chat-view-visual",
+          "effect": "打开或选择当前条目的编辑草稿；确认与提交沿用既有契约"
+        },
+        {
+          "label": "返回来源页",
+          "target": "settings-content-chat",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "settings-content-chat-view-visual",
+          "聊天预设列表"
+        ],
+        [
+          "settings-content-chat-view-json",
+          "聊天预设JSON"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "管理员 / Root按既有设置权限，Lite按既有能力裁剪",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "settings-content-chat-view-json",
+      "title": "聊天预设 · 聊天预设JSON",
+      "group": "04 设置 · content",
+      "url": "/system-settings/content/chat〔json〕",
+      "kind": "form",
+      "sources": [
+        "web/src/features/system-settings/content/chat-settings-section.tsx"
+      ],
+      "sections": [
+        {
+          "title": "聊天预设JSON的任务范围",
+          "items": [
+            "保留合法模板变量和所有现有字段",
+            "不载入真实聊天站点"
+          ]
+        }
+      ],
+      "fields": [
+        "完整预设JSON",
+        "结构校验",
+        "凭据变量风险提示"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "settings-content-chat-view-json",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "settings-content-chat",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "settings-content-chat-view-visual",
+          "聊天预设列表"
+        ],
+        [
+          "settings-content-chat-view-json",
+          "聊天预设JSON"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "管理员 / Root按既有设置权限，Lite按既有能力裁剪",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "surface-features-auth-secure-verification-components-secure-verification-dialog-view-2fa",
+      "title": "敏感操作的身份验证 · 两步验证码验证",
+      "group": "08 编辑与弹层",
+      "url": "弹层：敏感操作的身份验证〔2fa〕",
+      "kind": "overlay",
+      "sources": [
+        "web/src/features/auth/secure-verification/components/secure-verification-dialog.tsx"
+      ],
+      "sections": [
+        {
+          "title": "两步验证码验证的任务范围",
+          "items": [
+            "验证绑定当前安全任务和会话",
+            "失败不绕过维护门禁"
+          ]
+        }
+      ],
+      "fields": [
+        "当前敏感任务",
+        "验证码 / 恢复码",
+        "错误 / 处理中状态"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "surface-features-auth-secure-verification-components-secure-verification-dialog-view-2fa",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "surface-features-auth-secure-verification-components-secure-verification-dialog",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "surface-features-auth-secure-verification-components-secure-verification-dialog-view-2fa",
+          "两步验证码验证"
+        ],
+        [
+          "surface-features-auth-secure-verification-components-secure-verification-dialog-view-passkey",
+          "Passkey验证"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "surface-features-auth-secure-verification-components-secure-verification-dialog-view-passkey",
+      "title": "敏感操作的身份验证 · Passkey验证",
+      "group": "08 编辑与弹层",
+      "url": "弹层：敏感操作的身份验证〔passkey〕",
+      "kind": "overlay",
+      "sources": [
+        "web/src/features/auth/secure-verification/components/secure-verification-dialog.tsx"
+      ],
+      "sections": [
+        {
+          "title": "Passkey验证的任务范围",
+          "items": [
+            "Passkey不可用时说明原因",
+            "不自动降级为无验证的写入"
+          ]
+        }
+      ],
+      "fields": [
+        "当前敏感任务",
+        "设备验证提示",
+        "取消 / 失败状态"
+      ],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "应用当前草稿",
+          "target": "surface-features-auth-secure-verification-components-secure-verification-dialog-view-passkey",
+          "effect": "只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交"
+        },
+        {
+          "label": "返回来源页",
+          "target": "surface-features-auth-secure-verification-components-secure-verification-dialog",
+          "effect": "恢复调用页上下文，不执行隐藏写入"
+        }
+      ],
+      "tabs": [
+        [
+          "surface-features-auth-secure-verification-components-secure-verification-dialog-view-2fa",
+          "两步验证码验证"
+        ],
+        [
+          "surface-features-auth-secure-verification-components-secure-verification-dialog-view-passkey",
+          "Passkey验证"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "model-price-view-overview",
+      "title": "公开模型定价详情 · 能力与价格概览",
+      "group": "05 公共与工具",
+      "url": "/pricing/$modelId〔overview〕",
+      "kind": "detail",
+      "sources": [
+        "web/src/features/pricing/components/model-details.tsx"
+      ],
+      "sections": [
+        {
+          "title": "能力与价格概览的任务范围",
+          "items": [
+            "输入 / 输出能力",
+            "上下文信息",
+            "价格组成、单位与来源",
+            "未配置不冒充0"
+          ]
+        }
+      ],
+      "fields": [],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "返回来源页",
+          "target": "model-price",
+          "effect": "只读查看，不发起生成、购买或配置变更"
+        }
+      ],
+      "tabs": [
+        [
+          "model-price-view-overview",
+          "能力与价格概览"
+        ],
+        [
+          "model-price-view-performance",
+          "性能信息"
+        ],
+        [
+          "model-price-view-api",
+          "API接入示例"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "model-price-view-performance",
+      "title": "公开模型定价详情 · 性能信息",
+      "group": "05 公共与工具",
+      "url": "/pricing/$modelId〔performance〕",
+      "kind": "detail",
+      "sources": [
+        "web/src/features/pricing/components/model-details.tsx"
+      ],
+      "sections": [
+        {
+          "title": "性能信息的任务范围",
+          "items": [
+            "只展示实际存在的性能证据",
+            "采样窗口与来源",
+            "未提供明确标记未知"
+          ]
+        }
+      ],
+      "fields": [],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "返回来源页",
+          "target": "model-price",
+          "effect": "只读查看，不发起生成、购买或配置变更"
+        }
+      ],
+      "tabs": [
+        [
+          "model-price-view-overview",
+          "能力与价格概览"
+        ],
+        [
+          "model-price-view-performance",
+          "性能信息"
+        ],
+        [
+          "model-price-view-api",
+          "API接入示例"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "model-price-view-api",
+      "title": "公开模型定价详情 · API接入示例",
+      "group": "05 公共与工具",
+      "url": "/pricing/$modelId〔api〕",
+      "kind": "detail",
+      "sources": [
+        "web/src/features/pricing/components/model-details.tsx"
+      ],
+      "sections": [
+        {
+          "title": "API接入示例的任务范围",
+          "items": [
+            "端点 / 协议",
+            "合成请求示例",
+            "掩码Key占位",
+            "复制示例不发送请求"
+          ]
+        }
+      ],
+      "fields": [],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "返回来源页",
+          "target": "model-price",
+          "effect": "只读查看，不发起生成、购买或配置变更"
+        }
+      ],
+      "tabs": [
+        [
+          "model-price-view-overview",
+          "能力与价格概览"
+        ],
+        [
+          "model-price-view-performance",
+          "性能信息"
+        ],
+        [
+          "model-price-view-api",
+          "API接入示例"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。",
+        "模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "profile-bindings",
+      "title": "个人资料 · 账户绑定",
+      "group": "03 管理与账户",
+      "url": "/profile〔bindings〕",
+      "kind": "form",
+      "sources": [
+        "web/src/features/profile/components/profile-settings-card.tsx"
+      ],
+      "sections": [
+        {
+          "title": "已绑定身份",
+          "items": [
+            "邮箱",
+            "GitHub / Discord / OIDC等既有绑定",
+            "Telegram / WeChat等已启用方式",
+            "明确绑定 / 解绑入口"
+          ]
+        }
+      ],
+      "fields": [],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "返回个人资料",
+          "target": "profile-info",
+          "effect": "仅跳转到对应线稿，不发出产品请求"
+        },
+        {
+          "label": "安全验证",
+          "target": "profile-security",
+          "effect": "仅跳转到对应线稿，不发出产品请求"
+        }
+      ],
+      "tabs": [],
+      "stats": [],
+      "notes": [
+        "与基本资料设置分开成图；解绑前确认身份与目标，不删除账户或刷新登录来绕过验证。"
+      ],
+      "merge": "",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "设计提案，待维护者确认",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
     }
   ],
   "routes": [
@@ -16400,6 +19473,7 @@
       "kind": "page",
       "wireframes": [
         "request-bodies",
+        "request-filters",
         "body-detail",
         "body-files"
       ],
@@ -16847,6 +19921,443 @@
         "terms"
       ],
       "note": "源码登记与设计提案对应，不是运行时验收证据。"
+    }
+  ],
+  "tabs": [
+    {
+      "source": "web/src/features/system-settings/auth/oauth-section.tsx",
+      "value": "github",
+      "wireframes": [
+        "settings-auth-oauth-view-github"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/auth/oauth-section.tsx",
+      "value": "discord",
+      "wireframes": [
+        "settings-auth-oauth-view-discord"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/auth/oauth-section.tsx",
+      "value": "oidc",
+      "wireframes": [
+        "settings-auth-oauth-view-oidc"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/auth/oauth-section.tsx",
+      "value": "telegram",
+      "wireframes": [
+        "settings-auth-oauth-view-telegram"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/auth/oauth-section.tsx",
+      "value": "linuxdo",
+      "wireframes": [
+        "settings-auth-oauth-view-linuxdo"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/auth/oauth-section.tsx",
+      "value": "wechat",
+      "wireframes": [
+        "settings-auth-oauth-view-wechat"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/integrations/payment-settings-section.tsx",
+      "value": "general",
+      "wireframes": [
+        "settings-billing-payment-view-general"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/integrations/payment-settings-section.tsx",
+      "value": "epay",
+      "wireframes": [
+        "settings-billing-payment-view-epay"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/integrations/payment-settings-section.tsx",
+      "value": "stripe",
+      "wireframes": [
+        "settings-billing-payment-view-stripe"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/integrations/payment-settings-section.tsx",
+      "value": "creem",
+      "wireframes": [
+        "settings-billing-payment-view-creem"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/integrations/payment-settings-section.tsx",
+      "value": "waffo-pancake",
+      "wireframes": [
+        "settings-billing-payment-view-waffo-pancake"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/integrations/payment-settings-section.tsx",
+      "value": "waffo",
+      "wireframes": [
+        "settings-billing-payment-view-waffo"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/models/ratio-settings-card.tsx",
+      "value": "models",
+      "wireframes": [
+        "settings-billing-model-pricing-view-models"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/models/ratio-settings-card.tsx",
+      "value": "unset-models",
+      "wireframes": [
+        "settings-billing-model-pricing-view-unset-models"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/models/ratio-settings-card.tsx",
+      "value": "tool-prices",
+      "wireframes": [
+        "settings-billing-model-pricing-view-tool-prices"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/models/ratio-settings-card.tsx",
+      "value": "upstream-sync",
+      "wireframes": [
+        "settings-billing-model-pricing-view-upstream-sync"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/models/ratio-settings-card.tsx",
+      "value": "groups",
+      "wireframes": [
+        "settings-billing-group-pricing"
+      ],
+      "note": "分组价格已有独立分区线稿，不复制为第二套页面。"
+    },
+    {
+      "source": "web/src/features/system-settings/models/model-pricing-sheet.tsx",
+      "value": "per-token",
+      "wireframes": [
+        "surface-features-system-settings-models-model-pricing-sheet-view-per-token"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/models/model-pricing-sheet.tsx",
+      "value": "per-request",
+      "wireframes": [
+        "surface-features-system-settings-models-model-pricing-sheet-view-per-request"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/models/model-pricing-sheet.tsx",
+      "value": "tiered_expr",
+      "wireframes": [
+        "surface-features-system-settings-models-model-pricing-sheet-view-tiered_expr"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/channels/components/dialogs/advanced-custom-editor-dialog.tsx",
+      "value": "forwarding",
+      "wireframes": [
+        "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-forwarding"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/channels/components/dialogs/advanced-custom-editor-dialog.tsx",
+      "value": "models",
+      "wireframes": [
+        "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-models"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/channels/components/dialogs/advanced-custom-editor-dialog.tsx",
+      "value": "balance",
+      "wireframes": [
+        "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-balance"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/channels/components/dialogs/advanced-custom-editor-dialog.tsx",
+      "value": "json",
+      "wireframes": [
+        "surface-features-channels-components-dialogs-advanced-custom-editor-dialog-view-json"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/channels/components/dialogs/codex-usage-dialog.tsx",
+      "value": "current",
+      "wireframes": [
+        "surface-features-channels-components-dialogs-codex-usage-dialog-view-current"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/channels/components/dialogs/codex-usage-dialog.tsx",
+      "value": "history",
+      "wireframes": [
+        "surface-features-channels-components-dialogs-codex-usage-dialog-view-history"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/channels/components/dialogs/fetch-models-dialog.tsx",
+      "value": "new",
+      "wireframes": [
+        "surface-features-channels-components-dialogs-fetch-models-dialog-view-new"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/channels/components/dialogs/fetch-models-dialog.tsx",
+      "value": "existing",
+      "wireframes": [
+        "surface-features-channels-components-dialogs-fetch-models-dialog-view-existing"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/channels/components/dialogs/fetch-models-dialog.tsx",
+      "value": "removed",
+      "wireframes": [
+        "surface-features-channels-components-dialogs-fetch-models-dialog-view-removed"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/channels/components/dialogs/upstream-update-dialog.tsx",
+      "value": "add",
+      "wireframes": [
+        "surface-features-channels-components-dialogs-upstream-update-dialog-view-add"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/channels/components/dialogs/upstream-update-dialog.tsx",
+      "value": "remove",
+      "wireframes": [
+        "surface-features-channels-components-dialogs-upstream-update-dialog-view-remove"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/channels/components/model-mapping-editor.tsx",
+      "value": "visual",
+      "wireframes": [
+        "connection-mapping-view-visual"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/channels/components/model-mapping-editor.tsx",
+      "value": "json",
+      "wireframes": [
+        "connection-mapping-view-json"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/content/chat-settings-section.tsx",
+      "value": "visual",
+      "wireframes": [
+        "settings-content-chat-view-visual"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/system-settings/content/chat-settings-section.tsx",
+      "value": "json",
+      "wireframes": [
+        "settings-content-chat-view-json"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/auth/secure-verification/components/secure-verification-dialog.tsx",
+      "value": "2fa",
+      "wireframes": [
+        "surface-features-auth-secure-verification-components-secure-verification-dialog-view-2fa"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/auth/secure-verification/components/secure-verification-dialog.tsx",
+      "value": "passkey",
+      "wireframes": [
+        "surface-features-auth-secure-verification-components-secure-verification-dialog-view-passkey"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/pricing/components/model-details.tsx",
+      "value": "overview",
+      "wireframes": [
+        "model-price-view-overview"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/pricing/components/model-details.tsx",
+      "value": "performance",
+      "wireframes": [
+        "model-price-view-performance"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/pricing/components/model-details.tsx",
+      "value": "api",
+      "wireframes": [
+        "model-price-view-api"
+      ],
+      "note": "独立内容状态，桌面与手机各一张。"
+    },
+    {
+      "source": "web/src/features/profile/components/profile-settings-card.tsx",
+      "value": "bindings",
+      "wireframes": [
+        "profile-bindings"
+      ],
+      "note": "独立账户绑定布局。"
+    },
+    {
+      "source": "web/src/features/profile/components/profile-settings-card.tsx",
+      "value": "settings",
+      "wireframes": [
+        "profile-info"
+      ],
+      "note": "复用基本资料与偏好布局。"
+    },
+    {
+      "source": "web/src/features/full-content-logs/components/full-content-log-details-dialog.tsx",
+      "value": "request",
+      "wireframes": [
+        "body-detail"
+      ],
+      "note": "拟将原请求/响应两页签合并为桌面并列、手机上下两个内容面板；两部分都在图中，不删除内容。"
+    },
+    {
+      "source": "web/src/features/full-content-logs/components/full-content-log-details-dialog.tsx",
+      "value": "response",
+      "wireframes": [
+        "body-detail"
+      ],
+      "note": "拟将原请求/响应两页签合并为桌面并列、手机上下两个内容面板；两部分都在图中，不删除内容。"
+    },
+    {
+      "source": "web/src/features/usage-logs/request-page.tsx",
+      "value": "body",
+      "wireframes": [
+        "request-body",
+        "key-request-body"
+      ],
+      "note": "两种请求入口共用内容，但保留返回上下文。"
+    },
+    {
+      "source": "web/src/features/usage-logs/request-page.tsx",
+      "value": "sse",
+      "wireframes": [
+        "request-sse",
+        "key-request-sse"
+      ],
+      "note": "两种请求入口共用内容，但保留返回上下文。"
+    },
+    {
+      "source": "web/src/features/usage-logs/request-page.tsx",
+      "value": "raw",
+      "wireframes": [
+        "request-raw",
+        "key-request-raw"
+      ],
+      "note": "两种请求入口共用内容，但保留返回上下文。"
+    },
+    {
+      "source": "web/src/features/keys/key-page.tsx",
+      "value": "requests",
+      "wireframes": [
+        "key-requests"
+      ],
+      "note": "独立对象页签。"
+    },
+    {
+      "source": "web/src/features/keys/key-page.tsx",
+      "value": "scope",
+      "wireframes": [
+        "key-scope"
+      ],
+      "note": "独立对象页签。"
+    },
+    {
+      "source": "web/src/features/keys/key-page.tsx",
+      "value": "delivery",
+      "wireframes": [
+        "key-delivery"
+      ],
+      "note": "独立对象页签。"
+    },
+    {
+      "source": "web/src/features/connections/connection-page.tsx",
+      "value": "windows",
+      "wireframes": [
+        "connection-windows"
+      ],
+      "note": "独立连接页签。"
+    },
+    {
+      "source": "web/src/features/connections/connection-page.tsx",
+      "value": "routing",
+      "wireframes": [
+        "connection-routing"
+      ],
+      "note": "独立连接页签。"
+    },
+    {
+      "source": "web/src/features/connections/connection-page.tsx",
+      "value": "requests",
+      "wireframes": [
+        "connection-requests"
+      ],
+      "note": "独立连接页签。"
+    },
+    {
+      "source": "web/src/features/connections/connection-page.tsx",
+      "value": "history",
+      "wireframes": [
+        "connection-history"
+      ],
+      "note": "独立连接页签。"
     }
   ],
   "overlay_inventory": [

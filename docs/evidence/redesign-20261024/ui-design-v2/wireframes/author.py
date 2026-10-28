@@ -42,9 +42,15 @@ add('request-bodies', '正文与 SSE', '01 请求工作区', '/full-content-logs
     filters='日期范围〔同一日历〕|模型|API Key|Request ID',
     stats=['匹配请求 —', '日志文件 —', '磁盘占用 —'],
     columns='时间|模型 / 端点|API Key|HTTP 状态|请求 / 响应大小|耗时|查看内容',
-    actions=[A('查询', 'request-bodies', '应用筛选并回到第1页；仅GET列表'), A('重置', 'request-bodies', '清空筛选，不删除日志'), A('日期范围', 'date-range'), A('刷新', 'request-bodies', '只重新读取当前筛选结果'), A('日志存储', 'body-files'), A('查看内容', 'body-detail')],
+    actions=[A('查询', 'request-bodies', '应用筛选并回到第1页；仅GET列表'), A('重置', 'request-bodies', '清空筛选，不删除日志'), A('日期范围', 'date-range'), A('刷新', 'request-bodies', '只重新读取当前筛选结果'), A('日志存储', 'body-files'), A('查看内容', 'body-detail'), A('手机：展开筛选','request-filters','仅手机显示；展开完整字段，应用前不改变已用筛选')],
     notes=['分页含首尾页、页码、20/50/100条选择与输入页码直接跳转；不一次拉取所有正文。', '页码、每页条数、筛选和焦点在返回时保留；缓存继续按用户与会话隔离。', '记录可检索不等于有完整正文；未采集、已过期、截断和加载失败分别说明。', '打开记录只读，绝不重放生成请求。'],
     merge='请求工作区共享筛选和分页；正文权限保持独立，不把正文复制到普通用户的调用记录缓存。', access='管理员；沿用既有正文路由和API权限')
+
+add('request-filters','正文与 SSE · 手机筛选展开态','01 请求工作区','/full-content-logs〔手机筛选〕','overlay',
+    'web/src/features/full-content-logs/components/full-content-log-filter-bar.tsx',
+    fields='日期范围〔同一日历〕|模型|API Key名称 / ID|Request ID',
+    actions=[A('应用并查询','request-bodies','仅GET列表，应用当前草稿并回到第1页'),A('日期范围','date-range','在同一个日历选择起止日期；取消时保留已应用值'),A('重置筛选','request-filters','清空草稿，不删除日志'),A('取消','request-bodies','返回已应用的筛选和原列表，不发送查询或写入')],
+    notes=['展开态与正文列表主屏分开画；默认一行筛选摘要，避免手机首屏全被表单占据。','键盘提交与查询按钮等价；日期无效或起止倒置时就近报错并保留草稿。'])
 
 for id, title, section, columns, extra in [
     ('requests', '调用记录', 'common', '时间|Request ID|模型|API Key|业务结果 / HTTP|用量证据|结算|耗时', '用量可信度、结算状态、业务结果和HTTP状态分开，未知用量不当作0。'),
@@ -59,7 +65,7 @@ for id, title, section, columns, extra in [
         merge='调用、绘图、任务放在同一请求区的明确页签内；沿用各自API和权限，不混合总数。')
 
 for base, source, url, title in [
-    ('request', 'web/src/features/usage-logs/components/request-page.tsx', '/usage-logs/request/$requestId', '请求详情'),
+    ('request', 'web/src/features/usage-logs/request-page.tsx', '/usage-logs/request/$requestId', '请求详情'),
     ('key-request', 'web/src/routes/_authenticated/keys/$keyId/requests/$requestId.tsx', '/keys/$keyId/requests/$requestId', 'Key 下的请求详情'),
 ]:
     # The route and the actual request-page component are both retained below.
@@ -344,7 +350,7 @@ for category, specs in settings_specs.items():
 add('date-range','共用日期与时间范围','06 状态与共用组件','组件：单个日历范围选择','calendar','web/src/components/ui/calendar.tsx',
     fields='开始日期 + 精确时间|结束日期 + 精确时间|时区标识',
     sections=[('快捷范围','今天|近7天|近30天|本月|清空范围'),('选择规则','同一日历先点开始再点结束|跨月 / 年可导航|整天默认包含结束日|起止倒置显示错误，不提交')],
-    actions=[A('应用范围','request-bodies','应用到来源页草稿或明确查询；不隐式修改其他筛选'),A('取消','request-bodies','丢弃当前弹层草稿，保留已应用范围')],
+    actions=[A('应用范围','request-bodies','应用到来源页草稿；来源页确认查询后才读取列表，不隐式修改其他筛选'),A('取消','request-bodies','丢弃当前弹层草稿，保留已应用范围'),A('今天','date-range','只选定当前日历时区下今天的草稿范围'),A('近7天','date-range','只更新包含今天的7个日历日草稿'),A('近30天','date-range','只更新包含今天的30个日历日草稿'),A('本月','date-range','只更新当前月的草稿范围'),A('清空','date-range','清空草稿，应用前保留原筛选')],
     notes=['桌面可在同一个范围选择器内显示相邻月份；手机单月，不拆成两个独立日期选择器。','保留精确时间编辑；同一天、跨月、时间边界、时区与取消行为均需在实现阶段回归。'])
 add('pagination','共用分页与直接跳页','06 状态与共用组件','组件：列表分页','table','web/src/components/data-table/core/pagination.tsx',
     columns='记录摘要|当前范围|总数证据',filters='每页20 / 50 / 100|跳至第〔输入〕页',
@@ -609,6 +615,113 @@ for page in pages:
         title=context_titles.get(page['sources'][0])
         if title:page['title']=title;page['url']='弹层：'+title
 
+tab_inventory=[]
+def design_subviews(source, rows, parent=None, group=None):
+    if parent is None:parent=next(p['id'] for p in pages if source in p['sources'])
+    parent_page=next(p for p in pages if p['id']==parent)
+    tabs=[(parent+'-view-'+value,title) for value,title,kind,fields,columns,note in rows]
+    parent_page['tabs']=tabs
+    for value,title,kind,fields,columns,note in rows:
+        pid=parent+'-view-'+value
+        readonly=source in ['web/src/features/channels/components/dialogs/codex-usage-dialog.tsx','web/src/features/pricing/components/model-details.tsx']
+        if readonly:
+            actions=[A('返回来源页',parent,'只读查看，不发起生成、购买或配置变更')]
+        elif kind=='table':
+            actions=[A('查看 / 编辑选定条目',pid,'打开或选择当前条目的编辑草稿；确认与提交沿用既有契约'),A('返回来源页',parent,'恢复调用页上下文，不执行隐藏写入')]
+        else:
+            actions=[A('应用当前草稿',pid,'只表示当前任务的明确保存/应用；校验、权限、确认与写入契约保留，线稿不提交'),A('返回来源页',parent,'恢复调用页上下文，不执行隐藏写入')]
+        add(pid,parent_page['title']+' · '+title,group or parent_page['group'],parent_page['url']+'〔'+value+'〕',kind,source,
+            fields=fields,columns=columns,tabs=tabs,
+            sections=[(title+'的任务范围',note)],actions=actions,
+            notes=['不同内容页签单独成图，不用一个未展开的“高级设置”占位替代。','模式切换保留草稿；从结构化视图切到JSON时不得丢失未知字段或合法的显式0 / false。'],access=parent_page['access'])
+        tab_inventory.append(dict(source=source,value=value,wireframes=[pid],note='独立内容状态，桌面与手机各一张。'))
+
+design_subviews('web/src/features/system-settings/auth/oauth-section.tsx',[
+ ('github','GitHub','form','启用状态|Client ID|Client Secret〔掩码〕|回调地址','', '仅配置GitHub登录|回调地址可复制|密钥不进入摘要与截图'),
+ ('discord','Discord','form','启用状态|Client ID|Client Secret〔掩码〕|回调地址','', 'Discord专属登录配置|不改变提供方协议'),
+ ('oidc','OIDC','form','启用状态 / 显示名|Client ID / Secret〔掩码〕|Well-known URL|授权 / Token / 用户信息端点','', '发现配置与显式端点分组|高级端点可以展开完整访问'),
+ ('telegram','Telegram','form','启用状态|Bot名称|Bot Token〔掩码〕','', '账户展示名与凭据分开|不在设计阶段联系Telegram'),
+ ('linuxdo','LinuxDO','form','启用状态|Client ID / Secret〔掩码〕|最低信任等级','', '保留信任等级与认证边界'),
+ ('wechat','WeChat','form','启用状态|服务地址|服务Token〔掩码〕|二维码图片地址','', '既有登录与绑定语义不改变|不载入真实二维码或外部图片'),
+],parent='settings-auth-oauth')
+design_subviews('web/src/features/system-settings/integrations/payment-settings-section.tsx',[
+ ('general','资金模式与通用设置','form','资金模式|能力与配置版本|金额预设 / 折扣|支付方式|最低充值|合规确认','', '当前能力与配置影响摘要|不将未知配置当作允许充值'),
+ ('epay','Epay','form','服务地址|商户ID|密钥〔掩码〕|单价 / 最小金额|回调地址|支付方式','', 'Epay参数按任务归组|配置保存不发起支付'),
+ ('stripe','Stripe','form','API Secret〔掩码〕|Webhook Secret〔掩码〕|Price ID|单价 / 最小金额|优惠码开关','', '支付与Webhook凭据分开|单位清楚，不修改计费或回调契约'),
+ ('creem','Creem','form','API Key〔掩码〕|Webhook Secret〔掩码〕|测试模式|商品列表','', '商品配置与实际购买分开|不把测试模式当作调用授权'),
+ ('waffo-pancake','Waffo Pancake','form','商户ID|私钥〔掩码〕|返回地址|App / SubApp ID|支付类型','', '保留当前提供方必需字段|不联系支付服务'),
+ ('waffo','Waffo','form','生产 / 沙盒模式|API Key / 私钥〔掩码〕|证书配置|商户 / 币种|单价 / 最低充值|支付方式','', '生产和沙盒分组可见|切换时不静默覆盖另一组凭据'),
+],parent='settings-billing-payment')
+design_subviews('web/src/features/system-settings/models/ratio-settings-card.tsx',[
+ ('models','已配置模型价格','table','','模型|计费模式|价格来源|单位|编辑','价格与比例明细在编辑器内展示|默认未知不补零'),
+ ('unset-models','未设置价格模型','table','','模型|使用范围|缺失项|配置入口','未设置明确提示|不得把缺失价格默认为免费'),
+ ('tool-prices','工具价格','table','','工具|计费单位|价格|来源|编辑','保留工具单位与精度|不修改计算规则'),
+ ('upstream-sync','上游价格同步预览','table','','来源连接|模型|差异|冲突|待应用项','拉取预览与应用变更分开|冲突逐项确认|线稿不读取供应商'),
+],parent='settings-billing-model-pricing')
+tab_inventory.append(dict(source='web/src/features/system-settings/models/ratio-settings-card.tsx',value='groups',wireframes=['settings-billing-group-pricing'],note='分组价格已有独立分区线稿，不复制为第二套页面。'))
+design_subviews('web/src/features/system-settings/models/model-pricing-sheet.tsx',[
+ ('per-token','按Token计费','overlay','模型|输入 / 输出价格|缓存读取 / 写入|图像 / 音频等既有价格项|单位与来源','', '仅重组既有价格字段|不改变估算、预扣、结算与饱和审计'),
+ ('per-request','按请求计费','overlay','模型|每请求价格|货币 / 单位|生效范围','', '固定价格与Token价格清楚区分|不把模式切换当作价格推断'),
+ ('tiered_expr','分层 / 表达式计费','overlay','模型|现有表达式版本|表达式编辑|参数与单位说明|校验错误','', '只设计已有表达式编辑布局|不改语言、计算规则或金额安全边界'),
+])
+design_subviews('web/src/features/channels/components/dialogs/advanced-custom-editor-dialog.tsx',[
+ ('forwarding','转发路由','overlay','路径匹配|上游路径|认证方式 / 凭据掩码|协议转换|规则顺序|兜底路由','', '路由按优先级排列|移动规则与替换全部路由分开确认'),
+ ('models','模型规则','overlay','客户端模型匹配|上游模型名|允许模型|转换器参数','', '显式模型映射|未知字段与不支持能力保持原语义'),
+ ('balance','余额查询规则','overlay','余额查询路径|认证方式〔掩码〕|结果字段 / 单位|错误处理','', '配置与实际查询分开|未知不补零|不调用供应商'),
+ ('json','原始JSON','overlay','完整JSON草稿|结构校验错误|与结构化视图差异|替换确认','', '保留未知或直通字段|切换视图不静默丢失配置'),
+])
+design_subviews('web/src/features/channels/components/dialogs/codex-usage-dialog.tsx',[
+ ('current','当前用量与窗口','detail','','','账号身份〔掩码〕|窗口周期 / 剩余额度证据|观察时间|未知与错误分开'),
+ ('history','历史观察','table','','时间|窗口|用量证据|来源|错误','只展示已存历史|读取失败不冒充空历史'),
+])
+design_subviews('web/src/features/channels/components/dialogs/fetch-models-dialog.tsx',[
+ ('new','新增模型候选','table','','模型|已选状态|来源|计划动作','显式选择要添加的模型|不直接改变已有模型范围'),
+ ('existing','已存在模型','table','','模型|当前配置|来源|差异','明确当前值与新观察的差异|查看不写入'),
+ ('removed','上游已移除候选','table','','模型|当前使用范围|影响|待移除选择','不得因上游缺失自动删除已有路由|移除需明确确认'),
+])
+design_subviews('web/src/features/channels/components/dialogs/upstream-update-dialog.tsx',[
+ ('add','待新增模型','table','','模型|来源|待添加范围|选择','预览后只应用明确选中的新增项'),
+ ('remove','待移除模型','table','','模型|现有配置|影响范围|选择','移除动作与新增分开|保留原配置与取消入口'),
+])
+add('connection-mapping','连接模型映射编辑器','08 编辑与弹层','组件：连接模型映射','form','web/src/features/channels/components/model-mapping-editor.tsx',
+    fields='客户端模型名|上游模型名|映射规则草稿',actions=[A('返回连接编辑','connection-edit')],
+    notes=['嵌入连接编辑器的模型分区，结构化 / JSON只是此组件的两种视图，不增加连接编辑器的全局导航层级。'])
+next(p for p in pages if p['id']=='connection-edit')['actions'].append(dict(label='编辑模型映射',target='connection-mapping',effect='进入模型分区的映射草稿，不保存连接或触发测试'))
+design_subviews('web/src/features/channels/components/model-mapping-editor.tsx',[
+ ('visual','结构化模型映射','form','客户端模型名|上游模型名|规则列表|新增 / 删除草稿','', '明确映射方向|重复或冲突规则就近提示'),
+ ('json','JSON模型映射','form','完整JSON草稿|校验错误|原始字段保留说明','', 'JSON与结构化视图往返不丢值|保存仍由来源连接编辑器明确提交'),
+],parent='connection-mapping')
+design_subviews('web/src/features/system-settings/content/chat-settings-section.tsx',[
+ ('visual','聊天预设列表','table','','名称|Web / 客户端|链接模板|顺序|编辑','安全提示与模板变量可见|预览不打开外部客户端'),
+ ('json','聊天预设JSON','form','完整预设JSON|结构校验|凭据变量风险提示','', '保留合法模板变量和所有现有字段|不载入真实聊天站点'),
+],parent='settings-content-chat')
+design_subviews('web/src/features/auth/secure-verification/components/secure-verification-dialog.tsx',[
+ ('2fa','两步验证码验证','overlay','当前敏感任务|验证码 / 恢复码|错误 / 处理中状态','', '验证绑定当前安全任务和会话|失败不绕过维护门禁'),
+ ('passkey','Passkey验证','overlay','当前敏感任务|设备验证提示|取消 / 失败状态','', 'Passkey不可用时说明原因|不自动降级为无验证的写入'),
+])
+design_subviews('web/src/features/pricing/components/model-details.tsx',[
+ ('overview','能力与价格概览','detail','','','输入 / 输出能力|上下文信息|价格组成、单位与来源|未配置不冒充0'),
+ ('performance','性能信息','detail','','','只展示实际存在的性能证据|采样窗口与来源|未提供明确标记未知'),
+ ('api','API接入示例','detail','','','端点 / 协议|合成请求示例|掩码Key占位|复制示例不发送请求'),
+],parent='model-price')
+profile=next(p for p in pages if p['id']=='profile-info')
+add('profile-bindings','个人资料 · 账户绑定','03 管理与账户','/profile〔bindings〕','form','web/src/features/profile/components/profile-settings-card.tsx',
+    sections=[('已绑定身份','邮箱|GitHub / Discord / OIDC等既有绑定|Telegram / WeChat等已启用方式|明确绑定 / 解绑入口')],
+    actions=[A('返回个人资料','profile-info'),A('安全验证','profile-security')],
+    notes=['与基本资料设置分开成图；解绑前确认身份与目标，不删除账户或刷新登录来绕过验证。'])
+profile['actions'].append(dict(label='账户绑定',target='profile-bindings',effect='进入当前身份的绑定管理；不自动绑定、解绑或切换账户'))
+tab_inventory.extend([dict(source='web/src/features/profile/components/profile-settings-card.tsx',value='bindings',wireframes=['profile-bindings'],note='独立账户绑定布局。'),dict(source='web/src/features/profile/components/profile-settings-card.tsx',value='settings',wireframes=['profile-info'],note='复用基本资料与偏好布局。')])
+for value in ['request','response']:
+    tab_inventory.append(dict(source='web/src/features/full-content-logs/components/full-content-log-details-dialog.tsx',value=value,wireframes=['body-detail'],note='拟将原请求/响应两页签合并为桌面并列、手机上下两个内容面板；两部分都在图中，不删除内容。'))
+for value in ['body','sse','raw']:
+    tab_inventory.append(dict(source='web/src/features/usage-logs/request-page.tsx',value=value,wireframes=['request-'+value,'key-request-'+value],note='两种请求入口共用内容，但保留返回上下文。'))
+for value in ['requests','scope','delivery']:
+    tab_inventory.append(dict(source='web/src/features/keys/key-page.tsx',value=value,wireframes=['key-'+value],note='独立对象页签。'))
+for value in ['windows','routing','requests','history']:
+    tab_inventory.append(dict(source='web/src/features/connections/connection-page.tsx',value=value,wireframes=['connection-'+value],note='独立连接页签。'))
+
+# Aliases, layouts, object identifiers and dynamic sections are all traceable.
+
 # Aliases, layouts, object identifiers and dynamic sections are all traceable.
 static_route_targets={
  '/(auth)/forgot-password':['forgot-password'], '/(auth)/oauth':['oauth-legacy'], '/(auth)/otp':['otp'],
@@ -617,7 +730,7 @@ static_route_targets={
  '/_authenticated/channels/':['channels'], '/_authenticated/chat/$chatId':['chat-preset'], '/_authenticated/chat2link':['chat-link'],
  '/_authenticated/connections/$connectionId/':['connection-windows','connection-routing','connection-requests','connection-history'],
  '/_authenticated/connections/':['connections'], '/_authenticated/dashboard/':['overview'],
- '/_authenticated/full-content-logs/':['request-bodies','body-detail','body-files'],
+ '/_authenticated/full-content-logs/':['request-bodies','request-filters','body-detail','body-files'],
  '/_authenticated/keys/$keyId/':['key-requests','key-scope','key-delivery'],
  '/_authenticated/keys/$keyId/requests/$requestId':['key-request-detail','key-request-body','key-request-sse','key-request-raw'],
  '/_authenticated/keys/':['keys'], '/_authenticated/models/':['models'], '/_authenticated/playground/':['playground'],
@@ -682,6 +795,25 @@ for page in pages:
     page['common_notes']=COMMON_NOTES
     page['variants']='桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。'
 
+public_actions={
+ 'home':[A('进入控制台','overview'),A('查看模型目录','pricing'),A('了解MyAPI','about')],
+ 'about':[A('返回首页','home'),A('隐私政策','privacy'),A('用户协议','terms')],
+ 'pricing':[A('查看模型详情','model-price'),A('按现有要求登录','sign-in','仅在服务端要求认证时显示登录提示'),A('返回首页','home')],
+ 'model-price':[A('返回定价目录','pricing'),A('查看接入示例','model-price-view-api','只展示合成示例，不发出请求')],
+ 'rankings':[A('应用榜单筛选','rankings','只读取允许公开的聚合统计'),A('返回首页','home')],
+ 'privacy':[A('返回来源页','home','恢复实际调用页；目录以首页作为示意'),A('用户协议','terms')],
+ 'terms':[A('返回来源页','home','恢复实际调用页；目录以首页作为示意'),A('隐私政策','privacy')],
+ 'website':[A('产品版本说明','website','导航到官网的版本说明区'),A('部署文档入口','website','保留实际已存在的文档地址，不执行安装、构建或部署')],
+}
+for page in pages:
+    actions=public_actions.get(page['id'])
+    if page['kind']=='error':
+        code=page['id'].rsplit('-',1)[-1]
+        target='overview' if page['id'].startswith('console-') else 'home'
+        actions=[A('重新登录','sign-in'),A('返回首页',target)] if code=='401' else [A('返回可用页面',target)]
+        if code in ['500','503']:actions.append(A('重新读取页面状态',page['id'],'仅重试读取，绝不重新提交失败或结果未知的业务写入'))
+    if actions:page['actions']=[dict(label=a[0],target=a[1],effect=a[2]) for a in actions]
+
 known={p['id'] for p in pages}
 for page in pages:
     for action in page['actions']:
@@ -693,7 +825,7 @@ for entry in route_map:
         if target not in known: raise ValueError('Unmapped route: '+target)
 
 catalog=dict(title='MyAPI 全站线稿目录',source_sha=BASE,date='2026-10-28',direction='已确认方向3：流向图 / 顶部导航 / 对象整页',
-             evidence='设计源文件；未运行浏览器、产品构建或本机测试。',pages=pages,routes=route_map,overlay_inventory=overlay_inventory,
+             evidence='设计源文件；未运行浏览器、产品构建或本机测试。',pages=pages,routes=route_map,tabs=tab_inventory,overlay_inventory=overlay_inventory,
              unconfirmed_overlay_sources=unconfirmed,
              scope_note='覆盖当前66条文件路由并展开动态分区、对象页签、安装步骤和静态官网。弹层清单来自静态导入图；未确认可达候选单列保留，不认定死代码或删除。')
 
@@ -751,7 +883,9 @@ class Drawing:
     def buttons(self,actions=None):
         actions=actions if actions is not None else self.page['actions']
         x=self.margin;row_y=self.y;row_h=48;gap=8
-        for idx,a in enumerate(actions):
+        for a in actions:
+            if not self.mobile and a['label'].startswith('手机：'):continue
+            idx=self.page['actions'].index(a)
             label=f'A{idx+1} '+a['label']
             w=min(self.cw,max(120,min(300,units(label)*7+28)))
             if self.mobile:w=min(self.cw,max(160,min(self.cw,units(label)*7+28)))
@@ -765,7 +899,7 @@ class Drawing:
     def fields(self,values,label='查询与筛选'):
         if not values:return
         self.text(self.margin,self.y+18,label,15,'600');self.y+=32
-        cols=1 if self.mobile else min(3,len(values));gap=12;cw=(self.cw-gap*(cols-1))/cols
+        cols=1 if self.mobile else min(4 if label=='查询与筛选' else 3,len(values));gap=12;cw=(self.cw-gap*(cols-1))/cols
         row_heights=[]
         for start in range(0,len(values),cols):
             row=values[start:start+cols]
@@ -817,11 +951,11 @@ class Drawing:
         columns=self.page['columns'] or ['对象 / 内容','状态证据','操作']
         if self.mobile:
             for row in range(2):
-                vals=[col+'：'+sample_value(col,row) for col in columns]
+                vals=[col+'：'+sample_value(col,row) for col in columns if not (self.page['id']=='request-bodies' and col=='查看内容')]
                 h=self.block('记录 '+str(row+1)+'〔合成占位〕',vals)
                 self.y+=h+8
                 self.rect(self.margin,self.y,self.cw,44,'#fafafa','#888888')
-                self.text(self.margin+12,self.y+27,'查看该记录 · 返回保留位置',13)
+                self.text(self.margin+12,self.y+27,'A6 查看内容 · 返回保留位置' if self.page['id']=='request-bodies' else '查看该记录 · 返回保留位置',13)
                 self.y+=60
         else:
             cw=self.cw/len(columns)
@@ -837,7 +971,8 @@ class Drawing:
                 if i:self.line(x,self.y,x,self.y+height)
                 for row in range(4):
                     y=self.y+header_h+row*row_h
-                    self.text(x+10,y+24,sample_value(col,row),12,width=cw-20)
+                    value='A6 查看内容' if self.page['id']=='request-bodies' and col=='查看内容' else sample_value(col,row)
+                    self.text(x+10,y+24,value,12,width=cw-20)
             for row in range(1,4):self.line(self.margin,self.y+header_h+row*row_h,self.width-self.margin,self.y+header_h+row*row_h)
             self.y+=height+20
         self.pager()
@@ -845,12 +980,21 @@ class Drawing:
         title='共 — 条 · 第 p / N 页〔从真实响应读取；未知时禁用跳页〕'
         self.text(self.margin,self.y+18,title,12,width=self.cw);self.y+=40 if self.mobile else 32
         rows=[('每页条数','20 / 50 / 100'),('页码','首页  ‹  1  2  …  N  ›  末页'),('直接跳页','第 [ 输入页码 ] 页  [ 跳转 ]')]
+        if not self.mobile:
+            widths=[250,440,self.cw-706];x=self.margin
+            for (label,content),w in zip(rows,widths):
+                self.rect(x,self.y,w,48,'#fafafa','#999999')
+                self.text(x+10,self.y+29,label+'：'+content,12,width=w-20)
+                x+=w+8
+            self.y+=68
+            return
         for label,content in rows:
             self.rect(self.margin,self.y,self.cw,48,'#fafafa','#999999')
             self.text(self.margin+12,self.y+29,label+'：'+content,12,width=self.cw-24)
             self.y+=58
         self.y+=8
     def calendar(self):
+        self.buttons(self.page['actions'][2:])
         count=1 if self.mobile else 2;gap=16;w=(self.cw-gap*(count-1))/count
         box_y=self.y
         for idx in range(count):
@@ -882,10 +1026,20 @@ class Drawing:
         self.y+=self.text(self.margin,self.y+14,p['url'],11,color='#666666',width=self.cw)+12
         self.banner('低保真设计提案 · 合成占位 · 待确认 · 不连接API / 不执行业务动作')
         self.tabs();self.stats()
-        if p['filters']:self.fields(p['filters'])
+        if p['id']=='request-bodies':
+            self.buttons([p['actions'][3],p['actions'][4]])
+            if self.mobile:
+                self.rect(self.margin,self.y,self.cw,64,'#fafafa','#888888')
+                self.text(self.margin+12,self.y+24,'A7 筛选：日期 / 模型 / Key / Request ID',12,width=self.cw-24)
+                self.text(self.margin+12,self.y+48,'已应用条件摘要                       展开 ›',12,width=self.cw-24)
+                self.y+=80
+            else:
+                self.fields(['A3 日期范围〔同一日历〕','模型','API Key','Request ID'])
+                self.buttons(p['actions'][:2])
+        elif p['filters']:self.fields(p['filters'])
         kind=p['kind']
         footer_actions=kind in ['form','overlay','auth','setup','calendar','chat']
-        if not footer_actions:self.buttons()
+        if not footer_actions and p['id']!='request-bodies':self.buttons()
         if kind=='flow':
             values=p['sections'];cols=1 if self.mobile else 3;gap=24;cw=(self.cw-gap*(cols-1))/cols
             for start in range(0,len(values),cols):
@@ -931,7 +1085,7 @@ class Drawing:
             h=self.block('设计约束 / 恢复行为',p['notes']);self.y+=h+18
         if p['merge']:
             h=self.block('拟精简 / 合并方式',[p['merge'],'本轮只提交设计，不删除页面、参数、权限或业务功能。']);self.y+=h+18
-        if footer_actions:self.buttons()
+        if footer_actions:self.buttons(p['actions'][:2] if kind=='calendar' else None)
         if self.mobile and not public and kind!='overlay':
             self.rect(0,self.y,self.width,64,'#eeeeee','#777777',rx=0)
             self.text(20,self.y+38,'概览      上游      Key      请求      更多',13)
@@ -952,6 +1106,7 @@ def sample_value(column,row):
 
 def review_html(catalog):
     groups=list(dict.fromkeys(p['group'] for p in pages))
+    groups.sort(key=lambda group:group[:2])
     nav=''
     for group in groups:
         group_pages=[p for p in pages if p['group']==group]
@@ -1037,6 +1192,7 @@ readme=f'''# MyAPI 全站低保真线稿 · 2026-10-28
 
 - 源码基线：`{BASE}`。66条`createFileRoute`登记逐条映射在 [routes.csv](routes.csv)。布局、重定向、兼容地址与实际内容页分别标记，不能把66当作66个独立页面。
 - 设置的{sections_count}个独立分区逐项展开；另含概览/模型/请求动态分区、Key与连接页签、两种请求详情入口、安装向导4步及提交结果未知态、公共/嵌入式错误页、静态官网、Desktop托盘/帮助。
+- 页面内部的{len(tab_inventory)}个内容页签/模式对应记录在`catalog.json.tabs`，包括OAuth、支付、价格、编辑器、请求详情与账户绑定；不同内容各自成图，拟合并到同一图的请求/响应明确说明布局与保留内容。
 - 总计 **{len(pages)} 个页面、分区与交互视图，{len(pages)*2} 张SVG**，每个视图各有桌面1200px、手机390px一张。不能把视图数当作实际路由数或已实现页面数。
 - 弹层候选按现有源码与静态导入图整理，记录于`catalog.json.overlay_inventory`（{len(overlay_inventory)}个源文件）；通用壳与各业务弹层分别表达，图中提取现有标题、字段标签和动作。静态导入图不是运行时权限或所有条件分支的验证。
 - `catalog.json.unconfirmed_overlay_sources` 的{len(unconfirmed)}个候选未从静态图确认可达，单列保留，不称死代码，不删除；它们不作为已存在用户页面计数。
