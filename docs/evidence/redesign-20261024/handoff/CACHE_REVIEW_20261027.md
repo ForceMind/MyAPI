@@ -2,6 +2,17 @@
 
 ## 0. 2026-10-29 默认关闭的上游诊断日志
 
+### 2026-10-30 第五轮：新Full镜像打包与独立加载验收（生产未授权执行）
+
+- 本轮授权：在Actions打包验证，并交接服务器任务「查看状态并更新部署版本」先给出更新镜像和开启缓存会话开关的最小方案。必须等维护者对本次方案明确确认后才动生产，只观察自然流量，不主动发模型请求；旧部署/诊断授权不能代替本次确认。
+- **源码与CI**：`3e6b8cca333194644a8bb2902f662095b407e090`，tree `8531c06d2ae3107201d8e10a79612ba7adc77f48`；[源码完整CI40911707379](https://github.com/ForceMind/MyAPI/actions/runs/40911707379) success，10成功/1浏览器作业跳过。[打包40924927031](https://github.com/ForceMind/MyAPI/actions/runs/40924927031) workflow_dispatch、dev、attempt1，输入api_only=true/run_browser=false/personal=false，producer与独立consumer成功、LAN安装跳过；已读所有作业/步骤和完整JSON资格报告。Full、linux/amd64、fresh SQLite，共20项全true：HTTP鉴权/脱敏、精确单次扣费、7个HTML/JS/CSS资源读取、原容器重启、另一同镜像容器的SQLite/WAL恢复等。浏览器安装/执行跳过，browser=not_run；临时容器清理成功，不代表生产数据迁移或跨版本回滚验收。
+- **镜像包**：[artifact12919793136](https://github.com/ForceMind/MyAPI/actions/runs/40924927031/artifacts/12919793136)，314216667字节，内含manifest.json与images.tar（app与固定Bun测试夹具镜像；生产只使用app）。GitHub构件ZIP摘要 `sha256:74f8ee02ba7d64a3eee5f6eec01b15297c62a660f3c2729b999d6f4a891e85dd`；有效期至北京时间2026-11-06 01:51:52，未下载本机。
+- **可信绑定**：producer manifest SHA256 `ad18daa79442831737bce2ff73c088fb9275c038d6368416440584ad18c08ff7`；consumer按该摘要、source/head/tree/run/producer-attempt验证并加载通过。app config/image ID `sha256:38b61c5b3f45fb0fbb4de7c851ae2b9029e691571c2a4dd1985993da23f5e5e3`。images.tar摘要在受该manifest绑定的文件内核对。本机只读日志/元数据，未下载或加载镜像。目标Docker若呈现不同loaded ID，先证明config/layers/rootfs等价，不能绕过校验器、回退旧包或使用不存在的GHCR/tag坐标。
+- **报告**：[artifact12919559223](https://github.com/ForceMind/MyAPI/actions/runs/40924927031/artifacts/12919559223)，2071字节，ZIP摘要 `sha256:a3fd75a967b87980929833a89608707df5244a1e8193a32278a3c3e0678071da`；至北京时间2026-11-06 01:53:11。报告中的版本仍为0.2.0-beta.26，必须按本轮源码与镜像身份区分，不能只认版本字符串。
+- **缓存开关边界**：镜像验收保持 `MYAPI_CODEX_CHAT_DEFAULT_CACHE_IDENTITY_ENABLED=false` 默认行为；开启合同的11族合成竞态已在源码CI通过，并不是本次Docker内启用或生产命中验收。开启只影响缺省身份，显式key/session、管理员覆盖删除保持；相同初始前缀/缺稳定账号/超出派生上限等限制见第四轮。不得保证一定提升真实命中。
+- **服务器方案应明确**：校验来源与架构、保留旧镜像与数据库/SQLite WAL备份、准确回滚点、容器环境变量实际透传（不能只写宿主机.env或在容器内export），最小更新/启用步骤、健康与已保存自然流量核对、是否需要有界诊断以及到限关闭/恢复策略。诊断候选可沿用5分钟/新增100MiB上限，但本轮尚未授权开启；应明确诊断开关与缓存会话开关各自保留/恢复规则。不得调用测试连接、供应商采样、凭据刷新或主动模型请求，不输出正文/密钥/账号材料。已有诊断不记录出站session头，不能承诺从现有日志直接读到它。
+- 本轮不发布GHCR/NPM/tag，不合main，不操作生产。随后只更新本节、README、OPERATIONS和TASKS，应用/镜像仍绑定3e6b8cca，不重建或重标成文档SHA；接手读取最新文档提交CI。服务器只接收方案任务，执行须等维护者确认。
+
 ### 2026-10-30 第四轮：获批实施A/B/C（产品完整CI通过）
 
 维护者在第三轮方案后回复“好的，快点”，授权三项最小产品修复；没有授权生产部署、开启身份开关、主动供应商请求、发布或合main。
