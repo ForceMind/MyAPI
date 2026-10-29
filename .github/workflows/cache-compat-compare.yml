@@ -1,0 +1,95 @@
+name: Cache compatibility comparison
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/cache-compat-compare.yml'
+      - 'tools/cache-compat-compare/fixtures.json'
+      - 'tools/cache-compat-compare/sub2api_probe_test.go.txt'
+      - 'tools/cache-compat-compare/compare.py'
+      - 'router/cache_compat_comparison_test.go'
+      - 'router/codex_session_headers_test.go'
+      - 'relay/channel/openai/cache_compat_comparison_test.go'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cache-compatibility-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    name: Synthetic MyAPI and pinned sub2api comparison
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      GOWORK: 'off'
+      GOMAXPROCS: '2'
+      GOMEMLIMIT: '3GiB'
+      CACHE_COMPARE_SUB2API_SHA: a3298b46ebe239fb0720b068a1eb3383955bdac2
+      CACHE_COMPARE_INPUT: ${{ github.workspace }}/myapi/tools/cache-compat-compare/fixtures.json
+      CACHE_COMPARE_REPORT_DIR: ${{ runner.temp }}/cache-compat-report
+      CACHE_COMPARE_MYAPI_SHA: ${{ github.sha }}
+    steps:
+      - name: Check out MyAPI candidate
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          path: myapi
+          persist-credentials: false
+      - name: Check out immutable sub2api source on runner only
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: Wei-Shaw/sub2api
+          ref: a3298b46ebe239fb0720b068a1eb3383955bdac2
+          path: sub2api
+          persist-credentials: false
+      - name: Bind sources and install only the owned upstream probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git -c core.fileMode=false -C myapi rev-parse HEAD)" == "$CACHE_COMPARE_MYAPI_SHA" ]]
+          [[ "$(git -c core.fileMode=false -C sub2api rev-parse HEAD)" == "$CACHE_COMPARE_SUB2API_SHA" ]]
+          target=sub2api/backend/internal/service/zzz_myapi_cache_comparison_test.go
+          test ! -e "$target"
+          cp myapi/tools/cache-compat-compare/sub2api_probe_test.go.txt "$target"
+          mkdir -p "$CACHE_COMPARE_REPORT_DIR" myapi/web/dist
+          touch myapi/web/dist/index.html
+          git -c core.fileMode=false -C sub2api diff --exit-code
+      - name: Set up MyAPI Go toolchain
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: myapi/go.mod
+          cache-dependency-path: |
+            myapi/go.sum
+            myapi/relaykit/go.sum
+      - name: Observe actual MyAPI request and reply boundaries
+        working-directory: myapi
+        run: |
+          set -o pipefail
+          go test -json -race -p 1 ./router ./relay/channel/openai -run '^TestMyAPI(CacheIdentity|UsageCompatibility)ComparisonProbe$' -count=1 -timeout=180s | tee "$CACHE_COMPARE_REPORT_DIR/myapi-tests.jsonl"
+      - name: Set up pinned upstream Go toolchain
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: sub2api/backend/go.mod
+          cache-dependency-path: sub2api/backend/go.sum
+      - name: Observe actual pinned sub2api implementations
+        working-directory: sub2api/backend
+        run: |
+          set -o pipefail
+          go test -json -p 1 ./internal/service -run '^TestCrossGatewayCacheCompatibilityProbe$' -count=1 -timeout=180s | tee "$CACHE_COMPARE_REPORT_DIR/sub2api-tests.jsonl"
+          git -c core.fileMode=false diff --exit-code
+      - name: Compare identical fixture observations without declaring a product fix
+        run: python3 myapi/tools/cache-compat-compare/compare.py "$CACHE_COMPARE_INPUT" "$CACHE_COMPARE_REPORT_DIR"
+      - name: Show synthetic comparison
+        run: cat "$CACHE_COMPARE_REPORT_DIR/comparison.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve synthetic evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: cache-compatibility-${{ github.sha }}
+          path: ${{ runner.temp }}/cache-compat-report/
+          if-no-files-found: error
+          retention-days: 7

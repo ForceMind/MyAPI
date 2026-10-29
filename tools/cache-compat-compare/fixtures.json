@@ -1,0 +1,503 @@
+{
+  "schema_version": 1,
+  "sub2api_sha": "a3298b46ebe239fb0720b068a1eb3383955bdac2",
+  "requests": [
+    {
+      "id": "no_identity_first",
+      "api_key_id": 99,
+      "account": "synthetic-account-a",
+      "headers": {},
+      "payload": {
+        "model": "gpt-6.1-sol",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Synthetic stable instructions."
+          },
+          {
+            "role": "user",
+            "content": "Synthetic first message."
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "lookup",
+              "description": "Synthetic lookup.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          }
+        ],
+        "tool_choice": "auto",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        }
+      }
+    },
+    {
+      "id": "no_identity_appended",
+      "api_key_id": 99,
+      "account": "synthetic-account-a",
+      "headers": {},
+      "payload": {
+        "model": "gpt-6.1-sol",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Synthetic stable instructions."
+          },
+          {
+            "role": "user",
+            "content": "Synthetic first message."
+          },
+          {
+            "role": "assistant",
+            "content": "Synthetic reply."
+          },
+          {
+            "role": "user",
+            "content": "Synthetic follow-up."
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "lookup",
+              "description": "Synthetic lookup.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          }
+        ],
+        "tool_choice": "auto",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        }
+      }
+    },
+    {
+      "id": "explicit_cache_key",
+      "api_key_id": 99,
+      "account": "synthetic-account-a",
+      "headers": {},
+      "payload": {
+        "model": "gpt-6.1-sol",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Synthetic stable instructions."
+          },
+          {
+            "role": "user",
+            "content": "Synthetic first message."
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "lookup",
+              "description": "Synthetic lookup.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          }
+        ],
+        "tool_choice": "auto",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "prompt_cache_key": "synthetic-explicit-cache-key"
+      }
+    },
+    {
+      "id": "explicit_session_header",
+      "api_key_id": 99,
+      "account": "synthetic-account-a",
+      "headers": {
+        "Session_id": "client-session",
+        "Thread_id": "client-thread",
+        "X-Codex-Turn-State": "client-turn-state"
+      },
+      "payload": {
+        "model": "gpt-6.1-sol",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Synthetic stable instructions."
+          },
+          {
+            "role": "user",
+            "content": "Synthetic first message."
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "lookup",
+              "description": "Synthetic lookup.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          }
+        ],
+        "tool_choice": "auto",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        }
+      }
+    },
+    {
+      "id": "other_api_key",
+      "api_key_id": 100,
+      "account": "synthetic-account-a",
+      "headers": {},
+      "payload": {
+        "model": "gpt-6.1-sol",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Synthetic stable instructions."
+          },
+          {
+            "role": "user",
+            "content": "Synthetic first message."
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "lookup",
+              "description": "Synthetic lookup.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          }
+        ],
+        "tool_choice": "auto",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        }
+      }
+    },
+    {
+      "id": "other_account",
+      "api_key_id": 99,
+      "account": "synthetic-account-b",
+      "headers": {},
+      "payload": {
+        "model": "gpt-6.1-sol",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Synthetic stable instructions."
+          },
+          {
+            "role": "user",
+            "content": "Synthetic first message."
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "lookup",
+              "description": "Synthetic lookup.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          }
+        ],
+        "tool_choice": "auto",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        }
+      }
+    }
+  ],
+  "usage": [
+    {
+      "id": "canonical_positive",
+      "raw_cached_state": "positive",
+      "raw_cached_value": 7,
+      "events": [
+        {
+          "type": "response.completed",
+          "response": {
+            "id": "synthetic-response",
+            "object": "response",
+            "model": "gpt-6.1-sol",
+            "status": "completed",
+            "output": [],
+            "usage": {
+              "input_tokens": 20,
+              "output_tokens": 3,
+              "total_tokens": 23,
+              "input_tokens_details": {
+                "cached_tokens": 7
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "canonical_zero",
+      "raw_cached_state": "zero",
+      "raw_cached_value": 0,
+      "events": [
+        {
+          "type": "response.completed",
+          "response": {
+            "id": "synthetic-response",
+            "object": "response",
+            "model": "gpt-6.1-sol",
+            "status": "completed",
+            "output": [],
+            "usage": {
+              "input_tokens": 20,
+              "output_tokens": 3,
+              "total_tokens": 23,
+              "input_tokens_details": {
+                "cached_tokens": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "canonical_missing",
+      "raw_cached_state": "missing",
+      "events": [
+        {
+          "type": "response.completed",
+          "response": {
+            "id": "synthetic-response",
+            "object": "response",
+            "model": "gpt-6.1-sol",
+            "status": "completed",
+            "output": [],
+            "usage": {
+              "input_tokens": 20,
+              "output_tokens": 3,
+              "total_tokens": 23,
+              "input_tokens_details": {}
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "canonical_null",
+      "raw_cached_state": "null",
+      "events": [
+        {
+          "type": "response.completed",
+          "response": {
+            "id": "synthetic-response",
+            "object": "response",
+            "model": "gpt-6.1-sol",
+            "status": "completed",
+            "output": [],
+            "usage": {
+              "input_tokens": 20,
+              "output_tokens": 3,
+              "total_tokens": 23,
+              "input_tokens_details": {
+                "cached_tokens": null
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "chat_details_alias_positive",
+      "raw_cached_state": "positive",
+      "raw_cached_value": 7,
+      "events": [
+        {
+          "type": "response.completed",
+          "response": {
+            "id": "synthetic-response",
+            "object": "response",
+            "model": "gpt-6.1-sol",
+            "status": "completed",
+            "output": [],
+            "usage": {
+              "input_tokens": 20,
+              "output_tokens": 3,
+              "total_tokens": 23,
+              "prompt_tokens_details": {
+                "cached_tokens": 7
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "root_usage_positive",
+      "raw_cached_state": "positive",
+      "raw_cached_value": 7,
+      "events": [
+        {
+          "type": "response.completed",
+          "usage": {
+            "input_tokens": 20,
+            "output_tokens": 3,
+            "total_tokens": 23,
+            "input_tokens_details": {
+              "cached_tokens": 7
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "later_terminal_zero",
+      "raw_cached_state": "zero",
+      "raw_cached_value": 0,
+      "events": [
+        {
+          "type": "response.completed",
+          "response": {
+            "id": "synthetic-response",
+            "object": "response",
+            "model": "gpt-6.1-sol",
+            "status": "completed",
+            "output": [],
+            "usage": {
+              "input_tokens": 20,
+              "output_tokens": 3,
+              "total_tokens": 23,
+              "input_tokens_details": {
+                "cached_tokens": 7
+              }
+            }
+          }
+        },
+        {
+          "type": "response.done",
+          "response": {
+            "id": "synthetic-response",
+            "object": "response",
+            "model": "gpt-6.1-sol",
+            "status": "completed",
+            "output": [],
+            "usage": {
+              "input_tokens": 20,
+              "output_tokens": 3,
+              "total_tokens": 23,
+              "input_tokens_details": {
+                "cached_tokens": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "later_terminal_null",
+      "raw_cached_state": "positive",
+      "raw_cached_value": 7,
+      "events": [
+        {
+          "type": "response.completed",
+          "response": {
+            "id": "synthetic-response",
+            "object": "response",
+            "model": "gpt-6.1-sol",
+            "status": "completed",
+            "output": [],
+            "usage": {
+              "input_tokens": 20,
+              "output_tokens": 3,
+              "total_tokens": 23,
+              "input_tokens_details": {
+                "cached_tokens": 7
+              }
+            }
+          }
+        },
+        {
+          "type": "response.done",
+          "response": {
+            "id": "synthetic-response",
+            "object": "response",
+            "model": "gpt-6.1-sol",
+            "status": "completed",
+            "output": [],
+            "usage": null
+          }
+        }
+      ]
+    }
+  ]
+}

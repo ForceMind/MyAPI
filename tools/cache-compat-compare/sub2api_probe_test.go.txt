@@ -1,0 +1,183 @@
+package service
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync/atomic"
+	"testing"
+
+	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
+)
+
+type comparisonDeniedTransport struct{ calls atomic.Int64 }
+
+func (d *comparisonDeniedTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	d.calls.Add(1)
+	return nil, errors.New("comparison denies default HTTP transport")
+}
+
+// This file is added only to the pinned upstream checkout on the Actions
+// runner. It calls upstream implementations; no upstream product file changes.
+func TestCrossGatewayCacheCompatibilityProbe(t *testing.T) {
+	denied := &comparisonDeniedTransport{}
+	originalTransport := http.DefaultTransport
+	http.DefaultTransport = denied
+	t.Cleanup(func() { http.DefaultTransport = originalTransport })
+	data, err := os.ReadFile(os.Getenv("CACHE_COMPARE_INPUT"))
+	require.NoError(t, err)
+	var fixtures struct {
+		Requests []struct {
+			ID       string            `json:"id"`
+			APIKeyID int64             `json:"api_key_id"`
+			Account  string            `json:"account"`
+			Headers  map[string]string `json:"headers"`
+			Payload  json.RawMessage   `json:"payload"`
+		} `json:"requests"`
+		Usage []struct {
+			ID       string            `json:"id"`
+			RawState string            `json:"raw_cached_state"`
+			Events   []json.RawMessage `json:"events"`
+		} `json:"usage"`
+	}
+	require.NoError(t, json.Unmarshal(data, &fixtures))
+	require.Len(t, fixtures.Requests, 6)
+	require.Len(t, fixtures.Usage, 8)
+	requestRows := make([]map[string]any, 0, len(fixtures.Requests))
+	for _, sample := range fixtures.Requests {
+		t.Run("request/"+sample.ID, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(sample.Payload))
+			c.Request.Header.Set("Content-Type", "application/json")
+			for key, value := range sample.Headers {
+				c.Request.Header.Set(key, value)
+			}
+			c.Set("api_key", &APIKey{ID: sample.APIKeyID})
+			upstream := &httpUpstreamRecorder{resp: &http.Response{StatusCode: http.StatusBadRequest, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(`{"error":{"type":"invalid_request_error","message":"synthetic comparison stop"}}`))}}
+			svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+			account := &Account{ID: 3, Name: "synthetic-comparison", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Concurrency: 1, Credentials: map[string]any{"access_token": "synthetic-compare-token", "chatgpt_account_id": sample.Account}}
+			key := svc.ExtractSessionID(c, sample.Payload)
+			result, forwardErr := svc.ForwardAsChatCompletions(context.Background(), c, account, sample.Payload, key, "")
+			require.Error(t, forwardErr)
+			require.Nil(t, result)
+			require.Len(t, upstream.requests, 1, "the synthetic error stops before response parsing and must not replay")
+			require.Equal(t, "/backend-api/codex/responses", upstream.lastReq.URL.Path)
+			var payload map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal(upstream.lastBody, &payload))
+			require.JSONEq(t, `true`, string(payload["stream"]))
+			require.JSONEq(t, `false`, string(payload["store"]))
+			var cacheKey string
+			cacheState := "missing"
+			if raw, ok := payload["prompt_cache_key"]; ok {
+				cacheState = "null"
+				if string(raw) != "null" {
+					require.NoError(t, json.Unmarshal(raw, &cacheKey))
+					cacheState = "empty"
+					if cacheKey != "" {
+						cacheState = "string"
+					}
+				}
+			}
+			require.NotEmpty(t, cacheKey, "the pinned Codex Chat branch supplies a cache identity for supported GPT-6.1 Sol")
+			if sample.ID == "explicit_cache_key" {
+				require.Equal(t, "synthetic-explicit-cache-key", cacheKey)
+			}
+			require.Zero(t, denied.calls.Load())
+			row := map[string]any{"id": sample.ID, "api_key_id": sample.APIKeyID, "account": sample.Account, "cache_key_state": cacheState, "session_state": "missing", "send_count": len(upstream.requests), "default_transport_calls": denied.calls.Load(), "transport": "in_memory_http_recorder"}
+			hash := sha256.Sum256([]byte(cacheKey))
+			row["cache_key_sha256"] = hex.EncodeToString(hash[:])
+			if session := upstream.lastReq.Header.Get("session_id"); session != "" {
+				hash := sha256.Sum256([]byte(session))
+				row["session_state"] = "string"
+				row["session_sha256"] = hex.EncodeToString(hash[:])
+			}
+			require.Equal(t, "string", row["session_state"])
+			requestRows = append(requestRows, row)
+		})
+	}
+	usageRows := make([]map[string]any, 0, len(fixtures.Usage))
+	for _, sample := range fixtures.Usage {
+		t.Run("usage/"+sample.ID, func(t *testing.T) {
+			state := apicompat.NewResponsesEventToChatState()
+			state.ID, state.Model, state.IncludeUsage = "synthetic-comparison", "gpt-6.1-sol", true
+			chunks := make([]apicompat.ChatCompletionsChunk, 0)
+			for _, raw := range sample.Events {
+				var event apicompat.ResponsesStreamEvent
+				require.NoError(t, json.Unmarshal(raw, &event))
+				chunks = append(chunks, apicompat.ResponsesEventToChatChunks(&event, state)...)
+			}
+			chunks = append(chunks, apicompat.FinalizeResponsesChatStream(state)...)
+			row := map[string]any{"id": sample.ID, "raw_cached_state": sample.RawState, "client_usage_frames": 0, "client_cache_state": "missing"}
+			for _, chunk := range chunks {
+				if chunk.Usage == nil {
+					continue
+				}
+				encoded, err := json.Marshal(chunk.Usage)
+				require.NoError(t, err)
+				var usage struct {
+					Input   int                        `json:"prompt_tokens"`
+					Output  int                        `json:"completion_tokens"`
+					Details map[string]json.RawMessage `json:"prompt_tokens_details"`
+				}
+				require.NoError(t, json.Unmarshal(encoded, &usage))
+				row["client_usage_frames"] = row["client_usage_frames"].(int) + 1
+				row["client_input"] = usage.Input
+				row["client_output"] = usage.Output
+				if raw, ok := usage.Details["cached_tokens"]; ok {
+					if string(raw) == "null" {
+						row["client_cache_state"] = "null"
+					} else {
+						var n int
+						require.NoError(t, json.Unmarshal(raw, &n))
+						row["client_cache_value"] = n
+						row["client_cache_state"] = "zero"
+						if n > 0 {
+							row["client_cache_state"] = "positive"
+						}
+					}
+				}
+			}
+			switch sample.ID {
+			case "canonical_positive", "chat_details_alias_positive", "root_usage_positive", "later_terminal_null":
+				require.NotNil(t, state.Usage)
+				require.NotNil(t, state.Usage.PromptTokensDetails)
+				require.Equal(t, 7, state.Usage.PromptTokensDetails.CachedTokens)
+			case "canonical_zero", "later_terminal_zero":
+				require.NotNil(t, state.Usage)
+				if state.Usage.PromptTokensDetails != nil {
+					require.Zero(t, state.Usage.PromptTokensDetails.CachedTokens)
+				}
+			}
+			usageRows = append(usageRows, row)
+		})
+	}
+	directory := os.Getenv("CACHE_COMPARE_REPORT_DIR")
+	require.NotEmpty(t, directory)
+	require.NoError(t, os.MkdirAll(directory, 0700))
+	hash := sha256.Sum256(data)
+	for _, report := range []struct {
+		name, layer string
+		rows        []map[string]any
+	}{{"sub2api-request.json", "actual ForwardAsChatCompletions with upstream HTTP recorder; synthetic HTTP400", requestRows}, {"sub2api-usage.json", "actual apicompat Responses-to-Chat converter; no network", usageRows}} {
+		encoded, err := json.Marshal(map[string]any{"implementation": "sub2api", "source_sha": os.Getenv("CACHE_COMPARE_SUB2API_SHA"), "input_sha256": hex.EncodeToString(hash[:]), "layer": report.layer, "rows": report.rows})
+		require.NoError(t, err)
+		file, err := os.OpenFile(filepath.Join(directory, report.name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		require.NoError(t, err)
+		_, err = file.Write(encoded)
+		require.NoError(t, err)
+		require.NoError(t, file.Close())
+	}
+}

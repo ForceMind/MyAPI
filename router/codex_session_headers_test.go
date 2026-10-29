@@ -210,18 +210,21 @@ func TestCodexSessionHeadersDoNotBypassStrictAcceptanceOverrideGate(t *testing.T
 }
 
 type codexSessionHeadersFixture struct {
-	engine         *gin.Engine
-	tokenKey       string
-	channelID      int
-	disconnect     atomic.Bool
-	calls          atomic.Int32
-	external       atomic.Int32
-	observed       chan http.Header
-	observedBodies chan []byte
-	responseSSE    string
-	noContentType  bool
-	contentLog     bool
-	diagnostics    bool
+	engine           *gin.Engine
+	tokenKey         string
+	channelID        int
+	disconnect       atomic.Bool
+	calls            atomic.Int32
+	external         atomic.Int32
+	observed         chan http.Header
+	observedBodies   chan []byte
+	responseSSE      string
+	noContentType    bool
+	contentLog       bool
+	diagnostics      bool
+	responseStatus   int
+	compareAPIKeyID  int
+	compareAccountID string
 }
 
 func newCodexSessionHeadersFixture(t *testing.T, modelName string, channelPass, globalPass bool, headerConfig string, configure ...func(*codexSessionHeadersFixture)) *codexSessionHeadersFixture {
@@ -320,7 +323,10 @@ func newCodexSessionHeadersFixture(t *testing.T, modelName string, channelPass, 
 			}
 			return
 		}
-		if fixture.noContentType {
+		if fixture.responseStatus != 0 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(fixture.responseStatus)
+		} else if fixture.noContentType {
 			w.Header()["Content-Type"] = nil // Suppress net/http's automatic sniffing.
 		} else {
 			w.Header().Set("Content-Type", "text/event-stream")
@@ -348,13 +354,22 @@ func newCodexSessionHeadersFixture(t *testing.T, modelName string, channelPass, 
 	user := model.User{Username: "header-owner", AffCode: "header-owner", Status: common.UserStatusEnabled, Group: "default", Quota: 1000000, AuthVersion: 1}
 	require.NoError(t, db.Create(&user).Error)
 	token := model.Token{UserId: user.Id, Key: "syntheticheaderkey", Status: common.TokenStatusEnabled, ExpiredTime: -1, RemainQuota: 1000000}
+	if fixture.compareAPIKeyID > 0 {
+		token.Id = fixture.compareAPIKeyID
+	}
 	require.NoError(t, db.Create(&token).Error)
 	fixture.tokenKey = token.Key
 	settings, err := common.Marshal(dto.ChannelSettings{PassThroughBodyEnabled: channelPass})
 	require.NoError(t, err)
 	settingsString := string(settings)
+	accountID := fixture.compareAccountID
+	if accountID == "" {
+		accountID = "synthetic-header-account"
+	}
+	credential, err := common.Marshal(map[string]string{"access_token": "synthetic-header-access", "account_id": accountID})
+	require.NoError(t, err)
 	channel := model.Channel{
-		Type: constant.ChannelTypeCodex, Name: "synthetic-header-channel", Key: `{"access_token":"synthetic-header-access","account_id":"synthetic-header-account"}`,
+		Type: constant.ChannelTypeCodex, Name: "synthetic-header-channel", Key: string(credential),
 		BaseURL: &upstream.URL, Status: common.ChannelStatusEnabled, Group: "default", Models: modelName, Setting: &settingsString,
 	}
 	if headerConfig != "" {
