@@ -8,7 +8,7 @@
 - 已有入口/客户端响应日志没有可关联的上游原始usage；无法还原过去某条真实请求。上述是服务器已有记录的只读证据，不是新模型调用，也不证明转换后的上游正文始终相同。
 - 维护者批准本批只补诊断日志：默认关闭、保留缺失/null/0/正数，构建测试全部Actions，提交推送origin/dev并读取完整CI，仓库交接供另一会话部署。不得改生产、发模型请求、自动合main、发布镜像或tag。产品缓存与统计修复不在本批。
 
-### 实现与读取约定（当前待CI）
+### 实现与读取约定（CI已验证）
 
 - 开关 `MYAPI_UPSTREAM_DIAGNOSTIC_ENABLED=false` 默认关闭；还必须 `FULL_CONTENT_LOG_ENABLED=true`。无效布尔值也保持关闭；Playground继续省略内容，不安装上游观察器。当前仅Codex渠道HTTP路径接入。
 - `upstream_request` 在现有HTTP传输读取请求时采集转换/适配之后的正文，不重读正文、不安装/恢复GetBody，不改变认证、参数、严格门禁、重试与扣费。记录原出站路径，不记录上游头、host、userinfo或query；正文按既有密钥字段规则递归脱敏。
@@ -21,13 +21,19 @@
 ### 最小验收与部署交接
 
 - Actions：真实TokenAuth/Distribute/controller/Chat→Responses/Codex适配器到精确回环合成上游，逐条比较实际收到正文与日志；覆盖缓存字段缺失/null/0/正数、原始usage整体缺失/null、数值精度、SSE分块与多终止事件、脱敏、默认关闭、Playground省略、超限/异常、不重放、严格门禁；原回归断言保留。
-- 本机只编辑和格式化代码、做轻量Git/文本检查；没有安装依赖、构建、测试、浏览器、Docker或下载产物。CI与精确SHA待通过后补在此处；不能用历史全绿代替。
+- 本机只编辑和格式化代码、做轻量Git/文本检查；没有安装依赖、构建、测试、浏览器、Docker或下载产物。精确SHA与本批独立CI见下方，不使用历史全绿代替。
 - 交给部署会话时应先核对本节的代码SHA与完整CI，再按维护者授权取得对应构件；旧cf6773f镜像不包含本批日志功能。版本名称不足以识别改动，须核对源码SHA和镜像身份。本批没有发布tag/GHCR，不更新镜像默认坐标。
 - 本会话不部署或开启生产开关。部署会话须在对应授权下决定诊断窗口，显式传入新增环境变量，观察自然流量后关闭；不得为验证主动调用模型。Compose模板已透传新开关且默认false；其他启动方式由部署会话显式传入容器，不能只改宿主机.env却漏传容器。
 
 ### 提交与CI证据
 
-- 待首次推送及完整Actions结果；当前实现未运行，不能称完成。UI线稿及原P1/P2继续保留，未获本批实施授权。
+- **代码与完整CI**：`d2b1f66450364a9299f676bfa519aedc692dc367` / [40828494736](https://github.com/ForceMind/MyAPI/actions/runs/40828494736)，首次success，10作业成功、1个浏览器混合作业跳过。亲自读取全部作业及关键步骤：根模块vet/build、linux/386构建、relaykit独立vet/build、两模块测试、全部后续竞态及数据库/Redis/分发/Desktop/前端检查成功。浏览器依赖安装及Chromium执行均skipped。
+- **新增诊断与原门禁**：`Verify opt-in Codex upstream diagnostics and dispatch guards` 为success。亲自读取该job日志，8个新增诊断顶层测试族、4个原会话头测试族均各PASS一次，无 `--- FAIL` 或DATA RACE。覆盖真实路由→Chat转换→Codex适配器→精确回环上游的请求正文比对和四种缓存字段状态；只用合成输入与synthetic凭据，不是供应商缓存命中证据。
+- **Full + SQLite镜像构建与独立加载**：[40828937555](https://github.com/ForceMind/MyAPI/actions/runs/40828937555)，producer attempt1，源码同d2b1f664，tree `99f2cf7ace0ddf28b9e8d554c73fb27253fe609a`，输入 `api_only=true, run_browser=false, personal=false`。producer/consumer成功、LAN安装跳过；20项HTTP/API、精确单次扣费、鉴权脱敏、7个静态资源HTTP读取、重启与同镜像SQLite/WAL恢复检查全true，`browser=not_run`。已读完整步骤和JSON报告，runner临时容器已清理。
+- **镜像包**：[artifact12877962270](https://github.com/ForceMind/MyAPI/actions/runs/40828937555/artifacts/12877962270)，314183899字节，linux/amd64、Full，内含manifest.json、images.tar（app与固定Bun夹具镜像；部署只使用app）。有效期至北京时间2026-11-05 14:26。**脱敏报告**：[artifact12878195602](https://github.com/ForceMind/MyAPI/actions/runs/40828937555/artifacts/12878195602)，2074字节，至同日14:27。
+- **可信身份**：producer日志中的manifest SHA256为 `54935e5073d3f0c99874a75a2c9e2da127f19956bd3ae0bd72e6cc4a7516ee65`；独立consumer验证通过的bundle app config/image ID为 `sha256:e8b7e5cd97082a6526f817ed4a01ec883b893705c61933af04f7322f393c3161`。tar哈希在已绑定manifest内，由既有bundle校验器核对；本机未下载或加载构件。不得以旧镜像、注册表回退或跳过身份校验代替此包。若目标Docker加载后ID表达不同，须先证明config/layers/rootfs等价并说明差异，未证明前停止，不自动改验证器。
+- 本批不发布GHCR/tag/NPM，不更新VERSION或默认镜像坐标；镜像仍报告开发基线版本0.2.0-beta.26，**请按源码SHA和构件身份区分旧beta26**。本会话未部署、未改生产、未发真实模型请求。部署/开关窗口由接手会话按对应维护者授权处理。
+- 随后交接收尾提交只改本节、README、OPERATIONS与TASKS，不重建镜像或把包重标为文档SHA；应用代码继续绑定d2b1f664，接手须读取最新收尾提交CI。UI线稿及原P1/P2继续保留，未获本批实施授权。真实上游缓存根因仍待自然流量取证，本批不是缓存修复。
 
 ## 1. 结论与授权边界
 

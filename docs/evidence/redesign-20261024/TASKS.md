@@ -1,8 +1,8 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
-## 2026-10-29 插单：默认关闭的Codex上游诊断日志（已批准，待CI）
+## 2026-10-29 插单：默认关闭的Codex上游诊断日志（代码CI与镜像验证通过）
 
-维护者批准补齐实际出站正文与解析前原始usage日志，保留缺失/null/0/正数；仅Actions构建测试，提交推送origin/dev后核对完整CI，供另一会话部署。默认关闭、不动生产、不发模型请求、不修缓存策略或计费。实现/限制/部署交接集中在 [缓存专项第0节](handoff/CACHE_REVIEW_20261027.md#0-2026-10-29-默认关闭的上游诊断日志)，代码SHA与运行号待实测后补齐，未验证不称完成。UI线稿及原P1/P2未因此取消。
+维护者批准补齐实际出站正文与解析前原始usage日志，保留缺失/null/0/正数。代码 `d2b1f66450364a9299f676bfa519aedc692dc367` / [CI40828494736](https://github.com/ForceMind/MyAPI/actions/runs/40828494736) 首次success，10成功、1浏览器混合作业跳过；新增诊断8族与原会话头4族定向竞态全PASS。[Full+SQLite40828937555](https://github.com/ForceMind/MyAPI/actions/runs/40828937555) 首次success，20项检查全true、browser=not_run；[镜像包](https://github.com/ForceMind/MyAPI/actions/runs/40828937555/artifacts/12877962270)与[报告](https://github.com/ForceMind/MyAPI/actions/runs/40828937555/artifacts/12878195602)保留至2026-11-05。默认关闭，不改生产、不发模型请求、不改缓存策略或计费；全程Actions构建测试，本机未下载产物。准确身份、开关和部署交接集中在 [缓存专项第0节](handoff/CACHE_REVIEW_20261027.md#0-2026-10-29-默认关闭的上游诊断日志)。随后收尾只改4份文档，应用/镜像仍绑定d2b1f664，接手读取最新文档CI。本批只补取证，缓存根因未修；UI线稿及原P1/P2未取消。
 
 维护者需求原话：遵循第一性原理评估整个项目；审查代码结构，精简代码；按项目计划制作完整版、个人版、本地版（具体要求在项目文档里）；保留现有 Logo，整个 UI 重新设计，要易用，PC 与手机版都要适配度高；使用设计 skill 保证 UI。
 

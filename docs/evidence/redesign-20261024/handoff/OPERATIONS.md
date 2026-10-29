@@ -2,7 +2,7 @@
 
 面向接手者的逐步操作。所有构建、测试、浏览器验收都在 GitHub Actions 上进行，本机不安装依赖。
 
-**2026-10-29 当前插单**：已批准默认关闭的Codex上游诊断日志，当前实现待CI。新开关 `MYAPI_UPSTREAM_DIAGNOSTIC_ENABLED=false` 与正文日志双开关生效，Compose源模板已透传；新阶段在现有JSONL中，以request_id/attempt/channel关联，不是已展示的新UI。详见 [缓存专项第0节](CACHE_REVIEW_20261027.md#0-2026-10-29-默认关闭的上游诊断日志)。本会话仅代码、Actions验证及仓库交接；不部署、不改生产环境、不主动发模型请求。部署会话必须先核对该节代码SHA/完整CI与构件身份，不得沿用旧镜像。
+**2026-10-29 当前插单已验证**：默认关闭的Codex上游诊断日志代码d2b1f664 / [CI40828494736](https://github.com/ForceMind/MyAPI/actions/runs/40828494736) 首次success（10成功、1浏览器混合作业跳过）；[Full+SQLite打包验证40828937555](https://github.com/ForceMind/MyAPI/actions/runs/40828937555) 首次success、20项全true、browser=not_run，构件保留至11月5日。新开关 `MYAPI_UPSTREAM_DIAGNOSTIC_ENABLED=false` 与正文日志双开关生效，Compose源模板已透传；新阶段在现有JSONL中，以request_id/attempt/channel关联，现有页面/API仍只呈现原入口/出口。源码SHA、manifest可信哈希、包/报告链接及限制集中在 [缓存专项第0节](CACHE_REVIEW_20261027.md#0-2026-10-29-默认关闭的上游诊断日志)。随后收尾只改4份文档，接手仍须读最新CI；不把文档SHA当镜像源码。本会话不部署、不改生产环境、不主动发模型请求；接手按对应授权操作，不得沿用旧镜像或仅靠beta26版本字符串识别。
 
 **2026-10-28 最新任务优先于下文临时部署记录**：UI先行，每个页面先画桌面/手机线稿，维护者确认后才改产品。[线稿目录](../ui-design-v2/wireframes/index.html)和[覆盖/审阅说明](../ui-design-v2/wireframes/README.md)为本批交付；CLI来源规则后移。线稿为纯设计源文件，不连接API，默认查看无需任何依赖。未运行浏览器，不把线稿或静态覆盖核对写成视觉/交互验收通过。
 
