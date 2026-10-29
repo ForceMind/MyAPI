@@ -39,7 +39,11 @@ func OaiResponsesToChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 		}
 	}
 
-	if err := common.Unmarshal(body, &responsesResp); err != nil {
+	normalizedBody, observedUsage, err := normalizeResponsesChatUsage(body, false)
+	if err == nil {
+		err = common.Unmarshal(normalizedBody, &responsesResp)
+	}
+	if err != nil {
 		if common.SensitiveRequestDiagnostics(c) {
 			return nil, sensitiveOpenAIProtocolError(err, resp.StatusCode)
 		}
@@ -78,7 +82,7 @@ func OaiResponsesToChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 		}
 		responseValue = targetResult.Value
 	}
-	responseBody, err := common.Marshal(responseValue)
+	responseBody, err := observedUsage.clientBody(responseValue, info.RelayFormat == types.RelayFormatOpenAI)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeJsonMarshalFailed, http.StatusInternalServerError)
 	}
@@ -86,7 +90,7 @@ func OaiResponsesToChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 	// Cache-field presence is recorded only after the client body is marshalled:
 	// chatResp shares this usage envelope and internal evidence must not be sent.
 	if upstreamUsage && usage.BillingUsage != nil {
-		captureResponsesTextEvidence(usage, body, false)
+		observedUsage.captureEvidence(usage)
 	}
 
 	// The body has been converted from a Responses payload into Chat
@@ -104,7 +108,7 @@ func OaiResponsesToChatBufferedStreamHandler(c *gin.Context, info *relaycommon.R
 
 	accumulator := relayconvert.NewResponsesBufferedAccumulator()
 	var finalResponse *dto.OpenAIResponsesResponse
-	var terminalData string
+	var observedUsage responsesChatUsage
 	var streamErr *types.NewAPIError
 
 	scanner := helper.NewStreamScanner(resp.Body)
@@ -130,7 +134,11 @@ func OaiResponsesToChatBufferedStreamHandler(c *gin.Context, info *relaycommon.R
 		}
 
 		var streamResp dto.ResponsesStreamResponse
-		if err := common.UnmarshalJsonStr(data, &streamResp); err != nil {
+		normalized, observed, decodeErr := normalizeResponsesChatUsage(common.StringToByteSlice(data), true)
+		if decodeErr == nil {
+			decodeErr = common.Unmarshal(normalized, &streamResp)
+		}
+		if err := decodeErr; err != nil {
 			logger.LogError(c, "failed to unmarshal buffered responses stream event: "+err.Error())
 			if common.SensitiveRequestDiagnostics(c) {
 				streamErr = sensitiveOpenAIProtocolError(err, resp.StatusCode)
@@ -143,7 +151,7 @@ func OaiResponsesToChatBufferedStreamHandler(c *gin.Context, info *relaycommon.R
 		switch streamResp.Type {
 		case "response.completed", "response.done", "response.incomplete":
 			finalResponse = streamResp.Response
-			terminalData = data
+			observedUsage = observed
 			if streamResp.Type == "response.incomplete" {
 				if finalResponse == nil {
 					finalResponse = &dto.OpenAIResponsesResponse{}
@@ -208,15 +216,15 @@ func OaiResponsesToChatBufferedStreamHandler(c *gin.Context, info *relaycommon.R
 		}
 		responseValue = targetResult.Value
 	}
-	responseBody, err := common.Marshal(responseValue)
+	responseBody, err := observedUsage.clientBody(responseValue, info.RelayFormat == types.RelayFormatOpenAI)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeJsonMarshalFailed, http.StatusInternalServerError)
 	}
 
 	// Recorded only after the client body is marshalled: chatResp shares this
 	// usage envelope and internal evidence must not be sent.
-	if upstreamUsage && usage.BillingUsage != nil && terminalData != "" {
-		captureResponsesTextEvidence(usage, common.StringToByteSlice(terminalData), true)
+	if upstreamUsage && usage.BillingUsage != nil {
+		observedUsage.captureEvidence(usage)
 	}
 
 	// Buffered SSE is emitted to the client as one Chat Completions JSON body.
@@ -243,7 +251,7 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusInternalServerError)
 	}
 	streamErr := (*types.NewAPIError)(nil)
-	terminalUsageData := ""
+	observedUsage := responsesChatUsage{}
 
 	if info.RelayFormat == types.RelayFormatClaude && info.ClaudeConvertInfo == nil {
 		info.ClaudeConvertInfo = &relaycommon.ClaudeConvertInfo{LastMessagesType: relaycommon.LastMessageTypeNone}
@@ -269,7 +277,11 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 			if len(value.Choices) == 0 && value.Usage == nil {
 				return true
 			}
-			if err := helper.ObjectData(c, &value); err != nil {
+			body, err := observedUsage.clientBody(&value, true)
+			if err == nil {
+				err = helper.StringData(c, string(body))
+			}
+			if err != nil {
 				streamErr = types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusInternalServerError)
 				return false
 			}
@@ -278,7 +290,11 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 			if value == nil || (len(value.Choices) == 0 && value.Usage == nil) {
 				return true
 			}
-			if err := helper.ObjectData(c, value); err != nil {
+			body, err := observedUsage.clientBody(value, true)
+			if err == nil {
+				err = helper.StringData(c, string(body))
+			}
+			if err != nil {
 				streamErr = types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusInternalServerError)
 				return false
 			}
@@ -322,7 +338,11 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 		}
 
 		var streamResp dto.ResponsesStreamResponse
-		if err := common.UnmarshalJsonStr(data, &streamResp); err != nil {
+		normalized, observed, decodeErr := normalizeResponsesChatUsage(common.StringToByteSlice(data), true)
+		if decodeErr == nil {
+			decodeErr = common.Unmarshal(normalized, &streamResp)
+		}
+		if err := decodeErr; err != nil {
 			logger.LogError(c, "failed to unmarshal responses stream event: "+err.Error())
 			if common.SensitiveRequestDiagnostics(c) {
 				streamErr = sensitiveOpenAIProtocolError(err, resp.StatusCode)
@@ -351,7 +371,7 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 		switch streamResp.Type {
 		case "response.completed", "response.done", "response.incomplete":
 			if streamResp.Response != nil && streamResp.Response.Usage != nil {
-				terminalUsageData = data
+				observedUsage = observed
 			}
 		}
 
@@ -393,7 +413,11 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 		}
 	}
 	if info.RelayFormat == types.RelayFormatOpenAI && info.ShouldIncludeUsage && usage != nil {
-		if err := helper.ObjectData(c, helper.GenerateFinalUsageResponse(responseId, createAt, info.UpstreamModelName, *usage)); err != nil {
+		body, err := observedUsage.clientBody(helper.GenerateFinalUsageResponse(responseId, createAt, info.UpstreamModelName, *usage), true)
+		if err == nil {
+			err = helper.StringData(c, string(body))
+		}
+		if err != nil {
 			return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusInternalServerError)
 		}
 	}
@@ -403,8 +427,8 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 	}
 	// Recorded only after every client frame is emitted: the final usage frame
 	// shares this usage envelope and internal evidence must not be sent.
-	if upstreamUsage && usage.BillingUsage != nil && terminalUsageData != "" {
-		captureResponsesTextEvidence(usage, common.StringToByteSlice(terminalUsageData), true)
+	if upstreamUsage && usage.BillingUsage != nil {
+		observedUsage.captureEvidence(usage)
 	}
 	return usage, nil
 }

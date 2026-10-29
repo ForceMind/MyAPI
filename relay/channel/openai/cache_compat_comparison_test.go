@@ -94,14 +94,23 @@ func TestMyAPIUsageCompatibilityComparisonProbe(t *testing.T) {
 				sequence, _ := row["client_usage_sequence"].([]map[string]any)
 				row["client_usage_sequence"] = append(sequence, observedFrame)
 			}
-			// Protect existing authoritative canonical contracts. Alternate shapes
-			// are measured, not declared correct merely because this probe ran.
+			// Approved compatibility repairs retain the original canonical
+			// contracts and now assert the previously observed gaps directly.
 			switch sample.ID {
-			case "canonical_positive", "later_terminal_null":
+			case "canonical_positive", "later_terminal_null", "chat_details_alias_positive", "root_usage_positive":
 				require.Equal(t, 7, usage.PromptTokensDetails.CachedTokens)
+				require.Equal(t, "positive", row["client_cache_state"])
+				require.Equal(t, 7, row["client_cache_value"])
 			case "canonical_zero", "later_terminal_zero":
 				require.Zero(t, usage.PromptTokensDetails.CachedTokens)
+				require.Equal(t, "zero", row["client_cache_state"])
+			case "canonical_missing":
+				require.Equal(t, "missing", row["client_cache_state"])
+			case "canonical_null":
+				require.Equal(t, "null", row["client_cache_state"])
 			}
+			require.Equal(t, 20, row["client_input"])
+			require.Equal(t, 3, row["client_output"])
 			row["cache_evidence_state"] = "absent"
 			if usage.BillingUsage != nil && usage.BillingUsage.ResponsesTextEvidence != nil {
 				row["cache_evidence_state"] = "unknown"

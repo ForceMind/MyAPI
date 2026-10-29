@@ -192,6 +192,12 @@ jobs:
       - name: Test root and relaykit modules
         run: make test
 
+      - name: Verify Responses to Chat usage compatibility and single settlement
+        run: >-
+          go test -race -p 1 ./relay/channel/openai ./router
+          -run '^Test(ResponsesChat|ResponsesToChat|OaiResponsesToChat|CodexSessionHeaders)'
+          -count=1 -timeout=180s -v
+
       - name: Verify opt-in Codex upstream diagnostics and dispatch guards
         run: >-
           go test -race -p 1 ./middleware ./router
