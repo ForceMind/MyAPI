@@ -2,14 +2,18 @@
 
 ## 0. 2026-10-29 默认关闭的上游诊断日志
 
-### 2026-10-29 第二轮：空Content-Type采集修正（已批准，待CI）
+### 2026-10-29 第二轮：空Content-Type采集修正（代码CI与镜像验证通过）
 
 - 服务器任务的已执行窗口记录：维护者另行批准更新d2b1f664并最多5分钟/新增100MiB观察自然Harness流量。北京时间15:45—15:50窗口取得12条完整请求，关闭触发为5分钟，含排空300.315秒，新增约76.36MiB；任务回读新镜像healthy、诊断false，旧容器/备份保留、主动模型请求0。本会话只读取执行输出，没有操作生产。
 - 该窗口12条 `upstream_usage` 均为 `capture_state=unsupported_content_type`，采集点Content-Type为空。这是本版诊断的未采集边界，**不是上游usage缺失、null或0**；当时仍无法确定缓存计数首次变零的位置。d2b1f664的既有CI未覆盖这一生产边界，不以其全绿宣称真实上游取证已成功。
 - 维护者已批准最小修正：仅响应Content-Type为空/空白时，从同一次实际传输已读取且完整、限内的JSON正文取得显式布尔stream，true选SSE、false选JSON。不能用客户端info.IsStream：非流式Chat在转换时也强制Codex上游stream=true。正文不完整/超限、stream缺失/null/类型无效时继续标记未采集，不猜测或补零。
 - 非空响应头仍按原MIME选择解析；不改响应头、转发参数、计费、门禁或重试，不新建/恢复GetBody，不增加任何HTTP读取。默认开关、8MiB上限、脱敏/轮转及JSONL读取方式不变。产品只改 `middleware/upstream_diagnostic.go`，common观察器接口和channel发送路径不改。
 - 回归保留原断言，扩展显式/空/空白SSE与JSON的usage整体缺失/null、cached字段缺失/null/0/正数及精确数值；真实路由夹具禁止net/http自动补Content-Type，覆盖流式与非流式Chat。增加未知stream及非空不支持MIME的未采集对照。全部仅Actions执行，浏览器不运行。
-- 本轮实现待推送/完整CI。通过后在此补代码SHA、CI与新构件；旧d2b1f664镜像不含本修正。不得部署或重开生产窗口，不主动发模型请求，后续生产操作另行确认。
+- **修正代码** `cd35f867d43b0a42d61500221bb9f99eb457e36a` / [完整CI40846159247](https://github.com/ForceMind/MyAPI/actions/runs/40846159247)，首次success，10作业成功、1浏览器混合作业跳过。亲自读取全部作业/关键步骤：根模块及linux/386构建、两模块测试、relaykit独立构建、既有竞态/三库/Redis/前端/分发等回归通过。定向13个顶层测试族各PASS一次，无FAIL或DATA RACE；真正去掉上游Content-Type的流式/非流式Chat各4种缓存状态共8个用例全PASS，未放宽原断言，浏览器未验证。
+- **本轮候选镜像**：[Full+SQLite40846469827](https://github.com/ForceMind/MyAPI/actions/runs/40846469827)，首次success，producer attempt1，源码同cd35f867、tree `124c178ea45545471d42eaa4a4a45f77b2e37e4b`、linux/amd64，输入 `api_only=true, run_browser=false, personal=false`。producer/独立加载consumer成功，LAN跳过，20项通用HTTP/API、鉴权脱敏、精确扣费、重启/同镜像SQLite/WAL恢复均true，`browser=not_run`；空头专项证明来自上条真实路由合成回归，不把通用镜像检查当生产取证。
+- **仅使用本轮构件**：[镜像包artifact12885307002](https://github.com/ForceMind/MyAPI/actions/runs/40846469827/artifacts/12885307002)，314183899字节，保留至北京时间2026-11-05 17:04；[脱敏报告artifact12884514813](https://github.com/ForceMind/MyAPI/actions/runs/40846469827/artifacts/12884514813)，2069字节，至同日17:05。可信manifest SHA256 `6c683e8609e07b7acd025c53d2520502df067090a57bc20302f2e26a231da7f8`；app bundle config/image ID `sha256:acbad68c99efd301e21e1d573a90ce8f29271ac7a0bf812da8182fbed9f5106e`。身份从producer日志和独立consumer核对；tar摘要在可信manifest内，目标Docker OCI ID若表达不同仍须证明config/layers/rootfs等价，不跳过校验、不换旧包。本机未下载构件。
+- **交接边界**：本轮没有操作生产、部署、开启诊断或发真实模型请求。默认关闭、现有配置和数据不改；维护者后续生产操作另行确认。旧d2b1f664镜像不含本修正，下方第一轮构件仅为历史，不能用于新窗口。当前仍是0.2.0-beta.26开发基线，按源码SHA和构件身份区分，未发布tag/GHCR/NPM。
+- 随后收尾只改本节及README/OPERATIONS/TASKS，应用和镜像仍绑定cd35f867，不重建或重标为文档SHA；接手读取最新收尾提交CI。修正经合成回归验证，尚未部署后自然流量验收；不宣称缓存根因已修，也不能追回上一轮未采集的原始响应。
 
 ### 取证背景与本批授权
 

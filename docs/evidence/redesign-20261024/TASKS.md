@@ -1,8 +1,8 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
-## 2026-10-29 空Content-Type日志采集修正（已批准，待CI）
+## 2026-10-29 空Content-Type日志采集修正（代码CI与镜像验证通过）
 
-服务器任务已部署并完成5分钟自然流量窗口，12条上游usage因空响应头未采集。维护者批准仅在空头时按实际出站stream选择日志解析，保留缺失/null/0/正数，补流式/非流式Chat回归，不改生产或发模型请求。产品1文件及相关测试/交接，当前待完整Actions验证；详见[缓存专项第0节第二轮](handoff/CACHE_REVIEW_20261027.md#0-2026-10-29-默认关闭的上游诊断日志)，旧d2b1f664包不包含此修正，不能重开生产窗口代替CI。
+源码 `cd35f867d43b0a42d61500221bb9f99eb457e36a` / [完整CI40846159247](https://github.com/ForceMind/MyAPI/actions/runs/40846159247)首次success，10成功、1浏览器混合作业跳过；定向13族及空头流式/非流式Chat四状态8例全部PASS，无失败或竞态报告。产品仅日志观察器16行，按实际出站显式stream解析空头，不改转发/计费、默认关闭、保留缺失/null/0/正数。[Full+SQLite40846469827](https://github.com/ForceMind/MyAPI/actions/runs/40846469827)首次success，通用20项全true，browser=not_run；[新包](https://github.com/ForceMind/MyAPI/actions/runs/40846469827/artifacts/12885307002)/[报告](https://github.com/ForceMind/MyAPI/actions/runs/40846469827/artifacts/12884514813)至11月5日，身份在[缓存专项第0节第二轮](handoff/CACHE_REVIEW_20261027.md#0-2026-10-29-默认关闭的上游诊断日志)。本轮未部署、未改生产、未开诊断或请求模型；收尾只改4份交接文档，应用/镜像仍绑定cd35f867，接手读最新文档CI。旧d2b1f664包不含此修正，不能把上一轮12条未采集当上游零命中。
 
 ## 2026-10-29 插单：默认关闭的Codex上游诊断日志（代码CI与镜像验证通过）
 
