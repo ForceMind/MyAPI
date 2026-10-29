@@ -584,6 +584,9 @@ jobs:
           bun run i18n:sync
           git -c core.fileMode=false diff --exit-code -- src/i18n/locales/en.json src/i18n/locales/zh.json src/i18n/locales/zh-TW.json src/i18n/locales/fr.json src/i18n/locales/ja.json src/i18n/locales/ru.json src/i18n/locales/vi.json
 
+      - name: Verify saved connection window state and read-only refresh
+        run: bun run test src/features/connections/__tests__/saved-windows.test.tsx src/features/connections/__tests__/window-state.test.ts
+
       - name: Verify pre-fix personal Key handoff regression
         if: github.event_name == 'workflow_dispatch' && inputs.baseline_red
         run: |
