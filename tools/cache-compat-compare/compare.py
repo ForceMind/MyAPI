@@ -74,6 +74,14 @@ def main():
                 base.get("session_sha256") is not None
                 and rows["other_account"].get("session_sha256") is not None
                 and base["session_sha256"] != rows["other_account"]["session_sha256"]),
+            "cache_key_isolated_across_api_keys": (
+                base.get("cache_key_sha256") is not None
+                and rows["other_api_key"].get("cache_key_sha256") is not None
+                and base["cache_key_sha256"] != rows["other_api_key"]["cache_key_sha256"]),
+            "cache_key_isolated_across_accounts": (
+                base.get("cache_key_sha256") is not None
+                and rows["other_account"].get("cache_key_sha256") is not None
+                and base["cache_key_sha256"] != rows["other_account"]["cache_key_sha256"]),
         }
 
     usage_rows = []
@@ -91,6 +99,8 @@ def main():
                 findings[engine].append("unknown_cache_serialized_as_zero")
             if fixture["raw_cached_state"] == "zero" and row.get("client_cache_state") == "missing":
                 findings[engine].append("explicit_cache_zero_omitted")
+            if fixture["raw_cached_state"] == "zero" and row.get("client_cache_value", 0) > 0:
+                findings[engine].append("terminal_zero_not_reflected_in_client")
         usage_rows.append({"id": case, "raw_cached_state": fixture["raw_cached_state"],
                            "myapi": a, "sub2api": b, "findings": findings,
                            "outputs_differ": observation(a) != observation(b)})

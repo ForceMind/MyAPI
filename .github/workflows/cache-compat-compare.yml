@@ -90,6 +90,6 @@ jobs:
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: cache-compatibility-${{ github.sha }}
-          path: ${{ runner.temp }}/cache-compat-report/
+          path: ${{ env.CACHE_COMPARE_REPORT_DIR }}/
           if-no-files-found: error
           retention-days: 7

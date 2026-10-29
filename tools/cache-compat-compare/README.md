@@ -23,4 +23,10 @@
 
 维护者反馈连接卡片/详情页“用量采样失败”。后台是默认每60秒GET WHAM usage，保存5小时/周额度快照，与单次请求cached_tokens不同。服务器只读截至北京时间2026-10-29约21:12：最新200行去重133批全部成功；24小时5326批成功、1批HTTP503失败；另5条usage_limit_reached属于模型转发限制标记，不能混称WHAM失败。
 
-从生产同版代码看，连接窗口API保留失败/限额历史系列，页面仅筛选codex_rate_limit+percent，再将status=error统一标“Usage sample failed”；查询无refetchInterval且refetchOnWindowFocus=false。连接列表刷新只refetch列表、详情刷新只refetch详情，没有同步刷新窗口数据；业务状态error不等于查询isError，因此窗口的网络错误重试按钮也不会因此出现。该路径能造成旧错误持续显示，但尚未读取维护者浏览器的实际API响应/缓存，因此不宣称已确认唯一页面根因。本轮不改UI/采样逻辑、不隐藏失败或补零；最小方案需另行确认。
+从生产同版代码看，连接窗口API保留失败/限额历史系列，页面仅筛选codex_rate_limit+percent，再将status=error统一标“Usage sample failed”；查询无refetchInterval且refetchOnWindowFocus=false。列表/详情的配置查询错误重试只重试各自查询，不是窗口刷新；业务状态error不等于窗口查询isError，因此窗口的网络错误重试按钮也不会因此出现。全局QueryClient也没有定时刷新。该路径能造成旧错误持续显示，但尚未读取维护者浏览器的实际API响应/缓存，因此不宣称已确认唯一页面根因。本轮不改UI/采样逻辑、不隐藏失败或补零；最小方案需另行确认。
+
+## 对照过程中的修正
+
+- 首份工作流40884590708在创建阶段失败：job.env不能用runner上下文，已改为受支持的github.workspace；未运行任何测试。
+- 40884981577实际运行后，MyAPI探针通过；sub2api显式键场景的原样透传假设失败，实际得到确定性UUID。复核固定源码openai_codex_account_identity.go:181-188，该路径确实按API Key/账号namespace重写body缓存键。保留红证据，改为该固定输入/公开算法的精确golden期望，未改MyAPI显式键断言或上游产品。
+- 同次归档路径仍指旧目录，导致没有上传报告；已统一为实际报告目录。观测器同时逐条保留客户端usage帧，读取最新帧前清除旧缓存值，避免把上一帧正数带入缺失字段。这是报告工具修正，不是转发或计费修改。

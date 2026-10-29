@@ -93,7 +93,9 @@ func TestCrossGatewayCacheCompatibilityProbe(t *testing.T) {
 			}
 			require.NotEmpty(t, cacheKey, "the pinned Codex Chat branch supplies a cache identity for supported GPT-6.1 Sol")
 			if sample.ID == "explicit_cache_key" {
-				require.Equal(t, "synthetic-explicit-cache-key", cacheKey)
+				// Fixed golden for the pinned OAuth identity namespace:
+				// sub2api:codex-account-identity:v1:user:99:account:chatgpt:synthetic-account-a:kind:prompt-cache:value:synthetic-explicit-cache-key
+				require.Equal(t, "113f5633-ccab-4bac-b5c0-f1a55ec4296d", cacheKey)
 			}
 			require.Zero(t, denied.calls.Load())
 			row := map[string]any{"id": sample.ID, "api_key_id": sample.APIKeyID, "account": sample.Account, "cache_key_state": cacheState, "session_state": "missing", "send_count": len(upstream.requests), "default_transport_calls": denied.calls.Load(), "transport": "in_memory_http_recorder"}
@@ -134,6 +136,8 @@ func TestCrossGatewayCacheCompatibilityProbe(t *testing.T) {
 				}
 				require.NoError(t, json.Unmarshal(encoded, &usage))
 				row["client_usage_frames"] = row["client_usage_frames"].(int) + 1
+				row["client_cache_state"] = "missing"
+				delete(row, "client_cache_value")
 				row["client_input"] = usage.Input
 				row["client_output"] = usage.Output
 				if raw, ok := usage.Details["cached_tokens"]; ok {
@@ -149,6 +153,12 @@ func TestCrossGatewayCacheCompatibilityProbe(t *testing.T) {
 						}
 					}
 				}
+				frame := map[string]any{"cache_state": row["client_cache_state"], "input": usage.Input, "output": usage.Output}
+				if n, ok := row["client_cache_value"]; ok {
+					frame["cache_value"] = n
+				}
+				sequence, _ := row["client_usage_sequence"].([]map[string]any)
+				row["client_usage_sequence"] = append(sequence, frame)
 			}
 			switch sample.ID {
 			case "canonical_positive", "chat_details_alias_positive", "root_usage_positive", "later_terminal_null":

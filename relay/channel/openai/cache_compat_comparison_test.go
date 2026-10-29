@@ -64,6 +64,8 @@ func TestMyAPIUsageCompatibilityComparisonProbe(t *testing.T) {
 					continue
 				}
 				row["client_usage_frames"] = row["client_usage_frames"].(int) + 1
+				row["client_cache_state"] = "missing"
+				delete(row, "client_cache_value")
 				var counts struct {
 					Input   int                        `json:"prompt_tokens"`
 					Output  int                        `json:"completion_tokens"`
@@ -85,6 +87,12 @@ func TestMyAPIUsageCompatibilityComparisonProbe(t *testing.T) {
 						}
 					}
 				}
+				frame := map[string]any{"cache_state": row["client_cache_state"], "input": counts.Input, "output": counts.Output}
+				if n, ok := row["client_cache_value"]; ok {
+					frame["cache_value"] = n
+				}
+				sequence, _ := row["client_usage_sequence"].([]map[string]any)
+				row["client_usage_sequence"] = append(sequence, frame)
 			}
 			// Protect existing authoritative canonical contracts. Alternate shapes
 			// are measured, not declared correct merely because this probe ran.
