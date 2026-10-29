@@ -219,6 +219,7 @@ type codexSessionHeadersFixture struct {
 	observed       chan http.Header
 	observedBodies chan []byte
 	responseSSE    string
+	noContentType  bool
 	contentLog     bool
 	diagnostics    bool
 }
@@ -319,7 +320,11 @@ func newCodexSessionHeadersFixture(t *testing.T, modelName string, channelPass, 
 			}
 			return
 		}
-		w.Header().Set("Content-Type", "text/event-stream")
+		if fixture.noContentType {
+			w.Header()["Content-Type"] = nil // Suppress net/http's automatic sniffing.
+		} else {
+			w.Header().Set("Content-Type", "text/event-stream")
+		}
 		w.Header().Set("X-Codex-Turn-State", "synthetic-next-turn")
 		if fixture.responseSSE != "" {
 			_, _ = io.WriteString(w, fixture.responseSSE)

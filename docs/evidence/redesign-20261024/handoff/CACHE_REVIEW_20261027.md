@@ -2,6 +2,15 @@
 
 ## 0. 2026-10-29 默认关闭的上游诊断日志
 
+### 2026-10-29 第二轮：空Content-Type采集修正（已批准，待CI）
+
+- 服务器任务的已执行窗口记录：维护者另行批准更新d2b1f664并最多5分钟/新增100MiB观察自然Harness流量。北京时间15:45—15:50窗口取得12条完整请求，关闭触发为5分钟，含排空300.315秒，新增约76.36MiB；任务回读新镜像healthy、诊断false，旧容器/备份保留、主动模型请求0。本会话只读取执行输出，没有操作生产。
+- 该窗口12条 `upstream_usage` 均为 `capture_state=unsupported_content_type`，采集点Content-Type为空。这是本版诊断的未采集边界，**不是上游usage缺失、null或0**；当时仍无法确定缓存计数首次变零的位置。d2b1f664的既有CI未覆盖这一生产边界，不以其全绿宣称真实上游取证已成功。
+- 维护者已批准最小修正：仅响应Content-Type为空/空白时，从同一次实际传输已读取且完整、限内的JSON正文取得显式布尔stream，true选SSE、false选JSON。不能用客户端info.IsStream：非流式Chat在转换时也强制Codex上游stream=true。正文不完整/超限、stream缺失/null/类型无效时继续标记未采集，不猜测或补零。
+- 非空响应头仍按原MIME选择解析；不改响应头、转发参数、计费、门禁或重试，不新建/恢复GetBody，不增加任何HTTP读取。默认开关、8MiB上限、脱敏/轮转及JSONL读取方式不变。产品只改 `middleware/upstream_diagnostic.go`，common观察器接口和channel发送路径不改。
+- 回归保留原断言，扩展显式/空/空白SSE与JSON的usage整体缺失/null、cached字段缺失/null/0/正数及精确数值；真实路由夹具禁止net/http自动补Content-Type，覆盖流式与非流式Chat。增加未知stream及非空不支持MIME的未采集对照。全部仅Actions执行，浏览器不运行。
+- 本轮实现待推送/完整CI。通过后在此补代码SHA、CI与新构件；旧d2b1f664镜像不含本修正。不得部署或重开生产窗口，不主动发模型请求，后续生产操作另行确认。
+
 ### 取证背景与本批授权
 
 - 只读关联同一 Harness 会话的10条连续请求：system/developer、50个工具及顺序相同，旧消息均为下次消息的完整前缀，首次变化只是从零基 `messages[658]` 开始正常追加。正缓存那条及前后两条同渠道，却返回 `0 → 172928 → 0`；不能用这组三条的开头改写或换渠道解释。

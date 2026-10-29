@@ -52,6 +52,15 @@ func (o *upstreamDiagnosticObserver) ObserveRequest(req *http.Request, channelID
 			return
 		}
 		contentType, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type"))
+		// Codex may omit Content-Type, including for buffered Chat callers whose
+		// actual upstream request was forced to stream. Use only the protocol
+		// observed in the sent body; never infer it from the client-facing mode.
+		if strings.TrimSpace(resp.Header.Get("Content-Type")) == "" && body.stream != nil {
+			contentType = "application/json"
+			if *body.stream {
+				contentType = "text/event-stream"
+			}
+		}
 		usageEntry := newFullContentLogEntry(o.identity, "upstream_usage")
 		usageEntry.ChannelID, usageEntry.Attempt = channelID, attempt
 		usageEntry.Method, usageEntry.Path = entry.Method, entry.Path
@@ -71,6 +80,7 @@ type upstreamDiagnosticRequestBody struct {
 	total    int64
 	eof      bool
 	expected int64
+	stream   *bool
 	entry    fullContentLogEntry
 	writer   *fullContentFileWriter
 }
@@ -110,6 +120,12 @@ func (b *upstreamDiagnosticRequestBody) finish() {
 				entry.Capture, entry.Encoding = "oversized", "omitted_oversized_json"
 			} else if redacted, err := redactUpstreamDiagnosticJSON(b.buffer); err == nil {
 				entry.Body, entry.Encoding = string(redacted), "json"
+				var protocol struct {
+					Stream *bool `json:"stream"`
+				}
+				if common.Unmarshal(b.buffer, &protocol) == nil {
+					b.stream = protocol.Stream
+				}
 			} else {
 				entry.Capture, entry.Encoding = "invalid", "omitted_invalid_json"
 			}

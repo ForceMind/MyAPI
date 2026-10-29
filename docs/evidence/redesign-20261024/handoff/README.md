@@ -2,6 +2,8 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**2026-10-29 空Content-Type采集修正已批准、待CI**：服务器任务已按维护者单独授权部署d2b1f664并关闭5分钟诊断窗口，但12条上游usage因采集点Content-Type为空均未采集，不能解读成供应商没报缓存。当前仅补日志观察器：空头时按实际已传输出站JSON中的显式stream选SSE/JSON，保留缺失/null/0/正数；非流式Chat的上游仍可能是SSE，不能依赖客户端模式。详见[缓存专项第0节](CACHE_REVIEW_20261027.md#0-2026-10-29-默认关闭的上游诊断日志)第二轮条目。产品仅1文件，原断言保留，构建测试全部Actions；不改生产、不开诊断、不发模型请求。新SHA/CI/构件尚待记录，不沿用下方旧镜像或历史全绿。
+
 **2026-10-29 上游日志取证插单已通过代码CI和镜像验证**：代码 `d2b1f66450364a9299f676bfa519aedc692dc367` / [CI40828494736](https://github.com/ForceMind/MyAPI/actions/runs/40828494736) 首次success（10成功、1浏览器混合作业跳过），新增诊断8族与原会话头4族定向竞态测试全部PASS，无失败或竞态报告。[Full+SQLite镜像验证40828937555](https://github.com/ForceMind/MyAPI/actions/runs/40828937555) 首次success，20项全true，浏览器未验证。[镜像包](https://github.com/ForceMind/MyAPI/actions/runs/40828937555/artifacts/12877962270)与[报告](https://github.com/ForceMind/MyAPI/actions/runs/40828937555/artifacts/12878195602)保留至2026-11-05。新增 `MYAPI_UPSTREAM_DIAGNOSTIC_ENABLED=false` 默认关闭，还须正文日志开启才生效；复用JSONL脱敏/轮转，新增 `upstream_request` 与 `upstream_usage`，按 `request_id + upstream_attempt + channel_id` 关联。新阶段需管理员直接读取JSONL，现有页面/API仍只展示原入口/出口，未改UI。准确镜像身份、字段语义与部署交接见 [缓存专项第0节](CACHE_REVIEW_20261027.md#0-2026-10-29-默认关闭的上游诊断日志)。后续收尾只改交接文档，镜像仍绑定d2b1f664，不重标成文档SHA；接手仍读取最新文档提交CI。本会话未部署、未开启生产开关、未发真实模型请求；本批只补取证，不宣称缓存根因已修。
 
 **2026-10-28 当前转回UI设计，产品实现尚未开始**：维护者要求全站页面/按钮/组件统一设计与合理精简，**每页先画线稿**。当前设计提案在[全站线稿目录](../ui-design-v2/wireframes/index.html)与[说明](../ui-design-v2/wireframes/README.md)：326个页面/分区/交互视图、652张桌面/手机SVG，覆盖66条路由、42个设置分区和54个内部页签/模式映射，含详情页签、安装步骤、弹层与状态，不把视图数写成实际路由数或已实现页数。首份设计提交`88165830`的[CI40682248336](https://github.com/ForceMind/MyAPI/actions/runs/40682248336)首次success（10成功、1个浏览器混合作业跳过），实际只触发CI；后续收尾补充仍须读取自己的完整CI。优先设计正文与SSE直接跳页、每页条数和同一日历选择时间范围；产品代码未改，浏览器未验证，待维护者审阅后分批实施。CLI来源规则后移，UI方向3与Logo不重做。

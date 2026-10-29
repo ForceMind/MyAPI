@@ -78,49 +78,101 @@ func TestUpstreamDiagnosticRequiresBothSwitchesAndOmitsPlayground(t *testing.T) 
 }
 
 func TestUpstreamDiagnosticPreservesRawUsageStatesAndStreamBytes(t *testing.T) {
-	for _, test := range []struct {
-		name, fragment, state string
+	for _, protocol := range []struct {
+		name, contentType, requestBody string
+		sse                            bool
 	}{
-		{name: "usage missing", state: "missing"},
-		{name: "usage null", fragment: `,"usage":null`, state: "null"},
-		{name: "cache missing", fragment: `,"usage":{"input_tokens":10}`, state: "present"},
-		{name: "cache null", fragment: `,"usage":{"input_tokens_details":{"cached_tokens":null}}`, state: "present"},
-		{name: "cache zero", fragment: `,"usage":{"input_tokens_details":{"cached_tokens":0}}`, state: "present"},
-		{name: "cache positive", fragment: `,"usage":{"input_tokens_details":{"cached_tokens":7}}`, state: "present"},
-		{name: "exact large number and decimal", fragment: `,"usage":{"input_tokens":9007199254740993,"ratio":1.00}`, state: "present"},
+		{name: "explicit SSE", contentType: "text/event-stream; charset=utf-8", requestBody: `{"stream":true}`, sse: true},
+		{name: "empty Content-Type SSE", requestBody: `{"stream":true}`, sse: true},
+		{name: "whitespace Content-Type SSE", contentType: " \t ", requestBody: `{"stream":true}`, sse: true},
+		{name: "explicit JSON takes precedence", contentType: "application/json", requestBody: `{"stream":true}`},
+		{name: "empty Content-Type JSON", requestBody: `{"stream":false}`},
+	} {
+		t.Run(protocol.name, func(t *testing.T) {
+			for _, test := range []struct {
+				name, fragment, state string
+			}{
+				{name: "usage missing", state: "missing"},
+				{name: "usage null", fragment: `,"usage":null`, state: "null"},
+				{name: "cache missing", fragment: `,"usage":{"input_tokens":10}`, state: "present"},
+				{name: "cache null", fragment: `,"usage":{"input_tokens_details":{"cached_tokens":null}}`, state: "present"},
+				{name: "cache zero", fragment: `,"usage":{"input_tokens_details":{"cached_tokens":0}}`, state: "present"},
+				{name: "cache positive", fragment: `,"usage":{"input_tokens_details":{"cached_tokens":7}}`, state: "present"},
+				{name: "exact large number and decimal", fragment: `,"usage":{"input_tokens":9007199254740993,"ratio":1.00}`, state: "present"},
+			} {
+				t.Run(test.name, func(t *testing.T) {
+					o, dir := newUpstreamDiagnosticTestObserver(t)
+					req, err := http.NewRequest(http.MethodPost, "http://synthetic.invalid/backend-api/codex/responses", strings.NewReader(protocol.requestBody))
+					require.NoError(t, err)
+					req.GetBody = nil
+					observe := o.ObserveRequest(req, 17)
+					_, err = io.ReadAll(req.Body)
+					require.NoError(t, err)
+					require.NoError(t, req.Body.Close())
+					assert.Nil(t, req.GetBody, "diagnostics must never restore replay")
+					sse := "data: {\"type\":\"response.completed\",\"response\":{\"output\":[{\"text\":\"must-not-log-output\"}]" + test.fragment + "}}\r\n\r\ndata: [DONE]\r\n\r\n"
+					wire := sse
+					if !protocol.sse {
+						wire = `{"output":[{"text":"must-not-log-output"}]` + test.fragment + `}`
+					}
+					response := &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {protocol.contentType}}, Body: io.NopCloser(iotest.OneByteReader(strings.NewReader(wire)))}
+					observe(response)
+					returned, err := io.ReadAll(response.Body)
+					require.NoError(t, err)
+					require.NoError(t, response.Body.Close())
+					assert.Equal(t, wire, string(returned), "observation must leave the handler's exact bytes intact")
+					assert.Equal(t, protocol.contentType, response.Header.Get("Content-Type"), "fallback must not rewrite upstream headers")
+					records := readUpstreamDiagnosticTestRecords(t, dir)
+					require.Len(t, records, 2)
+					assert.Equal(t, "upstream_request", records[0].Phase)
+					assert.Equal(t, "upstream_usage", records[1].Phase)
+					assert.NotContains(t, records[1].Body, "must-not-log-output")
+					var evidence upstreamDiagnosticUsage
+					require.NoError(t, common.Unmarshal([]byte(records[1].Body), &evidence))
+					assert.Equal(t, test.state, evidence.UsageState)
+					if protocol.sse {
+						assert.Equal(t, "response.usage", evidence.UsageSource)
+						assert.Equal(t, "response.completed", evidence.EventType)
+					} else {
+						assert.Equal(t, "usage", evidence.UsageSource)
+						assert.Equal(t, "other", evidence.EventType)
+					}
+					if test.fragment == "" {
+						assert.Empty(t, evidence.Usage)
+					} else {
+						assert.Equal(t, strings.TrimPrefix(test.fragment, `,"usage":`), string(evidence.Usage), "raw evidence must preserve both presence and number lexemes")
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestUpstreamDiagnosticEmptyContentTypeRequiresKnownProtocol(t *testing.T) {
+	for _, test := range []struct{ name, requestBody, contentType string }{
+		{name: "stream absent", requestBody: `{}`},
+		{name: "stream null", requestBody: `{"stream":null}`},
+		{name: "invalid stream type", requestBody: `{"stream":"true"}`},
+		{name: "nonempty unsupported header unchanged", requestBody: `{"stream":true}`, contentType: "application/octet-stream"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			o, dir := newUpstreamDiagnosticTestObserver(t)
-			req, err := http.NewRequest(http.MethodPost, "http://synthetic.invalid/backend-api/codex/responses", strings.NewReader(`{"input":"synthetic"}`))
+			req, err := http.NewRequest(http.MethodPost, "http://synthetic.invalid/responses", strings.NewReader(test.requestBody))
 			require.NoError(t, err)
-			req.GetBody = nil
-			observe := o.ObserveRequest(req, 17)
+			observe := o.ObserveRequest(req, 1)
 			_, err = io.ReadAll(req.Body)
 			require.NoError(t, err)
-			require.NoError(t, req.Body.Close())
-			assert.Nil(t, req.GetBody, "diagnostics must never restore replay")
-			sse := "data: {\"type\":\"response.completed\",\"response\":{\"output\":[{\"text\":\"must-not-log-output\"}]" + test.fragment + "}}\r\n\r\ndata: [DONE]\r\n\r\n"
-			response := &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"text/event-stream; charset=utf-8"}}, Body: io.NopCloser(iotest.OneByteReader(strings.NewReader(sse)))}
+			wire := "data: {\"type\":\"response.completed\",\"response\":{\"usage\":{\"input_tokens_details\":{\"cached_tokens\":7}}}}\n\n"
+			response := &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {test.contentType}}, Body: io.NopCloser(strings.NewReader(wire))}
 			observe(response)
-			returned, err := io.ReadAll(response.Body)
+			got, err := io.ReadAll(response.Body)
 			require.NoError(t, err)
 			require.NoError(t, response.Body.Close())
-			assert.Equal(t, sse, string(returned), "observation must leave the handler's exact bytes intact")
+			assert.Equal(t, wire, string(got))
 			records := readUpstreamDiagnosticTestRecords(t, dir)
 			require.Len(t, records, 2)
-			assert.Equal(t, "upstream_request", records[0].Phase)
-			assert.Equal(t, "upstream_usage", records[1].Phase)
-			assert.NotContains(t, records[1].Body, "must-not-log-output")
-			var evidence upstreamDiagnosticUsage
-			require.NoError(t, common.Unmarshal([]byte(records[1].Body), &evidence))
-			assert.Equal(t, test.state, evidence.UsageState)
-			assert.Equal(t, "response.usage", evidence.UsageSource)
-			assert.Equal(t, "response.completed", evidence.EventType)
-			if test.fragment == "" {
-				assert.Empty(t, evidence.Usage)
-			} else {
-				assert.Equal(t, strings.TrimPrefix(test.fragment, `,"usage":`), string(evidence.Usage), "raw evidence must preserve both presence and number lexemes")
-			}
+			assert.Equal(t, "unsupported_content_type", records[1].Capture)
+			assert.Empty(t, records[1].Body, "unknown protocol must remain unobserved, not fabricate a cache zero")
 		})
 	}
 }
