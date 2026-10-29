@@ -2,6 +2,8 @@
 
 面向接手者的逐步操作。所有构建、测试、浏览器验收都在 GitHub Actions 上进行，本机不安装依赖。
 
+**2026-10-29 最新：仅测试的缓存合成对照已通过**。源码8f9e533c / 对照40888007112、完整CI40888007450首次success。工具在 `tools/cache-compat-compare/`，固定sub2api a3298b46仅在Actions检出；6请求/8usage观察与未知/零区分不等同产品修复（product_fixed=false）。[缓存专项第0节第三轮](CACHE_REVIEW_20261027.md#0-2026-10-29-默认关闭的上游诊断日志)链接矩阵与A/B/C候选最小方案，维护者确认前不改产品、采样/UI或生产，不发真实请求。生产仍cd35；f0ae4505存在性修复为另一会话成果，已保留不重做。后续收尾纯文档，不重复触发对照，接手读最新常规CI。
+
 **2026-10-29 最新插单：空响应头修正代码/镜像已验证**。源码cd35f867 / [完整CI40846159247](https://github.com/ForceMind/MyAPI/actions/runs/40846159247)首次success（10成功、1浏览器混合作业跳过）；[Full+SQLite40846469827](https://github.com/ForceMind/MyAPI/actions/runs/40846469827)首次success、20项通用检查通过，空头专项真实路由回归8个四状态用例全PASS。新构件/manifest/app身份与开关条件集中在[缓存专项第0节第二轮](CACHE_REVIEW_20261027.md#0-2026-10-29-默认关闭的上游诊断日志)，新包至11月5日，旧d2b1f664包不含修正。默认关闭，不改请求/响应字节；未知stream不猜测，不把未采集当零。随后收尾只改4份文档，镜像仍绑定cd35f867，接手读最新CI。本会话未部署、未动生产、未开诊断、未发模型请求；后续生产动作另行确认，浏览器未验证。
 
 **2026-10-29 当前插单已验证**：默认关闭的Codex上游诊断日志代码d2b1f664 / [CI40828494736](https://github.com/ForceMind/MyAPI/actions/runs/40828494736) 首次success（10成功、1浏览器混合作业跳过）；[Full+SQLite打包验证40828937555](https://github.com/ForceMind/MyAPI/actions/runs/40828937555) 首次success、20项全true、browser=not_run，构件保留至11月5日。新开关 `MYAPI_UPSTREAM_DIAGNOSTIC_ENABLED=false` 与正文日志双开关生效，Compose源模板已透传；新阶段在现有JSONL中，以request_id/attempt/channel关联，现有页面/API仍只呈现原入口/出口。源码SHA、manifest可信哈希、包/报告链接及限制集中在 [缓存专项第0节](CACHE_REVIEW_20261027.md#0-2026-10-29-默认关闭的上游诊断日志)。随后收尾只改4份文档，接手仍须读最新CI；不把文档SHA当镜像源码。本会话不部署、不改生产环境、不主动发模型请求；接手按对应授权操作，不得沿用旧镜像或仅靠beta26版本字符串识别。

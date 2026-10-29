@@ -1,5 +1,9 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-10-29 缓存身份/usage合成对照与采样显示只读调查（测试通过，产品待确认）
+
+源码8f9e533c的[合成对照40888007112](https://github.com/ForceMind/MyAPI/actions/runs/40888007112)、[完整CI40888007450](https://github.com/ForceMind/MyAPI/actions/runs/40888007450)首次success。6身份/8usage场景用双方实际代码证明：MyAPI缺省不补身份，2种兼容usage形状会丢正缓存数；sub2api也省略明确零，不直接照抄。报告及候选最小产品方案集中在 [工具README](../../../tools/cache-compat-compare/README.md)与[缓存专项第三轮](handoff/CACHE_REVIEW_20261027.md#0-2026-10-29-默认关闭的上游诊断日志)，产品未改、product_fixed=false，用户确认前不实施。采样后台近期成功，连接页存在旧error系列误分类/不刷新触发条件，浏览器实例未验证；不隐藏错误或补零。另一会话f0ae4505修复已保留，生产cd35不自动更新；本机无依赖安装/构建测试/外部源码克隆/产物下载。收尾纯文档，继续读最新CI。
+
 ## 2026-10-29 空Content-Type日志采集修正（代码CI与镜像验证通过）
 
 源码 `cd35f867d43b0a42d61500221bb9f99eb457e36a` / [完整CI40846159247](https://github.com/ForceMind/MyAPI/actions/runs/40846159247)首次success，10成功、1浏览器混合作业跳过；定向13族及空头流式/非流式Chat四状态8例全部PASS，无失败或竞态报告。产品仅日志观察器16行，按实际出站显式stream解析空头，不改转发/计费、默认关闭、保留缺失/null/0/正数。[Full+SQLite40846469827](https://github.com/ForceMind/MyAPI/actions/runs/40846469827)首次success，通用20项全true，browser=not_run；[新包](https://github.com/ForceMind/MyAPI/actions/runs/40846469827/artifacts/12885307002)/[报告](https://github.com/ForceMind/MyAPI/actions/runs/40846469827/artifacts/12884514813)至11月5日，身份在[缓存专项第0节第二轮](handoff/CACHE_REVIEW_20261027.md#0-2026-10-29-默认关闭的上游诊断日志)。本轮未部署、未改生产、未开诊断或请求模型；收尾只改4份交接文档，应用/镜像仍绑定cd35f867，接手读最新文档CI。旧d2b1f664包不含此修正，不能把上一轮12条未采集当上游零命中。
