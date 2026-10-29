@@ -63,7 +63,8 @@ func OaiResponsesToChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 	}
 	usage := chatResult.Usage
 
-	if usage == nil || usage.TotalTokens == 0 {
+	upstreamUsage := usage != nil && usage.TotalTokens != 0
+	if !upstreamUsage {
 		text := service.ExtractOutputTextFromResponses(&responsesResp)
 		usage = service.ResponseText2Usage(c, text, info.UpstreamModelName, info.GetEstimatePromptTokens())
 		chatResp.Usage = *usage
@@ -82,6 +83,12 @@ func OaiResponsesToChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 		return nil, types.NewOpenAIError(err, types.ErrorCodeJsonMarshalFailed, http.StatusInternalServerError)
 	}
 
+	// Cache-field presence is recorded only after the client body is marshalled:
+	// chatResp shares this usage envelope and internal evidence must not be sent.
+	if upstreamUsage && usage.BillingUsage != nil {
+		captureResponsesTextEvidence(usage, body, false)
+	}
+
 	// The body has been converted from a Responses payload into Chat
 	// Completions JSON, so do not leak an absent or stale upstream content type.
 	resp.Header.Set("Content-Type", "application/json; charset=utf-8")
@@ -97,6 +104,7 @@ func OaiResponsesToChatBufferedStreamHandler(c *gin.Context, info *relaycommon.R
 
 	accumulator := relayconvert.NewResponsesBufferedAccumulator()
 	var finalResponse *dto.OpenAIResponsesResponse
+	var terminalData string
 	var streamErr *types.NewAPIError
 
 	scanner := helper.NewStreamScanner(resp.Body)
@@ -135,6 +143,7 @@ func OaiResponsesToChatBufferedStreamHandler(c *gin.Context, info *relaycommon.R
 		switch streamResp.Type {
 		case "response.completed", "response.done", "response.incomplete":
 			finalResponse = streamResp.Response
+			terminalData = data
 			if streamResp.Type == "response.incomplete" {
 				if finalResponse == nil {
 					finalResponse = &dto.OpenAIResponsesResponse{}
@@ -184,7 +193,8 @@ func OaiResponsesToChatBufferedStreamHandler(c *gin.Context, info *relaycommon.R
 		chatResp.Id = chatID
 	}
 	usage := chatResult.Usage
-	if usage == nil || usage.TotalTokens == 0 {
+	upstreamUsage := usage != nil && usage.TotalTokens != 0
+	if !upstreamUsage {
 		text := service.ExtractOutputTextFromResponses(finalResponse)
 		usage = service.ResponseText2Usage(c, text, info.UpstreamModelName, info.GetEstimatePromptTokens())
 		chatResp.Usage = *usage
@@ -201,6 +211,12 @@ func OaiResponsesToChatBufferedStreamHandler(c *gin.Context, info *relaycommon.R
 	responseBody, err := common.Marshal(responseValue)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeJsonMarshalFailed, http.StatusInternalServerError)
+	}
+
+	// Recorded only after the client body is marshalled: chatResp shares this
+	// usage envelope and internal evidence must not be sent.
+	if upstreamUsage && usage.BillingUsage != nil && terminalData != "" {
+		captureResponsesTextEvidence(usage, common.StringToByteSlice(terminalData), true)
 	}
 
 	// Buffered SSE is emitted to the client as one Chat Completions JSON body.
@@ -227,6 +243,7 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusInternalServerError)
 	}
 	streamErr := (*types.NewAPIError)(nil)
+	terminalUsageData := ""
 
 	if info.RelayFormat == types.RelayFormatClaude && info.ClaudeConvertInfo == nil {
 		info.ClaudeConvertInfo = &relaycommon.ClaudeConvertInfo{LastMessagesType: relaycommon.LastMessageTypeNone}
@@ -329,6 +346,15 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 			return
 		}
 
+		// Mirrors the converter, which keeps the usage of the latest terminal
+		// event that carries one.
+		switch streamResp.Type {
+		case "response.completed", "response.done", "response.incomplete":
+			if streamResp.Response != nil && streamResp.Response.Usage != nil {
+				terminalUsageData = data
+			}
+		}
+
 		results, err := relayconvert.ConvertStreamResponseChunk(c, info, state, &streamResp)
 		if err != nil {
 			streamErr = types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusInternalServerError)
@@ -348,7 +374,8 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 	}
 
 	usage := state.Usage()
-	if usage == nil || usage.TotalTokens == 0 {
+	upstreamUsage := usage != nil && usage.TotalTokens != 0
+	if !upstreamUsage {
 		usage = service.ResponseText2Usage(c, state.UsageText(), info.UpstreamModelName, info.GetEstimatePromptTokens())
 		state.SetUsage(usage)
 	}
@@ -373,6 +400,11 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 
 	if info.RelayFormat == types.RelayFormatOpenAI {
 		helper.Done(c)
+	}
+	// Recorded only after every client frame is emitted: the final usage frame
+	// shares this usage envelope and internal evidence must not be sent.
+	if upstreamUsage && usage.BillingUsage != nil && terminalUsageData != "" {
+		captureResponsesTextEvidence(usage, common.StringToByteSlice(terminalUsageData), true)
 	}
 	return usage, nil
 }
