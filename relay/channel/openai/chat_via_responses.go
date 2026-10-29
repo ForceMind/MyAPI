@@ -53,6 +53,7 @@ func OaiResponsesToChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 	if oaiError := responsesResp.GetOpenAIError(); oaiError != nil && oaiError.Type != "" {
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
 	}
+	sanitizeResponsesChatAccounting(responsesResp.Usage)
 
 	chatResult, err := relayconvert.ConvertResponse(c, info, types.RelayFormatOpenAI, &responsesResp)
 	if err != nil {
@@ -147,11 +148,40 @@ func OaiResponsesToChatBufferedStreamHandler(c *gin.Context, info *relaycommon.R
 			}
 			break
 		}
+		if streamResp.Response != nil {
+			sanitizeResponsesChatAccounting(streamResp.Response.Usage)
+			if streamResp.Type != "response.completed" && streamResp.Type != "response.done" && streamResp.Type != "response.incomplete" {
+				streamResp.Response.Usage = nil
+			}
+		}
 		accumulator.ProcessEvent(&streamResp)
 		switch streamResp.Type {
 		case "response.completed", "response.done", "response.incomplete":
-			finalResponse = streamResp.Response
-			observedUsage = observed
+			var previousUsage *dto.Usage
+			previousResponse := finalResponse
+			if finalResponse != nil {
+				previousUsage = finalResponse.Usage
+			}
+			if streamResp.Response != nil {
+				finalResponse = streamResp.Response
+				if previousResponse != nil {
+					if finalResponse.ID == "" {
+						finalResponse.ID = previousResponse.ID
+					}
+					if finalResponse.Model == "" {
+						finalResponse.Model = previousResponse.Model
+					}
+					if finalResponse.CreatedAt == 0 {
+						finalResponse.CreatedAt = previousResponse.CreatedAt
+					}
+				}
+			}
+			if observed.present {
+				observedUsage = observed
+			}
+			if finalResponse != nil && finalResponse.Usage == nil {
+				finalResponse.Usage = previousUsage
+			}
 			if streamResp.Type == "response.incomplete" {
 				if finalResponse == nil {
 					finalResponse = &dto.OpenAIResponsesResponse{}
@@ -169,7 +199,7 @@ func OaiResponsesToChatBufferedStreamHandler(c *gin.Context, info *relaycommon.R
 			}
 			streamErr = types.NewOpenAIError(fmt.Errorf("responses stream error: %s", streamResp.Type), types.ErrorCodeBadResponse, http.StatusInternalServerError)
 		}
-		if streamErr != nil || finalResponse != nil {
+		if streamErr != nil {
 			break
 		}
 	}
@@ -364,6 +394,12 @@ func OaiResponsesToChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo
 			streamErr = types.NewOpenAIError(fmt.Errorf("responses stream error: %s", streamResp.Type), types.ErrorCodeBadResponse, http.StatusInternalServerError)
 			sr.Stop(service.SafeRelayError(c, streamErr))
 			return
+		}
+		if streamResp.Response != nil {
+			sanitizeResponsesChatAccounting(streamResp.Response.Usage)
+			if streamResp.Type != "response.completed" && streamResp.Type != "response.done" && streamResp.Type != "response.incomplete" {
+				streamResp.Response.Usage = nil
+			}
 		}
 
 		// Mirrors the converter, which keeps the usage of the latest terminal

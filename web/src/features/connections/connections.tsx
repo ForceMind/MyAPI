@@ -199,6 +199,7 @@ export function Connections() {
                 ) ?? []
               }
               windowsKnown={!windows.isError}
+              now={windows.now}
               recentRequests={recentRequests(connection.id)}
               connectionReturn={connectionReturn}
               canOperate={access.canOperate}
@@ -224,6 +225,15 @@ export function Connections() {
         <SectionPageLayout.Title>{t('Connections')}</SectionPageLayout.Title>
         <SectionPageLayout.Description>{summary}</SectionPageLayout.Description>
         <SectionPageLayout.Actions>
+          {access.canRead && items.length > 0 && (
+            <Button
+              variant='outline'
+              disabled={windows.isFetching}
+              onClick={() => void windows.refetch()}
+            >
+              {t('Refresh saved windows')}
+            </Button>
+          )}
           {access.canRead && showTable && (
             <nav aria-label={t('Connection views')} className='flex gap-1'>
               <span

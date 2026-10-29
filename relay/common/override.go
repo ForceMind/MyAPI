@@ -507,6 +507,25 @@ func GetEffectiveHeaderOverride(info *RelayInfo) map[string]interface{} {
 	return headers
 }
 
+// SeedCodexDefaultSessionHeader runs before parameter operations. Freezing the
+// existing defaults into the runtime map lets later delete_header operations
+// remove the generated session without it being reintroduced at dispatch.
+func SeedCodexDefaultSessionHeader(info *RelayInfo, value string) {
+	if info == nil || info.ChannelMeta == nil || info.ChannelType != constant.ChannelTypeCodex || info.IsChannelTest || info.UseRuntimeHeadersOverride || value == "" {
+		return
+	}
+	headers := GetEffectiveHeaderOverride(info)
+	if _, exists := headers["session_id"]; exists {
+		return
+	}
+	if _, exists := headers["thread_id"]; exists {
+		return
+	}
+	headers["session_id"] = value
+	info.RuntimeHeadersOverride = headers
+	info.UseRuntimeHeadersOverride = true
+}
+
 func tryParseOperations(paramOverride map[string]interface{}) ([]ParamOperation, bool) {
 	// 检查是否包含 "operations" 字段
 	opsValue, exists := paramOverride["operations"]

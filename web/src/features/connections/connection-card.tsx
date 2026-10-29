@@ -23,11 +23,7 @@ import { CHANNEL_STATUS } from '@/features/channels/constants'
 import { getChannelTypeLabel } from '@/features/channels/lib/channel-utils'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
 import { tightestWindowByConnection } from '@/features/dashboard/lib/overview-flow'
-import {
-  describeNativeWindowState,
-  nativeWindowState,
-  nativeWindowUsage,
-} from '@/features/personal-upstream/window-state'
+import { nativeWindowUsage } from '@/features/personal-upstream/window-state'
 import { formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -45,6 +41,7 @@ import {
   type ConnectionSummary,
 } from './connection-state'
 import type { ConnectionTestResult } from './use-connection-test'
+import { describeConnectionWindow } from './window-state'
 
 /** Every saved window of the connection in one line, or why there is none. */
 function WindowsLine(props: {
@@ -52,6 +49,7 @@ function WindowsLine(props: {
   windows: ChannelQuotaChangeItem[]
   /** False when the saved windows could not be read. */
   windowsKnown: boolean
+  now: number
 }) {
   const { t } = useTranslation()
   const kind = connectionKind(props.connection, props.windows.length > 0)
@@ -67,28 +65,30 @@ function WindowsLine(props: {
     }
     return <span>{t('No saved window sample')}</span>
   }
-  const now = Date.now() / 1000
   const parts = props.windows.map((item) => {
     const used = nativeWindowUsage(item)
-    return used === null
-      ? t('{{window}}: {{state}}', {
-          window: windowName(item, t),
-          state: describeNativeWindowState(nativeWindowState(item, now), t)
-            .label,
-        })
-      : t('{{window}} · {{value}}% left', {
-          window: windowName(item, t),
-          value: Math.round(100 - used),
-        })
+    const state = describeConnectionWindow(item, props.windows, props.now, t)
+    const summary =
+      used === null
+        ? t('{{window}}: {{state}}', {
+            window: windowName(item, t),
+            state: state.label,
+          })
+        : t('{{window}} · {{value}}% left', {
+            window: windowName(item, t),
+            value: Math.round(100 - used),
+          })
+    const observed = item.observed_at
+    const time =
+      Number.isSafeInteger(observed) && (observed ?? 0) > 0
+        ? t('Observed {{time}}', {
+            time: formatTimestampToDate(observed as number),
+          })
+        : t('No timestamp')
+    return [summary, used === null ? null : state.label, time]
+      .filter(Boolean)
+      .join(' · ')
   })
-  const observed = Math.max(
-    ...props.windows.map((item) => item.observed_at ?? 0)
-  )
-  if (observed > 0) {
-    parts.push(
-      t('Observed {{time}}', { time: formatTimestampToDate(observed) })
-    )
-  }
   return <span>{parts.join(' · ')}</span>
 }
 
@@ -103,6 +103,7 @@ export function ConnectionCard(props: {
   connection: ConnectionSummary
   windows: ChannelQuotaChangeItem[]
   windowsKnown: boolean
+  now: number
   recentRequests: number | undefined
   connectionReturn: ConnectionReturn | undefined
   canOperate: boolean
@@ -195,6 +196,7 @@ export function ConnectionCard(props: {
           connection={connection}
           windows={props.windows}
           windowsKnown={props.windowsKnown}
+          now={props.now}
         />
       </p>
       <div className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>

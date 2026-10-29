@@ -14,14 +14,11 @@ import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { quotaSeriesKey } from '@/features/channels/lib/quota-history'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
-import {
-  describeNativeWindowState,
-  nativeWindowState,
-  nativeWindowUsage,
-} from '@/features/personal-upstream/window-state'
+import { nativeWindowUsage } from '@/features/personal-upstream/window-state'
 import { formatTimestampToDate } from '@/lib/format'
 
 import { windowName } from './connection-format'
+import { describeConnectionWindow } from './window-state'
 
 /**
  * The connection's saved account windows (design v2 upstream "windows"):
@@ -34,14 +31,25 @@ export function ConnectionWindows(props: {
     UseQueryResult<ChannelQuotaChangeItem[]>,
     'data' | 'isPending' | 'isError' | 'isFetching' | 'refetch'
   >
+  now: number
 }) {
   const { t } = useTranslation()
-  const now = Date.now() / 1000
   return (
     <section
       aria-label={t('Saved account windows')}
       className='bg-card p-card flex min-w-0 flex-col gap-4 rounded-xl border'
     >
+      <div className='flex flex-wrap items-center justify-between gap-2'>
+        <h2 className='text-body font-semibold'>{t('Saved account windows')}</h2>
+        <Button
+          variant='outline'
+          size='sm'
+          disabled={props.query.isFetching}
+          onClick={() => void props.query.refetch()}
+        >
+          {t('Refresh saved windows')}
+        </Button>
+      </div>
       {props.query.isPending && <p role='status'>{t('Loading...')}</p>}
       {props.query.isError && (
         <div role='alert' className='flex flex-col items-start gap-2'>
@@ -66,8 +74,12 @@ export function ConnectionWindows(props: {
         <ul className='flex min-w-0 flex-wrap gap-x-8 gap-y-5'>
           {props.query.data?.map((item) => {
             const used = nativeWindowUsage(item)
-            const state = nativeWindowState(item, now)
-            const described = describeNativeWindowState(state, t)
+            const described = describeConnectionWindow(
+              item,
+              props.query.data ?? [],
+              props.now,
+              t
+            )
             const name = windowName(item, t)
             const observed = item.observed_at
             return (
@@ -108,14 +120,20 @@ export function ConnectionWindows(props: {
                         })
                       : t('No timestamp')}
                   </p>
-                  {state !== 'available' && (
-                    <StatusBadge
-                      variant={described.variant}
-                      label={described.label}
-                      copyable={false}
-                      className='mt-1 h-auto min-h-5 self-start whitespace-normal'
-                    />
+                  <StatusBadge
+                    variant={described.variant}
+                    label={described.label}
+                    copyable={false}
+                    className='mt-1 h-auto min-h-5 self-start whitespace-normal'
+                  />
+                  {item.account_label && (
+                    <p className='text-caption text-muted-foreground wrap-anywhere'>
+                      {item.account_label}
+                    </p>
                   )}
+                  <p className='text-caption text-muted-foreground max-w-sm wrap-anywhere'>
+                    {described.description}
+                  </p>
                 </div>
               </li>
             )

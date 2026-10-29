@@ -269,7 +269,7 @@ function ConnectionPageContent(props: {
             <TabsTrigger value='history'>{t('History')}</TabsTrigger>
           </TabsList>
           <TabsContent value='windows' className='flex min-w-0 flex-col gap-4'>
-            <ConnectionWindows query={windows} />
+            <ConnectionWindows query={windows} now={windows.now} />
             <WindowShareObservation
               channelId={item.id}
               canReadPoolUsage={access.isRoot}

@@ -1,5 +1,13 @@
 {
   "translation": {
+    "This saved observation failed. Its timestamp applies only to this series.": "这条已保存的观测记录采样失败，其时间仅对应本窗口系列。",
+    "A model request reported a usage limit. This event is not a WHAM sampling failure.": "一次模型请求报告了用量限额。此事件不代表 WHAM 采样失败。",
+    "A newer WHAM observation exists for this connection. This saved error may belong to a different identity and is not marked resolved.": "此连接有更新的 WHAM 观测记录。这条已保存的错误可能属于不同身份，未标记为已解决。",
+    "Historical saved sample error": "历史采样错误记录",
+    "Refresh saved windows": "刷新已保存窗口",
+    "Relay usage-limit event": "转发用量限额事件",
+    "This saved WHAM observation failed. It does not describe other window series.": "这条已保存的 WHAM 观测记录采样失败，不代表其他窗口系列的状态。",
+    "WHAM usage sample failed": "WHAM 用量采样失败",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

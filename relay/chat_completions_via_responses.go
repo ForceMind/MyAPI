@@ -11,6 +11,7 @@ import (
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
 	"github.com/ForceMind/MyAPI/relay/channel"
+	"github.com/ForceMind/MyAPI/relay/channel/codex"
 	openaichannel "github.com/ForceMind/MyAPI/relay/channel/openai"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
 	relayconstant "github.com/ForceMind/MyAPI/relay/constant"
@@ -72,7 +73,38 @@ func applySystemPromptIfNeeded(c *gin.Context, info *relaycommon.RelayInfo, requ
 	}
 }
 
+func seedCodexChatCacheIdentity(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeneralOpenAIRequest) {
+	if info == nil || info.ChannelMeta == nil || request == nil ||
+		info.ChannelType != constant.ChannelTypeCodex || info.RelayFormat != types.RelayFormatOpenAI ||
+		info.IsChannelTest || service.UpstreamAcceptanceModeEnabled() ||
+		!common.GetEnvOrDefaultBool("MYAPI_CODEX_CHAT_DEFAULT_CACHE_IDENTITY_ENABLED", false) {
+		return
+	}
+	// Never derive an account namespace from rotating access/refresh tokens.
+	key, err := codex.ParseOAuthKey(info.ApiKey)
+	if err != nil || strings.TrimSpace(key.AccountID) == "" {
+		return
+	}
+	headers, err := channel.ResolveHeaderOverride(info, c)
+	if err != nil {
+		return
+	}
+	session := headers["session_id"]
+	if session == "" {
+		session = headers["thread_id"]
+	}
+	cacheKey, defaultSession := deriveCodexChatCacheIdentity(request, info.UserId, info.TokenId, key.AccountID, session)
+	if cacheKey == "" {
+		return
+	}
+	request.PromptCacheKey = cacheKey
+	relaycommon.SeedCodexDefaultSessionHeader(info, defaultSession)
+}
+
 func chatCompletionsViaResponses(c *gin.Context, info *relaycommon.RelayInfo, adaptor channel.Adaptor, request *dto.GeneralOpenAIRequest) (*dto.Usage, *types.NewAPIError) {
+	// Seed before parameter operations: body/header overrides and deletions,
+	// including a previously finalized runtime map, remain authoritative.
+	seedCodexChatCacheIdentity(c, info, request)
 	chatJSON, err := common.Marshal(request)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())

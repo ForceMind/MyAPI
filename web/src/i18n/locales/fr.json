@@ -1,5 +1,13 @@
 {
   "translation": {
+    "This saved observation failed. Its timestamp applies only to this series.": "This saved observation failed. Its timestamp applies only to this series.",
+    "A model request reported a usage limit. This event is not a WHAM sampling failure.": "A model request reported a usage limit. This event is not a WHAM sampling failure.",
+    "A newer WHAM observation exists for this connection. This saved error may belong to a different identity and is not marked resolved.": "A newer WHAM observation exists for this connection. This saved error may belong to a different identity and is not marked resolved.",
+    "Historical saved sample error": "Historical saved sample error",
+    "Refresh saved windows": "Refresh saved windows",
+    "Relay usage-limit event": "Relay usage-limit event",
+    "This saved WHAM observation failed. It does not describe other window series.": "This saved WHAM observation failed. It does not describe other window series.",
+    "WHAM usage sample failed": "WHAM usage sample failed",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

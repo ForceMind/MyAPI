@@ -7,7 +7,7 @@ the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import z from 'zod'
 
 import {
@@ -174,7 +174,9 @@ export function useConnectionWindows(
   connectionIds: number[]
 ) {
   const ids = [...new Set(connectionIds)].sort((a, b) => a - b)
-  return useQuery({
+  const [now, setNow] = useState(() => Date.now() / 1000)
+  const enabled = access.canRead && ids.length > 0
+  const query = useQuery({
     queryKey: ['connections-windows', access.identity, ids.join(',')],
     queryFn: async ({ signal }) => {
       const response = await getChannelQuotaChanges(
@@ -202,10 +204,31 @@ export function useConnectionWindows(
           item.metric_type === 'codex_rate_limit' && item.unit === 'percent'
       )
     },
-    enabled: access.canRead && ids.length > 0,
+    enabled,
     retry: false,
     refetchOnWindowFocus: false,
   })
+  const readSaved = query.refetch
+  const refetch = useCallback(() => {
+    setNow(Date.now() / 1000)
+    return readSaved()
+  }, [readSaved])
+  useEffect(() => {
+    if (!enabled) return
+    const refreshVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      // This query reads saved rows only; never refresh provider credentials,
+      // run WHAM sampling or substitute the connection's Test action.
+      void refetch()
+    }
+    const timer = window.setInterval(refreshVisible, 60_000)
+    document.addEventListener('visibilitychange', refreshVisible)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', refreshVisible)
+    }
+  }, [enabled, refetch])
+  return { ...query, refetch, now }
 }
 
 /**

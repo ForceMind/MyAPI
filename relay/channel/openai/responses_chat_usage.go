@@ -2,6 +2,8 @@ package openai
 
 import (
 	"encoding/json"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/relaykit/dto"
@@ -12,11 +14,13 @@ import (
 // This boundary accepts compatible wire shapes without promoting them to
 // native fee evidence. original remains the only source of that evidence.
 type responsesChatUsage struct {
-	original   []byte
-	normalized []byte
-	cached     json.RawMessage
-	present    bool
-	stream     bool
+	original    []byte
+	normalized  []byte
+	rawUsage    json.RawMessage
+	cached      json.RawMessage
+	present     bool
+	stream      bool
+	caseVariant bool
 }
 
 func normalizeResponsesChatUsage(body []byte, stream bool) ([]byte, responsesChatUsage, error) {
@@ -62,6 +66,20 @@ func normalizeResponsesChatUsage(body []byte, stream bool) ([]byte, responsesCha
 		return body, observed, nil
 	}
 	observed.present = true
+	observed.rawUsage = raw
+	// JSON DTO decoding is case insensitive. Remove case variants before it
+	// can interpret an unrecognized spelling as a canonical accounting field.
+	for key := range fields {
+		if key != strings.ToLower(key) || len(key) != utf8.RuneCountInString(key) {
+			observed.caseVariant = true
+			var err error
+			raw, err = sjson.DeleteBytes(raw, key)
+			if err != nil {
+				return nil, observed, err
+			}
+			delete(fields, key)
+		}
+	}
 	details, canonical := fields["input_tokens_details"]
 	if !canonical {
 		details = fields["prompt_tokens_details"]
@@ -80,11 +98,27 @@ func normalizeResponsesChatUsage(body []byte, stream bool) ([]byte, responsesCha
 		}
 		observed.cached = counts["cached_tokens"]
 	}
+	for _, path := range []string{"input_tokens_details", "output_tokens_details", "completion_tokens_details"} {
+		value := gjson.GetBytes(raw, path)
+		if !value.IsObject() {
+			continue
+		}
+		for key := range value.Map() {
+			if key != strings.ToLower(key) || len(key) != utf8.RuneCountInString(key) {
+				observed.caseVariant = true
+				var err error
+				raw, err = sjson.DeleteBytes(raw, path+"."+key)
+				if err != nil {
+					return nil, observed, err
+				}
+			}
+		}
+	}
 	// Internal source claims are never accepted from upstream JSON.
 	// Once selected, keep only Responses details in the accounting DTO. Leaving
 	// a conflicting Chat alias here would let downstream compatibility fallback
 	// revive it over a canonical explicit zero.
-	for _, key := range []string{"billing_usage", "usage_source", "usage_semantic", "prompt_tokens_details"} {
+	for _, key := range []string{"billing_usage", "usage_source", "usage_semantic", "prompt_tokens_details", "prompt_tokens", "completion_tokens", "prompt_cache_hit_tokens"} {
 		var err error
 		raw, err = sjson.DeleteBytes(raw, key)
 		if err != nil {
@@ -127,13 +161,23 @@ func (observed responsesChatUsage) clientBody(value any, chat bool) ([]byte, err
 }
 
 func (observed responsesChatUsage) captureEvidence(usage *dto.Usage) {
-	if usage == nil || usage.BillingUsage == nil || !observed.present {
+	if usage == nil || usage.BillingUsage == nil {
+		return
+	}
+	if !observed.present {
+		usage.BillingUsage.Incomplete = true
+		usage.BillingUsage.ResponsesTextEvidence = nil
 		return
 	}
 	markResponsesUsageEvidence(usage, observed.normalized, observed.stream)
 	// Capture again from original bytes: aliases must not acquire fee proof.
 	captureResponsesTextEvidence(usage, observed.original, observed.stream)
-	if _, err := common.CanonicalJSONObjectDigest(observed.original); err != nil {
+	if observed.caseVariant {
+		usage.BillingUsage.ResponsesTextEvidence = nil
+	}
+	// Bound and validate usage itself; large response output must not turn
+	// otherwise valid token evidence into an unknown settlement.
+	if _, err := common.CanonicalJSONObjectDigest(observed.rawUsage); err != nil {
 		usage.BillingUsage.Incomplete = true
 	}
 	if usage.BillingUsage.OpenAIUsage == nil {
@@ -147,4 +191,16 @@ func (observed responsesChatUsage) captureEvidence(usage *dto.Usage) {
 			}
 		}
 	}
+}
+
+// Always discard internal fields after typed decoding too, including legacy
+// case-insensitive spellings. Only terminal Responses events establish usage.
+func sanitizeResponsesChatAccounting(usage *dto.Usage) {
+	if usage == nil {
+		return
+	}
+	usage.BillingUsage = nil
+	usage.UsageSource, usage.UsageSemantic = "", ""
+	usage.PromptTokens, usage.CompletionTokens, usage.PromptCacheHitTokens = 0, 0, 0
+	usage.PromptTokensDetails = dto.InputTokenDetails{}
 }

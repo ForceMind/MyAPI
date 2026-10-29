@@ -120,7 +120,7 @@ def main():
         lines.append(f"| {row['id']} | {row['raw_cached_state']} | {label('myapi')} | {label('sub2api')} |")
     lines.extend(["", "## Request identity properties", "", "```json", json.dumps(properties, indent=2), "```", "",
                   "Missing/null values remain distinct in the input and findings. A successful observation run is not acceptance of unknown-to-zero or a product fix.",
-                  "No billing, routing, defaults, production data, or provider configurations were changed."])
+                  "The probes use synthetic fixtures only. Candidate product behavior is bound to the recorded source SHA; no production data or provider configuration is changed by this run."])
     (directory / "comparison.md").write_text("\n".join(lines) + "\n")
     print(json.dumps({"comparison_executed": True, "product_fixed": False, "request_cases": len(request_rows),
                       "usage_cases": len(usage_rows), "request_properties": properties,
