@@ -87,12 +87,12 @@ func TestMyAPIUsageCompatibilityComparisonProbe(t *testing.T) {
 						}
 					}
 				}
-				frame := map[string]any{"cache_state": row["client_cache_state"], "input": counts.Input, "output": counts.Output}
+				observedFrame := map[string]any{"cache_state": row["client_cache_state"], "input": counts.Input, "output": counts.Output}
 				if n, ok := row["client_cache_value"]; ok {
-					frame["cache_value"] = n
+					observedFrame["cache_value"] = n
 				}
 				sequence, _ := row["client_usage_sequence"].([]map[string]any)
-				row["client_usage_sequence"] = append(sequence, frame)
+				row["client_usage_sequence"] = append(sequence, observedFrame)
 			}
 			// Protect existing authoritative canonical contracts. Alternate shapes
 			// are measured, not declared correct merely because this probe ran.

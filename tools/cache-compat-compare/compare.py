@@ -124,7 +124,13 @@ def main():
     (directory / "comparison.md").write_text("\n".join(lines) + "\n")
     print(json.dumps({"comparison_executed": True, "product_fixed": False, "request_cases": len(request_rows),
                       "usage_cases": len(usage_rows), "request_properties": properties,
-                      "usage_differences": [row["id"] for row in usage_rows if row["outputs_differ"]]}))
+                      "usage_differences": [row["id"] for row in usage_rows if row["outputs_differ"]],
+                      "usage_observations": [{"id": row["id"], "raw_cached_state": row["raw_cached_state"],
+                                              "myapi": observation(row["myapi"]), "sub2api": observation(row["sub2api"]),
+                                              "findings": row["findings"],
+                                              "myapi_sequence": row["myapi"].get("client_usage_sequence", []),
+                                              "sub2api_sequence": row["sub2api"].get("client_usage_sequence", [])}
+                                             for row in usage_rows]}))
 
 
 if __name__ == "__main__":
