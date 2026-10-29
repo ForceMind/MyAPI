@@ -1,5 +1,9 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-10-30 插单：已批准缓存兼容与采样界面最小修复（产品完整CI通过）
+
+候选42a258df / [完整CI40905811752](https://github.com/ForceMind/MyAPI/actions/runs/40905811752)首次success（10成功、1浏览器作业跳过），已读全部作业/步骤：根模块/独立relaykit、原生/386构建、两模块/完整竞态/三库/Redis/分发通过；A新增10族、B新增11族、原转换/存在性6族专项竞态逐族PASS，无FAIL/DATA RACE；前端24/24专项、1917/1917全量及同步/构建/typecheck/lint通过。浏览器未验证。收尾只改交接文档，应用仍绑定42a258df，接手读最新文档CI。[合成对照40905060265](https://github.com/ForceMind/MyAPI/actions/runs/40905060265)绑定后端等价源码9fbf640e成功，兼容两种正缓存均保留7与20/3，未知不补零。A局部usage归一化/四态投影与计费证据隔离；B默认关闭的Codex Chat稳定Key/session、覆盖删除优先；C连接窗口来源/历史分类及只读刷新。不改生产、不发供应商请求、不发镜像/版本、不合main。详细行为、审查补修、中间红/取消与开关边界见[缓存专项第0节第四轮](handoff/CACHE_REVIEW_20261027.md#0-2026-10-29-默认关闭的上游诊断日志)及[同一工具说明](../../../tools/cache-compat-compare/README.md)。
+
 ## 2026-10-29 缓存身份/usage合成对照与采样显示只读调查（测试通过，产品待确认）
 
 源码8f9e533c的[合成对照40888007112](https://github.com/ForceMind/MyAPI/actions/runs/40888007112)、[完整CI40888007450](https://github.com/ForceMind/MyAPI/actions/runs/40888007450)首次success。6身份/8usage场景用双方实际代码证明：MyAPI缺省不补身份，2种兼容usage形状会丢正缓存数；sub2api也省略明确零，不直接照抄。报告及候选最小产品方案集中在 [工具README](../../../tools/cache-compat-compare/README.md)与[缓存专项第三轮](handoff/CACHE_REVIEW_20261027.md#0-2026-10-29-默认关闭的上游诊断日志)，产品未改、product_fixed=false，用户确认前不实施。采样后台近期成功，连接页存在旧error系列误分类/不刷新触发条件，浏览器实例未验证；不隐藏错误或补零。另一会话f0ae4505修复已保留，生产cd35不自动更新；本机无依赖安装/构建测试/外部源码克隆/产物下载。收尾纯文档，继续读最新CI。
