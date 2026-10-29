@@ -31,7 +31,7 @@ jobs:
       GOMEMLIMIT: '3GiB'
       CACHE_COMPARE_SUB2API_SHA: a3298b46ebe239fb0720b068a1eb3383955bdac2
       CACHE_COMPARE_INPUT: ${{ github.workspace }}/myapi/tools/cache-compat-compare/fixtures.json
-      CACHE_COMPARE_REPORT_DIR: ${{ runner.temp }}/cache-compat-report
+      CACHE_COMPARE_REPORT_DIR: ${{ github.workspace }}/cache-compat-report
       CACHE_COMPARE_MYAPI_SHA: ${{ github.sha }}
     steps:
       - name: Check out MyAPI candidate
