@@ -46,6 +46,9 @@ type fullContentLogEntry struct {
 	Headers     map[string][]string `json:"headers,omitempty"`
 	Query       map[string][]string `json:"query,omitempty"`
 	Error       string              `json:"error,omitempty"`
+	ChannelID   int                 `json:"channel_id,omitempty"`
+	Attempt     int64               `json:"upstream_attempt,omitempty"`
+	Capture     string              `json:"capture_state,omitempty"`
 }
 
 type fullContentFileWriter struct {
@@ -110,6 +113,9 @@ func FullContentLogger() gin.HandlerFunc {
 			omitBody:       c.GetString("playground_original_path") != "",
 		}
 		c.Writer = responseWriter
+		if upstreamDiagnosticEnabled() && !responseWriter.omitBody {
+			c.Set(common.UpstreamDiagnosticContextKey, &upstreamDiagnosticObserver{writer: writer, identity: identity})
+		}
 
 		requestEntry := newFullContentLogEntry(identity, "request")
 		requestEntry.ContentType = c.GetHeader("Content-Type")

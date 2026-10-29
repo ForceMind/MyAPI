@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -208,16 +210,20 @@ func TestCodexSessionHeadersDoNotBypassStrictAcceptanceOverrideGate(t *testing.T
 }
 
 type codexSessionHeadersFixture struct {
-	engine     *gin.Engine
-	tokenKey   string
-	channelID  int
-	disconnect atomic.Bool
-	calls      atomic.Int32
-	external   atomic.Int32
-	observed   chan http.Header
+	engine         *gin.Engine
+	tokenKey       string
+	channelID      int
+	disconnect     atomic.Bool
+	calls          atomic.Int32
+	external       atomic.Int32
+	observed       chan http.Header
+	observedBodies chan []byte
+	responseSSE    string
+	contentLog     bool
+	diagnostics    bool
 }
 
-func newCodexSessionHeadersFixture(t *testing.T, modelName string, channelPass, globalPass bool, headerConfig string) *codexSessionHeadersFixture {
+func newCodexSessionHeadersFixture(t *testing.T, modelName string, channelPass, globalPass bool, headerConfig string, configure ...func(*codexSessionHeadersFixture)) *codexSessionHeadersFixture {
 	t.Helper()
 	t.Setenv("MYAPI_UPSTREAM_ACCEPTANCE_ENABLED", "false")
 	t.Setenv(common.ChannelQuotaIdentityKeysEnv, "")
@@ -280,6 +286,11 @@ func newCodexSessionHeadersFixture(t *testing.T, modelName string, channelPass, 
 	})
 
 	fixture := &codexSessionHeadersFixture{observed: make(chan http.Header, 2)}
+	for _, apply := range configure {
+		apply(fixture)
+	}
+	t.Setenv("FULL_CONTENT_LOG_ENABLED", strconv.FormatBool(fixture.contentLog))
+	t.Setenv("MYAPI_UPSTREAM_DIAGNOSTIC_ENABLED", strconv.FormatBool(fixture.diagnostics))
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fixture.calls.Add(1)
 		select {
@@ -292,9 +303,13 @@ func newCodexSessionHeadersFixture(t *testing.T, modelName string, channelPass, 
 		var payload struct {
 			Model string `json:"model"`
 		}
-		if !assert.NoError(t, common.DecodeJson(r.Body, &payload)) {
+		wireBody, err := io.ReadAll(r.Body)
+		if !assert.NoError(t, err) || !assert.NoError(t, common.Unmarshal(wireBody, &payload)) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
+		}
+		if fixture.observedBodies != nil {
+			fixture.observedBodies <- wireBody
 		}
 		assert.Equal(t, modelName, payload.Model)
 		if fixture.disconnect.Load() {
@@ -306,6 +321,10 @@ func newCodexSessionHeadersFixture(t *testing.T, modelName string, channelPass, 
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("X-Codex-Turn-State", "synthetic-next-turn")
+		if fixture.responseSSE != "" {
+			_, _ = io.WriteString(w, fixture.responseSSE)
+			return
+		}
 		fmt.Fprintf(w, "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"synthetic-header-response\",\"object\":\"response\",\"status\":\"completed\",\"model\":%q,\"output\":[],\"usage\":{\"input_tokens\":10,\"output_tokens\":5,\"total_tokens\":15,\"input_tokens_details\":{\"cached_tokens\":0}}}}\n\ndata: [DONE]\n\n", modelName)
 	}))
 	t.Cleanup(upstream.Close)
@@ -339,7 +358,7 @@ func newCodexSessionHeadersFixture(t *testing.T, modelName string, channelPass, 
 	require.NoError(t, db.Create(&channel).Error)
 	require.NoError(t, channel.AddAbilities(nil))
 	fixture.channelID = channel.Id
-	policy, err := common.Marshal(model_setting.ChatCompletionsToResponsesPolicy{Enabled: true, ChannelIDs: []int{channel.Id}, ModelPatterns: []string{"^gpt-5-codex$"}})
+	policy, err := common.Marshal(model_setting.ChatCompletionsToResponsesPolicy{Enabled: true, ChannelIDs: []int{channel.Id}, ModelPatterns: []string{"^" + regexp.QuoteMeta(modelName) + "$"}})
 	require.NoError(t, err)
 	require.NoError(t, config.UpdateConfigFromMap(global, map[string]string{
 		"chat_completions_to_responses_policy": string(policy), "pass_through_request_enabled": strconv.FormatBool(globalPass),
@@ -350,6 +369,7 @@ func newCodexSessionHeadersFixture(t *testing.T, modelName string, channelPass, 
 		common.SetContextKey(c, constant.ContextKeyAuditLogged, true)
 		c.Next()
 	})
+	engine.Use(middleware.FullContentLogger())
 	engine.POST("/v1/responses", middleware.TokenAuth(), middleware.Distribute(), func(c *gin.Context) { controller.Relay(c, types.RelayFormatOpenAIResponses) })
 	engine.POST("/v1/chat/completions", middleware.TokenAuth(), middleware.Distribute(), func(c *gin.Context) { controller.Relay(c, types.RelayFormatOpenAI) })
 	fixture.engine = engine

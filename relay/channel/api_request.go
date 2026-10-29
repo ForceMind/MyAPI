@@ -606,6 +606,19 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 		state.DispatchPossible = true
 	}
 	var resp *http.Response
+	var observeUpstreamResponse func(*http.Response)
+	if info.ChannelType == rootconstant.ChannelTypeCodex {
+		if observer, ok := c.Value(common2.UpstreamDiagnosticContextKey).(common2.UpstreamDiagnosticObserver); ok {
+			observeUpstreamResponse = observer.ObserveRequest(req, info.ChannelId)
+		}
+	}
+	// Diagnostics only observe the existing one-shot bodies. All admission
+	// checks, replay restrictions and outbound credentials remain unchanged.
+	defer func() {
+		if observeUpstreamResponse != nil {
+			observeUpstreamResponse(resp)
+		}
+	}()
 	if acceptance {
 		resp, err = service.DoUpstreamAcceptanceHTTP(&relayClient, req, model.UpstreamAcceptanceDispatchGeneration)
 		if errors.Is(err, service.ErrUpstreamAcceptanceUnsent) {

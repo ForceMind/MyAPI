@@ -192,6 +192,12 @@ jobs:
       - name: Test root and relaykit modules
         run: make test
 
+      - name: Verify opt-in Codex upstream diagnostics and dispatch guards
+        run: >-
+          go test -race -p 1 ./middleware ./router
+          -run '^Test(UpstreamDiagnostic|CodexUpstreamDiagnostic|CodexSessionHeaders)'
+          -count=1 -timeout=180s -v
+
       - name: Test historical accounting audit tools
         working-directory: tools/accounting-audit
         env:

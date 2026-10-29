@@ -2,6 +2,8 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**2026-10-29 上游日志取证插单（已批准，实现待CI）**：维护者批准补齐真实 Codex 上游边界日志，默认关闭，保留缺失/null/0/正数，不修缓存路由或计费，不操作生产、不发真实模型请求。新增 `MYAPI_UPSTREAM_DIAGNOSTIC_ENABLED=false`，还须正文日志开启才生效；复用现有JSONL脱敏/轮转，记录 `upstream_request` 与 `upstream_usage`，按 `request_id + upstream_attempt + channel_id` 关联。新阶段目前从管理员JSONL读取，现有正文页面不展示这两种新阶段，未改UI。字段语义、边界与交付证据见 [缓存专项第0节](CACHE_REVIEW_20261027.md#0-2026-10-29-默认关闭的上游诊断日志)。所有构建/测试仅Actions；代码提交、完整CI和交接收尾尚待记录，未称已验证，不构成部署授权。
+
 **2026-10-28 当前转回UI设计，产品实现尚未开始**：维护者要求全站页面/按钮/组件统一设计与合理精简，**每页先画线稿**。当前设计提案在[全站线稿目录](../ui-design-v2/wireframes/index.html)与[说明](../ui-design-v2/wireframes/README.md)：326个页面/分区/交互视图、652张桌面/手机SVG，覆盖66条路由、42个设置分区和54个内部页签/模式映射，含详情页签、安装步骤、弹层与状态，不把视图数写成实际路由数或已实现页数。首份设计提交`88165830`的[CI40682248336](https://github.com/ForceMind/MyAPI/actions/runs/40682248336)首次success（10成功、1个浏览器混合作业跳过），实际只触发CI；后续收尾补充仍须读取自己的完整CI。优先设计正文与SSE直接跳页、每页条数和同一日历选择时间范围；产品代码未改，浏览器未验证，待维护者审阅后分批实施。CLI来源规则后移，UI方向3与Logo不重做。
 
 维护者已单独授权将dev快进合入main，当前两分支基线均为`c916051e`；[main CI40664697561](https://github.com/ForceMind/MyAPI/actions/runs/40664697561)首次success（10成功、1个混合浏览器作业跳过）。**执行偏差必须保留**：main推送还触发了既有[网站浏览器40664697462](https://github.com/ForceMind/MyAPI/actions/runs/40664697462)，Chromium在GitHub执行成功，发现并请求取消时已结束；不能声称该轮完全未跑浏览器。网站显式授权开关尚未落实；此线稿批次只改docs，仍须读取真实CI。后续不因此获得自动合main、发布、部署或真实供应商授权。
