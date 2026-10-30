@@ -2,7 +2,9 @@
 
 
 
-## 2026-10-30 UI第三批：请求详情与已存SSE检视（候选，待完整CI）
+## 2026-10-30 UI第三批：请求详情与已存SSE检视（源码/完整CI通过）
+
+源码 41f1c9b67dd5ed72d791611798c530d5238bf8c0 / [完整CI41068500563](https://github.com/ForceMind/MyAPI/actions/runs/41068500563) attempt1 success，10作业成功、1浏览器作业跳过；全部作业/步骤与前端原始日志已读。专项47文件407/407、前端全量295文件2102/2102，i18n同步/构建/typecheck/lint通过（0错误，16警告，含本批测试字符串拼接提示；未改规则）；根模块/独立relaykit vet/build、原生/386、两模块全量与全部既有竞态、三库/Redis/分发/Desktop通过。RUN_BROWSER=0，浏览器依赖安装及全部Chromium步骤跳过。静态审查补修的role缓存、Key面包屑隔离、返回焦点、缺失身份ID和UTF-8预览均有相应合成回归通过；关键断言保留。收尾只改4份既有交接，应用源码仍绑定41f1c9b6，接手读取最新文档提交CI。
 
 维护者批准沿用request-detail/body/sse/raw与Key对应线稿，两个入口继续共用RequestPage，不重搭ObjectPage。基线784a3dcb；本批仅相关前端、回归、37个新增i18n键、必要CI入口及交接；不改后端/计费/生产，不发真实模型请求，不跑浏览器。本机只改源文件和轻量文本/Git检查，无依赖/构建测试/构件下载。
 
@@ -11,7 +13,7 @@
 - 抽共享ContentPanel/纯保存内容renderer，旧弹窗保留入口和Request/Response页签，消除重复解析/模式开关。正文可读/保存原文、头/query/URL可展开；Raw区将账户可读调用记录与已存上游内容分开，不补造缺失正文。旧ContentPanel导入路径兼容。
 - SSE仅解析已保存预览；序号/类型/数据/标记来源、本地全预览搜索、50条逐批展开，501以后仍可搜索。UTF-8预览<=1MiB、不拆中文/emoji，复制保留全部已加载原文；预览限制、服务器返回截断、未结束帧、BOM/MIME/编码、缺事件时间分别呈现，不把结束标记当业务成功/结算。
 - Key名字/请求与内容按user/session/role隔离：页面重挂载清除旧局部状态，lookup补原始role维度防止100到10复用缓存；全内容hook原管理员与active门禁保留。日志列表只补已有return-focus钩子接线，不重新设计列表；两个入口经过页签切换的原筛选、页码、焦点回归保留并加强。
-- 新旧语义回归均只在Actions运行，专项包含usage-logs/full-content-logs及Key页面/最近请求的原工作流，之后前端全量/typecheck/lint/build与完整既有CI；浏览器保持未授权。未验证前不称完成。
+- 新旧语义回归均只在Actions运行，专项包含usage-logs/full-content-logs及Key页面/最近请求的原工作流，之后前端全量/typecheck/lint/build与完整既有CI；浏览器保持未授权。本批源码及所列CI检查已通过，但浏览器与线上展示未验证。
 
 只读待办（不自动实施）：从代码看，TokenBudgetEvidence的Reserved USD/actual_fee_usd与订阅金额部分沿用原条件，未统一受showCosts控制；需单独确认诊断金额的展示口径，本批未改其财务含义或验证线上影响。新SSE MIME已按essence精确匹配，旧lib/format.ts部分includes判断按原语义保留，后续若统一需单独审查回归。
 

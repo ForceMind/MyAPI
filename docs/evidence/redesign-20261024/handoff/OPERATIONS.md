@@ -142,3 +142,5 @@ gh run download <RUN_ID> --repo ForceMind/MyAPI -D /tmp/myapi-shots
 ### 2026-10-30 请求详情批次验证入口
 
 前端CI专项增加Key页面URL与最近请求工作流，连同usage-logs/full-content-logs已有合同验证四tabs/旧链接/返回焦点、权限及内容隔离、SSE预览与完整复制；所有命令仅runner执行，浏览器安装和Chromium保持跳过。本机不运行工具链/浏览器或下载产物；每次推送仍读自己的完整CI。
+
+请求详情源码41f1c9b6 / [完整CI41068500563](https://github.com/ForceMind/MyAPI/actions/runs/41068500563) attempt1 success，10成功/1浏览器跳过；专项407/407、全量2102/2102、同步/构建/类型/lint与完整后端/数据库回归通过，全部作业/步骤已读。只改交接的收尾提交仍需读自己的CI，不能只引用源码CI；源码仍绑定41f1c9b6。
