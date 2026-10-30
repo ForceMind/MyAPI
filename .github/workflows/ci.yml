@@ -626,8 +626,8 @@ jobs:
           restore_candidate
           git -c core.fileMode=false diff --exit-code -- "${targets[@]}"
 
-      - name: Verify body-log pagination, range selection and return-state contracts
-        run: bun run test src/features/full-content-logs src/components/date-time-range-picker
+      - name: Verify log workspaces, body pagination, range selection and return-state contracts
+        run: bun run test src/features/usage-logs src/features/full-content-logs src/components/date-time-range-picker src/lib/__tests__/log-pagination.test.ts
 
       - name: Verify pre-fix personal Key handoff regression
         if: github.event_name == 'workflow_dispatch' && inputs.baseline_red

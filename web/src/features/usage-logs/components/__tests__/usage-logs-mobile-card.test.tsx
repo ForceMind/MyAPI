@@ -7,7 +7,7 @@ the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
 import type { Cell, Table } from '@tanstack/react-table'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { describe, expect, test, vi } from 'vitest'
 
@@ -96,7 +96,7 @@ function makeTable<TData>(
 
 function renderList<TData>(
   table: Table<TData>,
-  props: { isLoading?: boolean; logCategory?: 'common' | 'task' } = {}
+  props: { isLoading?: boolean; logCategory?: 'common' | 'drawing' | 'task' } = {}
 ) {
   return render(
     <UsageLogsProvider>
@@ -119,6 +119,46 @@ describe('usage logs mobile list', () => {
     expect(within(row).getByText('req-mobile')).toBeInTheDocument()
     expect(within(row).getByText('research-key')).toBeInTheDocument()
     expect(within(row).getByText('18 Tokens')).toBeInTheDocument()
+  })
+
+  test('HTTP success, missing usage and settlement review remain independent facts', () => {
+    renderList(
+      makeTable([{
+        ...LOG,
+        type: LOG_TYPE_ENUM.ERROR,
+        quota: 0,
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        other: JSON.stringify({
+          request_outcome: 'completed',
+          http_status: 200,
+          usage_outcome: 'missing',
+          settlement_status: 'pending_review',
+        }),
+      }])
+    )
+
+    const row = screen.getByTitle('Click to view full details')
+    expect(within(row).getByText('Request successful')).toBeInTheDocument()
+    expect(within(row).getByText('HTTP 200')).toBeInTheDocument()
+    expect(within(row).getByText('Usage not provided')).toBeInTheDocument()
+    expect(within(row).getByText('Settlement pending review')).toBeInTheDocument()
+    expect(screen.queryByText('0 Tokens')).not.toBeInTheDocument()
+  })
+
+  test('an absent HTTP status remains explicitly unknown', () => {
+    renderList(makeTable([LOG]))
+
+    expect(screen.getByText('HTTP status not recorded')).toBeInTheDocument()
+    expect(screen.queryByText('HTTP 200')).not.toBeInTheDocument()
+  })
+
+  test('Request ID copying has a separate touch target beside the details link', () => {
+    renderList(makeTable([LOG]))
+
+    const copy = screen.getByRole('button', { name: 'Copy Request ID' })
+    expect(copy).toHaveClass('min-h-11', 'min-w-11')
+    expect(screen.getByTitle('Click to view full details')).not.toContainElement(copy)
   })
 
   test('a record without a Request ID keeps its details as a button', () => {
@@ -182,6 +222,39 @@ describe('usage logs mobile list', () => {
     expect(
       screen.getByRole('button', { name: 'View reason' })
     ).toBeInTheDocument()
+  })
+
+  test('a task retains hidden main fields and expands the remaining fields', () => {
+    const task = { id: 9, task_id: 'task-hidden' }
+    const table = makeTable([task], (row) => ({
+      visible: [makeCell('submit_time', 'submitted', row)],
+      all: [
+        makeCell('task_id', 'task-hidden', row),
+        makeCell('status', 'Unknown', row),
+        makeCell('submit_time', 'submitted', row),
+        makeCell('platform', 'kling', row),
+        makeCell('quota', 'Metered amount', row),
+        makeCell('user', 'task owner', row),
+      ],
+    }))
+
+    renderList(table, { logCategory: 'task' })
+
+    expect(screen.getByText('task-hidden')).toBeInTheDocument()
+    expect(screen.getByText('Unknown')).toBeInTheDocument()
+    expect(screen.getByText('kling')).toBeInTheDocument()
+    expect(screen.getByText('Metered amount')).toBeInTheDocument()
+    expect(screen.getByText('task owner')).not.toBeVisible()
+    fireEvent.click(screen.getByText('More details'))
+    expect(screen.getByText('task owner')).toBeVisible()
+  })
+
+  test('loading a replacement page hides old record values', () => {
+    renderList(makeTable([LOG]), { isLoading: true })
+
+    expect(screen.queryByText('req-mobile')).not.toBeInTheDocument()
+    expect(screen.queryByText('18 Tokens')).not.toBeInTheDocument()
+    expect(document.querySelector('[data-log-row]')).toBeNull()
   })
 
   test('renders loading and empty states without a record row', () => {

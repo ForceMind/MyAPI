@@ -300,6 +300,7 @@ export interface LogStatistics {
 // ============================================================================
 
 export interface MidjourneyLog {
+  quota?: number
   id: number
   user_id: number
   channel_id: number
@@ -328,6 +329,7 @@ export interface MidjourneyLog {
 // ============================================================================
 
 export interface TaskLog {
+  quota?: number
   id: number
   user_id: number
   username?: string

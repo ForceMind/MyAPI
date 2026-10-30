@@ -22,6 +22,7 @@ import { GitBranch, Sparkles, KeyRound } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { CopyButton } from '@/components/copy-button'
 import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge, type StatusBadgeProps } from '@/components/status-badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -52,7 +53,7 @@ import {
   renderAuditContent,
 } from '../../lib/format'
 import { getPersonalCallEvidence } from '../../lib/personal-call-evidence'
-import { isRequestLog } from '../../lib/request-facts'
+import { getRequestFacts, isRequestLog } from '../../lib/request-facts'
 import {
   isDisplayableLogType,
   isTimingLogType,
@@ -63,6 +64,7 @@ import type { LogOtherData } from '../../types'
 import { DetailsDialog } from '../dialogs/details-dialog'
 import { LogCostDisplay } from '../log-cost-display'
 import { ModelBadge } from '../model-badge'
+import { UsageAccuracyBadge } from '../usage-accuracy-badge'
 import { TimingMetricsCell, StreamTpsCell } from '../timing-metrics-cell'
 import {
   useLogMoneyVisibility,
@@ -306,14 +308,6 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
             <span className='truncate font-mono text-xs tabular-nums'>
               {formatTimestampToDate(timestamp)}
             </span>
-            {log.request_id && (
-              <span
-                className='max-w-48 truncate font-mono text-xs'
-                title={log.request_id}
-              >
-                {log.request_id}
-              </span>
-            )}
             <StatusBadge
               label={t(config.label)}
               variant={config.color as StatusBadgeProps['variant']}
@@ -334,6 +328,61 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
       },
       enableHiding: false,
       size: 180,
+    },
+    {
+      accessorKey: 'request_id',
+      header: t('Request ID'),
+      cell: ({ row }) => {
+        const requestId = row.original.request_id
+        if (!requestId) return <span className='text-muted-foreground'>—</span>
+        return (
+          <div className='flex max-w-52 min-w-0 items-center gap-1'>
+            <span className='truncate font-mono text-xs' title={requestId}>
+              {requestId}
+            </span>
+            <CopyButton value={requestId} aria-label={t('Copy Request ID')} />
+          </div>
+        )
+      },
+    },
+    {
+      id: 'request_result',
+      header: t('Business result / HTTP'),
+      cell: ({ row }) => {
+        if (!isRequestLog(row.original)) return null
+        const facts = getRequestFacts(row.original)
+        return (
+          <div className='flex min-w-0 flex-col items-start gap-1'>
+            <StatusBadge
+              label={t(facts.outcome.label)}
+              variant={facts.outcome.variant}
+              copyable={false}
+              className='h-auto min-h-5 whitespace-normal'
+            />
+            <span className='text-muted-foreground font-mono text-xs'>
+              {facts.httpStatus == null
+                ? t('HTTP status not recorded')
+                : `HTTP ${facts.httpStatus}`}
+            </span>
+          </div>
+        )
+      },
+    },
+    {
+      id: 'settlement',
+      header: t('Settlement'),
+      cell: ({ row }) => {
+        if (!isRequestLog(row.original)) return null
+        const facts = getRequestFacts(row.original)
+        return (
+          <StatusBadge
+            label={t(facts.settlement.label)}
+            variant={facts.settlement.variant}
+            copyable={false}
+            className='h-auto min-h-5 whitespace-normal'
+          />
+        )
+      },
     },
   ]
 
@@ -662,7 +711,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
     },
     {
       accessorKey: 'prompt_tokens',
-      header: 'Tokens',
+      header: t('Usage evidence'),
       cell: ({ row }) => {
         const log = row.original
         if (!isDisplayableLogType(log.type)) return null
@@ -672,7 +721,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         if (!getPersonalCallEvidence(log).usageKnown) {
           return (
             <span className='text-muted-foreground text-xs'>
-              {t('Unknown')}
+              {t('Usage not provided')}
             </span>
           )
         }
@@ -688,7 +737,8 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
           : other?.cache_creation_tokens || 0
 
         return (
-          <div className='flex flex-col gap-0.5'>
+          <div className='flex flex-col items-start gap-0.5'>
+            <UsageAccuracyBadge accuracy={other?.usage_accuracy} />
             <span className='font-mono text-xs font-medium tabular-nums'>
               {promptTokens.toLocaleString()} /{' '}
               {completionTokens.toLocaleString()}
@@ -720,6 +770,21 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
 
         const quota = row.getValue('quota') as number
         const other = parseLogOther(log.other)
+        if (!Number.isFinite(quota)) {
+          return (
+            <span className='text-muted-foreground text-xs'>{t('Unknown')}</span>
+          )
+        }
+        if (
+          other?.settlement_status === 'pending' ||
+          other?.settlement_status === 'applied_journal_pending'
+        ) {
+          return (
+            <span className='text-muted-foreground text-xs'>
+              {t('Settlement pending review')}
+            </span>
+          )
+        }
         return (
           <LogCostDisplay
             quota={quota}
@@ -812,7 +877,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
               to='/usage-logs/request/$requestId'
               params={{ requestId: log.request_id }}
               state={{ inspectorBack: true }}
-              className='group flex max-w-[200px] items-center gap-1 text-left text-xs'
+              className='group flex max-w-[200px] items-center gap-1 text-left text-xs max-sm:min-h-11 max-sm:min-w-11'
               title={t('Click to view full details')}
             >
               {label}
@@ -824,7 +889,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
           <>
             <button
               type='button'
-              className='group flex max-w-[200px] items-center gap-1 text-left text-xs'
+              className='group flex max-w-[200px] items-center gap-1 text-left text-xs max-sm:min-h-11 max-sm:min-w-11'
               onClick={() => setDialogOpen(true)}
               title={t('Click to view full details')}
             >
@@ -849,13 +914,26 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
     : columns.filter(
         (column) => !('accessorKey' in column && column.accessorKey === 'quota')
       )
-  const detailsColumn = visibleColumns.find(
-    (column) => 'accessorKey' in column && column.accessorKey === 'content'
-  )
-  if (!detailsColumn) return visibleColumns
+  // Keep the primary request facts together; all existing diagnostic columns
+  // remain selectable after these and retain their original permissions.
+  const primaryIds = [
+    'created_at',
+    'request_id',
+    'model_name',
+    'token_name',
+    'request_result',
+    'prompt_tokens',
+    'settlement',
+    'quota',
+    'use_time',
+    'content',
+  ]
+  const columnId = (column: ColumnDef<UsageLog>) =>
+    column.id ?? ('accessorKey' in column ? String(column.accessorKey) : '')
   return [
-    visibleColumns[0],
-    detailsColumn,
-    ...visibleColumns.slice(1).filter((column) => column !== detailsColumn),
+    ...primaryIds.flatMap((id) =>
+      visibleColumns.filter((column) => columnId(column) === id)
+    ),
+    ...visibleColumns.filter((column) => !primaryIds.includes(columnId(column))),
   ]
 }

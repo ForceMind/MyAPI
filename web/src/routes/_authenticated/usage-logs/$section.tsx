@@ -65,6 +65,8 @@ const usageLogsSearchSchema = z.object({
   // route sends them to the request page.
   inspect: z.literal('request').optional().catch(undefined),
   requestTab: legacyRequestTabSchema,
+  // Explicitly cleared range; absence still means the initial default range.
+  allTime: z.boolean().optional().catch(undefined),
   startTime: z.number().optional(),
   endTime: z.number().optional(),
 })

@@ -48,9 +48,8 @@ interface LogsFilterToolbarProps<TData> {
   primaryFilters: ReactNode
   advancedFilters?: ReactNode
   /**
-   * The one filter a phone keeps on the page (the date range): it tells what
-   * the list shows. Every other filter opens in a bottom sheet, so the first
-   * screen reaches the records.
+   * Keep the date range and frequent filters directly reachable on a phone.
+   * Less frequent filters open in the bottom sheet.
    */
   mobilePinnedFilters?: ReactNode
   mobileFilters?: ReactNode
@@ -77,7 +76,7 @@ export function LogsFilterField(props: LogsFilterFieldProps) {
   return (
     <div
       className={cn(
-        'min-w-0 [&_[data-slot=select-trigger]]:w-full [&_[data-slot=select-trigger]]:text-sm [&_[data-slot=select-value]]:leading-5',
+        'min-w-0 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=select-trigger]]:w-full [&_[data-slot=select-trigger]]:text-sm [&_[data-slot=select-value]]:leading-5',
         props.wide && 'sm:col-span-2',
         props.className
       )}
@@ -91,7 +90,7 @@ export function LogsFilterInput(props: ComponentProps<typeof Input>) {
   return (
     <Input
       {...props}
-      className={cn('h-8 min-w-0 text-sm leading-5', props.className)}
+      className={cn('min-h-11 min-w-0 text-sm leading-5', props.className)}
     />
   )
 }
@@ -130,30 +129,58 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
         <div
           data-testid='logs-filter-summary'
           className={cn(
-            'bg-card flex min-w-0 items-center gap-1.5 rounded-xl border p-2',
+            'bg-card min-w-0 space-y-2 rounded-xl border p-3',
             props.className
           )}
         >
-          <div className='min-w-0 flex-1'>{props.mobilePinnedFilters}</div>
-          {props.actionStart}
-          <DrawerTrigger asChild>
+          <div className='grid min-w-0 grid-cols-1 gap-2 min-[360px]:grid-cols-2 [&>*:first-child]:col-span-full'>
+            {props.mobilePinnedFilters}
+          </div>
+          <div className='flex flex-wrap items-center justify-end gap-2'>
+            {props.actionStart}
+            {hasAdvancedFilters && (
+              <DrawerTrigger asChild>
+                <Button
+                  type='button'
+                  variant='outline'
+                  className={cn(
+                    'min-h-11 shrink-0 gap-1.5',
+                    activeMobileFilterCount > 0 &&
+                      'border-primary/50 text-primary'
+                  )}
+                >
+                  <HugeiconsIcon
+                    icon={FilterHorizontalIcon}
+                    aria-hidden='true'
+                  />
+                  {t('Filter')}
+                  {activeMobileFilterCount > 0 && (
+                    <Badge className='size-5 justify-center p-0 text-[10px]'>
+                      {activeMobileFilterCount}
+                    </Badge>
+                  )}
+                </Button>
+              </DrawerTrigger>
+            )}
             <Button
               type='button'
+              className='min-h-11'
+              onClick={props.onReset}
               variant='outline'
-              className={cn(
-                'shrink-0 gap-1.5',
-                activeMobileFilterCount > 0 && 'border-primary/50 text-primary'
-              )}
+              disabled={!props.hasActiveFilters}
             >
-              <HugeiconsIcon icon={FilterHorizontalIcon} aria-hidden='true' />
-              {t('Filter')}
-              {activeMobileFilterCount > 0 && (
-                <Badge className='size-5 justify-center p-0 text-[10px]'>
-                  {activeMobileFilterCount}
-                </Badge>
-              )}
+              {t('Reset')}
             </Button>
-          </DrawerTrigger>
+            <Button
+              type='button'
+              className='min-h-11'
+              onClick={props.onSearch}
+              disabled={props.searchLoading}
+            >
+              {searchIcon}
+              {t('Search')}
+            </Button>
+          </div>
         </div>
         {props.stats}
 
@@ -177,6 +204,7 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
               <Button
                 type='button'
                 variant='outline'
+                className='min-h-11'
                 onClick={handleMobileReset}
                 disabled={!props.hasActiveFilters}
               >
@@ -184,6 +212,7 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
               </Button>
               <Button
                 type='button'
+                className='min-h-11'
                 onClick={handleMobileSearch}
                 disabled={props.searchLoading}
               >

@@ -7217,6 +7217,15 @@
     "Select a start and end date.": "请选择开始和结束日期。",
     "Select a valid date range.": "请选择有效的日期范围。",
     "Select an end date.": "请选择结束日期。",
-    "Current month": "本月"
+    "Current month": "本月",
+    "Business result / HTTP": "业务结果 / HTTP",
+    "Copy Task ID": "复制任务 ID",
+    "HTTP status not recorded": "未记录 HTTP 状态",
+    "Loading record total": "正在加载记录总数",
+    "Log pagination": "日志分页",
+    "More details": "更多详情",
+    "Page {{page}} of {{totalPages}} · {{total}} records": "第 {{page}} / {{totalPages}} 页 · 共 {{total}} 条记录",
+    "Record total unavailable": "记录总数暂不可用",
+    "Recorded quota": "记录费用"
   }
 }

@@ -27,6 +27,8 @@ import {
   DataTableRow,
   useDataTable,
 } from '@/components/data-table'
+import { LogPagination } from '@/components/log-pagination'
+import { getLogPageCount, normalizeLogPagination } from '@/lib/log-pagination'
 import { ErrorState } from '@/components/error-state'
 import { Button } from '@/components/ui/button'
 import { useMediaQuery } from '@/hooks'
@@ -36,7 +38,6 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
 import {
-  DEFAULT_LOGS_DATA,
   LOG_TYPE_ALL_VALUE,
   LOG_TYPE_ENUM,
 } from '../constants'
@@ -82,7 +83,14 @@ interface UsageLogsTableProps {
   logCategory: LogCategory
 }
 
-export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
+export function UsageLogsTable(props: UsageLogsTableProps) {
+  const userId = useAuthStore((state) => state.auth.user?.id ?? null)
+  const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
+  const { isAdminView } = useLogsViewScope()
+  return <UsageLogsTableContent key={JSON.stringify([props.logCategory, userId, sessionId, isAdminView])} {...props} />
+}
+
+function UsageLogsTableContent({ logCategory }: UsageLogsTableProps) {
   const { t } = useTranslation()
   const { isAdminView: isAdmin } = useLogsViewScope()
   const isMobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
@@ -93,7 +101,7 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   const {
     columnFilters,
     onColumnFiltersChange,
-    pagination,
+    pagination: urlPagination,
     onPaginationChange,
     ensurePageInRange,
   } = useTableUrlState({
@@ -128,7 +136,9 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
     ],
   })
 
-  const { data, error, isError, isLoading, isFetching, refetch } = useQuery({
+  const pagination = normalizeLogPagination(urlPagination.pageIndex, urlPagination.pageSize)
+
+  const { data, error, isError, isLoading, isFetching, isPlaceholderData, refetch } = useQuery({
     queryKey: [
       'logs',
       logCategory,
@@ -157,7 +167,8 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
         throw new Error(message)
       }
 
-      return result.data || DEFAULT_LOGS_DATA
+      if (!result.data) throw new Error(t('Failed to load logs'))
+      return result.data
     },
     placeholderData: (previousData, previousQuery) => {
       const previousSearch = previousQuery?.queryKey[8]
@@ -183,9 +194,12 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   // TanStack Query keeps the last successful data when a refetch fails. Do
   // not render that stale, potentially privileged log data alongside an auth
   // or permission error; the mobile slot already renders ErrorState directly.
-  const logs = isError ? [] : data?.items || []
+  const currentData = isError || isPlaceholderData ? undefined : data
+  const logs = currentData?.items || []
+  const totalPages = getLogPageCount(currentData?.total, pagination.pageSize)
+  const total = totalPages === null ? undefined : currentData?.total
   const columns = useColumnsByCategory(logCategory, isAdmin)
-  const isLoadingData = isLoading || (isFetching && !data)
+  const isLoadingData = isLoading || isPlaceholderData || (isFetching && !data)
   const errorMessage =
     error instanceof Error ? error.message : t('Failed to load logs')
 
@@ -203,8 +217,11 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
     onColumnFiltersChange,
     manualPagination: true,
     manualFiltering: true,
-    totalCount: data?.total || 0,
-    ensurePageInRange,
+    totalCount: total,
+    pageCount: totalPages ?? -1,
+    ensurePageInRange: totalPages !== null && !isFetching
+      ? (count) => ensurePageInRange(count, { resetTo: 'last' })
+      : undefined,
   })
 
   const isCommon = logCategory === 'common'
@@ -212,6 +229,20 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   return (
     <DataTablePage
       table={table}
+      pagination={
+        <LogPagination
+          label={t('Log pagination')}
+          page={pagination.pageIndex + 1}
+          pageSize={pagination.pageSize}
+          total={total}
+          busy={isFetching || isLoading}
+          onPageChange={(page) => {
+            if (totalPages === null || !Number.isSafeInteger(page)) return
+            onPaginationChange({ pageIndex: Math.min(totalPages, Math.max(1, page)) - 1, pageSize: pagination.pageSize })
+          }}
+          onPageSizeChange={(pageSize) => onPaginationChange({ pageIndex: 0, pageSize })}
+        />
+      }
       mobileQuery={CONSOLE_MOBILE_QUERY}
       columns={columns as ColumnDef<Record<string, unknown>>[]}
       isLoading={isLoadingData}

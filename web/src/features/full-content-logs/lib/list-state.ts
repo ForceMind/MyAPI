@@ -6,10 +6,12 @@ it under the terms of the GNU Affero General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 */
+import { LOG_PAGE_SIZES, getLogPageCount, type LogPageSize } from '@/lib/log-pagination'
+
 import type { FullContentLogFilters } from '../types'
 
-export const FULL_CONTENT_PAGE_SIZES = [20, 50, 100] as const
-export type FullContentPageSize = (typeof FULL_CONTENT_PAGE_SIZES)[number]
+export const FULL_CONTENT_PAGE_SIZES = LOG_PAGE_SIZES
+export type FullContentPageSize = LogPageSize
 
 export interface FullContentLogListState {
   page: number
@@ -33,13 +35,7 @@ export function createFullContentLogListState(): FullContentLogListState {
   }
 }
 
-export function getFullContentPageCount(
-  total: number | undefined,
-  pageSize: number
-): number | null {
-  if (total === undefined || !Number.isSafeInteger(total) || total < 0) return null
-  return Math.max(1, Math.ceil(total / pageSize))
-}
+export const getFullContentPageCount = getLogPageCount
 
 /** Only list controls live in memory. Bodies, responses and credentials never do. */
 export function createFullContentLogListStateCache() {

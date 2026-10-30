@@ -23,6 +23,7 @@ import { flexRender, type Row, type Table } from '@tanstack/react-table'
 import { Fragment, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { CopyButton } from '@/components/copy-button'
 import { StatusBadge, type StatusBadgeProps } from '@/components/status-badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -34,16 +35,15 @@ import {
 } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
-import { formatLogQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { UsageLog } from '../data/schema'
 import { parseLogOther, renderAuditContent } from '../lib/format'
-import { getPersonalCallEvidence } from '../lib/personal-call-evidence'
-import { isRequestLog } from '../lib/request-facts'
+import { getRequestFacts, isRequestLog } from '../lib/request-facts'
 import { getLogTypeConfig, isTimingLogType } from '../lib/utils'
 import type { LogCategory } from '../types'
 import { DetailsDialog } from './dialogs/details-dialog'
+import { LogCostDisplay } from './log-cost-display'
 import { RequestTime } from './request-summary'
 import { StreamTpsCell, TimingMetricsCell } from './timing-metrics-cell'
 import {
@@ -62,7 +62,7 @@ type TaskRowFields = {
   headline: string[]
   /** Its state, at the end of the first line. */
   status: string[]
-  /** Time, duration, progress and (for an administrator) who and where. */
+  /** Time, duration, progress and recorded cost. */
   meta: string[]
   /** Results with their own dialogs, each with a label. */
   details: { id: string; label: string }[]
@@ -93,7 +93,11 @@ function CommonLogRow(props: { log: UsageLog }) {
   const other = parseLogOther(log.other)
   const config = getLogTypeConfig(log.type, other)
   const relayed = isRequestLog(log)
+  const requestFacts = getRequestFacts(log)
   const hidden = '••••'
+  const hasUnconfirmedSettlement =
+    other?.settlement_status === 'pending' ||
+    other?.settlement_status === 'applied_journal_pending'
 
   const facts: { key: string; text: string; className?: string }[] = []
   if (relayed) {
@@ -104,7 +108,7 @@ function CommonLogRow(props: { log: UsageLog }) {
     })
     facts.push({
       key: 'usage',
-      text: getPersonalCallEvidence(log).usageKnown
+      text: requestFacts.usageKnown
         ? t('{{count}} Tokens', {
             count: log.prompt_tokens + log.completion_tokens,
           })
@@ -135,9 +139,6 @@ function CommonLogRow(props: { log: UsageLog }) {
       text: sensitiveVisible ? log.username : hidden,
     })
   }
-  if (showCosts && (log.type === 2 || log.type === 6)) {
-    facts.push({ key: 'cost', text: formatLogQuota(log.quota) })
-  }
 
   const useTime = log.use_time || 0
   const body = (
@@ -161,6 +162,27 @@ function CommonLogRow(props: { log: UsageLog }) {
             </span>
           )}
         </div>
+        {relayed && (
+          <div className='flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs'>
+            <StatusBadge
+              label={t(requestFacts.outcome.label)}
+              variant={requestFacts.outcome.variant}
+              copyable={false}
+              className='h-auto min-h-5 whitespace-normal'
+            />
+            <span className='text-muted-foreground font-mono'>
+              {requestFacts.httpStatus == null
+                ? t('HTTP status not recorded')
+                : `HTTP ${requestFacts.httpStatus}`}
+            </span>
+            <StatusBadge
+              label={t(requestFacts.settlement.label)}
+              variant={requestFacts.settlement.variant}
+              copyable={false}
+              className='h-auto min-h-5 whitespace-normal'
+            />
+          </div>
+        )}
         {facts.length > 0 && (
           <div className='text-muted-foreground flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-xs'>
             {facts.map((fact, index) => (
@@ -208,53 +230,75 @@ function CommonLogRow(props: { log: UsageLog }) {
   )
 
   return (
-    <li data-log-row='' className='flex min-w-0 items-stretch'>
-      {log.request_id && relayed ? (
-        <Link
-          to='/usage-logs/request/$requestId'
-          params={{ requestId: log.request_id }}
-          state={{ inspectorBack: true }}
-          title={t('Click to view full details')}
-          className={ROW_TARGET_CLASS}
-        >
-          {body}
-        </Link>
-      ) : (
-        <button
-          type='button'
-          title={t('Click to view full details')}
-          className={ROW_TARGET_CLASS}
-          onClick={() => setDialogOpen(true)}
-        >
-          {body}
-        </button>
-      )}
-      {isAdminView && log.username && (
-        <button
-          type='button'
-          className='flex shrink-0 items-center justify-center px-2'
-          aria-label={t('User: {{name}}', {
-            name: sensitiveVisible ? log.username : hidden,
-          })}
-          onClick={() => {
-            setSelectedUserId(log.user_id)
-            setUserInfoDialogOpen(true)
-          }}
-        >
-          <Avatar className='ring-border/60 size-7 ring-1'>
-            <AvatarFallback
-              className={cn(
-                'text-[11px] font-semibold',
-                !sensitiveVisible && 'bg-muted text-muted-foreground'
-              )}
-              style={
-                sensitiveVisible ? getUserAvatarStyle(log.username) : undefined
-              }
-            >
-              {sensitiveVisible ? getUserAvatarFallback(log.username) : '•'}
-            </AvatarFallback>
-          </Avatar>
-        </button>
+    <li data-log-row='' className='flex min-w-0 flex-col'>
+      <div className='flex min-w-0 items-stretch'>
+        {log.request_id && relayed ? (
+          <Link
+            to='/usage-logs/request/$requestId'
+            params={{ requestId: log.request_id }}
+            state={{ inspectorBack: true }}
+            title={t('Click to view full details')}
+            className={ROW_TARGET_CLASS}
+          >
+            {body}
+          </Link>
+        ) : (
+          <button
+            type='button'
+            title={t('Click to view full details')}
+            className={ROW_TARGET_CLASS}
+            onClick={() => setDialogOpen(true)}
+          >
+            {body}
+          </button>
+        )}
+        {log.request_id && (
+          <CopyButton
+            value={log.request_id}
+            aria-label={t('Copy Request ID')}
+            className='min-h-11 min-w-11 self-center'
+          />
+        )}
+        {isAdminView && log.username && (
+          <button
+            type='button'
+            className='flex min-h-11 min-w-11 shrink-0 items-center justify-center px-2'
+            aria-label={t('User: {{name}}', {
+              name: sensitiveVisible ? log.username : hidden,
+            })}
+            onClick={() => {
+              setSelectedUserId(log.user_id)
+              setUserInfoDialogOpen(true)
+            }}
+          >
+            <Avatar className='ring-border/60 size-7 ring-1'>
+              <AvatarFallback
+                className={cn(
+                  'text-[11px] font-semibold',
+                  !sensitiveVisible && 'bg-muted text-muted-foreground'
+                )}
+                style={
+                  sensitiveVisible ? getUserAvatarStyle(log.username) : undefined
+                }
+              >
+                {sensitiveVisible ? getUserAvatarFallback(log.username) : '•'}
+              </AvatarFallback>
+            </Avatar>
+          </button>
+        )}
+      </div>
+      {showCosts && !hasUnconfirmedSettlement && (log.type === 2 || log.type === 6) && (
+        <div className='px-4 pb-2.5'>
+          {Number.isFinite(log.quota) ? (
+            <LogCostDisplay
+              quota={log.quota}
+              other={other}
+              showUsageAccuracy={log.type === 2}
+            />
+          ) : (
+            <span className='text-muted-foreground text-xs'>{t('Unknown')}</span>
+          )}
+        </div>
       )}
       {!(log.request_id && relayed) && (
         <DetailsDialog
@@ -274,22 +318,28 @@ function CommonLogRow(props: { log: UsageLog }) {
  * their own dialogs.
  */
 function TaskLogRow<TData>(props: { row: Row<TData>; fields: TaskRowFields }) {
-  const cells = new Map(
-    props.row.getVisibleCells().map((cell) => [cell.column.id, cell])
-  )
-  // Results stay reachable on a phone even when the PC view hid them.
-  for (const detail of props.fields.details) {
-    if (cells.has(detail.id)) continue
-    const cell = props.row
-      .getAllCells()
-      .find((candidate) => candidate.column.id === detail.id)
-    if (cell) cells.set(detail.id, cell)
-  }
+  const { t } = useTranslation()
+  // Desktop column visibility must never remove a task's mobile identity,
+  // state or result. Role restrictions are already applied by the factories.
+  const allCells = props.row.getAllCells()
+  const cells = new Map(allCells.map((cell) => [cell.column.id, cell]))
+  const primaryIds = new Set([
+    ...props.fields.headline,
+    ...props.fields.status,
+    ...props.fields.meta,
+    ...props.fields.details.map((detail) => detail.id),
+  ])
+  const extraCells = allCells.filter((cell) => !primaryIds.has(cell.column.id))
   const render = (id: string): ReactNode => {
     const cell = cells.get(id)
     if (!cell) return null
     return (
       <div key={id} className='min-w-0'>
+        {id === 'quota' && (
+          <span className='text-muted-foreground block text-xs'>
+            {t('Recorded quota')}
+          </span>
+        )}
         {flexRender(cell.column.columnDef.cell, cell.getContext())}
       </div>
     )
@@ -297,12 +347,12 @@ function TaskLogRow<TData>(props: { row: Row<TData>; fields: TaskRowFields }) {
   const details = props.fields.details.filter((detail) => cells.has(detail.id))
 
   return (
-    <li data-log-row='' className='flex min-w-0 flex-col gap-1.5 px-4 py-2.5'>
+    <li data-log-row='' className='flex min-w-0 flex-col gap-1.5 px-4 py-2.5 [&_a]:min-h-11 [&_a]:min-w-11 [&_button]:min-h-11 [&_button]:min-w-11'>
       <div className='flex min-w-0 items-start justify-between gap-3'>
         <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
           {props.fields.headline.map(render)}
         </div>
-        <div className='flex shrink-0 items-center gap-1.5'>
+        <div className='flex min-w-0 max-w-[45%] flex-wrap items-center gap-1.5'>
           {props.fields.status.map(render)}
         </div>
       </div>
@@ -318,6 +368,29 @@ function TaskLogRow<TData>(props: { row: Row<TData>; fields: TaskRowFields }) {
             </div>
           ))}
         </dl>
+      )}
+      {extraCells.length > 0 && (
+        <details className='min-w-0'>
+          <summary className='text-primary flex min-h-11 cursor-pointer items-center text-xs font-medium focus-visible:outline-2'>
+            {t('More details')}
+          </summary>
+          <dl className='flex min-w-0 flex-col gap-2 pb-1 text-xs'>
+            {extraCells.map((cell) => {
+              const definition = cell.column.columnDef
+              const label =
+                definition.meta?.label ??
+                (typeof definition.header === 'string'
+                  ? definition.header
+                  : cell.column.id)
+              return (
+                <div key={cell.column.id} className='min-w-0 space-y-1'>
+                  <dt className='text-muted-foreground'>{label}</dt>
+                  <dd className='min-w-0'>{render(cell.column.id)}</dd>
+                </div>
+              )
+            })}
+          </dl>
+        </details>
       )}
     </li>
   )
@@ -365,19 +438,18 @@ export function UsageLogsMobileList<TData>(
   const taskFields: TaskRowFields =
     props.logCategory === 'drawing'
       ? {
-          headline: ['action', 'mj_id'],
-          status: ['code'],
-          meta: ['submit_time', 'duration', 'progress', 'channel_id'],
+          headline: ['mj_id', 'platform', 'action'],
+          status: ['status'],
+          meta: ['submit_time', 'duration', 'progress', 'quota'],
           details: [
             { id: 'image_url', label: t('Image') },
-            { id: 'prompt', label: t('Prompt') },
             { id: 'fail_reason', label: t('Fail Reason') },
           ],
         }
       : {
-          headline: ['task_id'],
+          headline: ['task_id', 'platform', 'action'],
           status: ['status'],
-          meta: ['submit_time', 'duration', 'progress', 'user', 'channel_id'],
+          meta: ['submit_time', 'duration', 'progress', 'quota'],
           details: [{ id: 'fail_reason', label: t('Details') }],
         }
 

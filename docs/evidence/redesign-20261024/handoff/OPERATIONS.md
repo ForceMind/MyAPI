@@ -132,3 +132,7 @@ gh run download <RUN_ID> --repo ForceMind/MyAPI -D /tmp/myapi-shots
 - 放宽或删除用于证明可用性、金额与用量规则的断言；删除数据库表字段。
 - 强推、reset、stash、清理未提交内容、`git add -A`。
 - 删除不是自己创建的文件，或在没有授权时对外发送内容。
+
+### 2026-10-30 UI第二批验证入口
+
+已批准三个日志列表；CI前端专项现包含 `src/features/usage-logs`、`src/features/full-content-logs`、`src/components/date-time-range-picker` 和 `src/lib/__tests__/log-pagination.test.ts`。所有命令仅runner执行，浏览器保持未授权/跳过；本机不安装依赖/运行工具链/下载构件。此前7ab47a82的CI41021525656后端首次超过35分钟作业上限，未放宽断言或超时，仅该作业重跑attempt2成功；本批以自己的CI为准。

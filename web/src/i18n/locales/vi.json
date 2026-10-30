@@ -7217,6 +7217,15 @@
     "Select a start and end date.": "Select a start and end date.",
     "Select a valid date range.": "Select a valid date range.",
     "Select an end date.": "Select an end date.",
-    "Current month": "Current month"
+    "Current month": "Current month",
+    "Business result / HTTP": "Business result / HTTP",
+    "Copy Task ID": "Copy Task ID",
+    "HTTP status not recorded": "HTTP status not recorded",
+    "Loading record total": "Loading record total",
+    "Log pagination": "Log pagination",
+    "More details": "More details",
+    "Page {{page}} of {{totalPages}} · {{total}} records": "Page {{page}} of {{totalPages}} · {{total}} records",
+    "Record total unavailable": "Record total unavailable",
+    "Recorded quota": "Recorded quota"
   }
 }

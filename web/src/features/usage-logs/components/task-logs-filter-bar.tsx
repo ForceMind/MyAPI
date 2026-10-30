@@ -19,16 +19,14 @@ For commercial licensing, please contact support@quantumnous.com
 import { useQueryClient, useIsFetching } from '@tanstack/react-query'
 import { useNavigate, getRouteApi } from '@tanstack/react-router'
 import type { Table } from '@tanstack/react-table'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useMediaQuery } from '@/hooks'
-import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
+import { DateTimeRangePicker } from '@/components/date-time-range-picker'
 
 import { buildSearchParams } from '../lib/filter'
 import { getDefaultTimeRange } from '../lib/utils'
 import type { DrawingLogFilters, LogCategory, TaskLogFilters } from '../types'
-import { CompactDateTimeRangePicker } from './compact-date-time-range-picker'
 import {
   LogsFilterField,
   LogsFilterInput,
@@ -74,20 +72,25 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
   const searchParams = route.useSearch()
   const { isAdminView: isAdmin } = useLogsViewScope()
   const fetchingLogs = useIsFetching({ queryKey: ['logs'] })
-  const isMobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
 
-  const [filters, setFilters] = useState<TaskLogsFilters>(() => {
+  const sourceTimeRange = useMemo(() => {
     const { start, end } = getDefaultTimeRange()
-    return { startTime: start, endTime: end }
-  })
+    const hasTimeRange =
+      searchParams.allTime === true || searchParams.startTime !== undefined || searchParams.endTime !== undefined
+    const defaultStart = hasTimeRange ? undefined : start
+    const defaultEnd = hasTimeRange ? undefined : end
+    return {
+      startTime: searchParams.startTime !== undefined
+        ? new Date(searchParams.startTime)
+        : defaultStart,
+      endTime: searchParams.endTime !== undefined ? new Date(searchParams.endTime) : defaultEnd,
+    }
+  }, [searchParams.allTime, searchParams.startTime, searchParams.endTime])
+  const [filters, setFilters] = useState<TaskLogsFilters>(() => sourceTimeRange)
 
   useEffect(() => {
-    const { start, end } = getDefaultTimeRange()
     const baseFilters = {
-      startTime: searchParams.startTime
-        ? new Date(searchParams.startTime)
-        : start,
-      endTime: searchParams.endTime ? new Date(searchParams.endTime) : end,
+      ...sourceTimeRange,
       ...(searchParams.channel
         ? { channel: String(searchParams.channel) }
         : {}),
@@ -106,8 +109,7 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
     setFilters(next)
   }, [
     props.logCategory,
-    searchParams.startTime,
-    searchParams.endTime,
+    sourceTimeRange,
     searchParams.channel,
     searchParams.filter,
   ])
@@ -128,11 +130,12 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
         search: {
           ...filterParams,
           page: 1,
+          pageSize: searchParams.pageSize,
         },
       })
       queryClient.invalidateQueries({ queryKey: ['logs'] })
     },
-    [navigate, props.logCategory, queryClient]
+    [navigate, props.logCategory, queryClient, searchParams.pageSize]
   )
   const handleApply = useCallback(
     () => applyFilters(filters),
@@ -149,12 +152,13 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
       params: { section: props.logCategory },
       search: {
         page: 1,
+        pageSize: searchParams.pageSize,
         startTime: start.getTime(),
         endTime: end.getTime(),
       },
     })
     queryClient.invalidateQueries({ queryKey: ['logs'] })
-  }, [navigate, props.logCategory, queryClient])
+  }, [navigate, props.logCategory, queryClient, searchParams.pageSize])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -175,19 +179,20 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
     props.logCategory === 'drawing'
       ? t('Filter by MjProxy task ID')
       : t('Filter by task ID')
-  const hasAdditionalFilters = !!filterValue || !!filters.channel
+  const hasDateFilter =
+    searchParams.allTime === true ||
+    searchParams.startTime !== undefined ||
+    searchParams.endTime !== undefined ||
+    filters.startTime?.getTime() !== sourceTimeRange.startTime?.getTime() ||
+    filters.endTime?.getTime() !== sourceTimeRange.endTime?.getTime()
+  const hasAdditionalFilters =
+    !!filterValue || !!filters.channel || hasDateFilter
   const dateRangeFilter = (
     <LogsFilterField wide>
-      <CompactDateTimeRangePicker
+      <DateTimeRangePicker
         start={filters.startTime}
         end={filters.endTime}
         onChange={({ start, end }) => {
-          // A phone keeps only the range on the page, so a new range applies
-          // at once instead of waiting for the Search in the filter sheet.
-          if (isMobile) {
-            applyFilters({ ...filters, startTime: start, endTime: end })
-            return
-          }
           handleChange('startTime', start)
           handleChange('endTime', end)
         }}
@@ -208,6 +213,7 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
   const channelFilter = isAdmin ? (
     <LogsFilterField>
       <LogsFilterInput
+        aria-label={t('Channel ID')}
         placeholder={t('Channel ID')}
         value={filters.channel || ''}
         onChange={(e) => handleChange('channel', e.target.value)}
@@ -223,17 +229,19 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
         <>
           {dateRangeFilter}
           {taskIdFilter}
-          {channelFilter}
         </>
       }
-      mobilePinnedFilters={dateRangeFilter}
-      mobileFilters={
+      advancedFilters={channelFilter}
+      mobilePinnedFilters={
         <>
+          {dateRangeFilter}
           {taskIdFilter}
-          {channelFilter}
         </>
       }
-      mobileFilterCount={[filterValue, filters.channel].filter(Boolean).length}
+      mobileFilters={channelFilter}
+      mobileFilterCount={filters.channel ? 1 : 0}
+      hasAdvancedActiveFilters={!!filters.channel}
+      advancedFilterCount={filters.channel ? 1 : 0}
       hasActiveFilters={hasAdditionalFilters}
       onSearch={handleApply}
       searchLoading={fetchingLogs > 0}

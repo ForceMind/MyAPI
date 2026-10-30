@@ -38,6 +38,7 @@ import {
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { CopyButton } from '@/components/copy-button'
 import { StatusBadge } from '@/components/status-badge'
 import { formatTimestampToDate } from '@/lib/format'
 
@@ -48,6 +49,8 @@ import {
   mjSubmitResultMapper,
 } from '../../lib/mappers'
 import type { MidjourneyLog } from '../../types'
+import { LogCostDisplay } from '../log-cost-display'
+import { useLogMoneyVisibility } from '../usage-logs-provider'
 import { ImageDialog } from '../dialogs/image-dialog'
 import { PromptDialog } from '../dialogs/prompt-dialog'
 import {
@@ -85,12 +88,12 @@ export function useDrawingLogsColumns(
   isAdmin: boolean
 ): ColumnDef<MidjourneyLog>[] {
   const { t } = useTranslation()
+  const showCosts = useLogMoneyVisibility()
   const columns: ColumnDef<MidjourneyLog>[] = [
     {
       accessorKey: 'submit_time',
       header: t('Submit Time'),
       cell: ({ row }) => {
-        const log = row.original
         const submitTime = row.getValue('submit_time') as number
 
         return (
@@ -98,12 +101,6 @@ export function useDrawingLogsColumns(
             <span className='truncate font-mono text-xs tabular-nums'>
               {formatTimestampToDate(submitTime, 'milliseconds')}
             </span>
-            <StatusBadge
-              label={t(mjStatusMapper.getLabel(log.status))}
-              variant={mjStatusMapper.getVariant(log.status)}
-              size='sm'
-              copyable={false}
-            />
           </div>
         )
       },
@@ -115,6 +112,43 @@ export function useDrawingLogsColumns(
     columns.push(
       createChannelColumn<MidjourneyLog>({ headerLabel: t('Channel') })
     )
+  }
+
+  columns.push(
+    {
+      id: 'platform',
+      header: t('Platform'),
+      cell: () => <span className='text-xs'>Midjourney</span>,
+    },
+    {
+      accessorKey: 'status',
+      header: t('Status'),
+      cell: ({ row }) => (
+        <StatusBadge
+          label={t(mjStatusMapper.getLabel(row.original.status))}
+          variant={mjStatusMapper.getVariant(row.original.status)}
+          size='sm'
+          copyable={false}
+        />
+      ),
+    }
+  )
+  if (showCosts) {
+    columns.push({
+      accessorKey: 'quota',
+      header: t('Recorded quota'),
+      cell: ({ row }) => {
+        const quota = row.original.quota
+        if (typeof quota !== 'number' || !Number.isFinite(quota)) {
+          return (
+            <span className='text-muted-foreground text-xs'>{t('Unknown')}</span>
+          )
+        }
+        return (
+          <LogCostDisplay quota={quota} other={null} showUsageAccuracy={false} />
+        )
+      },
+    })
   }
 
   columns.push({
@@ -146,13 +180,14 @@ export function useDrawingLogsColumns(
       }
 
       return (
-        <div className='flex max-w-[160px] flex-col gap-0.5'>
-          <StatusBadge
-            label={mjId}
-            copyText={mjId}
-            variant='neutral'
-            size='sm'
-            className='border-border/60 bg-muted/30 !text-foreground max-w-full truncate rounded-md border px-1.5 py-0.5 font-mono'
+        <div className='flex max-w-[200px] min-w-0 items-center gap-1'>
+          <span className='truncate font-mono text-xs' title={mjId}>
+            {mjId}
+          </span>
+          <CopyButton
+            value={mjId}
+            aria-label={t('Copy Task ID')}
+            className='max-sm:min-h-11 max-sm:min-w-11'
           />
         </div>
       )
@@ -206,7 +241,7 @@ export function useDrawingLogsColumns(
           <>
             <button
               type='button'
-              className='group text-left text-xs'
+              className='group text-left text-xs max-sm:min-h-11 max-sm:min-w-11'
               onClick={() => setDialogOpen(true)}
               title={t('Click to view image')}
             >
@@ -240,7 +275,7 @@ export function useDrawingLogsColumns(
           <>
             <button
               type='button'
-              className='group flex max-w-[220px] items-center text-left text-xs'
+              className='group flex max-w-[220px] items-center text-left text-xs max-sm:min-h-11 max-sm:min-w-11'
               onClick={() => setDialogOpen(true)}
               title={t('Click to view full prompt')}
             >
@@ -266,5 +301,22 @@ export function useDrawingLogsColumns(
     })
   )
 
-  return columns
+  const primaryIds = [
+    'submit_time',
+    'mj_id',
+    'platform',
+    'action',
+    'status',
+    'quota',
+    'image_url',
+    'fail_reason',
+  ]
+  const columnId = (column: ColumnDef<MidjourneyLog>) =>
+    column.id ?? ('accessorKey' in column ? String(column.accessorKey) : '')
+  return [
+    ...primaryIds.flatMap((id) =>
+      columns.filter((column) => columnId(column) === id)
+    ),
+    ...columns.filter((column) => !primaryIds.includes(columnId(column))),
+  ]
 }

@@ -7,7 +7,8 @@ the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
 import type { Table } from '@tanstack/react-table'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { useMediaQuery } from '@/hooks'
@@ -21,18 +22,22 @@ vi.mock('@/hooks', async () => {
 
 const table = { getAllColumns: () => [] } as unknown as Table<unknown>
 
-function renderToolbar() {
+function renderToolbar(
+  options: { onSearch?: () => void; loading?: boolean } = {}
+) {
   return render(
     <LogsFilterToolbar
       table={table}
       primaryFilters={<input aria-label='Model Name' />}
       advancedFilters={<input aria-label='Request ID' />}
       mobilePinnedFilters={
-        <button type='button'>2026-10-26 00:00 ~ 2026-10-26 23:59</button>
+        <>
+          <button type='button'>2026-10-26 00:00 ~ 2026-10-26 23:59</button>
+          <input aria-label='Model Name' />
+        </>
       }
       mobileFilters={
         <>
-          <input aria-label='Model Name' />
           <input aria-label='Request ID' />
         </>
       }
@@ -40,7 +45,8 @@ function renderToolbar() {
       stats={<section aria-label='Token usage statistics' />}
       hasActiveFilters
       onReset={() => undefined}
-      onSearch={() => undefined}
+      onSearch={options.onSearch ?? (() => undefined)}
+      searchLoading={options.loading}
     />
   )
 }
@@ -50,7 +56,7 @@ describe('logs filter toolbar', () => {
     vi.mocked(useMediaQuery).mockReturnValue(false)
   })
 
-  test('a phone keeps one summary line and moves the other filters into the sheet', () => {
+  test('a phone keeps frequent filters and a 44px Search on the page, with other filters in the sheet', () => {
     vi.mocked(useMediaQuery).mockReturnValue(true)
     renderToolbar()
 
@@ -60,14 +66,53 @@ describe('logs filter toolbar', () => {
     expect(screen.getByRole('button', { name: /^Filter/ })).toHaveTextContent(
       '2'
     )
-    expect(screen.queryByLabelText('Model Name')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Model Name')).toBeInTheDocument()
     expect(screen.queryByLabelText('Request ID')).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: 'Search' })
-    ).not.toBeInTheDocument()
+      screen.getByRole('button', { name: 'Search' })
+    ).toHaveClass('min-h-11')
     expect(
       screen.getByRole('region', { name: 'Token usage statistics' })
     ).toBeInTheDocument()
+  })
+
+  test('a phone searches directly without opening the additional filters', async () => {
+    vi.mocked(useMediaQuery).mockReturnValue(true)
+    const user = userEvent.setup()
+    const onSearch = vi.fn()
+    renderToolbar({ onSearch })
+
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+
+    expect(onSearch).toHaveBeenCalledExactlyOnceWith()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  test('a phone opens additional filters and closes the sheet after Search', async () => {
+    vi.mocked(useMediaQuery).mockReturnValue(true)
+    const user = userEvent.setup()
+    const onSearch = vi.fn()
+    renderToolbar({ onSearch })
+    await user.click(screen.getByRole('button', { name: /^Filter/ }))
+    const sheet = await screen.findByRole('dialog')
+    expect(within(sheet).getByLabelText('Request ID')).toBeInTheDocument()
+    expect(within(sheet).getByRole('button', { name: 'Reset' })).toHaveClass(
+      'min-h-11'
+    )
+
+    await user.click(within(sheet).getByRole('button', { name: 'Search' }))
+
+    expect(onSearch).toHaveBeenCalledExactlyOnceWith()
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+  })
+
+  test('a pending phone query disables the directly reachable Search', () => {
+    vi.mocked(useMediaQuery).mockReturnValue(true)
+    renderToolbar({ loading: true })
+
+    expect(screen.getByRole('button', { name: 'Search' })).toBeDisabled()
   })
 
   test('a PC shows the filters, the search and the statistics on the page', () => {

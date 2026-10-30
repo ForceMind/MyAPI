@@ -22,6 +22,7 @@ import { Music } from 'lucide-react'
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { CopyButton } from '@/components/copy-button'
 import { StatusBadge } from '@/components/status-badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
@@ -29,14 +30,19 @@ import { formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { TASK_ACTIONS, TASK_STATUS } from '../../constants'
-import { taskActionMapper, taskStatusMapper } from '../../lib/mappers'
+import {
+  taskActionMapper,
+  taskStatusMapper,
+  taskPlatformMapper,
+} from '../../lib/mappers'
 import type { TaskLog } from '../../types'
 import {
   AudioPreviewDialog,
   type AudioClip,
 } from '../dialogs/audio-preview-dialog'
 import { FailReasonDialog } from '../dialogs/fail-reason-dialog'
-import { useUsageLogsContext } from '../usage-logs-provider'
+import { LogCostDisplay } from '../log-cost-display'
+import { useLogMoneyVisibility, useUsageLogsContext } from '../usage-logs-provider'
 import {
   createDurationColumn,
   createChannelColumn,
@@ -73,7 +79,7 @@ function AudioPreviewCell({ log }: { log: TaskLog }) {
     <>
       <button
         type='button'
-        className='group flex items-center gap-1 text-left text-xs'
+        className='group flex items-center gap-1 text-left text-xs max-sm:min-h-11 max-sm:min-w-11'
         onClick={() => setOpen(true)}
       >
         <Music className='text-muted-foreground size-3' />
@@ -92,6 +98,7 @@ function AudioPreviewCell({ log }: { log: TaskLog }) {
 
 export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
   const { t } = useTranslation()
+  const showCosts = useLogMoneyVisibility()
   const columns: ColumnDef<TaskLog>[] = [
     {
       accessorKey: 'submit_time',
@@ -133,7 +140,7 @@ export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
         return (
           <button
             type='button'
-            className='flex items-center gap-1.5 text-left'
+            className='flex items-center gap-1.5 text-left max-sm:min-h-11 max-sm:min-w-11'
             onClick={(e) => {
               e.stopPropagation()
               setSelectedUserId(log.user_id)
@@ -167,27 +174,47 @@ export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
       accessorKey: 'task_id',
       header: t('Task ID'),
       cell: ({ row }) => {
-        const log = row.original
         const taskId = row.getValue('task_id') as string
         if (!taskId) {
           return <span className='text-muted-foreground/60 text-xs'>-</span>
         }
         return (
-          <div className='flex max-w-[170px] flex-col gap-0.5'>
-            <StatusBadge
-              label={taskId}
-              copyText={taskId}
-              variant='neutral'
-              size='sm'
-              className='border-border/60 bg-muted/30 !text-foreground max-w-full truncate rounded-md border px-1.5 py-0.5 font-mono'
-            />
-            <span className='text-muted-foreground/60 truncate text-[11px]'>
-              {t(log.platform)} · {t(taskActionMapper.getLabel(log.action))}
+          <div className='flex max-w-[220px] min-w-0 items-center gap-1'>
+            <span className='truncate font-mono text-xs' title={taskId}>
+              {taskId}
             </span>
+            <CopyButton
+              value={taskId}
+              aria-label={t('Copy Task ID')}
+              className='max-sm:min-h-11 max-sm:min-w-11'
+            />
           </div>
         )
       },
       meta: { mobileTitle: true },
+    },
+    {
+      accessorKey: 'platform',
+      header: t('Platform'),
+      cell: ({ row }) => {
+        const platform = row.original.platform
+        return (
+          <span className='text-xs'>
+            {platform
+              ? t(taskPlatformMapper.getLabel(platform, platform))
+              : t('Unknown')}
+          </span>
+        )
+      },
+    },
+    {
+      accessorKey: 'action',
+      header: t('Action'),
+      cell: ({ row }) => (
+        <span className='text-xs'>
+          {t(taskActionMapper.getLabel(row.original.action))}
+        </span>
+      ),
     },
     createDurationColumn<TaskLog>({
       submitTimeKey: 'submit_time',
@@ -203,7 +230,7 @@ export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
         const status = row.getValue('status') as string
         return (
           <StatusBadge
-            label={t(taskStatusMapper.getLabel(status, status || 'Submitting'))}
+            label={t(taskStatusMapper.getLabel(status, status || 'Unknown'))}
             variant={taskStatusMapper.getVariant(status)}
             size='sm'
             copyable={false}
@@ -254,7 +281,7 @@ export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
               href={videoUrl}
               target='_blank'
               rel='noopener noreferrer'
-              className='text-foreground text-xs hover:underline'
+              className='text-foreground inline-flex items-center text-xs hover:underline max-sm:min-h-11 max-sm:min-w-11'
             >
               {t('Click to preview video')}
             </a>
@@ -269,7 +296,7 @@ export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
           <>
             <button
               type='button'
-              className='group flex max-w-[200px] items-center gap-1 text-left text-xs'
+              className='group flex max-w-[200px] items-center gap-1 text-left text-xs max-sm:min-h-11 max-sm:min-w-11'
               onClick={() => setDialogOpen(true)}
               title={t('Click to view full error message')}
             >
@@ -290,5 +317,39 @@ export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
     }
   )
 
-  return columns
+  if (showCosts) {
+    columns.push({
+      accessorKey: 'quota',
+      header: t('Recorded quota'),
+      cell: ({ row }) => {
+        const quota = row.original.quota
+        if (typeof quota !== 'number' || !Number.isFinite(quota)) {
+          return (
+            <span className='text-muted-foreground text-xs'>{t('Unknown')}</span>
+          )
+        }
+        return (
+          <LogCostDisplay quota={quota} other={null} showUsageAccuracy={false} />
+        )
+      },
+    })
+  }
+
+  const primaryIds = [
+    'submit_time',
+    'task_id',
+    'platform',
+    'action',
+    'status',
+    'quota',
+    'fail_reason',
+  ]
+  const columnId = (column: ColumnDef<TaskLog>) =>
+    column.id ?? ('accessorKey' in column ? String(column.accessorKey) : '')
+  return [
+    ...primaryIds.flatMap((id) =>
+      columns.filter((column) => columnId(column) === id)
+    ),
+    ...columns.filter((column) => !primaryIds.includes(columnId(column))),
+  ]
 }

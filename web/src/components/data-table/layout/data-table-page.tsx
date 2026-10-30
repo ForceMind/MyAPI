@@ -215,6 +215,9 @@ export type DataTablePageProps<TData> = {
    */
   showPagination?: boolean
 
+  /** Optional page-local controls; other tables retain their existing pagination. */
+  pagination?: React.ReactNode
+
   /**
    * Render pagination via `PageFooterPortal` (sticks to page footer).
    * Defaults to `true`. Set `false` to render inline below the table.
@@ -414,7 +417,7 @@ function renderPagination<TData>(
     return null
   }
 
-  const pagination = <DataTablePagination table={props.table} />
+  const pagination = props.pagination ?? <DataTablePagination table={props.table} />
 
   return props.paginationInFooter !== false ? (
     <PageFooterPortal>{pagination}</PageFooterPortal>
