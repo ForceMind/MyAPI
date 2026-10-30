@@ -9,7 +9,7 @@ version.
 import type { Table } from '@tanstack/react-table'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { useMediaQuery } from '@/hooks'
 
@@ -18,6 +18,23 @@ import { LogsFilterToolbar } from '../logs-filter-toolbar'
 vi.mock('@/hooks', async () => {
   const actual = await vi.importActual<typeof import('@/hooks')>('@/hooks')
   return { ...actual, useMediaQuery: vi.fn(() => false) }
+})
+
+// JSDOM has no pointer capture; Vaul uses the browser API when its sheet is pressed.
+const captures = new WeakMap<Element, Set<number>>()
+const captureDescriptors = ['setPointerCapture', 'releasePointerCapture', 'hasPointerCapture'].map((key) => [key, Object.getOwnPropertyDescriptor(Element.prototype, key)] as const)
+beforeAll(() => {
+  Object.defineProperties(Element.prototype, {
+    setPointerCapture: { configurable: true, value(this: Element, id: number) { const ids = captures.get(this) ?? new Set<number>(); ids.add(id); captures.set(this, ids) } },
+    releasePointerCapture: { configurable: true, value(this: Element, id: number) { captures.get(this)?.delete(id) } },
+    hasPointerCapture: { configurable: true, value(this: Element, id: number) { return captures.get(this)?.has(id) ?? false } },
+  })
+})
+afterAll(() => {
+  for (const [key, descriptor] of captureDescriptors) {
+    if (descriptor) Object.defineProperty(Element.prototype, key, descriptor)
+    else Reflect.deleteProperty(Element.prototype, key)
+  }
 })
 
 const table = { getAllColumns: () => [] } as unknown as Table<unknown>

@@ -174,7 +174,7 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
             <Button
               type='button'
               className='min-h-11'
-              onClick={props.onSearch}
+              onClick={handleMobileSearch}
               disabled={props.searchLoading}
             >
               {searchIcon}

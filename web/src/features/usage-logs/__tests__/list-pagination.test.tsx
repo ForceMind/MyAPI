@@ -129,7 +129,7 @@ test('an error after success hides the old total and rows', async () => {
   expect(await screen.findByText('1-1')).toBeInTheDocument()
   fail()
   await act(async () => { await client.invalidateQueries({ queryKey: ['logs'] }) })
-  expect(within(pager).getByRole('status')).toHaveTextContent('Record total unavailable')
+  await waitFor(() => expect(within(pager).getByRole('status')).toHaveTextContent('Record total unavailable'))
   expect(screen.queryByText('1-1')).not.toBeInTheDocument()
   expect(screen.getByText('synthetic list unavailable')).toBeInTheDocument()
 })

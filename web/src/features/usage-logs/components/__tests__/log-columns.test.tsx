@@ -12,6 +12,7 @@ import { describe, expect, test } from 'vitest'
 
 import { formatLogQuota } from '@/lib/format'
 
+import { TASK_ACTIONS } from '../../constants'
 import type { UsageLog } from '../../data/schema'
 import { useColumnsByCategory } from '../../lib/columns'
 import type { LogCategory, MidjourneyLog, TaskLog } from '../../types'
@@ -183,6 +184,7 @@ describe('usage log column evidence', () => {
       record: {
         ...TASK,
         status: 'SUCCESS',
+        action: TASK_ACTIONS.GENERATE,
         fail_reason: 'https://provider.example/video.mp4',
       },
       columnIds: ['fail_reason'],

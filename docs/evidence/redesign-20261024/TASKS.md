@@ -3,6 +3,8 @@
 
 ## 2026-10-30 UI第二批：调用、绘图与后台任务列表（候选，待Actions验证）
 
+初轮候选3f53b0c0 / [CI41040228906](https://github.com/ForceMind/MyAPI/actions/runs/41040228906)的前端专项312通过、3失败，并有1个Pointer Capture环境未处理异常；没有标完成。补修保持精确断言：错误查询等React Query通知后再检查，视频夹具使用实际TASK_ACTIONS.GENERATE值；手机直接Search复用无参动作处理器，抽屉fixture补齐Pointer Capture API并恢复原描述符。完整结果以补修提交CI为准。
+
 维护者已批准三个列表沿用现有requests/drawing/tasks桌面与手机线稿；当前基线7ab47a82（CI41021525656 attempt2 success，首次后端35分钟超时取消）。本批不改后端/生产，不跑浏览器，不在本机安装依赖、构建测试或下载产物。
 
 - 复用单日历，桌面/手机均Apply只入草稿、Search才提交；手机高频日期/模型/类型/Request ID或任务ID直接可达，低频字段归组，44px查询/重置/筛选。保留管理员字段、精确ID与旧URL/Key返回上下文、日期ms/sec单位。
