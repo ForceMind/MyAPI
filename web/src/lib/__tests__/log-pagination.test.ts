@@ -6,7 +6,7 @@ describe('log server pagination boundaries', () => {
   test.each([
     [4, 500, { pageIndex: 4, pageSize: 100 }],
     [-1, -20, { pageIndex: 0, pageSize: 20 }],
-    [1.5, NaN, { pageIndex: 0, pageSize: 20 }],
+    [1.5, Number.NaN, { pageIndex: 0, pageSize: 20 }],
     [Number.MAX_SAFE_INTEGER, Infinity, { pageIndex: 0, pageSize: 20 }],
     [2, 1, { pageIndex: 2, pageSize: 1 }],
     [2, 30, { pageIndex: 2, pageSize: 30 }],
@@ -14,7 +14,7 @@ describe('log server pagination boundaries', () => {
     expect(normalizeLogPagination(page, size)).toEqual(expected)
   })
 
-  test.each([undefined, null, NaN, Infinity, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])('invalid totals remain unknown (%s)', (total) => {
+  test.each([undefined, null, Number.NaN, Infinity, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])('invalid totals remain unknown (%s)', (total) => {
     expect(getLogPageCount(total as number | undefined, 20)).toBeNull()
   })
 

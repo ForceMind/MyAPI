@@ -53,11 +53,7 @@ function renderToolbar(
           <input aria-label='Model Name' />
         </>
       }
-      mobileFilters={
-        <>
-          <input aria-label='Request ID' />
-        </>
-      }
+      mobileFilters={<input aria-label='Request ID' />}
       mobileFilterCount={2}
       stats={<section aria-label='Token usage statistics' />}
       hasActiveFilters

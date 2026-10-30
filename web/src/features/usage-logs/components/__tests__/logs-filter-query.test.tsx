@@ -186,7 +186,9 @@ for (const category of ['common', 'drawing', 'task'] as const) {
       }))
       const multiplier = category === 'drawing' ? 1 : 1000
       await waitFor(() => expect(fixture.listRequests().at(-1)?.searchParams.get('start_timestamp')).toBe(String(nextStart.getTime() / multiplier)))
-      const params = Object.fromEntries(fixture.listRequests().at(-1)!.searchParams)
+      const lastRequest = fixture.listRequests().at(-1)
+      if (!lastRequest) throw new Error('Expected synthetic list request')
+      const params = Object.fromEntries(lastRequest.searchParams)
       const expectedBase = {
         p: '1',
         page_size: '20',
@@ -244,7 +246,9 @@ test.each(['common', 'drawing', 'task'] as const)('%s phone Reset restores defau
   }
   const multiplier = category === 'drawing' ? 1 : 1000
   await waitFor(() => expect(fixture.listRequests().at(-1)?.searchParams.get('start_timestamp')).toBe(String(expectedStart / multiplier)))
-  expect(Object.fromEntries(fixture.listRequests().at(-1)!.searchParams)).toEqual({
+  const lastRequest = fixture.listRequests().at(-1)
+  if (!lastRequest) throw new Error('Expected synthetic list request')
+  expect(Object.fromEntries(lastRequest.searchParams)).toEqual({
     p: '1', page_size: '20',
     start_timestamp: String(expectedStart / multiplier),
     end_timestamp: String(expectedEnd / multiplier),

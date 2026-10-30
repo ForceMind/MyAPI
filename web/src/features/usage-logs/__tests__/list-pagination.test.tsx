@@ -24,7 +24,7 @@ vi.mock('@/hooks', async () => {
 })
 // Positioning is outside this non-browser query/navigation regression.
 vi.mock('@/components/layout/components/page-footer', () => ({
-  PageFooterPortal: ({ children }: { children: ReactNode }) => <>{children}</>,
+  PageFooterPortal: ({ children }: { children: ReactNode }) => children,
 }))
 vi.mock('../components/common-logs-filter-bar', () => ({ CommonLogsFilterBar: () => null }))
 vi.mock('../components/task-logs-filter-bar', () => ({ TaskLogsFilterBar: () => null }))

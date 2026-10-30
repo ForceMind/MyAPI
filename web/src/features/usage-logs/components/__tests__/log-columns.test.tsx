@@ -154,8 +154,8 @@ describe('usage log column evidence', () => {
         quota: 12000,
       }
       const view = renderColumns({ category, record, columnIds: ['quota'] })
-      expect(view.container.textContent?.replace(/\s/g, '')).toBe(
-        formatLogQuota(12000).replace(/\s/g, '')
+      expect(view.container.textContent?.replaceAll(/\s/g, '')).toBe(
+        formatLogQuota(12000).replaceAll(/\s/g, '')
       )
 
       view.rerender(
