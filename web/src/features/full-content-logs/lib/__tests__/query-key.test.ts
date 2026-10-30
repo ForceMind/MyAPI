@@ -28,3 +28,10 @@ describe('full content log query key', () => {
     expect(first.slice(2, 4)).toEqual([7, 'session-a'])
   })
 })
+
+test('different page sizes never reuse the same full content list cache', () => {
+  const twentyRows = getFullContentLogsQueryKey(1, filters, 7, 'session-a', 20)
+  const hundredRows = getFullContentLogsQueryKey(1, filters, 7, 'session-a', 100)
+  expect(twentyRows).not.toEqual(hundredRows)
+  expect(twentyRows.slice(2, 4)).toEqual([7, 'session-a'])
+})

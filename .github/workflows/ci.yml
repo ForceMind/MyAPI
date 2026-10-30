@@ -15,6 +15,10 @@ on:
         description: 'Reproduce the personal Key handoff regression on the fixed pre-fix source before testing the candidate'
         type: boolean
         default: false
+      body_ui_baseline:
+        description: 'Prove body-log pagination and calendar regressions on the fixed pre-fix UI source'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -586,6 +590,44 @@ jobs:
 
       - name: Verify saved connection window state and read-only refresh
         run: bun run test src/features/connections/__tests__/saved-windows.test.tsx src/features/connections/__tests__/window-state.test.ts
+
+      - name: Prove pre-fix body pagination and single-calendar regressions
+        if: github.event_name == 'workflow_dispatch' && inputs.body_ui_baseline
+        run: |
+          set -euo pipefail
+          saved="$RUNNER_TEMP/body-ui-candidate"
+          report="$RUNNER_TEMP/body-ui-baseline-red.json"
+          targets=(src/features/full-content-logs/index.tsx src/features/full-content-logs/components/full-content-log-filter-bar.tsx)
+          mkdir -p "$saved"
+          for index in "${!targets[@]}"; do cp "${targets[$index]}" "$saved/$index"; done
+          restore_candidate() { for index in "${!targets[@]}"; do cp "$saved/$index" "${targets[$index]}"; done; }
+          trap restore_candidate EXIT
+          git -c core.fileMode=false fetch --no-tags --depth=1 origin 37450c2aff368543eb720fa14a39e59b9b5e2b49
+          for target in "${targets[@]}"; do git -c core.fileMode=false show "37450c2aff368543eb720fa14a39e59b9b5e2b49:web/$target" > "$target"; done
+          set +e
+          bun run test src/features/full-content-logs/__tests__/list-pagination.test.tsx src/features/full-content-logs/components/__tests__/filters.test.tsx \
+            -t 'page controls request the last page and reset to page one when page size changes|selects a calendar range into the filter draft and submits exact local timestamps only on Search' \
+            --reporter=json --outputFile="$report"
+          result=$?
+          set -e
+          [[ "$result" != '0' ]]
+          python3 - "$report" <<'PY'
+          import json,sys
+          report=json.load(open(sys.argv[1]))
+          failures=[case for suite in report['testResults'] for case in suite['assertionResults'] if case['status']=='failed']
+          assert len(failures)==2, 'Both real UI regressions must fail on pre-fix source'
+          for case in failures:
+              message='\n'.join(case.get('failureMessages',[]))
+              expected='Last page' if case['title'].startswith('page controls') else 'Date Range'
+              assert expected in message and ('Unable to find' in message or 'could not find' in message), 'Require missing UI control, not an import failure'
+          assert not report.get('unhandledErrors'), 'Initialization errors are not regression evidence'
+          print('Both intended pre-fix UI regressions reproduced; candidate source restored next.')
+          PY
+          restore_candidate
+          git -c core.fileMode=false diff --exit-code -- "${targets[@]}"
+
+      - name: Verify body-log pagination, range selection and return-state contracts
+        run: bun run test src/features/full-content-logs src/components/date-time-range-picker
 
       - name: Verify pre-fix personal Key handoff regression
         if: github.event_name == 'workflow_dispatch' && inputs.baseline_red

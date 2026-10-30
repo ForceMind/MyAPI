@@ -7195,6 +7195,27 @@
     "Refresh saved windows": "刷新已保存窗口",
     "Relay usage-limit event": "转发用量限额事件",
     "This saved WHAM observation failed. It does not describe other window series.": "这条已保存的 WHAM 观测记录采样失败，不代表其他窗口系列的状态。",
-    "WHAM usage sample failed": "WHAM 用量采样失败"
+    "WHAM usage sample failed": "WHAM 用量采样失败",
+    "Apply range": "应用范围",
+    "Clear end date": "清除结束日期",
+    "Clear range": "清除范围",
+    "Clear start date": "清除开始日期",
+    "End time must not be before start time.": "结束时间不能早于开始时间。",
+    "Enter a page between 1 and {{totalPages}}": "请输入1至{{totalPages}}之间的页码",
+    "Enter a valid time.": "请输入有效时间。",
+    "First page": "首页",
+    "Full content log pagination": "正文日志分页",
+    "Go to page": "跳转",
+    "Last page": "末页",
+    "Loading request total": "正在加载请求总数",
+    "Next month": "下个月",
+    "No end date": "未设置结束日期",
+    "No start date": "未设置开始日期",
+    "Page number": "页码",
+    "Previous month": "上个月",
+    "Request total unavailable": "请求总数暂不可用",
+    "Select a start and end date.": "请选择开始和结束日期。",
+    "Select a valid date range.": "请选择有效的日期范围。",
+    "Select an end date.": "请选择结束日期。"
   }
 }

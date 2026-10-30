@@ -26,12 +26,14 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { DateTimeRangePicker } from '@/components/date-time-range-picker'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useMediaQuery } from '@/hooks'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
+import dayjs from '@/lib/dayjs'
 import { cn } from '@/lib/utils'
 
 import type { FullContentLogFilters, FullContentLogTokenOption } from '../types'
@@ -145,22 +147,28 @@ export function FullContentLogFilterBar(props: FullContentLogFilterBarProps) {
             onChange={(event) => updateField('requestId', event.target.value)}
           />
         </div>
-        <div className='space-y-1.5'>
-          <Label htmlFor='full-log-start-time'>{t('Start Time')}</Label>
-          <Input
-            id='full-log-start-time'
-            type='datetime-local'
-            value={props.filters.startTime}
-            onChange={(event) => updateField('startTime', event.target.value)}
-          />
-        </div>
-        <div className='space-y-1.5'>
-          <Label htmlFor='full-log-end-time'>{t('End Time')}</Label>
-          <Input
-            id='full-log-end-time'
-            type='datetime-local'
-            value={props.filters.endTime}
-            onChange={(event) => updateField('endTime', event.target.value)}
+        <div className='min-w-0 space-y-1.5 sm:col-span-2'>
+          <div className='text-sm font-medium'>{t('Date Range')}</div>
+          <DateTimeRangePicker
+            start={
+              props.filters.startTime
+                ? new Date(props.filters.startTime)
+                : undefined
+            }
+            end={
+              props.filters.endTime ? new Date(props.filters.endTime) : undefined
+            }
+            onChange={(range) => {
+              props.onChange({
+                ...props.filters,
+                startTime: range.start
+                  ? dayjs(range.start).format('YYYY-MM-DDTHH:mm:ss')
+                  : '',
+                endTime: range.end
+                  ? dayjs(range.end).format('YYYY-MM-DDTHH:mm:ss')
+                  : '',
+              })
+            }}
           />
         </div>
         <div className='flex items-end gap-2'>

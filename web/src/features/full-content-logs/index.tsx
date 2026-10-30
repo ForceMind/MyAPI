@@ -23,7 +23,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from '@tanstack/react-query'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
@@ -55,15 +55,21 @@ import { getFullContentLogs } from './api'
 import { FullContentLogDetailsDialog } from './components/full-content-log-details-dialog'
 import { FullContentLogFilesDialog } from './components/full-content-log-files-dialog'
 import { FullContentLogFilterBar } from './components/full-content-log-filter-bar'
+import { FullContentLogPagination } from './components/full-content-log-pagination'
 import {
   FullContentLogMobileCard,
   FullContentLogRow,
 } from './components/full-content-log-row'
 import { formatLogBytes } from './lib/format'
+import {
+  createFullContentLogListState,
+  EMPTY_FULL_CONTENT_FILTERS,
+  getFullContentPageCount,
+  type FullContentLogListState,
+} from './lib/list-state'
 import { getFullContentLogsQueryKey } from './lib/query-key'
 import type { FullContentLogFilters } from './types'
 
-const PAGE_SIZE = 20
 const SKELETON_ROWS = [
   'skeleton-1',
   'skeleton-2',
@@ -72,13 +78,6 @@ const SKELETON_ROWS = [
   'skeleton-5',
   'skeleton-6',
 ] as const
-const EMPTY_FILTERS: FullContentLogFilters = {
-  model: '',
-  token: '',
-  requestId: '',
-  startTime: '',
-  endTime: '',
-}
 // Fixed columns; the model and endpoint take the rest, so the table fits the
 // content column from 1024px without scrolling sideways.
 const COLUMN_WIDTH = {
@@ -90,18 +89,40 @@ const COLUMN_WIDTH = {
   actions: 'w-36',
 } as const
 
-export function FullContentLogs() {
+interface FullContentLogsProps {
+  initialState?: FullContentLogListState
+  onStateChange?: (state: FullContentLogListState) => void
+}
+
+export function FullContentLogs(props: FullContentLogsProps) {
+  const userId = useAuthStore((state) => state.auth.user?.id ?? null)
+  const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
+  const canRead = useAuthStore((state) =>
+    state.auth.user !== null && state.auth.user.role >= ROLE.ADMIN
+  )
+  return (
+    <FullContentLogsContent
+      key={JSON.stringify([userId, sessionId, canRead])}
+      initialState={props.initialState}
+      onStateChange={props.onStateChange}
+    />
+  )
+}
+
+function FullContentLogsContent(props: FullContentLogsProps) {
   const { t } = useTranslation()
   const isMobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
   const userId = useAuthStore((state) => state.auth.user?.id ?? null)
   const role = useAuthStore((state) => state.auth.user?.role ?? 0)
   const canRead = userId !== null && role >= ROLE.ADMIN
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
-  const [page, setPage] = useState(1)
-  const [draftFilters, setDraftFilters] =
-    useState<FullContentLogFilters>(EMPTY_FILTERS)
-  const [appliedFilters, setAppliedFilters] =
-    useState<FullContentLogFilters>(EMPTY_FILTERS)
+  const [listState, setListState] = useState(
+    () => props.initialState ?? createFullContentLogListState()
+  )
+  const { page, pageSize, filters: appliedFilters } = listState
+  const [draftFilters, setDraftFilters] = useState<FullContentLogFilters>(
+    () => ({ ...listState.filters })
+  )
   const [detailRequestId, setDetailRequestId] = useState<string | null>(null)
   const [filesOpen, setFilesOpen] = useState(false)
 
@@ -110,14 +131,15 @@ export function FullContentLogs() {
       page,
       appliedFilters,
       userId,
-      sessionId
+      sessionId,
+      pageSize
     ),
     enabled: canRead,
     queryFn: async ({ signal }) => {
       const response = await getFullContentLogs(
         {
           page,
-          pageSize: PAGE_SIZE,
+          pageSize,
           filters: appliedFilters,
         },
         signal
@@ -133,23 +155,39 @@ export function FullContentLogs() {
   })
 
   const data = canRead && !logsQuery.isError ? logsQuery.data : undefined
-  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE))
+  const totalPages = getFullContentPageCount(data?.total, pageSize)
+  const matchingTotal = totalPages === null ? undefined : data?.total
+  const { onStateChange } = props
+  useEffect(() => {
+    onStateChange?.(listState)
+  }, [listState, onStateChange])
+  useEffect(() => {
+    if (totalPages !== null && page > totalPages) {
+      setListState((current) => ({ ...current, page: totalPages }))
+    }
+  }, [page, totalPages])
   const errorMessage =
     logsQuery.error instanceof Error
       ? logsQuery.error.message
       : t('Failed to load full content logs')
   const isEmpty =
-    !logsQuery.isLoading && !logsQuery.isError && (data?.items.length ?? 0) === 0
+    data !== undefined && !logsQuery.isLoading && data.items.length === 0
 
   const applyFilters = () => {
-    setPage(1)
-    setAppliedFilters({ ...draftFilters })
+    setListState((current) => ({
+      ...current,
+      page: 1,
+      filters: { ...draftFilters },
+    }))
   }
 
   const resetFilters = () => {
-    setPage(1)
-    setDraftFilters(EMPTY_FILTERS)
-    setAppliedFilters(EMPTY_FILTERS)
+    setDraftFilters({ ...EMPTY_FULL_CONTENT_FILTERS })
+    setListState((current) => ({
+      ...current,
+      page: 1,
+      filters: { ...EMPTY_FULL_CONTENT_FILTERS },
+    }))
   }
 
   let mobileList: ReactNode = null
@@ -268,18 +306,18 @@ export function FullContentLogs() {
             <dl className='grid min-w-0 grid-cols-1 gap-2 min-[360px]:grid-cols-3 sm:gap-3'>
               <StatTile
                 label={t('Matching Requests')}
-                value={data?.total ?? '—'}
-                loading={canRead && logsQuery.isLoading}
+                value={matchingTotal ?? '—'}
+                loading={canRead && (logsQuery.isLoading || logsQuery.isFetching)}
               />
               <StatTile
                 label={t('Log Files')}
                 value={data?.files.count ?? '—'}
-                loading={canRead && logsQuery.isLoading}
+                loading={canRead && (logsQuery.isLoading || logsQuery.isFetching)}
               />
               <StatTile
                 label={t('Disk Usage')}
                 value={data ? formatLogBytes(data.files.total_size) : '—'}
-                loading={canRead && logsQuery.isLoading}
+                loading={canRead && (logsQuery.isLoading || logsQuery.isFetching)}
               />
             </dl>
 
@@ -367,31 +405,27 @@ export function FullContentLogs() {
               </div>
             )}
 
-            <div className='flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between'>
-              <span className='text-muted-foreground'>
-                {t('Page {{page}} of {{totalPages}} · {{total}} requests', {
-                  page,
-                  totalPages,
-                  total: data?.total ?? 0,
-                })}
-              </span>
-              <div className='flex gap-2'>
-                <Button
-                  variant='outline'
-                  disabled={page <= 1 || logsQuery.isFetching}
-                  onClick={() => setPage((current) => Math.max(1, current - 1))}
-                >
-                  {t('Previous')}
-                </Button>
-                <Button
-                  variant='outline'
-                  disabled={page >= totalPages || logsQuery.isFetching}
-                  onClick={() => setPage((current) => current + 1)}
-                >
-                  {t('Next')}
-                </Button>
-              </div>
-            </div>
+            <FullContentLogPagination
+              key={`${page}:${pageSize}`}
+              page={page}
+              pageSize={pageSize}
+              total={data?.total}
+              busy={logsQuery.isFetching || logsQuery.isLoading}
+              onPageChange={(nextPage) => {
+                if (totalPages === null || !Number.isSafeInteger(nextPage)) return
+                setListState((current) => ({
+                  ...current,
+                  page: Math.min(totalPages, Math.max(1, nextPage)),
+                }))
+              }}
+              onPageSizeChange={(nextPageSize) =>
+                setListState((current) => ({
+                  ...current,
+                  page: 1,
+                  pageSize: nextPageSize,
+                }))
+              }
+            />
           </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>

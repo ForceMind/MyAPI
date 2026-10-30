@@ -7195,6 +7195,27 @@
     "Refresh saved windows": "Refresh saved windows",
     "Relay usage-limit event": "Relay usage-limit event",
     "This saved WHAM observation failed. It does not describe other window series.": "This saved WHAM observation failed. It does not describe other window series.",
-    "WHAM usage sample failed": "WHAM usage sample failed"
+    "WHAM usage sample failed": "WHAM usage sample failed",
+    "Apply range": "Apply range",
+    "Clear end date": "Clear end date",
+    "Clear range": "Clear range",
+    "Clear start date": "Clear start date",
+    "End time must not be before start time.": "End time must not be before start time.",
+    "Enter a page between 1 and {{totalPages}}": "Enter a page between 1 and {{totalPages}}",
+    "Enter a valid time.": "Enter a valid time.",
+    "First page": "First page",
+    "Full content log pagination": "Full content log pagination",
+    "Go to page": "Go to page",
+    "Last page": "Last page",
+    "Loading request total": "Loading request total",
+    "Next month": "Next month",
+    "No end date": "No end date",
+    "No start date": "No start date",
+    "Page number": "Page number",
+    "Previous month": "Previous month",
+    "Request total unavailable": "Request total unavailable",
+    "Select a start and end date.": "Select a start and end date.",
+    "Select a valid date range.": "Select a valid date range.",
+    "Select an end date.": "Select an end date."
   }
 }

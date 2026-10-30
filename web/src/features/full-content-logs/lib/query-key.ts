@@ -16,7 +16,8 @@ export function getFullContentLogsQueryKey(
   page: number,
   filters: FullContentLogFilters,
   userId: number | null,
-  sessionId: string | null
+  sessionId: string | null,
+  pageSize = 20
 ) {
   return [
     'full-content-logs',
@@ -24,6 +25,7 @@ export function getFullContentLogsQueryKey(
     userId,
     sessionId,
     page,
+    pageSize,
     filters,
   ] as const
 }
