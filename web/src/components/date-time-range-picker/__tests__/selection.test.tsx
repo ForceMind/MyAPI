@@ -115,7 +115,7 @@ describe('date and time range selection', () => {
     ['Today', new Date(2026, 9, 30), new Date(2026, 9, 30, 23, 59, 59)],
     ['Last 7 days', new Date(2026, 9, 24), new Date(2026, 9, 30, 23, 59, 59)],
     ['Last 30 days', new Date(2026, 9, 1), new Date(2026, 9, 30, 23, 59, 59)],
-    ['This month', new Date(2026, 9, 1), new Date(2026, 9, 31, 23, 59, 59)],
+    ['Current month', new Date(2026, 9, 1), new Date(2026, 9, 31, 23, 59, 59)],
   ])('stages %s until Apply and preserves the end of the final day', async (preset, start, end) => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(2026, 9, 30, 14))

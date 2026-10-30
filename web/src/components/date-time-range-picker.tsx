@@ -223,7 +223,7 @@ export function DateTimeRangePicker(props: DateTimeRangePickerProps) {
             className='min-h-11'
             onClick={() => applyPreset('month')}
           >
-            {t('This month')}
+            {t('Current month')}
           </Button>
           <Button
             type='button'

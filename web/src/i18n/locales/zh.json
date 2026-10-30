@@ -7216,6 +7216,7 @@
     "Request total unavailable": "请求总数暂不可用",
     "Select a start and end date.": "请选择开始和结束日期。",
     "Select a valid date range.": "请选择有效的日期范围。",
-    "Select an end date.": "请选择结束日期。"
+    "Select an end date.": "请选择结束日期。",
+    "Current month": "本月"
   }
 }

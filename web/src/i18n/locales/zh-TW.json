@@ -7216,6 +7216,7 @@
     "Request total unavailable": "Request total unavailable",
     "Select a start and end date.": "Select a start and end date.",
     "Select a valid date range.": "Select a valid date range.",
-    "Select an end date.": "Select an end date."
+    "Select an end date.": "Select an end date.",
+    "Current month": "Current month"
   }
 }
