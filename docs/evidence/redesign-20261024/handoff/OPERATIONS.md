@@ -136,3 +136,5 @@ gh run download <RUN_ID> --repo ForceMind/MyAPI -D /tmp/myapi-shots
 ### 2026-10-30 UI第二批验证入口
 
 已批准三个日志列表；CI前端专项现包含 `src/features/usage-logs`、`src/features/full-content-logs`、`src/components/date-time-range-picker` 和 `src/lib/__tests__/log-pagination.test.ts`。所有命令仅runner执行，浏览器保持未授权/跳过；本机不安装依赖/运行工具链/下载构件。此前7ab47a82的CI41021525656后端首次超过35分钟作业上限，未放宽断言或超时，仅该作业重跑attempt2成功；本批以自己的CI为准。
+
+第二批源码b9a5d855的[完整CI41041830295](https://github.com/ForceMind/MyAPI/actions/runs/41041830295) attempt1 success，10成功/1浏览器跳过；专项315/315、全量2046/2046、同步/构建/类型/lint及完整后端/数据库等通过，全部作业/步骤已读。前两轮41040228906（专项失败）/41040724991（测试全通过但lint失败）被补修替代，终态cancelled，原失败记录保留。收尾只改4份交接，仍需读其自己的CI。
