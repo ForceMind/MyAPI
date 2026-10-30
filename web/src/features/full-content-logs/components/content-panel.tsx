@@ -128,6 +128,9 @@ export function ContentPanel(props: ContentPanelProps) {
           {t('Content preview truncated to 1 MB')}
           {' '}
           {t('Copy includes all loaded content, beyond this display preview.')}
+          {!props.truncated && typeof props.totalBytes === 'number' && Number.isFinite(props.totalBytes)
+            ? ` (${formatLogBytes(props.totalBytes)})`
+            : ''}
         </p>
       )}
       {props.truncated && (

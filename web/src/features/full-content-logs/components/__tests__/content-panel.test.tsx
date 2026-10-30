@@ -43,6 +43,17 @@ describe('saved content panel', () => {
     expect(writeText).toHaveBeenCalledWith(body)
   })
 
+  test('a UI-only preview retains the recorded full byte size without claiming server truncation', () => {
+    const totalBytes = CONTENT_PREVIEW_LIMIT * 2
+    const body = 'x'.repeat(totalBytes)
+    render(<ContentPanel title='Saved body' body={body} emptyText='Empty' preserveOriginal totalBytes={totalBytes} />)
+
+    const panel = screen.getByRole('region', { name: 'Saved body' })
+    expect(panel.querySelector('pre')?.textContent).toHaveLength(CONTENT_PREVIEW_LIMIT)
+    expect(within(panel).getByText('Copy includes all loaded content, beyond this display preview.', { exact: false })).toHaveTextContent('2.00 MiB')
+    expect(screen.queryByText('The saved response returned by the server is truncated.', { exact: false })).not.toBeInTheDocument()
+  })
+
   test('line wrapping has a keyboard-operable pressed state and empty content cannot be copied', async () => {
     const user = userEvent.setup()
     render(<ContentPanel title='Saved body' body='' emptyText='Nothing saved' defaultWrap={false} />)
