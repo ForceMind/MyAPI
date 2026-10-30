@@ -86,7 +86,7 @@ function CommonLogRow(props: { log: UsageLog }) {
   const { t } = useTranslation()
   const showCosts = useLogMoneyVisibility()
   const { isAdminView } = useLogsViewScope()
-  const { sensitiveVisible, setSelectedUserId, setUserInfoDialogOpen } =
+  const { sensitiveVisible, setSelectedUserId, setUserInfoDialogOpen, rememberRequestFocus } =
     useUsageLogsContext()
   const [dialogOpen, setDialogOpen] = useState(false)
   const log = props.log
@@ -237,6 +237,10 @@ function CommonLogRow(props: { log: UsageLog }) {
             to='/usage-logs/request/$requestId'
             params={{ requestId: log.request_id }}
             state={{ inspectorBack: true }}
+            data-usage-request-link={log.id}
+            onClick={(event) => {
+              if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) rememberRequestFocus?.(log.id)
+            }}
             title={t('Click to view full details')}
             className={ROW_TARGET_CLASS}
           >

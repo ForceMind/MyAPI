@@ -15,7 +15,7 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 
@@ -59,16 +59,27 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-async function renderRequest(log: unknown, role = 100) {
+async function renderRequest(log: unknown, role = 100, options: { entry?: string; content?: Record<string, unknown> } = {}) {
+  let selectedLog = log
+  let savedContent = options.content
+  let waitForLookup = false
+  let releaseLookup = () => {}
+  let pendingLookup = Promise.resolve()
+
   useAuthStore.getState().auth.setUser({ id: 1, username: 'owner', role })
   const requests: URL[] = []
+  vi.spyOn(api, 'post').mockRejectedValue(new Error('Synthetic writes forbidden'))
+  vi.spyOn(api, 'put').mockRejectedValue(new Error('Synthetic writes forbidden'))
+  vi.spyOn(api, 'delete').mockRejectedValue(new Error('Synthetic writes forbidden'))
   vi.spyOn(api, 'get').mockImplementation(async (path) => {
     const url = new URL(String(path), 'http://synthetic.invalid')
     requests.push(url)
     if (url.pathname === '/api/log' || url.pathname === '/api/log/self') {
-      return { data: { success: true, data: { items: [log], total: 1 } } }
+      if (waitForLookup) await pendingLookup
+      return { data: { success: true, data: { items: [selectedLog], total: 1 } } }
     }
     if (url.pathname.startsWith('/api/full-content-logs/')) {
+      if (savedContent) return { data: { success: true, data: savedContent } }
       throw Object.assign(new Error('not found'), {
         isAxiosError: true,
         response: { status: 404, data: { success: false } },
@@ -95,7 +106,7 @@ async function renderRequest(log: unknown, role = 100) {
   const router = createRouter({
     routeTree: root.addChildren([auth.addChildren([request])]),
     history: createMemoryHistory({
-      initialEntries: [`/usage-logs/request/${REQUEST_ID}`],
+      initialEntries: [options.entry ?? `/usage-logs/request/${REQUEST_ID}`],
     }),
   })
   await router.load()
@@ -106,7 +117,13 @@ async function renderRequest(log: unknown, role = 100) {
       </TooltipProvider>
     </QueryClientProvider>
   )
-  return { requests, router, user: userEvent.setup() }
+  return {
+    requests, router, client, user: userEvent.setup(),
+    setLog: (next: unknown) => { selectedLog = next },
+    setContent: (next: Record<string, unknown>) => { savedContent = next },
+    holdLookup: () => { waitForLookup = true; pendingLookup = new Promise<void>((resolve) => { releaseLookup = resolve }) },
+    releaseLookup: () => { waitForLookup = false; releaseLookup() },
+  }
 }
 
 function cell(grid: HTMLElement, label: string) {
@@ -150,7 +167,7 @@ test('the four results read the recorded status, provenance and settlement', asy
 })
 
 test('an administrator sees each relay attempt in the timeline, in recorded order', async () => {
-  await renderRequest(
+  const { user } = await renderRequest(
     record({
       request_outcome: 'completed',
       http_status: 200,
@@ -175,6 +192,7 @@ test('an administrator sees each relay attempt in the timeline, in recorded orde
       },
     })
   )
+  await user.click(await screen.findByRole('tab', { name: 'Diagnosis' }))
   const timeline = await screen.findByRole('list', {
     name: 'Diagnosis timeline',
   })
@@ -202,7 +220,7 @@ test('an administrator sees each relay attempt in the timeline, in recorded orde
 })
 
 test('a request rejected before sending shows no routing or upstream step', async () => {
-  await renderRequest(
+  const { user } = await renderRequest(
     record(
       {
         request_outcome: 'rejected',
@@ -212,6 +230,7 @@ test('a request rejected before sending shows no routing or upstream step', asyn
       { type: 5, prompt_tokens: 0, completion_tokens: 0 }
     )
   )
+  await user.click(await screen.findByRole('tab', { name: 'Diagnosis' }))
   const timeline = await screen.findByRole('list', {
     name: 'Diagnosis timeline',
   })
@@ -225,10 +244,12 @@ test('a request rejected before sending shows no routing or upstream step', asyn
 })
 
 test('an ordinary user reads only their own records, with no routing details or body request', async () => {
-  const { requests } = await renderRequest(
+  const { requests, user } = await renderRequest(
     record({ request_outcome: 'completed', http_status: 200 }),
     1
   )
+  expect(await screen.findByText('Administrator access required')).toBeVisible()
+  await user.click(await screen.findByRole('tab', { name: 'Diagnosis' }))
   const timeline = await screen.findByRole('list', {
     name: 'Diagnosis timeline',
   })
@@ -238,7 +259,6 @@ test('an ordinary user reads only their own records, with no routing details or 
     )
   ).toBeVisible()
   expect(screen.queryByText('Fixture connection')).not.toBeInTheDocument()
-  expect(await screen.findByText('Administrator access required')).toBeVisible()
   expect(requests.some((url) => url.pathname === '/api/log')).toBe(false)
   expect(requests.some((url) => url.pathname === '/api/log/self')).toBe(true)
   expect(
@@ -251,10 +271,144 @@ test('the raw tab shows the saved call record and writes its tab to the URL', as
     record({ request_outcome: 'completed', http_status: 200 })
   )
   await screen.findByTestId('request-result-grid')
-  await user.click(screen.getByRole('tab', { name: 'Raw' }))
+  await user.click(screen.getByRole('tab', { name: 'Raw evidence' }))
   expect(router.state.location.search).toEqual({ tab: 'raw' })
   const panel = screen.getByRole('tabpanel')
   expect(within(panel).getByText('Saved call record')).toBeVisible()
   expect(panel).toHaveTextContent(`"request_id": "${REQUEST_ID}"`)
   expect(panel).toHaveTextContent('"request_outcome": "completed"')
+})
+
+
+function savedContent(overrides: Record<string, unknown> = {}) {
+  return {
+    request_id: REQUEST_ID,
+    method: 'POST', path: '/v1/responses', status: 200,
+    timestamp: '2026-10-30T08:00:00Z', duration_ms: 30,
+    chunk_count: 2, request_bytes: 12, response_bytes: 20,
+    request_body: '{"input":"SYNTHETIC-SAVED-QUESTION"}',
+    response_body: 'event: response.completed\ndata: {"type":"response.completed","marker":"SYNTHETIC-SAVED-ANSWER"}\n\n',
+    request_content_type: 'application/json', response_content_type: 'text/event-stream',
+    request_headers: { authorization: ['[REDACTED]'] },
+    response_headers: { 'content-type': ['text/event-stream'] },
+    query: {},
+    ...overrides,
+  }
+}
+
+test('identity and four independent results stay singular while the evidence tabs change without writes', async () => {
+  const fixture = await renderRequest(record({ request_outcome: 'completed', http_status: 200 }), 100, { content: savedContent() })
+  const summary = await screen.findByLabelText('Request identity')
+  expect(summary).toHaveTextContent(REQUEST_ID)
+  expect(summary).toHaveTextContent('fixture-key (#21)')
+  expect(summary).toHaveTextContent('Fixture connection (#4)')
+  expect(screen.getByRole('tab', { name: 'Body' })).toHaveAttribute('aria-selected', 'true')
+  for (const [name, tab] of [['Diagnosis', 'detail'], ['SSE', 'sse'], ['Raw evidence', 'raw'], ['Body', undefined]] as const) {
+    await fixture.user.click(screen.getByRole('tab', { name }))
+    await waitFor(() => expect(fixture.router.state.location.search).toEqual(tab ? { tab } : {}))
+    expect(screen.getAllByLabelText('Request identity')).toHaveLength(1)
+    expect(screen.getAllByTestId('request-result-grid')).toHaveLength(1)
+    expect(screen.getByRole('tab', { name })).toHaveAttribute('aria-selected', 'true')
+  }
+  expect(api.post).not.toHaveBeenCalled()
+  expect(api.put).not.toHaveBeenCalled()
+  expect(api.delete).not.toHaveBeenCalled()
+  expect(fixture.requests.every((url) => url.pathname.startsWith('/api/'))).toBe(true)
+})
+
+test('raw evidence separates the account call record from saved upstream payloads and headers', async () => {
+  const fixture = await renderRequest(record({ cache_tokens: null, request_outcome: 'completed', http_status: 200 }), 100, { content: savedContent() })
+  await fixture.user.click(await screen.findByRole('tab', { name: 'Raw evidence' }))
+  const callRecord = screen.getByRole('region', { name: 'Saved call record' })
+  expect(callRecord).toHaveTextContent('"cache_tokens": null')
+  expect(callRecord).not.toHaveTextContent('SYNTHETIC-SAVED-QUESTION')
+  const upstream = screen.getByRole('region', { name: 'Saved upstream request and response' })
+  await waitFor(() => expect(upstream).toHaveTextContent('SYNTHETIC-SAVED-QUESTION'))
+  expect(upstream).toHaveTextContent('SYNTHETIC-SAVED-ANSWER')
+  await fixture.user.click(within(upstream).getByText('Request headers', { selector: 'summary' }))
+  await waitFor(() => expect(upstream).toHaveTextContent('[REDACTED]'))
+  expect(api.post).not.toHaveBeenCalled()
+  expect(api.put).not.toHaveBeenCalled()
+  expect(api.delete).not.toHaveBeenCalled()
+})
+
+test('ordinary viewers may inspect their saved record but never fetch upstream bodies from any evidence tab', async () => {
+  const fixture = await renderRequest(record({ request_outcome: 'completed', http_status: 200 }, { channel_name: '' }), 1)
+  await screen.findByTestId('request-result-grid')
+  for (const name of ['Diagnosis', 'Raw evidence', 'SSE', 'Body']) {
+    await fixture.user.click(screen.getByRole('tab', { name }))
+  }
+  expect(fixture.requests.some((url) => url.pathname === '/api/log')).toBe(false)
+  expect(fixture.requests.some((url) => url.pathname === '/api/log/self')).toBe(true)
+  expect(fixture.requests.some((url) => url.pathname.startsWith('/api/full-content-logs'))).toBe(false)
+  expect(screen.getByText('Administrator access required')).toBeVisible()
+  expect(screen.queryByLabelText('Connection')).not.toBeInTheDocument()
+})
+
+test('changing a signed-in actor immediately removes prior identity and payload while a self lookup is pending', async () => {
+  const fixture = await renderRequest(record({ request_outcome: 'completed', http_status: 200 }), 100, { content: savedContent() })
+  await screen.findByText(/SYNTHETIC-SAVED-QUESTION/)
+  fixture.holdLookup()
+  fixture.setLog(record({ request_outcome: 'completed', usage_outcome: 'missing' }, { user_id: 2, token_name: 'next-key', channel_name: '', token_id: 22 }))
+  act(() => useAuthStore.getState().auth.setUser({ id: 2, username: 'next-owner', role: 1 }))
+  await waitFor(() => expect(fixture.requests.at(-1)?.pathname).toBe('/api/log/self'))
+  expect(screen.queryByText(/SYNTHETIC-SAVED-QUESTION/)).not.toBeInTheDocument()
+  expect(screen.queryByText('fixture-key (#21)')).not.toBeInTheDocument()
+  expect(screen.queryByText('Fixture connection (#4)')).not.toBeInTheDocument()
+  await act(async () => fixture.releaseLookup())
+  expect(await screen.findByText('next-key (#22)')).toBeVisible()
+  expect(screen.queryByText(/SYNTHETIC-SAVED-QUESTION/)).not.toBeInTheDocument()
+})
+
+test('an explicit diagnosis deep link does not fetch request content before a content tab is opened', async () => {
+  const fixture = await renderRequest(record({ request_outcome: 'completed', http_status: 200 }), 100, { entry: `/usage-logs/request/${REQUEST_ID}?tab=detail`, content: savedContent() })
+  expect(await screen.findByRole('list', { name: 'Diagnosis timeline' })).toBeVisible()
+  expect(fixture.requests.some((url) => url.pathname.startsWith('/api/full-content-logs'))).toBe(false)
+  await fixture.user.click(screen.getByRole('tab', { name: 'Body' }))
+  await screen.findByText(/SYNTHETIC-SAVED-QUESTION/)
+  expect(fixture.requests.some((url) => url.pathname.startsWith('/api/full-content-logs/'))).toBe(true)
+})
+
+
+test('rotating a session on the same user removes the previous saved payload until the new lookup resolves', async () => {
+  const fixture = await renderRequest(record({ request_outcome: 'completed', http_status: 200 }), 100, { content: savedContent() })
+  await screen.findByText(/SYNTHETIC-SAVED-QUESTION/)
+  fixture.holdLookup()
+  fixture.setContent(savedContent({ request_body: '{"input":"NEW-SESSION-QUESTION"}' }))
+  act(() => useAuthStore.setState((state) => ({ auth: { ...state.auth, session: {
+    sid: 'new-synthetic-session', current: true, login_method: 'password', ip: '', user_agent: '', created_at: 1, last_active_at: 1, expires_at: 2,
+  } } })))
+  await waitFor(() => expect(screen.queryByText(/SYNTHETIC-SAVED-QUESTION/)).not.toBeInTheDocument())
+  await act(async () => fixture.releaseLookup())
+  expect(await screen.findByText(/NEW-SESSION-QUESTION/)).toBeVisible()
+  expect(screen.queryByText(/SYNTHETIC-SAVED-QUESTION/)).not.toBeInTheDocument()
+  expect(api.post).not.toHaveBeenCalled()
+})
+
+
+test('a role change inside administrator scope cannot reuse the previous role lookup snapshot', async () => {
+  const fixture = await renderRequest(record({ request_outcome: 'completed', http_status: 200 }), 100, { content: savedContent() })
+  await screen.findByText('fixture-key (#21)')
+  const before = fixture.requests.filter((url) => url.pathname === '/api/log').length
+  fixture.holdLookup()
+  fixture.setLog(record({ request_outcome: 'completed', http_status: 200 }, { token_name: 'new-role-key' }))
+  act(() => useAuthStore.getState().auth.setUser({ id: 1, username: 'owner', role: 10 }))
+  try {
+    await waitFor(() => expect(fixture.requests.filter((url) => url.pathname === '/api/log')).toHaveLength(before + 1))
+    expect(screen.queryByText('fixture-key (#21)')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('request-result-grid')).not.toBeInTheDocument()
+  } finally {
+    fixture.releaseLookup()
+  }
+  expect(await screen.findByText('new-role-key (#21)')).toBeVisible()
+})
+
+
+test('known names do not hide missing identity IDs or fabricate ID zero', async () => {
+  await renderRequest(record({ request_outcome: 'completed' }, { token_id: 0, channel: 0 }))
+  const identity = await screen.findByLabelText('Request identity')
+  expect(identity).toHaveTextContent('fixture-key (ID: Not recorded)')
+  expect(identity).toHaveTextContent('Fixture connection (ID: Not recorded)')
+  expect(identity).not.toHaveTextContent('#0')
+  expect(within(identity).queryByRole('button', { name: 'View this Key' })).not.toBeInTheDocument()
 })

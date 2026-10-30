@@ -214,6 +214,8 @@ test('disabled funding preserves admin server pagination, saved content and retu
     )
   ).toBe(true)
   const before = router.state.location.href
+  const openingLink = screen.getByTitle('Click to view full details')
+  openingLink.focus()
   // The request's details open as its page.
   await user.click(screen.getByTitle('Click to view full details'))
   await waitFor(() =>
@@ -222,10 +224,13 @@ test('disabled funding preserves admin server pagination, saved content and retu
     )
   )
   const detail = await screen.findByTestId('request-page')
+  await user.click(await within(detail).findByRole('tab', { name: 'Diagnosis' }))
   expect(
     (await within(detail).findAllByText('Unknown')).length
   ).toBeGreaterThanOrEqual(2)
   expect(within(detail).queryByText('Total Cost')).not.toBeInTheDocument()
+  await user.click(within(detail).getByRole('tab', { name: 'SSE' }))
+  await user.click(within(detail).getByRole('tab', { name: 'Body' }))
   // The saved content is read in the page's Body tab.
   await within(detail).findByText('saved response', { exact: false })
   // Back returns to the same filtered page of the call records.
@@ -235,6 +240,7 @@ test('disabled funding preserves admin server pagination, saved content and retu
   act(() => useInspectorStore.getState().current?.close())
   await waitFor(() => expect(router.state.location.href).toBe(before))
   expect(await screen.findByText('REQ-SYNTHETIC-2')).toBeInTheDocument()
+  await waitFor(() => expect(screen.getByTitle('Click to view full details')).toHaveFocus())
 })
 
 test('ordinary role uses only the self endpoint and never receives an all-users control', async () => {
@@ -266,7 +272,7 @@ test('changing the signed-in actor removes request details read by the previous 
   await screen.findByText('REQ-SYNTHETIC-1')
   await user.click(screen.getByTitle('Click to view full details'))
   const detail = await screen.findByTestId('request-page')
-  await user.click(await within(detail).findByRole('tab', { name: 'Raw' }))
+  await user.click(await within(detail).findByRole('tab', { name: 'Raw evidence' }))
   // The administrator's record names the other user.
   expect(
     await within(detail).findByText(/SYNTHETIC-ADMIN-ONLY/)

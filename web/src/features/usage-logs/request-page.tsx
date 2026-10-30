@@ -29,6 +29,7 @@ import { ContentPanel } from '@/features/full-content-logs/components/full-conte
 import {
   RequestBodyPanel,
   RequestStreamPanel,
+  RequestOriginalPanel,
 } from '@/features/full-content-logs/components/request-content-panels'
 import { useKeyDetail } from '@/features/keys/hooks/use-key-detail'
 import { useFundingPresentation } from '@/hooks/use-funding-presentation'
@@ -42,7 +43,7 @@ import type { OpenInspector } from '@/stores/inspector-store'
 import { DiagnosisTimeline } from './components/diagnosis-timeline'
 import { LogDetailsContent } from './components/dialogs/details-dialog'
 import { ResultGrid } from './components/request-result-grid'
-import { RequestOutcomeBadge, RequestTime } from './components/request-summary'
+import { RequestIdentity } from './components/request-identity'
 import { UsageLogsProvider } from './components/usage-logs-provider'
 import type { UsageLog } from './data/schema'
 import { useRequestLookup } from './hooks/use-request-lookup'
@@ -61,6 +62,13 @@ function shortRequestId(requestId: string) {
 
 /** A request opened from a Key's page: API Key › Key › request. */
 export function KeyRequestPage() {
+  const actor = useAuthStore((state) => JSON.stringify([
+    state.auth.user?.id ?? null, state.auth.session?.sid ?? null, state.auth.user?.role ?? 0,
+  ]))
+  return <KeyRequestPageContent key={actor} />
+}
+
+function KeyRequestPageContent() {
   const { t } = useTranslation()
   const params = keyRoute.useParams()
   const search = keyRoute.useSearch()
@@ -145,18 +153,27 @@ export function CallRecordRequestPage() {
 
 /**
  * One request as a page (design direction 3): its four results, the
- * diagnosis timeline with the saved record beside the saved body, SSE
- * stream and raw record. Everything is read from saved records; nothing is
+ * diagnosis timeline and grouped record, saved body, SSE event inspection
+ * and original evidence in separate tabs. Everything is read from saved records; nothing is
  * resent and nothing is polled.
  */
-function RequestPage(props: {
+type RequestPageProps = {
   requestId: string
   /** The Key the page was opened from; a request of another Key says so. */
   keyId?: number
   tab: RequestPageTab
   onTabChange: (tab: RequestPageTab) => void
   navigation: Omit<OpenInspector, 'title' | 'page'>
-}) {
+}
+
+function RequestPage(props: RequestPageProps) {
+  const actor = useAuthStore((state) => JSON.stringify([
+    state.auth.user?.id ?? null, state.auth.session?.sid ?? null, state.auth.user?.role ?? 0,
+  ]))
+  return <RequestPageContent key={actor} {...props} />
+}
+
+function RequestPageContent(props: RequestPageProps) {
   const { t } = useTranslation()
   const role = useAuthStore((state) => state.auth.user?.role ?? 0)
   const isAdmin = role >= ROLE.ADMIN
@@ -235,19 +252,9 @@ function RequestPage(props: {
         data-testid='request-page'
         title={<span className='font-mono'>{shortId}</span>}
         label={t('Request {{requestId}}', { requestId: shortId })}
-        meta={
-          <>
-            {log && <RequestOutcomeBadge log={log} />}
-            {log && <RequestTime seconds={log.created_at} withDate />}
-            {log && isAdmin && log.channel_name && (
-              <span>{log.channel_name}</span>
-            )}
-            {log?.model_name && (
-              <span className='font-mono'>{log.model_name}</span>
-            )}
-            <code className='font-mono wrap-anywhere'>{props.requestId}</code>
-          </>
-        }
+        meta={log
+          ? t('Saved request evidence')
+          : <code className='font-mono wrap-anywhere'>{props.requestId}</code>}
         actions={
           <>
             <CopyButton
@@ -255,6 +262,7 @@ function RequestPage(props: {
               variant='outline'
               size='default'
               aria-label={t('Copy Request ID')}
+              className='min-h-11'
             >
               {t('Copy ID')}
             </CopyButton>
@@ -264,7 +272,7 @@ function RequestPage(props: {
                 params={{ section: 'common' }}
                 search={{ requestId: props.requestId }}
                 data-myapi-button=''
-                className={linkButtonClassName({ variant: 'ghost' })}
+                className={linkButtonClassName({ variant: 'ghost', className: 'min-h-11' })}
               >
                 {t('Show in call records')}
               </Link>
@@ -291,20 +299,12 @@ function RequestDetails(props: {
   const log = props.log
   const other = parseLogOther(log.other)
   const requestId = log.request_id || null
-  const timing = [
-    log.use_time > 0 ? t('{{count}} s', { count: log.use_time }) : null,
-    log.is_stream && other?.frt != null && other.frt > 0
-      ? t('First byte {{seconds}} s', {
-          seconds: Number((other.frt / 1000).toFixed(2)),
-        })
-      : null,
-  ].filter(Boolean)
   // The record as this account may read it, with `other` decoded.
-  const rawRecord = JSON.stringify(
+  const rawRecord = props.tab === 'raw' ? JSON.stringify(
     { ...log, other: other ?? log.other },
     null,
     2
-  )
+  ) : ''
 
   return (
     <div className='flex min-w-0 flex-col gap-4'>
@@ -323,86 +323,51 @@ function RequestDetails(props: {
           )}
         </p>
       )}
+      <RequestIdentity log={log} isAdmin={props.isAdmin} />
       <ResultGrid log={log} />
-      <div className='grid min-w-0 items-start gap-4 lg:grid-cols-2'>
-        <section
-          aria-labelledby='request-diagnosis-title'
-          className='bg-card flex min-w-0 flex-col rounded-xl border'
-        >
-          <div className='flex min-w-0 flex-wrap items-center justify-between gap-2 border-b px-4 py-3'>
-            <h2 id='request-diagnosis-title' className='text-title'>
-              {t('Diagnosis')}
-            </h2>
-            {timing.length > 0 && (
-              <span className='text-caption text-muted-foreground'>
-                {timing.join(' · ')}
-              </span>
-            )}
+      <Tabs
+        value={props.tab}
+        onValueChange={(value) => props.onTabChange(value as RequestPageTab)}
+        className='min-w-0 gap-4'
+      >
+        <TabsList variant='line' className={OBJECT_PAGE_TABS_LIST_CLASS}>
+          <TabsTrigger value='detail' className='min-h-11'>{t('Diagnosis')}</TabsTrigger>
+          <TabsTrigger value='body' className='min-h-11'>{t('Body')}</TabsTrigger>
+          <TabsTrigger value='sse' className='min-h-11'>{t('SSE')}</TabsTrigger>
+          <TabsTrigger value='raw' className='min-h-11'>{t('Raw evidence')}</TabsTrigger>
+        </TabsList>
+        <TabsContent value='detail' className='min-w-0'>
+          <div className='grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]'>
+            <section aria-labelledby='request-diagnosis-title' className='bg-card min-w-0 rounded-xl border p-4'>
+              <h2 id='request-diagnosis-title' className='text-title mb-4'>{t('Diagnosis')}</h2>
+              <DiagnosisTimeline log={log} isAdmin={props.isAdmin} />
+            </section>
+            <section aria-label={t('Saved record')} className='bg-card min-w-0 rounded-xl border p-4'>
+              <LogDetailsContent log={log} isAdmin={props.isAdmin} active={props.tab === 'detail'} embedded presentation='request' />
+            </section>
           </div>
-          <div className='p-card flex min-w-0 flex-col gap-5'>
-            <DiagnosisTimeline log={log} isAdmin={props.isAdmin} />
-            <div className='flex min-w-0 flex-col gap-2 border-t pt-4'>
-              <h3 className='text-caption text-muted-foreground font-medium'>
-                {t('Saved record')}
-              </h3>
-              <LogDetailsContent
-                log={log}
-                isAdmin={props.isAdmin}
-                active
-                embedded
-              />
-            </div>
-          </div>
-        </section>
-        <section
-          aria-label={t('Request content')}
-          className='bg-card flex min-w-0 flex-col rounded-xl border'
-        >
-          <Tabs
-            value={props.tab}
-            onValueChange={(value) =>
-              props.onTabChange(value as RequestPageTab)
-            }
-            className='min-w-0 gap-0'
-          >
-            <div className='px-4 pt-2'>
-              <TabsList variant='line' className={OBJECT_PAGE_TABS_LIST_CLASS}>
-                <TabsTrigger value='body'>{t('Body')}</TabsTrigger>
-                <TabsTrigger value='sse'>SSE</TabsTrigger>
-                <TabsTrigger value='raw'>{t('Raw')}</TabsTrigger>
-              </TabsList>
-            </div>
-            <TabsContent value='body' className='p-card min-w-0'>
-              <RequestBodyPanel
-                requestId={requestId}
-                active={props.tab === 'body'}
-              />
-            </TabsContent>
-            <TabsContent value='sse' className='p-card min-w-0'>
-              <RequestStreamPanel
-                requestId={requestId}
-                active={props.tab === 'sse'}
-              />
-            </TabsContent>
-            <TabsContent value='raw' className='p-card min-w-0'>
-              <div className='flex min-w-0 flex-col gap-3'>
-                <p className='text-caption text-muted-foreground'>
-                  {t(
-                    'The call record as saved for this account; request and response bodies are under Body and SSE.'
-                  )}
-                </p>
-                <ContentPanel
-                  title={t('Saved call record')}
-                  body={rawRecord}
-                  encoding='json'
-                  contentType='application/json'
-                  emptyText={t('Empty response body')}
-                />
-              </div>
-            </TabsContent>
-          </Tabs>
-        </section>
-      </div>
+        </TabsContent>
+        <TabsContent value='body' className='bg-card min-w-0 rounded-xl border p-4'>
+          <RequestBodyPanel requestId={requestId} active={props.tab === 'body'} />
+        </TabsContent>
+        <TabsContent value='sse' className='bg-card min-w-0 rounded-xl border p-4'>
+          <RequestStreamPanel requestId={requestId} active={props.tab === 'sse'} />
+        </TabsContent>
+        <TabsContent value='raw' className='min-w-0 space-y-4'>
+          <section className='bg-card min-w-0 space-y-3 rounded-xl border p-4'>
+            <p className='text-caption text-muted-foreground'>
+              {t('The call record as saved for this account; request and response bodies are under Body and SSE.')}
+            </p>
+            <ContentPanel title={t('Saved call record')} body={rawRecord} encoding='json' contentType='application/json' emptyText={t('Empty response body')} />
+          </section>
+          <section aria-label={t('Saved upstream request and response')} className='bg-card min-w-0 space-y-3 rounded-xl border p-4'>
+            <p className='text-caption text-muted-foreground'>
+              {t('Saved upstream request and response are separate from the call record. Missing content is not reconstructed.')}
+            </p>
+            <RequestOriginalPanel requestId={requestId} active={props.tab === 'raw'} />
+          </section>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

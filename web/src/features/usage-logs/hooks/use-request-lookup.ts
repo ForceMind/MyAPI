@@ -29,6 +29,7 @@ export function useRequestLookup(options: {
   enabled: boolean
 }) {
   const userId = useAuthStore((state) => state.auth.user?.id ?? null)
+  const role = useAuthStore((state) => state.auth.user?.role ?? 0)
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const requestId = options.requestId?.trim() || undefined
   const query = useQuery({
@@ -39,6 +40,7 @@ export function useRequestLookup(options: {
       userId,
       sessionId,
       requestId,
+      role,
     ],
     queryFn: async () => {
       const params = {

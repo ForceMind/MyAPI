@@ -12,10 +12,10 @@ import z from 'zod'
 export const requestIdSchema = z.string().trim().min(1).max(128)
 
 /**
- * Content tabs of the request page. Diagnosis is always shown beside them;
- * the saved body is the default and stays out of the URL.
+ * Request evidence tabs. The saved body remains the default and stays out
+ * of the URL; diagnosis has its own explicit tab.
  */
-const REQUEST_PAGE_TABS = ['body', 'sse', 'raw'] as const
+const REQUEST_PAGE_TABS = ['detail', 'body', 'sse', 'raw'] as const
 export type RequestPageTab = (typeof REQUEST_PAGE_TABS)[number]
 
 export const requestPageSearchSchema = z.object({
@@ -34,6 +34,7 @@ export const legacyRequestTabSchema = z
 export function legacyRequestTab(
   tab: z.infer<typeof legacyRequestTabSchema>
 ): RequestPageTab | undefined {
+  if (tab === 'diagnosis') return 'detail'
   return tab === 'body' || tab === 'sse' ? tab : undefined
 }
 

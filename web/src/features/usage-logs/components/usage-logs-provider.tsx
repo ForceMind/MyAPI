@@ -27,6 +27,7 @@ export type LogsViewScope = 'all' | 'self'
 
 interface UsageLogsContextValue {
   showCosts: boolean
+  rememberRequestFocus?: (logId: number) => void
   selectedUserId: number | null
   setSelectedUserId: (userId: number | null) => void
   userInfoDialogOpen: boolean
@@ -48,6 +49,7 @@ const UsageLogsContext = createContext<UsageLogsContextValue | undefined>(
 export function UsageLogsProvider(props: {
   children: ReactNode
   showCosts?: boolean
+  onRequestOpen?: (logId: number) => void
 }) {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
   const [userInfoDialogOpen, setUserInfoDialogOpen] = useState(false)
@@ -61,6 +63,7 @@ export function UsageLogsProvider(props: {
     <UsageLogsContext.Provider
       value={{
         showCosts: props.showCosts ?? true,
+        rememberRequestFocus: props.onRequestOpen,
         selectedUserId,
         setSelectedUserId,
         userInfoDialogOpen,

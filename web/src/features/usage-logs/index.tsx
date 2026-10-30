@@ -20,6 +20,7 @@ import { Link, getRouteApi } from '@tanstack/react-router'
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useRememberReturnFocus } from '@/components/object-page/return-focus'
 import { SectionPageLayout } from '@/components/layout'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { connectionListContext } from '@/features/connections/connection-state'
@@ -244,8 +245,9 @@ export function UsageLogs() {
       `${state.auth.user?.id ?? ''}:${state.auth.user?.role ?? ''}:${state.auth.session?.sid ?? ''}`
   )
   const funding = useFundingPresentation()
+  const rememberFocus = useRememberReturnFocus()
   return (
-    <UsageLogsProvider key={actorKey} showCosts={funding.commercialEnabled}>
+    <UsageLogsProvider key={actorKey} showCosts={funding.commercialEnabled} onRequestOpen={(logId) => rememberFocus('data-usage-request-link', logId)}>
       <UsageLogsContent />
     </UsageLogsProvider>
   )

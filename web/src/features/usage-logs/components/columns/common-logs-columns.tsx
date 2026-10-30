@@ -820,6 +820,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
       accessorKey: 'content',
       header: t('Details'),
       cell: function DetailsCell({ row }) {
+        const { rememberRequestFocus } = useUsageLogsContext()
         const [dialogOpen, setDialogOpen] = useState(false)
         const log = row.original
         const other = parseLogOther(log.other)
@@ -877,6 +878,10 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
               to='/usage-logs/request/$requestId'
               params={{ requestId: log.request_id }}
               state={{ inspectorBack: true }}
+              data-usage-request-link={log.id}
+              onClick={(event) => {
+                if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) rememberRequestFocus?.(log.id)
+              }}
               className='group flex max-w-[200px] items-center gap-1 text-left text-xs max-sm:min-h-11 max-sm:min-w-11'
               title={t('Click to view full details')}
             >

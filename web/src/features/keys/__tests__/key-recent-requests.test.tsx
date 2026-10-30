@@ -124,6 +124,7 @@ test('a failed request opens by keyboard and Back returns focus to it', async ()
   expect(
     (await within(detail).findAllByText('Request failed')).length
   ).toBeGreaterThan(0)
+  await user.click(within(detail).getByRole('tab', { name: 'Diagnosis' }))
   expect(within(detail).getByText('Upstream rate limited')).toBeVisible()
   await stepBack()
   await waitFor(() =>

@@ -15,7 +15,6 @@ import type { UsageLog } from '../data/schema'
 import { parseLogOther } from '../lib/format'
 import { relayAttemptOutcomeLabel } from '../lib/relay-attempts'
 import { getRequestFacts } from '../lib/request-facts'
-import { RequestTime } from './request-summary'
 
 type Tone = 'ok' | 'fail' | 'warn' | 'neutral'
 
@@ -67,7 +66,7 @@ function Fact(props: { label: string; value: ReactNode }) {
 
 /**
  * What happened to one request, in order, from its saved call record:
- * received with which Key, rejected before sending or routed (each relay
+ * received, rejected before sending or routed (each relay
  * attempt, for administrators), the upstream result and settlement. Steps
  * carry no invented timestamps; only the record time is known.
  */
@@ -81,8 +80,6 @@ export function DiagnosisTimeline(props: { log: UsageLog; isAdmin: boolean }) {
   const attempts = props.isAdmin
     ? (other?.admin_info?.relay_attempts ?? [])
     : []
-  const keyName =
-    log.token_name || (log.token_id > 0 ? `#${log.token_id}` : t('Unknown Key'))
 
   let settlementTone: Tone = 'neutral'
   if (facts.settlement.variant === 'success') settlementTone = 'ok'
@@ -159,14 +156,6 @@ export function DiagnosisTimeline(props: { log: UsageLog; isAdmin: boolean }) {
         </ol>
       </Step>
     )
-  } else if (props.isAdmin && log.channel > 0) {
-    routing = (
-      <Step tone='neutral' title={t('Routing')}>
-        <p>
-          {t('Connection')}: {log.channel_name || `#${log.channel}`}
-        </p>
-      </Step>
-    )
   } else {
     routing = (
       <Step tone='neutral' title={t('Routing')}>
@@ -195,12 +184,7 @@ export function DiagnosisTimeline(props: { log: UsageLog; isAdmin: boolean }) {
       aria-label={t('Diagnosis timeline')}
       className='border-border ms-1.5 flex min-w-0 flex-col border-s-2'
     >
-      <Step tone='ok' title={t('Request received')}>
-        <p>
-          {t('API Key')}: {keyName}
-          {log.model_name && <> · {log.model_name}</>}
-        </p>
-      </Step>
+      <Step tone='ok' title={t('Request received')} />
       {rejected ? (
         <Step
           tone='warn'
@@ -234,9 +218,6 @@ export function DiagnosisTimeline(props: { log: UsageLog; isAdmin: boolean }) {
       )}
       <Step tone={settlementTone} title={t(facts.settlement.label)}>
         <p>{t(facts.usage.label)}</p>
-        <p>
-          {t('Recorded at')} <RequestTime seconds={log.created_at} withDate />
-        </p>
       </Step>
     </ol>
   )

@@ -8,7 +8,7 @@ version.
 */
 import { FileSearchIcon, LockKeyIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useMemo, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -20,20 +20,13 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
-import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Switch } from '@/components/ui/switch'
 
 import { useBodyCaptureStatus } from '../hooks/use-body-capture-status'
 import { useFullContentLogDetail } from '../hooks/use-full-content-log-detail'
-import {
-  extractLogRequestText,
-  extractLogResponseErrors,
-  extractLogResponseText,
-  formatLogBytes,
-} from '../lib/format'
+import { formatLogBytes } from '../lib/format'
 import type { FullContentLogDetail } from '../types'
-import { ContentPanel } from './full-content-log-details-dialog'
+import { SavedContentRenderer } from './saved-content-renderer'
 
 type PanelProps = {
   /** Request ID of the call record; legacy records may have none. */
@@ -42,114 +35,29 @@ type PanelProps = {
   active: boolean
 }
 
-/**
- * Saved request and response text (clean mode). Reading a saved body never
- * resends the request; credentials stay redacted by the server.
- */
+/** Saved body views retain the original administrator-only read boundary. */
 export function RequestBodyPanel(props: PanelProps) {
   return (
     <SavedContent {...props}>
-      {(detail) => <ConversationText detail={detail} />}
+      {(detail) => <SavedContentRenderer key={detail.request_id} detail={detail} />}
     </SavedContent>
   )
 }
 
-function ConversationText(props: { detail: FullContentLogDetail }) {
-  const { t } = useTranslation()
-  const requestText = useMemo(
-    () =>
-      extractLogRequestText(
-        props.detail.request_body,
-        props.detail.request_encoding,
-        props.detail.request_content_type
-      ),
-    [props.detail]
-  )
-  const responseText = useMemo(
-    () =>
-      extractLogResponseText(
-        props.detail.response_body,
-        props.detail.response_encoding,
-        props.detail.response_content_type
-      ),
-    [props.detail]
-  )
+/** Local event inspection reads only the saved stream, never a live relay. */
+export function RequestStreamPanel(props: PanelProps) {
   return (
-    <>
-      <ContentPanel
-        title={t('Request text')}
-        body={requestText}
-        encoding='utf-8'
-        contentType='text/plain'
-        emptyText={t('No readable request text found')}
-        compact
-      />
-      <ContentPanel
-        title={t('Model response text')}
-        body={responseText}
-        encoding='utf-8'
-        contentType='text/plain'
-        emptyText={t('No readable response text found')}
-        truncated={props.detail.response_body_truncated}
-        totalBytes={props.detail.response_body_total_bytes}
-      />
-    </>
+    <SavedContent {...props}>
+      {(detail) => <SavedContentRenderer key={detail.request_id} detail={detail} view='stream' />}
+    </SavedContent>
   )
 }
 
-/**
- * The raw response as saved, which for a streamed request is the SSE event
- * stream. Long lines scroll inside the code area unless wrapping is on.
- */
-export function RequestStreamPanel(props: PanelProps) {
-  const { t } = useTranslation()
-  const [wrap, setWrap] = useState(false)
+/** Exact saved request/response representations and expandable saved headers. */
+export function RequestOriginalPanel(props: PanelProps) {
   return (
     <SavedContent {...props}>
-      {(detail) => (
-        <>
-          <div className='flex min-w-0 flex-wrap items-center justify-between gap-2'>
-            <p className='text-caption text-muted-foreground'>
-              {detail.response_content_type?.includes('event-stream')
-                ? t('Streamed response: {{count}} events saved', {
-                    count: detail.chunk_count,
-                  })
-                : t('This response was not streamed; the raw body is shown.')}
-            </p>
-            <div className='flex items-center gap-2'>
-              <Switch
-                id='request-stream-wrap'
-                checked={wrap}
-                onCheckedChange={setWrap}
-              />
-              <Label htmlFor='request-stream-wrap'>{t('Wrap lines')}</Label>
-            </div>
-          </div>
-          <ContentPanel
-            title={t('Raw response body')}
-            body={detail.response_body}
-            encoding={detail.response_encoding}
-            contentType={detail.response_content_type}
-            emptyText={t('Empty response body')}
-            truncated={detail.response_body_truncated}
-            totalBytes={detail.response_body_total_bytes}
-            wrap={wrap}
-          />
-          <ContentPanel
-            title={t('Response headers')}
-            body={
-              Object.keys(detail.response_headers || {}).length
-                ? JSON.stringify(detail.response_headers, null, 2)
-                : ''
-            }
-            encoding='json'
-            contentType='application/json'
-            emptyText={t('No response headers were recorded')}
-            compact
-            wrap={wrap}
-          />
-        </>
-      )}
+      {(detail) => <SavedContentRenderer key={detail.request_id} detail={detail} view='original' />}
     </SavedContent>
   )
 }
@@ -162,6 +70,8 @@ function SavedContent(
   const { t } = useTranslation()
   const content = useFullContentLogDetail(props.requestId, props.active)
   const capture = useBodyCaptureStatus(props.active && content.missing)
+
+  if (!props.active) return null
 
   if (!props.requestId) {
     return (
@@ -247,16 +157,6 @@ function SavedContent(
   }
 
   const detail = content.detail
-  const errors = [
-    ...new Set([
-      ...(detail.error ? [detail.error] : []),
-      ...extractLogResponseErrors(
-        detail.response_body,
-        detail.response_encoding,
-        detail.response_content_type
-      ),
-    ]),
-  ]
   return (
     <div className='flex min-w-0 flex-col gap-4'>
       <p className='text-caption text-muted-foreground'>
@@ -265,6 +165,10 @@ function SavedContent(
         )}
       </p>
       <dl className='grid grid-cols-2 gap-3 rounded-lg border p-3'>
+        <div className='col-span-2 min-w-0'>
+          <dt className='text-caption text-muted-foreground'>{t('Saved content timestamp')}</dt>
+          <dd className='text-data wrap-anywhere'>{detail.timestamp || t('Not recorded')}</dd>
+        </div>
         <div className='min-w-0'>
           <dt className='text-caption text-muted-foreground'>
             {t('HTTP status')}
@@ -277,26 +181,18 @@ function SavedContent(
           <dt className='text-caption text-muted-foreground'>
             {t('Duration')}
           </dt>
-          <dd className='text-data tabular-nums'>{detail.duration_ms} ms</dd>
+          <dd className='text-data tabular-nums'>
+            {Number.isFinite(detail.duration_ms) ? `${detail.duration_ms} ms` : t('Not recorded')}
+          </dd>
         </div>
         <div className='col-span-2 min-w-0'>
           <dt className='text-caption text-muted-foreground'>{t('Size')}</dt>
           <dd className='text-data tabular-nums'>
-            {formatLogBytes(detail.request_bytes)} →{' '}
-            {formatLogBytes(detail.response_bytes)}
+            {Number.isFinite(detail.request_bytes) ? formatLogBytes(detail.request_bytes) : t('Not recorded')} →{' '}
+            {Number.isFinite(detail.response_bytes) ? formatLogBytes(detail.response_bytes) : t('Not recorded')}
           </dd>
         </div>
       </dl>
-      {errors.length > 0 && (
-        <Alert variant='destructive'>
-          <AlertTitle>{t('Error')}</AlertTitle>
-          <AlertDescription className='wrap-anywhere'>
-            {errors.map((message) => (
-              <p key={message}>{message}</p>
-            ))}
-          </AlertDescription>
-        </Alert>
-      )}
       {props.children(detail)}
     </div>
   )

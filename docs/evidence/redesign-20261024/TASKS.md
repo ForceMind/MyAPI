@@ -1,6 +1,20 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
 
+
+## 2026-10-30 UI第三批：请求详情与已存SSE检视（候选，待完整CI）
+
+维护者批准沿用request-detail/body/sse/raw与Key对应线稿，两个入口继续共用RequestPage，不重搭ObjectPage。基线784a3dcb；本批仅相关前端、回归、37个新增i18n键、必要CI入口及交接；不改后端/计费/生产，不发真实模型请求，不跑浏览器。本机只改源文件和轻量文本/Git检查，无依赖/构建测试/构件下载。
+
+- 身份、四项结果集中顶部；诊断/正文/SSE/原始证据四页签，默认仍正文，旧diagnosis链接映射detail，旧body/sse/raw地址保留；替换页签保留inspectorBack历史状态。顶部保留Key跳转，缺失身份ID明确Not recorded，不伪造#0。
+- 诊断仅presentation=request分组为身份协议、选路派发、用量结算及可展开补充证据；Legacy充值/退款/审计保持原分支、字段、条件和顺序。失败原因默认可达，复核active/权限/显式确认及提交条件不改。原详情文案清单静态对照未丢键，但必须由CI验证实际字段和行为。
+- 抽共享ContentPanel/纯保存内容renderer，旧弹窗保留入口和Request/Response页签，消除重复解析/模式开关。正文可读/保存原文、头/query/URL可展开；Raw区将账户可读调用记录与已存上游内容分开，不补造缺失正文。旧ContentPanel导入路径兼容。
+- SSE仅解析已保存预览；序号/类型/数据/标记来源、本地全预览搜索、50条逐批展开，501以后仍可搜索。UTF-8预览<=1MiB、不拆中文/emoji，复制保留全部已加载原文；预览限制、服务器返回截断、未结束帧、BOM/MIME/编码、缺事件时间分别呈现，不把结束标记当业务成功/结算。
+- Key名字/请求与内容按user/session/role隔离：页面重挂载清除旧局部状态，lookup补原始role维度防止100到10复用缓存；全内容hook原管理员与active门禁保留。日志列表只补已有return-focus钩子接线，不重新设计列表；两个入口经过页签切换的原筛选、页码、焦点回归保留并加强。
+- 新旧语义回归均只在Actions运行，专项包含usage-logs/full-content-logs及Key页面/最近请求的原工作流，之后前端全量/typecheck/lint/build与完整既有CI；浏览器保持未授权。未验证前不称完成。
+
+只读待办（不自动实施）：从代码看，TokenBudgetEvidence的Reserved USD/actual_fee_usd与订阅金额部分沿用原条件，未统一受showCosts控制；需单独确认诊断金额的展示口径，本批未改其财务含义或验证线上影响。新SSE MIME已按essence精确匹配，旧lib/format.ts部分includes判断按原语义保留，后续若统一需单独审查回归。
+
 ## 2026-10-30 UI第二批：调用、绘图与后台任务列表（源码/完整CI通过）
 
 最终源码 b9a5d85519a1d8be2164d78cfe31c109fc9f4e56 / [完整CI41041830295](https://github.com/ForceMind/MyAPI/actions/runs/41041830295) attempt1 success：10作业成功、1浏览器作业跳过。已读取全部作业/步骤和前端原始日志：37文件315/315专项、287文件2046/2046全量，同步/构建/typecheck/lint通过（8项既有警告、0错误）；根模块/独立relaykit vet/build、原生/386构建、两模块全量、全部既有竞态/三库/Redis/分发/Desktop通过。RUN_BROWSER=0，浏览器安装及所有Chromium步骤跳过。前两轮被补修替代后终态cancelled，原失败记录保留。收尾仅4份既有交接，应用源码仍绑定b9a5d855，接手读取最新文档提交CI。

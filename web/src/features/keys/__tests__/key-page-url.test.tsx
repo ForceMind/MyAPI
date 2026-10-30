@@ -11,6 +11,7 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
+import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 import { useInspectorStore } from '@/stores/inspector-store'
 
@@ -177,7 +178,11 @@ describe('a Key opens as its own page', () => {
     await waitFor(() =>
       expect(router.state.location.pathname).toBe('/keys/21/requests/REQ-3')
     )
-    expect(await screen.findByTestId('request-page')).toBeVisible()
+    const requestPage = await screen.findByTestId('request-page')
+    expect(requestPage).toBeVisible()
+    await user.click(await within(requestPage).findByRole('tab', { name: 'Diagnosis' }))
+    await user.click(within(requestPage).getByRole('tab', { name: 'SSE' }))
+    await user.click(within(requestPage).getByRole('tab', { name: 'Body' }))
     await stepBack()
     await waitFor(() => expect(router.state.location.pathname).toBe('/keys/21'))
     await waitFor(() =>
@@ -314,7 +319,7 @@ describe('earlier inspector links', () => {
     [
       '/keys?inspect=21&request=REQ-3&requestTab=diagnosis',
       '/keys/21/requests/REQ-3',
-      {},
+      { tab: 'detail' },
     ],
   ])('%s now opens %s', async (entry, pathname, search) => {
     const { router } = await renderKeysPage(client, entry)
@@ -393,4 +398,33 @@ describe('Key search parameters', () => {
       keyPageSearchSchema.parse({ tab: 'access', requestLog: -1 })
     ).toEqual({ tab: undefined, requestLog: undefined, keyReturn: undefined })
   })
+})
+
+
+test('a request breadcrumb never keeps the previous actor Key name while the same Key ID reloads', async () => {
+  mocks.get.mockRestore()
+  const fixture = { keys: [KEY_21], logs: [requestLog({ id: 3 })], status: {} }
+  mocks = mockKeysApi(fixture)
+  const previous = mocks.get.getMockImplementation()
+  if (!previous) throw new Error('Expected synthetic API fixture')
+  let hold = false
+  let release = () => {}
+  const pending = new Promise<void>((resolve) => { release = resolve })
+  vi.mocked(api.get).mockImplementation(async (url, config) => {
+    if (hold && String(url) === '/api/token/21') await pending
+    return previous(url, config)
+  })
+  await renderKeysPage(client, '/keys/21/requests/REQ-3?tab=detail')
+  await waitFor(() => expect(useInspectorStore.getState().current?.parents?.[0]?.title).toBe('Desktop application'))
+  hold = true
+  fixture.keys = []
+  fixture.logs = []
+  act(() => useAuthStore.getState().auth.setUser({ id: 2, username: 'another-owner', role: 1 }))
+  try {
+    await waitFor(() => expect(useInspectorStore.getState().current?.parents?.[0]?.title).toBe('API Key #21'))
+    expect(screen.queryByText('Desktop application')).not.toBeInTheDocument()
+  } finally {
+    release()
+  }
+  expect(await screen.findByText('No call record has this Request ID')).toBeVisible()
 })

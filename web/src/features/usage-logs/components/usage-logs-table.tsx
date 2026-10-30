@@ -27,6 +27,7 @@ import {
   DataTableRow,
   useDataTable,
 } from '@/components/data-table'
+import { useReturnFocus } from '@/components/object-page/return-focus'
 import { LogPagination } from '@/components/log-pagination'
 import { getLogPageCount, normalizeLogPagination } from '@/lib/log-pagination'
 import { ErrorState } from '@/components/error-state'
@@ -222,6 +223,12 @@ function UsageLogsTableContent({ logCategory }: UsageLogsTableProps) {
     ensurePageInRange: totalPages !== null && !isFetching
       ? (count) => ensurePageInRange(count, { resetTo: 'last' })
       : undefined,
+  })
+
+  useReturnFocus({
+    attribute: 'data-usage-request-link',
+    settled: !isLoadingData && !isFetching,
+    rows: currentData?.items,
   })
 
   const isCommon = logCategory === 'common'
