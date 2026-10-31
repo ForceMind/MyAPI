@@ -381,6 +381,7 @@ function ConnectionPageContent(props: {
             />
             <span className='font-mono'>#{item.id}</span>
             <span>{t(getChannelTypeLabel(item.type))}</span>
+            <span>{t('Last test')}: <LastTest item={item} /></span>
           </>
         ) : undefined
       }
@@ -525,15 +526,15 @@ function ConnectionStats(props: {
   )
   const used = window ? nativeWindowUsage(window) : null
 
+  const kind = connectionKind(props.item, false)
+  let windowDetail = t('Only saved observations are read. Opening a connection does not contact its provider.')
+  if (kind === 'local') windowDetail = t('Local server, no quota window')
+  if (kind === 'api') windowDetail = t('Metered, no subscription window')
   let third = (
     <StatTile
-      label={t('Last test')}
-      value={<LastTest item={props.item} />}
-      detail={
-        connectionKind(props.item, false) === 'local'
-          ? t('Local server, no quota window')
-          : t('Metered, no subscription window')
-      }
+      label={t('Account window')}
+      value={t('No saved window sample')}
+      detail={windowDetail}
       loading={props.windowsPending}
     />
   )

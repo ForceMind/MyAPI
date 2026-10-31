@@ -178,3 +178,11 @@ test('the detail keeps one last-test summary and labels its existing Test action
   ).toBeVisible()
   expect(fixture.requests.every((request) => request.method === 'get')).toBe(true)
 })
+
+
+test('a subscription with saved windows still exposes that it has never been tested', async () => {
+  await mount({ entry: '/connections/7', windows: [windowSample] })
+  const page = within(await screen.findByTestId('connection-page'))
+  expect(await page.findByText('Not tested')).toBeVisible()
+  expect(page.getAllByText(/Last test/)).toHaveLength(1)
+})

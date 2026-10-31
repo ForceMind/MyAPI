@@ -169,3 +169,36 @@ test('a direct return focuses its row once and a later refresh preserves the use
   await screen.findByRole('link', { name: 'needle-channel' })
   expect(input).toHaveFocus()
 })
+
+
+test('revoking channel read removes saved rows and prevents another inventory request', async () => {
+  await renderTable()
+  await screen.findByRole('link', { name: 'needle-channel' })
+  const reads = () => vi.mocked(api.get).mock.calls.filter(([url]) => url === '/api/channel' || url === '/api/channel/search').length
+  const before = reads()
+  await act(async () => useAuthStore.getState().auth.setUser({ id: 1, role: 10, username: 'revoked', permissions: { admin_permissions: { channel: { read: false } } } }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Connection access could not be verified.')
+  expect(screen.queryByRole('link', { name: 'needle-channel' })).not.toBeInTheDocument()
+  expect(reads()).toBe(before)
+})
+
+test('changing account clears the previous inventory while the new account read is pending', async () => {
+  await renderTable()
+  await screen.findByRole('link', { name: 'needle-channel' })
+  const originalGet = vi.mocked(api.get).getMockImplementation()
+  let release = () => {}
+  const gate = new Promise<void>((resolve) => { release = resolve })
+  vi.mocked(api.get).mockImplementation(async (url, config) => {
+    if (url === '/api/channel' || url === '/api/channel/search') {
+      await gate
+      return { data: { success: true, data: { items: [{ ...item, id: 31, name: 'second-account-channel' }], total: 1 } } }
+    }
+    if (!originalGet) throw new Error('Missing original API fixture')
+    return originalGet(url, config)
+  })
+  await act(async () => useAuthStore.getState().auth.setUser({ id: 2, role: 100, username: 'second-root' }))
+  expect(screen.queryByRole('link', { name: 'needle-channel' })).not.toBeInTheDocument()
+  await act(async () => release())
+  expect(await screen.findByRole('link', { name: 'second-account-channel' })).toBeVisible()
+  expect(screen.queryByRole('link', { name: 'needle-channel' })).not.toBeInTheDocument()
+})
