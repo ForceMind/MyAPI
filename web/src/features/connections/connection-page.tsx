@@ -47,7 +47,6 @@ import { RecentRequestList } from '@/features/usage-logs/components/recent-reque
 import type { UsageLog } from '@/features/usage-logs/data/schema'
 import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
 import { OBJECT_PAGE_TABS_LIST_CLASS } from '@/lib/console-layout'
-import { formatTimestampToDate } from '@/lib/format'
 import { linkButtonClassName } from '@/lib/link-button'
 
 import { windowName } from './connection-format'
@@ -61,6 +60,7 @@ import {
 } from './connection-sections'
 import {
   connectionKind,
+  connectionsToTableSearch,
   type ConnectionPageTab,
   type ConnectionReturn,
   type ConnectionSummary,
@@ -98,14 +98,24 @@ export function ConnectionPage() {
   const connectionReturn = search.connectionReturn
   const backToList = useCallback(
     () =>
-      goBack(
-        () =>
+      goBack(() => {
+        if (connectionReturn?.view === 'table') {
           void navigate({
-            to: '/connections',
-            search: { ...connectionReturn, focusConnectionId: connectionId },
+            to: '/channels',
+            search: {
+              ...connectionsToTableSearch(connectionReturn),
+              focusConnectionId: connectionId,
+            },
             replace: true,
           })
-      ),
+          return
+        }
+        void navigate({
+          to: '/connections',
+          search: { ...connectionReturn, focusConnectionId: connectionId },
+          replace: true,
+        })
+      }),
     [goBack, navigate, connectionReturn, connectionId]
   )
   return (
@@ -220,14 +230,25 @@ function ConnectionPageContent(props: {
           >
             {t('Retry')}
           </Button>
-          <Link
-            to='/connections'
-            search={props.connectionReturn ?? {}}
-            data-myapi-button=''
-            className={linkButtonClassName({ variant: 'ghost', size: 'sm' })}
-          >
-            {t('Back to connections')}
-          </Link>
+          {props.connectionReturn?.view === 'table' ? (
+            <Link
+              to='/channels'
+              search={connectionsToTableSearch(props.connectionReturn)}
+              data-myapi-button=''
+              className={linkButtonClassName({ variant: 'ghost', size: 'sm' })}
+            >
+              {t('Table view')}
+            </Link>
+          ) : (
+            <Link
+              to='/connections'
+              search={props.connectionReturn ?? {}}
+              data-myapi-button=''
+              className={linkButtonClassName({ variant: 'ghost', size: 'sm' })}
+            >
+              {t('Back to connections')}
+            </Link>
+          )}
         </AlertDescription>
       </Alert>
     )
@@ -360,9 +381,6 @@ function ConnectionPageContent(props: {
             />
             <span className='font-mono'>#{item.id}</span>
             <span>{t(getChannelTypeLabel(item.type))}</span>
-            <span>
-              {t('Last test')}: <LastTest item={item} />
-            </span>
           </>
         ) : undefined
       }
@@ -385,6 +403,7 @@ function ConnectionPageContent(props: {
               <Button
                 disabled={test.running !== null}
                 onClick={() => void test.run(item)}
+                title={t('Quick test')}
               >
                 {testing ? (
                   <Spinner data-icon='inline-start' />
@@ -523,13 +542,7 @@ function ConnectionStats(props: {
       <StatTile
         label={t('{{window}} left', { window: windowName(window, t) })}
         value={used === null ? t('Unknown') : `${Math.round(100 - used)}%`}
-        detail={
-          window.observed_at
-            ? t('Observed {{time}}', {
-                time: formatTimestampToDate(window.observed_at),
-              })
-            : t('No timestamp')
-        }
+        detail={t('Closest to its limit among saved windows')}
       />
     )
   } else if (props.windows === undefined && !props.windowsPending) {

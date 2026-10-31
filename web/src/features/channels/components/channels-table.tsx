@@ -36,6 +36,16 @@ import {
   useDebouncedColumnFilter,
   useDataTable,
 } from '@/components/data-table'
+import { LogPagination } from '@/components/log-pagination'
+import { ConnectionListContext } from '@/features/connections/connection-list-context'
+import { ConnectionViewSwitcher } from '@/features/connections/connection-view-switcher'
+import { tableToConnectionsSearch, type ConnectionReturn } from '@/features/connections/connection-state'
+import { normalizeLogPagination } from '@/lib/log-pagination'
+import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
+import { hasPermission } from '@/lib/admin-permissions'
+import { ROLE } from '@/lib/roles'
+import { useAuthStore } from '@/stores/auth-store'
+
 import { ErrorState } from '@/components/error-state'
 import {
   useRememberReturnFocus,
@@ -98,6 +108,11 @@ export function ChannelsTable() {
   } = useChannels()
   const isMobile = useMediaQuery('(max-width: 640px)')
   const navigate = useNavigate()
+  const search = route.useSearch()
+  const showCards = useIsSidebarModuleVisible('/connections')
+  const currentUser = useAuthStore((state) => state.auth.user)
+  const actor = useAuthStore((state) => [state.auth.user?.id, state.auth.session?.sid, state.auth.user?.role, hasPermission(state.auth.user, 'channel', 'read')].join(':'))
+  const canRead = Boolean(currentUser && currentUser.role >= ROLE.ADMIN && hasPermission(currentUser, 'channel', 'read'))
   const rememberFocus = useRememberReturnFocus()
 
   // Table state
@@ -109,15 +124,15 @@ export function ChannelsTable() {
     onGlobalFilterChange,
     columnFilters,
     onColumnFiltersChange,
-    pagination,
+    pagination: urlPagination,
     onPaginationChange,
     ensurePageInRange,
   } = useTableUrlState({
-    search: route.useSearch(),
+    search,
     navigate: route.useNavigate(),
     pagination: {
       defaultPage: 1,
-      defaultPageSize: isMobile ? 10 : DEFAULT_PAGE_SIZE,
+      defaultPageSize: DEFAULT_PAGE_SIZE,
     },
     globalFilter: { enabled: true, key: 'filter' },
     columnFilters: [
@@ -138,6 +153,8 @@ export function ChannelsTable() {
       { columnId: 'model', searchKey: 'model', type: 'string' },
     ],
   })
+
+  const pagination = normalizeLogPagination(urlPagination.pageIndex, urlPagination.pageSize)
 
   const handleColumnFiltersChange: OnChangeFn<ColumnFiltersState> = (
     updater
@@ -206,8 +223,9 @@ export function ChannelsTable() {
 
   // Fetch groups for filter
   const { data: groupsData } = useQuery({
-    queryKey: ['groups'],
+    queryKey: ['groups', actor],
     queryFn: getGroups,
+    enabled: canRead,
   })
 
   const groupOptions = useMemo(
@@ -222,7 +240,7 @@ export function ChannelsTable() {
   // Fetch channels data
   // eslint-disable-next-line @tanstack/query/exhaustive-deps
   const { data, isError, isLoading, isFetching, refetch } = useQuery({
-    queryKey: channelsQueryKeys.list({
+    queryKey: [...channelsQueryKeys.list({
       keyword: globalFilter,
       model: modelFilter,
       group:
@@ -242,7 +260,8 @@ export function ChannelsTable() {
       ...sortParams,
       p: pagination.pageIndex + 1,
       page_size: pagination.pageSize,
-    }),
+    }), actor],
+    enabled: canRead,
     queryFn: async () => {
       const result = shouldSearch
         ? await searchChannels({
@@ -286,27 +305,41 @@ export function ChannelsTable() {
             page_size: pagination.pageSize,
           })
 
-      if (!result.success) {
+      if (!result.success || !result.data || !Array.isArray(result.data.items) || !Number.isSafeInteger(result.data.total) || result.data.total < 0 || (!enableTagMode && result.data.total < result.data.items.length)) {
         throw new Error('Failed to load channels')
       }
 
       return result
     },
-    placeholderData: (previousData) => previousData,
   })
 
   // Apply tag aggregation if tag mode is enabled
   const channels = useMemo(() => {
-    const rawChannels = isError ? [] : data?.data?.items || []
+    const rawChannels = isError || !canRead ? [] : data?.data?.items || []
 
     if (enableTagMode && rawChannels.length > 0) {
       return aggregateChannelsByTag(rawChannels)
     }
 
     return rawChannels
-  }, [data, enableTagMode, isError])
+  }, [data, enableTagMode, isError, canRead])
 
-  const totalCount = isError ? 0 : data?.data?.total || 0
+  const knownTotal = isError || isFetching || !canRead ? undefined : data?.data?.total
+  const totalCount = knownTotal ?? 0
+  const connectionReturn: ConnectionReturn = {
+    ...tableToConnectionsSearch({
+      ...search,
+      page: pagination.pageIndex + 1,
+      pageSize: pagination.pageSize,
+      filter: globalFilter,
+      model: modelFilter,
+      status: statusFilter,
+      type: typeFilter,
+      group: groupFilter,
+    }),
+    view: 'table',
+    quotaChannelId: search.quotaChannelId,
+  }
   const typeCounts = isError ? undefined : data?.data?.type_counts
 
   // Columns configuration
@@ -346,7 +379,7 @@ export function ChannelsTable() {
     manualFiltering: true,
     withExpandedRowModel: true,
     enableColumnResizing: !isMobile,
-    ensurePageInRange: isError ? undefined : ensurePageInRange,
+    ensurePageInRange: knownTotal === undefined ? undefined : ensurePageInRange,
   })
 
   useEffect(() => {
@@ -418,6 +451,7 @@ export function ChannelsTable() {
   // Back from a connection's page puts focus on the name that opened it.
   useReturnFocus({
     attribute: 'data-connection-link',
+    requestedId: search.focusConnectionId,
     settled: !isLoading && !isFetching,
     rows: data,
   })
@@ -429,7 +463,7 @@ export function ChannelsTable() {
       return
     }
     if (
-      target.closest('button,a,input,label,[role="checkbox"],[role="switch"]')
+      target.closest('button,a,input,label,[data-row-actions],[role="checkbox"],[role="switch"]')
     ) {
       return
     }
@@ -438,11 +472,20 @@ export function ChannelsTable() {
       to: '/connections/$connectionId',
       params: { connectionId: String(channel.id) },
       state: { inspectorBack: true },
+      search: { connectionReturn },
     })
   }
 
+  if (!canRead) {
+    return <Alert variant='destructive'><AlertDescription>{t('Connection access could not be verified.')}</AlertDescription></Alert>
+  }
+
   return (
-    <>
+    <ConnectionListContext value={connectionReturn}>
+      <div className='mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3'>
+        <ConnectionViewSwitcher view='table' search={connectionReturn} showOther={showCards} />
+        <p className='text-caption text-muted-foreground'>{t('Advanced connection controls')}</p>
+      </div>
       {enableTagMode ? (
         <Alert className='mb-3'>
           <AlertDescription>
@@ -481,6 +524,17 @@ export function ChannelsTable() {
         cardGridClassName='grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-3'
         applyHeaderSize
         fixedHeight={false}
+        pagination={!isError ? (
+          <LogPagination
+            label={t('Connections')}
+            page={pagination.pageIndex + 1}
+            pageSize={pagination.pageSize}
+            total={knownTotal}
+            busy={isLoading || isFetching}
+            onPageChange={(page) => onPaginationChange({ ...pagination, pageIndex: page - 1 })}
+            onPageSizeChange={(pageSize) => onPaginationChange({ pageIndex: 0, pageSize })}
+          />
+        ) : null}
         toolbarProps={{
           searchPlaceholder: t('Filter by name, ID, or key...'),
           searchDebounceMs: 500,
@@ -489,6 +543,7 @@ export function ChannelsTable() {
           },
           additionalSearch: (
             <Input
+              aria-label={t('Model')}
               placeholder={t('Filter by model...')}
               value={modelFilterInput}
               onChange={onModelFilterInputChange}
@@ -564,6 +619,6 @@ export function ChannelsTable() {
         }}
         bulkActions={batchMode ? <DataTableBulkActions table={table} /> : null}
       />
-    </>
+    </ConnectionListContext>
   )
 }

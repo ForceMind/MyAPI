@@ -14,7 +14,10 @@ import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { quotaSeriesKey } from '@/features/channels/lib/quota-history'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
-import { nativeWindowUsage } from '@/features/personal-upstream/window-state'
+import {
+  nativeWindowState,
+  nativeWindowUsage,
+} from '@/features/personal-upstream/window-state'
 import { formatTimestampToDate } from '@/lib/format'
 
 import { windowName } from './connection-format'
@@ -52,15 +55,8 @@ export function ConnectionWindows(props: {
       </div>
       {props.query.isPending && <p role='status'>{t('Loading...')}</p>}
       {props.query.isError && (
-        <div role='alert' className='flex flex-col items-start gap-2'>
+        <div role='alert' className='text-body text-destructive'>
           <p>{t('Unable to load account windows')}</p>
-          <Button
-            variant='outline'
-            disabled={props.query.isFetching}
-            onClick={() => void props.query.refetch()}
-          >
-            {t('Retry')}
-          </Button>
         </div>
       )}
       {props.query.data?.length === 0 && !props.query.isError && (
@@ -71,7 +67,7 @@ export function ConnectionWindows(props: {
         </p>
       )}
       {!props.query.isError && (props.query.data?.length ?? 0) > 0 && (
-        <ul className='flex min-w-0 flex-wrap gap-x-8 gap-y-5'>
+        <ul className='flex min-w-0 flex-col gap-4'>
           {props.query.data?.map((item) => {
             const used = nativeWindowUsage(item)
             const described = describeConnectionWindow(
@@ -82,58 +78,76 @@ export function ConnectionWindows(props: {
             )
             const name = windowName(item, t)
             const observed = item.observed_at
+            const state = nativeWindowState(item, props.now)
             return (
               <li
                 key={quotaSeriesKey(item)}
                 data-testid='connection-window'
-                className='flex min-w-0 items-center gap-4'
+                className='grid min-w-0 gap-4 rounded-lg border p-4 lg:grid-cols-2 lg:gap-6'
               >
-                {used === null ? (
-                  <span
-                    aria-hidden='true'
-                    className='border-meter-track size-24 shrink-0 rounded-full border-[0.6rem] sm:size-28'
-                  />
-                ) : (
-                  <QuotaRing
-                    used={used}
-                    label={t('{{window}}: {{used}}% used, {{left}}% left', {
-                      window: name,
-                      used: Math.round(used),
-                      left: Math.round(100 - used),
-                    })}
-                    className='size-24 sm:size-28'
-                  />
-                )}
-                <div className='flex min-w-0 flex-col gap-0.5'>
-                  <h3 className='text-caption text-muted-foreground'>{name}</h3>
-                  <p className='text-lg leading-7 font-semibold tabular-nums'>
-                    {used === null
-                      ? t('Usage unavailable')
-                      : t('{{value}}% left', {
-                          value: Math.round(100 - used),
-                        })}
-                  </p>
-                  <p className='text-caption text-muted-foreground'>
-                    {Number.isSafeInteger(observed) && (observed ?? 0) > 0
-                      ? t('Observed {{time}}', {
-                          time: formatTimestampToDate(observed as number),
-                        })
-                      : t('No timestamp')}
-                  </p>
+                <div className='flex min-w-0 items-center gap-4'>
+                  {used === null ? (
+                    <span
+                      aria-hidden='true'
+                      className='border-meter-track size-24 shrink-0 rounded-full border-[0.6rem] sm:size-28'
+                    />
+                  ) : (
+                    <QuotaRing
+                      used={used}
+                      label={t('{{window}}: {{used}}% used, {{left}}% left', {
+                        window: name,
+                        used: Math.round(used),
+                        left: Math.round(100 - used),
+                      })}
+                      className='size-24 sm:size-28'
+                    />
+                  )}
+                  <div className='flex min-w-0 flex-col gap-0.5'>
+                    <h3 className='text-caption text-muted-foreground'>{name}</h3>
+                    <p className='text-lg leading-7 font-semibold tabular-nums'>
+                      {used === null
+                        ? t('Usage unavailable')
+                        : t('{{value}}% left', {
+                            value: Math.round(100 - used),
+                          })}
+                    </p>
+                    {item.account_label && (
+                      <p className='text-caption text-muted-foreground wrap-anywhere'>
+                        {item.account_label}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className='flex min-w-0 flex-col items-start gap-2'>
                   <StatusBadge
                     variant={described.variant}
                     label={described.label}
                     copyable={false}
-                    className='mt-1 h-auto min-h-5 self-start whitespace-normal'
+                    className='h-auto min-h-5 whitespace-normal'
                   />
-                  {item.account_label && (
+                  <dl className='text-caption text-muted-foreground flex min-w-0 flex-col gap-1'>
+                    <div>
+                      <dt className='sr-only'>{t('Observation time')}</dt>
+                      <dd>
+                        {Number.isSafeInteger(observed) && (observed ?? 0) > 0
+                          ? t('Observed {{time}}', {
+                              time: formatTimestampToDate(observed as number),
+                            })
+                          : t('No timestamp')}
+                      </dd>
+                    </div>
+                    <div className='flex min-w-0 flex-wrap gap-x-1'>
+                      <dt>{t('Source')}:</dt>
+                      <dd className='min-w-0 font-mono wrap-anywhere'>
+                        {item.source || t('Unknown')}
+                      </dd>
+                    </div>
+                  </dl>
+                  {state !== 'available' && state !== 'unavailable' && (
                     <p className='text-caption text-muted-foreground wrap-anywhere'>
-                      {item.account_label}
+                      {described.description}
                     </p>
                   )}
-                  <p className='text-caption text-muted-foreground max-w-sm wrap-anywhere'>
-                    {described.description}
-                  </p>
                 </div>
               </li>
             )

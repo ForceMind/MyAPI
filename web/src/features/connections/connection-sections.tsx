@@ -13,11 +13,7 @@ import { StatusBadge, type StatusVariant } from '@/components/status-badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { CHANNEL_STATUS } from '@/features/channels/constants'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
-import {
-  describeNativeWindowState,
-  nativeWindowState,
-  nativeWindowUsage,
-} from '@/features/personal-upstream/window-state'
+import { nativeWindowUsage } from '@/features/personal-upstream/window-state'
 import { formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -28,6 +24,7 @@ import {
   type ConnectionSummary,
 } from './connection-state'
 import type { ConnectionTestResult } from './use-connection-test'
+import { describeConnectionWindow } from './window-state'
 
 /**
  * The connection's state in four words (design v2 upstream): in use (enabled
@@ -143,61 +140,62 @@ export function ConnectionRouting(props: {
   return (
     <section
       aria-label={t('Routing configuration')}
-      className='bg-card p-card flex min-w-0 flex-col gap-4 rounded-xl border'
+      className='grid min-w-0 gap-4 lg:grid-cols-2'
     >
-      <dl className='grid min-w-0 grid-cols-2 gap-3'>
-        <div>
-          <dt className='text-caption text-muted-foreground'>
-            {t('Priority')}
-          </dt>
-          <dd className='text-data tabular-nums'>
-            {props.item.priority ?? t('Unknown')}
-          </dd>
-        </div>
-        <div>
-          <dt className='text-caption text-muted-foreground'>{t('Weight')}</dt>
-          <dd className='text-data tabular-nums'>
-            {props.item.weight ?? t('Unknown')}
-          </dd>
-        </div>
-        <div className='col-span-2 min-w-0'>
-          <dt className='text-caption text-muted-foreground'>{t('Group')}</dt>
-          <dd className='text-data wrap-anywhere'>
-            {groups.join(', ') || t('Unknown')}
-          </dd>
-        </div>
-        <div className='col-span-2 min-w-0'>
-          <dt className='text-caption text-muted-foreground'>{t('Models')}</dt>
-          <dd>
-            {models.length ? (
-              <ul className='mt-1 flex min-w-0 flex-wrap gap-2'>
-                {models.map((model) => (
-                  <li
-                    key={model}
-                    className='bg-muted text-data max-w-full rounded-md px-2 py-1 font-mono wrap-anywhere'
-                  >
-                    {model}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              t('Unknown')
-            )}
-          </dd>
-        </div>
-      </dl>
-      <p className='text-caption text-muted-foreground'>
-        {t('Configuration status does not confirm upstream availability.')}
-      </p>
-      {props.showPreview && (
-        <Link
-          to='/channels'
-          hash='channel-routing'
-          className='text-primary text-body inline-flex items-center self-start underline-offset-4 hover:underline pointer-coarse:min-h-11'
-        >
-          {t('Preview routing for a group and model')}
-        </Link>
-      )}
+      <div className='bg-card p-card flex min-w-0 flex-col gap-4 rounded-xl border'>
+        <h2 className='text-body font-semibold'>{t('Routing configuration')}</h2>
+        <dl className='grid min-w-0 grid-cols-2 gap-3'>
+          <div>
+            <dt className='text-caption text-muted-foreground'>
+              {t('Priority')}
+            </dt>
+            <dd className='text-data tabular-nums'>
+              {props.item.priority ?? t('Unknown')}
+            </dd>
+          </div>
+          <div>
+            <dt className='text-caption text-muted-foreground'>{t('Weight')}</dt>
+            <dd className='text-data tabular-nums'>
+              {props.item.weight ?? t('Unknown')}
+            </dd>
+          </div>
+          <div className='col-span-2 min-w-0'>
+            <dt className='text-caption text-muted-foreground'>{t('Group')}</dt>
+            <dd className='text-data wrap-anywhere'>
+              {groups.join(', ') || t('Unknown')}
+            </dd>
+          </div>
+        </dl>
+        <p className='text-caption text-muted-foreground'>
+          {t('Configuration status does not confirm upstream availability.')}
+        </p>
+        {props.showPreview && (
+          <Link
+            to='/channels'
+            hash='channel-routing'
+            className='text-primary text-body inline-flex items-center self-start underline-offset-4 hover:underline pointer-coarse:min-h-11'
+          >
+            {t('Preview routing for a group and model')}
+          </Link>
+        )}
+      </div>
+      <div className='bg-card p-card flex min-w-0 flex-col gap-4 rounded-xl border'>
+        <h2 className='text-body font-semibold'>{t('Models')}</h2>
+        {models.length ? (
+          <ul className='flex min-w-0 flex-wrap gap-2'>
+            {models.map((model) => (
+              <li
+                key={model}
+                className='bg-muted text-data max-w-full rounded-md px-2 py-1 font-mono wrap-anywhere'
+              >
+                {model}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className='text-body text-muted-foreground'>{t('Unknown')}</p>
+        )}
+      </div>
     </section>
   )
 }
@@ -206,6 +204,9 @@ type HistoryEvent = {
   key: string
   time: number
   text: string
+  source?: string
+  account?: string
+  description?: string
   tone: 'success' | 'warning' | 'neutral'
 }
 const HISTORY_DOT: Record<HistoryEvent['tone'], string> = {
@@ -234,7 +235,7 @@ export function ConnectionHistory(props: {
     const used = nativeWindowUsage(item)
     const observed = item.observed_at
     if (Number.isSafeInteger(observed) && (observed ?? 0) > 0) {
-      const state = describeNativeWindowState(nativeWindowState(item, now), t)
+      const state = describeConnectionWindow(item, props.windows ?? [], now, t)
       events.push({
         key: `${item.series_id ?? item.window_type}:latest`,
         time: observed as number,
@@ -249,6 +250,9 @@ export function ConnectionHistory(props: {
                 value: Math.round(100 - used),
               }),
         tone: used === null ? 'warning' : 'success',
+        source: item.source,
+        account: item.account_label,
+        description: used === null ? state.description : undefined,
       })
     }
     const previous = item.previous_available
@@ -269,6 +273,8 @@ export function ConnectionHistory(props: {
           value: Math.round(previous),
         }),
         tone: 'neutral',
+        source: item.source,
+        account: item.account_label,
       })
     }
   }
@@ -315,6 +321,21 @@ export function ConnectionHistory(props: {
                 {formatTimestampToDate(event.time)}
               </span>
               <span className='text-body wrap-anywhere'>{event.text}</span>
+              {(event.source || event.account) && (
+                <p className='text-caption text-muted-foreground flex min-w-0 flex-wrap gap-x-2 wrap-anywhere'>
+                  {event.account && <span>{event.account}</span>}
+                  {event.source && (
+                    <span>
+                      {t('Source')}: {event.source}
+                    </span>
+                  )}
+                </p>
+              )}
+              {event.description && (
+                <p className='text-caption text-muted-foreground wrap-anywhere'>
+                  {event.description}
+                </p>
+              )}
             </li>
           ))}
         </ol>

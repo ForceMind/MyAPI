@@ -8,17 +8,18 @@ version.
 */
 import { PlusSignIcon, Search01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
+import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
+import { LogPagination } from '@/components/log-pagination'
 import {
   useRememberReturnFocus,
   useReturnFocus,
 } from '@/components/object-page/return-focus'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import {
   Empty,
   EmptyContent,
@@ -27,18 +28,24 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { ChannelsProvider } from '@/features/channels/components/channels-provider'
 import { ChannelMutateDrawer } from '@/features/channels/components/drawers/channel-mutate-drawer'
-import { CHANNEL_STATUS } from '@/features/channels/constants'
+import {
+  CHANNEL_STATUS,
+  CHANNEL_TYPE_OPTIONS,
+} from '@/features/channels/constants'
 import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
-import { cn } from '@/lib/utils'
 
 import { ConnectionCard } from './connection-card'
+import { ConnectionViewSwitcher } from './connection-view-switcher'
 import {
   CONNECTION_PAGE_SIZE,
+  connectionFilterValue,
   connectionListContext,
+  connectionValues,
   type ConnectionsSearch,
 } from './connection-state'
 import { useConnectionSwitch } from './use-connection-switch'
@@ -78,32 +85,40 @@ export function Connections() {
   const rememberFocus = useRememberReturnFocus()
   const showTable = useIsSidebarModuleVisible('/channels')
   const [filter, setFilter] = useState(search.filter ?? '')
+  const [model, setModel] = useState(search.model ?? '')
+  const [types, setTypes] = useState(search.type ?? [])
+  const [groups, setGroups] = useState(search.group ?? [])
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState<number | null>(null)
   const addButton = useRef<HTMLButtonElement>(null)
   const inventoryHeading = useRef<HTMLHeadingElement>(null)
   const connectionReturn = connectionListContext(search)
   const page = search.page ?? 1
+  const pageSize = search.pageSize ?? CONNECTION_PAGE_SIZE
+  const status = connectionFilterValue(search.status)
+  const selectedType = connectionFilterValue(types) ?? 'all'
+  const selectedGroup = connectionFilterValue(groups) ?? ''
+  const hasMultipleFilterValues =
+    types.length > 1 || groups.length > 1 ||
+    (Array.isArray(search.status) && search.status.length > 1)
   useEffect(() => setFilter(search.filter ?? ''), [search.filter])
-  useEffect(() => setAdding(false), [access.identity, access.canWrite])
+  useEffect(() => setModel(search.model ?? ''), [search.model])
+  useEffect(() => setTypes(search.type ?? []), [search.type])
+  useEffect(() => setGroups(search.group ?? []), [search.group])
+  useEffect(() => {
+    setAdding(false)
+    setEditing(null)
+  }, [access.identity, access.canWrite])
   // Back from a connection's page puts focus on the card that opened it.
   useReturnFocus({
     attribute: 'data-connection-link',
+    requestedId: search.focusConnectionId,
     settled: list.isSuccess || list.isError,
     rows: list.data,
     // A card that is gone (or a list that could not be read) returns focus
     // to the inventory instead.
     fallback: inventoryHeading,
   })
-
-  // Back from a page that was opened by a link lands here with the card to
-  // focus (there is no history entry to return to).
-  const focusId = search.focusConnectionId
-  useEffect(() => {
-    if (focusId === undefined || !list.isSuccess) return
-    document
-      .querySelector<HTMLElement>(`[data-connection-link="${focusId}"]`)
-      ?.focus()
-  }, [focusId, list.isSuccess])
 
   const applySearch = (next: ConnectionsSearch) =>
     void navigate({
@@ -135,7 +150,7 @@ export function Connections() {
   if (list.isPending) {
     content = (
       <div
-        className='grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3'
+        className='grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2'
         aria-busy='true'
       >
         <span className='sr-only' role='status'>
@@ -163,7 +178,9 @@ export function Connections() {
       </Alert>
     )
   } else if (items.length === 0) {
-    const filtered = Boolean(search.filter || search.status)
+    const filtered = Boolean(
+      search.filter || search.model || status || search.type?.length || search.group?.length
+    )
     content = (
       <Empty className='border'>
         <EmptyHeader>
@@ -187,7 +204,7 @@ export function Connections() {
     content = (
       <ul
         data-testid='connection-grid'
-        className='grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3'
+        className='grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2'
       >
         {items.map((connection) => (
           <li key={connection.id} className='flex min-w-0'>
@@ -198,11 +215,13 @@ export function Connections() {
                   (item) => item.channel_id === connection.id
                 ) ?? []
               }
-              windowsKnown={!windows.isError}
+              windowsKnown={windows.isSuccess}
+              windowsLoading={windows.isPending}
               now={windows.now}
               recentRequests={recentRequests(connection.id)}
               connectionReturn={connectionReturn}
               canOperate={access.canOperate}
+              canEdit={access.canWrite}
               switching={power.switching === connection.id}
               testing={test.running === connection.id}
               testBusy={test.running !== null}
@@ -212,6 +231,7 @@ export function Connections() {
               }
               onToggle={(enabled) => void power.toggle(connection.id, enabled)}
               onTest={() => void test.run(connection)}
+              onEdit={() => setEditing(connection.id)}
             />
           </li>
         ))}
@@ -234,28 +254,8 @@ export function Connections() {
               {t('Refresh saved windows')}
             </Button>
           )}
-          {access.canRead && showTable && (
-            <nav aria-label={t('Connection views')} className='flex gap-1'>
-              <span
-                aria-current='page'
-                className={cn(
-                  buttonVariants({ variant: 'secondary', size: 'sm' }),
-                  'h-auto min-h-8'
-                )}
-              >
-                {t('Card view')}
-              </span>
-              <Link
-                to='/channels'
-                data-myapi-button=''
-                className={cn(
-                  buttonVariants({ variant: 'ghost', size: 'sm' }),
-                  'h-auto min-h-8'
-                )}
-              >
-                {t('Table view')}
-              </Link>
-            </nav>
+          {access.canRead && (
+            <ConnectionViewSwitcher view='cards' search={{ ...search, pageSize }} showOther={showTable} />
           )}
           {access.canWrite && (
             <Button ref={addButton} onClick={() => setAdding(true)}>
@@ -308,29 +308,99 @@ export function Connections() {
                 >
                   {t('Configured connections')}
                 </h2>
-                <div className='flex min-w-0 flex-wrap items-center gap-2'>
+                <div className='bg-card flex min-w-0 flex-col gap-4 rounded-xl border p-4'>
+                  <h3 className='text-body font-medium'>{t('Filters')}</h3>
                   <form
                     role='search'
-                    className='flex min-w-0 flex-1 basis-64 gap-2'
+                    className='grid min-w-0 grid-cols-1 items-end gap-3 sm:grid-cols-2 xl:grid-cols-4'
                     onSubmit={(event) => {
                       event.preventDefault()
                       applySearch({
                         ...search,
                         filter: filter.trim() || undefined,
+                        model: model.trim() || undefined,
+                        type: types.length ? types : undefined,
+                        group: groups.length ? groups : undefined,
                         page: 1,
                       })
                     }}
                   >
-                    <label className='min-w-0 flex-1'>
-                      <span className='sr-only'>{t('Search connections')}</span>
+                    <label className='flex min-w-0 flex-col gap-2'>
+                      <span className='text-caption text-muted-foreground'>
+                        {t('Search connections')}
+                      </span>
                       <Input
                         value={filter}
                         onChange={(event) => setFilter(event.target.value)}
                         maxLength={200}
                         placeholder={t('Search connections')}
+                        className='min-h-11'
                       />
                     </label>
-                    <Button type='submit' variant='outline'>
+                    <label className='flex min-w-0 flex-col gap-2'>
+                      <span className='text-caption text-muted-foreground'>
+                        {t('Model')}
+                      </span>
+                      <Input
+                        value={model}
+                        onChange={(event) => setModel(event.target.value)}
+                        maxLength={200}
+                        placeholder={t('Filter by model name...')}
+                        className='min-h-11'
+                      />
+                    </label>
+                    <div className='flex min-w-0 flex-col gap-2'>
+                      <label htmlFor='connection-types' className='text-caption text-muted-foreground'>
+                        {t('Provider')}
+                      </label>
+                      <NativeSelect
+                        id='connection-types'
+                        value={selectedType}
+                        onChange={(event) =>
+                          setTypes(event.target.value === 'all' ? [] : [event.target.value])
+                        }
+                        className='w-full [&_select]:min-h-11'
+                      >
+                        <NativeSelectOption value='all'>{t('All Types')}</NativeSelectOption>
+                        {selectedType !== 'all' && !CHANNEL_TYPE_OPTIONS.some((item) => String(item.value) === selectedType) && (
+                          <NativeSelectOption value={selectedType}>{selectedType}</NativeSelectOption>
+                        )}
+                        {CHANNEL_TYPE_OPTIONS.map((item) => (
+                          <NativeSelectOption key={item.value} value={String(item.value)}>
+                            {t(item.label)}
+                          </NativeSelectOption>
+                        ))}
+                      </NativeSelect>
+                    </div>
+                    <div className='flex min-w-0 flex-col gap-2'>
+                      <label htmlFor='connection-groups' className='text-caption text-muted-foreground'>
+                        {t('Group')}
+                      </label>
+                      <Input
+                        id='connection-groups'
+                        value={selectedGroup}
+                        onChange={(event) =>
+                          setGroups(event.target.value ? [event.target.value] : [])
+                        }
+                        list='connection-group-options'
+                        maxLength={200}
+                        placeholder={t('All Groups')}
+                        className='min-h-11'
+                      />
+                      <datalist id='connection-group-options'>
+                        {[
+                          ...new Set([
+                            ...groups,
+                            ...items.flatMap((item) => connectionValues(item.group)),
+                          ]),
+                        ].map((value) => <option key={value} value={value} />)}
+                      </datalist>
+                    </div>
+                    <Button
+                      type='submit'
+                      variant='outline'
+                      className='min-h-11 sm:justify-self-start'
+                    >
                       <HugeiconsIcon
                         icon={Search01Icon}
                         data-icon='inline-start'
@@ -339,11 +409,16 @@ export function Connections() {
                       {t('Search')}
                     </Button>
                   </form>
+                  {hasMultipleFilterValues && (
+                    <p className='text-caption text-muted-foreground'>
+                      {t('Only the first value of each filter is applied.')}
+                    </p>
+                  )}
                   <ToggleGroup
                     aria-label={t('Status')}
                     variant='outline'
                     size='sm'
-                    value={[search.status ?? 'all']}
+                    value={[status ?? 'all']}
                     onValueChange={(value) => {
                       const next = value[0]
                       if (!next) return
@@ -376,30 +451,17 @@ export function Connections() {
                   </ToggleGroup>
                 </div>
                 {content}
-                {list.isSuccess && list.data.total > CONNECTION_PAGE_SIZE && (
-                  <nav
-                    aria-label={t('Pagination')}
-                    className='flex flex-wrap items-center justify-between gap-2'
-                  >
-                    <Button
-                      variant='outline'
-                      disabled={page <= 1}
-                      onClick={() => applySearch({ ...search, page: page - 1 })}
-                    >
-                      {t('Previous page')}
-                    </Button>
-                    <span className='text-caption text-muted-foreground'>
-                      {t('Page {{page}}', { page })}
-                    </span>
-                    <Button
-                      variant='outline'
-                      disabled={page * CONNECTION_PAGE_SIZE >= list.data.total}
-                      onClick={() => applySearch({ ...search, page: page + 1 })}
-                    >
-                      {t('Next page')}
-                    </Button>
-                  </nav>
-                )}
+                <LogPagination
+                  label={t('Pagination')}
+                  page={page}
+                  pageSize={pageSize}
+                  total={list.isSuccess ? list.data.total : undefined}
+                  busy={list.isFetching}
+                  onPageChange={(nextPage) => applySearch({ ...search, page: nextPage })}
+                  onPageSizeChange={(nextSize) =>
+                    applySearch({ ...search, pageSize: nextSize, page: 1 })
+                  }
+                />
               </section>
             )}
             <p className='text-caption text-muted-foreground'>
@@ -432,6 +494,22 @@ export function Connections() {
               if (!open) {
                 setAdding(false)
                 addButton.current?.focus()
+              }
+            }}
+          />
+        </ChannelsProvider>
+      ) : null}
+      {editing !== null && access.canWrite ? (
+        <ChannelsProvider key={`${access.identity}:edit:${editing}`}>
+          <ChannelMutateDrawer
+            open
+            currentRow={{ id: editing }}
+            title={t('Edit connection')}
+            onOpenChange={(open) => {
+              if (!open) {
+                const previous = editing
+                setEditing(null)
+                document.querySelector<HTMLButtonElement>(`[data-connection-edit="${previous}"]`)?.focus()
               }
             }}
           />

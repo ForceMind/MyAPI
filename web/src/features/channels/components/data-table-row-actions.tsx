@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { Link } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import type { Row } from '@tanstack/react-table'
 import {
@@ -37,6 +38,7 @@ import {
 import { useContext, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useRememberReturnFocus } from '@/components/object-page/return-focus'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import {
@@ -57,6 +59,7 @@ import {
   ADMIN_PERMISSION_RESOURCES,
   hasPermission,
 } from '@/lib/admin-permissions'
+import { ConnectionListContext } from '@/features/connections/connection-list-context'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { MODEL_FETCHABLE_TYPES } from '../constants'
@@ -80,6 +83,8 @@ interface DataTableRowActionsProps {
 export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const { t } = useTranslation()
   const layout = useContext(ChannelRowActionsLayoutContext)
+  const connectionReturn = useContext(ConnectionListContext)
+  const rememberFocus = useRememberReturnFocus()
   const channel = row.original
   const { setOpen, setCurrentRow, upstream } = useChannels()
   const queryClient = useQueryClient()
@@ -96,18 +101,24 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
     ADMIN_PERMISSION_ACTIONS.SENSITIVE_WRITE
   )
 
+  const canWrite = hasPermission(currentUser, 'channel', 'write')
+  const canOperate = hasPermission(currentUser, 'channel', 'operate')
+
   const handleEdit = () => {
+    if (!canWrite) return
     setCurrentRow(channel)
     setOpen('update-channel')
   }
 
   const handleTest = () => {
+    if (!canOperate) return
     setCurrentRow(channel)
     setOpen('test-channel')
   }
 
   const handleDirectTest = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation()
+    if (!canOperate) return
     setIsTesting(true)
     try {
       await handleTestChannel(channel.id, { channelName: channel.name }, () => {
@@ -147,6 +158,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
     e?: React.MouseEvent<HTMLButtonElement>
   ) => {
     e?.stopPropagation()
+    if (!canOperate) return
     setIsTogglingStatus(true)
     try {
       await handleToggleChannelStatus(channel.id, channel.status, queryClient)
@@ -163,7 +175,10 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   }
 
   return (
-    <div className='-ml-1.5 flex items-center gap-1'>
+    <div className='flex min-w-0 flex-wrap items-center gap-1' data-row-actions='' onClick={(event) => event.stopPropagation()}>
+      <Link to='/connections/$connectionId' params={{ connectionId: String(channel.id) }} search={{ connectionReturn }} state={{ inspectorBack: true }} onClick={() => rememberFocus('data-connection-link', channel.id)} className='text-primary rounded-md px-2 py-1 text-sm underline-offset-4 hover:underline focus-visible:underline'>
+        {t('View')}
+      </Link>
       {layout !== 'card' && (
         <Tooltip>
           <TooltipTrigger
@@ -176,6 +191,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
                   handleEdit()
                 }}
                 aria-label={t('Edit')}
+                disabled={!canWrite}
               />
             }
           >
@@ -192,7 +208,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
               variant='ghost'
               size='icon-sm'
               onClick={handleDirectTest}
-              disabled={isTesting}
+              disabled={isTesting || !canOperate}
               aria-label={t('Test Connection')}
             />
           }
@@ -206,27 +222,6 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         <TooltipContent>{t('Test Connection')}</TooltipContent>
       </Tooltip>
 
-      {layout === 'card' && (
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant='ghost'
-                size='icon-sm'
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleTest()
-                }}
-                aria-label={t('Test Channel Connection')}
-              />
-            }
-          >
-            <PlugZap className='size-4' />
-          </TooltipTrigger>
-          <TooltipContent>{t('Test Channel Connection')}</TooltipContent>
-        </Tooltip>
-      )}
-
       <Tooltip>
         <TooltipTrigger
           render={
@@ -234,7 +229,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
               variant='ghost'
               size='icon-sm'
               onClick={handleToggleStatus}
-              disabled={isTogglingStatus}
+              disabled={isTogglingStatus || !canOperate}
               aria-label={isEnabled ? t('Disable') : t('Enable')}
               className={
                 isEnabled
@@ -265,7 +260,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align='end' className='w-48'>
           {layout === 'card' && (
-            <DropdownMenuItem onClick={handleEdit}>
+            <DropdownMenuItem onClick={handleEdit} disabled={!canWrite}>
               {t('Edit')}
               <DropdownMenuShortcut>
                 <Pencil size={16} />
@@ -274,8 +269,8 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           )}
 
           {/* Test Connection */}
-          <DropdownMenuItem onClick={handleTest}>
-            {t('Test Connection')}
+          <DropdownMenuItem onClick={handleTest} disabled={!canOperate}>
+            {t('Advanced test')}
             <DropdownMenuShortcut>
               <PlugZap size={16} />
             </DropdownMenuShortcut>

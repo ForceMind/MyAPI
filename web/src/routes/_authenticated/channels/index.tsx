@@ -24,8 +24,9 @@ import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
 const channelsSearchSchema = z.object({
-  page: z.number().optional().catch(1),
-  pageSize: z.number().optional().catch(undefined),
+  page: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional().catch(1),
+  pageSize: z.number().int().positive().max(100).optional().catch(undefined),
+  focusConnectionId: z.number().int().positive().optional().catch(undefined),
   filter: z.string().optional().catch(''),
   status: z.array(z.string()).optional().catch([]),
   type: z.array(z.string()).optional().catch([]),

@@ -127,10 +127,16 @@ test('the connection card keeps each saved series with its own status and observ
       },
     ],
   })
-  const summary = await screen.findByText(/Historical saved sample error/)
+  const summary = await screen.findByRole('list', { name: 'Saved account windows' })
+  expect(summary).toHaveTextContent('Historical saved sample error')
   expect(summary).toHaveTextContent('Snapshot available')
   expect(summary).toHaveTextContent('Relay usage-limit event')
   expect(summary.textContent?.match(/Observed /g)).toHaveLength(3)
+  const series = within(summary).getAllByRole('listitem')
+  expect(series).toHaveLength(3)
+  for (const item of series) {
+    expect(within(item).getByText(/Observed /)).toBeVisible()
+  }
 })
 
 test.each(['/connections', '/connections/7'])('read-only refresh at %s reads saved windows only and preserves unknown usage', async (entry) => {

@@ -7263,6 +7263,14 @@
     "The saved response is base64 encoded; SSE events are not decoded.": "The saved response is base64 encoded; SSE events are not decoded.",
     "The saved response returned by the server is truncated.": "The saved response returned by the server is truncated.",
     "Usage and settlement evidence": "Usage and settlement evidence",
-    "Raw evidence": "Raw evidence"
+    "Raw evidence": "Raw evidence",
+    "Quick test": "Quick test",
+    "Observation time": "Observation time",
+    "Closest to its limit among saved windows": "Closest to its limit among saved windows",
+    "Advanced connection controls": "Advanced connection controls",
+    "Advanced test": "Advanced test",
+    "Only the first value of each filter is applied.": "Only the first value of each filter is applied.",
+    "Expand tag {{tag}}": "Expand tag {{tag}}",
+    "Collapse tag {{tag}}": "Collapse tag {{tag}}"
   }
 }

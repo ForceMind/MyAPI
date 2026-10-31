@@ -32,6 +32,8 @@ import { useState, useMemo, useContext, useEffect, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { ConnectionListContext } from '@/features/connections/connection-list-context'
+
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { BadgeListCell } from '@/components/data-table'
 import { GroupBadge } from '@/components/group-badge'
@@ -594,11 +596,13 @@ export function BalanceCell({ channel }: { channel: Channel }) {
  */
 function ConnectionPageLink(props: { channelId: number; children: ReactNode }) {
   const rememberFocus = useRememberReturnFocus()
+  const connectionReturn = useContext(ConnectionListContext)
   return (
     <Link
       to='/connections/$connectionId'
       params={{ connectionId: String(props.channelId) }}
       state={{ inspectorBack: true }}
+      search={{ connectionReturn }}
       data-connection-link={props.channelId}
       onClick={() => rememberFocus('data-connection-link', props.channelId)}
       className='hover:text-primary flex max-w-full min-w-0 underline-offset-4 hover:underline focus-visible:underline'
@@ -697,6 +701,8 @@ export function useChannelsColumns(
                   size='sm'
                   className='h-6 w-6 p-0'
                   onClick={row.getToggleExpandedHandler()}
+                  aria-expanded={row.getIsExpanded()}
+                  aria-label={row.getIsExpanded() ? t('Collapse tag {{tag}}', { tag }) : t('Expand tag {{tag}}', { tag })}
                 >
                   {row.getIsExpanded() ? (
                     <ChevronDown className='h-4 w-4' />

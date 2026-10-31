@@ -187,7 +187,7 @@ test('search and pagination use server parameters rather than filtering one page
       )
     ).toBe(true)
   )
-  await user.click(await screen.findByRole('button', { name: 'Next page' }))
+  await user.click(await screen.findByRole('button', { name: 'Go to next page' }))
   await waitFor(() =>
     expect(
       fixture.requests.some(
@@ -311,10 +311,110 @@ test('empty inventory stays distinct from a read error and keeps a working advan
   await mount({ empty: true })
   await screen.findByText('No connections yet')
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-  expect(screen.getByRole('link', { name: 'Table view' })).toHaveAttribute(
-    'href',
-    '/channels'
+  const table = new URL(
+    screen.getByRole('link', { name: 'Table view' }).getAttribute('href') ?? '',
+    'https://example.test'
   )
+  expect(table.pathname).toBe('/channels')
+  expect(table.searchParams.get('pageSize')).toBe('20')
+})
+
+test('card editing targets the selected connection and cancellation restores focus without any writes or provider test', async () => {
+  const fixture = await mount({ operate: true })
+  const user = userEvent.setup()
+  const card = within(await screen.findByRole('article', { name: 'Synthetic connection' }))
+  await user.click(card.getByRole('button', { name: 'Edit' }))
+  expect(screen.getByRole('dialog', { name: 'Edit #7' })).toBeVisible()
+  expect(fixture.router.state.location.pathname).toBe('/connections')
+  await user.click(screen.getByRole('button', { name: 'Cancel edit' }))
+  expect(card.getByRole('button', { name: 'Edit' })).toHaveFocus()
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(fixture.requests.every((request) => request.method === 'get')).toBe(true)
+  expect(fixture.requests.some((request) => request.path.startsWith('/api/channel/test/'))).toBe(false)
+})
+
+test('a fresh read-only grant keeps card viewing while hiding edit controls', async () => {
+  await mount({ write: false })
+  const card = within(await screen.findByRole('article', { name: 'Synthetic connection' }))
+  expect(card.getByRole('link', { name: 'View' })).toBeVisible()
+  expect(card.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
+})
+
+test('changing page size resets to page one and preserves model, provider, group and status filters', async () => {
+  const fixture = await mount({
+    entry: `/connections?filter=Synthetic&model=alpha&type=${encodeURIComponent('["57"]')}&group=${encodeURIComponent('["default","premium"]')}&status=enabled&page=2&pageSize=20`,
+    total: 75,
+  })
+  const user = userEvent.setup()
+  await cardLink()
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Rows per page' }), '50')
+  await waitFor(() => expect(search(fixture)).toEqual({
+    filter: 'Synthetic',
+    model: 'alpha',
+    type: ['57'],
+    group: ['default', 'premium'],
+    status: 'enabled',
+    page: 1,
+    pageSize: 50,
+  }))
+  await waitFor(() => expect(fixture.requests.some((request) =>
+    request.path === '/api/channel/search' && request.params.page_size === 50 && request.params.p === 1 && request.params.model === 'alpha'
+  )).toBe(true))
+})
+
+test('submitting model search retains provider and group arrays and uses the server search endpoint', async () => {
+  const fixture = await mount({
+    entry: `/connections?type=${encodeURIComponent('["57","1"]')}&group=${encodeURIComponent('["default","premium"]')}&pageSize=50`,
+  })
+  const user = userEvent.setup()
+  await cardLink()
+  expect(screen.getByText('Only the first value of each filter is applied.')).toBeVisible()
+  await user.type(screen.getByRole('textbox', { name: 'Model' }), 'beta')
+  await user.click(screen.getByRole('button', { name: 'Search' }))
+  await waitFor(() => expect(search(fixture)).toEqual({
+    type: ['57', '1'],
+    group: ['default', 'premium'],
+    pageSize: 50,
+    page: 1,
+    model: 'beta',
+  }))
+  await waitFor(() => expect(fixture.requests.some((request) =>
+    request.path === '/api/channel/search' && request.params.model === 'beta'
+  )).toBe(true))
+})
+
+test('explicit single-value filter edits replace legacy arrays only when submitted', async () => {
+  const fixture = await mount({
+    entry: `/connections?model=alpha&type=${encodeURIComponent('["57","1"]')}&group=${encodeURIComponent('["default","premium"]')}&status=enabled&pageSize=50`,
+  })
+  const user = userEvent.setup()
+  await cardLink()
+  expect(screen.getByLabelText('Provider')).toHaveValue('57')
+  expect(screen.getByLabelText('Group')).toHaveValue('default')
+  await user.selectOptions(screen.getByLabelText('Provider'), '1')
+  await user.clear(screen.getByLabelText('Group'))
+  await user.type(screen.getByLabelText('Group'), 'research')
+  expect(search(fixture).type).toEqual(['57', '1'])
+  expect(search(fixture).group).toEqual(['default', 'premium'])
+  await user.click(screen.getByRole('button', { name: 'Search' }))
+  await waitFor(() => expect(search(fixture)).toEqual({
+    model: 'alpha', type: ['1'], group: ['research'], status: 'enabled', pageSize: 50, page: 1,
+  }))
+  expect(screen.queryByText('Only the first value of each filter is applied.')).not.toBeInTheDocument()
+})
+
+test('switching to the table keeps the complete filter context and never starts a provider request', async () => {
+  const fixture = await mount({
+    entry: `/connections?filter=Synthetic&model=alpha&type=${encodeURIComponent('["57","1"]')}&group=${encodeURIComponent('["default","premium"]')}&status=enabled&page=2&pageSize=50`,
+  })
+  await cardLink()
+  await userEvent.setup().click(screen.getByRole('link', { name: 'Table view' }))
+  await waitFor(() => expect(fixture.router.state.location.pathname).toBe('/channels'))
+  expect(search(fixture)).toEqual({
+    filter: 'Synthetic', model: 'alpha', type: ['57', '1'], group: ['default', 'premium'], status: ['enabled'], page: 2, pageSize: 50,
+  })
+  expect(fixture.requests.every((request) => request.method === 'get')).toBe(true)
+  expect(fixture.requests.some((request) => request.path.startsWith('/api/channel/test/'))).toBe(false)
 })
 
 test('an inventory read error is an error with retry, not an empty grid', async () => {

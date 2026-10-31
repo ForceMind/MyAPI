@@ -11,7 +11,7 @@ import {
   useRouter,
   type HistoryLocation,
 } from '@tanstack/react-router'
-import { useCallback, useEffect, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, type RefObject } from 'react'
 
 // The row that opened an object page, per history entry of the page it was
 // opened from. Back (in-app or the browser's) shows that entry again and
@@ -50,6 +50,8 @@ export function useReturnFocus(options: {
   attribute: string
   settled: boolean
   rows: unknown
+  /** A direct-link return target, consumed once per history entry. */
+  requestedId?: number
   /**
    * Where focus goes when the list has settled without that row (removed,
    * filtered out, empty or unreadable).
@@ -57,8 +59,18 @@ export function useReturnFocus(options: {
   fallback?: RefObject<HTMLElement | null>
 }) {
   const key = useLocation({ select: (location) => entryKey(location.state) })
+  const requested = useRef<string | undefined>(undefined)
   useEffect(() => {
     if (!key) return
+    if (options.requestedId !== undefined) {
+      const request = `${key}:${options.requestedId}`
+      if (requested.current !== request) {
+        requested.current = request
+        if (!pendingFocus.has(key)) {
+          pendingFocus.set(key, { attribute: options.attribute, id: String(options.requestedId) })
+        }
+      }
+    }
     const pending = pendingFocus.get(key)
     if (pending?.attribute !== options.attribute) return
     const target = document.querySelector<HTMLElement>(
@@ -82,5 +94,5 @@ export function useReturnFocus(options: {
       document.removeEventListener('keydown', cancel, true)
       document.removeEventListener('focusin', cancel, true)
     }
-  }, [key, options.attribute, options.settled, options.rows, options.fallback])
+  }, [key, options.attribute, options.settled, options.rows, options.fallback, options.requestedId])
 }

@@ -7,7 +7,7 @@ the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
 import { QueryClient } from '@tanstack/react-query'
-import { cleanup, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
@@ -31,11 +31,15 @@ const item = channelSchema.parse({
   balance_updated_time: 0,
   models: 'public-model',
 })
+vi.mock('@/hooks/use-sidebar-config', () => ({ useIsSidebarModuleVisible: () => true }))
+
+let tagMode = false
 const originalAuth = useAuthStore.getState()
 let client: QueryClient
 
 beforeEach(() => {
   localStorage.clear()
+  tagMode = false
   // The table view (not the card view) of the connections' table page.
   localStorage.setItem('channels:view-mode', 'table')
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
@@ -54,7 +58,7 @@ beforeEach(() => {
       return {
         data: {
           success: true,
-          data: { items: [item], total: 1, type_counts: { 1: 1 } },
+          data: { items: tagMode ? [{ ...item, tag: 'synthetic-tag' }, { ...item, id: 24, name: 'second-channel', tag: 'synthetic-tag' }] : [item], total: tagMode ? 1 : 220, type_counts: { 1: 220 } },
         },
       }
     }
@@ -70,10 +74,11 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-async function renderTable() {
+async function renderTable(entry?: string) {
   return renderListRoute({
     client,
     path: '/channels/',
+    entry,
     element: (
       <ChannelsProvider>
         <ChannelsTable />
@@ -107,4 +112,60 @@ test('a click elsewhere on the row opens the connection page, but not on its con
   await waitFor(() =>
     expect(router.state.location.pathname).toBe('/connections/23')
   )
+})
+
+
+test('table pagination can reach the last page and changing page size resets to the first page', async () => {
+  const { router } = await renderTable('/channels/?pageSize=20&filter=needle&model=public-model')
+  const user = userEvent.setup()
+  await screen.findByRole('link', { name: 'needle-channel' })
+  await user.click(screen.getByRole('button', { name: 'Last page' }))
+  await waitFor(() => expect(router.state.location.search).toMatchObject({ page: 11, pageSize: 20, filter: 'needle', model: 'public-model' }))
+  await waitFor(() => expect(api.get).toHaveBeenCalledWith('/api/channel/search', { params: expect.objectContaining({ p: 11, page_size: 20 }) }))
+  await user.selectOptions(await screen.findByRole('combobox', { name: 'Rows per page' }), '50')
+  await waitFor(() => expect(router.state.location.search).toMatchObject({ pageSize: 50, filter: 'needle', model: 'public-model' }))
+  await waitFor(() => expect(api.get).toHaveBeenCalledWith('/api/channel/search', { params: expect.objectContaining({ p: 1, page_size: 50 }) }))
+})
+
+test('table details carry filters, page size and table origin without invoking a supplier', async () => {
+  const { router } = await renderTable('/channels/?page=3&pageSize=50&filter=needle&model=public-model&status=%5B%22enabled%22%5D&type=%5B%221%22%5D&group=%5B%22default%22%5D&quotaChannelId=23')
+  await userEvent.setup().click(await screen.findByRole('link', { name: 'needle-channel' }))
+  await waitFor(() => expect(router.state.location.pathname).toBe('/connections/23'))
+  expect(router.state.location.search).toEqual({ connectionReturn: {
+    view: 'table', page: 3, pageSize: 50, filter: 'needle', model: 'public-model', status: 'enabled', type: ['1'], group: ['default'], quotaChannelId: 23,
+  } })
+  expect(vi.mocked(api.get).mock.calls.every(([url]) => !String(url).includes('/test/'))).toBe(true)
+})
+
+test('tag mode uses the number of tags even when a tag contains several channel rows', async () => {
+  tagMode = true
+  localStorage.setItem('enable-tag-mode', 'true')
+  await renderTable()
+  expect(await screen.findByText(/^Tag.*synthetic-tag$/)).toBeVisible()
+  expect(screen.queryByText('Failed to load channels')).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Last page' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: /synthetic-tag/ })).toHaveAttribute('aria-expanded', 'false')
+})
+
+test('read-only channel permissions disable editing, quick tests, routing switches and advanced tests', async () => {
+  useAuthStore.getState().auth.setUser({ id: 2, role: 10, username: 'reader', permissions: { admin_permissions: { channel: { read: true, write: false, operate: false } } } })
+  await renderTable()
+  await screen.findByRole('link', { name: 'needle-channel' })
+  expect(screen.getByRole('button', { name: 'Edit' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Test Connection' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Disable' })).toBeDisabled()
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Open menu' }))
+  expect(await screen.findByRole('menuitem', { name: 'Advanced test' })).toHaveAttribute('aria-disabled', 'true')
+  expect(vi.mocked(api.get).mock.calls.every(([url]) => !String(url).includes('/test/'))).toBe(true)
+})
+
+test('a direct return focuses its row once and a later refresh preserves the user input focus', async () => {
+  await renderTable('/channels/?focusConnectionId=23')
+  const name = await screen.findByRole('link', { name: 'needle-channel' })
+  await waitFor(() => expect(name).toHaveFocus())
+  const input = screen.getByPlaceholderText('Filter by model...')
+  input.focus()
+  await act(async () => client.invalidateQueries({ queryKey: ['channels'] }))
+  await screen.findByRole('link', { name: 'needle-channel' })
+  expect(input).toHaveFocus()
 })

@@ -7263,6 +7263,14 @@
     "The saved response is base64 encoded; SSE events are not decoded.": "保存的响应采用base64编码，未解码SSE事件。",
     "The saved response returned by the server is truncated.": "服务端返回的已保存响应已截断。",
     "Usage and settlement evidence": "用量与结算证据",
-    "Raw evidence": "原始证据"
+    "Raw evidence": "原始证据",
+    "Quick test": "快速测试",
+    "Observation time": "观察时间",
+    "Closest to its limit among saved windows": "已保存窗口中最接近额度上限的窗口",
+    "Advanced connection controls": "高级连接管理",
+    "Advanced test": "高级测试",
+    "Only the first value of each filter is applied.": "每个筛选条件仅应用第一个值。",
+    "Expand tag {{tag}}": "展开标签 {{tag}}",
+    "Collapse tag {{tag}}": "收起标签 {{tag}}"
   }
 }

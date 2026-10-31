@@ -29,6 +29,7 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import {
   CONNECTION_PAGE_SIZE,
+  connectionFilterValue,
   parseConnection,
   parseConnections,
   type ConnectionsSearch,
@@ -108,8 +109,10 @@ export function useConnectionList(
 ) {
   const params = {
     p: search.page ?? 1,
-    page_size: CONNECTION_PAGE_SIZE,
-    status: search.status,
+    page_size: search.pageSize ?? CONNECTION_PAGE_SIZE,
+    status: connectionFilterValue(search.status),
+    type: connectionFilterValue(search.type) ? Number(connectionFilterValue(search.type)) : undefined,
+    group: connectionFilterValue(search.group),
     sort_by: 'id' as const,
     sort_order: 'desc' as const,
   }
@@ -121,12 +124,13 @@ export function useConnectionList(
       access.canRead,
       params,
       search.filter,
+      search.model,
     ],
     queryFn: async ({ signal }) => {
       const config = { signal, disableDuplicate: true, skipErrorHandler: true }
       return parseConnections(
-        search.filter
-          ? await searchChannels({ ...params, keyword: search.filter }, config)
+        search.filter || search.model
+          ? await searchChannels({ ...params, keyword: search.filter, model: search.model }, config)
           : await getChannels(params, config)
       )
     },

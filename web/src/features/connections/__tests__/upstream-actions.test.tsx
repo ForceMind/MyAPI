@@ -252,7 +252,40 @@ test('an unreadable window sample shows its state instead of a number', async ()
   ).toBeVisible()
   expect(within(card('Subscription A')).queryByRole('img')).toBeNull()
   expect(within(card('Subscription A')).queryByText(/55%/)).toBeNull()
+  expect(
+    within(card('Subscription A')).getByText(
+      'This saved observation failed. Its timestamp applies only to this series.'
+    )
+  ).toBeVisible()
 })
+
+test('a card keeps its full configuration, long model names and unknown values visible with explicit View, Test and Edit actions', async () => {
+  const longModel = 'provider/model-with-a-long-name-and-deployment-suffix'
+  await mount({
+    operate: true,
+    items: [{
+      ...subscription,
+      name: 'Subscription A with a long account identity',
+      priority: null,
+      weight: 0,
+      group: 'default,premium',
+      models: `alpha,${longModel}`,
+    }],
+  })
+  const target = within(await screen.findByRole('article', {
+    name: 'Subscription A with a long account identity',
+  }))
+  expect(target.getByText('#7 · ChatGPT Subscription (Codex)')).toBeVisible()
+  expect(target.getByText('Priority').parentElement).toHaveTextContent('Unknown')
+  expect(target.getByText('Weight').parentElement).toHaveTextContent('0')
+  expect(target.getByText('default, premium')).toBeVisible()
+  expect(target.getByText(`alpha, ${longModel}`)).toBeVisible()
+  expect(target.getByText('Last test').parentElement).toHaveTextContent('Not tested')
+  expect(target.getByRole('link', { name: 'View' })).toBeVisible()
+  expect(target.getByRole('button', { name: 'Test' })).toBeVisible()
+  expect(target.getByRole('button', { name: 'Edit' })).toBeVisible()
+})
+
 
 test('the switch and Test on a card act in place and never open the page', async () => {
   const fixture = await mount({ operate: true, items: [subscription] })

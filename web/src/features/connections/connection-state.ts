@@ -18,9 +18,15 @@ const LEGACY_INSPECTOR_TABS = ['overview', 'windows', 'routing'] as const
  * redirected to the connection's own page.
  */
 export const connectionsSearchSchema = z.object({
-  page: z.number().int().positive().optional().catch(undefined),
-  filter: z.string().trim().max(200).optional().catch(undefined),
-  status: z.enum(['enabled', 'disabled']).optional().catch(undefined),
+  page: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).optional().catch(undefined),
+  pageSize: z.number().int().positive().max(100).optional().catch(undefined),
+  filter: z.string().trim().optional().catch(undefined),
+  status: z.union([z.enum(['enabled', 'disabled']), z.array(z.string())]).optional().catch(undefined),
+  type: z.array(z.string()).optional().catch(undefined),
+  group: z.array(z.string()).optional().catch(undefined),
+  model: z.string().optional().catch(undefined),
+  view: z.literal('table').optional(),
+  quotaChannelId: z.number().int().positive().optional().catch(undefined),
   /** The card to focus on arrival (Back from a page opened by a link). */
   focusConnectionId: z.number().int().positive().optional().catch(undefined),
   connection: z.number().int().positive().optional().catch(undefined),
@@ -34,6 +40,12 @@ const connectionReturnSchema = connectionsSearchSchema.pick({
   page: true,
   filter: true,
   status: true,
+  pageSize: true,
+  type: true,
+  group: true,
+  model: true,
+  view: true,
+  quotaChannelId: true,
 })
 export type ConnectionReturn = z.infer<typeof connectionReturnSchema>
 
@@ -69,10 +81,61 @@ export function connectionListContext(
     page: search.page && search.page > 1 ? search.page : undefined,
     filter: search.filter || undefined,
     status: search.status,
+    pageSize: search.pageSize,
+    type: search.type,
+    group: search.group,
+    model: search.model || undefined,
+    view: search.view,
+    quotaChannelId: search.quotaChannelId,
   }
   return Object.values(context).some((value) => value !== undefined)
     ? context
     : undefined
+}
+
+/** The backend supports one value per facet; keep full URL arrays for round trips. */
+export function connectionFilterValue(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value) && value.includes('all')) return undefined
+  const first = Array.isArray(value) ? value[0] : value
+  return first && first !== 'all' ? first : undefined
+}
+
+/** Card and table URLs retain their existing status representations. */
+export function connectionsToTableSearch(search: ConnectionReturn) {
+  return {
+    page: search.page,
+    pageSize: search.pageSize ?? CONNECTION_PAGE_SIZE,
+    filter: search.filter,
+    status: typeof search.status === 'string' ? [search.status] : (search.status ?? []),
+    type: search.type ?? [],
+    group: search.group ?? [],
+    model: search.model,
+    quotaChannelId: search.quotaChannelId,
+  }
+}
+
+export function tableToConnectionsSearch(search: {
+  page?: number
+  pageSize?: number
+  filter?: string
+  status?: string[]
+  type?: string[]
+  group?: string[]
+  model?: string
+  quotaChannelId?: number
+}): ConnectionsSearch {
+  const status = search.status
+  const single = status?.length === 1 ? status[0] : undefined
+  return {
+    page: search.page,
+    pageSize: search.pageSize,
+    filter: search.filter,
+    status: single === 'enabled' || single === 'disabled' ? single : status,
+    type: search.type,
+    group: search.group,
+    model: search.model,
+    quotaChannelId: search.quotaChannelId,
+  }
 }
 
 /**
