@@ -72,7 +72,7 @@ function WindowsLine(props: {
   }
   return (
     <ul aria-label={t('Saved account windows')} className='flex min-w-0 flex-col gap-2'>
-      {props.windows.map((item, index) => {
+      {props.windows.map((item) => {
         const used = nativeWindowUsage(item)
         const state = describeConnectionWindow(item, props.windows, props.now, t)
         const summary =
@@ -94,7 +94,7 @@ function WindowsLine(props: {
             : t('No timestamp')
         return (
           <li
-            key={`${item.series_id ?? item.window_type ?? 'window'}:${index}`}
+            key={item.series_id ?? `${item.channel_id}:${item.source}:${item.account_label ?? ''}:${item.window_type}:${item.window_seconds ?? ''}:${item.observed_at ?? ''}`}
             className='min-w-0 wrap-anywhere'
           >
             <span>
