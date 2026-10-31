@@ -167,7 +167,7 @@ test('the detail keeps one last-test summary and labels its existing Test action
   const page = within(await screen.findByTestId('connection-page'))
   await page.findByRole('heading', { name: 'Synthetic connection' })
 
-  expect(await page.findAllByText('Last test')).toHaveLength(1)
+  expect(await page.findAllByText(/^Last test:/)).toHaveLength(1)
   expect(page.getByRole('button', { name: 'Test' })).toHaveAttribute(
     'title',
     'Quick test'
