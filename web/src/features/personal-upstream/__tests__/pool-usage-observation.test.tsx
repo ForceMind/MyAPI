@@ -63,6 +63,7 @@ function observe(
     channelId?: number
     closed?: boolean
     canRead?: boolean
+    selectedKeyId?: number
   } = {}
 ) {
   const pool: SubscriptionSharePool = {
@@ -82,6 +83,7 @@ function observe(
         pool={pool}
         channelId={overrides.channelId ?? 1}
         canRead={overrides.canRead ?? true}
+        selectedKeyId={overrides.selectedKeyId}
       />
     </QueryClientProvider>
   )
@@ -257,5 +259,57 @@ test('a replaced pool displays its returned window identity instead of the older
   )
   expect(screen.getByTestId('pool-window-descriptor')).not.toHaveTextContent(
     '5 hours'
+  )
+})
+
+test('current Key allocation is read from the returned pool evidence while account estimates stay separate', async () => {
+  authenticate()
+  vi.mocked(getPoolUsage).mockResolvedValue(poolUsageFixture())
+  observe(poolUsageFixture(), { selectedKeyId: 22 })
+  const selected = await screen.findByTestId('pool-current-key')
+  expect(within(selected).getByText('Shared device')).toBeVisible()
+  expect(within(selected).getByText('40%', { exact: true })).toBeVisible()
+  expect(within(selected).getByText('7 percentage points')).toBeVisible()
+  expect(screen.getByTestId('pool-estimated-total')).toHaveTextContent(
+    '15 percentage points'
+  )
+  expect(screen.getByTestId('pool-unattributed-growth')).toHaveTextContent(
+    '5 percentage points'
+  )
+})
+
+test('a failed refresh hides previous pool charts and current Key values', async () => {
+  authenticate()
+  vi.mocked(getPoolUsage)
+    .mockResolvedValueOnce(poolUsageFixture())
+    .mockRejectedValueOnce(new Error('Saved pool read failed'))
+  observe(poolUsageFixture(), { selectedKeyId: 21 })
+  await screen.findByTestId('pool-current-key')
+  await userEvent.setup().click(
+    screen.getByRole('button', { name: 'Refresh saved observations' })
+  )
+  expect(await screen.findByText('Saved pool read failed')).toBeVisible()
+  expect(screen.queryByTestId('pool-current-key')).not.toBeInTheDocument()
+  expect(screen.queryByTestId('pool-decomposition-bar')).not.toBeInTheDocument()
+})
+
+test('unknown usage and zero growth remain distinct in their evidence groups', async () => {
+  authenticate()
+  vi.mocked(getPoolUsage).mockResolvedValue(
+    poolUsageFixture({
+      decomposition_state: 'inconsistent',
+      observed_used_micro: null,
+      unattributed_growth_micro: 0,
+    })
+  )
+  observe()
+  await screen.findByTestId('pool-projected-usage')
+  expect(screen.getByTestId('pool-projected-usage')).toHaveTextContent('Unknown')
+  expect(screen.getByTestId('pool-unattributed-growth')).toHaveTextContent(
+    '0 percentage points'
+  )
+  expect(screen.queryByTestId('pool-decomposition-bar')).not.toBeInTheDocument()
+  expect(screen.getByRole('region', { name: 'Request evidence' })).toHaveTextContent(
+    'Pending requests'
   )
 })

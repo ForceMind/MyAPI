@@ -43,6 +43,7 @@ const sample: ChannelQuotaChangeItem = {
   window_type: 'five_hour',
   window_seconds: 18000,
   status: 'success',
+  source: 'saved_native_window',
   current_available: 45,
   observed_at: 1000,
 }
@@ -53,7 +54,7 @@ test('a failed sample explains the failure and links to recorded channel history
   expect(screen.getByText('Usage sample failed')).toBeInTheDocument()
   expect(
     screen.getByText(
-      'The latest usage sample failed. Inspect the channel history and connection.'
+      'This saved observation failed. Its timestamp applies only to this series.'
     )
   ).toBeInTheDocument()
   expect(screen.queryByText('55%')).not.toBeInTheDocument()
@@ -100,4 +101,33 @@ test('a hidden channel module does not expose its history action', () => {
   expect(
     screen.queryByRole('link', { name: 'View channel history' })
   ).not.toBeInTheDocument()
+})
+
+test('window evidence keeps one source and observation time without making a balance into native percent usage', () => {
+  render(
+    <WindowCard
+      item={{ ...sample, metric_type: 'balance', unit: 'USD', current_available: 0 }}
+      now={1100}
+    />
+  )
+  expect(screen.getByText('saved_native_window')).toBeVisible()
+  expect(screen.getAllByText(/Observed /)).toHaveLength(1)
+  expect(screen.getByText('Usage unavailable')).toBeVisible()
+  expect(screen.queryByText('100%')).not.toBeInTheDocument()
+})
+
+test('a newer saved WHAM observation labels an older series error as historical without resolving it', () => {
+  const error = { ...sample, status: 'error', source: 'codex_wham_usage' }
+  render(
+    <WindowCard
+      item={error}
+      windows={[
+        error,
+        { ...sample, source: 'codex_wham_usage_primary', observed_at: 1090 },
+      ]}
+      now={1100}
+    />
+  )
+  expect(screen.getByText('Historical saved sample error')).toBeVisible()
+  expect(screen.getByText(/not marked resolved/)).toBeVisible()
 })

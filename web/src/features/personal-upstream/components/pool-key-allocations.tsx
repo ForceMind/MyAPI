@@ -108,6 +108,8 @@ function AllocationRow(props: {
 export function PoolKeyAllocations(props: {
   usage: PoolUsage
   connectionContext?: ConnectionKeyContext
+  /** Link context from an observation; unlike workspace context, keep Manage visible. */
+  returnContext?: ConnectionKeyContext
 }) {
   const { t, i18n } = useTranslation()
   const percent = new Intl.NumberFormat(toIntlLocale(i18n.language), {
@@ -130,7 +132,7 @@ export function PoolKeyAllocations(props: {
               key={allocation.token_id}
               allocation={allocation}
               context={
-                props.connectionContext ?? {
+                props.connectionContext ?? props.returnContext ?? {
                   connection: { connection: props.usage.channel_id },
                   pool: props.usage.pool_id,
                 }
@@ -156,7 +158,7 @@ export function PoolKeyAllocations(props: {
               <Link
                 to='/keys'
                 search={{
-                  connectionContext: props.connectionContext ?? {
+                  connectionContext: props.connectionContext ?? props.returnContext ?? {
                     connection: { connection: props.usage.channel_id },
                     pool: props.usage.pool_id,
                   },

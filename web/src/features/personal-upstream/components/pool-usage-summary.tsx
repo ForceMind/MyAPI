@@ -55,66 +55,85 @@ export function PoolUsageSummary(props: { usage: PoolUsage }) {
         </CardTitle>
       </CardHeader>
       <CardContent className='flex min-w-0 flex-col gap-4 [overflow-wrap:anywhere]'>
-        {!chartData ? (
-          <p role='status' data-testid='pool-decomposition-unavailable'>
-            {unavailableMessage}
+        <div className='bg-muted rounded-lg p-3'>
+          <p className='text-muted-foreground text-xs'>
+            {t('Projected window usage')}
           </p>
-        ) : null}
-        {chartData ? (
-          <div
-            className='bg-muted flex h-3 w-full overflow-hidden rounded-full'
-            aria-hidden='true'
-            data-testid='pool-decomposition-bar'
+          <p
+            className='mt-1 text-xl font-semibold tabular-nums'
+            data-testid='pool-projected-usage'
           >
-            <span
-              className='bg-primary'
-              style={{ width: `${chartData.estimated / 1000000}%` }}
-            />
-            <span
-              className='bg-primary/40'
-              style={{
-                width: `${chartData.initial / 1000000}%`,
-              }}
-            />
-            <span
-              className='bg-warning'
-              style={{
-                width: `${chartData.growth / 1000000}%`,
-              }}
-            />
-          </div>
-        ) : null}
-        <dl className='grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-x-3 gap-y-3 text-sm [&_dd]:text-right'>
-          <dt>{t('Local Key estimates')}</dt>
-          <dd data-testid='pool-estimated-total'>
-            <WindowPoints value={usage.estimated_used_micro} />
-          </dd>
-          <dt>{t('First observation in this cycle')}</dt>
-          <dd data-testid='pool-initial-baseline'>
-            <WindowPoints value={usage.initial_baseline_used_micro} />
-          </dd>
-          <dt>{t('Unattributed growth')}</dt>
-          <dd data-testid='pool-unattributed-growth'>
-            <WindowPoints value={usage.unattributed_growth_micro} />
-          </dd>
-          <dt>{t('Unattributed usage (including initial baseline)')}</dt>
-          <dd>
-            <WindowPoints value={usage.unattributed_micro} />
-          </dd>
-          <dt>{t('Projected window usage')}</dt>
-          <dd>
             <WindowPoints value={usage.observed_used_micro} />
-          </dd>
-          <dt>{t('Pending requests')}</dt>
-          <dd>{usage.pending_attempts}</dd>
-          <dt>{t('Unsampled requests')}</dt>
-          <dd>{usage.unsampled_attempts}</dd>
-          <dt>{t('Uncertain requests')}</dt>
-          <dd>{usage.uncertain_attempts}</dd>
-        </dl>
-        <p className='text-muted-foreground text-xs leading-relaxed'>
-          {t('Pending and unsampled request counts may overlap.')}
-        </p>
+          </p>
+        </div>
+        <section
+          className='flex min-w-0 flex-col gap-3'
+          aria-label={t('Usage estimates and unattributed growth')}
+        >
+          <h3 className='text-sm font-medium'>
+            {t('Usage estimates and unattributed growth')}
+          </h3>
+          {!chartData ? (
+            <p role='status' data-testid='pool-decomposition-unavailable'>
+              {unavailableMessage}
+            </p>
+          ) : null}
+          {chartData ? (
+            <div
+              className='bg-muted flex h-3 w-full overflow-hidden rounded-full'
+              aria-hidden='true'
+              data-testid='pool-decomposition-bar'
+            >
+              <span
+                className='bg-primary'
+                style={{ width: `${chartData.estimated / 1000000}%` }}
+              />
+              <span
+                className='bg-primary/40'
+                style={{ width: `${chartData.initial / 1000000}%` }}
+              />
+              <span
+                className='bg-warning'
+                style={{ width: `${chartData.growth / 1000000}%` }}
+              />
+            </div>
+          ) : null}
+          <dl className='grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-x-3 gap-y-3 text-sm [&_dd]:text-right'>
+            <dt>{t('Local Key estimates')}</dt>
+            <dd data-testid='pool-estimated-total'>
+              <WindowPoints value={usage.estimated_used_micro} />
+            </dd>
+            <dt>{t('First observation in this cycle')}</dt>
+            <dd data-testid='pool-initial-baseline'>
+              <WindowPoints value={usage.initial_baseline_used_micro} />
+            </dd>
+            <dt>{t('Unattributed growth')}</dt>
+            <dd data-testid='pool-unattributed-growth'>
+              <WindowPoints value={usage.unattributed_growth_micro} />
+            </dd>
+            <dt>{t('Unattributed usage (including initial baseline)')}</dt>
+            <dd>
+              <WindowPoints value={usage.unattributed_micro} />
+            </dd>
+          </dl>
+        </section>
+        <section
+          className='flex min-w-0 flex-col gap-3 border-t pt-4'
+          aria-label={t('Request evidence')}
+        >
+          <h3 className='text-sm font-medium'>{t('Request evidence')}</h3>
+          <dl className='grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 text-sm [&_dd]:text-right'>
+            <dt>{t('Pending requests')}</dt>
+            <dd>{usage.pending_attempts}</dd>
+            <dt>{t('Unsampled requests')}</dt>
+            <dd>{usage.unsampled_attempts}</dd>
+            <dt>{t('Uncertain requests')}</dt>
+            <dd>{usage.uncertain_attempts}</dd>
+          </dl>
+          <p className='text-muted-foreground text-xs leading-relaxed'>
+            {t('Pending and unsampled request counts may overlap.')}
+          </p>
+        </section>
         {initialTime && initialTime > 0 ? (
           <p className='text-muted-foreground text-xs'>
             {t('First observed {{time}}', {

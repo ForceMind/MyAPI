@@ -11,7 +11,7 @@ import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Alert, AlertTitle } from '@/components/ui/alert'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -19,20 +19,26 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { quotaWindowLabel } from '@/features/channels/lib/quota-history'
 import { getSubscriptionShare } from '@/features/keys/subscription-share-api'
 import { getPlaygroundKeys } from '@/features/playground/api'
+import type { ConnectionKeyContext } from '@/features/connections/key-context'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { PoolUsageObservation } from './pool-usage-observation'
+import { WindowPoints } from './window-points'
 
 export function WindowShareObservation(props: {
   channelId: number
+  connectionContext?: ConnectionKeyContext
   canReadPoolUsage?: boolean
+  selectedKeyId?: string
+  onKeyChange?: (keyId: string) => void
 }) {
   const { t } = useTranslation()
   const userId = useAuthStore((state) => state.auth.user?.id)
   const role = useAuthStore((state) => state.auth.user?.role)
   const sessionId = useAuthStore((state) => state.auth.session?.sid)
-  const [keyId, setKeyId] = useState('')
+  const [uncontrolledKeyId, setUncontrolledKeyId] = useState('')
+  const keyId = props.selectedKeyId ?? uncontrolledKeyId
   const keysQuery = useQuery({
     queryKey: ['personal-console', 'keys', userId, sessionId],
     queryFn: getPlaygroundKeys,
@@ -49,6 +55,7 @@ export function WindowShareObservation(props: {
       userId,
       sessionId,
       confirmedKey?.id,
+      props.channelId,
     ],
     queryFn: ({ signal }) =>
       getSubscriptionShare(confirmedKey?.id ?? -1, signal),
@@ -87,8 +94,11 @@ export function WindowShareObservation(props: {
               confirmedKey ? 'upstream-share-key-name' : undefined
             }
             disabled={keysQuery.isLoading || keysQuery.isError}
-            onChange={(event) => setKeyId(event.target.value)}
-            className='bg-background h-10 w-full min-w-0 rounded-md border px-2'
+            onChange={(event) => {
+              setUncontrolledKeyId(event.target.value)
+              props.onKeyChange?.(event.target.value)
+            }}
+            className='bg-background h-11 w-full min-w-0 rounded-md border px-2'
           >
             <option value=''>{t('Choose a Key')}</option>
             {!keysQuery.isError
@@ -111,6 +121,11 @@ export function WindowShareObservation(props: {
           {keysQuery.isError ? (
             <Alert variant='destructive'>
               <AlertTitle>{t('Unable to load Keys')}</AlertTitle>
+              {keysQuery.error instanceof Error ? (
+                <AlertDescription className='[overflow-wrap:anywhere]'>
+                  {keysQuery.error.message}
+                </AlertDescription>
+              ) : null}
               <Button
                 variant='outline'
                 onClick={() => void keysQuery.refetch()}
@@ -123,6 +138,11 @@ export function WindowShareObservation(props: {
           {shareQuery.isError ? (
             <Alert variant='destructive'>
               <AlertTitle>{t('Unable to load Key shares')}</AlertTitle>
+              {shareQuery.error instanceof Error ? (
+                <AlertDescription className='[overflow-wrap:anywhere]'>
+                  {shareQuery.error.message}
+                </AlertDescription>
+              ) : null}
               <Button
                 variant='outline'
                 onClick={() => void shareQuery.refetch()}
@@ -131,7 +151,7 @@ export function WindowShareObservation(props: {
               </Button>
             </Alert>
           ) : null}
-          {!confirmedKey ? (
+          {!confirmedKey && !keysQuery.isError ? (
             <p className='text-muted-foreground'>
               {t('Choose a Key to observe its native window share.')}
             </p>
@@ -162,65 +182,69 @@ export function WindowShareObservation(props: {
                   <dl className='grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-3 gap-y-3 text-sm [overflow-wrap:anywhere] [&_dd]:text-right'>
                     <dt>{t('This Key allocation')}</dt>
                     <dd>{pool.share_bps / 100}%</dd>
-                    {!props.canReadPoolUsage ? (
+                    <dt>{t('Total allocated')}</dt>
+                    <dd>{pool.allocated_bps / 100}%</dd>
+                    <dt>{t('Unallocated')}</dt>
+                    <dd>{(10000 - pool.allocated_bps) / 100}%</dd>
+                    <dt>{t('Local Key estimate')}</dt>
+                    <dd>
+                      {pool.baseline_time > 0 &&
+                      pool.state !== 'baseline_pending' ? (
+                        <WindowPoints value={pool.estimated_used_micro} />
+                      ) : (
+                        t('Unknown')
+                      )}
+                    </dd>
+                    <dt>{t('Unattributed usage (including initial baseline)')}</dt>
+                    <dd>
+                      {pool.baseline_time > 0 &&
+                      pool.state !== 'baseline_pending' ? (
+                        <WindowPoints value={pool.unattributed_micro} />
+                      ) : (
+                        t('Unknown')
+                      )}
+                    </dd>
+                    <dt>{t('Pending requests')}</dt>
+                    <dd>{pool.pending_attempts}</dd>
+                    <dt>{t('Unsampled requests')}</dt>
+                    <dd>{pool.unsampled_attempts}</dd>
+                    <dt>{t('Uncertain requests')}</dt>
+                    <dd>{pool.uncertain_attempts ?? t('Unknown')}</dd>
+                    <dt>{t('Sample age')}</dt>
+                    <dd>
+                      {t('{{count}} seconds', { count: pool.sample_age_seconds })}
+                    </dd>
+                  </dl>
+                  <Progress
+                    value={pool.allocated_bps / 100}
+                    aria-label={t('Total allocated')}
+                    className='[&_[data-slot=progress-track]]:h-2.5'
+                  />
+                  <dl className='text-muted-foreground grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 border-t pt-3 text-xs [overflow-wrap:anywhere] [&_dd]:text-right'>
+                    <dt>{t('Source')}</dt>
+                    <dd className='font-mono'>
+                      {pool.window_source || t('Unknown')}
+                    </dd>
+                    <dt>{t('Status')}</dt>
+                    <dd><code>{pool.state}</code></dd>
+                    {pool.reason ? (
                       <>
-                        <dt>{t('Total allocated')}</dt>
-                        <dd>{pool.allocated_bps / 100}%</dd>
-                        <dt>{t('Unallocated')}</dt>
-                        <dd>{(10000 - pool.allocated_bps) / 100}%</dd>
-                        <dt>{t('Local Key estimate')}</dt>
-                        <dd>
-                          {pool.baseline_time > 0 &&
-                          pool.state !== 'baseline_pending'
-                            ? t('{{count}} percentage points', {
-                                count: pool.estimated_used_micro / 1000000,
-                              })
-                            : t('Unknown')}
-                        </dd>
-                        <dt>
-                          {t('Unattributed usage (including initial baseline)')}
-                        </dt>
-                        <dd>
-                          {pool.baseline_time > 0 &&
-                          pool.state !== 'baseline_pending'
-                            ? t('{{count}} percentage points', {
-                                count: pool.unattributed_micro / 1000000,
-                              })
-                            : t('Unknown')}
-                        </dd>
-                        <dt>{t('Pending requests')}</dt>
-                        <dd>{pool.pending_attempts}</dd>
-                        <dt>{t('Unsampled requests')}</dt>
-                        <dd>{pool.unsampled_attempts}</dd>
-                        <dt>{t('Sample age')}</dt>
-                        <dd>
-                          {t('{{count}} seconds', {
-                            count: pool.sample_age_seconds,
-                          })}
-                        </dd>
+                        <dt>{t('Reason')}</dt>
+                        <dd><code>{pool.reason}</code></dd>
                       </>
                     ) : null}
                   </dl>
-                  {!props.canReadPoolUsage ? (
-                    <Progress
-                      value={pool.allocated_bps / 100}
-                      aria-label={t('Total allocated')}
-                      className='[&_[data-slot=progress-track]]:h-2.5'
-                    />
-                  ) : null}
-                  {!props.canReadPoolUsage &&
-                  pool.sample_age_seconds > pool.max_age_seconds ? (
+                  {pool.sample_age_seconds > pool.max_age_seconds ? (
                     <p className='text-muted-foreground'>{t('Stale sample')}</p>
                   ) : null}
-                  {!props.canReadPoolUsage && pool.state !== 'active' ? (
+                  {pool.state !== 'active' ? (
                     <p className='text-muted-foreground'>
                       {t(
                         'Window observations are unavailable; existing estimates are preserved.'
                       )}
                     </p>
                   ) : null}
-                  {!props.canReadPoolUsage &&
-                  (pool.replacement_required || pool.rebaseline_required) ? (
+                  {pool.replacement_required || pool.rebaseline_required ? (
                     <p className='text-muted-foreground'>
                       {t(
                         'This window needs new upstream evidence before it can be used.'
@@ -250,9 +274,9 @@ export function WindowShareObservation(props: {
                     search={{
                       connectionContext:
                         role === ROLE.SUPER_ADMIN
-                          ? {
+                          ? (props.connectionContext ?? {
                               connection: { connection: props.channelId },
-                            }
+                            })
                           : undefined,
                     }}
                   />
@@ -271,6 +295,8 @@ export function WindowShareObservation(props: {
               pool={pool}
               channelId={props.channelId}
               canRead={props.canReadPoolUsage === true}
+              selectedKeyId={confirmedKey?.id}
+              connectionContext={props.connectionContext}
             />
           ))
         : null}

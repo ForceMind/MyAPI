@@ -17,22 +17,22 @@ import {
   quotaWindowLabel,
 } from '@/features/channels/lib/quota-history'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
+import { describeConnectionWindow } from '@/features/connections/window-state'
 import { toIntlLocale } from '@/i18n/languages'
 
-import {
-  describeNativeWindowState,
-  nativeWindowState,
-  nativeWindowUsage,
-} from '../window-state'
+import { nativeWindowState, nativeWindowUsage } from '../window-state'
 
 export function WindowCard(props: {
   item: ChannelQuotaChangeItem
   compact?: boolean
   showHistory?: boolean
+  windows?: ChannelQuotaChangeItem[]
+  now?: number
 }) {
   const { t, i18n } = useTranslation()
   const used = nativeWindowUsage(props.item)
-  const state = nativeWindowState(props.item, Date.now() / 1000)
+  const now = props.now ?? Date.now() / 1000
+  const state = nativeWindowState(props.item, now)
   const observed = props.item.observed_at
   const observedValid = Number.isSafeInteger(observed) && (observed ?? 0) > 0
   const label =
@@ -49,7 +49,7 @@ export function WindowCard(props: {
     label: statusLabel,
     description,
     variant: status,
-  } = describeNativeWindowState(state, t)
+  } = describeConnectionWindow(props.item, props.windows ?? [props.item], now, t)
   return (
     <Card className='pc-card min-w-0' data-testid='native-window-card'>
       <CardHeader>
@@ -103,18 +103,29 @@ export function WindowCard(props: {
             className='[&_[data-slot=progress-track]]:h-2.5'
           />
         ) : null}
-        <p className='text-muted-foreground text-xs'>
-          {observedValid
-            ? t('Observed {{time}}', {
-                time: new Intl.DateTimeFormat(toIntlLocale(i18n.language), {
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }).format(new Date((observed as number) * 1000)),
-              })
-            : t('No timestamp')}
-        </p>
+        <dl className='text-muted-foreground flex min-w-0 flex-col gap-2 border-t pt-3 text-xs [overflow-wrap:anywhere]'>
+          <div className='flex min-w-0 flex-wrap gap-x-2'>
+            <dt>{t('Source')}:</dt>
+            <dd className='min-w-0 font-mono'>
+              {props.item.source || t('Unknown')}
+            </dd>
+          </div>
+          <div>
+            <dt className='sr-only'>{t('Observation time')}</dt>
+            <dd>
+              {observedValid
+                ? t('Observed {{time}}', {
+                    time: new Intl.DateTimeFormat(toIntlLocale(i18n.language), {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }).format(new Date((observed as number) * 1000)),
+                  })
+                : t('No timestamp')}
+            </dd>
+          </div>
+        </dl>
         <p className='text-muted-foreground text-xs leading-relaxed'>
           {description}
         </p>

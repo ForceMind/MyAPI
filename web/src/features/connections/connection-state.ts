@@ -8,6 +8,8 @@ version.
 */
 import z from 'zod'
 
+import { upstreamViewSchema } from '@/features/personal-upstream/upstream-view-state'
+
 /** Tabs of the first-version connection inspector, kept for earlier links. */
 const LEGACY_INSPECTOR_TABS = ['overview', 'windows', 'routing'] as const
 
@@ -27,6 +29,7 @@ export const connectionsSearchSchema = z.object({
   model: z.string().optional().catch(undefined),
   view: z.literal('table').optional(),
   quotaChannelId: z.number().int().positive().optional().catch(undefined),
+  upstreamReturn: upstreamViewSchema.optional().catch(undefined),
   /** The card to focus on arrival (Back from a page opened by a link). */
   focusConnectionId: z.number().int().positive().optional().catch(undefined),
   connection: z.number().int().positive().optional().catch(undefined),
@@ -46,6 +49,7 @@ const connectionReturnSchema = connectionsSearchSchema.pick({
   model: true,
   view: true,
   quotaChannelId: true,
+  upstreamReturn: true,
 })
 export type ConnectionReturn = z.infer<typeof connectionReturnSchema>
 
@@ -87,6 +91,7 @@ export function connectionListContext(
     model: search.model || undefined,
     view: search.view,
     quotaChannelId: search.quotaChannelId,
+    upstreamReturn: search.upstreamReturn,
   }
   return Object.values(context).some((value) => value !== undefined)
     ? context

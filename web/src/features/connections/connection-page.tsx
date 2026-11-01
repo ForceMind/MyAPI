@@ -96,9 +96,14 @@ export function ConnectionPage() {
   const goBack = useInspectorBack()
   const access = useConnectionAccess()
   const connectionReturn = search.connectionReturn
+  const upstreamReturn = connectionReturn?.upstreamReturn
   const backToList = useCallback(
     () =>
       goBack(() => {
+        if (upstreamReturn) {
+          void navigate({ to: '/upstream-accounts', search: { ...upstreamReturn, focusChannelId: connectionId }, replace: true })
+          return
+        }
         if (connectionReturn?.view === 'table') {
           void navigate({
             to: '/channels',
@@ -116,7 +121,7 @@ export function ConnectionPage() {
           replace: true,
         })
       }),
-    [goBack, navigate, connectionReturn, connectionId]
+    [goBack, navigate, connectionReturn, upstreamReturn, connectionId]
   )
   return (
     <ConnectionPageContent
@@ -230,25 +235,12 @@ function ConnectionPageContent(props: {
           >
             {t('Retry')}
           </Button>
-          {props.connectionReturn?.view === 'table' ? (
-            <Link
-              to='/channels'
-              search={connectionsToTableSearch(props.connectionReturn)}
-              data-myapi-button=''
-              className={linkButtonClassName({ variant: 'ghost', size: 'sm' })}
-            >
-              {t('Table view')}
-            </Link>
+          {props.connectionReturn?.upstreamReturn && <Link to='/upstream-accounts' search={{ ...props.connectionReturn.upstreamReturn, focusChannelId: props.connectionId }} data-myapi-button='' className={linkButtonClassName({ variant: 'ghost', size: 'sm' })}>{t('Back to account windows')}</Link>}
+          {!props.connectionReturn?.upstreamReturn && (props.connectionReturn?.view === 'table' ? (
+            <Link to='/channels' search={connectionsToTableSearch(props.connectionReturn)} data-myapi-button='' className={linkButtonClassName({ variant: 'ghost', size: 'sm' })}>{t('Table view')}</Link>
           ) : (
-            <Link
-              to='/connections'
-              search={props.connectionReturn ?? {}}
-              data-myapi-button=''
-              className={linkButtonClassName({ variant: 'ghost', size: 'sm' })}
-            >
-              {t('Back to connections')}
-            </Link>
-          )}
+            <Link to='/connections' search={props.connectionReturn ?? {}} data-myapi-button='' className={linkButtonClassName({ variant: 'ghost', size: 'sm' })}>{t('Back to connections')}</Link>
+          ))}
         </AlertDescription>
       </Alert>
     )
@@ -294,6 +286,7 @@ function ConnectionPageContent(props: {
             <WindowShareObservation
               channelId={item.id}
               canReadPoolUsage={access.isRoot}
+              connectionContext={listContext}
             />
             {showKeys && access.isRoot && (
               <Link

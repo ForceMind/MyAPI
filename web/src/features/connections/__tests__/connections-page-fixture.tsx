@@ -23,6 +23,7 @@ import { vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { api } from '@/lib/api'
 import { ROLE } from '@/lib/roles'
+import { Route as upstreamRoute } from '@/routes/_authenticated/upstream-accounts/index'
 import { Route as connectionPageRoute } from '@/routes/_authenticated/connections/$connectionId/index'
 import { Route as connectionsRoute } from '@/routes/_authenticated/connections/index'
 import { useAuthStore } from '@/stores/auth-store'
@@ -312,6 +313,7 @@ export async function mountConnections(
       connectionPageRoute.options.beforeLoad?.(beforeLoad as never),
     component: connectionPageRoute.options.component,
   })
+  const upstream = createRoute({ getParentRoute: () => authenticated, path: 'upstream-accounts/', validateSearch: upstreamRoute.options.validateSearch, beforeLoad: upstreamRoute.options.beforeLoad, component: upstreamRoute.options.component })
   const stub = (path: string, label: string) =>
     createRoute({
       getParentRoute: () => authenticated,
@@ -330,6 +332,7 @@ export async function mountConnections(
       authenticated.addChildren([
         grid,
         page,
+        upstream,
         stub('channels/', 'Table view page'),
         stub('keys/', 'Keys page'),
         stub('usage-logs/$section', 'Call records page'),

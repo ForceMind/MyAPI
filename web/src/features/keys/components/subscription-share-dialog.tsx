@@ -53,7 +53,8 @@ import {
   FieldSet,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { RadioGroup } from '@/components/ui/radio-group'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { useAuthStore } from '@/stores/auth-store'
@@ -448,10 +449,10 @@ function SubscriptionShareSession(props: {
       }}
     >
       <DialogContent
-        className='max-h-[90dvh] min-w-0 overflow-y-auto sm:max-w-2xl'
+        className='flex h-dvh max-h-dvh min-w-0 max-w-full flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[90dvh] sm:max-w-3xl sm:rounded-xl'
         showCloseButton={!mutation.isPending && !closeMutation.isPending}
       >
-        <DialogHeader>
+        <DialogHeader className='shrink-0 border-b px-4 py-4 sm:px-6'>
           <DialogTitle className='pr-10'>
             {t('Subscription shares')}
           </DialogTitle>
@@ -462,344 +463,475 @@ function SubscriptionShareSession(props: {
           </DialogDescription>
         </DialogHeader>
 
-        <Alert>
-          <AlertTitle>{t('Approximate usage allocation')}</AlertTitle>
-          <AlertDescription className='space-y-2 break-words'>
-            <p>
-              {t(
-                'Positive account-window changes are divided approximately by each Key’s sent request attempts. This does not convert tokens or USD into subscription usage.'
-              )}
-            </p>
-            <p>
-              {t(
-                'Request size, model, failures, external clients, measurement delay and rounding can all cause error. There is no verified numerical error bound.'
-              )}
-            </p>
-            <p>
-              {t(
-                'Reaching the share blocks later requests. In-flight requests can exceed it, and the share does not reserve capacity against other clients.'
-              )}
-            </p>
-          </AlertDescription>
-        </Alert>
-
-        {query.isError && (
-          <div role='alert' className='space-y-2'>
-            <p>{t('Could not load subscription shares.')}</p>
-            <Button
-              variant='outline'
-              disabled={query.isFetching}
-              onClick={reload}
+        <div
+          className='min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6'
+          role='region'
+          aria-label={t('Subscription share task')}
+          tabIndex={0}
+        >
+          <div className='flex min-w-0 flex-col gap-6'>
+            <section
+              aria-label={t('Key identifier')}
+              className='bg-muted/30 min-w-0 rounded-xl border p-4'
             >
-              {t('Retry')}
-            </Button>
-          </div>
-        )}
-        {!query.data && !query.isError && (
-          <div role='status' className='space-y-2'>
-            <span className='sr-only'>{t('Loading...')}</span>
-            <Skeleton className='h-24 w-full' />
-            <Skeleton className='h-24 w-full' />
-          </div>
-        )}
-        {view && visiblePools.length === 0 && (
-          <Empty role='status' className='border'>
-            <EmptyHeader>
-              <EmptyTitle>
-                {root
-                  ? t('No eligible subscription windows are available.')
-                  : t('No subscription share is configured for this Key.')}
-              </EmptyTitle>
-            </EmptyHeader>
-          </Empty>
-        )}
+              <p className='text-muted-foreground text-xs'>{t('API Key')}</p>
+              <p className='mt-1 font-semibold break-all'>
+                {props.personalKey?.name && `${props.personalKey.name} · `}#
+                {props.tokenId}
+              </p>
+            </section>
 
-        {view && visiblePools.length > 0 && root && (
-          <FieldGroup className='gap-4'>
-            <FieldSet>
-              <FieldLegend variant='label'>
-                {t('Choose one subscription window')}
-              </FieldLegend>
-              <FieldDescription>
-                {t(
-                  'No window is selected automatically. Each window is measured and limited separately.'
+            {query.isError && (
+              <div role='alert' className='space-y-2'>
+                <p>{t('Could not load subscription shares.')}</p>
+                <Button
+                  variant='outline'
+                  disabled={query.isFetching}
+                  onClick={reload}
+                >
+                  {t('Retry')}
+                </Button>
+              </div>
+            )}
+            {!query.data && !query.isError && (
+              <div role='status' className='space-y-2'>
+                <span className='sr-only'>{t('Loading...')}</span>
+                <Skeleton className='h-24 w-full' />
+                <Skeleton className='h-24 w-full' />
+              </div>
+            )}
+            {view && visiblePools.length === 0 && (
+              <Empty role='status' className='border'>
+                <EmptyHeader>
+                  <EmptyTitle>
+                    {root
+                      ? t('No eligible subscription windows are available.')
+                      : t('No subscription share is configured for this Key.')}
+                  </EmptyTitle>
+                </EmptyHeader>
+              </Empty>
+            )}
+
+            {view && visiblePools.length > 0 && root && (
+              <FieldGroup className='gap-4'>
+                <FieldSet>
+                  <FieldLegend variant='label'>
+                    {t('Choose one subscription window')}
+                  </FieldLegend>
+                  <FieldDescription>
+                    {t(
+                      'No window is selected automatically. Each window is measured and limited separately.'
+                    )}
+                  </FieldDescription>
+                  <RadioGroup
+                    value={selection}
+                    aria-label={t('Choose one subscription window')}
+                    disabled={busy || mustReload}
+                    onValueChange={(value) => {
+                      const pool = visiblePools.find(
+                        (item) => poolSelectionValue(item) === value
+                      )
+                      setSelection(value)
+                      setPercentage(pool ? basisPointsInput(pool.share_bps) : '')
+                      setConfirmed(false)
+                      setWindowChangeConfirmed(false)
+                      setReloadedAfterUnknown(false)
+                    }}
+                  >
+                    {visiblePools
+                      .filter((pool) => pool.state !== 'closed')
+                      .map((pool) => (
+                        <div
+                          key={poolSelectionValue(pool)}
+                          className='has-data-checked:border-primary has-data-checked:bg-primary/5 flex min-w-0 items-start gap-3 rounded-lg border p-3'
+                        >
+                          <RadioGroupItem
+                            id={`subscription-share-choice-${pool.pool_id}-${pool.snapshot_id}`}
+                            value={poolSelectionValue(pool)}
+                            aria-label={pool.channel_name}
+                            className='mt-1'
+                          />
+                          <Label
+                            htmlFor={`subscription-share-choice-${pool.pool_id}-${pool.snapshot_id}`}
+                            className='block min-w-0 flex-1 cursor-pointer leading-relaxed [overflow-wrap:anywhere]'
+                          >
+                            {pool.channel_name} · {pool.plan_type} ·{' '}
+                            {pool.window_slot} · {pool.window_type}
+                          </Label>
+                        </div>
+                      ))}
+                  </RadioGroup>
+                </FieldSet>
+
+                <section
+                  aria-labelledby='subscription-share-evidence-title'
+                  className='flex min-w-0 flex-col gap-3'
+                >
+                  <h3
+                    id='subscription-share-evidence-title'
+                    className='font-semibold'
+                  >
+                    {t('Current window evidence')}
+                  </h3>
+                  {selectedPool && (
+                    <dl className='bg-muted/30 grid min-w-0 grid-cols-1 gap-3 rounded-lg border p-4 text-sm sm:grid-cols-3'>
+                      <div>
+                        <dt className='text-muted-foreground'>
+                          {t('Managed pool')}
+                        </dt>
+                        <dd className='mt-1 font-medium tabular-nums'>
+                          {selectedPool.pool_id > 0
+                            ? `#${selectedPool.pool_id}`
+                            : t('Eligible window')}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className='text-muted-foreground'>{t('Snapshot')}</dt>
+                        <dd className='mt-1 font-medium tabular-nums'>
+                          #{selectedPool.snapshot_id}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className='text-muted-foreground'>{t('Revision')}</dt>
+                        <dd className='mt-1 font-medium tabular-nums'>
+                          {selectedPool.revision}
+                        </dd>
+                      </div>
+                    </dl>
+                  )}
+                  {(selectedPool ? [selectedPool] : visiblePools).map((pool) => (
+                    <SubscriptionSharePoolCard
+                      key={poolSelectionValue(pool)}
+                      pool={pool}
+                      selectable={false}
+                      showAdminDetails
+                    />
+                  ))}
+                  {selectedPool && visiblePools.length > 1 && (
+                    <details className='min-w-0 rounded-lg border p-4'>
+                      <summary className='cursor-pointer font-medium'>
+                        {t('Other window evidence')}
+                      </summary>
+                      <div className='mt-4 flex min-w-0 flex-col gap-3'>
+                        {visiblePools
+                          .filter(
+                            (pool) => poolSelectionValue(pool) !== selection
+                          )
+                          .map((pool) => (
+                            <SubscriptionSharePoolCard
+                              key={poolSelectionValue(pool)}
+                              pool={pool}
+                              selectable={false}
+                              showAdminDetails
+                            />
+                          ))}
+                      </div>
+                    </details>
+                  )}
+                  <Alert>
+                    <AlertTitle>{t('Approximate usage allocation')}</AlertTitle>
+                    <AlertDescription className='space-y-2 break-words'>
+                      <p>
+                        {t(
+                          'Positive account-window changes are divided approximately by each Key’s sent request attempts. This does not convert tokens or USD into subscription usage.'
+                        )}
+                      </p>
+                      <p>
+                        {t(
+                          'Request size, model, failures, external clients, measurement delay and rounding can all cause error. There is no verified numerical error bound.'
+                        )}
+                      </p>
+                      <p>
+                        {t(
+                          'Reaching the share blocks later requests. In-flight requests can exceed it, and the share does not reserve capacity against other clients.'
+                        )}
+                      </p>
+                    </AlertDescription>
+                  </Alert>
+                </section>
+
+                {selectedPool && (
+                  <section
+                    aria-labelledby='subscription-share-draft-title'
+                    className='flex min-w-0 flex-col gap-4 rounded-xl border p-4 sm:p-5'
+                  >
+                    <h3
+                      id='subscription-share-draft-title'
+                      className='font-semibold'
+                    >
+                      {t('Edit share draft')}
+                    </h3>
+                    {selectedPool.pool_id === 0 && (
+                      <Alert variant='destructive'>
+                        <AlertTitle>{t('This creates a managed pool')}</AlertTitle>
+                        <AlertDescription>
+                          {t(
+                            'After activation, other Keys without an allocation cannot use this managed subscription window. Existing Keys and channel credentials are not recreated.'
+                          )}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    {selectedPool.replacement_required && (
+                      <>
+                        <SubscriptionShareWindowChangeReview
+                          currentPool={previousPool}
+                          targetPool={selectedPool}
+                          mode='replacement'
+                        />
+                        <Alert variant='destructive'>
+                          <AlertTitle>
+                            {t(
+                              'This replaces the managed window for every Key in this pool'
+                            )}
+                          </AlertTitle>
+                          <AlertDescription>
+                            {t(
+                              'Existing Key shares and old window history are kept. The replacement starts from a new fresh baseline and does not require signing in again.'
+                            )}
+                          </AlertDescription>
+                        </Alert>
+                        <Field
+                          orientation='horizontal'
+                          data-disabled={busy || mustReload}
+                        >
+                          <Checkbox
+                            id='subscription-share-replacement-confirmation'
+                            checked={windowChangeConfirmed}
+                            disabled={busy || mustReload}
+                            onCheckedChange={(checked) =>
+                              setWindowChangeConfirmed(checked === true)
+                            }
+                          />
+                          <FieldLabel htmlFor='subscription-share-replacement-confirmation'>
+                            {t(
+                              'I understand this replacement affects every Key in the pool.'
+                            )}
+                          </FieldLabel>
+                        </Field>
+                      </>
+                    )}
+                    {selectedPool.rebaseline_required && (
+                      <>
+                        <SubscriptionShareWindowChangeReview
+                          currentPool={previousPool}
+                          targetPool={selectedPool}
+                          mode='rebaseline'
+                        />
+                        <Alert variant='destructive'>
+                          <AlertTitle>
+                            {t('Resume observation from a fresh baseline')}
+                          </AlertTitle>
+                          <AlertDescription>
+                            {t(
+                              'Existing estimated usage is kept. Requests that could not be attributed remain uncertain, and observation resumes from a new fresh sample.'
+                            )}
+                          </AlertDescription>
+                        </Alert>
+                        <Field
+                          orientation='horizontal'
+                          data-disabled={busy || mustReload}
+                        >
+                          <Checkbox
+                            id='subscription-share-rebaseline-confirmation'
+                            checked={windowChangeConfirmed}
+                            disabled={busy || mustReload}
+                            onCheckedChange={(checked) =>
+                              setWindowChangeConfirmed(checked === true)
+                            }
+                          />
+                          <FieldLabel htmlFor='subscription-share-rebaseline-confirmation'>
+                            {t(
+                              'I understand this recovery affects every Key in the pool.'
+                            )}
+                          </FieldLabel>
+                        </Field>
+                      </>
+                    )}
+                    <Field data-invalid={!!inputError}>
+                      <FieldLabel htmlFor='subscription-share-percentage'>
+                        {t('Share percentage')}
+                      </FieldLabel>
+                      <Input
+                        id='subscription-share-percentage'
+                        type='text'
+                        inputMode='decimal'
+                        autoComplete='off'
+                        value={percentage}
+                        disabled={
+                          busy || mustReload || selectedPool.rebaseline_required
+                        }
+                        aria-invalid={!!inputError}
+                        aria-describedby='subscription-share-percentage-help'
+                        onChange={(event) => setPercentage(event.target.value)}
+                      />
+                      <FieldDescription id='subscription-share-percentage-help'>
+                        {selectedPool.rebaseline_required
+                          ? t(
+                              'This recovery only resumes observation; the current Key share does not change.'
+                            )
+                          : t(
+                              'Use 0% to 100% with at most two decimal places. A 0% share blocks this Key’s requests for the window while keeping its binding and history.'
+                            )}
+                      </FieldDescription>
+                      {inputError && <FieldError>{inputError}</FieldError>}
+                    </Field>
+                    <Field
+                      orientation='horizontal'
+                      data-disabled={busy || mustReload}
+                    >
+                      <Checkbox
+                        id='subscription-share-confirmation'
+                        checked={confirmed}
+                        disabled={busy || mustReload}
+                        onCheckedChange={(checked) =>
+                          setConfirmed(checked === true)
+                        }
+                      />
+                      <FieldLabel htmlFor='subscription-share-confirmation'>
+                        {t(
+                          'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.'
+                        )}
+                      </FieldLabel>
+                    </Field>
+                  </section>
                 )}
-              </FieldDescription>
-              <RadioGroup
-                value={selection}
-                disabled={busy || mustReload}
-                onValueChange={(value) => {
-                  const pool = visiblePools.find(
-                    (item) => poolSelectionValue(item) === value
-                  )
-                  setSelection(value)
-                  setPercentage(pool ? basisPointsInput(pool.share_bps) : '')
-                  setConfirmed(false)
-                  setWindowChangeConfirmed(false)
-                  setReloadedAfterUnknown(false)
-                }}
+                {closablePools.length > 0 && (
+                  <section
+                    className='space-y-3 rounded-xl border p-4'
+                    aria-labelledby='subscription-share-close-pool-title'
+                  >
+                    <div className='space-y-1'>
+                      <h3
+                        id='subscription-share-close-pool-title'
+                        className='font-semibold'
+                      >
+                        {t('Close managed pool')}
+                      </h3>
+                      <p className='text-muted-foreground text-sm'>
+                        {t(
+                          'Closing is separate from changing a Key share. It affects every Key in the pool and keeps the pool history.'
+                        )}
+                      </p>
+                    </div>
+                    <div className='space-y-2'>
+                      {closablePools.map((pool) => (
+                        <div
+                          key={`close-${pool.pool_id}`}
+                          className='flex min-w-0 flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between'
+                        >
+                          <div className='min-w-0'>
+                            <p className='font-medium break-words'>
+                              {pool.channel_name}
+                            </p>
+                            <p className='text-muted-foreground text-xs'>
+                              {t('Managed pool')} #{pool.pool_id} · {t('Revision')}{' '}
+                              {pool.revision}
+                            </p>
+                          </div>
+                          <Button
+                            type='button'
+                            variant='destructive'
+                            size='sm'
+                            className='min-h-10 w-full shrink-0 sm:w-auto'
+                            disabled={busy || mustReload}
+                            onClick={() => {
+                              setPoolToClose(pool)
+                              setCloseConfirmed(false)
+                            }}
+                          >
+                            {t('Close pool')}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </FieldGroup>
+            )}
+
+            {view && visiblePools.length > 0 && !root && (
+              <section
+                aria-label={t('Your subscription share')}
+                className='space-y-3'
               >
+                <p className='text-muted-foreground text-sm'>
+                  {t('Only Root can change subscription shares.')}
+                </p>
                 {visiblePools.map((pool) => (
                   <SubscriptionSharePoolCard
                     key={poolSelectionValue(pool)}
                     pool={pool}
-                    selectable={pool.state !== 'closed'}
-                    showAdminDetails
+                    selectable={false}
+                    showAdminDetails={false}
+                    readOnly
                   />
                 ))}
-              </RadioGroup>
-            </FieldSet>
-
-            {closablePools.length > 0 && (
-              <section
-                className='space-y-3 rounded-xl border p-4'
-                aria-labelledby='subscription-share-close-pool-title'
-              >
-                <div className='space-y-1'>
-                  <h3
-                    id='subscription-share-close-pool-title'
-                    className='font-semibold'
-                  >
-                    {t('Close managed pool')}
-                  </h3>
-                  <p className='text-muted-foreground text-sm'>
-                    {t(
-                      'Closing is separate from changing a Key share. It affects every Key in the pool and keeps the pool history.'
-                    )}
-                  </p>
-                </div>
-                <div className='space-y-2'>
-                  {closablePools.map((pool) => (
-                    <div
-                      key={`close-${pool.pool_id}`}
-                      className='flex min-w-0 flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between'
-                    >
-                      <div className='min-w-0'>
-                        <p className='font-medium break-words'>
-                          {pool.channel_name}
-                        </p>
-                        <p className='text-muted-foreground text-xs'>
-                          {t('Managed pool')} #{pool.pool_id} · {t('Revision')}{' '}
-                          {pool.revision}
-                        </p>
-                      </div>
-                      <Button
-                        type='button'
-                        variant='destructive'
-                        size='sm'
-                        className='min-h-10 w-full shrink-0 sm:w-auto'
-                        disabled={busy || mustReload}
-                        onClick={() => {
-                          setPoolToClose(pool)
-                          setCloseConfirmed(false)
-                        }}
-                      >
-                        {t('Close pool')}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
               </section>
             )}
-
-            {selectedPool && (
-              <>
-                {selectedPool.pool_id === 0 && (
-                  <Alert variant='destructive'>
-                    <AlertTitle>{t('This creates a managed pool')}</AlertTitle>
-                    <AlertDescription>
-                      {t(
-                        'After activation, other Keys without an allocation cannot use this managed subscription window. Existing Keys and channel credentials are not recreated.'
-                      )}
-                    </AlertDescription>
-                  </Alert>
-                )}
-                {selectedPool.replacement_required && (
-                  <>
-                    <SubscriptionShareWindowChangeReview
-                      currentPool={previousPool}
-                      targetPool={selectedPool}
-                      mode='replacement'
-                    />
-                    <Alert variant='destructive'>
-                      <AlertTitle>
-                        {t(
-                          'This replaces the managed window for every Key in this pool'
-                        )}
-                      </AlertTitle>
-                      <AlertDescription>
-                        {t(
-                          'Existing Key shares and old window history are kept. The replacement starts from a new fresh baseline and does not require signing in again.'
-                        )}
-                      </AlertDescription>
-                    </Alert>
-                    <Field
-                      orientation='horizontal'
-                      data-disabled={busy || mustReload}
-                    >
-                      <Checkbox
-                        id='subscription-share-replacement-confirmation'
-                        checked={windowChangeConfirmed}
-                        disabled={busy || mustReload}
-                        onCheckedChange={(checked) =>
-                          setWindowChangeConfirmed(checked === true)
-                        }
-                      />
-                      <FieldLabel htmlFor='subscription-share-replacement-confirmation'>
-                        {t(
-                          'I understand this replacement affects every Key in the pool.'
-                        )}
-                      </FieldLabel>
-                    </Field>
-                  </>
-                )}
-                {selectedPool.rebaseline_required && (
-                  <>
-                    <SubscriptionShareWindowChangeReview
-                      currentPool={previousPool}
-                      targetPool={selectedPool}
-                      mode='rebaseline'
-                    />
-                    <Alert variant='destructive'>
-                      <AlertTitle>
-                        {t('Resume observation from a fresh baseline')}
-                      </AlertTitle>
-                      <AlertDescription>
-                        {t(
-                          'Existing estimated usage is kept. Requests that could not be attributed remain uncertain, and observation resumes from a new fresh sample.'
-                        )}
-                      </AlertDescription>
-                    </Alert>
-                    <Field
-                      orientation='horizontal'
-                      data-disabled={busy || mustReload}
-                    >
-                      <Checkbox
-                        id='subscription-share-rebaseline-confirmation'
-                        checked={windowChangeConfirmed}
-                        disabled={busy || mustReload}
-                        onCheckedChange={(checked) =>
-                          setWindowChangeConfirmed(checked === true)
-                        }
-                      />
-                      <FieldLabel htmlFor='subscription-share-rebaseline-confirmation'>
-                        {t(
-                          'I understand this recovery affects every Key in the pool.'
-                        )}
-                      </FieldLabel>
-                    </Field>
-                  </>
-                )}
-                <Field data-invalid={!!inputError}>
-                  <FieldLabel htmlFor='subscription-share-percentage'>
-                    {t('Share percentage')}
-                  </FieldLabel>
-                  <Input
-                    id='subscription-share-percentage'
-                    type='text'
-                    inputMode='decimal'
-                    autoComplete='off'
-                    value={percentage}
-                    disabled={
-                      busy || mustReload || selectedPool.rebaseline_required
-                    }
-                    aria-invalid={!!inputError}
-                    aria-describedby='subscription-share-percentage-help'
-                    onChange={(event) => setPercentage(event.target.value)}
-                  />
-                  <FieldDescription id='subscription-share-percentage-help'>
-                    {selectedPool.rebaseline_required
-                      ? t(
-                          'This recovery only resumes observation; the current Key share does not change.'
-                        )
-                      : t(
-                          'Use 0% to 100% with at most two decimal places. A 0% share blocks this Key’s requests for the window while keeping its binding and history.'
-                        )}
-                  </FieldDescription>
-                  {inputError && <FieldError>{inputError}</FieldError>}
-                </Field>
-                <Field
-                  orientation='horizontal'
-                  data-disabled={busy || mustReload}
-                >
-                  <Checkbox
-                    id='subscription-share-confirmation'
-                    checked={confirmed}
-                    disabled={busy || mustReload}
-                    onCheckedChange={(checked) =>
-                      setConfirmed(checked === true)
-                    }
-                  />
-                  <FieldLabel htmlFor='subscription-share-confirmation'>
+            {!root && (
+              <Alert>
+                <AlertTitle>{t('Approximate usage allocation')}</AlertTitle>
+                <AlertDescription className='space-y-2 break-words'>
+                  <p>
                     {t(
-                      'I understand this is an estimate with no verified error bound and may stop requests only after the share is exceeded.'
+                      'Positive account-window changes are divided approximately by each Key’s sent request attempts. This does not convert tokens or USD into subscription usage.'
                     )}
-                  </FieldLabel>
-                </Field>
-              </>
+                  </p>
+                  <p>
+                    {t(
+                      'Request size, model, failures, external clients, measurement delay and rounding can all cause error. There is no verified numerical error bound.'
+                    )}
+                  </p>
+                  <p>
+                    {t(
+                      'Reaching the share blocks later requests. In-flight requests can exceed it, and the share does not reserve capacity against other clients.'
+                    )}
+                  </p>
+                </AlertDescription>
+              </Alert>
             )}
-          </FieldGroup>
-        )}
 
-        {view && visiblePools.length > 0 && !root && (
-          <section
-            aria-label={t('Your subscription share')}
-            className='space-y-3'
-          >
-            <p className='text-muted-foreground text-sm'>
-              {t('Only Root can change subscription shares.')}
-            </p>
-            {visiblePools.map((pool) => (
-              <SubscriptionSharePoolCard
-                key={poolSelectionValue(pool)}
-                pool={pool}
-                selectable={false}
-                showAdminDetails={false}
-                readOnly
-              />
-            ))}
-          </section>
-        )}
-
-        {mustReload && (
-          <Alert
-            variant='destructive'
-            ref={reloadNotice}
-            tabIndex={-1}
-            aria-labelledby='subscription-share-change-state-title'
-          >
-            <AlertTitle id='subscription-share-change-state-title'>
-              {t('The change result is unknown or out of date')}
-            </AlertTitle>
-            <AlertDescription className='space-y-2'>
-              <p>
-                {t(
-                  'Reload the current server state before taking another action. The request will not be repeated automatically.'
-                )}
-              </p>
-              <Button
-                variant='outline'
-                disabled={query.isFetching}
-                onClick={reload}
+            {mustReload && (
+              <Alert
+                variant='destructive'
+                ref={reloadNotice}
+                tabIndex={-1}
+                aria-labelledby='subscription-share-change-state-title'
               >
-                {t('Reload current state')}
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
+                <AlertTitle id='subscription-share-change-state-title'>
+                  {t('The change result is unknown or out of date')}
+                </AlertTitle>
+                <AlertDescription className='space-y-2'>
+                  <p>
+                    {t(
+                      'Reload the current server state before taking another action. The request will not be repeated automatically.'
+                    )}
+                  </p>
+                  <Button
+                    variant='outline'
+                    disabled={query.isFetching}
+                    onClick={reload}
+                  >
+                    {t('Reload current state')}
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
 
-        {reloadedAfterUnknown && (
-          <Alert>
-            <AlertTitle>{t('Current server state reloaded')}</AlertTitle>
-            <AlertDescription>
-              {t(
-                'Current server state reloaded. Review the window and confirmations before taking another action.'
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
+            {reloadedAfterUnknown && (
+              <Alert>
+                <AlertTitle>{t('Current server state reloaded')}</AlertTitle>
+                <AlertDescription>
+                  {t(
+                    'Current server state reloaded. Review the window and confirmations before taking another action.'
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+        </div>
 
-        <DialogFooter className='bg-background sticky bottom-0 z-10 sm:static'>
+        <DialogFooter className='bg-background m-0 shrink-0 rounded-none px-4 py-4 sm:rounded-b-xl sm:px-6'>
           <Button
             className='min-h-11 w-full sm:w-auto'
             variant='outline'

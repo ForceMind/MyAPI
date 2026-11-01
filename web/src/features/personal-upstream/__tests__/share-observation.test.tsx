@@ -7,7 +7,7 @@ the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AnchorHTMLAttributes } from 'react'
 import { afterEach, expect, test, vi } from 'vitest'
@@ -52,6 +52,7 @@ const pool: SubscriptionSharePool = {
   plan_type: 'pro',
   window_slot: 'primary',
   window_type: 'five_hour',
+  window_source: 'codex_wham_usage_primary',
   window_seconds: 18000,
   reset_at: 2000,
   observed_at: 1000,
@@ -64,6 +65,7 @@ const pool: SubscriptionSharePool = {
   unattributed_micro: 0,
   pending_attempts: 0,
   unsampled_attempts: 0,
+  uncertain_attempts: 0,
   approximate: true,
   baseline_time: 0,
 }
@@ -122,6 +124,7 @@ async function observePool(
   )
   if (canReadPoolUsage) await screen.findByTestId('root-pool-usage')
   else await screen.findByText('This Key allocation')
+  return client
 }
 
 test('keeps usage and unattributed growth unknown until a trustworthy baseline exists', async () => {
@@ -159,4 +162,59 @@ test('Root retains the selected Key identity and uses only the new pool snapshot
   expect(screen.queryByText('This Key allocation')).not.toBeInTheDocument()
   expect(screen.queryByText('20%', { exact: true })).not.toBeInTheDocument()
   expect(screen.queryByText('Local Key estimate')).not.toBeInTheDocument()
+})
+
+test('the selected Key survives a stored-share refresh while failed reads remove its previous allocation', async () => {
+  const client = await observePool({ ...pool, state: 'active', baseline_time: 900 })
+  vi.mocked(getSubscriptionShare).mockRejectedValueOnce(
+    new Error('Stored share read failed')
+  )
+  await act(async () => {
+    await client.invalidateQueries({
+      queryKey: ['personal-console', 'upstream-share'],
+    })
+  })
+  expect(await screen.findByText('Stored share read failed')).toBeVisible()
+  expect(
+    screen.getByRole('combobox', { name: 'Select an API Key' })
+  ).toHaveValue('31')
+  expect(screen.queryByText('This Key allocation')).not.toBeInTheDocument()
+  expect(screen.getByTestId('upstream-share-selected-key')).toHaveTextContent(
+    'Desktop app'
+  )
+})
+
+test('a controlled Key reports selection to its owner and stays selected after a parent refresh', async () => {
+  await observePool(pool)
+  const onKeyChange = vi.fn()
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  cleanup()
+  const view = render(
+    <QueryClientProvider client={client}>
+      <WindowShareObservation
+        channelId={7}
+        selectedKeyId=''
+        onKeyChange={onKeyChange}
+      />
+    </QueryClientProvider>
+  )
+  await screen.findByRole('option', { name: 'Desktop app' })
+  await userEvent.setup().selectOptions(
+    screen.getByRole('combobox', { name: 'Select an API Key' }),
+    '31'
+  )
+  expect(onKeyChange).toHaveBeenCalledWith('31')
+  view.rerender(
+    <QueryClientProvider client={client}>
+      <WindowShareObservation
+        channelId={7}
+        selectedKeyId='31'
+        onKeyChange={onKeyChange}
+      />
+    </QueryClientProvider>
+  )
+  expect(
+    screen.getByRole('combobox', { name: 'Select an API Key' })
+  ).toHaveValue('31')
+  await screen.findByText('This Key allocation')
 })
