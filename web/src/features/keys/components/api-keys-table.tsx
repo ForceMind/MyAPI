@@ -66,6 +66,7 @@ import { DataTableBulkActions } from './data-table-bulk-actions'
 
 const route = getRouteApi('/_authenticated/keys/')
 const API_KEYS_COLUMN_VISIBILITY_STORAGE_KEY = 'api-keys:column-visibility'
+const EMPTY_KEY_SELECTION: RowSelectionState = {}
 // Long names wrap and short columns keep
 // their content readable; a narrow window scrolls the table sideways.
 const KEY_COLUMN_WIDTH: Record<string, string | undefined> = {
@@ -185,7 +186,7 @@ function ApiKeysTableSession() {
   const identity = `${userId}:${role}:${sid}`
   const entry = useLocation({ select: (location) => location.state.__TSR_key ?? location.state.key })
   const [selection, setSelection] = useState<{ identity: string; rows: RowSelectionState }>(() => ({ identity, rows: readKeyListSelection(identity, entry) }))
-  const selectedRows = selection.identity === identity ? selection.rows : {}
+  const selectedRows = selection.identity === identity ? selection.rows : EMPTY_KEY_SELECTION
   useEffect(() => rememberKeyListSelection(identity, entry, selectedRows), [identity, entry, selectedRows])
   const [now, setNow] = useState(() => Date.now())
   // Personal workbench Keys carry no financial quota (funding disabled).
