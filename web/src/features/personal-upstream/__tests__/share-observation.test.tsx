@@ -7,7 +7,7 @@ the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { AnchorHTMLAttributes } from 'react'
 import { afterEach, expect, test, vi } from 'vitest'
@@ -217,4 +217,35 @@ test('a controlled Key reports selection to its owner and stays selected after a
     screen.getByRole('combobox', { name: 'Select an API Key' })
   ).toHaveValue('31')
   await screen.findByText('This Key allocation')
+})
+
+
+test('a same-session Root downgrade cannot reuse privileged cached Key shares when the selected Key is controlled', async () => {
+  useAuthStore.getState().auth.setUser({ id: 7, username: 'root', role: ROLE.SUPER_ADMIN })
+  const key = { id: 31, name: 'Desktop app', status: 1, group: 'default', remain_quota: 100, unlimited_quota: false, expired_time: -1 }
+  let resolveKeys: (keys: typeof key[]) => void = () => {}
+  const lowerRoleKeys = new Promise<typeof key[]>((resolve) => { resolveKeys = resolve })
+  vi.mocked(getPlaygroundKeys).mockReset().mockResolvedValueOnce([key]).mockReturnValue(lowerRoleKeys)
+  vi.mocked(getSubscriptionShare).mockReset()
+    .mockResolvedValueOnce({ token_id: 31, pools: [{ ...pool, state: 'active', baseline_time: 900 }] })
+    .mockResolvedValue({ token_id: 31, pools: [{ ...pool, channel_id: undefined, state: 'active', baseline_time: 900 }] })
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+  const view = render(<QueryClientProvider client={client}><WindowShareObservation channelId={7} selectedKeyId='31' canReadPoolUsage /></QueryClientProvider>)
+  try {
+    await screen.findByTestId('root-pool-usage')
+    act(() => {
+      useAuthStore.getState().auth.setUser({ id: 7, username: 'admin', role: ROLE.ADMIN })
+      view.rerender(<QueryClientProvider client={client}><WindowShareObservation channelId={7} selectedKeyId='31' canReadPoolUsage={false} /></QueryClientProvider>)
+    })
+    expect(screen.queryByText('Total allocated')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('upstream-share-selected-key')).not.toBeInTheDocument()
+    await waitFor(() => expect(getPlaygroundKeys).toHaveBeenCalledTimes(2))
+    await act(async () => resolveKeys([key]))
+    await waitFor(() => expect(getSubscriptionShare).toHaveBeenCalledTimes(2))
+    expect(await screen.findByText('Root access is required to match Key shares to this account.')).toBeVisible()
+    expect(screen.queryByText('Total allocated')).not.toBeInTheDocument()
+  } finally {
+    view.unmount()
+    client.clear()
+  }
 })
