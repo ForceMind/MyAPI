@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { renderListRoute } from '@/components/data-table/layout/__tests__/list-route-fixture'
 import { api } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth-store'
 import { formatQuota } from '@/lib/format'
 import {
   DEFAULT_CURRENCY_CONFIG,
@@ -14,6 +15,7 @@ import { apiKeySchema, type ApiKey } from '../../types'
 import { ApiKeysProvider } from '../api-keys-provider'
 import { ApiKeysTable } from '../api-keys-table'
 
+const originalAuth = useAuthStore.getState()
 const originalConfig = useSystemConfigStore.getState().config
 const originalInnerWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth')
 let client: QueryClient
@@ -101,6 +103,7 @@ async function renderTable(item: ApiKey) {
 
 beforeEach(() => {
   localStorage.clear()
+  useAuthStore.getState().auth.setUser({ id: 1, role: 100, username: 'quota-fixture' })
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
   client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -113,6 +116,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   client.clear()
+  useAuthStore.setState(originalAuth)
   useSystemConfigStore.setState({ config: originalConfig })
   if (originalInnerWidth) {
     Object.defineProperty(window, 'innerWidth', originalInnerWidth)
@@ -154,7 +158,8 @@ test.each(['desktop', 'mobile'] as const)(
     await renderTable(makeKey(Number.MAX_SAFE_INTEGER, 1))
 
     expect(await screen.findByText('wide-key')).toBeVisible()
-    const labelSuffix = layout === 'mobile' ? ':' : ''
+    // Both responsive views reuse the same quota renderer.
+    const labelSuffix = ''
     const used = screen.getByText(`Used quota${labelSuffix}`)
     const remaining = screen.getByText(`Remaining quota${labelSuffix}`)
     expect(used).toBeVisible()
