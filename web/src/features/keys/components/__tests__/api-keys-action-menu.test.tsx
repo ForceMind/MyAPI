@@ -130,19 +130,14 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-test('the first menu opening remains usable while its real-key reveal is pending', async () => {
+test('opening the action menu and assigned access never reads the full Key', async () => {
   const user = userEvent.setup()
-  const reveal = deferredReveal()
-  const post = vi.spyOn(api, 'post').mockReturnValue(reveal.promise)
+  const post = vi.spyOn(api, 'post')
   renderKeys()
   await screen.findByText('1x')
   expect(post).not.toHaveBeenCalled()
   await user.click(screen.getByRole('button', { name: 'Open menu' }))
-  expect(post).toHaveBeenCalledExactlyOnceWith('/api/token/21/key', undefined, {
-    skipErrorHandler: true,
-    skipBusinessError: true,
-    skipAuthRefresh: true,
-  })
+  expect(post).not.toHaveBeenCalled()
   expect(screen.getByRole('button', { name: 'Open menu' })).toHaveAttribute(
     'aria-expanded',
     'true'
@@ -154,24 +149,27 @@ test('the first menu opening remains usable while its real-key reveal is pending
   expect(
     screen.queryByRole('button', { name: 'Save assignment' })
   ).not.toBeInTheDocument()
-  await act(async () =>
-    reveal.resolve({
-      data: { success: true, data: { key: 'synthetic-secret' } },
-    })
-  )
+  expect(post).not.toHaveBeenCalled()
   expect(screen.getByRole('dialog', { name: 'Assigned access' })).toBeVisible()
 })
 
 test.each(['succeeds', 'fails'] as const)(
-  'an open menu retains keyboard selection when key reveal %s',
+  'an open menu retains keyboard selection when an explicit copy %s',
   async (outcome) => {
     const user = userEvent.setup()
     const reveal = deferredReveal()
-    vi.spyOn(api, 'post').mockReturnValue(reveal.promise)
+    const post = vi.spyOn(api, 'post').mockReturnValue(reveal.promise)
     renderKeys()
     await screen.findByText('1x')
+    await user.click(screen.getByRole('button', { name: 'Copy Key' }))
+    expect(post).toHaveBeenCalledExactlyOnceWith('/api/token/21/key', undefined, {
+      skipErrorHandler: true,
+      skipBusinessError: true,
+      skipAuthRefresh: true,
+    })
     const trigger = screen.getByRole('button', { name: 'Open menu' })
     trigger.focus()
+    await user.keyboard('{ArrowDown}')
     await user.keyboard('{ArrowDown}')
     const assignment = await screen.findByRole('menuitem', {
       name: 'Assigned access',
@@ -196,11 +194,12 @@ test.each(['succeeds', 'fails'] as const)(
   }
 )
 
-test('visible budget action selects this Key without revealing its secret', async () => {
+test('budget action in the menu selects this Key without revealing its secret', async () => {
   const user = userEvent.setup()
   const post = vi.spyOn(api, 'post')
   renderKeys()
-  const budget = screen.getByRole('button', { name: 'API Key usage budgets' })
+  await user.click(screen.getByRole('button', { name: 'Open menu' }))
+  const budget = await screen.findByRole('menuitem', { name: 'Usage budgets' })
   expect(budget).toHaveTextContent('Usage budgets')
   await user.click(budget)
   expect(

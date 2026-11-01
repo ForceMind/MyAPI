@@ -22,9 +22,7 @@ import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
 import { useRememberReturnFocus } from '@/components/object-page/return-focus'
-import { useMediaQuery } from '@/hooks/use-media-query'
 import { usePersonalWorkbenchMode } from '@/hooks/use-personal-workbench-mode'
-import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { ApiKeysDialogs } from './components/api-keys-dialogs'
@@ -45,7 +43,6 @@ const route = getRouteApi('/_authenticated/keys/')
 export function ApiKeys() {
   const { t } = useTranslation()
   const personal = usePersonalWorkbenchMode()
-  const mobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
   const userId = useAuthStore((state) => state.auth.user?.id)
   const role = useAuthStore((state) => state.auth.user?.role)
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
@@ -78,7 +75,7 @@ export function ApiKeys() {
       openKey={openKey}
       requestFocusId={search.focusKeyId}
     >
-      <SectionPageLayout fixedContent={!mobile}>
+      <SectionPageLayout fixedContent={false}>
         {/* Same name as the navigation entry (design 5.4). */}
         <SectionPageLayout.Title>
           {t('API Keys', { context: 'nav' })}

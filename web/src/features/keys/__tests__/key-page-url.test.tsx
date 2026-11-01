@@ -428,3 +428,42 @@ test('a request breadcrumb never keeps the previous actor Key name while the sam
   }
   expect(await screen.findByText('No call record has this Request ID')).toBeVisible()
 })
+
+
+test('returning from Key details restores selected stable IDs without storing credential search in the return URL', async () => {
+  const user = userEvent.setup()
+  const { router } = await renderKeysPage(client, '/keys?filter=Desktop&token=masked-search')
+  const name = await screen.findByRole('button', { name: /Desktop application/ })
+  const row = name.closest('tr') as HTMLElement
+  await user.click(within(row).getByRole('checkbox'))
+  await user.click(name)
+  await keyPage('Desktop application')
+  expect(router.state.location.search).toMatchObject({ keyReturn: { filter: 'Desktop' } })
+  expect(JSON.stringify(router.state.location.search)).not.toContain('masked-search')
+  await stepBack()
+  const returned = await screen.findByRole('button', { name: /Desktop application/ })
+  expect(within(returned.closest('tr') as HTMLElement).getByRole('checkbox')).toBeChecked()
+})
+
+test('a desktop direct return targets the request action once and later list refresh does not steal input focus', async () => {
+  const user = userEvent.setup()
+  await renderKeysPage(client, '/keys?focusKeyId=21')
+  const name = await screen.findByRole('button', { name: /Desktop application/ })
+  const row = name.closest('tr') as HTMLElement
+  await waitFor(() => expect(within(row).getByRole('button', { name: 'View Key requests' })).toHaveFocus())
+  const implementation = mocks.get.getMockImplementation()
+  let release = () => {}
+  const gate = new Promise<void>((resolve) => { release = resolve })
+  mocks.get.mockImplementation(async (url, config) => {
+    if (url.startsWith('/api/token/?')) await gate
+    if (!implementation) throw new Error('Missing API fixture')
+    return implementation(url, config)
+  })
+  await user.click(within(row).getByRole('button', { name: 'Pause Key' }))
+  await waitFor(() => expect(mocks.put).toHaveBeenCalled())
+  const input = screen.getByPlaceholderText('Filter by name...')
+  input.focus()
+  await act(async () => release())
+  await screen.findByRole('button', { name: /Desktop application/ })
+  expect(input).toHaveFocus()
+})

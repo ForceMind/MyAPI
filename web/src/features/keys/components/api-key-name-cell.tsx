@@ -31,7 +31,7 @@ export function ApiKeyNameCell(props: { row: Row<ApiKey> }) {
       onClick={() => openKey(apiKey)}
       className='hover:text-primary flex min-h-9 max-w-full min-w-0 flex-col items-start text-left focus-visible:outline-2 focus-visible:outline-offset-2 pointer-coarse:min-h-11'
     >
-      <span className='max-w-full truncate font-medium' title={apiKey.name}>
+      <span className='max-w-full font-medium wrap-anywhere' title={apiKey.name}>
         {apiKey.name}
       </span>
       <span className='text-caption text-muted-foreground font-mono'>
@@ -47,7 +47,7 @@ export function ApiKeyNameCell(props: { row: Row<ApiKey> }) {
  */
 export function ApiKeyRowActionsCell(props: { row: Row<ApiKey> }) {
   return (
-    <div className='w-max [&>div]:flex-nowrap'>
+    <div className='min-w-0 sm:w-max sm:[&>div]:flex-nowrap'>
       <DataTableRowActions row={props.row} />
     </div>
   )

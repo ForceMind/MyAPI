@@ -16,7 +16,7 @@ import { quotaWindowLabel } from '@/features/channels/lib/quota-history'
 import { getAllLogs, getUserLogs } from '@/features/usage-logs/api'
 import type { UsageLog } from '@/features/usage-logs/data/schema'
 import { getRequestFacts } from '@/features/usage-logs/lib/request-facts'
-import { formatQuota, formatTimestampToDate } from '@/lib/format'
+import { formatQuota } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { useKeySubscriptionShare } from '../../hooks/use-key-subscription-share'
@@ -29,7 +29,7 @@ const totalSchema = z.number().int().nonnegative()
 /**
  * Three figures of one Key from saved records: requests in the last 24
  * hours (exact totals), failures among its latest requests, and its window
- * share, quota or last use. A figure that cannot be read is unknown, never 0.
+ * share or quota. A figure that cannot be read is unknown, never 0.
  */
 export function KeyStats(props: {
   apiKey: ApiKey
@@ -86,6 +86,8 @@ export function KeyStats(props: {
   const pools = heldSharePools(share.data)
   if (share.isPending) {
     third = { label: t('Window share'), value: null }
+  } else if (share.isError) {
+    third = { label: t('Window share'), value: t('Unknown') }
   } else if (pools.length > 0) {
     // The share closest to its limit; an unknown baseline stays unknown.
     const ranked = pools
@@ -118,16 +120,13 @@ export function KeyStats(props: {
         }
   } else {
     third = {
-      label: t('Last used'),
-      value:
-        props.apiKey.accessed_time > 0
-          ? formatTimestampToDate(props.apiKey.accessed_time)
-          : t('Never'),
+      label: t('Window shares'),
+      value: share.isSuccess ? t('None') : t('Unknown'),
     }
   }
 
   return (
-    <dl className='grid min-w-0 grid-cols-1 gap-2 min-[360px]:grid-cols-3 sm:gap-3'>
+    <dl className='grid min-w-0 grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 sm:gap-3'>
       <StatTile
         label={t('Requests in 24 hours')}
         value={counts.isError ? t('Unknown') : counts.data}

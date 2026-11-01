@@ -108,12 +108,12 @@ export function KeySharesPanel(props: { apiKey: ApiKey }) {
                   {paused ? t('Requests paused') : t('Approximate')}
                 </Badge>
               </div>
-              <dl className='grid grid-cols-2 gap-3'>
+              <dl className='grid min-w-0 grid-cols-1 gap-3 min-[360px]:grid-cols-2'>
                 <div>
                   <dt className='text-caption text-muted-foreground'>
                     {t('This Key share')}
                   </dt>
-                  <dd className='text-section tabular-nums'>
+                  <dd className='text-section tabular-nums wrap-anywhere'>
                     {pool.share_bps / 100}%
                   </dd>
                 </div>
@@ -121,7 +121,7 @@ export function KeySharesPanel(props: { apiKey: ApiKey }) {
                   <dt className='text-caption text-muted-foreground'>
                     {t('Estimated usage of share')}
                   </dt>
-                  <dd className='text-section tabular-nums'>
+                  <dd className='text-section tabular-nums wrap-anywhere'>
                     {used === null
                       ? t('Unknown')
                       : `${Number(used.toFixed(2))}%`}
@@ -146,7 +146,7 @@ export function KeySharesPanel(props: { apiKey: ApiKey }) {
         })}
       <Button
         variant='outline'
-        className='self-start'
+        className='self-start pointer-coarse:min-h-11'
         onClick={() => setEditing(true)}
       >
         <HugeiconsIcon

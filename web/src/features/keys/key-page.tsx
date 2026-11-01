@@ -20,6 +20,7 @@ import {
 import { StatusBadge } from '@/components/status-badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DetailsDialog } from '@/features/usage-logs/components/dialogs/details-dialog'
@@ -34,7 +35,10 @@ import { useAuthStore } from '@/stores/auth-store'
 import { ApiKeysDialogs } from './components/api-keys-dialogs'
 import { ApiKeysProvider, useApiKeys } from './components/api-keys-provider'
 import { DataTableRowActions } from './components/data-table-row-actions'
-import { KeyAccessPanel } from './components/inspector/key-access-panel'
+import {
+  KeyAccessPanel,
+  KeyBudgetPanel,
+} from './components/inspector/key-access-panel'
 import { KeyRecentRequests } from './components/inspector/key-recent-requests'
 import { KeySharesPanel } from './components/inspector/key-shares-panel'
 import { KeyActions } from './components/key-page/key-actions'
@@ -178,7 +182,11 @@ function KeyPageContent(props: {
               // The shared menu button is 36px and the page actions clear its
               // minimum width; a touch target needs 44px.
               <span className='flex pointer-coarse:[&_button]:min-h-11 pointer-coarse:[&_button]:min-w-11!'>
-                <DataTableRowActions apiKey={apiKey} menuOnly />
+                <DataTableRowActions
+                  apiKey={apiKey}
+                  menuOnly
+                  primaryActionsVisible
+                />
               </span>
             }
           />
@@ -266,7 +274,7 @@ function KeyPageContent(props: {
                 />
               </TabsContent>
               <TabsContent value='scope' className='min-w-0'>
-                <div className='flex min-w-0 flex-col gap-4'>
+                <div className='grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-2'>
                   <section
                     aria-labelledby='key-access-title'
                     className='bg-card p-card flex min-w-0 flex-col gap-3 rounded-xl border'
@@ -274,15 +282,20 @@ function KeyPageContent(props: {
                     <h2 id='key-access-title' className='text-title'>
                       {t('Access')}
                     </h2>
-                    <KeyAccessPanel apiKey={apiKey} showQuota={!personal} />
+                    <KeyAccessPanel apiKey={apiKey} />
                   </section>
                   <section
                     aria-labelledby='key-shares-title'
                     className='bg-card p-card flex min-w-0 flex-col gap-3 rounded-xl border'
                   >
                     <h2 id='key-shares-title' className='text-title'>
-                      {t('Window shares')}
+                      {t('Budget and shares')}
                     </h2>
+                    <KeyBudgetPanel apiKey={apiKey} showQuota={!personal} />
+                    <Separator />
+                    <h3 className='text-data font-medium'>
+                      {t('Window shares')}
+                    </h3>
                     {props.tab === 'scope' && (
                       <KeySharesPanel apiKey={apiKey} />
                     )}
@@ -310,7 +323,7 @@ function KeyPageContent(props: {
   )
 }
 
-/** State, masked Key, ID and dates under the Key name. */
+/** Identity and dates stay together; the masked credential lives in Delivery. */
 function KeyMeta(props: { apiKey: ApiKey }) {
   const { t } = useTranslation()
   const key = props.apiKey
@@ -324,7 +337,6 @@ function KeyMeta(props: { apiKey: ApiKey }) {
         copyable={false}
       />
       <span className='font-mono'>#{key.id}</span>
-      <span className='font-mono wrap-anywhere'>sk-{key.key}</span>
       <span>
         {t('Created')}: {formatTimestampToDate(key.created_time)}
       </span>

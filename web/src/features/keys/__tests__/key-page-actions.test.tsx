@@ -201,7 +201,7 @@ test('copy reads this page’s Key only after a user click', async () => {
   const user = userEvent.setup()
   const clipboard = vi.spyOn(navigator.clipboard, 'writeText')
   const { page } = await openKeyPage()
-  const copy = within(page).getByRole('button', { name: 'Copy' })
+  const copy = within(page).getByRole('button', { name: 'Copy Key' })
   expect(mocks.post).not.toHaveBeenCalled()
   await user.click(copy)
   await waitFor(() =>
@@ -221,6 +221,11 @@ test('an unknown status write locks the toggle until the current state is reload
     await screen.findByText('Failed to update API key status')
   ).toBeVisible()
   expect(screen.getByRole('button', { name: 'Pause Key' })).toBeDisabled()
+  expect(
+    screen.getByText(
+      'The status update could not be confirmed. Reload current state before trying again.'
+    )
+  ).toBeVisible()
   await user.click(screen.getByRole('button', { name: 'Reload current state' }))
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'Pause Key' })).toBeEnabled()
@@ -465,7 +470,7 @@ test('Edit Key uses the existing drawer and Escape cancels without writing', asy
   mount(drawerReads)
   const user = userEvent.setup()
   const { page } = await openKeyPage('scope')
-  await user.click(within(page).getByRole('button', { name: 'Edit Key' }))
+  await user.click(within(page).getByRole('button', { name: 'Edit' }))
   const drawer = await screen.findByRole('dialog', { name: 'Update API Key' })
   await waitFor(() =>
     expect(
@@ -493,6 +498,11 @@ test('a paused Key cannot open Playground', async () => {
   expect(
     within(page).getByRole('button', { name: 'Open Playground' })
   ).toBeDisabled()
+  expect(
+    within(page).getByRole('button', { name: 'Open Playground' })
+  ).toHaveAccessibleDescription(
+    'Playground needs an available Key and a current signed-in session.'
+  )
 })
 
 test('the scope tab labels an enabled empty model scope as blocking all models', async () => {

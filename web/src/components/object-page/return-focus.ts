@@ -18,7 +18,7 @@ import { useCallback, useEffect, useRef, type RefObject } from 'react'
 // focus returns there; the page itself is remounted, so this lives outside
 // it. The row attribute names the list, so the page being left never takes
 // a return meant for the page being shown.
-const pendingFocus = new Map<string, { attribute: string; id: string }>()
+const pendingFocus = new Map<string, { attribute: string; id: string; targetAttribute?: string }>()
 
 function entryKey(state: HistoryLocation['state']) {
   return state.__TSR_key ?? state.key
@@ -52,6 +52,8 @@ export function useReturnFocus(options: {
   rows: unknown
   /** A direct-link return target, consumed once per history entry. */
   requestedId?: number
+  /** Direct-link focus can target a specific action; history keeps its opener. */
+  requestedAttribute?: string
   /**
    * Where focus goes when the list has settled without that row (removed,
    * filtered out, empty or unreadable).
@@ -67,14 +69,14 @@ export function useReturnFocus(options: {
       if (requested.current !== request) {
         requested.current = request
         if (!pendingFocus.has(key)) {
-          pendingFocus.set(key, { attribute: options.attribute, id: String(options.requestedId) })
+          pendingFocus.set(key, { attribute: options.attribute, id: String(options.requestedId), targetAttribute: options.requestedAttribute })
         }
       }
     }
     const pending = pendingFocus.get(key)
     if (pending?.attribute !== options.attribute) return
     const target = document.querySelector<HTMLElement>(
-      `[${pending.attribute}="${pending.id.replaceAll(/["\\]/g, '\\$&')}"]`
+      `[${pending.targetAttribute ?? pending.attribute}="${pending.id.replaceAll(/["\\]/g, '\\$&')}"]`
     )
     const listShown =
       options.settled &&
@@ -94,5 +96,5 @@ export function useReturnFocus(options: {
       document.removeEventListener('keydown', cancel, true)
       document.removeEventListener('focusin', cancel, true)
     }
-  }, [key, options.attribute, options.settled, options.rows, options.fallback, options.requestedId])
+  }, [key, options.attribute, options.settled, options.rows, options.fallback, options.requestedId, options.requestedAttribute])
 }

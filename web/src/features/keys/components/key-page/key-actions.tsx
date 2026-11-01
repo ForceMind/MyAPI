@@ -8,6 +8,8 @@ version.
 */
 import {
   Copy01Icon,
+  Edit02Icon,
+  Loading03Icon,
   PauseIcon,
   PlayIcon,
   SourceCodeIcon,
@@ -46,7 +48,7 @@ export function KeyActions(props: {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const isCurrentSession = useKeyMaintenanceSession()
-  const { triggerRefresh } = useApiKeys()
+  const { triggerRefresh, setCurrentRow, setOpen } = useApiKeys()
   const user = useAuthStore((state) => state.auth.user)
   const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
   const showPlayground = useIsSidebarModuleVisible('/playground')
@@ -98,11 +100,27 @@ export function KeyActions(props: {
 
   return (
     <div className='flex min-w-0 flex-col gap-2'>
-      <div className='flex min-w-0 flex-wrap items-center gap-2'>
+      <div className='flex min-w-0 flex-wrap items-center gap-2 [&_button]:h-auto [&_button]:min-h-9 [&_button]:whitespace-normal max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 pointer-coarse:[&_button]:min-h-11 pointer-coarse:[&_button]:min-w-11'>
+        <Button
+          variant='outline'
+          onClick={() => {
+            if (!isCurrentSession()) return
+            setCurrentRow(props.apiKey)
+            setOpen('update')
+          }}
+        >
+          <HugeiconsIcon
+            icon={Edit02Icon}
+            data-icon='inline-start'
+            aria-hidden='true'
+          />
+          {t('Edit')}
+        </Button>
         {toggleable && (
           <Button
             variant='outline'
             disabled={toggle.isPending || toggle.isError}
+            aria-busy={toggle.isPending}
             onClick={() => toggle.mutate()}
           >
             <HugeiconsIcon
@@ -113,18 +131,29 @@ export function KeyActions(props: {
             {active ? t('Pause Key') : t('Resume Key')}
           </Button>
         )}
-        <Button variant='ghost' disabled={copying} onClick={() => void copy()}>
+        <Button
+          variant='ghost'
+          disabled={copying}
+          aria-busy={copying}
+          onClick={() => void copy()}
+        >
           <HugeiconsIcon
-            icon={Copy01Icon}
+            icon={copying ? Loading03Icon : Copy01Icon}
+            className={copying ? 'animate-spin' : undefined}
             data-icon='inline-start'
             aria-hidden='true'
           />
-          {t('Copy')}
+          {t('Copy Key')}
         </Button>
         {showPlayground && (
           <Button
             variant='ghost'
             disabled={!playgroundReady}
+            aria-describedby={
+              !playgroundReady
+                ? `key-${props.apiKey.id}-playground-help`
+                : undefined
+            }
             onClick={() => {
               if (!playgroundReady || !user || !isCurrentSession()) return
               createPlaygroundKeyHandoff({
@@ -145,13 +174,29 @@ export function KeyActions(props: {
         )}
         {props.menu}
       </div>
+      {showPlayground && !playgroundReady && (
+        <p
+          id={`key-${props.apiKey.id}-playground-help`}
+          className='text-caption text-muted-foreground'
+        >
+          {t(
+            'Playground needs an available Key and a current signed-in session.'
+          )}
+        </p>
+      )}
       {toggle.isError && (
         <Alert variant='destructive'>
           <AlertTitle>{t('Failed to update API key status')}</AlertTitle>
           <AlertDescription>
+            <p>
+              {t(
+                'The status update could not be confirmed. Reload current state before trying again.'
+              )}
+            </p>
             <Button
               variant='outline'
               size='sm'
+              className='h-auto min-h-8 whitespace-normal max-sm:min-h-11 pointer-coarse:min-h-11'
               onClick={async () => {
                 await props.onRefetch()
                 if (isCurrentSession()) toggle.reset()

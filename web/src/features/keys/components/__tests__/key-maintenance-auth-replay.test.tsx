@@ -265,9 +265,9 @@ test.each([
       }
       await user.click(save)
     } else if (action === 'status') {
-      await user.click(screen.getByRole('button', { name: 'Disable' }))
+      await user.click(screen.getByRole('button', { name: 'Pause Key' }))
     } else if (action === 'reveal') {
-      await user.click(screen.getByRole('button', { name: 'Open menu' }))
+      await user.click(screen.getByRole('button', { name: 'Copy Key' }))
     } else if (action === 'model scope') {
       await user.click(
         await screen.findByRole('radio', { name: /Block all models/ })

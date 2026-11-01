@@ -98,7 +98,7 @@ export function useApiKeysColumns(
           checked={table.getIsAllPageRowsSelected()}
           indeterminate={table.getIsSomePageRowsSelected()}
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label='Select all'
+          aria-label={t('Select all')}
           className='translate-y-[2px]'
         />
       ),
@@ -106,7 +106,7 @@ export function useApiKeysColumns(
         <Checkbox
           checked={row.getIsSelected()}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label='Select row'
+          aria-label={t('Select row')}
           className='translate-y-[2px]'
         />
       ),
@@ -126,7 +126,7 @@ export function useApiKeysColumns(
       header: t('Status'),
       cell: ({ row }) => {
         const statusConfig = API_KEY_STATUSES[row.getValue('status') as number]
-        if (!statusConfig) return null
+        if (!statusConfig) return <StatusBadge label={t('Unknown')} variant='neutral' copyable={false} />
         return (
           <StatusBadge
             label={t(statusConfig.label)}

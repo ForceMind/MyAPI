@@ -40,11 +40,16 @@ const originalAuth = useAuthStore.getState()
 const originalConfig = useSystemConfigStore.getState()
 let client: QueryClient
 let outcome: 'success' | 'empty' | 'network' | 'envelope'
+let reportedTotal: number | undefined
+let pendingRead: Promise<void> | undefined
 
 beforeEach(() => {
   localStorage.clear()
+  vi.spyOn(api, 'post').mockResolvedValue({ data: { success: true, data: { key: 'synthetic-only' } } })
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
   outcome = 'success'
+  reportedTotal = 100
+  pendingRead = undefined
   client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
@@ -65,6 +70,7 @@ beforeEach(() => {
       url.startsWith('/api/token/?') ||
       url.startsWith('/api/token/search?')
     ) {
+      if (pendingRead) await pendingRead
       if (outcome === 'network') throw new Error('private transport diagnostic')
       if (outcome === 'envelope') {
         return {
@@ -76,7 +82,7 @@ beforeEach(() => {
           success: true,
           data: {
             items: outcome === 'empty' ? [] : [item],
-            total: outcome === 'empty' ? 0 : 100,
+            ...(reportedTotal === undefined ? {} : { total: outcome === 'empty' ? 0 : reportedTotal }),
           },
         },
       }
@@ -198,4 +204,100 @@ test('a successful empty response still displays the real empty state', async ()
   expect(
     screen.queryByRole('button', { name: 'Retry' })
   ).not.toBeInTheDocument()
+})
+
+
+test('shared pagination reaches the last page and changing size resets the page while retaining search', async () => {
+  const user = userEvent.setup()
+  const { router } = await renderTable('/keys/?page=2&pageSize=20&filter=needle&token=masked')
+  await screen.findByText('needle-key')
+  await user.click(screen.getByRole('button', { name: 'Last page' }))
+  await waitFor(() => expect(api.get).toHaveBeenCalledWith('/api/token/search?keyword=needle&token=masked&p=5&size=20'))
+  await waitFor(() => expect(router.state.location.search).toMatchObject({ page: 5, pageSize: 20, filter: 'needle', token: 'masked' }))
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Rows per page' }), '50')
+  await waitFor(() => expect(api.get).toHaveBeenCalledWith('/api/token/search?keyword=needle&token=masked&p=1&size=50'))
+  expect(router.state.location.search).toMatchObject({ pageSize: 50, filter: 'needle', token: 'masked' })
+  expect(screen.getByRole('button', { name: 'First page' })).toBeDisabled()
+})
+
+test.each([undefined, -1, Number.NaN, 0])('an unknown or inconsistent total %s retains real rows but disables page navigation', async (total) => {
+  reportedTotal = total
+  await renderTable()
+  expect(await screen.findByText('needle-key')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Last page' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Go to next page' })).toBeDisabled()
+  expect(screen.getByRole('navigation', { name: 'API Keys' })).toHaveTextContent('Record total unavailable')
+})
+
+test('mobile cards retain model restrictions, credential masking, selection and advanced fields without reading a full Key', async () => {
+  const matchMedia = window.matchMedia
+  vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({ ...matchMedia(query), matches: query === CONSOLE_MOBILE_QUERY }))
+  const { router } = await renderTable()
+  const name = await screen.findByText('needle-key')
+  const card = name.closest('article')
+  expect(card).not.toBeNull()
+  expect(card).toHaveTextContent('Models')
+  expect(card).toHaveTextContent('API Key')
+  expect(card).toHaveTextContent('Last used')
+  expect(screen.getByRole('checkbox', { name: 'Select row' })).toBeEnabled()
+  await userEvent.setup().click(screen.getByText('More details'))
+  expect(screen.getByText('IP Restriction')).toBeVisible()
+  expect(screen.getByText('Expires')).toBeVisible()
+  expect(router.state.location.pathname).toBe('/keys/')
+  await userEvent.setup().click(screen.getByRole('checkbox', { name: 'Select row' }))
+  expect(screen.getByRole('button', { name: 'Copy selected keys' })).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Delete selected API keys' })).toBeVisible()
+  expect(api.post).not.toHaveBeenCalled()
+})
+
+test('switching accounts clears old inventory until the new read completes', async () => {
+  await renderTable()
+  await screen.findByText('needle-key')
+  let release = () => {}
+  pendingRead = new Promise<void>((resolve) => { release = resolve })
+  await act(async () => useAuthStore.getState().auth.setUser({ id: 2, role: 100, username: 'second-owner' }))
+  expect(screen.queryByText('needle-key')).not.toBeInTheDocument()
+  await act(async () => release())
+  expect(await screen.findByText('needle-key')).toBeVisible()
+})
+
+test('a page-size bookmark above the outgoing bound is retained in the URL but requests at most 100 rows', async () => {
+  const { router } = await renderTable('/keys/?pageSize=1000')
+  await screen.findByText('needle-key')
+  expect(api.get).toHaveBeenCalledWith('/api/token/?p=1&size=100')
+  expect(router.state.location.search).toMatchObject({ pageSize: 1000 })
+})
+
+
+test('selection follows stable Key IDs across pages and never selects the same row position on another page', async () => {
+  const originalGet = vi.mocked(api.get).getMockImplementation()
+  vi.mocked(api.get).mockImplementation(async (url, config) => {
+    if (url.startsWith('/api/token/?') || url.startsWith('/api/token/search?')) {
+      const page = new URL(String(url), 'https://example.test').searchParams.get('p')
+      return { data: { success: true, data: { items: [{ ...item, id: page === '2' ? 22 : 21, name: page === '2' ? 'second-key' : 'needle-key' }], total: 100 } } }
+    }
+    if (!originalGet) throw new Error('Missing API fixture')
+    return originalGet(url, config)
+  })
+  await renderTable()
+  const user = userEvent.setup()
+  await screen.findByText('needle-key')
+  await user.click(screen.getByRole('checkbox', { name: 'Select row' }))
+  expect(screen.getByRole('button', { name: 'Copy selected keys' })).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Go to next page' }))
+  await screen.findByText('second-key')
+  expect(screen.getByRole('checkbox', { name: 'Select row' })).not.toBeChecked()
+  expect(screen.queryByRole('button', { name: 'Delete selected API keys' })).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Go to previous page' }))
+  await screen.findByText('needle-key')
+  expect(screen.getByRole('checkbox', { name: 'Select row' })).toBeChecked()
+})
+
+
+test('a known empty response corrects a bookmarked page to the first page instead of displaying page nine of one', async () => {
+  outcome = 'empty'
+  const { router } = await renderTable('/keys/?page=9&pageSize=20')
+  await screen.findByText('No API Keys Found')
+  await waitFor(() => expect(router.state.location.search.page).toBeUndefined())
+  expect(screen.getByRole('navigation', { name: 'API Keys' })).toHaveTextContent('Page 1 of 1')
 })

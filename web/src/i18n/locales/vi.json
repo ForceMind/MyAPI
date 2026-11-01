@@ -7271,6 +7271,10 @@
     "Advanced test": "Advanced test",
     "Only the first value of each filter is applied.": "Only the first value of each filter is applied.",
     "Expand tag {{tag}}": "Expand tag {{tag}}",
-    "Collapse tag {{tag}}": "Collapse tag {{tag}}"
+    "Collapse tag {{tag}}": "Collapse tag {{tag}}",
+    "Budget and shares": "Budget and shares",
+    "Playground needs an available Key and a current signed-in session.": "Playground needs an available Key and a current signed-in session.",
+    "The status update could not be confirmed. Reload current state before trying again.": "The status update could not be confirmed. Reload current state before trying again.",
+    "Status filters apply to the current page. Name and credential searches cover your accessible Keys.": "Status filters apply to the current page. Name and credential searches cover your accessible Keys."
   }
 }

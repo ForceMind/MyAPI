@@ -39,6 +39,7 @@ import { toast } from 'sonner'
 import { DataTableRowActionMenu } from '@/components/data-table/core/row-action-menu'
 import { Button } from '@/components/ui/button'
 import {
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
@@ -46,11 +47,6 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuShortcut,
 } from '@/components/ui/dropdown-menu'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import { useChatPresets } from '@/features/chat/hooks/use-chat-presets'
 import { resolveChatUrl, type ChatPreset } from '@/features/chat/lib/chat-links'
 import { sendToFluent } from '@/features/chat/lib/send-to-fluent'
@@ -83,12 +79,15 @@ type DataTableRowActionsProps<TData> =
       onCredentialMaintenance?: () => void
       /** Only the "more" menu, for narrow rows and the inspector header. */
       menuOnly?: boolean
+      /** The detail header already exposes edit, status and copy actions. */
+      primaryActionsVisible?: boolean
     }
   | {
       apiKey: ApiKey
       row?: never
       onCredentialMaintenance?: () => void
       menuOnly?: boolean
+      primaryActionsVisible?: boolean
     }
 
 export function DataTableRowActions<TData = ApiKey>(
@@ -99,7 +98,6 @@ export function DataTableRowActions<TData = ApiKey>(
   const apiKey = apiKeySchema.parse(props.apiKey ?? props.row?.original)
   const {
     viewRequests,
-    requestFocusId,
     setOpen,
     setCurrentRow,
     triggerRefresh,
@@ -115,30 +113,20 @@ export function DataTableRowActions<TData = ApiKey>(
   const isRealKeyLoading = Boolean(loadingKeys[apiKey.id])
 
   const hasChatPresets = chatPresets.length > 0
-  const toggleLabel = isEnabled ? t('Disable') : t('Enable')
+  const toggleLabel = isEnabled ? t('Pause Key') : t('Resume Key')
 
-  const handleMenuOpenChange = useCallback(
-    (open: boolean) => {
-      if (open && isCurrentSession() && !resolvedRealKey && !isRealKeyLoading) {
-        void resolveRealKey(apiKey.id)
-      }
-    },
-    [
-      apiKey.id,
-      isCurrentSession,
-      isRealKeyLoading,
-      resolvedRealKey,
-      resolveRealKey,
-    ]
-  )
-
-  const getCachedRealKey = useCallback(() => {
-    if (!isCurrentSession()) return null
-    if (resolvedRealKey) return resolvedRealKey
-    void resolveRealKey(apiKey.id)
-    toast.info(t('API key is loading, please try again in a moment'))
-    return null
-  }, [apiKey.id, isCurrentSession, resolvedRealKey, resolveRealKey, t])
+  const copy = async (connectionInfo = false) => {
+    if (isRealKeyLoading || !isCurrentSession()) return
+    const realKey = resolvedRealKey || (await resolveRealKey(apiKey.id))
+    if (!realKey || !isCurrentSession()) return
+    const value = connectionInfo
+      ? encodeChannelConnectionInfo(realKey, getServerAddress())
+      : realKey
+    const copied = await copyToClipboard(value)
+    if (!isCurrentSession()) return
+    if (copied) toast.success(t('Copied successfully'))
+    else toast.error(t('Failed to copy'))
+  }
 
   const handleOpenChatPreset = useCallback(
     async (preset: ChatPreset) => {
@@ -186,7 +174,7 @@ export function DataTableRowActions<TData = ApiKey>(
     e?: React.MouseEvent<HTMLButtonElement>
   ) => {
     e?.stopPropagation()
-    if (!isCurrentSession()) return
+    if (isTogglingStatus || !isCurrentSession()) return
     const newStatus = isEnabled
       ? API_KEY_STATUS.DISABLED
       : API_KEY_STATUS.ENABLED
@@ -215,17 +203,70 @@ export function DataTableRowActions<TData = ApiKey>(
     }
   }
 
-  let statusIcon = <HugeiconsIcon icon={PowerIcon} className='size-4' />
+  let statusIcon = (
+    <HugeiconsIcon icon={PowerIcon} className='size-4' aria-hidden='true' />
+  )
   if (isTogglingStatus) {
     statusIcon = (
-      <HugeiconsIcon icon={Loading03Icon} className='size-4 animate-spin' />
+      <HugeiconsIcon
+        icon={Loading03Icon}
+        className='size-4 animate-spin'
+        aria-hidden='true'
+      />
     )
   } else if (isEnabled) {
-    statusIcon = <HugeiconsIcon icon={PowerOffIcon} className='size-4' />
+    statusIcon = (
+      <HugeiconsIcon icon={PowerOffIcon} className='size-4' aria-hidden='true' />
+    )
   }
 
   const menuItems = (
-    <>
+    <DropdownMenuGroup>
+      {props.menuOnly && !props.primaryActionsVisible && (
+        <>
+          {viewRequests && (
+            <DropdownMenuItem
+              onClick={() => {
+                if (isCurrentSession()) viewRequests(apiKey)
+              }}
+            >
+              {t('View Key requests')}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem
+            onClick={() => {
+              setCurrentRow(apiKey)
+              setOpen('update')
+            }}
+          >
+            {t('Edit')}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={isTogglingStatus}
+            onClick={() => void handleToggleStatus()}
+          >
+            {toggleLabel}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={isRealKeyLoading}
+            onClick={() => void copy()}
+          >
+            {t('Copy Key')}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+        </>
+      )}
+      <DropdownMenuItem
+        onClick={() => {
+          setCurrentRow(apiKey)
+          setOpen('budget')
+        }}
+      >
+        {t('Usage budgets')}
+        <DropdownMenuShortcut>
+          <HugeiconsIcon icon={DashboardSpeed01Icon} />
+        </DropdownMenuShortcut>
+      </DropdownMenuItem>
       <DropdownMenuItem
         onClick={() => {
           setCurrentRow(apiKey)
@@ -262,29 +303,8 @@ export function DataTableRowActions<TData = ApiKey>(
         {t('Subscription shares')}
       </DropdownMenuItem>
       <DropdownMenuItem
-        onClick={async () => {
-          const realKey = getCachedRealKey()
-          if (!realKey) return
-          const ok = await copyToClipboard(realKey)
-          if (ok && isCurrentSession()) toast.success(t('Copied'))
-        }}
-      >
-        {t('Copy Key')}
-        <DropdownMenuShortcut>
-          <HugeiconsIcon icon={Copy01Icon} />
-        </DropdownMenuShortcut>
-      </DropdownMenuItem>
-      <DropdownMenuItem
-        onClick={async () => {
-          const realKey = getCachedRealKey()
-          if (!realKey) return
-          const connStr = encodeChannelConnectionInfo(
-            realKey,
-            getServerAddress()
-          )
-          const ok = await copyToClipboard(connStr)
-          if (ok && isCurrentSession()) toast.success(t('Copied'))
-        }}
+        disabled={isRealKeyLoading}
+        onClick={() => void copy(true)}
       >
         {t('Copy Connection Info')}
         <DropdownMenuShortcut>
@@ -310,20 +330,22 @@ export function DataTableRowActions<TData = ApiKey>(
       {hasChatPresets && (
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>{t('Chat')}</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            {chatPresets.map((preset) => (
-              <DropdownMenuItem
-                key={preset.id}
-                onClick={() => handleOpenChatPreset(preset)}
-              >
-                {preset.name}
-                {preset.type !== 'web' && (
-                  <DropdownMenuShortcut>
-                    <HugeiconsIcon icon={LinkSquare02Icon} />
-                  </DropdownMenuShortcut>
-                )}
-              </DropdownMenuItem>
-            ))}
+          <DropdownMenuSubContent className='max-w-[calc(100vw-2rem)] [&_[role=menuitem]]:whitespace-normal max-sm:[&_[role=menuitem]]:min-h-11 pointer-coarse:[&_[role=menuitem]]:min-h-11'>
+            <DropdownMenuGroup>
+              {chatPresets.map((preset) => (
+                <DropdownMenuItem
+                  key={preset.id}
+                  onClick={() => handleOpenChatPreset(preset)}
+                >
+                  {preset.name}
+                  {preset.type !== 'web' && (
+                    <DropdownMenuShortcut>
+                      <HugeiconsIcon icon={LinkSquare02Icon} />
+                    </DropdownMenuShortcut>
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
       )}
@@ -340,81 +362,77 @@ export function DataTableRowActions<TData = ApiKey>(
           <HugeiconsIcon icon={Delete02Icon} />
         </DropdownMenuShortcut>
       </DropdownMenuItem>
-    </>
+    </DropdownMenuGroup>
   )
   const menu = (
     <DataTableRowActionMenu
       ariaLabel={t('Open menu')}
-      contentClassName='w-[200px]'
+      contentClassName='w-60 max-w-[calc(100vw-2rem)] [&_[role=menuitem]]:whitespace-normal max-sm:[&_[role=menuitem]]:min-h-11 pointer-coarse:[&_[role=menuitem]]:min-h-11'
       modal={false}
-      onOpenChange={handleMenuOpenChange}
     >
       {menuItems}
     </DataTableRowActionMenu>
   )
-  if (props.menuOnly) return menu
+  if (props.menuOnly) {
+    return (
+      <span
+        data-row-actions=''
+        onClick={(event) => event.stopPropagation()}
+        className='flex max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 pointer-coarse:[&_button]:min-h-11 pointer-coarse:[&_button]:min-w-11'
+      >
+        {menu}
+      </span>
+    )
+  }
 
   return (
-    <div className='-ml-1.5 flex max-w-full min-w-0 flex-wrap items-center gap-1 md:min-w-min'>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              variant='ghost'
-              size='icon-sm'
-              onClick={handleToggleStatus}
-              disabled={isTogglingStatus}
-              aria-label={toggleLabel}
-              className={
-                isEnabled
-                  ? 'text-destructive hover:text-destructive'
-                  : 'text-success hover:text-success'
-              }
-            />
-          }
-        >
-          {statusIcon}
-        </TooltipTrigger>
-        <TooltipContent>{toggleLabel}</TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              variant='ghost'
-              size='icon-sm'
-              onClick={() => {
-                setCurrentRow(apiKey)
-                setOpen('update')
-              }}
-              aria-label={t('Edit')}
-            />
-          }
-        >
-          <HugeiconsIcon icon={Edit02Icon} />
-        </TooltipTrigger>
-        <TooltipContent>{t('Edit')}</TooltipContent>
-      </Tooltip>
-
+    <div
+      data-row-actions=''
+      onClick={(event) => event.stopPropagation()}
+      className='flex max-w-full min-w-0 flex-wrap items-center gap-2 max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 pointer-coarse:[&_button]:min-h-11 pointer-coarse:[&_button]:min-w-11'
+    >
       <Button
-        variant='outline'
+        variant='ghost'
         size='sm'
-        className='h-auto min-h-8 max-w-full min-w-0 px-2 whitespace-normal md:min-w-min md:flex-col md:gap-1 pointer-coarse:min-h-11'
-        aria-label={t('API Key usage budgets')}
+        onClick={handleToggleStatus}
+        disabled={isTogglingStatus}
+        aria-busy={isTogglingStatus}
+        className='h-auto min-h-8 whitespace-normal'
+      >
+        {statusIcon}
+        {toggleLabel}
+      </Button>
+      <Button
+        variant='ghost'
+        size='sm'
+        className='h-auto min-h-8 whitespace-normal'
         onClick={() => {
           setCurrentRow(apiKey)
-          setOpen('budget')
+          setOpen('update')
         }}
       >
         <HugeiconsIcon
-          icon={DashboardSpeed01Icon}
-          className='size-4 shrink-0'
+          icon={Edit02Icon}
+          data-icon='inline-start'
           aria-hidden='true'
         />
-        <span className='max-w-full min-w-0 break-words whitespace-normal md:min-w-min md:break-normal'>
-          {t('Usage budgets')}
-        </span>
+        {t('Edit')}
+      </Button>
+      <Button
+        variant='ghost'
+        size='sm'
+        disabled={isRealKeyLoading}
+        aria-busy={isRealKeyLoading}
+        className='h-auto min-h-8 whitespace-normal'
+        onClick={() => void copy()}
+      >
+        <HugeiconsIcon
+          icon={isRealKeyLoading ? Loading03Icon : Copy01Icon}
+          className={isRealKeyLoading ? 'animate-spin' : undefined}
+          data-icon='inline-start'
+          aria-hidden='true'
+        />
+        {t('Copy Key')}
       </Button>
 
       {viewRequests && (
@@ -422,7 +440,7 @@ export function DataTableRowActions<TData = ApiKey>(
           variant='outline'
           size='sm'
           className='h-auto min-h-9 max-w-full wrap-break-word break-keep whitespace-normal pointer-coarse:min-h-11'
-          autoFocus={requestFocusId === apiKey.id}
+          data-key-requests={apiKey.id}
           onClick={() => {
             if (isCurrentSession()) viewRequests(apiKey)
           }}

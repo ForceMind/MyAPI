@@ -52,13 +52,17 @@ function ApiKeysPrimaryButtonSession(props: {
           <Button
             variant='outline'
             size='sm'
-            className='h-auto min-h-8 whitespace-normal pointer-coarse:min-h-11'
+            className='h-auto min-h-8 whitespace-normal max-sm:min-h-11 pointer-coarse:min-h-11'
             onClick={() => setPolicyOpen(true)}
           >
             {t('My usage policy')}
           </Button>
         )}
-        <Button size='sm' onClick={() => setOpen('create')}>
+        <Button
+          size='sm'
+          className='h-auto min-h-8 whitespace-normal max-sm:min-h-11 pointer-coarse:min-h-11'
+          onClick={() => setOpen('create')}
+        >
           <HugeiconsIcon
             icon={PlusSignIcon}
             data-icon='inline-start'

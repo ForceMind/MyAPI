@@ -7271,6 +7271,10 @@
     "Advanced test": "高级测试",
     "Only the first value of each filter is applied.": "每个筛选条件仅应用第一个值。",
     "Expand tag {{tag}}": "展开标签 {{tag}}",
-    "Collapse tag {{tag}}": "收起标签 {{tag}}"
+    "Collapse tag {{tag}}": "收起标签 {{tag}}",
+    "Budget and shares": "预算与分额",
+    "Playground needs an available Key and a current signed-in session.": "Playground 需要可用的 Key 和当前有效的登录会话。",
+    "The status update could not be confirmed. Reload current state before trying again.": "无法确认状态更新结果。请先重新加载当前状态，再尝试操作。",
+    "Status filters apply to the current page. Name and credential searches cover your accessible Keys.": "状态筛选仅作用于当前页；名称和凭据搜索覆盖你有权访问的 Key。"
   }
 }

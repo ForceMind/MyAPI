@@ -38,43 +38,62 @@ export function KeyDeliveryPanel(props: { apiKey: ApiKey }) {
   const baseUrl = `${serverAddress || window.location.origin}/v1`
 
   return (
-    <div className='bg-card p-card flex min-w-0 flex-col gap-4 rounded-xl border'>
-      <dl className='grid min-w-0 gap-4 sm:grid-cols-2'>
-        <div className='flex min-w-0 flex-col gap-1'>
-          <dt className='text-caption text-muted-foreground'>
-            {t('Base URL')}
-          </dt>
-          <dd className='flex min-w-0 items-center gap-1'>
-            <code className='text-data min-w-0 font-mono wrap-anywhere'>
-              {baseUrl}
-            </code>
-            <CopyButton
-              value={baseUrl}
-              size='icon'
-              variant='ghost'
-              tooltip={t('Copy Base URL')}
-              aria-label={t('Copy Base URL')}
-            />
-          </dd>
-          <dd className='text-caption text-muted-foreground'>
-            {serverAddress
-              ? t('From the server address setting')
-              : t('Current access address')}
-          </dd>
-        </div>
-        <div className='flex min-w-0 flex-col gap-1'>
-          <dt className='text-caption text-muted-foreground'>{t('API Key')}</dt>
-          <dd className='min-w-0'>
-            <ApiKeyCell apiKey={props.apiKey} />
-          </dd>
-          <dd className='text-caption text-muted-foreground'>
-            {t('The full Key is read only when you reveal or copy it.')}
-          </dd>
-        </div>
-      </dl>
+    <div className='flex min-w-0 flex-col gap-4'>
+      <section
+        aria-labelledby='key-connection-title'
+        className='bg-card p-card flex min-w-0 flex-col gap-4 rounded-xl border'
+      >
+        <h2 id='key-connection-title' className='text-title'>
+          {t('Connection details')}
+        </h2>
+        <dl className='grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-2'>
+          <div className='flex min-w-0 flex-col gap-1'>
+            <dt className='text-caption text-muted-foreground'>
+              {t('Base URL')}
+            </dt>
+            <dd className='flex min-w-0 items-start gap-2'>
+              <code className='text-data min-w-0 flex-1 font-mono wrap-anywhere'>
+                {baseUrl}
+              </code>
+              <CopyButton
+                value={baseUrl}
+                size='icon'
+                variant='ghost'
+                className='shrink-0 pointer-coarse:min-h-11 pointer-coarse:min-w-11'
+                tooltip={t('Copy Base URL')}
+                aria-label={t('Copy Base URL')}
+              />
+            </dd>
+            <dd className='text-caption text-muted-foreground wrap-anywhere'>
+              {serverAddress
+                ? t('From the server address setting')
+                : t('Current access address')}
+            </dd>
+          </div>
+          <div className='flex min-w-0 flex-col gap-1'>
+            <dt className='text-caption text-muted-foreground'>{t('API Key')}</dt>
+            <dd className='min-w-0 pointer-coarse:[&_button]:min-h-11 pointer-coarse:[&_button]:min-w-11'>
+              <ApiKeyCell apiKey={props.apiKey} />
+            </dd>
+            <dd className='text-caption text-muted-foreground wrap-anywhere'>
+              {t('The full Key is read only when you reveal or copy it.')}
+            </dd>
+          </div>
+        </dl>
+      </section>
       {role === ROLE.SUPER_ADMIN && (
-        <div className='flex min-w-0 flex-wrap gap-2 border-t pt-4'>
-          <Button variant='outline' onClick={() => setMaintaining(true)}>
+        <section
+          aria-labelledby='key-credential-title'
+          className='bg-card p-card flex min-w-0 flex-col items-start gap-3 rounded-xl border'
+        >
+          <h2 id='key-credential-title' className='text-title'>
+            {t('Credential maintenance')}
+          </h2>
+          <Button
+            variant='outline'
+            className='pointer-coarse:min-h-11'
+            onClick={() => setMaintaining(true)}
+          >
             <HugeiconsIcon
               icon={SecurityCheckIcon}
               data-icon='inline-start'
@@ -82,7 +101,7 @@ export function KeyDeliveryPanel(props: { apiKey: ApiKey }) {
             />
             {t('Credential maintenance')}
           </Button>
-        </div>
+        </section>
       )}
       {maintaining && (
         <CredentialMaintenanceDialog
