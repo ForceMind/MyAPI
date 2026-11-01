@@ -59,7 +59,8 @@ function PersonalUpstreamSession(props: PersonalUpstreamProps) {
     return () => window.clearInterval(timer)
   }, [])
   const ready = !data.selfQuery.isLoading && (!data.canRead || data.accountsQuery.isSuccess || data.accountsQuery.isError)
-  useEffect(() => props.onInventoryReady?.(ready), [props.onInventoryReady, ready])
+  const inventoryReady = props.onInventoryReady
+  useEffect(() => inventoryReady?.(ready), [inventoryReady, ready])
   const updateView = (next: UpstreamViewState) => {
     if (props.onViewChange) props.onViewChange(next)
     else setLocalView(next)

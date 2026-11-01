@@ -313,7 +313,7 @@ export async function mountConnections(
       connectionPageRoute.options.beforeLoad?.(beforeLoad as never),
     component: connectionPageRoute.options.component,
   })
-  const upstream = createRoute({ getParentRoute: () => authenticated, path: 'upstream-accounts/', validateSearch: upstreamRoute.options.validateSearch, beforeLoad: upstreamRoute.options.beforeLoad, component: upstreamRoute.options.component })
+  const upstream = createRoute({ getParentRoute: () => authenticated, path: 'upstream-accounts/', validateSearch: upstreamRoute.options.validateSearch, beforeLoad: (beforeLoad) => upstreamRoute.options.beforeLoad?.(beforeLoad as never), component: upstreamRoute.options.component })
   const stub = (path: string, label: string) =>
     createRoute({
       getParentRoute: () => authenticated,
