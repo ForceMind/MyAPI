@@ -481,6 +481,27 @@ function SubscriptionShareSession(props: {
               </p>
             </section>
 
+            <Alert>
+                    <AlertTitle>{t('Approximate usage allocation')}</AlertTitle>
+                    <AlertDescription className='space-y-2 break-words'>
+                      <p>
+                        {t(
+                          'Positive account-window changes are divided approximately by each Key’s sent request attempts. This does not convert tokens or USD into subscription usage.'
+                        )}
+                      </p>
+                      <p>
+                        {t(
+                          'Request size, model, failures, external clients, measurement delay and rounding can all cause error. There is no verified numerical error bound.'
+                        )}
+                      </p>
+                      <p>
+                        {t(
+                          'Reaching the share blocks later requests. In-flight requests can exceed it, and the share does not reserve capacity against other clients.'
+                        )}
+                      </p>
+                    </AlertDescription>
+                  </Alert>
+
             {query.isError && (
               <div role='alert' className='space-y-2'>
                 <p>{t('Could not load subscription shares.')}</p>
@@ -554,7 +575,7 @@ function SubscriptionShareSession(props: {
                           <div className='min-w-0 flex-1'>
                             <Label
                               htmlFor={`subscription-share-choice-${pool.pool_id}-${pool.snapshot_id}`}
-                              className='block min-w-0 cursor-pointer leading-relaxed [overflow-wrap:anywhere]'
+                              className='flex min-h-11 min-w-0 cursor-pointer items-center leading-relaxed [overflow-wrap:anywhere]'
                             >
                               {pool.channel_name}
                             </Label>
@@ -632,26 +653,7 @@ function SubscriptionShareSession(props: {
                       </div>
                     </details>
                   )}
-                  <Alert>
-                    <AlertTitle>{t('Approximate usage allocation')}</AlertTitle>
-                    <AlertDescription className='space-y-2 break-words'>
-                      <p>
-                        {t(
-                          'Positive account-window changes are divided approximately by each Key’s sent request attempts. This does not convert tokens or USD into subscription usage.'
-                        )}
-                      </p>
-                      <p>
-                        {t(
-                          'Request size, model, failures, external clients, measurement delay and rounding can all cause error. There is no verified numerical error bound.'
-                        )}
-                      </p>
-                      <p>
-                        {t(
-                          'Reaching the share blocks later requests. In-flight requests can exceed it, and the share does not reserve capacity against other clients.'
-                        )}
-                      </p>
-                    </AlertDescription>
-                  </Alert>
+
                 </section>
 
                 {selectedPool && (
@@ -872,14 +874,7 @@ function SubscriptionShareSession(props: {
                 ))}
               </section>
             )}
-            {!root && (
-              <Alert>
-                <AlertTitle>{t('Approximate usage allocation')}</AlertTitle>
-                <AlertDescription className='space-y-2 break-words'>
-                  <p>
-                    {t(
-                      'Positive account-window changes are divided approximately by each Key’s sent request attempts. This does not convert tokens or USD into subscription usage.'
-                    )}
+
                   </p>
                   <p>
                     {t(

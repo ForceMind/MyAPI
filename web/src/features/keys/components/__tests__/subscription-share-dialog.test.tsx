@@ -178,7 +178,7 @@ test('Root explicitly selects a window and saves an exact basis-point share', as
   expect(
     within(dialog).getByRole('button', { name: 'Save share' })
   ).toBeDisabled()
-  expect(within(dialog).getByText('Fresh candidate')).toBeVisible()
+  expect(within(dialog).getByRole('radio', { name: 'Fresh candidate' })).toBeVisible()
   expect(dialog).toHaveTextContent('Native window: primary · weekly')
   expect(dialog).toHaveTextContent(
     'Sample age: 30 seconds · Maximum age: 300 seconds'
