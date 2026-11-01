@@ -4,7 +4,9 @@
 
 ## 2026-11-01 UI第五批：API Key列表与详情（源码/完整CI通过）
 
-源码 `0733160523e9f66d6b71e30cd03f20a17d34046f` / [完整CI41318459312](https://github.com/ForceMind/MyAPI/actions/runs/41318459312) attempt1 success：10作业成功、1浏览器混合作业跳过。已读取全部作业/步骤及前后端原始日志：42文件372/372 Key专项、19文件209/209连接专项、47文件410/410日志专项、298文件2157/2157前端全量、同步/构建/typecheck/lint通过（16警告、0错误）；根模块/独立relaykit vet/build、原生/386构建、两模块全量、全部既有race/三库/Redis/分发/Desktop通过，386定向18项/5包全通过。RUN_BROWSER=0，浏览器安装和全部Chromium步骤跳过。收尾仅4份交接，应用源码仍绑定07331605；接手读取最新文档提交自身完整CI，不把文档SHA当镜像源码。维护者已批准沿用keys/key-requests/key-scope/key-delivery桌面与手机线稿，不重建既有ObjectPage、三个页签或编辑/敏感维护状态机。
+**2026-11-02 追加交互回归已验证**：0060631e / [红证据CI41322661402](https://github.com/ForceMind/MyAPI/actions/runs/41322661402)的合成Key专项372通过、1失败，明确展开凭据后Full API Key内容即消失；新增同一用例还覆盖30秒列表时间刷新后保持展开且不重复读Key。334087de仅将凭据字段改为稳定React框架渲染组件，未改读取协议/状态机/权限；[完整CI41323019462](https://github.com/ForceMind/MyAPI/actions/runs/41323019462) attempt1 success，Key专项373/373、全量2158/2158通过，全部作业/步骤和前后端日志已读。前一07331605 / [CI41318459312](https://github.com/ForceMind/MyAPI/actions/runs/41318459312)全绿仍为事实，但未覆盖该新增状态保持用例，不再作为最终应用基线；8ea2b7a5交接CI41321275381与红证据运行被追加修正替代后终态cancelled，不计全绿。最终应用绑定334087de，收尾仅4份交接，仍读取其自身完整CI；浏览器与线上未验证。
+
+源码 `334087de491eed0ef725f2c8c549487f0ab5fa6e` / [完整CI41323019462](https://github.com/ForceMind/MyAPI/actions/runs/41323019462) attempt1 success：10作业成功、1浏览器混合作业跳过。已读取全部作业/步骤及前后端原始日志：42文件373/373 Key专项、19文件209/209连接专项、47文件410/410日志专项、298文件2158/2158前端全量、同步/构建/typecheck/lint通过（16警告、0错误）；根模块/独立relaykit vet/build、原生/386构建、两模块全量、全部既有race/三库/Redis/分发/Desktop通过，386定向18项/5包全通过。RUN_BROWSER=0，浏览器安装和全部Chromium步骤跳过。收尾仅4份交接，应用源码仍绑定334087de；接手读取最新文档提交自身完整CI，不把文档SHA当镜像源码。维护者已批准沿用keys/key-requests/key-scope/key-delivery桌面与手机线稿，不重建既有ObjectPage、三个页签或编辑/敏感维护状态机。
 
 - 列表接入已有首尾/数字/跳页、20/50/100条分页，保留旧URL与凭据搜索；出站最多100，未知/非法总数不补0，已知空列表纠正到第1页。状态筛选沿用当前页过滤，明示口径，不增加伪全库模型/分组筛选或后端契约。
 - 手机卡复用桌面单元格，保留掩码、模型/IP限制、额度、日期、分组、行选择和全部高级操作，低频字段可展开。按稳定Key ID选择，手机批量入口可达；仅ID选择状态按历史entry保存在最多20项内存中，身份/角色/SID改变清除，不写URL/storage或缓存完整凭据。保持个人模式金额隐藏。
