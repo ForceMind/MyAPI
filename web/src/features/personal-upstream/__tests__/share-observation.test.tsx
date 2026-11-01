@@ -221,7 +221,11 @@ test('a controlled Key reports selection to its owner and stays selected after a
 
 
 test('a same-session Root downgrade cannot reuse privileged cached Key shares when the selected Key is controlled', async () => {
-  useAuthStore.getState().auth.setUser({ id: 7, username: 'root', role: ROLE.SUPER_ADMIN })
+  useAuthStore.getState().auth.setBundle({
+    access_token: 'synthetic-role-cache', token_type: 'Bearer', access_expires_at: 4_000_000_000,
+    user: { id: 7, username: 'root', role: ROLE.SUPER_ADMIN },
+    session: { sid: 'same-role-change-session', current: true, login_method: 'password', ip: '127.0.0.1', user_agent: 'test', created_at: 1, last_active_at: 1, expires_at: 4_000_000_000 },
+  })
   const key = { id: 31, name: 'Desktop app', status: 1, group: 'default', remain_quota: 100, unlimited_quota: false, expired_time: -1 }
   let resolveKeys: (keys: typeof key[]) => void = () => {}
   const lowerRoleKeys = new Promise<typeof key[]>((resolve) => { resolveKeys = resolve })

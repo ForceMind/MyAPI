@@ -40,7 +40,7 @@ export function WindowShareObservation(props: {
   const [uncontrolledKeyId, setUncontrolledKeyId] = useState('')
   const keyId = props.selectedKeyId ?? uncontrolledKeyId
   const keysQuery = useQuery({
-    queryKey: ['personal-console', 'keys', userId, sessionId],
+    queryKey: ['personal-console', 'keys', userId, role, sessionId],
     queryFn: getPlaygroundKeys,
     retry: false,
     refetchOnWindowFocus: false,
@@ -53,6 +53,7 @@ export function WindowShareObservation(props: {
       'personal-console',
       'upstream-share',
       userId,
+      role,
       sessionId,
       confirmedKey?.id,
       props.channelId,
