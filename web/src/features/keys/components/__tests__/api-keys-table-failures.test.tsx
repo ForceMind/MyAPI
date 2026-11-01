@@ -301,3 +301,21 @@ test('a known empty response corrects a bookmarked page to the first page instea
   await waitFor(() => expect(router.state.location.search.page).toBeUndefined())
   expect(screen.getByRole('navigation', { name: 'API Keys' })).toHaveTextContent('Page 1 of 1')
 })
+
+
+test('a periodic list timestamp refresh preserves an explicitly opened credential popover', async () => {
+  const matchMedia = window.matchMedia
+  vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({ ...matchMedia(query), matches: query === CONSOLE_MOBILE_QUERY }))
+  const intervals = vi.spyOn(window, 'setInterval')
+  await renderTable()
+  await screen.findByText('needle-key')
+  await userEvent.setup().click(screen.getByRole('button', { name: 'sk-masked' }))
+  expect(await screen.findByText('Full API Key')).toBeVisible()
+  await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1))
+  const tick = intervals.mock.calls.find((call) => call[1] === 30_000)?.[0]
+  expect(typeof tick).toBe('function')
+  vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 30_000)
+  await act(async () => { if (typeof tick === 'function') tick() })
+  expect(screen.getByText('Full API Key')).toBeVisible()
+  expect(api.post).toHaveBeenCalledTimes(1)
+})
