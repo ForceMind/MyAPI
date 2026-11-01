@@ -42,7 +42,7 @@ import { ApiKeyGroupCell } from './api-key-group-cell'
 import { ApiKeyNameCell, ApiKeyRowActionsCell } from './api-key-name-cell'
 import { ApiKeyTimestampCell } from './api-key-timestamp-cell'
 import {
-  ApiKeyCell,
+  ApiKeyCredentialTableCell,
   IpRestrictionsCell,
   ModelLimitsCell,
   UnlimitedQuotaBadge,
@@ -144,7 +144,7 @@ export function useApiKeysColumns(
       id: 'key',
       accessorKey: 'key',
       header: t('API Key'),
-      cell: ({ row }) => <ApiKeyCell apiKey={row.original} />,
+      cell: ApiKeyCredentialTableCell,
       enableSorting: false,
       size: 260,
     },

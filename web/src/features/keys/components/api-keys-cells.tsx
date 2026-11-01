@@ -22,6 +22,7 @@ import {
   Tick02Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import type { Row } from '@tanstack/react-table'
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -279,4 +280,9 @@ export function IpRestrictionsCell({ apiKey }: { apiKey: ApiKey }) {
       </TooltipContent>
     </Tooltip>
   )
+}
+
+/** Stable table renderer keeps an open credential control mounted during list updates. */
+export function ApiKeyCredentialTableCell(props: { row: Row<ApiKey> }) {
+  return <ApiKeyCell apiKey={props.row.original} />
 }
