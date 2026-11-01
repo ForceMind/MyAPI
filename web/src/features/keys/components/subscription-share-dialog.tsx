@@ -548,16 +548,20 @@ function SubscriptionShareSession(props: {
                           <RadioGroupItem
                             id={`subscription-share-choice-${pool.pool_id}-${pool.snapshot_id}`}
                             value={poolSelectionValue(pool)}
-                            aria-label={pool.channel_name}
+                            aria-describedby={`subscription-share-choice-${pool.pool_id}-${pool.snapshot_id}-details`}
                             className='mt-1'
                           />
-                          <Label
-                            htmlFor={`subscription-share-choice-${pool.pool_id}-${pool.snapshot_id}`}
-                            className='block min-w-0 flex-1 cursor-pointer leading-relaxed [overflow-wrap:anywhere]'
-                          >
-                            {pool.channel_name} · {pool.plan_type} ·{' '}
-                            {pool.window_slot} · {pool.window_type}
-                          </Label>
+                          <div className='min-w-0 flex-1'>
+                            <Label
+                              htmlFor={`subscription-share-choice-${pool.pool_id}-${pool.snapshot_id}`}
+                              className='block min-w-0 cursor-pointer leading-relaxed [overflow-wrap:anywhere]'
+                            >
+                              {pool.channel_name}
+                            </Label>
+                            <p id={`subscription-share-choice-${pool.pool_id}-${pool.snapshot_id}-details`} className='text-muted-foreground mt-1 text-xs wrap-anywhere'>
+                              {pool.plan_type} · {pool.window_slot} · {pool.window_type} · {t('Snapshot')} #{pool.snapshot_id}
+                            </p>
+                          </div>
                         </div>
                       ))}
                   </RadioGroup>

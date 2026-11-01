@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
@@ -149,7 +149,7 @@ test('choosing a candidate presents its identity and unknown evidence before the
   const draft = screen.getByRole('region', { name: 'Edit share draft' })
   const candidateCard = within(evidence)
     .getByText('Fresh candidate')
-    .closest('article')!
+    .closest('article') as HTMLElement
   expect(
     selection.compareDocumentPosition(evidence) &
       Node.DOCUMENT_POSITION_FOLLOWING
@@ -191,7 +191,7 @@ test('a read-only server refresh updates evidence while preserving the input, dr
   await user.click(confirmation)
   const disclosure = screen.getByText('Other window evidence')
   await user.click(disclosure)
-  const history = disclosure.closest('details')!
+  const history = disclosure.closest('details') as HTMLDetailsElement
   expect(history).toHaveAttribute('open')
 
   act(() => {
@@ -204,19 +204,16 @@ test('a read-only server refresh updates evidence while preserving the input, dr
     )
   })
 
+  await waitFor(() => {
+    const evidence = screen.getByRole('region', { name: 'Current window evidence' })
+    const currentCard = within(evidence).getByText(activePool.channel_name).closest('article') as HTMLElement
+    expect(within(currentCard).getByText('Attempts awaiting attribution').nextElementSibling).toHaveTextContent('8')
+  })
   expect(screen.getByLabelText('Share percentage')).toBe(input)
   expect(input).toHaveValue('12.34')
   expect(confirmation).toBeChecked()
   expect(disclosure.closest('details')).toBe(history)
   expect(history).toHaveAttribute('open')
-  const evidence = screen.getByRole('region', { name: 'Current window evidence' })
-  const currentCard = within(evidence)
-    .getByText(activePool.channel_name)
-    .closest('article')!
-  expect(
-    within(currentCard).getByText('Attempts awaiting attribution')
-      .nextElementSibling
-  ).toHaveTextContent('8')
   expect(
     screen.getByRole('radio', { name: activePool.channel_name })
   ).toBeChecked()
