@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import type { ChannelQuotaChangeItem } from '@/features/channels/types'
 import { formatQuotaDuration, quotaSeriesKey, quotaWindowLabel } from '@/features/channels/lib/quota-history'
 import { AccountQuotaChangesPanel } from '@/features/dashboard/components/overview/account-quota-changes-panel'
 import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
@@ -66,7 +67,11 @@ function PersonalUpstreamSession(props: PersonalUpstreamProps) {
   const known = data.canRead && data.accountsQuery.isSuccess && !data.accountsQuery.isError
   const items = known ? (data.accountsQuery.data?.items.filter((item) => item.metric_type === 'codex_rate_limit' && item.unit === 'percent') ?? []) : []
   const filteredItems = filterUpstreamWindows(items, view, now)
-  const accounts = [...new Map(filteredItems.map((item) => [item.channel_id, item])).values()]
+  const accountMap = new Map<number, ChannelQuotaChangeItem>()
+  for (const item of filteredItems) {
+    if (!accountMap.has(item.channel_id)) accountMap.set(item.channel_id, item)
+  }
+  const accounts = [...accountMap.values()]
   const selectedAccount = accounts.find((item) => item.channel_id === view.channelId) ?? accounts[0]
   const windows = filteredItems.filter((item) => item.channel_id === selectedAccount?.channel_id)
   const returnedConnections = new Set(items.map((item) => item.channel_id)).size

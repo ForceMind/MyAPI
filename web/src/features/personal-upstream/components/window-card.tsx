@@ -75,6 +75,9 @@ export function WindowCard(props: {
             {slotLabel ? ` · ${slotLabel}` : ''}
           </p>
         ) : null}
+        {!props.compact && props.item.account_label && (
+          <p className='text-caption text-muted-foreground wrap-anywhere'>{props.item.account_label}</p>
+        )}
         {!props.compact && slotLabel ? (
           <p className='text-muted-foreground text-xs'>{slotLabel}</p>
         ) : null}

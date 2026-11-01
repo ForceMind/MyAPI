@@ -482,25 +482,25 @@ function SubscriptionShareSession(props: {
             </section>
 
             <Alert>
-                    <AlertTitle>{t('Approximate usage allocation')}</AlertTitle>
-                    <AlertDescription className='space-y-2 break-words'>
-                      <p>
-                        {t(
-                          'Positive account-window changes are divided approximately by each Key’s sent request attempts. This does not convert tokens or USD into subscription usage.'
-                        )}
-                      </p>
-                      <p>
-                        {t(
-                          'Request size, model, failures, external clients, measurement delay and rounding can all cause error. There is no verified numerical error bound.'
-                        )}
-                      </p>
-                      <p>
-                        {t(
-                          'Reaching the share blocks later requests. In-flight requests can exceed it, and the share does not reserve capacity against other clients.'
-                        )}
-                      </p>
-                    </AlertDescription>
-                  </Alert>
+              <AlertTitle>{t('Approximate usage allocation')}</AlertTitle>
+              <AlertDescription className='space-y-2 break-words'>
+                <p>
+                  {t(
+                    'Positive account-window changes are divided approximately by each Key’s sent request attempts. This does not convert tokens or USD into subscription usage.'
+                  )}
+                </p>
+                <p>
+                  {t(
+                    'Request size, model, failures, external clients, measurement delay and rounding can all cause error. There is no verified numerical error bound.'
+                  )}
+                </p>
+                <p>
+                  {t(
+                    'Reaching the share blocks later requests. In-flight requests can exceed it, and the share does not reserve capacity against other clients.'
+                  )}
+                </p>
+              </AlertDescription>
+            </Alert>
 
             {query.isError && (
               <div role='alert' className='space-y-2'>
@@ -873,21 +873,6 @@ function SubscriptionShareSession(props: {
                   />
                 ))}
               </section>
-            )}
-
-                  </p>
-                  <p>
-                    {t(
-                      'Request size, model, failures, external clients, measurement delay and rounding can all cause error. There is no verified numerical error bound.'
-                    )}
-                  </p>
-                  <p>
-                    {t(
-                      'Reaching the share blocks later requests. In-flight requests can exceed it, and the share does not reserve capacity against other clients.'
-                    )}
-                  </p>
-                </AlertDescription>
-              </Alert>
             )}
 
             {mustReload && (

@@ -132,3 +132,18 @@ test('explicitly choosing the initially displayed account anchors that selection
   await userEvent.setup().click(within(aside).getByRole('button', { name: 'Synthetic account' }))
   await waitFor(() => expect(fixture.router.state.location.search).toMatchObject({ channelId: 7 }))
 })
+
+
+test('different saved identities on one connection remain separate and the newest returned identity labels the picker', async () => {
+  await mount({ entry: '/upstream-accounts', windows: [
+    { ...sample, account_label: 'Current saved identity' },
+    { ...sample, series_id: 'd'.repeat(64), account_label: 'Historical saved identity', source: 'codex_wham_usage', status: 'error', observed_at: now - 120, current_available: null },
+  ] })
+  const aside = await screen.findByRole('complementary', { name: 'Select upstream account' })
+  expect(within(aside).getByRole('button', { name: 'Current saved identity' })).toHaveAttribute('aria-pressed', 'true')
+  const cards = screen.getAllByTestId('native-window-card')
+  expect(cards).toHaveLength(2)
+  expect(within(cards[0]).getByText('Current saved identity')).toBeVisible()
+  expect(within(cards[1]).getByText('Historical saved identity')).toBeVisible()
+  expect(within(cards[1]).getByText('Historical saved sample error')).toBeVisible()
+})
