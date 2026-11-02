@@ -91,3 +91,19 @@ describe('local model maintenance writes do not replay', () => {
     expect(refreshes).toHaveLength(0)
   })
 })
+
+it.each(['user', 'role', 'session'] as const)('binds a dispatched model write to its original credentials before a synchronous %s switch', async (scope) => {
+  target = '/api/models/'
+  failureStatus = 0
+  const pending = createModel({ model_name: 'synthetic-original-scope' })
+  const next = bundle('synthetic-other-scope-access')
+  if (scope === 'user') next.user = { ...next.user, id: 2 }
+  if (scope === 'role') next.user = { ...next.user, role: 10 }
+  if (scope === 'session') next.session = { ...next.session, sid: 'synthetic-other-session' }
+  useAuthStore.getState().auth.setBundle(next)
+  await expect(pending).resolves.toMatchObject({ success: true })
+  expect(writes).toHaveLength(1)
+  expect(refreshes).toHaveLength(0)
+  expect(writes[0].headers.get('Authorization')).toBe('Bearer synthetic-original-access')
+  expect(JSON.parse(writes[0].data)).toEqual({ model_name: 'synthetic-original-scope' })
+})
