@@ -1,5 +1,15 @@
 # 操作引导
 
+## 当前：UI源码收口，应用完整绿fffb2ef0
+
+源码 `fffb2ef0ae3b46c9721896d5c47641e31c2be959` / [CI41539150203](https://github.com/ForceMind/MyAPI/actions/runs/41539150203) attempt1 success，10作业成功/1浏览器与真实API作业跳过，全部步骤及前后端原始日志已读。认证180、剩余设置/分析/公共786、用户/资金297、模型173、公开33、账号85、Key388、原连接209、日志410、全量378文件2929/2929通过；同步/构建/types/lint通过（21警告0错误），根模块/独立relaykit/386/全部既有race/三库/Redis/ClickHouse/分发/Desktop通过。38618父项/55条/5包全通过，0skip/fail，后端失败/race标记0。UI1–18的同一主清单已更新，具体边界和历史红证据见TASKS最新节。
+
+后续只是4份交接，应用仍绑定fffb2ef0；推送后读取文档提交自身完整CI，不反复升级beta.27，不将文档SHA当镜像源码。仓库VERSION/package与三个分发示例默认版本已一致；真实.env/服务器/容器未改，NPM/GHCR/tag/main/生产都未操作。
+
+浏览器仍未验收：主CI保持RUN_BROWSER=0；website-browser.yml两作业现在同样必须workflow_dispatch且run_browser=true，security_evidence分支也受该开关控制。没有授权时不手动dispatch。旧记录“官网仍需显式门禁”是历史，fc6a4984同推送的两个官网浏览器作业已整项skip、0步骤；静态检查/打包分别41530134226/41530134298成功，相关源码一致性已核对。保留所有原浏览器断言，不把skip当通过，不下载产物到本机。
+
+当前产品实施只覆盖UI源码与非浏览器CI。浏览器视觉与真实交互、七语言母语补译、独立全站质量审查、P2结构/部署脚本和发布/生产仍单列，不自动扩展。既有高级配置未知扩展、RateLimit特殊组名等待办仍保留。下面候选/未实施/最近旧绿是过程记录，以本节及实际CI为准。
+
 ## 最新完整绿：UI14 a0854607
 
 [CI41523884159](https://github.com/ForceMind/MyAPI/actions/runs/41523884159) attempt1 success，10作业成功/1浏览器与真实API作业跳过，全部步骤及前后端原始日志已读；认证/个人资料180/180、前端全量354文件2658/2658及同步/构建/types/lint通过（18警告0错误），后端/独立relaykit/386/全部既有race/三库/Redis/ClickHouse/分发/Desktop通过。38618父项/55条/5包，0skip/fail，后端失败/race标记0。后续f6b4f042仅测试；最近绿与应用源码绑定a085460769f2161eaad7facc1fd7e3f5a0db315a，不能把后续测试红或文档SHA当镜像源码。精确明细见TASKS，浏览器/真实服务/生产仍未执行。
