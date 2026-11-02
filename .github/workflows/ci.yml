@@ -588,6 +588,9 @@ jobs:
           bun run i18n:sync
           git -c core.fileMode=false diff --exit-code -- src/i18n/locales/en.json src/i18n/locales/zh.json src/i18n/locales/zh-TW.json src/i18n/locales/fr.json src/i18n/locales/ja.json src/i18n/locales/ru.json src/i18n/locales/vi.json
 
+      - name: Verify profile and authentication task contracts
+        run: bun run test src/features/profile src/features/auth src/components/__tests__/password-input-accessibility.test.tsx
+
       - name: Verify user, access policy and funding workspace contracts
         run: bun run test src/features/users src/features/access-policy src/features/subscriptions src/features/redemption-codes src/features/wallet
 

@@ -1,6 +1,8 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
-## 2026-11-03 UI13：用户、访问策略、钱包、订阅与兑换（候选待完整CI）
+## 2026-11-03 UI13：用户、访问策略、钱包、订阅与兑换（源码/完整CI通过）
+
+源码 `bed703aa3dd037ea01fc3057e1f72c04b722b51c` / [完整CI41518426080](https://github.com/ForceMind/MyAPI/actions/runs/41518426080) attempt1 success：10作业成功、1浏览器/真实API混合作业跳过，全部作业/步骤及前后端原始日志已读。用户/访问策略/资金专项29文件297/297、模型164/164、公开33/33、账号85/85、Key388/388、原连接209/209、日志410/410、全量347文件2585/2585通过；同步/构建/typecheck/lint通过（18警告0错误）。根模块/独立relaykit vet/build、原生/386、两模块全量、既有race、三库/Redis/ClickHouse/分发/Desktop门禁通过；386定向18父项/55条/5包全通过、0跳过，原始后端失败/race标记0。浏览器依赖与全部Chromium跳过；本机未安装依赖、构建测试或下载产物，未改生产/发真实模型与资金请求/发布/main。
 
 沿用实际users/assigned-access/wallet/subscriptions/redemptions及其surface线稿，不新建路由。旧源码测试aceab899 / [CI41505306749](https://github.com/ForceMind/MyAPI/actions/runs/41505306749)前端125482970293：29文件215通过/82失败，原始日志已读。37种用户/套餐/支付/转账/兑换写封装的401合成用例均自动刷新后重放并返回成功；403/成功精确方法与载荷、四个只读金额估算认证刷新保留。用户同表单双submit实际2次PUT、只读刷新覆盖姓名草稿、确认配额POST成功后读回GET失败的Unhandled Rejection已有红证据；其它用例包括失败确认缺alert、准确对象/布局标签缺失，逐项以首差异为准。
 
@@ -46,7 +48,7 @@ UI13候选2d1cedb1 / CI41510304200前端125500133503：专项29文件289通过/8
 | UI10 | 缺失模型、同步向导、冲突选择；完整值、跨页选择、取消/身份隔离、返回列表 | 源码321f0551 / 完整CI41494046963通过 |
 | UI11 | 部署列表、创建、详情、日志、配置、重命名、续期、删除确认；只改 UI 和写入不重放，不改报价算法或准入 | 源码321f0551 / 完整CI41494046963通过 |
 | UI12 | 连接与 Key 剩余编辑、高级配置和敏感操作弹层；复用已完成主页面，保留凭据/轮换/路由/预算 | 全部已列子批源码321f0551 / 完整CI41494046963通过 |
-| UI13 | 用户、访问策略、订阅、兑换与钱包；金额、订单、退款和独立确认保持 | 下一轮WIP；不计当前候选CI范围 |
+| UI13 | 用户、访问策略、订阅、兑换与钱包；金额、订单、退款和独立确认保持 | 源码bed703aa / 完整CI41518426080通过 |
 | UI14 | 个人资料、登录/恢复/OAuth；保留二步验证、Passkey、会话和账号删除流程 | 源码候选WIP；未进本轮CI |
 | UI15 | 设置的站点/认证/内容/安全等分区及编辑模式；共享导航、权限与草稿保护 | 20分区WIP；未进本轮CI |
 | UI16 | 设置的计费/模型/运维/集成/维护、配额写入与系统信息；保留价格、Root 权限、未知值及确认 | 待实施 |
@@ -460,3 +462,22 @@ UI 设计（`ui-design/DESIGN_DIRECTION.md` 第 11 节）：
 5. 自动更新的默认范围。
 
 - **UI首批收尾修正**：日期预设独立使用 `Current month` / “本月”，避免复用旧键 `This month` 的“本月获得”；七语言补键，本批总计22个。沿用四项预设精确日期断言，完整CI以本次提交为准；此前交接060c4acd的CI41017482486为10成功、1浏览器作业跳过。
+
+
+### 后续冻结候选与验证顺序（仍未完成）
+
+- UI14：个人资料/认证25个UI源与6个新UI测试10例、19新键已冻结；Root另准备auth/profile/passkey/2FA原调用的21组真实Axios401/403/成功合同与inline reset派发flag，原proof/flow_token/轮换/倒计时/自动copy保留。候选未入当前UI13 CI，不宣称已通过；下一步仅测试旧源取证，再推产品与译文。
+- UI15：20真实设置分区39个源（含四个内容集合的3个最小共享UI源）、5测试21例、9键冻结；保原保存时机、shared actor/frame/alive与dirty/成功ack，真实CAS 409显式Reload恢复，不改typed协议。唯一数值id0与unknown false/0保留，坏JSON不伪空。RateLimit新增__proto__原mutator边界仅记录为既有待办，本轮不称修复。
+- UI16：22真实分区及同页SystemInfo两Panel，20源6测试13例、11新键冻结；expr.md已读，原报价/倍率/变量/len/单位/阈值/覆盖算法与真实路由不改。Root另准备settings/systemInfo/customOAuth12组真实Axios合同和维护inline4调用保护，未入当前UI13 CI。
+- UI17：代理13源3测试10例、3键冻结；Root另有ModelsFilter复用单日历及2整合例、Chat active-key的actor cache/reveal scope与route文案/只读retry及2例WIP。Playground引擎/strict参数/附件/历史/编辑/abort保持；不发真实模型或学习任务。
+- UI18：公共/法律/榜单/Setup/错误/手机导航17源、2旧测试加强、3新测试6例、7键冻结；website只改styles.css两类布局，原成熟方向3/隔离/Setup unknown恢复/品牌/旧链接保留。Desktop tray/help实际为electron/main.js原生菜单与messageBox，只有只读映射，不新建web页、不改其重启/写配置/平台架构。
+- 最终API审查：55个可达派发点静态缺口已分类，Root亲核关键controller与入口后授权逐调用局部NoReplay与真实Axios合成。纯POST状态/preview/金额读取、数据库快照保原认证刷新；原request_id/operation_key/command_id/CAS/params/headers/signal与受理恢复不变，不改全局默认重试。无实际入口exports单列，不自动扩大。此为静态风险，未复现真实副作用。
+
+主Goal持续执行，不逐批等确认。所有后续源码/测试分路径隔离，先完当前完整CI，后续旧源红不当成可部署版本。任何浏览器/真实模型/生产/发布/main仍不执行；本机仅源读写与轻量Git/文本检查。
+
+
+### 收口交叉审查与必要补护（仅静态发现，未验收）
+
+独立只读交叉审查了另一代理UI14/16/17与Root少量WIP，不把子代理汇报当运行证明。UI14所查securityScope/清secret/验证选择与会话流程保留；报价/倍率/len/serializer及Root/商业门禁未发现差异。实际5项待修：PromptLearning三写NoReplay（已归55 API补护）；Dashboard models local state与flow/users query缺actor tuple隔离；performance cache_stats子字段缺失/null仍??0；performance提交期间新输入可能被旧snapshot reset；旧performance读取/GC等结果在actor/frame销毁后仍可提示并GET。授权同一UI目标最小修正后4项给独立审查代理，复用既有shared preserveSettingsEdits/actor/frame/alive，算法/单位/阈值/normalize/payload不改，真实deferred/逐字段null0/输入中保存合成待Actions；旧已发操作不能宣称撤销。
+
+55静态可达派发点的配置型补护计划仅16生产文件，源/tests分离：Channels常规13+显式探测/在线Codex10+敏感查看/凭据5、上游inline3、Key详情2、PromptLearning3、独立Settings10、其它usage-policy/access-policy-user/usage-review/full-content文件/Profile菜单语言9。Root已亲核Codex controller在线GET会采样/可刷新凭据，以及KeyActions与AccessPolicy user target默认配置，不能仅按HTTP GET/POST分类。纯POST get_key_status/assigned preview/金额估算与DB快照保原认证刷新，未使用exports单列不改。原proof headers、signal、CAS、operation_key/command_id/request_id与body不变，不改全局默认重试。两个新独立测试文件覆盖48 API点×401/403/成功与7实际入口，尚未运行/提交，不称已有真实重复副作用。
