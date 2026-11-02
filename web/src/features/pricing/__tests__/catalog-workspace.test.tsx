@@ -206,3 +206,19 @@ describe('model drawer saved-read updates', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'View model synthetic-model-01' })).toHaveFocus())
   })
 })
+
+describe('model catalog wire identity', () => {
+  it('returns focus to the chosen model when the pricing response contains model names without numeric IDs', async () => {
+    // model.Pricing serializes model_name and does not serialize a model id.
+    const wire = { ...populatedPricing, data: populatedPricing.data.slice(0, 2).map(({ id: _id, ...item }) => item) }
+    pricingRequest = async () => ({ data: wire as PricingData })
+    const user = userEvent.setup()
+    await renderCatalog()
+    const action = await screen.findByRole('button', { name: 'View model synthetic-model-02' })
+    await user.click(action)
+    await screen.findByRole('dialog')
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'View model synthetic-model-02' })).toHaveFocus())
+  })
+})
