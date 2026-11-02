@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils'
 import { getLobeIcon } from '@/lib/lobe-icon'
 
 import type { PricingModel } from '../types'
@@ -11,7 +12,7 @@ export function ModelCatalogIdentity(props: { model: PricingModel; heading?: 'h1
     <div className='flex min-w-0 items-start gap-2.5'>
       <span aria-hidden='true' className='bg-muted/40 flex size-9 shrink-0 items-center justify-center rounded-lg'>{icon || props.model.model_name.charAt(0).toUpperCase() || '?'}</span>
       <div className='min-w-0'>
-        <Name className='block font-mono font-semibold wrap-anywhere'>{props.model.model_name}</Name>
+        <Name className={cn('block font-mono font-semibold wrap-anywhere', props.heading === 'h1' && 'text-xl sm:text-2xl')}>{props.model.model_name}</Name>
         {props.model.vendor_name && <p className='text-muted-foreground mt-0.5 text-xs wrap-anywhere'>{props.model.vendor_name}</p>}
       </div>
     </div>

@@ -20,6 +20,8 @@ import type { Row } from '@tanstack/react-table'
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useMediaQuery } from '@/hooks/use-media-query'
+
 import {
   DataTableRow,
   MobileCardList,
@@ -46,6 +48,7 @@ export interface PricingTableProps {
 
 export function PricingTable(props: PricingTableProps) {
   const { t } = useTranslation()
+  const mobile = useMediaQuery('(max-width: 767px)')
   const {
     models,
     isLoading = false,
@@ -91,9 +94,7 @@ export function PricingTable(props: PricingTableProps) {
 
   return (
     <div className='space-y-4'>
-      <div className='md:hidden'><MobileCardList table={table} isLoading={isLoading} emptyTitle={t('No Models Found')} emptyDescription={t('No models match your current filters.')} /></div>
-      <div className='hidden min-w-0 md:block'>
-      <DataTableView
+      {mobile ? <MobileCardList table={table} isLoading={isLoading} emptyTitle={t('No Models Found')} emptyDescription={t('No models match your current filters.')} /> : <DataTableView
         table={table}
         isLoading={isLoading}
         emptyTitle={t('No Models Found')}
@@ -111,8 +112,7 @@ export function PricingTable(props: PricingTableProps) {
             onClick={() => handleRowClick(row.original)}
           />
         )}
-      />
-      </div>
+      />}
     </div>
   )
 }

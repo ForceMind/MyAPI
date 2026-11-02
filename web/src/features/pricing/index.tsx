@@ -102,8 +102,11 @@ export function Pricing() {
   const currentPage = Math.min(page, Math.max(1, Math.ceil(filteredModels.length / pageSize)))
   useReturnFocus({ attribute: 'data-pricing-model', settled: !isLoading, rows: filteredModels, requestedId: catalogSearch.focusId, fallback: headingRef })
   const handleModelClick = useCallback((modelName: string) => {
-    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const model = models.find((item) => item.model_name === modelName)
+    const active = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    openerRef.current = active?.getAttribute('data-pricing-model') === String(model?.id)
+      ? active
+      : document.querySelector<HTMLElement>(`[data-pricing-model="${model?.id}"]`)
     if (model) rememberFocus('data-pricing-model', model.id)
     setSelectedModelName(modelName)
   }, [models, rememberFocus])
