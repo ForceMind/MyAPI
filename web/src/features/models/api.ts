@@ -154,7 +154,7 @@ export async function getVendor(id: number): Promise<GetVendorResponse> {
 export async function createVendor(
   data: Partial<Vendor>
 ): Promise<{ success: boolean; message?: string; data?: Vendor }> {
-  const res = await api.post('/api/vendors/', data)
+  const res = await api.post('/api/vendors/', data, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -260,7 +260,7 @@ export async function createPrefillGroup(data: {
   items: string | string[]
   description?: string
 }): Promise<{ success: boolean; message?: string }> {
-  const res = await api.post('/api/prefill_group', data)
+  const res = await api.post('/api/prefill_group', data, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -274,7 +274,7 @@ export async function updatePrefillGroup(data: {
   items?: string | string[]
   description?: string
 }): Promise<{ success: boolean; message?: string }> {
-  const res = await api.put('/api/prefill_group', data)
+  const res = await api.put('/api/prefill_group', data, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -284,7 +284,7 @@ export async function updatePrefillGroup(data: {
 export async function deletePrefillGroup(
   id: number
 ): Promise<{ success: boolean; message?: string }> {
-  const res = await api.delete(`/api/prefill_group/${id}`)
+  const res = await api.delete(`/api/prefill_group/${id}`, { skipAuthRefresh: true })
   return res.data
 }
 

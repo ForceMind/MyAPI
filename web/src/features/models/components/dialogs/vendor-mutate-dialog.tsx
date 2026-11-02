@@ -20,7 +20,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Cancel01Icon, Loading03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -73,6 +73,7 @@ export function VendorMutateDialog({
   const isEdit = Boolean(currentVendor?.id)
   const [isSaving, setIsSaving] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const savingRef = useRef(false)
 
   const form = useForm({
     resolver: zodResolver(vendorFormSchema),
@@ -106,6 +107,8 @@ export function VendorMutateDialog({
   }, [open, isEdit, currentVendor, form])
 
   const onSubmit = async (values: Record<string, unknown>) => {
+    if (savingRef.current) return
+    savingRef.current = true
     setIsSaving(true)
     setSubmitError(null)
     try {
@@ -136,6 +139,7 @@ export function VendorMutateDialog({
       setSubmitError(message)
       toast.error(message)
     } finally {
+      savingRef.current = false
       setIsSaving(false)
     }
   }

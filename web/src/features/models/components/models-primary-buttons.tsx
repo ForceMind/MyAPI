@@ -51,11 +51,13 @@ export function ModelsPrimaryButtons() {
   }
 
   const handlePrefillGroups = () => {
+    rememberOpener({ kind: 'tools' })
     setOpen('prefill-groups')
   }
 
   const handleManageVendors = () => {
-    setOpen('create-vendor') // Will be a separate vendors management dialog
+    rememberOpener({ kind: 'tools' })
+    setOpen('create-vendor')
   }
 
   return (
@@ -74,6 +76,7 @@ export function ModelsPrimaryButtons() {
               variant='outline'
               size='sm'
               aria-label={t('More actions')}
+              data-model-tools
               className='min-h-11 min-w-11'
             />
           }
@@ -105,7 +108,7 @@ export function ModelsPrimaryButtons() {
           </DropdownMenuItem>
 
           <DropdownMenuItem onClick={handleManageVendors}>
-            {t('Manage Vendors')}
+            {t('Add vendor')}
             <DropdownMenuShortcut>
               <HugeiconsIcon icon={DashboardSquare01Icon} aria-hidden='true' className='h-4 w-4' />
             </DropdownMenuShortcut>

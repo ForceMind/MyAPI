@@ -91,7 +91,7 @@ function ModelsSessionProvider({ children }: { children: React.ReactNode }) {
   const opener = useRef<{ element: HTMLElement | null; target: ModelActionTarget } | null>(null)
   const rememberOpener = useCallback((target: ModelActionTarget) => {
     const active = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null
-    opener.current = { element: active, target }
+    opener.current = { element: target.kind === 'tools' ? findModelAction(target) : active, target }
   }, [])
   const returnFocus = useCallback(() => {
     const remembered = opener.current

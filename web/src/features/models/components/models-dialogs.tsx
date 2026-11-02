@@ -51,6 +51,7 @@ export function ModelsDialogs() {
         open={open === 'create-vendor' || open === 'update-vendor'}
         onOpenChange={(v) => !v && setOpen(null)}
         currentVendor={open === 'update-vendor' ? currentVendor : null}
+        returnFocus={returnFocus}
       />
 
       {/* Missing Models Dialog */}
@@ -73,6 +74,7 @@ export function ModelsDialogs() {
 
       {/* Prefill Groups Management */}
       <PrefillGroupManagement
+        returnFocus={returnFocus}
         open={open === 'prefill-groups'}
         onOpenChange={(v) => !v && setOpen(null)}
       />

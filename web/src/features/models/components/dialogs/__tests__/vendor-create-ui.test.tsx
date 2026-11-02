@@ -67,7 +67,7 @@ it('creates the exact vendor payload with its hidden default status and refreshe
   await user.type(screen.getByLabelText('Description'), 'Complete vendor description')
   await user.click(within(dialog).getByRole('button', { name: 'Create' }))
   await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
-  expect(post).toHaveBeenCalledWith('/api/vendors/', { name: 'Synthetic vendor', icon: 'OpenAI', description: 'Complete vendor description', status: 1 })
+  expect(post).toHaveBeenCalledWith('/api/vendors/', { name: 'Synthetic vendor', icon: 'OpenAI', description: 'Complete vendor description', status: 1 }, { skipAuthRefresh: true })
   expect(put).not.toHaveBeenCalled()
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   await waitFor(() => expect(screen.getByLabelText('Vendor list total')).toHaveTextContent('2'))
@@ -93,7 +93,7 @@ it('keeps a duplicate-name failure beside the draft and allows the same fields t
   await user.type(screen.getByLabelText('Vendor Name *'), 'Corrected vendor')
   await user.click(screen.getByRole('button', { name: 'Create', exact: true }))
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-  expect(post).toHaveBeenLastCalledWith('/api/vendors/', { name: 'Corrected vendor', icon: 'Anthropic', description: 'Keep this draft after a failure', status: 1 })
+  expect(post).toHaveBeenLastCalledWith('/api/vendors/', { name: 'Corrected vendor', icon: 'Anthropic', description: 'Keep this draft after a failure', status: 1 }, { skipAuthRefresh: true })
 })
 
 it('keeps a transport failure visible while retaining all entered fields', async () => {

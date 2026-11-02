@@ -25,6 +25,7 @@ import { PrefillGroupManagementDialog } from './prefill-group-management-dialog'
 type PrefillGroupManagementProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
+  returnFocus?: () => HTMLElement | null
 }
 
 type PrefillView = 'dialog' | 'drawer'
@@ -32,6 +33,7 @@ type PrefillView = 'dialog' | 'drawer'
 export function PrefillGroupManagement({
   open,
   onOpenChange,
+  returnFocus,
 }: PrefillGroupManagementProps) {
   const [view, setView] = useState<PrefillView>('dialog')
   const [currentGroup, setCurrentGroup] = useState<PrefillGroup | null>(null)
@@ -70,11 +72,13 @@ export function PrefillGroupManagement({
         onOpenChange={handleDialogOpenChange}
         onCreateGroup={() => handleShowDrawer(null)}
         onEditGroup={(group) => handleShowDrawer(group)}
+        returnFocus={returnFocus}
       />
       <PrefillGroupFormDrawer
         open={open && view === 'drawer'}
         onClose={handleDrawerClose}
         currentGroup={currentGroup}
+        returnFocus={() => null}
       />
     </>
   )
