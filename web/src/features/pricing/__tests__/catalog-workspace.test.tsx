@@ -71,7 +71,7 @@ const populatedPricing: PricingData = {
 describe('model catalog shared navigation', () => {
   beforeEach(() => { pricingRequest = async () => ({ data: populatedPricing }) })
 
-  it('keeps the current page across card and table views and changes page size through one paginator', async () => {
+  it('keeps the current page across card and table views', async () => {
     const user = userEvent.setup()
     const { router } = await renderCatalog('/pricing?page=2')
     const firstVisibleModel = await screen.findByRole('button', { name: 'View model synthetic-model-21' })
@@ -80,6 +80,16 @@ describe('model catalog shared navigation', () => {
     await waitFor(() => expect(router.state.location.search).toMatchObject({ page: 2, view: 'table' }))
     expect(screen.getByRole('button', { name: 'View model synthetic-model-21' })).toBeVisible()
     expect(screen.queryByRole('button', { name: 'View model synthetic-model-01' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Card view' }))
+    expect(await screen.findByRole('button', { name: 'View model synthetic-model-21' })).toBeVisible()
+    expect(router.state.location.search.page).toBe(2)
+  })
+
+  it('resets the shared page when page size changes and retains the new size across views', async () => {
+    const user = userEvent.setup()
+    const { router } = await renderCatalog('/pricing?page=2&view=table')
+    const firstVisibleModel = await screen.findByRole('button', { name: 'View model synthetic-model-21' })
+    await waitFor(() => expect(firstVisibleModel).toBeVisible())
     const pagination = screen.getByRole('navigation', { name: 'Model catalog pagination' })
     await user.selectOptions(within(pagination).getByRole('combobox'), '50')
     await waitFor(() => expect(router.state.location.search).toMatchObject({ pageSize: 50 }))
