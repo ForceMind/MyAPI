@@ -19,7 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Link } from '@tanstack/react-router'
 import axios from 'axios'
-import { Loader2, LogIn, KeyRound } from 'lucide-react'
+import { Key01Icon, Loading03Icon, Login01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -323,9 +324,9 @@ export function UserAuthForm({
             className='h-11 w-full justify-center gap-2 rounded-lg'
           >
             {isPasskeyLoading ? (
-              <Loader2 className='h-4 w-4 animate-spin' />
+              <HugeiconsIcon icon={Loading03Icon} className='h-4 w-4 animate-spin' />
             ) : (
-              <KeyRound className='h-4 w-4' />
+              <HugeiconsIcon icon={Key01Icon} className='h-4 w-4' />
             )}
             {t('Sign in with Passkey')}
           </Button>
@@ -352,7 +353,7 @@ export function UserAuthForm({
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className={cn('grid gap-4', className)}
+        className={cn('grid gap-4 [&_[data-slot=input]]:min-h-11 [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:whitespace-normal', className)}
         {...props}
       >
         {hasAlternativeLogin && alternativeLoginMethods}
@@ -407,7 +408,7 @@ export function UserAuthForm({
               className='mt-2 w-full justify-center gap-2'
               disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
             >
-              {isLoading ? <Loader2 className='animate-spin' /> : <LogIn />}
+              {isLoading ? <HugeiconsIcon icon={Loading03Icon} className='animate-spin' /> : <HugeiconsIcon icon={Login01Icon} />}
               {t('Sign in')}
             </Button>
 
@@ -443,7 +444,7 @@ export function UserAuthForm({
           description={t(
             'Scan the QR code to follow the official account and reply with “验证码” to receive your verification code.'
           )}
-          contentClassName='max-w-sm'
+          contentClassName='max-w-sm [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'
           headerClassName='text-left'
           contentHeight='auto'
           bodyClassName='space-y-4'
@@ -468,7 +469,7 @@ export function UserAuthForm({
                 className='gap-2'
               >
                 {isWeChatSubmitting ? (
-                  <Loader2 className='h-4 w-4 animate-spin' />
+                  <HugeiconsIcon icon={Loading03Icon} className='h-4 w-4 animate-spin' />
                 ) : null}
                 {t('Confirm')}
               </Button>

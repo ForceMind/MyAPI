@@ -17,7 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useNavigate } from '@tanstack/react-router'
-import { AlertTriangle, Loader2 } from 'lucide-react'
+import { Alert02Icon, Loading03Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -114,14 +115,14 @@ export function DeleteAccountDialog({
       onOpenChange={handleOpenChange}
       title={
         <>
-          <AlertTriangle className='h-5 w-5' />
+          <HugeiconsIcon icon={Alert02Icon} className='h-5 w-5' />
           {t('Delete Account')}
         </>
       }
       description={t(
         'This action cannot be undone. This will permanently delete your account and remove all your data from our servers.'
       )}
-      contentClassName='sm:max-w-md'
+      contentClassName='sm:max-w-md [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'
       titleClassName='text-destructive flex items-center gap-2'
       contentHeight='auto'
       showCloseButton={!loading}
@@ -142,15 +143,16 @@ export function DeleteAccountDialog({
             onClick={handleDelete}
             disabled={loading || confirmation !== username}
           >
-            {loading && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+            {loading && <HugeiconsIcon icon={Loading03Icon} className='mr-2 h-4 w-4 animate-spin' />}
             {loading ? t('Deleting...') : t('Delete Account')}
           </Button>
         </>
       }
     >
+      <section role='region' tabIndex={0} aria-label={t('Account security details')} className='min-w-0 [overflow-wrap:anywhere] [&_code]:break-all [&_code]:whitespace-pre-wrap'>
       <div className='my-6 space-y-4'>
         <Alert variant='destructive'>
-          <AlertTriangle className='h-4 w-4' />
+          <HugeiconsIcon icon={Alert02Icon} className='h-4 w-4' />
           <AlertDescription>
             {t('Warning: This action is permanent and irreversible!')}
           </AlertDescription>
@@ -171,6 +173,7 @@ export function DeleteAccountDialog({
           />
         </div>
       </div>
+      </section>
     </Dialog>
   )
 }

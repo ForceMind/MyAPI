@@ -97,7 +97,7 @@ export function WeChatBindDialog(props: WeChatBindDialogProps) {
         'Scan the QR code to follow the official account and reply with “验证码” to receive your verification code.'
       )}
       showCloseButton={!submitting}
-      contentClassName='max-w-sm'
+      contentClassName='max-w-sm [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'
       contentHeight='auto'
       bodyClassName='space-y-4'
       footer={
@@ -121,6 +121,7 @@ export function WeChatBindDialog(props: WeChatBindDialogProps) {
         </>
       }
     >
+      <section role='region' tabIndex={0} aria-label={t('Account security details')} className='min-w-0 [overflow-wrap:anywhere] [&_code]:break-all [&_code]:whitespace-pre-wrap'>
       <form id='wechat-bind-form' onSubmit={handleSubmit}>
         <FieldGroup>
           {props.qrCodeUrl ? (
@@ -153,6 +154,7 @@ export function WeChatBindDialog(props: WeChatBindDialogProps) {
           </Field>
         </FieldGroup>
       </form>
+      </section>
     </Dialog>
   )
 }

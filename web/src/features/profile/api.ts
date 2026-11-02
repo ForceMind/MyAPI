@@ -86,7 +86,7 @@ export async function updateUserProfile(
 ): Promise<ApiResponse> {
   const res = await api.put('/api/user/self', data, {
     acceptAuthRotation: Boolean(data.password),
-    skipAuthRefresh: Boolean(data.password),
+    skipAuthRefresh: true,
     skipErrorHandler: Boolean(data.password),
     skipBusinessError: Boolean(data.password),
     signal,
@@ -100,7 +100,7 @@ export async function updateUserProfile(
 export async function updateUserSettings(
   data: UpdateUserSettingsRequest
 ): Promise<ApiResponse> {
-  const res = await api.put('/api/user/setting', data)
+  const res = await api.put('/api/user/setting', data, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -110,7 +110,7 @@ export async function updateUserSettings(
 export async function updateUserLanguage(
   language: string
 ): Promise<ApiResponse> {
-  const res = await api.put('/api/user/self', { language })
+  const res = await api.put('/api/user/self', { language }, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -624,6 +624,6 @@ export async function performCheckin(
   const url = turnstileToken
     ? `/api/user/checkin?turnstile=${encodeURIComponent(turnstileToken)}`
     : '/api/user/checkin'
-  const res = await api.post(url)
+  const res = await api.post(url, undefined, { skipAuthRefresh: true })
   return res.data
 }

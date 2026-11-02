@@ -7413,6 +7413,25 @@
     "Redemption codes pagination": "兑换码分页",
     "Redemption code records": "兑换码记录",
     "No redemption codes on this page": "当前页没有兑换码",
-    "The returned page is empty. The record total is unavailable.": "当前返回页为空，记录总数不可用。"
+    "The returned page is empty. The record total is unavailable.": "当前返回页为空，记录总数不可用。",
+    "Account security details": "账户安全详情",
+    "Additional verification required": "需要额外验证",
+    "Authenticator or backup code": "动态验证码或备用码",
+    "Confirm your identity before accessing this sensitive action.": "访问敏感操作前请确认身份。",
+    "Copy password": "复制密码",
+    "Device": "设备",
+    "Enable Two-factor Authentication or Passkey in your profile settings to continue.": "请在个人资料设置中启用双重身份验证或通行密钥后继续。",
+    "IP address": "IP 地址",
+    "Invalid OAuth bindings response": "OAuth 绑定响应无效",
+    "Last active": "最后活动时间",
+    "Loading account bindings...": "正在加载账户绑定…",
+    "Login method": "登录方式",
+    "Password copied to clipboard": "密码已复制到剪贴板",
+    "Password reset and copied to clipboard": "密码已重置并复制到剪贴板",
+    "Password reset successfully": "密码重置成功",
+    "Step {{step}} of 3: {{label}}": "第 {{step}} 步，共 3 步：{{label}}",
+    "Toggle password visibility": "切换密码可见性",
+    "Unable to load OAuth bindings": "无法加载 OAuth 绑定",
+    "Verification unavailable": "验证不可用"
   }
 }

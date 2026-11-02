@@ -20,7 +20,7 @@ import { Logout01Icon, SmartPhone01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { useState, type ReactNode } from 'react'
+import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -64,6 +64,9 @@ export function LoginSessionsCard(props: LoginSessionsCardProps) {
   const queryClient = useQueryClient()
   const [revokeTarget, setRevokeTarget] = useState<LoginSession | null>(null)
   const [confirmOthers, setConfirmOthers] = useState(false)
+  const opener = useRef<HTMLElement | null>(null)
+  const heading = useRef<HTMLHeadingElement | null>(null)
+  const returnFocus = useCallback(() => opener.current?.isConnected ? opener.current : heading.current, [])
   const revokeScope = useSecurityRequestScope(props.securityScopeKey)
   const revokeOthersScope = useSecurityRequestScope(props.securityScopeKey)
   const sessionQueryKey = [
@@ -82,6 +85,17 @@ export function LoginSessionsCard(props: LoginSessionsCardProps) {
       return response.data ?? []
     },
   })
+
+  const describeSessionError = (error: Error) => {
+    let message = error.message
+    for (const session of sessionsQuery.data ?? []) {
+      if (session.sid) {
+        const replacement = `[${t('Session')}]`
+        message = message.replaceAll(session.sid, replacement).replaceAll(encodeURIComponent(session.sid), replacement)
+      }
+    }
+    return message
+  }
 
   const revokeMutation = useMutation({
     mutationFn: async (sid: string) => {
@@ -109,7 +123,7 @@ export function LoginSessionsCard(props: LoginSessionsCardProps) {
       toast.success(t('Session signed out'))
       await queryClient.invalidateQueries({ queryKey: sessionQueryKey })
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => toast.error(describeSessionError(error)),
   })
 
   const revokeOthersMutation = useMutation({
@@ -132,7 +146,7 @@ export function LoginSessionsCard(props: LoginSessionsCardProps) {
       toast.success(t('Other sessions signed out'))
       await queryClient.invalidateQueries({ queryKey: sessionQueryKey })
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => toast.error(describeSessionError(error)),
   })
 
   const sessions = sessionsQuery.data ?? []
@@ -183,7 +197,7 @@ export function LoginSessionsCard(props: LoginSessionsCardProps) {
         {sessions.map((session, index) => (
           <div key={session.sid}>
             {index > 0 && <Separator />}
-            <LoginSessionItem session={session} onRevoke={setRevokeTarget} />
+            <LoginSessionItem session={session} onRevoke={(target) => { opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; revokeMutation.reset(); setRevokeTarget(target) }} />
           </div>
         ))}
       </div>
@@ -195,7 +209,7 @@ export function LoginSessionsCard(props: LoginSessionsCardProps) {
       <Card data-card-hover='false'>
         <CardHeader className='has-data-[slot=card-action]:grid-cols-1 lg:has-data-[slot=card-action]:grid-cols-[1fr_auto]'>
           <CardTitle>
-            <h2>{t('Login sessions')}</h2>
+            <h2 ref={heading} tabIndex={-1}>{t('Login sessions')}</h2>
           </CardTitle>
           <CardDescription>
             {t('Review and sign out devices currently using your account.')}
@@ -207,7 +221,7 @@ export function LoginSessionsCard(props: LoginSessionsCardProps) {
               size='sm'
               className='h-auto w-full whitespace-normal lg:w-auto'
               disabled={!hasOtherSessions || revokeOthersMutation.isPending}
-              onClick={() => setConfirmOthers(true)}
+              onClick={() => { opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; revokeOthersMutation.reset(); setConfirmOthers(true) }}
             >
               <HugeiconsIcon
                 icon={Logout01Icon}
@@ -222,6 +236,9 @@ export function LoginSessionsCard(props: LoginSessionsCardProps) {
       </Card>
 
       <LoginSessionDialogs
+        returnFocus={returnFocus}
+        revokeError={revokeMutation.error instanceof Error ? describeSessionError(revokeMutation.error) : null}
+        revokeOthersError={revokeOthersMutation.error instanceof Error ? describeSessionError(revokeOthersMutation.error) : null}
         revokeTarget={revokeTarget}
         confirmOthers={confirmOthers}
         revoking={revokeMutation.isPending}

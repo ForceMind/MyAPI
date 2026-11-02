@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { AlertTriangle, KeyRound, Loader2, ShieldAlert } from 'lucide-react'
+import { Alert02Icon, Key01Icon, Loading03Icon, Shield01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -200,7 +201,7 @@ export function PasskeyCard({
 
   if (pageLoading || loading) {
     return (
-      <Card data-card-hover='false'>
+      <Card data-card-hover='false' className='[&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11'>
         <CardHeader>
           <Skeleton className='h-5 w-48' />
           <Skeleton className='h-4 w-64' />
@@ -214,7 +215,7 @@ export function PasskeyCard({
 
   if (error || !status) {
     return (
-      <Card data-card-hover='false'>
+      <Card data-card-hover='false' className='[&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11'>
         <CardHeader>
           <CardTitle>
             <h2>{t('Passkey Login')}</h2>
@@ -261,7 +262,7 @@ export function PasskeyCard({
 
   return (
     <>
-      <Card data-card-hover='false'>
+      <Card data-card-hover='false' className='[&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11'>
         <CardHeader>
           <CardTitle>
             <h2>{t('Passkey Login')}</h2>
@@ -276,7 +277,7 @@ export function PasskeyCard({
             <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between xl:flex-col 2xl:flex-row'>
               <div className='flex items-start gap-4'>
                 <IconBadge tone='info' size='sm'>
-                  <KeyRound />
+                  <HugeiconsIcon icon={Key01Icon} />
                 </IconBadge>
                 <div className='space-y-1'>
                   <div className='flex flex-wrap items-center gap-2'>
@@ -309,7 +310,7 @@ export function PasskeyCard({
                   disabled={!supported || registering}
                 >
                   {registering && (
-                    <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                    <HugeiconsIcon icon={Loading03Icon} className='mr-2 h-4 w-4 animate-spin' />
                   )}
                   {t('Enable Passkey')}
                 </Button>
@@ -334,24 +335,26 @@ export function PasskeyCard({
                     }
                   >
                     {removing ? (
-                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                      <HugeiconsIcon icon={Loading03Icon} className='mr-2 h-4 w-4 animate-spin' />
                     ) : (
-                      <AlertTriangle className='mr-2 h-4 w-4' />
+                      <HugeiconsIcon icon={Alert02Icon} className='mr-2 h-4 w-4' />
                     )}
                     {t('Remove Passkey')}
                   </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
+                  <AlertDialogContent className='flex max-h-[calc(100dvh-2rem)] min-w-0 flex-col gap-0 overflow-hidden p-0 [&_button]:min-h-11 [&_button]:min-w-11'>
+                    <AlertDialogHeader className='shrink-0 border-b px-4 py-4 sm:px-6'>
                       <AlertDialogTitle>
                         {t('Remove Passkey?')}
                       </AlertDialogTitle>
+                    </AlertDialogHeader>
+                    <section role='region' tabIndex={0} aria-label={t('Confirmation details')} className='min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [overflow-wrap:anywhere] sm:px-6'>
                       <AlertDialogDescription>
                         {t(
                           'Removing Passkey will require you to sign in with your password next time. You can re-register anytime.'
                         )}
                       </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
+                    </section>
+                    <AlertDialogFooter className='m-0 shrink-0 border-t px-4 py-4 sm:px-6'>
                       <AlertDialogCancel disabled={removing}>
                         {t('Cancel')}
                       </AlertDialogCancel>
@@ -373,7 +376,7 @@ export function PasskeyCard({
 
             {showUnsupportedNotice && (
               <div className='bg-muted/60 text-muted-foreground flex items-start gap-3 rounded-md p-4 text-sm'>
-                <ShieldAlert className='text-warning mt-0.5 h-4 w-4 flex-shrink-0' />
+                <HugeiconsIcon icon={Shield01Icon} className='text-warning mt-0.5 h-4 w-4 flex-shrink-0' />
                 <div>
                   <p className='text-foreground font-medium'>
                     {t('Passkey not supported on this device')}

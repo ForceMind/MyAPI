@@ -17,7 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useNavigate } from '@tanstack/react-router'
-import { CheckIcon, CopyIcon } from 'lucide-react'
+import { Copy01Icon, Tick02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -67,6 +68,7 @@ export function ResetPasswordConfirm({
     try {
       const res = await api.post('/api/user/reset', { email, token }, {
         skipBusinessError: true,
+        skipAuthRefresh: true,
       } as Record<string, unknown>)
 
       if (res?.data?.success) {
@@ -75,12 +77,10 @@ export function ResetPasswordConfirm({
         const copySuccess = await copyToClipboard(password)
         if (copySuccess) {
           toast.success(
-            t('Password reset and copied to clipboard: {{password}}', {
-              password,
-            })
+            t('Password reset and copied to clipboard')
           )
         } else {
-          toast.success(t('Password reset: {{password}}', { password }))
+          toast.success(t('Password reset successfully'))
         }
       }
     } catch {
@@ -97,9 +97,7 @@ export function ResetPasswordConfirm({
     if (copySuccess) {
       setCopied(true)
       toast.success(
-        t('Password copied to clipboard: {{password}}', {
-          password: newPassword,
-        })
+        t('Password copied to clipboard')
       )
       setTimeout(() => setCopied(false), 2000)
     }
@@ -122,7 +120,7 @@ export function ResetPasswordConfirm({
 
   return (
     <AuthLayout>
-      <div className='w-full space-y-8'>
+      <div className='w-full space-y-8 [&_[data-slot=input]]:min-h-11 [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=button]]:whitespace-normal'>
         <div className='space-y-2'>
           <h2 className='text-2xl leading-8 font-semibold tracking-tight wrap-break-word'>
             {t('Reset password')}
@@ -169,11 +167,12 @@ export function ResetPasswordConfirm({
                   size='icon'
                   variant='outline'
                   onClick={handleCopy}
+                  aria-label={t('Copy password')}
                 >
                   {copied ? (
-                    <CheckIcon className='h-4 w-4' />
+                    <HugeiconsIcon icon={Tick02Icon} className='h-4 w-4' />
                   ) : (
-                    <CopyIcon className='h-4 w-4' />
+                    <HugeiconsIcon icon={Copy01Icon} className='h-4 w-4' />
                   )}
                 </Button>
               </div>

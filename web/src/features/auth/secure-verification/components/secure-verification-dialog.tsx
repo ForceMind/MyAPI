@@ -16,13 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ShieldCheck, KeyRound, Loader2 } from 'lucide-react'
-import { useMemo } from 'react'
+import { Key01Icon, Loading03Icon, Shield01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useId, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import type {
@@ -53,6 +55,7 @@ export function SecureVerificationDialog({
   onMethodChange,
 }: SecureVerificationDialogProps) {
   const { t } = useTranslation()
+  const codeId = useId()
   const availableTabs: VerificationMethod[] = useMemo(() => {
     const tabs: VerificationMethod[] = []
     if (methods.has2FA) tabs.push('2fa')
@@ -66,14 +69,14 @@ export function SecureVerificationDialog({
   const title =
     state.title ??
     (availableTabs.length
-      ? 'Additional verification required'
-      : 'Verification unavailable')
+      ? t('Additional verification required')
+      : t('Verification unavailable'))
 
   const description =
     state.description ??
     (availableTabs.length
-      ? 'Confirm your identity before accessing this sensitive action.'
-      : 'Enable Two-factor Authentication or Passkey in your profile settings to continue.')
+      ? t('Confirm your identity before accessing this sensitive action.')
+      : t('Enable Two-factor Authentication or Passkey in your profile settings to continue.'))
 
   const handleVerify = () => {
     if (!activeMethod) return
@@ -88,15 +91,15 @@ export function SecureVerificationDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(nextOpen) => { if (nextOpen || !state.loading) onOpenChange(nextOpen) }}
       title={
         <>
-          <ShieldCheck className='text-primary h-5 w-5' />
+          <HugeiconsIcon icon={Shield01Icon} className='text-primary h-5 w-5' />
           {title}
         </>
       }
       description={description}
-      contentClassName='top-[8vh] max-w-[calc(100%-1.5rem)] translate-y-0 overflow-hidden border-none shadow-xl sm:top-1/2 sm:max-w-md sm:translate-y-[-50%] sm:rounded-xl'
+      contentClassName='top-[8vh] max-w-[calc(100%-1.5rem)] translate-y-0 overflow-hidden border-none shadow-xl sm:top-1/2 sm:max-w-md sm:translate-y-[-50%] sm:rounded-xl [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'
       headerClassName='border-b pb-4 text-left'
       titleClassName='flex items-center gap-2 text-lg font-semibold'
       descriptionClassName='text-left'
@@ -119,16 +122,17 @@ export function SecureVerificationDialog({
             onClick={handleVerify}
             disabled={availableTabs.length === 0 || verifyDisabled}
           >
-            {state.loading && <Loader2 className='h-4 w-4 animate-spin' />}
+            {state.loading && <HugeiconsIcon icon={Loading03Icon} className='h-4 w-4 animate-spin' />}
             {t('Verify')}
           </Button>
         </>
       }
     >
+      <section role='region' tabIndex={0} aria-label={t('Account security details')} className='min-w-0 [overflow-wrap:anywhere]'>
       {availableTabs.length === 0 ? (
         <div className='grid place-items-center gap-4 text-center'>
           <div className='bg-muted flex h-16 w-16 items-center justify-center rounded-2xl'>
-            <ShieldCheck className='text-muted-foreground h-8 w-8' />
+            <HugeiconsIcon icon={Shield01Icon} className='text-muted-foreground h-8 w-8' />
           </div>
           <p className='text-muted-foreground text-sm'>
             {t(
@@ -144,10 +148,10 @@ export function SecureVerificationDialog({
         >
           <TabsList>
             {methods.has2FA && (
-              <TabsTrigger value='2fa'>{t('Authenticator code')}</TabsTrigger>
+              <TabsTrigger className='min-h-11 whitespace-normal' value='2fa'>{t('Authenticator code')}</TabsTrigger>
             )}
             {methods.hasPasskey && methods.passkeySupported && (
-              <TabsTrigger value='passkey'>{t('Passkey')}</TabsTrigger>
+              <TabsTrigger className='min-h-11 whitespace-normal' value='passkey'>{t('Passkey')}</TabsTrigger>
             )}
           </TabsList>
 
@@ -157,8 +161,10 @@ export function SecureVerificationDialog({
                 'Enter the 6-digit Time-based One-Time Password or 8-character backup code from your authenticator app.'
               )}
             </p>
+            <Label htmlFor={codeId}>{t('Authenticator or backup code')}</Label>
             <Input
-              inputMode='numeric'
+              id={codeId}
+              inputMode='text'
               maxLength={8}
               value={state.code}
               onChange={(event) => onCodeChange(event.target.value)}
@@ -177,7 +183,7 @@ export function SecureVerificationDialog({
           <TabsContent value='passkey' className='space-y-4'>
             <div className='bg-muted/50 flex items-center justify-center rounded-lg p-4'>
               <div className='text-muted-foreground flex items-center gap-3'>
-                <KeyRound className='text-primary h-6 w-6' />
+                <HugeiconsIcon icon={Key01Icon} className='text-primary h-6 w-6' />
                 <div className='text-left text-sm'>
                   <p className='text-foreground font-medium'>
                     {t('Use your Passkey')}
@@ -198,6 +204,7 @@ export function SecureVerificationDialog({
           </TabsContent>
         </Tabs>
       )}
+      </section>
     </Dialog>
   )
 }

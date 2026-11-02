@@ -7413,6 +7413,25 @@
     "Redemption codes pagination": "Redemption codes pagination",
     "Redemption code records": "Redemption code records",
     "No redemption codes on this page": "No redemption codes on this page",
-    "The returned page is empty. The record total is unavailable.": "The returned page is empty. The record total is unavailable."
+    "The returned page is empty. The record total is unavailable.": "The returned page is empty. The record total is unavailable.",
+    "Account security details": "Account security details",
+    "Additional verification required": "Additional verification required",
+    "Authenticator or backup code": "Authenticator or backup code",
+    "Confirm your identity before accessing this sensitive action.": "Confirm your identity before accessing this sensitive action.",
+    "Copy password": "Copy password",
+    "Device": "Device",
+    "Enable Two-factor Authentication or Passkey in your profile settings to continue.": "Enable Two-factor Authentication or Passkey in your profile settings to continue.",
+    "IP address": "IP address",
+    "Invalid OAuth bindings response": "Invalid OAuth bindings response",
+    "Last active": "Last active",
+    "Loading account bindings...": "Loading account bindings...",
+    "Login method": "Login method",
+    "Password copied to clipboard": "Password copied to clipboard",
+    "Password reset and copied to clipboard": "Password reset and copied to clipboard",
+    "Password reset successfully": "Password reset successfully",
+    "Step {{step}} of 3: {{label}}": "Step {{step}} of 3: {{label}}",
+    "Toggle password visibility": "Toggle password visibility",
+    "Unable to load OAuth bindings": "Unable to load OAuth bindings",
+    "Verification unavailable": "Verification unavailable"
   }
 }

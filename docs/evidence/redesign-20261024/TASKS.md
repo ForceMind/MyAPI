@@ -1,5 +1,14 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-03 UI14：个人资料与认证（候选待完整CI）
+
+旧源测试2e02c062 / [CI41523236626](https://github.com/ForceMind/MyAPI/actions/runs/41523236626)前端125544280381已读原始日志：27文件152通过/28失败。18组认证/邮件/挑战/凭据操作401后认证自动重放，403与成功原参数/Proof/轮换合同保留；Reset假口令确实进入success toast；验证和单个/其它会话pending时Escape实际调用close；绑定读取错误无alert、密码可见性无pressed、其余新region/field标签处首差异保留，不声称全部后续断言已独立复现。无真实重置/泄露/邮件/凭据操作。
+
+候选仅25个UI源、4个API源与19新键：实际Profile卡片单页与原AuthLayout/OAuth44按钮保留，不生成假路由；敏感操作原security scope/2FA-Passkey选择/proof/flow_token/redirect/步骤/关闭清secret/30秒倒计时不改。自定义绑定失败Unknown+显式Retry，成功真空才Not bound；内置绑定来自实际profile，不伪未知。Session确认准确设备/IP/方法/最后活动/current，不展示完整SID，pending禁误关、失败保对象。密码Reset只去3条通知秘密，自动copy/单次明文/手工copy及原email/token body保留，inline POST补NoReplay。
+
+Root对本轮相关18个原缺口与原已保护3个对照，局部API skipAuthRefresh，不改proof headers、signal、captcha params、原flow token、合法session rotation或全局默认重试。21×3真实Axios合同+10实际组件用例全部保留，候选仍待Actions；19键脚本追加七语言（en/zh，另五英文回填），旧译文/顺序不改。UI15–18后续候选及55静态补护仍隔离，不入UI14验收声明。浏览器/真实认证/生产/模型/发布/main继续不执行。
+
+
 ## 2026-11-03 UI13：用户、访问策略、钱包、订阅与兑换（源码/完整CI通过）
 
 源码 `bed703aa3dd037ea01fc3057e1f72c04b722b51c` / [完整CI41518426080](https://github.com/ForceMind/MyAPI/actions/runs/41518426080) attempt1 success：10作业成功、1浏览器/真实API混合作业跳过，全部作业/步骤及前后端原始日志已读。用户/访问策略/资金专项29文件297/297、模型164/164、公开33/33、账号85/85、Key388/388、原连接209/209、日志410/410、全量347文件2585/2585通过；同步/构建/typecheck/lint通过（18警告0错误）。根模块/独立relaykit vet/build、原生/386、两模块全量、既有race、三库/Redis/ClickHouse/分发/Desktop门禁通过；386定向18父项/55条/5包全通过、0跳过，原始后端失败/race标记0。浏览器依赖与全部Chromium跳过；本机未安装依赖、构建测试或下载产物，未改生产/发真实模型与资金请求/发布/main。

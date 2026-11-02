@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Loader2 } from 'lucide-react'
+import { Loading03Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -156,15 +157,12 @@ export function TwoFASetupDialog({
       open={open}
       onOpenChange={handleOpenChange}
       title={t('Setup Two-Factor Authentication')}
-      description={
-        <>
-          {t('Step')}
-          {step + 1}
-          {t('of 3:')}
-          {stepLabels[step]}
-        </>
-      }
-      contentClassName='sm:max-w-lg'
+      description={t('Step {{step}} of 3: {{label}}', {
+        step: step + 1,
+        label: stepLabels[step],
+        interpolation: { escapeValue: false },
+      })}
+      contentClassName='sm:max-w-lg [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'
       contentHeight='auto'
       showCloseButton={!initializing && !loading}
       bodyClassName='space-y-4'
@@ -191,13 +189,14 @@ export function TwoFASetupDialog({
               onClick={handleEnable}
               disabled={initializing || loading || !code}
             >
-              {loading && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+              {loading && <HugeiconsIcon icon={Loading03Icon} className='mr-2 h-4 w-4 animate-spin' />}
               {loading ? t('Enabling...') : t('Enable 2FA')}
             </Button>
           )}
         </>
       }
     >
+      <section role='region' tabIndex={0} aria-label={t('Account security details')} className='min-w-0 [overflow-wrap:anywhere] [&_code]:break-all [&_code]:whitespace-pre-wrap'>
       <div className='space-y-4 py-4'>
         {initializing && (
           <div className='flex flex-col items-center justify-center gap-3 py-8'>
@@ -306,6 +305,7 @@ export function TwoFASetupDialog({
           </>
         )}
       </div>
+      </section>
     </Dialog>
   )
 }

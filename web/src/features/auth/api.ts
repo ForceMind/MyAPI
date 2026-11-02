@@ -122,6 +122,7 @@ export async function sendPasswordResetEmail(
   turnstile?: string
 ): Promise<ApiResponse> {
   const res = await api.get('/api/reset_password', {
+    skipAuthRefresh: true,
     params: { email, turnstile },
   })
   return res.data
@@ -146,7 +147,7 @@ export async function createOAuthFlow(
   const res = await api.post(
     '/api/oauth/state',
     { provider, intent, aff: aff || undefined },
-    { skipAuthRefresh: intent === 'login' }
+    { skipAuthRefresh: true }
   )
   if (res.data?.success) {
     if (typeof res.data.data === 'string') return res.data.data
@@ -159,7 +160,7 @@ export async function createOAuthFlow(
 
 // WeChat login by authorization code
 export async function wechatLoginByCode(code: string): Promise<ApiResponse> {
-  const res = await api.get('/api/oauth/wechat', { params: { code } })
+  const res = await api.get('/api/oauth/wechat', { params: { code }, skipAuthRefresh: true })
   return res.data
 }
 
@@ -183,6 +184,7 @@ export async function telegramLogin(
 // User registration
 export async function register(payload: RegisterPayload): Promise<ApiResponse> {
   const res = await api.post(`/api/user/register`, payload, {
+    skipAuthRefresh: true,
     params: { turnstile: payload.turnstile ?? '' },
   })
   return res.data
@@ -194,6 +196,7 @@ export async function sendEmailVerification(
   turnstile?: string
 ): Promise<ApiResponse> {
   const res = await api.get('/api/verification', {
+    skipAuthRefresh: true,
     params: { email, turnstile },
   })
   return res.data
@@ -207,6 +210,6 @@ export async function bindEmail(
   const res = await api.post('/api/oauth/email/bind', {
     email,
     code,
-  })
+  }, { skipAuthRefresh: true })
   return res.data
 }

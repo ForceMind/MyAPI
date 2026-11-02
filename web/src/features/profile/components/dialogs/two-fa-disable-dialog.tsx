@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { AlertTriangle, Loader2 } from 'lucide-react'
+import { Alert02Icon, Loading03Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -113,14 +114,14 @@ export function TwoFADisableDialog({
       onOpenChange={handleOpenChange}
       title={
         <>
-          <AlertTriangle className='h-5 w-5' />
+          <HugeiconsIcon icon={Alert02Icon} className='h-5 w-5' />
           {t('Disable Two-Factor Authentication')}
         </>
       }
       description={t(
         'This action will permanently remove 2FA protection from your account.'
       )}
-      contentClassName='sm:max-w-md'
+      contentClassName='sm:max-w-md [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'
       titleClassName='text-destructive flex items-center gap-2'
       contentHeight='auto'
       showCloseButton={!loading}
@@ -139,15 +140,16 @@ export function TwoFADisableDialog({
             onClick={handleDisable}
             disabled={loading || !code || !confirmed}
           >
-            {loading && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+            {loading && <HugeiconsIcon icon={Loading03Icon} className='mr-2 h-4 w-4 animate-spin' />}
             {loading ? t('Disabling...') : t('Disable 2FA')}
           </Button>
         </>
       }
     >
+      <section role='region' tabIndex={0} aria-label={t('Account security details')} className='min-w-0 [overflow-wrap:anywhere] [&_code]:break-all [&_code]:whitespace-pre-wrap'>
       <div className='space-y-4 py-4'>
         <Alert variant='destructive'>
-          <AlertTriangle className='h-4 w-4' />
+          <HugeiconsIcon icon={Alert02Icon} className='h-4 w-4' />
           <AlertDescription>
             {t('Warning: Disabling 2FA will make your account less secure.')}
           </AlertDescription>
@@ -183,6 +185,7 @@ export function TwoFADisableDialog({
           </Label>
         </div>
       </div>
+      </section>
     </Dialog>
   )
 }

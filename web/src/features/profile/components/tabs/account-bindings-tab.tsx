@@ -17,8 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQueryClient } from '@tanstack/react-query'
-import { Mail, Shield, Send, Link2, Unlink } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link01Icon, Mail01Icon, SentIcon, Shield01Icon, Unlink01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -31,6 +32,7 @@ import {
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { ErrorState } from '@/components/error-state'
 import { StatusBadge } from '@/components/status-badge'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -106,6 +108,9 @@ export function AccountBindingsTab({
   const queryClient = useQueryClient()
   const { status, loading, error } = useStatus()
   const [customBindings, setCustomBindings] = useState<CustomOAuthBinding[]>([])
+  const [customBindingsReady, setCustomBindingsReady] = useState(false)
+  const [customBindingsLoading, setCustomBindingsLoading] = useState(false)
+  const [customBindingsError, setCustomBindingsError] = useState('')
   const [unbindTarget, setUnbindTarget] = useState<CustomOAuthBinding | null>(
     null
   )
@@ -136,19 +141,28 @@ export function AccountBindingsTab({
 
   const fetchCustomBindings = useCallback(async () => {
     if (!customProviders || customProviders.length === 0) return
+    let requestCurrent = true
+    setCustomBindingsLoading(true)
+    setCustomBindingsReady(false)
+    setCustomBindingsError('')
+    setCustomBindings([])
     try {
       const result = await bindingsReadScope.run((signal) =>
         getSelfOAuthBindings(signal)
       )
+      requestCurrent = result.current
       if (!result.current) return
       const res = result.value
-      if (res.success && res.data) {
-        setCustomBindings(res.data)
-      }
-    } catch {
-      // ignore
+      if (!res.success) throw new Error(res.message || t('Unable to load OAuth bindings'))
+      if (res.data !== null && !Array.isArray(res.data)) throw new Error(t('Invalid OAuth bindings response'))
+      setCustomBindings(res.data ?? [])
+      setCustomBindingsReady(true)
+    } catch (cause: unknown) {
+      setCustomBindingsError(cause instanceof Error ? cause.message : t('Unable to load OAuth bindings'))
+    } finally {
+      if (requestCurrent) setCustomBindingsLoading(false)
     }
-  }, [bindingsReadScope, customProviders])
+  }, [bindingsReadScope, customProviders, t])
 
   useEffect(() => {
     fetchCustomBindings()
@@ -354,14 +368,14 @@ export function AccountBindingsTab({
   )
 
   // Memoize bindings to prevent unnecessary recalculations
-  const bindings: BindingItem[] = useMemo(() => {
+  const bindings: Array<Omit<BindingItem, 'icon'> & { icon: ReactNode }> = useMemo(() => {
     if (!profile || !status) return []
 
     return [
       {
         id: 'email',
         label: t('Email'),
-        icon: Mail,
+        icon: <HugeiconsIcon icon={Mail01Icon} className='size-4' aria-hidden='true' />,
         value: profile.email,
         isBound: Boolean(profile.email),
         isEnabled: true,
@@ -370,7 +384,7 @@ export function AccountBindingsTab({
       {
         id: 'wechat',
         label: t('WeChat'),
-        icon: IconWeChat,
+        icon: <IconWeChat className='size-4' focusable='false' />,
         value: undefined,
         isBound: Boolean(
           (profile as unknown as Record<string, unknown>).wechat_id
@@ -381,7 +395,7 @@ export function AccountBindingsTab({
       {
         id: 'github',
         label: t('GitHub'),
-        icon: IconGithub,
+        icon: <IconGithub className='size-4' focusable='false' />,
         value: (profile as unknown as Record<string, unknown>).github_id as
           | string
           | undefined,
@@ -401,7 +415,7 @@ export function AccountBindingsTab({
       {
         id: 'discord',
         label: t('Discord'),
-        icon: IconDiscord,
+        icon: <IconDiscord className='size-4' focusable='false' />,
         value: (profile as unknown as Record<string, unknown>).discord_id as
           | string
           | undefined,
@@ -421,7 +435,7 @@ export function AccountBindingsTab({
       {
         id: 'oidc',
         label: t('OIDC'),
-        icon: Shield,
+        icon: <HugeiconsIcon icon={Shield01Icon} className='size-4' aria-hidden='true' />,
         value: (profile as unknown as Record<string, unknown>).oidc_id as
           | string
           | undefined,
@@ -442,7 +456,7 @@ export function AccountBindingsTab({
       {
         id: 'telegram',
         label: t('Telegram'),
-        icon: Send,
+        icon: <HugeiconsIcon icon={SentIcon} className='size-4' aria-hidden='true' />,
         value: (profile as unknown as Record<string, unknown>).telegram_id as
           | string
           | undefined,
@@ -455,7 +469,7 @@ export function AccountBindingsTab({
       {
         id: 'linuxdo',
         label: t('LinuxDO'),
-        icon: IconLinuxDo,
+        icon: <IconLinuxDo className='size-4' focusable='false' />,
         value: (profile as unknown as Record<string, unknown>).linux_do_id as
           | string
           | undefined,
@@ -519,7 +533,7 @@ export function AccountBindingsTab({
             >
               <div className='flex min-w-0 items-center gap-2.5 sm:gap-3'>
                 <div className='bg-muted shrink-0 rounded-md p-1.5 sm:p-2'>
-                  <binding.icon className='h-4 w-4' />
+                  {binding.icon}
                 </div>
                 <div className='min-w-0'>
                   <div className='flex items-center gap-1.5'>
@@ -537,7 +551,7 @@ export function AccountBindingsTab({
                       />
                     )}
                   </div>
-                  <p className='text-muted-foreground truncate text-xs'>
+                  <p className='text-muted-foreground text-xs break-words [overflow-wrap:anywhere]'>
                     {binding.value || t('Not bound')}
                   </p>
                 </div>
@@ -564,18 +578,24 @@ export function AccountBindingsTab({
           <p className='text-muted-foreground mb-3 text-sm font-medium'>
             {t('Custom OAuth')}
           </p>
+          {customBindingsLoading && <p role='status' className='text-muted-foreground mb-3 text-sm'>{t('Loading account bindings...')}</p>}
+          {customBindingsError && <Alert variant='destructive' className='mb-3'><AlertTitle>{t('Unable to load OAuth bindings')}</AlertTitle><AlertDescription>{customBindingsError}</AlertDescription><Button className='mt-3 min-h-11 w-fit' variant='outline' disabled={customBindingsLoading} onClick={() => { void fetchCustomBindings() }}>{t('Retry')}</Button></Alert>}
           <div className='grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3'>
             {customProviders.map((provider) => {
               const binding = customBindingsByProviderId.get(provider.id)
-              const isBound = !!binding
+              const isBound = customBindingsReady && !!binding
+              let bindingLabel = t('Unknown')
+              if (customBindingsReady) bindingLabel = isBound ? binding?.provider_user_id || t('Bound') : t('Not bound')
               return (
                 <div
                   key={provider.id}
+                  role='group'
+                  aria-labelledby={`custom-oauth-${provider.id}-label`}
                   className='flex items-center justify-between gap-2.5 rounded-lg border p-2.5 sm:gap-3 sm:p-3'
                 >
                   <div className='flex min-w-0 items-center gap-2.5 sm:gap-3'>
                     <div className='bg-muted shrink-0 rounded-md p-1.5 sm:p-2'>
-                      <Link2 className='h-4 w-4' />
+                      <HugeiconsIcon icon={Link01Icon} className='h-4 w-4' />
                     </div>
                     <div className='min-w-0'>
                       <div className='flex items-center gap-1.5'>
@@ -593,10 +613,8 @@ export function AccountBindingsTab({
                           />
                         )}
                       </div>
-                      <p className='text-muted-foreground truncate text-xs'>
-                        {isBound
-                          ? binding?.provider_user_id || t('Bound')
-                          : t('Not bound')}
+                      <p className='text-muted-foreground text-xs break-words [overflow-wrap:anywhere]'>
+                        {bindingLabel}
                       </p>
                     </div>
                   </div>
@@ -605,10 +623,10 @@ export function AccountBindingsTab({
                       variant='ghost'
                       size='sm'
                       className='text-destructive h-7 shrink-0 px-2.5 text-xs'
-                      onClick={() => setUnbindTarget(binding)}
+                      onClick={() => { if (binding) setUnbindTarget(binding) }}
                       aria-labelledby={`custom-oauth-${provider.id}-unbind custom-oauth-${provider.id}-label`}
                     >
-                      <Unlink className='mr-1 h-3 w-3' />
+                      <HugeiconsIcon icon={Unlink01Icon} className='mr-1 h-3 w-3' />
                       <span id={`custom-oauth-${provider.id}-unbind`}>
                         {t('Unbind')}
                       </span>
@@ -619,6 +637,7 @@ export function AccountBindingsTab({
                       size='sm'
                       className='h-7 shrink-0 px-2.5 text-xs'
                       onClick={() => handleBindCustomOAuth(provider)}
+                      disabled={!customBindingsReady || customBindingsLoading}
                       aria-labelledby={`custom-oauth-${provider.id}-bind custom-oauth-${provider.id}-label`}
                     >
                       <span id={`custom-oauth-${provider.id}-bind`}>

@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Link2, Settings } from 'lucide-react'
+import { Link01Icon, Settings02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -85,20 +86,20 @@ export function ProfileSettingsCard({
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className='grid w-full grid-cols-2 items-stretch gap-1 rounded-xl p-1 group-data-horizontal/tabs:h-10'>
+          <TabsList className='grid w-full grid-cols-2 items-stretch gap-1 rounded-xl p-1 group-data-horizontal/tabs:h-auto'>
             <TabsTrigger
               value='bindings'
-              className='h-full gap-2 rounded-lg px-3 py-0 leading-none'
+              className='h-auto min-h-11 gap-2 rounded-lg px-3 py-2 leading-snug whitespace-normal'
             >
-              <Link2 className='h-4 w-4' />
+              <HugeiconsIcon icon={Link01Icon} className='h-4 w-4' />
               <span className='hidden sm:inline'>{t('Account Bindings')}</span>
               <span className='sm:hidden'>{t('Bindings')}</span>
             </TabsTrigger>
             <TabsTrigger
               value='settings'
-              className='h-full gap-2 rounded-lg px-3 py-0 leading-none'
+              className='h-auto min-h-11 gap-2 rounded-lg px-3 py-2 leading-snug whitespace-normal'
             >
-              <Settings className='h-4 w-4' />
+              <HugeiconsIcon icon={Settings02Icon} className='h-4 w-4' />
               <span className='hidden sm:inline'>
                 {t('Settings & Preferences')}
               </span>

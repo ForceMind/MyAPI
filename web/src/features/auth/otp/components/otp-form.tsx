@@ -17,7 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2 } from 'lucide-react'
+import { Loading03Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -146,7 +147,7 @@ export function OtpForm({ className, ...props }: OtpFormProps) {
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className={cn('grid gap-4', className)}
+        className={cn('grid gap-4 [&_[data-slot=input]]:min-h-11 [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:whitespace-normal', className)}
         {...props}
       >
         <FormField
@@ -174,7 +175,7 @@ export function OtpForm({ className, ...props }: OtpFormProps) {
                   <InputOTP
                     maxLength={OTP_LENGTH}
                     {...field}
-                    containerClassName='justify-between sm:[&>[data-slot="input-otp-group"]>div]:w-12'
+                    containerClassName='min-h-11 justify-between [&_[data-slot=input-otp-slot]]:h-11 sm:[&>[data-slot="input-otp-group"]>div]:w-12'
                   >
                     <InputOTPGroup>
                       <InputOTPSlot index={0} />
@@ -208,7 +209,7 @@ export function OtpForm({ className, ...props }: OtpFormProps) {
           className='mt-2 w-full'
           disabled={!isFormValid || isLoading}
         >
-          {isLoading ? <Loader2 className='h-4 w-4 animate-spin' /> : null}
+          {isLoading ? <HugeiconsIcon icon={Loading03Icon} className='h-4 w-4 animate-spin' /> : null}
           {t('Verify and Sign In')}
         </Button>
 

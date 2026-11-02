@@ -110,7 +110,7 @@ async function verifyTwoFA(
     method: '2fa',
     code: trimmed,
     scope,
-  })
+  }, { skipAuthRefresh: true })
 
   if (!res.data?.success) {
     throw new Error(res.data?.message || i18next.t('Verification failed'))

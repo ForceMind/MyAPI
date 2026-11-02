@@ -16,8 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Eye, EyeOff } from 'lucide-react'
+import { ViewIcon, ViewOffIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/lib/utils'
 
@@ -37,6 +39,7 @@ export function PasswordInput({
   ref,
   ...props
 }: PasswordInputProps) {
+  const { t } = useTranslation()
   const [showPassword, setShowPassword] = React.useState(false)
 
   return (
@@ -44,6 +47,7 @@ export function PasswordInput({
       <Input
         type={showPassword ? 'text' : 'password'}
         ref={ref}
+        className='min-h-11 pr-12'
         disabled={disabled}
         {...props}
       />
@@ -52,14 +56,15 @@ export function PasswordInput({
         size='icon'
         variant='ghost'
         disabled={disabled}
-        className='text-muted-foreground absolute end-1 top-1/2 h-6 w-6 -translate-y-1/2 rounded-md'
+        className='text-muted-foreground absolute end-0 top-1/2 min-h-11 min-w-11 -translate-y-1/2 rounded-md'
         onClick={() => setShowPassword((prev) => !prev)}
-        aria-label='Toggle password visibility'
+        aria-label={t('Toggle password visibility')}
+        aria-pressed={showPassword}
       >
         {showPassword ? (
-          <Eye size={18} aria-hidden='true' />
+          <HugeiconsIcon icon={ViewIcon} aria-hidden='true' />
         ) : (
-          <EyeOff size={18} aria-hidden='true' />
+          <HugeiconsIcon icon={ViewOffIcon} aria-hidden='true' />
         )}
       </Button>
     </div>

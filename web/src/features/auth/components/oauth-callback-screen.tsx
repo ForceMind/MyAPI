@@ -16,8 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Loader2, Send, Shield, UserRound, type LucideIcon } from 'lucide-react'
-import { useMemo } from 'react'
+import { Loading03Icon, SentIcon, Shield01Icon, UserIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { IconGithub, IconLinuxDo, IconWeChat } from '@/assets/brand-icons'
@@ -31,29 +32,23 @@ type OAuthCallbackScreenProps = {
 
 type ProviderMeta = {
   label: string
-  Icon: LucideIcon | ((props: { className?: string }) => React.JSX.Element)
+  icon: ReactNode
 }
 
 const providerDictionary: Record<string, ProviderMeta> = {
   github: {
     label: 'GitHub',
-    Icon: (props: { className?: string }) => (
-      <IconGithub className={props.className} focusable='false' />
-    ),
+    icon: <IconGithub className='size-7' focusable='false' />,
   },
-  oidc: { label: 'OIDC', Icon: Shield },
+  oidc: { label: 'OIDC', icon: <HugeiconsIcon icon={Shield01Icon} className='size-7' aria-hidden='true' /> },
   linuxdo: {
     label: 'LinuxDO',
-    Icon: (props: { className?: string }) => (
-      <IconLinuxDo className={props.className} focusable='false' />
-    ),
+    icon: <IconLinuxDo className='size-7' focusable='false' />,
   },
-  telegram: { label: 'Telegram', Icon: Send },
+  telegram: { label: 'Telegram', icon: <HugeiconsIcon icon={SentIcon} className='size-7' aria-hidden='true' /> },
   wechat: {
     label: 'WeChat',
-    Icon: (props: { className?: string }) => (
-      <IconWeChat className={props.className} focusable='false' />
-    ),
+    icon: <IconWeChat className='size-7' focusable='false' />,
   },
 }
 
@@ -62,12 +57,12 @@ export function OAuthCallbackScreen({
   mode,
 }: OAuthCallbackScreenProps) {
   const { t } = useTranslation()
-  const { label, Icon } = useMemo(() => {
+  const { label, icon } = useMemo(() => {
     const normalized = provider?.toLowerCase() ?? ''
     return (
       providerDictionary[normalized] || {
         label: 'account',
-        Icon: UserRound,
+        icon: <HugeiconsIcon icon={UserIcon} className='size-7' aria-hidden='true' />,
       }
     )
   }, [provider])
@@ -96,7 +91,7 @@ export function OAuthCallbackScreen({
       <div className='w-full space-y-8'>
         <div className='flex flex-col items-center space-y-4 text-center'>
           <div className='bg-muted flex size-14 items-center justify-center rounded-lg'>
-            <Icon className='size-7' />
+            {icon}
           </div>
           <div className='space-y-2'>
             <h2 className='text-2xl leading-8 font-semibold tracking-tight wrap-break-word'>
@@ -109,8 +104,8 @@ export function OAuthCallbackScreen({
         </div>
 
         <div className='space-y-4 text-center'>
-          <div className='flex items-center justify-center gap-2 text-sm font-medium'>
-            <Loader2 className='h-4 w-4 animate-spin' />
+          <div role='status' aria-live='polite' className='flex items-center justify-center gap-2 text-sm font-medium'>
+            <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='h-4 w-4 animate-spin' />
             <span>{t('Processing OAuth response...')}</span>
           </div>
           <p className='text-muted-foreground text-sm'>{secondaryNote}</p>

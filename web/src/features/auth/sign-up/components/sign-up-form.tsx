@@ -17,7 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2 } from 'lucide-react'
+import { Loading03Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -237,14 +238,14 @@ export function SignUpForm({
       seconds: secondsLeft,
     })
   } else if (isSendingCode) {
-    verificationCodeAction = <Loader2 className='h-4 w-4 animate-spin' />
+    verificationCodeAction = <HugeiconsIcon icon={Loading03Icon} className='h-4 w-4 animate-spin' />
   }
 
   return (
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className={cn('grid gap-4', className)}
+        className={cn('grid gap-4 [&_[data-slot=input]]:min-h-11 [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:whitespace-normal', className)}
         {...props}
       >
         {/* Username Field */}
@@ -320,7 +321,7 @@ export function SignUpForm({
             />
 
             {/* Verification Code Field */}
-            <div className='flex items-end gap-2'>
+            <div className='flex flex-wrap items-end gap-2'>
               <div className='flex-1'>
                 <Input
                   placeholder={t('Verification code')}
@@ -374,7 +375,7 @@ export function SignUpForm({
             !turnstileReady
           }
         >
-          {isLoading ? <Loader2 className='h-4 w-4 animate-spin' /> : null}
+          {isLoading ? <HugeiconsIcon icon={Loading03Icon} className='h-4 w-4 animate-spin' /> : null}
           {t('Create account')}
         </Button>
 
@@ -397,7 +398,7 @@ export function SignUpForm({
           description={t(
             'Scan the QR code to follow the official account and reply with “验证码” to receive your verification code.'
           )}
-          contentClassName='max-w-sm'
+          contentClassName='max-w-sm [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'
           headerClassName='text-left'
           contentHeight='auto'
           bodyClassName='space-y-4'
@@ -422,7 +423,7 @@ export function SignUpForm({
                 className='gap-2'
               >
                 {isWeChatSubmitting ? (
-                  <Loader2 className='h-4 w-4 animate-spin' />
+                  <HugeiconsIcon icon={Loading03Icon} className='h-4 w-4 animate-spin' />
                 ) : null}
                 {t('Confirm')}
               </Button>

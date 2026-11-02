@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { KeyRound, Loader2, RefreshCw } from 'lucide-react'
+import { Key01Icon, Loading03Icon, Refresh01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -81,7 +82,7 @@ export function AccessTokenDialog({
         description={t(
           "Your system access token for API authentication. Keep it secure and don't share it with others."
         )}
-        contentClassName='sm:max-w-md'
+        contentClassName='sm:max-w-md [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'
         contentHeight='auto'
         showCloseButton={!generating}
         bodyClassName='space-y-4'
@@ -102,15 +103,16 @@ export function AccessTokenDialog({
               className='gap-2'
             >
               {generating ? (
-                <Loader2 className='h-4 w-4 animate-spin' aria-hidden='true' />
+                <HugeiconsIcon icon={Loading03Icon} className='h-4 w-4 animate-spin' aria-hidden='true' />
               ) : (
-                <RefreshCw className='h-4 w-4' aria-hidden='true' />
+                <HugeiconsIcon icon={Refresh01Icon} className='h-4 w-4' aria-hidden='true' />
               )}
               {generating ? t('Generating...') : t('Regenerate')}
             </Button>
           </>
         }
       >
+        <section role='region' tabIndex={0} aria-label={t('Account security details')} className='min-w-0 [overflow-wrap:anywhere] [&_code]:break-all [&_code]:whitespace-pre-wrap'>
         <div className='my-6'>
           {token ? (
             <div className='space-y-2'>
@@ -142,7 +144,7 @@ export function AccessTokenDialog({
             <Empty className='border py-8'>
               <EmptyHeader>
                 <EmptyMedia variant='icon'>
-                  <KeyRound aria-hidden='true' />
+                  <HugeiconsIcon icon={Key01Icon} aria-hidden='true' />
                 </EmptyMedia>
                 <EmptyTitle>
                   {t('Access tokens are shown only once')}
@@ -161,6 +163,7 @@ export function AccessTokenDialog({
             </Empty>
           )}
         </div>
+        </section>
       </Dialog>
 
       <ConfirmDialog
@@ -186,7 +189,7 @@ export function AccessTokenDialog({
         confirmText={
           generating ? (
             <>
-              <Loader2 className='h-4 w-4 animate-spin' aria-hidden='true' />
+              <HugeiconsIcon icon={Loading03Icon} className='h-4 w-4 animate-spin' aria-hidden='true' />
               {t('Generating...')}
             </>
           ) : (

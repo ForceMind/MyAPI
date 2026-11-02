@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Loader2 } from 'lucide-react'
+import { Loading03Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -159,7 +160,7 @@ export function EmailBindDialog({
             })
           : t('Bind an email address to your account.')
       }
-      contentClassName='sm:max-w-md'
+      contentClassName='sm:max-w-md [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'
       contentHeight='auto'
       showCloseButton={!loading}
       bodyClassName='space-y-4'
@@ -178,12 +179,13 @@ export function EmailBindDialog({
             onClick={handleBind}
             disabled={loading || !email || !code}
           >
-            {loading && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+            {loading && <HugeiconsIcon icon={Loading03Icon} className='mr-2 h-4 w-4 animate-spin' />}
             {loading ? t('Binding...') : t('Bind Email')}
           </Button>
         </>
       }
     >
+      <section role='region' tabIndex={0} aria-label={t('Account security details')} className='min-w-0 [overflow-wrap:anywhere] [&_code]:break-all [&_code]:whitespace-pre-wrap'>
       <div className='space-y-4 py-4'>
         <div className='space-y-2'>
           <Label htmlFor='email'>{t('Email Address')}</Label>
@@ -221,6 +223,7 @@ export function EmailBindDialog({
           </div>
         </div>
       </div>
+      </section>
     </Dialog>
   )
 }

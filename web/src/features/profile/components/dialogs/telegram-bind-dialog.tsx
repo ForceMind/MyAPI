@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Send } from 'lucide-react'
+import { SentIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -155,13 +156,14 @@ export function TelegramBindDialog({
       onOpenChange={onOpenChange}
       title={t('Bind Telegram Account')}
       description={t('Click the button below to bind your Telegram account')}
-      contentClassName='sm:max-w-md'
+      contentClassName='sm:max-w-md [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'
       contentHeight='auto'
       bodyClassName='space-y-4'
     >
+      <section role='region' tabIndex={0} aria-label={t('Account security details')} className='min-w-0 [overflow-wrap:anywhere] [&_code]:break-all [&_code]:whitespace-pre-wrap'>
       <div className='space-y-4 py-4'>
         <Alert>
-          <Send className='h-4 w-4' />
+          <HugeiconsIcon icon={SentIcon} className='h-4 w-4' />
           <AlertDescription>
             {t(
               'You will be redirected to Telegram to complete the binding process.'
@@ -171,7 +173,7 @@ export function TelegramBindDialog({
 
         <div className='flex flex-col items-center justify-center gap-4 rounded-lg border p-6'>
           <div className='flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-900'>
-            <Send className='h-6 w-6 text-blue-600 dark:text-blue-400' />
+            <HugeiconsIcon icon={SentIcon} className='h-6 w-6 text-blue-600 dark:text-blue-400' />
           </div>
 
           <div className='text-center'>
@@ -202,6 +204,7 @@ export function TelegramBindDialog({
           {t('The binding will complete automatically after authorization')}
         </p>
       </div>
+      </section>
     </Dialog>
   )
 }

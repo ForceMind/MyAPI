@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Shield, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Alert02Icon, Refresh01Icon, Shield01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 
 import { ErrorState } from '@/components/error-state'
@@ -59,7 +60,7 @@ export function TwoFACard({
 
   if (pageLoading || loading) {
     return (
-      <Card data-card-hover='false'>
+      <Card data-card-hover='false' className='[&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11'>
         <CardHeader>
           <Skeleton className='h-5 w-48' />
           <Skeleton className='h-4 w-64' />
@@ -73,7 +74,7 @@ export function TwoFACard({
 
   if (error || !status) {
     return (
-      <Card data-card-hover='false'>
+      <Card data-card-hover='false' className='[&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11'>
         <CardHeader>
           <CardTitle>
             <h2>{t('Two-Factor Authentication')}</h2>
@@ -95,7 +96,7 @@ export function TwoFACard({
 
   return (
     <>
-      <Card data-card-hover='false'>
+      <Card data-card-hover='false' className='[&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11'>
         <CardHeader>
           <CardTitle>
             <h2>{t('Two-Factor Authentication')}</h2>
@@ -111,7 +112,7 @@ export function TwoFACard({
             <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between xl:flex-col 2xl:flex-row'>
               <div className='flex items-start gap-4'>
                 <IconBadge tone='success' size='sm'>
-                  <Shield />
+                  <HugeiconsIcon icon={Shield01Icon} />
                 </IconBadge>
                 <div className='min-w-0 flex-1 space-y-1'>
                   <div className='flex flex-wrap items-center gap-2'>
@@ -171,7 +172,7 @@ export function TwoFACard({
                   className='flex-1'
                   onClick={() => dialogs.open('backup')}
                 >
-                  <RefreshCw className='mr-2 h-4 w-4' />
+                  <HugeiconsIcon icon={Refresh01Icon} className='mr-2 h-4 w-4' />
                   {t('Regenerate Backup Codes')}
                 </Button>
                 <Button
@@ -179,7 +180,7 @@ export function TwoFACard({
                   className='flex-1'
                   onClick={() => dialogs.open('disable')}
                 >
-                  <AlertTriangle className='mr-2 h-4 w-4' />
+                  <HugeiconsIcon icon={Alert02Icon} className='mr-2 h-4 w-4' />
                   {t('Disable 2FA')}
                 </Button>
               </div>
