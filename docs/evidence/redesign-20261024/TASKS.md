@@ -505,6 +505,10 @@ e2ceaa66 / CI41532530830尚排队时，代理定向只读核对55关联既有测
 
 该质量候选精确22路径：UI15的2个必要.ts提取与17个既有调用/测试、PromptLearning与Rankings两测试、此清单。Root已读关键diff：原Context/Provider层级、generation/actor与错误WeakSet逻辑同源迁移，不留re-export循环；OAuth表单显式既有类型，无新any/cast；RateLimit当前getter为undefined时拒绝应用/删除，不回落成旧raw或空JSON。路由模板保同原params，role字符串仍精确匹配，非空断言换必要guard，其他全部assertions原样。无新key/版本/后端/依赖/检查规则改动，仍待Actions。
 
+**96285d3d / CI41535822699**：前端125587253594完整成功，全部步骤及原始日志已读；认证180、剩余786、用户/资金297、模型173、公开33、账号85、Key388、原连接209、日志410、全量378文件2929/2929通过；同步/构建/typecheck/lint成功，21警告0错误，所有Chromium/依赖步骤跳过。尚非完整绿：分发125587253576原始日志显示124通过/4失败，皆由Root升级VERSION/package到beta.27时漏同步deploy/.env.example及两Compose默认镜像beta.26引起；CLI原版本/初始化/升级/签名保护断言不改。
+
+必要版本修正只对齐仓库三个分发模板的默认tag到beta.27（继承原MYAPI_IMAGE/NEW_API_IMAGE显式覆盖与其它设置），不改任何运行中的.env/容器/服务器，不发布镜像/tag。此为原版本机制一致性补全，不实现CLI/P2新功能。官网相关源从fc6a4984到96285d3d无差异，复用已读的两个静态绿/两浏览器作业整跳过证据；后续模板修正不改变官网。已红主CI取消重复后端，下一提交仍读完整CI，不把前端绿写成应用完成。
+
 - UI14：个人资料/认证25个UI源与6个新UI测试10例、19新键已冻结；Root另准备auth/profile/passkey/2FA原调用的21组真实Axios401/403/成功合同与inline reset派发flag，原proof/flow_token/轮换/倒计时/自动copy保留。候选未入当前UI13 CI，不宣称已通过；下一步仅测试旧源取证，再推产品与译文。
 - UI15：20真实设置分区39个源（含四个内容集合的3个最小共享UI源）、5测试21例、9键冻结；保原保存时机、shared actor/frame/alive与dirty/成功ack，真实CAS 409显式Reload恢复，不改typed协议。唯一数值id0与unknown false/0保留，坏JSON不伪空。RateLimit新增__proto__原mutator边界仅记录为既有待办，本轮不称修复。
 - UI16：22真实分区及同页SystemInfo两Panel，20源6测试13例、11新键冻结；expr.md已读，原报价/倍率/变量/len/单位/阈值/覆盖算法与真实路由不改。Root另准备settings/systemInfo/customOAuth12组真实Axios合同和维护inline4调用保护，未入当前UI13 CI。
