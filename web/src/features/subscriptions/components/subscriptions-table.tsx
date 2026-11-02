@@ -41,7 +41,6 @@ import { useMediaQuery } from '@/hooks/use-media-query'
 
 import { getAdminPlans } from '../api'
 import type { PlanRecord } from '../types'
-import { DataTableRowActions } from './data-table-row-actions'
 import { useSubscriptionsColumns } from './subscriptions-columns'
 import { useSubscriptions } from './subscriptions-provider'
 

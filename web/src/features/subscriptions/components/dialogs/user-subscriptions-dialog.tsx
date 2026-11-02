@@ -316,6 +316,10 @@ function UserSubscriptionsTask(props: Props) {
     }
   }
 
+  let emptyContent = t('No subscription records')
+  if (loading) emptyContent = t('Loading...')
+  else if (readError) emptyContent = t('Unknown')
+
   return (
     <>
       <Sheet open={props.open} onOpenChange={(next) => { if (!task.isPending()) props.onOpenChange(next) }}>
@@ -372,7 +376,7 @@ function UserSubscriptionsTask(props: Props) {
               data={loading ? [] : subs}
               getRowKey={(record) => record.subscription.id}
               emptyClassName={loading ? 'py-8' : 'text-muted-foreground py-8'}
-              emptyContent={loading ? t('Loading...') : (readError ? t('Unknown') : t('No subscription records'))}
+              emptyContent={emptyContent}
               columns={[
                 {
                   id: 'id',

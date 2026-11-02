@@ -375,13 +375,15 @@ function UserBindingTask(props: Props) {
         footer={<><Button variant='outline' disabled={loading || unbinding} onClick={() => void fetchData()}>{t('Refresh')}</Button><Button ref={closeButton} variant='outline' disabled={unbinding} onClick={() => props.onOpenChange(false)}>{t('Close')}</Button></>}
       >
         <p className='text-muted-foreground text-sm'>{t('User ID')}: <span className='font-mono'>{props.userId}</span></p>
-        {loading ? (
+        {loading && (
           <div className='flex items-center justify-center py-8'>
             <Loader2 className='text-muted-foreground h-6 w-6 animate-spin' />
           </div>
-        ) : readError ? (
+        )}
+        {!loading && readError && (
           <div role='alert' className='text-destructive text-sm'>{readError}</div>
-        ) : (
+        )}
+        {!loading && !readError && (
           <div className='space-y-3'>
             <div className='flex flex-wrap items-center justify-between gap-3'>
               {user && (

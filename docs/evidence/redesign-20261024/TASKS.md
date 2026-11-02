@@ -23,6 +23,9 @@ UI13候选2d1cedb1 / CI41510304200前端125500133503：专项29文件289通过/8
 39902856 / CI41512130656前端125506961889：29文件295通过/2失败，原始日志已读。旧窄屏访问策略断言确实暴露model-availability原ul残留max-h-64/overflow-y-auto，产品仅删除内层高度/纵滚，唯一正文/全部模型原因/viewport与原键盘关闭断言保持。另新套餐筛选夹具误按menuitemcheckbox查询，实际Command控件公开角色是listbox Suggestions下option Disable；按该真实角色精确查询，不改筛选/排序/值或请求次数。其它UI13安全与金额测试通过，类型/lint/完整回归仍须后续候选。
 
 
+3554b180 / CI41515115895前端125516933231：专项29文件297/297、模型164/164、公开33/33、账号85/85、Key388/388、原连接209/209、日志410/410及全量347文件2585/2585全部通过，原始日志已读；构建与同步通过。typecheck仅套餐列表未用import失败；lint19警告5错误为两个UI互斥状态的嵌套ternary、hook文件内新增局部组件fast-refresh限制及重复query import。修正只移除未用import、等价if/互斥渲染、column.cell直接稳定引用原DataTableRowActions、合并import，业务/断言/载荷/超时不改；emptyContent确认放在UserSubscriptionsTask同scope，未把错误变量放入StatusBadge。仍须读取本次最小修正的完整CI，不把2585测试绿代替类型/lint或后端验收。
+
+
 ## 2026-11-03 UI10–12：模型工具、部署、Key与连接剩余任务（源码/完整CI通过）
 
 源码 `321f05510d00af45d82da165f4f03475c9bda976` / [完整CI41494046963](https://github.com/ForceMind/MyAPI/actions/runs/41494046963) attempt1 success：10作业成功、1浏览器/真实API混合作业按授权跳过，全部作业/步骤及前后端原始日志已读。模型23文件164/164、公开8文件33/33、账号11文件85/85、Key45文件388/388、原连接19文件209/209、日志47文件410/410、全量334文件2423/2423通过；新增渠道合同在全量中通过，不把原连接专项209误写成新增73项也在专项执行。同步/构建/typecheck/lint通过（17警告0错误）；根模块/独立relaykit vet/build、原生/386、两模块全量、既有race、三库/Redis/ClickHouse/分发/Desktop全部通过。386定向18父项/含子项55条/5包通过、0跳过，原始后端失败/数据竞争标记0。浏览器依赖安装与所有Chromium步骤跳过，未部署、未调用真实模型/供应商，本机无依赖安装/构建测试/产物下载。

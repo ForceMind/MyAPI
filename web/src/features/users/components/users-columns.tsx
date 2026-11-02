@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { ColumnDef, Row } from '@tanstack/react-table'
+import type { ColumnDef } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
 
 import { BadgeCell } from '@/components/data-table'
@@ -46,10 +46,6 @@ import type { User } from '../types'
 import type { UserUsagePolicy } from '../user-usage-policy-api'
 import { DataTableRowActions } from './data-table-row-actions'
 import { UserQuotaCell } from './user-quota-cell'
-
-function UserActionsCell(props: { row: Row<User> }) {
-  return <DataTableRowActions row={props.row} />
-}
 
 export function useUsersColumns(): ColumnDef<User>[] {
   const { t } = useTranslation()
@@ -364,7 +360,7 @@ export function useUsersColumns(): ColumnDef<User>[] {
     {
       id: 'actions',
       header: () => t('Actions'),
-      cell: UserActionsCell,
+      cell: DataTableRowActions,
       meta: { pinned: 'right' as const },
     },
   ]
