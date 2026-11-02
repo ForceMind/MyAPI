@@ -497,6 +497,8 @@ UI 设计（`ui-design/DESIGN_DIRECTION.md` 第 11 节）：
 
 6dc353c6 / CI41531597732前端125573476564原始日志已读：认证180/180、剩余专项88文件786/786通过，无未处理错误；用户/资金296/297，唯一旧session-api.test断言要求用户策略PUT在401后刷新并重放，与本轮已批准的用户策略写NoReplay直接冲突。不改产品来保留写重放：将该原认证刷新正向用例改为getAssignedPolicy(userTarget)只读GET，保原返回身份/版本、1刷新/2派发与刷新后Authorization精确断言，并新增两次method/URL/无body断言。保存/删除写的401/403与完整CAS/body不重放由新增55调用专项真实Axios用例继续严格验证，已在此CI通过；Token原五类不重放断言不动。其他已存在的unscoped reveal正向仍保留默认行为，不把局部调用保护改成全局禁刷新。此旧合同同步不是放宽写入不重放，后续CI仍须全部通过。
 
+e2ceaa66 / CI41532530830尚排队时，代理定向只读核对55关联既有测试，Root亲读确认另3文件4处旧精确调用期待缺新增flag：Key详情复制、usage-review reconcile/recover及分组详情reconcile。仅补精确undefined body/config skipAuthRefresh:true，原URL/金额/证据/确认/请求ID/一次派发和“不操作不请求”断言全保留，不改成any或objectContaining。此4处是静态合同同步，不冒称已在Actions失败；排队运行提前取消以免重复消耗，下一提交完整验证。未改产品源或全局默认重试。
+
 - UI14：个人资料/认证25个UI源与6个新UI测试10例、19新键已冻结；Root另准备auth/profile/passkey/2FA原调用的21组真实Axios401/403/成功合同与inline reset派发flag，原proof/flow_token/轮换/倒计时/自动copy保留。候选未入当前UI13 CI，不宣称已通过；下一步仅测试旧源取证，再推产品与译文。
 - UI15：20真实设置分区39个源（含四个内容集合的3个最小共享UI源）、5测试21例、9键冻结；保原保存时机、shared actor/frame/alive与dirty/成功ack，真实CAS 409显式Reload恢复，不改typed协议。唯一数值id0与unknown false/0保留，坏JSON不伪空。RateLimit新增__proto__原mutator边界仅记录为既有待办，本轮不称修复。
 - UI16：22真实分区及同页SystemInfo两Panel，20源6测试13例、11新键冻结；expr.md已读，原报价/倍率/变量/len/单位/阈值/覆盖算法与真实路由不改。Root另准备settings/systemInfo/customOAuth12组真实Axios合同和维护inline4调用保护，未入当前UI13 CI。

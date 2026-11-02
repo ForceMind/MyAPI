@@ -208,7 +208,7 @@ test('copy reads this page’s Key only after a user click', async () => {
     expect(clipboard).toHaveBeenCalledWith('sk-inert-existing-key')
   )
   expect(mocks.post).toHaveBeenCalledOnce()
-  expect(mocks.post).toHaveBeenCalledWith('/api/token/21/key')
+  expect(mocks.post).toHaveBeenCalledWith('/api/token/21/key', undefined, { skipAuthRefresh: true })
 })
 
 test('an unknown status write locks the toggle until the current state is reloaded', async () => {

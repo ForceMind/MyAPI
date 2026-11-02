@@ -235,6 +235,6 @@ test('opening request diagnosis, expanding evidence and editing reconciliation n
   expect(post).toHaveBeenCalledExactlyOnceWith(
     '/api/usage-review/REQ-GROUPED/reconcile',
     { actual_quota: 120, evidence_reference: 'synthetic invoice reference', confirmed_reliable_evidence: true },
-    { skipErrorHandler: true }
+    { skipErrorHandler: true, skipAuthRefresh: true }
   )
 })

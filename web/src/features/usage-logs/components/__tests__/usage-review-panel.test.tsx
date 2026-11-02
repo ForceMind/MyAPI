@@ -107,7 +107,7 @@ test('requires evidence and confirmation before sending one exact recovery reque
       evidence_reference: 'synthetic invoice reference',
       confirmed_reliable_evidence: true,
     },
-    { skipErrorHandler: true }
+    { skipErrorHandler: true, skipAuthRefresh: true }
   )
 })
 
@@ -216,7 +216,7 @@ test('requires finished-request confirmation to recover a persisted open dispatc
       confirmed_reliable_evidence: true,
       confirmed_request_finished: true,
     },
-    { skipErrorHandler: true }
+    { skipErrorHandler: true, skipAuthRefresh: true }
   )
 })
 
