@@ -50,9 +50,9 @@ it.each(tasks)('keeps %s to one vertical task scroll area with reachable fixed a
 })
 
 it('moves creation section navigation to the existing heading while leaving all resource and advanced fields intact', async () => {
-  const previous = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView')
+  const previous = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView')
   const scroll = vi.fn()
-  Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: scroll })
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scroll })
   try {
     render(<QueryClientProvider client={client}><CreateDeploymentDrawer open onOpenChange={vi.fn()} /></QueryClientProvider>)
     const user = userEvent.setup()
@@ -65,7 +65,7 @@ it('moves creation section navigation to the existing heading while leaving all 
     expect(screen.getByLabelText('Registry secret')).toBeInTheDocument()
     expect(api.post).not.toHaveBeenCalled()
   } finally {
-    if (previous) Object.defineProperty(Element.prototype, 'scrollIntoView', previous)
-    else Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+    if (previous) Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', previous)
+    else Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView')
   }
 })

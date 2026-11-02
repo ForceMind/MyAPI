@@ -182,10 +182,6 @@ export function ViewLogsDialog({
   let containerPlaceholder = t('Select')
   if (isLoadingContainers) {
     containerPlaceholder = t('Loading...')
-  } else if (isContainersError || containersData?.success === false) {
-    logsContent = <div role='alert' className='text-destructive py-8 text-center break-words'>{containersError?.message || containersData?.message || t('Failed to load containers')}</div>
-  } else if (isLogsError || logsData?.success === false) {
-    logsContent = <div role='alert' className='text-destructive py-8 text-center break-words'>{logsError?.message || logsData?.message || t('Failed to fetch deployment logs')}</div>
   } else if (containers.length === 0) {
     containerPlaceholder = t('No containers')
   }
@@ -196,6 +192,10 @@ export function ViewLogsDialog({
         <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='text-muted-foreground h-6 w-6 animate-spin' />
       </div>
     )
+  } else if (isContainersError || containersData?.success === false) {
+    logsContent = <div role='alert' className='text-destructive py-8 text-center break-words'>{containersError?.message || containersData?.message || t('Failed to load containers')}</div>
+  } else if (isLogsError || logsData?.success === false) {
+    logsContent = <div role='alert' className='text-destructive py-8 text-center break-words'>{logsError?.message || logsData?.message || t('Failed to fetch deployment logs')}</div>
   } else if (containers.length === 0) {
     logsContent = (
       <div className='text-muted-foreground py-8 text-center'>{t('No containers')}</div>

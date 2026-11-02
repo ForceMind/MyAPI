@@ -156,8 +156,8 @@ export function MissingModelsDialog(props: MissingModelsDialogProps) {
           {hasResult && pageModels.length > 0 && <div className='divide-y rounded-lg border'>{pageModels.map((modelName, index) => <article key={modelName} aria-label={modelName} className='flex min-w-0 flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between'>
             <p className='min-w-0 flex-1 font-mono text-sm break-words [overflow-wrap:anywhere]'>{modelName}</p>
             <div className='flex shrink-0 flex-wrap items-center gap-2'>
-              <CopyButton value={modelName} className='min-h-11 min-w-11' aria-label={t('Copy model name "{{name}}"', { name: modelName })} />
-              <Button className='min-h-11' data-model-missing-configure={modelName} disabled={!isAdmin} aria-label={t('Configure model "{{name}}"', { name: modelName })} onClick={() => handleConfigureModel(modelName, index)}><HugeiconsIcon icon={PlusSignIcon} aria-hidden='true' className='size-4' />{t('Configure')}</Button>
+              <CopyButton value={modelName} className='min-h-11 min-w-11' aria-label={t('Copy model name "{{name}}"', { name: modelName, interpolation: { escapeValue: false } })} />
+              <Button className='min-h-11' data-model-missing-configure={modelName} disabled={!isAdmin} aria-label={t('Configure model "{{name}}"', { name: modelName, interpolation: { escapeValue: false } })} onClick={() => handleConfigureModel(modelName, index)}><HugeiconsIcon icon={PlusSignIcon} aria-hidden='true' className='size-4' />{t('Configure')}</Button>
             </div>
           </article>)}</div>}
         </section>

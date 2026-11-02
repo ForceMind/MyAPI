@@ -26,6 +26,9 @@
 
 部署扩展红基线：3c5b68b8 / CI41480666648 的前端作业125398070196，19文件93通过/30失败，原始日志已读。9种相关写入的401用例均因自动刷新后重放而返回success；403与成功方法/精确body保留。部署图片/名称草稿覆盖由实际值断言复现；删除失败无可读alert、pending确认已关闭、容器/日志/硬件读取失败无alert。未知总数/手机展开/报价用例先停在新增导航或标签缺失，不能单独据此宣称更深数据语义已复现。原测试与时限不放宽。该红基线不是完整CI通过，不作为可部署版本。
 
+候选305bea6c / CI41482442222：模型专项23文件145通过/6失败，原始前端日志已读。产品问题为日志错误分支在logsContent声明前赋值、全选的label和aria-labelledby组合造成重复可访问名称、Missing模型名插值把斜杠显示成字面HTML实体。最小修正分别移动错误分支、独立关联全选label、仅React文本/aria插值局部escapeValue:false；精确名称、全字段选择和原始复制值断言保留。另外两处为新测试夹具误判：scrollIntoView实际定义在HTMLElement.prototype而非Element.prototype；Base UI radio使用span+aria-disabled，toBeDisabled仅识别原生控件。改为实际原型spy和精确aria-disabled=true，并增加点击后仍official、config未选中且零GET/POST；不放宽实际禁用行为或时限。该候选尚非完整CI绿。
+
+
 
 ## 2026-11-02 UI第九批：供应商创建与预填分组维护（源码/完整CI通过）
 

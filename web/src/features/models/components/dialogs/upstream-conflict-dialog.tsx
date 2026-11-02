@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft01Icon, ArrowRight01Icon, Search01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -103,6 +103,7 @@ export function UpstreamConflictDialog(props: UpstreamConflictDialogProps) {
   const [error, setError] = useState('')
   const generation = useRef(0)
   const request = useRef<AbortController | null>(null)
+  const allFieldsId = useId()
 
   useEffect(() => {
     if (props.open) {
@@ -227,10 +228,10 @@ export function UpstreamConflictDialog(props: UpstreamConflictDialogProps) {
               <Button className='min-h-11' variant='outline' onClick={() => setSelected(new Set())} disabled={!selectedRows.length || isSubmitting}>{t('Clear selection')}</Button>
             </div>
             <div className='flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between'>
-              <label className='flex min-h-11 cursor-pointer items-center gap-2'>
-                <Checkbox className='after:absolute after:-inset-3 relative' aria-label={t('Select all conflict fields')} checked={allSelected} indeterminate={selectedRows.length > 0 && !allSelected} disabled={isSubmitting || !isAdmin} onCheckedChange={(checked) => setSelected(checked ? new Set(rows.map((row) => row.id)) : new Set())} />
-                <span>{t('Select all conflict fields')}</span>
-              </label>
+              <div className='flex min-h-11 items-center gap-2'>
+                <Checkbox id={allFieldsId} aria-labelledby={`${allFieldsId}-label`} className='after:absolute after:-inset-3 relative' checked={allSelected} indeterminate={selectedRows.length > 0 && !allSelected} disabled={isSubmitting || !isAdmin} onCheckedChange={(checked) => setSelected(checked ? new Set(rows.map((row) => row.id)) : new Set())} />
+                <label id={`${allFieldsId}-label`} htmlFor={allFieldsId} className='flex min-h-11 cursor-pointer items-center'>{t('Select all conflict fields')}</label>
+              </div>
               <div className='text-muted-foreground text-xs' aria-live='polite'>
                 <p>{t('{{count}} selected fields across all pages', { count: selectedRows.length })}</p>
                 {selectedOutsidePage > 0 && <p>{t('{{count}} selected fields outside this page', { count: selectedOutsidePage })}</p>}
