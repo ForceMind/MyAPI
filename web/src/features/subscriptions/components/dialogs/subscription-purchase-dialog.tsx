@@ -314,7 +314,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
             </div>
           )}
           <Separator />
-          <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
+          <div role='group' aria-label={t('Amount Due')} className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
             <span className='text-sm font-medium'>{t('Amount Due')}</span>
             <span className='text-primary text-lg font-bold'>${price}</span>
           </div>
@@ -330,7 +330,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
         )}
 
         <div className='flex flex-col gap-2 rounded-md border p-3'>
-          <div className='flex items-center justify-between gap-2 text-xs'>
+          <div role='group' aria-label={t('Required')} className='flex items-center justify-between gap-2 text-xs'>
             <span className='text-muted-foreground'>{t('Required')}</span>
             <span>{formatQuota(balanceCost)}</span>
           </div>

@@ -65,7 +65,8 @@ it.each(['transport', 'business'] as const)('shows %s reread failure without sta
   expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load redemption codes')
   expect(screen.queryByText(codeName)).not.toBeInTheDocument()
   expect(screen.queryByText('No Redemption Codes Found')).not.toBeInTheDocument()
-  expect(screen.getByRole('navigation', { name: 'Redemption codes pagination' })).toHaveTextContent('Record total unavailable')
+  expect(screen.queryByRole('navigation', { name: 'Redemption codes pagination' })).not.toBeInTheDocument()
+  expect(screen.queryByText('0 records')).not.toBeInTheDocument()
 })
 
 it('exposes the original creation and redeemed-by fields and the complete name on a phone', async () => {

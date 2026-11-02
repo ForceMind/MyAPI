@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
+import { DEFAULT_CURRENCY_CONFIG, useSystemConfigStore } from '@/stores/system-config-store'
 
 import { subscriptionPlanSchema } from '../../../types'
 import { SubscriptionsProvider, useSubscriptions } from '../../subscriptions-provider'
@@ -13,11 +14,13 @@ import { SubscriptionPurchaseDialog } from '../subscription-purchase-dialog'
 import { ToggleStatusDialog } from '../toggle-status-dialog'
 
 const originalAuth = useAuthStore.getState()
+const originalConfig = useSystemConfigStore.getState()
 const plan = subscriptionPlanSchema.parse({ id: 31, title: 'Synthetic subscription plan with a complete long title and final suffix', price_amount: 12.34, currency: 'USD', duration_unit: 'month', duration_value: 1, quota_reset_period: 'never', enabled: true, sort_order: 0, allow_balance_pay: false, allow_wallet_overflow: true, max_purchase_per_user: 1, total_amount: 500000, stripe_price_id: 'synthetic-stripe-price', creem_product_id: 'synthetic-creem-product', waffo_pancake_product_id: 'synthetic-waffo-product' })
 let client: QueryClient
 beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   useAuthStore.getState().auth.setUser({ id: 1, role: 100, username: 'synthetic-root' })
+  useSystemConfigStore.setState((state) => ({ ...state, config: { ...state.config, currency: { ...DEFAULT_CURRENCY_CONFIG, quotaPerUnit: 500000, quotaDisplayType: 'USD' } } }))
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
     if (url !== '/api/option/') throw new Error(`Unexpected synthetic GET ${url}`)
     return { data: { success: true, data: [{ key: 'payment_setting.compliance_confirmed', value: 'true' }, { key: 'payment_setting.compliance_terms_version', value: 'v1' }] } }
@@ -27,7 +30,7 @@ beforeEach(() => {
   vi.spyOn(api, 'patch').mockRejectedValue(new Error('Unexpected synthetic subscription write'))
   vi.spyOn(window, 'open').mockReturnValue(null)
 })
-afterEach(() => { cleanup(); client.clear(); useAuthStore.setState(originalAuth); vi.restoreAllMocks() })
+afterEach(() => { cleanup(); client.clear(); useAuthStore.setState(originalAuth); useSystemConfigStore.setState(originalConfig); vi.restoreAllMocks() })
 
 function Confirmations() {
   const { setOpen, setCurrentRow } = useSubscriptions()
@@ -38,7 +41,8 @@ it('subscription purchase keeps the complete plan name and all original purchase
   render(<SubscriptionPurchaseDialog open onOpenChange={() => {}} plan={{ plan }} enableStripe enableCreem enableWaffoPancake enableOnlineTopUp epayMethods={[{ type: 'synthetic-epay', name: 'Synthetic payment channel with a complete long name' }]} purchaseLimit={1} purchaseCount={1} userQuota={1000000} />)
   const body = screen.getByRole('region', { name: 'Subscription purchase details' })
   expect(within(body).getByText(plan.title)).not.toHaveClass('truncate')
-  expect(within(body).getByText('$12.34')).toBeVisible()
+  expect(within(within(body).getByRole('group', { name: 'Amount Due' })).getByText('$12.34')).toBeVisible()
+  expect(within(within(body).getByRole('group', { name: 'Required' })).getByText('$12.34')).toBeVisible()
   expect(body).toHaveClass('min-h-0', 'overflow-y-auto')
   for (const name of ['Pay with Balance', 'Stripe', 'Creem', 'Waffo Pancake', 'Pay']) {
     const action = screen.getByRole('button', { name })

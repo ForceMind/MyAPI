@@ -211,7 +211,7 @@ function UsersMobileList(props: {
               <details className='mt-2 min-w-0 rounded-lg border p-3'>
                 <summary className='min-h-11 cursor-pointer py-3 font-medium'>{t('More details')}</summary>
                 <dl className='mt-3 grid min-w-0 gap-4 [&_.truncate]:overflow-visible [&_.truncate]:whitespace-normal [&_.truncate]:break-all'>
-                  {row.getAllCells().filter((cell) => !['select', 'username', 'status', 'quota', 'actions'].includes(cell.column.id)).map((cell) => (
+                  {row.getAllCells().filter((cell) => !['select', 'id', 'username', 'status', 'quota', 'group', 'role', 'actions'].includes(cell.column.id)).map((cell) => (
                     <div key={cell.id} className='min-w-0'><dt className='text-muted-foreground mb-1 text-xs'>{getCellLabel(cell)}</dt><dd className='min-w-0 break-words'>{flexRender(cell.column.columnDef.cell, cell.getContext())}</dd></div>
                   ))}
                   <div><dt className='text-muted-foreground mb-1 text-xs'>{t('Requests:')}</dt><dd>{user.request_count.toLocaleString()}</dd></div>
