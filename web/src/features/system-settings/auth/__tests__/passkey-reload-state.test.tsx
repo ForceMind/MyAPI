@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react
 import userEvent from '@testing-library/user-event'
 import { AxiosError, AxiosHeaders } from 'axios'
 import { toast, Toaster } from 'sonner'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest'
 
 import { renderListRoute } from '@/components/data-table/layout/__tests__/list-route-fixture'
 import { api } from '@/lib/api'
@@ -14,6 +14,22 @@ import { AuthSettings } from '../index'
 import { TYPED_BULK_REVISION_QUERY_KEY } from '../../hooks/use-typed-bulk-options'
 
 const originalAuth = useAuthStore.getState()
+// JSDOM lacks the native capture methods used by Sonner's real toast actions.
+const captures = new WeakMap<Element, Set<number>>()
+const captureDescriptors = ['setPointerCapture', 'releasePointerCapture', 'hasPointerCapture'].map((key) => [key, Object.getOwnPropertyDescriptor(Element.prototype, key)] as const)
+beforeAll(() => {
+  Object.defineProperties(Element.prototype, {
+    setPointerCapture: { configurable: true, value(this: Element, id: number) { const ids = captures.get(this) ?? new Set<number>(); ids.add(id); captures.set(this, ids) } },
+    releasePointerCapture: { configurable: true, value(this: Element, id: number) { captures.get(this)?.delete(id) } },
+    hasPointerCapture: { configurable: true, value(this: Element, id: number) { return captures.get(this)?.has(id) ?? false } },
+  })
+})
+afterAll(() => {
+  for (const [key, descriptor] of captureDescriptors) {
+    if (descriptor) Object.defineProperty(Element.prototype, key, descriptor)
+    else Reflect.deleteProperty(Element.prototype, key)
+  }
+})
 let client: QueryClient
 let saved: Record<string, string>
 let revision: number
@@ -43,7 +59,7 @@ it('preserves a Passkey draft across an observed background reread and accepts c
   fireEvent.change(screen.getByLabelText('Relying Party Display Name'), { target: { value: 'Unsaved RP' } })
   saved = { 'passkey.rp_display_name': 'Remote RP', 'passkey.rp_id': 'remote.synthetic.invalid' }
   await act(async () => { await client.refetchQueries({ queryKey: ['system-options'] }) })
-  expect(screen.getByLabelText('Relying Party ID')).toHaveValue('remote.synthetic.invalid')
+  await waitFor(() => expect(screen.getByLabelText('Relying Party ID')).toHaveValue('remote.synthetic.invalid'))
   expect(screen.getByLabelText('Relying Party Display Name')).toHaveValue('Unsaved RP')
   expect(screen.getByText('Unsaved changes')).toBeVisible()
   const user = userEvent.setup()

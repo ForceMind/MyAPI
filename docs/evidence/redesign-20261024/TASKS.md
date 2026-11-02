@@ -489,6 +489,10 @@ UI 设计（`ui-design/DESIGN_DIRECTION.md` 第 11 节）：
 
 明确排除的测试环境问题：Rankings suite被第三方VChart Node ESM加载阻断；Chat两个case的Key fixture缺used_quota/时间/model_limits_enabled，不能作为缓存/凭据泄漏的红证明；Dashboard模型统计旧初始化未达到首个GET，亦不据此声称迟到回显已复现。产品候选保真实schema补合法fixture，图表只隔离第三方renderer/ThemeManager，所有核心组件/数据和断言保留；日历测试补jsdom缺失getAnimations原生边界并恢复descriptor，不改浏览器。7个未处理错误中2 HTTP、1 revision conflict属于旧保存错误边界，2 CancelledError仍需候选CI确认，2 getAnimations属于测试环境，不能合并称产品7错。候选继续验证，不减断言、不提时限、不隐藏未处理错误。
 
+**候选fc6a4984 / CI41530134230**：认证180/180、剩余专项88文件784通过/2失败，另1未处理pointer capture错误；新NoReplay/合法Key schema/图表采集/Performance与保存错误边界均已跑过，原始日志已读，仍不计完成。官网静态41530134226与打包41530134298完整成功，浏览器41530134251两作业整项跳过、0步骤，全部作业/步骤已读取。主CI前端红后取消重复后端，终态cancelled，不作完整绿。
+
+两失败的最小修正仅测试：Passkey在Save/Reload前未改字段读取的observer尚未更新，保remote.synthetic.invalid等全部原期望，用默认waitFor等真实可见值；Sonner旧toast/actor用例补并还原jsdom三pointer capture API，保真实点击。跨月用例初始end为00:00却期待保23:59:59，原DateTimeRangePicker刻意保留显式时间；只将该输入fixture明确设为23:59:59并增加初始End time断言，精确出站payload与所有日期/跨月/内外Apply断言不变，不把产品改成覆盖零点。等待完整Actions再确认，无产品源或接口变更。
+
 - UI14：个人资料/认证25个UI源与6个新UI测试10例、19新键已冻结；Root另准备auth/profile/passkey/2FA原调用的21组真实Axios401/403/成功合同与inline reset派发flag，原proof/flow_token/轮换/倒计时/自动copy保留。候选未入当前UI13 CI，不宣称已通过；下一步仅测试旧源取证，再推产品与译文。
 - UI15：20真实设置分区39个源（含四个内容集合的3个最小共享UI源）、5测试21例、9键冻结；保原保存时机、shared actor/frame/alive与dirty/成功ack，真实CAS 409显式Reload恢复，不改typed协议。唯一数值id0与unknown false/0保留，坏JSON不伪空。RateLimit新增__proto__原mutator边界仅记录为既有待办，本轮不称修复。
 - UI16：22真实分区及同页SystemInfo两Panel，20源6测试13例、11新键冻结；expr.md已读，原报价/倍率/变量/len/单位/阈值/覆盖算法与真实路由不改。Root另准备settings/systemInfo/customOAuth12组真实Axios合同和维护inline4调用保护，未入当前UI13 CI。
