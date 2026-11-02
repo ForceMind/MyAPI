@@ -10,7 +10,7 @@ const adapter: AxiosAdapter = (config) => transport(config)
 const defaultAdapter = axios.defaults.adapter
 axios.defaults.adapter = adapter
 const { useAuthStore } = await import('@/stores/auth-store')
-const { createVendor, createPrefillGroup, updatePrefillGroup, deletePrefillGroup } = await import('../api')
+const { createVendor, createPrefillGroup, updatePrefillGroup, deletePrefillGroup, createModel, syncUpstream, applyUpstreamOverwrite } = await import('../api')
 axios.defaults.adapter = defaultAdapter
 
 const originalAuth = useAuthStore.getState()
@@ -28,6 +28,9 @@ function response(config: InternalAxiosRequestConfig, data: unknown): AxiosRespo
   return { config, data, status: 200, statusText: 'OK', headers: {} }
 }
 const cases = [
+  { name: 'create configured model', method: 'post', url: '/api/models/', body: { model_name: 'synthetic-configured-model', description: '', status: 0, sync_official: 0, name_rule: 0 }, run: () => createModel({ model_name: 'synthetic-configured-model', description: '', status: 0, sync_official: 0, name_rule: 0 }) },
+  { name: 'sync missing upstream models', method: 'post', url: '/api/models/sync_upstream', body: { locale: 'ja', source: 'official' }, run: () => syncUpstream({ locale: 'ja', source: 'official' }) },
+  { name: 'apply selected upstream fields', method: 'post', url: '/api/models/sync_upstream', body: { locale: 'zh', source: 'official', overwrite: [{ model_name: 'synthetic-model', fields: ['description', 'status'] }] }, run: () => applyUpstreamOverwrite({ locale: 'zh', source: 'official', overwrite: [{ model_name: 'synthetic-model', fields: ['description', 'status'] }] }) },
   { name: 'create vendor', method: 'post', url: '/api/vendors/', body: { name: 'Synthetic vendor', description: '', icon: '', status: 1 }, run: () => createVendor({ name: 'Synthetic vendor', description: '', icon: '', status: 1 }) },
   { name: 'create model prefill', method: 'post', url: '/api/prefill_group', body: { name: 'Synthetic models', type: 'model', items: ['synthetic-model'], description: '' }, run: () => createPrefillGroup({ name: 'Synthetic models', type: 'model', items: ['synthetic-model'], description: '' }) },
   { name: 'update endpoint prefill', method: 'put', url: '/api/prefill_group', body: { id: 7, name: 'Synthetic endpoint', type: 'endpoint', items: '{"custom":{"enabled":false,"count":0}}' }, run: () => updatePrefillGroup({ id: 7, name: 'Synthetic endpoint', type: 'endpoint', items: '{"custom":{"enabled":false,"count":0}}' }) },
