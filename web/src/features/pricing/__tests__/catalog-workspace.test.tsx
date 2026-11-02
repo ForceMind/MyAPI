@@ -229,3 +229,13 @@ describe('model catalog wire identity', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'View model synthetic-model-02' })).toHaveFocus())
   })
 })
+
+describe('model catalog return parameter safety', () => {
+  it('keeps the catalog reachable and falls back to its heading for an unmatched model name containing quotes and a newline', async () => {
+    pricingRequest = async () => ({ data: populatedPricing })
+    const focusModel = encodeURIComponent(JSON.stringify('unmatched"model\nname'))
+    await renderCatalog(`/pricing?focusModel=${focusModel}`)
+    expect(await screen.findByRole('button', { name: 'View model synthetic-model-01' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Model Square' })).toHaveFocus())
+  })
+})
