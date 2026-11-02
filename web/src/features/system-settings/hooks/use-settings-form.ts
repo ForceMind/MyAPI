@@ -29,8 +29,8 @@ import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { mergeDirtySettingsValues, preserveSettingsEdits } from './use-reset-form'
-import { isReportedOptionFailure } from './use-update-option'
-import { useSettingsReloadGeneration, useSettingsReloadScope } from '../components/settings-page-context'
+import { isReportedOptionFailure } from './option-update-error'
+import { useSettingsReloadGeneration, useSettingsReloadScope } from '../components/settings-page-scope'
 
 type SettingsFormOptions<T extends FieldValues> = UseFormProps<T> & {
   onSubmit: (data: T, changedFields: Record<string, unknown>) => Promise<void>

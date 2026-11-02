@@ -20,7 +20,7 @@ import { useEffect, useRef } from 'react'
 import type { DefaultValues, FieldValues, UseFormReturn } from 'react-hook-form'
 
 import { useAuthStore } from '@/stores/auth-store'
-import { useSettingsReloadGeneration } from '../components/settings-page-context'
+import { useSettingsReloadGeneration } from '../components/settings-page-scope'
 
 function hasDirtySettingsValue(value: unknown): boolean {
   if (value === true) return true

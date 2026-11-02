@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { Plus } from 'lucide-react'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { useAuthStore } from '@/stores/auth-store'
-import { isCurrentSettingsFrame, useSettingsReloadScope } from '../../../components/settings-page-context'
+import { isCurrentSettingsFrame, useSettingsReloadScope } from '../../../components/settings-page-scope'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'

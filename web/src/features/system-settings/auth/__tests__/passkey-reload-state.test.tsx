@@ -97,7 +97,8 @@ it('does not let an old conflict toast reset a newly mounted actor draft', async
 it('does not dispatch an old Passkey PUT after revision lookup crosses an actor change and allows an explicit save in the new frame', async () => {
   await renderPage()
   await act(async () => { client.setQueryData(TYPED_BULK_REVISION_QUERY_KEY, { success: true, data: { revision: 7 } }, { updatedAt: 0 }) })
-  const originalGet = vi.mocked(api.get).getMockImplementation()!
+  const originalGet = vi.mocked(api.get).getMockImplementation()
+  if (!originalGet) throw new Error('Expected the settings GET boundary mock')
   let release: ((value: { data: { success: boolean; data: { revision: number } } }) => void) | undefined
   const pending = new Promise<{ data: { success: boolean; data: { revision: number } } }>((resolve) => { release = resolve })
   let deferredReads = 0
@@ -123,7 +124,8 @@ it('does not dispatch an old Passkey PUT after revision lookup crosses an actor 
 it('does not dispatch the delayed Passkey PUT after discarding that section and lets the same actor save a newly opened section task', async () => {
   const { router } = await renderPage()
   await act(async () => { client.setQueryData(TYPED_BULK_REVISION_QUERY_KEY, { success: true, data: { revision: 7 } }, { updatedAt: 0 }) })
-  const originalGet = vi.mocked(api.get).getMockImplementation()!
+  const originalGet = vi.mocked(api.get).getMockImplementation()
+  if (!originalGet) throw new Error('Expected the settings GET boundary mock')
   let release: ((value: { data: { success: boolean; data: { revision: number } } }) => void) | undefined
   const pending = new Promise<{ data: { success: boolean; data: { revision: number } } }>((resolve) => { release = resolve })
   let deferredReads = 0
@@ -136,12 +138,12 @@ it('does not dispatch the delayed Passkey PUT after discarding that section and 
   fireEvent.change(screen.getByLabelText('Relying Party Display Name'), { target: { value: 'Discarded delayed draft' } })
   await user.click(screen.getByRole('button', { name: 'Save Changes' }))
   await waitFor(() => expect(deferredReads).toBe(1))
-  await act(async () => { void router.navigate({ to: '/system-settings/auth/basic-auth' }) })
-  await user.click(await screen.findByRole('button', { name: 'Leave', exact: true }))
+  await act(async () => { void router.navigate({ to: '/system-settings/auth/$section', params: { section: 'basic-auth' } }) })
+  await user.click(await screen.findByRole('button', { name: 'Leave' }))
   await waitFor(() => expect(screen.queryByLabelText('Relying Party Display Name')).not.toBeInTheDocument())
   await act(async () => { release?.({ data: { success: true, data: { revision: 8 } } }); await pending })
   expect(api.put).not.toHaveBeenCalled()
-  await act(async () => { await router.navigate({ to: '/system-settings/auth/passkey' }) })
+  await act(async () => { await router.navigate({ to: '/system-settings/auth/$section', params: { section: 'passkey' } }) })
   await screen.findByDisplayValue('Saved RP')
   fireEvent.change(screen.getByLabelText('Relying Party Display Name'), { target: { value: 'New section task' } })
   await user.click(screen.getByRole('button', { name: 'Save Changes' }))

@@ -19,26 +19,14 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import i18next from 'i18next'
 import { toast } from 'sonner'
-import { isAxiosError } from 'axios'
 import { useLayoutEffect, useRef } from 'react'
 
 import { useAuthStore } from '@/stores/auth-store'
-import { useSettingsReloadScope } from '../components/settings-page-context'
+import { useSettingsReloadScope } from '../components/settings-page-scope'
 
 import { updateSystemOption } from '../api'
 import type { UpdateOptionRequest } from '../types'
-
-export class OptionUpdateError extends Error {}
-
-const reportedFailures = new WeakSet<object>()
-
-export function markReportedOptionFailure(error: unknown): void {
-  if (error instanceof OptionUpdateError || isAxiosError(error)) reportedFailures.add(error)
-}
-
-export function isReportedOptionFailure(error: unknown): boolean {
-  return error instanceof OptionUpdateError || (isAxiosError(error) && reportedFailures.has(error))
-}
+import { markReportedOptionFailure, OptionUpdateError } from './option-update-error'
 
 // Configuration keys that require status refresh
 const STATUS_RELATED_KEYS = new Set([

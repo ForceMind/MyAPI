@@ -20,10 +20,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import i18next from 'i18next'
 import { toast } from 'sonner'
-import { useSettingsReloadScope } from '../components/settings-page-context'
+import { useSettingsReloadScope } from '../components/settings-page-scope'
 import { useLayoutEffect, useRef } from 'react'
 import { useAuthStore } from '@/stores/auth-store'
-import { markReportedOptionFailure, OptionUpdateError } from './use-update-option'
+import { markReportedOptionFailure, OptionUpdateError } from './option-update-error'
 
 import { getOptionsTypedBulkRevision, updateOptionsTypedBulk } from '../api'
 import type {

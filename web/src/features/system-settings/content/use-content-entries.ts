@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useAuthStore } from '@/stores/auth-store'
-import { useSettingsReloadScope } from '../components/settings-page-context'
+import { useSettingsReloadScope } from '../components/settings-page-scope'
 
 import { parseContentEntries, type ContentEntry } from './collection-json'
 

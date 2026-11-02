@@ -18,11 +18,9 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { RotateCcw, Save } from 'lucide-react'
 import {
-  createContext,
   useContext,
   useLayoutEffect,
   useState,
-  useSyncExternalStore,
   type ComponentProps,
   type ReactNode,
   type RefObject,
@@ -31,45 +29,8 @@ import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
-import { isReportedOptionFailure } from '../hooks/use-update-option'
-import { useAuthStore } from '@/stores/auth-store'
-
-type SettingsPageContextValue = {
-  actionsContainer: HTMLDivElement | null
-  titleStatusContainer: HTMLSpanElement | null
-  suppressSectionHeader: boolean
-  reloadScope: SettingsReloadScope
-}
-
-type SettingsReloadScope = {
-  subscribe: (listener: () => void) => () => void
-  getSnapshot: () => number
-  hasEditors: () => boolean
-  acceptReload: () => void
-  isActive: () => boolean
-  setActive: (active: boolean) => void
-}
-
-function createSettingsReloadScope(): SettingsReloadScope {
-  let generation = 0
-  let active = true
-  const listeners = new Set<() => void>()
-  return {
-    subscribe: (listener) => { listeners.add(listener); return () => { listeners.delete(listener) } },
-    getSnapshot: () => generation,
-    hasEditors: () => listeners.size > 0,
-    acceptReload: () => { if (!active) return; generation += 1; for (const listener of listeners) listener() },
-    isActive: () => active,
-    setActive: (value) => { active = value },
-  }
-}
-
-const SettingsPageContext = createContext<SettingsPageContextValue>({
-  actionsContainer: null,
-  titleStatusContainer: null,
-  suppressSectionHeader: false,
-  reloadScope: createSettingsReloadScope(),
-})
+import { isReportedOptionFailure } from '../hooks/option-update-error'
+import { createSettingsReloadScope, SettingsPageContext } from './settings-page-scope'
 
 type SettingsPageProviderProps = {
   actionsContainer: HTMLDivElement | null
@@ -93,20 +54,6 @@ export function SettingsPageProvider(props: SettingsPageProviderProps) {
       {props.children}
     </SettingsPageContext.Provider>
   )
-}
-
-export function useSettingsReloadScope() {
-  return useContext(SettingsPageContext).reloadScope
-}
-
-export function isCurrentSettingsFrame(scope: SettingsReloadScope, identity: string): boolean {
-  const { auth } = useAuthStore.getState()
-  return scope.isActive() && identity === `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`
-}
-
-export function useSettingsReloadGeneration() {
-  const scope = useSettingsReloadScope()
-  return useSyncExternalStore(scope.subscribe, scope.getSnapshot, scope.getSnapshot)
 }
 
 export function useSuppressSettingsSectionHeader() {

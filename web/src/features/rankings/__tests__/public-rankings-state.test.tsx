@@ -63,7 +63,10 @@ it('keeps full model and vendor names readable and missing usage or growth unkno
   expect(screen.getByText('0%')).not.toBeVisible()
   expect(screen.getAllByText('Unknown')).toHaveLength(2)
   await userEvent.setup().click(screen.getByText('Ranking details'))
-  const details = screen.getByText('Ranking details').closest('details')!
+  const details = screen.getByText('Ranking details').closest('details')
+  if (!details) {
+    throw new Error('Expected ranking details element')
+  }
   expect(within(details).getByText('programming')).toBeVisible()
   expect(within(details).getByText('8')).toBeVisible()
   expect(within(details).getByText('0%')).toBeVisible()
@@ -74,7 +77,10 @@ it('lets readers expand beyond the original twelve vendors and reach existing su
   await renderRankings(<MarketShareSection rows={rows} history={{ points: [], vendors: [], buckets: 0 }} period='month' />)
   expect(screen.queryByRole('link', { name: 'Synthetic vendor 13' })).not.toBeInTheDocument()
   await userEvent.setup().click(screen.getByRole('button', { name: 'Show all vendors' }))
-  const last = screen.getByRole('link', { name: 'Synthetic vendor 13' }).closest('li')!
+  const last = screen.getByRole('link', { name: 'Synthetic vendor 13' }).closest('li')
+  if (!last) {
+    throw new Error('Expected final vendor list item')
+  }
   await userEvent.setup().click(within(last).getByText('Ranking details'))
   expect(within(last).getByRole('link', { name: 'synthetic-top-model-13' })).toBeVisible()
   expect(within(last).getByText('14')).toBeVisible()

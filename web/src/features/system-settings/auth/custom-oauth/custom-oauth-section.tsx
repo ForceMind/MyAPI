@@ -76,9 +76,11 @@ export function CustomOAuthSection(props: CustomOAuthSectionProps) {
     )
   }
 
-  if (isError) return <SettingsSection title={t('Custom OAuth Providers')}>
+  if (isError) {
+    return <SettingsSection title={t('Custom OAuth Providers')}>
     <div role='alert' className='text-destructive space-y-3 text-sm'><p>{error.message || t('Unable to load settings')}</p><Button type='button' variant='outline' onClick={() => void refetch()}>{t('Retry')}</Button></div>
   </SettingsSection>
+  }
 
   return (
     <SettingsSection title={t('Custom OAuth Providers')}>

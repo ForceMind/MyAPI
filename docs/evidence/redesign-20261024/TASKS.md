@@ -499,6 +499,12 @@ UI 设计（`ui-design/DESIGN_DIRECTION.md` 第 11 节）：
 
 e2ceaa66 / CI41532530830尚排队时，代理定向只读核对55关联既有测试，Root亲读确认另3文件4处旧精确调用期待缺新增flag：Key详情复制、usage-review reconcile/recover及分组详情reconcile。仅补精确undefined body/config skipAuthRefresh:true，原URL/金额/证据/确认/请求ID/一次派发和“不操作不请求”断言全保留，不改成any或objectContaining。此4处是静态合同同步，不冒称已在Actions失败；排队运行提前取消以免重复消耗，下一提交完整验证。未改产品源或全局默认重试。
 
+**9964cd23 / CI41532865450前端125577675901**：全部原始日志与失败annotations已读。认证180、剩余88文件786、用户/资金297、模型173、公开33、账号85、Key388、原连接209、日志410及全量378文件2929/2929通过，同步与构建成功，无未处理错误。typecheck报6条：测试navigate模板/两处role exact选项、OAuth表单默认值推导、RateLimit可选JSON返回类型；lint21警告/11错误，涉及共享设置循环依赖与FastRefresh导出、两处curly、四处非空断言。不能把单测全绿当该提交完成；主CI已红后取消其余重复后端，不计完整绿。
+
+必要修正由原UI15作者处理共享scope/错误模块边界与类型，另一代理仅改PromptLearning/Rankings测试的花括号/显式必要guard。保全部原值和完整assertions，不禁用lint、不放宽TS、范围与时限，不在本机执行工具链；下一完整Actions验证后才更新UI15–18为完成。
+
+该质量候选精确22路径：UI15的2个必要.ts提取与17个既有调用/测试、PromptLearning与Rankings两测试、此清单。Root已读关键diff：原Context/Provider层级、generation/actor与错误WeakSet逻辑同源迁移，不留re-export循环；OAuth表单显式既有类型，无新any/cast；RateLimit当前getter为undefined时拒绝应用/删除，不回落成旧raw或空JSON。路由模板保同原params，role字符串仍精确匹配，非空断言换必要guard，其他全部assertions原样。无新key/版本/后端/依赖/检查规则改动，仍待Actions。
+
 - UI14：个人资料/认证25个UI源与6个新UI测试10例、19新键已冻结；Root另准备auth/profile/passkey/2FA原调用的21组真实Axios401/403/成功合同与inline reset派发flag，原proof/flow_token/轮换/倒计时/自动copy保留。候选未入当前UI13 CI，不宣称已通过；下一步仅测试旧源取证，再推产品与译文。
 - UI15：20真实设置分区39个源（含四个内容集合的3个最小共享UI源）、5测试21例、9键冻结；保原保存时机、shared actor/frame/alive与dirty/成功ack，真实CAS 409显式Reload恢复，不改typed协议。唯一数值id0与unknown false/0保留，坏JSON不伪空。RateLimit新增__proto__原mutator边界仅记录为既有待办，本轮不称修复。
 - UI16：22真实分区及同页SystemInfo两Panel，20源6测试13例、11新键冻结；expr.md已读，原报价/倍率/变量/len/单位/阈值/覆盖算法与真实路由不改。Root另准备settings/systemInfo/customOAuth12组真实Axios合同和维护inline4调用保护，未入当前UI13 CI。

@@ -47,7 +47,8 @@ import {
   SettingsSwitchContent,
   SettingsSwitchItem,
 } from '../components/settings-form-layout'
-import { SettingsPageFormActions, useSettingsReloadScope, isCurrentSettingsFrame } from '../components/settings-page-context'
+import { SettingsPageFormActions } from '../components/settings-page-context'
+import { useSettingsReloadScope, isCurrentSettingsFrame } from '../components/settings-page-scope'
 import { useResetForm, preserveSettingsEdits } from '../hooks/use-reset-form'
 import { useAuthStore } from '@/stores/auth-store'
 import { SettingsSection } from '../components/settings-section'

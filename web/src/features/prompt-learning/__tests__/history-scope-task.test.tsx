@@ -99,9 +99,11 @@ describe('prompt history task boundaries', () => {
 
   it('does not reuse another session history or draft, including same-user session replacement', async () => {
     vi.mocked(api.get).mockImplementation(async (url) => {
-      if (url.endsWith('versions')) return response({ ...emptyPage, total: 1, items: [{
-        id: 7, content: 'Old session instructions', content_hash: 'a'.repeat(64), source: 'manual', created_at: 1,
-      }] })
+      if (url.endsWith('versions')) {
+        return response({ ...emptyPage, total: 1, items: [{
+          id: 7, content: 'Old session instructions', content_hash: 'a'.repeat(64), source: 'manual', created_at: 1,
+        }] })
+      }
       return response(url.endsWith('prompt-learning') ? policy : emptyPage)
     })
     const user = userEvent.setup()

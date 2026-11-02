@@ -58,7 +58,8 @@ import {
   SettingsSwitchContent,
   SettingsSwitchItem,
 } from '../components/settings-form-layout'
-import { isCurrentSettingsFrame, SettingsPageFormActions, useSettingsReloadScope } from '../components/settings-page-context'
+import { SettingsPageFormActions } from '../components/settings-page-context'
+import { isCurrentSettingsFrame, useSettingsReloadScope } from '../components/settings-page-scope'
 import { SettingsSection } from '../components/settings-section'
 import { preserveSettingsEdits, useResetForm } from '../hooks/use-reset-form'
 import { useUpdateOption } from '../hooks/use-update-option'

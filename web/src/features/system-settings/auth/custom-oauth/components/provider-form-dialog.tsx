@@ -24,7 +24,7 @@ import { useTranslation } from 'react-i18next'
 import { CopyButton } from '@/components/copy-button'
 import { useAuthStore } from '@/stores/auth-store'
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
-import { isCurrentSettingsFrame, useSettingsReloadScope } from '../../../components/settings-page-context'
+import { isCurrentSettingsFrame, useSettingsReloadScope } from '../../../components/settings-page-scope'
 import { useResetForm } from '../../../hooks/use-reset-form'
 import { Dialog } from '@/components/dialog'
 import { JsonCodeEditor } from '@/components/json-code-editor'
@@ -134,7 +134,7 @@ function ProviderFormTask(props: ProviderFormDialogProps & { identity: string })
     t('Site URL')
   )
 
-  useResetForm(form, props.provider ? {
+  useResetForm<CustomOAuthFormValues>(form, props.provider ? {
         name: props.provider.name,
         slug: props.provider.slug,
         icon: props.provider.icon || '',

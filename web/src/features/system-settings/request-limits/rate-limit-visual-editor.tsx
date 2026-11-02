@@ -30,7 +30,7 @@ import { RateLimitDialog, type RateLimitEntryData } from './rate-limit-dialog'
 type RateLimitVisualEditorProps = {
   value: string
   onChange: (value: string) => void
-  getCurrentValue?: () => string
+  getCurrentValue?: () => string | undefined
   onRequestJSON?: () => void
 }
 
@@ -73,7 +73,8 @@ export function RateLimitVisualEditor({
   }, [rateLimits, searchText])
 
   const handleSave = (data: RateLimitEntryData) => {
-    if (!parsedState || openedSource !== (getCurrentValue?.() ?? value)) return false
+    const currentValue = getCurrentValue ? getCurrentValue() : value
+    if (!parsedState || openedSource !== currentValue) return false
     const parsed = JSON.parse(value || '{}') as Record<string, unknown>
 
     if (editData && editData.groupName !== data.groupName) {
@@ -86,7 +87,8 @@ export function RateLimitVisualEditor({
   }
 
   const handleDelete = (groupName: string) => {
-    if (!parsedState || (getCurrentValue?.() ?? value) !== value) return
+    const currentValue = getCurrentValue ? getCurrentValue() : value
+    if (!parsedState || currentValue !== value) return
     const parsed = JSON.parse(value || '{}') as Record<string, unknown>
 
     delete parsed[groupName]

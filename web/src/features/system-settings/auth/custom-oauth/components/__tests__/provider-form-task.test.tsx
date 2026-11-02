@@ -73,7 +73,7 @@ it('keeps an independent provider deletion confirmation open with its error afte
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'Open menu' }))
   await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
-  await user.click(screen.getByRole('button', { name: 'Delete', exact: true }))
+  await user.click(screen.getByRole('button', { name: 'Delete' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Synthetic provider deletion rejected')
   expect(screen.getByRole('alertdialog')).toBeInTheDocument()
   expect(remove).toHaveBeenCalledTimes(1)
