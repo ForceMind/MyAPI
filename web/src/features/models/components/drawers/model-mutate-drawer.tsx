@@ -268,6 +268,7 @@ export function ModelMutateDrawer({
   // refetch, and including it in the deps would reset the form under the user.
   const modelSettingsRef = useRef<ModelSettings | null>(null)
   const pricingInitializedRef = useRef(false)
+  const metadataInitializedRef = useRef<string | null>(null)
   const formElementRef = useRef<HTMLFormElement>(null)
 
   // Fetch vendors for dropdown
@@ -435,8 +436,13 @@ export function ModelMutateDrawer({
   useEffect(() => {
     if (!open) {
       pricingInitializedRef.current = false
+      metadataInitializedRef.current = null
       return
     }
+    const target = isEditing ? `model:${currentModelId}` : `create:${currentRow?.model_name ?? ''}`
+    if (metadataInitializedRef.current === target) return
+    if (isEditing && !modelData?.data) return
+    metadataInitializedRef.current = target
     pricingInitializedRef.current = modelSettingsRef.current !== null
     if (open && isEditing && modelData?.data) {
       const model = modelData.data

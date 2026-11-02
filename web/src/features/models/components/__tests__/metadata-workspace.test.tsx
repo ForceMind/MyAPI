@@ -77,7 +77,10 @@ it('uses shared last-page controls and resets to page one when page size changes
   await waitFor(() => expect(router.state.location.search.page).toBe(4))
   expect(api.get).toHaveBeenCalledWith('/api/models/', { params: { p: 4, page_size: 20 } })
   await user.selectOptions(within(pager).getByRole('combobox', { name: 'Rows per page' }), '50')
-  await waitFor(() => expect(router.state.location.search).toMatchObject({ page: 1, pageSize: 50 }))
+  await waitFor(() => expect(router.state.location.search.pageSize).toBe(50))
+  await waitFor(() => expect(api.get).toHaveBeenCalledWith('/api/models/', { params: { p: 1, page_size: 50 } }))
+  expect(within(pager).getByRole('button', { name: 'Go to page 1' })).toHaveAttribute('aria-current', 'page')
+  expect(within(pager).getByRole('button', { name: 'First page' })).toBeDisabled()
 })
 
 it('retains list context and returns focus to the edit action after closing the editor', async () => {
@@ -128,4 +131,19 @@ it('keeps selected model IDs separate when a different server page returns anoth
   await screen.findByText('second-page-model')
   expect(screen.getByRole('checkbox', { name: 'Select row' })).not.toBeChecked()
   expect(screen.queryByRole('button', { name: 'Delete selected models' })).not.toBeInTheDocument()
+})
+
+it('keeps the model name in its delete confirmation and cancelling sends no delete', async () => {
+  const remove = vi.spyOn(api, 'delete').mockResolvedValue({ data: { success: true } })
+  const user = userEvent.setup()
+  await renderWorkspace()
+  await screen.findByText(item.model_name)
+  await user.click(screen.getByRole('button', { name: 'Open menu' }))
+  await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
+  const confirmation = await screen.findByRole('alertdialog')
+  expect(confirmation).toHaveTextContent(item.model_name)
+  expect(remove).not.toHaveBeenCalled()
+  await user.click(within(confirmation).getByRole('button', { name: 'Cancel' }))
+  await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+  expect(remove).not.toHaveBeenCalled()
 })
