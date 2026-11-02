@@ -588,6 +588,9 @@ jobs:
           bun run i18n:sync
           git -c core.fileMode=false diff --exit-code -- src/i18n/locales/en.json src/i18n/locales/zh.json src/i18n/locales/zh-TW.json src/i18n/locales/fr.json src/i18n/locales/ja.json src/i18n/locales/ru.json src/i18n/locales/vi.json
 
+      - name: Verify model catalog, details and presentation contracts
+        run: bun run test src/features/pricing
+
       - name: Verify saved account windows and share presentation contracts
         run: bun run test src/features/personal-upstream src/features/keys/components/__tests__/subscription-share-layout.test.tsx
 
