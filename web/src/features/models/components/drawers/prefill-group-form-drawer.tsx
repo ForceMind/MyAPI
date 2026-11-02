@@ -411,7 +411,7 @@ export function PrefillGroupFormDrawer({
             {t('Cancel')}
           </SheetClose>
           <Button type='submit' form='prefill-group-form' disabled={isSaving}>
-            {isSaving && <Spinner className='mr-2 h-4 w-4 animate-spin' />}
+            {isSaving && <Spinner aria-hidden='true' className='mr-2 h-4 w-4 animate-spin' />}
             {submitLabel}
           </Button>
         </SheetFooter>
