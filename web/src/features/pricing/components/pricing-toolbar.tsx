@@ -243,7 +243,7 @@ export function PricingToolbar(props: PricingToolbarProps) {
                   onClick={() => props.onSortChange(value)}
                   className='gap-2'
                 >
-                  <Check
+                  <HugeiconsIcon icon={Tick02Icon} aria-hidden='true'
                     className={cn(
                       'size-4 shrink-0',
                       props.sortBy === value ? 'opacity-100' : 'opacity-0'
