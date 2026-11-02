@@ -28,7 +28,7 @@ export type PricingVendor = {
 }
 
 export type PricingModel = {
-  id: number
+  id?: number
   model_name: string
   description?: string
   icon?: string

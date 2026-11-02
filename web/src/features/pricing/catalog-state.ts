@@ -12,7 +12,7 @@ export const pricingSearchSchema = z.object({
   tokenUnit: z.enum(['M', 'K']).optional(),
   view: z.enum(['card', 'table']).optional().catch(undefined),
   rechargePrice: z.boolean().optional(),
-  focusId: z.number().int().positive().max(2147483647).optional().catch(undefined),
+  focusModel: z.string().min(1).max(1024).optional().catch(undefined),
   page: z.number().int().positive().max(2147483647).optional().catch(undefined),
   pageSize: z.number().int().positive().max(100).optional().catch(undefined),
 })

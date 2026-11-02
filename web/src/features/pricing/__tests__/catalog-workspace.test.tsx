@@ -211,14 +211,21 @@ describe('model catalog wire identity', () => {
   it('returns focus to the chosen model when the pricing response contains model names without numeric IDs', async () => {
     // model.Pricing serializes model_name and does not serialize a model id.
     const wire = { ...populatedPricing, data: populatedPricing.data.slice(0, 2).map(({ id: _id, ...item }) => item) }
-    pricingRequest = async () => ({ data: wire as PricingData })
+    pricingRequest = async () => ({ data: wire })
     const user = userEvent.setup()
-    await renderCatalog()
+    const { router } = await renderCatalog()
     const action = await screen.findByRole('button', { name: 'View model synthetic-model-02' })
     await user.click(action)
     await screen.findByRole('dialog')
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'View model synthetic-model-02' })).toHaveFocus())
+    await user.click(screen.getByRole('button', { name: 'View model synthetic-model-02' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('link', { name: 'Open model page' }))
+    await screen.findByRole('heading', { name: 'synthetic-model-02' })
+    expect(router.state.location.search.focusModel).toBe('synthetic-model-02')
+    await user.click(screen.getByRole('button', { name: 'Back' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'View model synthetic-model-02' })).toHaveFocus())
   })
 })

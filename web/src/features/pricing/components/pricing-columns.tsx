@@ -84,7 +84,7 @@ export function usePricingColumns(
       cell: ({ row }) => {
         const model = row.original
         return (
-          <button type='button' className='min-h-11 w-full text-left' data-pricing-model={model.id} aria-label={t('View model {{model}}', { model: model.model_name })} onClick={(event) => { event.stopPropagation(); onModelClick?.(model.model_name) }}>
+          <button type='button' className='min-h-11 w-full text-left' data-pricing-model={model.model_name} aria-label={t('View model {{model}}', { model: model.model_name })} onClick={(event) => { event.stopPropagation(); onModelClick?.(model.model_name) }}>
             <ModelCatalogIdentity model={model} />
           </button>
         )

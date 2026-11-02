@@ -48,6 +48,7 @@ import {
 } from '@/features/performance-metrics/lib/format'
 import { cn } from '@/lib/utils'
 
+import { findModelCatalogAction } from '../catalog-focus'
 import type { PricingSearch } from '../catalog-state'
 import { ModelCatalogIdentity } from './model-catalog-identity'
 import { DEFAULT_TOKEN_UNIT } from '../constants'
@@ -1218,7 +1219,7 @@ export function ModelDetailsDrawer(props: ModelDetailsDrawerProps) {
         side='right'
         finalFocus={() => returnFocus?.current?.isConnected
           ? returnFocus.current
-          : document.querySelector<HTMLElement>(`[data-pricing-model="${props.model.id}"]`) ?? document.querySelector<HTMLElement>('[data-pricing-heading]')}
+          : findModelCatalogAction(props.model.model_name) ?? document.querySelector<HTMLElement>('[data-pricing-heading]')}
         className={sideDrawerContentClassName(
           'sm:max-w-2xl lg:max-w-3xl xl:max-w-4xl 2xl:max-w-5xl'
         )}
@@ -1265,7 +1266,7 @@ export function ModelDetails() {
   }, [models, modelId])
 
   const handleBack = () => {
-    navigate({ to: '/pricing', search: { ...search, ...(model ? { focusId: model.id } : {}) } })
+    navigate({ to: '/pricing', search: { ...search, ...(model ? { focusModel: model.model_name } : {}) } })
   }
 
   if (isLoading) {

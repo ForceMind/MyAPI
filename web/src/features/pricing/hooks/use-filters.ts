@@ -61,7 +61,7 @@ export function useFilters(models: PricingModel[]) {
   const updateFilters = useCallback((updates: Partial<PricingSearch>, resetPage = true) => {
     void navigate({
       replace: true,
-      search: (previous) => ({ ...previous, focusId: undefined, ...updates, ...(resetPage ? { page: undefined } : {}) }),
+      search: (previous) => ({ ...previous, focusModel: undefined, ...updates, ...(resetPage ? { page: undefined } : {}) }),
     })
   }, [navigate])
 

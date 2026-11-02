@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { PublicLayout } from '@/components/layout'
@@ -36,6 +37,7 @@ import {
   ModelCardGrid,
   ModelDetailsDrawer,
 } from './components'
+import { findModelCatalogAction } from './catalog-focus'
 import { EXCLUDED_GROUPS, VIEW_MODES } from './constants'
 import { useFilters } from './hooks/use-filters'
 import { usePricingData } from './hooks/use-pricing-data'
@@ -99,16 +101,23 @@ export function Pricing() {
   const rememberFocus = useRememberReturnFocus()
   const headingRef = useRef<HTMLHeadingElement>(null)
   const openerRef = useRef<HTMLElement | null>(null)
+  const historyKey = useLocation({ select: (location) => location.state.__TSR_key ?? location.state.key })
+  const requestedModel = catalogSearch.focusModel
+  const focusRows = useMemo(() => ({ models: filteredModels, requestedModel }), [filteredModels, requestedModel])
+  // Bridge name-only pricing identities into the existing one-shot history focus.
+  // Register only on entry/request changes, so saved-data refreshes cannot steal focus.
+  useEffect(() => {
+    if (historyKey && requestedModel) rememberFocus('data-pricing-model', requestedModel)
+  }, [historyKey, requestedModel, rememberFocus])
   const currentPage = Math.min(page, Math.max(1, Math.ceil(filteredModels.length / pageSize)))
-  useReturnFocus({ attribute: 'data-pricing-model', settled: !isLoading, rows: filteredModels, requestedId: catalogSearch.focusId, fallback: headingRef })
+  useReturnFocus({ attribute: 'data-pricing-model', settled: !isLoading, rows: focusRows, fallback: headingRef })
   const handleModelClick = useCallback((modelName: string) => {
-    const model = models.find((item) => item.model_name === modelName)
     const active = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    openerRef.current = active?.getAttribute('data-pricing-model') === String(model?.id)
+    openerRef.current = active?.getAttribute('data-pricing-model') === modelName
       ? active
-      : document.querySelector<HTMLElement>(`[data-pricing-model="${model?.id}"]`)
+      : findModelCatalogAction(modelName)
     setSelectedModelName(modelName)
-  }, [models])
+  }, [])
 
   const selectedModel = useMemo(
     () =>
@@ -295,9 +304,9 @@ export function Pricing() {
         {selectedModel && (
           <ModelDetailsDrawer
             key={selectedModel.model_name}
-            returnSearch={{ ...catalogSearch, page: currentPage, pageSize, focusId: selectedModel.id }}
+            returnSearch={{ ...catalogSearch, page: currentPage, pageSize, focusModel: selectedModel.model_name }}
             returnFocus={openerRef}
-            onOpenPage={() => rememberFocus('data-pricing-model', selectedModel.id)}
+            onOpenPage={() => rememberFocus('data-pricing-model', selectedModel.model_name)}
             open={Boolean(selectedModel)}
             onOpenChange={(open) => {
               if (!open) setSelectedModelName(null)
