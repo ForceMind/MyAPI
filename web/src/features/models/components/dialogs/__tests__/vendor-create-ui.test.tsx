@@ -136,7 +136,7 @@ it('keeps one scroll region between the fixed title and actions with 44px input 
   render(<VendorCreateFixture />)
   const dialog = screen.getByRole('dialog', { name: 'Create Vendor' })
   expect(dialog).toHaveClass('h-dvh', 'overflow-hidden', 'sm:h-auto')
-  const scrollRegions = Array.from(dialog.querySelectorAll<HTMLElement>('*')).filter((element) => element.classList.contains('overflow-y-auto'))
+  const scrollRegions = [...dialog.querySelectorAll<HTMLElement>('*')].filter((element) => element.classList.contains('overflow-y-auto'))
   expect(scrollRegions).toHaveLength(1)
   expect(scrollRegions[0]).not.toContainElement(screen.getByRole('heading', { name: 'Create Vendor' }))
   expect(scrollRegions[0]).not.toContainElement(screen.getByRole('button', { name: 'Create', exact: true }))
