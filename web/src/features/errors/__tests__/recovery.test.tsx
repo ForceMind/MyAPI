@@ -34,6 +34,7 @@ describe('error recovery', () => {
       'href',
       '/'
     )
+    expect(screen.getByRole('link', { name: 'Back to Home' }).parentElement).toHaveClass('[&_[data-myapi-button]]:min-h-11')
     expect(
       screen.queryByRole('button', { name: 'Learn more' })
     ).not.toBeInTheDocument()

@@ -22,6 +22,7 @@ describe('setup navigation', () => {
     ).not.toBeInTheDocument()
     await user.tab()
     expect(screen.getByRole('button', { name: 'Next' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveClass('min-h-11')
     await user.keyboard('{Enter}')
     expect(onNext).toHaveBeenCalledOnce()
     expect(screen.getByText('Setup progress: 0/4')).toHaveAttribute(
@@ -66,7 +67,7 @@ describe('setup navigation', () => {
     view.rerender(<StepNavigation {...props} isSubmitting={false} />)
     const submit = screen.getByRole('button', { name: 'Initialize system' })
     expect(submit).toBeEnabled()
-    expect(submit).toHaveClass('whitespace-normal', 'h-auto', 'max-w-full')
+    expect(submit).toHaveClass('whitespace-normal', 'h-auto', 'max-w-full', 'min-h-11')
     expect(screen.getByRole('button', { name: 'Back' })).toBeEnabled()
   })
 })

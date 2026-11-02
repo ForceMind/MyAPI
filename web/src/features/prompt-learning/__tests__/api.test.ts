@@ -41,7 +41,7 @@ describe('prompt learning API', () => {
     expect(api.get).toHaveBeenNthCalledWith(1, '/api/user/prompt-learning')
     expect(api.put).toHaveBeenLastCalledWith('/api/user/prompt-learning', {
       enabled: true,
-    })
+    }, { skipAuthRefresh: true })
     expect(api.get).toHaveBeenNthCalledWith(
       2,
       '/api/user/prompt-learning/versions',
@@ -55,7 +55,8 @@ describe('prompt learning API', () => {
         command_id: 'manual-1',
         content: 'Instructions',
         parent_id: 7,
-      }
+      },
+      { skipAuthRefresh: true }
     )
   })
 

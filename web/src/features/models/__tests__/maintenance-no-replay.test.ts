@@ -10,7 +10,7 @@ const adapter: AxiosAdapter = (config) => transport(config)
 const defaultAdapter = axios.defaults.adapter
 axios.defaults.adapter = adapter
 const { useAuthStore } = await import('@/stores/auth-store')
-const { createVendor, createPrefillGroup, updatePrefillGroup, deletePrefillGroup, createModel, syncUpstream, applyUpstreamOverwrite, createDeployment, updateDeployment, updateDeploymentName, extendDeployment, deleteDeployment } = await import('../api')
+const { createVendor, createPrefillGroup, updatePrefillGroup, deletePrefillGroup, createModel, syncUpstream, applyUpstreamOverwrite, updateModel, updateModelStatus, deleteModel, createDeployment, updateDeployment, updateDeploymentName, extendDeployment, deleteDeployment } = await import('../api')
 const { updateSystemOption } = await import('@/features/system-settings/api')
 axios.defaults.adapter = defaultAdapter
 
@@ -29,6 +29,9 @@ function response(config: InternalAxiosRequestConfig, data: unknown): AxiosRespo
   return { config, data, status: 200, statusText: 'OK', headers: {} }
 }
 const cases = [
+  { name: 'update configured model', method: 'put', url: '/api/models/', body: { id: 17, model_name: 'synthetic-model', description: '', status: 0, sync_official: 0, name_rule: 0 }, run: () => updateModel({ id: 17, model_name: 'synthetic-model', description: '', status: 0, sync_official: 0, name_rule: 0 }) },
+  { name: 'set model explicit disabled', method: 'put', url: '/api/models/?status_only=true', body: { id: 17, status: 0 }, run: () => updateModelStatus(17, 0) },
+  { name: 'delete configured model', method: 'delete', url: '/api/models/17', body: undefined, run: () => deleteModel(17) },
   { name: 'create deployment', method: 'post', url: '/api/deployments/', body: { resource_private_name: 'synthetic-deployment', duration_hours: 1, gpus_per_container: 1, hardware_id: 1, location_ids: [1], container_config: { replica_count: 1 }, registry_config: { image_url: 'synthetic/image:fixed' } }, run: () => createDeployment({ resource_private_name: 'synthetic-deployment', duration_hours: 1, gpus_per_container: 1, hardware_id: 1, location_ids: [1], container_config: { replica_count: 1 }, registry_config: { image_url: 'synthetic/image:fixed' } }) },
   { name: 'update deployment', method: 'put', url: '/api/deployments/17', body: { image_url: 'synthetic/image:fixed', env_variables: { ZERO: '0' } }, run: () => updateDeployment(17, { image_url: 'synthetic/image:fixed', env_variables: { ZERO: '0' } }) },
   { name: 'rename deployment', method: 'put', url: '/api/deployments/17/name', body: { name: 'synthetic-name' }, run: () => updateDeploymentName(17, 'synthetic-name') },
