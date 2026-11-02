@@ -1870,7 +1870,7 @@ export function ChannelMutateDrawer({
       confirmStatusCodeRisk,
       channelMutation,
       t,
-      task.begin,
+      task,
     ]
   )
 
@@ -1996,7 +1996,7 @@ export function ChannelMutateDrawer({
         setClipboardConnectionInfo(null)
       }
     },
-    [onOpenChange, form, task.isPending, channelMutation.isPending]
+    [onOpenChange, form, task, channelMutation.isPending]
   )
 
   return (

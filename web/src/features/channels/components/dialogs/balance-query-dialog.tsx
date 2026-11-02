@@ -203,6 +203,13 @@ function BalanceQueryTask(props: BalanceQueryDialogProps) {
     )
   }
 
+  let balanceDisplay = t('Unknown')
+  if (balance !== null) {
+    balanceDisplay = formatBalance(balance)
+  } else if (typeof currentRow.balance === 'number' && Number.isFinite(currentRow.balance)) {
+    balanceDisplay = formatBalance(currentRow.balance)
+  }
+
   return (
     <Dialog
       open={props.open}
@@ -257,9 +264,7 @@ function BalanceQueryTask(props: BalanceQueryDialogProps) {
                 <span>{t('Current Balance')}</span>
               </div>
               <div className='text-2xl font-bold'>
-                {balance !== null
-                  ? formatBalance(balance)
-                  : (typeof currentRow.balance === 'number' && Number.isFinite(currentRow.balance) ? formatBalance(currentRow.balance) : t('Unknown'))}
+                {balanceDisplay}
               </div>
               <div className='text-muted-foreground mt-2 text-xs'>
                 {t('Last updated:')}{' '}

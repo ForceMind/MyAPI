@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react'
 
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -39,5 +39,5 @@ export function useChannelTask(open: boolean, channelId?: number | null) {
   }, [capture])
 
   const isPending = useCallback(() => pending.current, [])
-  return { identity, capture, begin, isPending }
+  return useMemo(() => ({ identity, capture, begin, isPending }), [identity, capture, begin, isPending])
 }

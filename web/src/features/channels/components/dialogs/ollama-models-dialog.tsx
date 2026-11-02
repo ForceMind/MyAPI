@@ -207,7 +207,7 @@ function OllamaModelsTask({
     } finally {
       if (snapshot.isCurrent() && request === readGeneration.current) setIsFetching(false)
     }
-  }, [channelId, currentRow, isOllamaChannel, t, task.capture])
+  }, [channelId, currentRow, isOllamaChannel, t, task])
 
   const toggleSelected = (modelId: string, checked: boolean) => {
     setSelected((prev) => {
@@ -284,7 +284,6 @@ function OllamaModelsTask({
       return
     }
 
-    pullAbortRef.current?.abort()
     const controller = new AbortController()
     pullAbortRef.current = controller
     const snapshot = task.capture()
