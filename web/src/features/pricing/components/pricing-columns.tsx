@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { ColumnDef } from '@tanstack/react-table'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -66,11 +67,12 @@ export function usePricingColumns(
     usdExchangeRate = 1,
     showRechargePrice = false,
     selectedGroup,
+    onModelClick,
   } = options
 
   const tokenUnitLabel = tokenUnit === 'K' ? '1K' : '1M'
 
-  return [
+  return useMemo<ColumnDef<PricingModel>[]>(() => [
     // Model column
     {
       accessorKey: 'model_name',
@@ -81,7 +83,7 @@ export function usePricingColumns(
       cell: ({ row }) => {
         const model = row.original
         return (
-          <button type='button' className='min-h-11 w-full text-left' data-pricing-model={model.id} aria-label={t('View model {{model}}', { model: model.model_name })} onClick={(event) => { event.stopPropagation(); options.onModelClick?.(model.model_name) }}>
+          <button type='button' className='min-h-11 w-full text-left' data-pricing-model={model.id} aria-label={t('View model {{model}}', { model: model.model_name })} onClick={(event) => { event.stopPropagation(); onModelClick?.(model.model_name) }}>
             <ModelCatalogIdentity model={model} />
           </button>
         )
@@ -284,5 +286,5 @@ export function usePricingColumns(
       size: 130,
       enableSorting: false,
     },
-  ]
+  ], [t, tokenUnit, priceRate, usdExchangeRate, showRechargePrice, selectedGroup, onModelClick, tokenUnitLabel])
 }

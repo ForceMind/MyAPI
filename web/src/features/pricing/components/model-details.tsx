@@ -1215,7 +1215,9 @@ export function ModelDetailsDrawer(props: ModelDetailsDrawerProps) {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side='right'
-        finalFocus={returnFocus}
+        finalFocus={() => returnFocus?.current?.isConnected
+          ? returnFocus.current
+          : document.querySelector<HTMLElement>(`[data-pricing-model="${props.model.id}"]`)}
         className={sideDrawerContentClassName(
           'sm:max-w-2xl lg:max-w-3xl xl:max-w-4xl 2xl:max-w-5xl'
         )}
