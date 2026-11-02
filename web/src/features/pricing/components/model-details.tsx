@@ -1205,11 +1205,12 @@ export interface ModelDetailsDrawerProps extends ModelDetailsContentProps {
   onOpenChange: (open: boolean) => void
   returnSearch?: PricingSearch
   returnFocus?: RefObject<HTMLElement | null>
+  onOpenPage?: () => void
 }
 
 export function ModelDetailsDrawer(props: ModelDetailsDrawerProps) {
   const { t } = useTranslation()
-  const { open, onOpenChange, returnSearch, returnFocus, ...contentProps } = props
+  const { open, onOpenChange, returnSearch, returnFocus, onOpenPage, ...contentProps } = props
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -1217,7 +1218,7 @@ export function ModelDetailsDrawer(props: ModelDetailsDrawerProps) {
         side='right'
         finalFocus={() => returnFocus?.current?.isConnected
           ? returnFocus.current
-          : document.querySelector<HTMLElement>(`[data-pricing-model="${props.model.id}"]`)}
+          : document.querySelector<HTMLElement>(`[data-pricing-model="${props.model.id}"]`) ?? document.querySelector<HTMLElement>('[data-pricing-heading]')}
         className={sideDrawerContentClassName(
           'sm:max-w-2xl lg:max-w-3xl xl:max-w-4xl 2xl:max-w-5xl'
         )}
@@ -1226,7 +1227,7 @@ export function ModelDetailsDrawer(props: ModelDetailsDrawerProps) {
           <SheetTitle>{props.model.model_name}</SheetTitle>
           <SheetDescription>{t('Model details')}</SheetDescription>
         </SheetHeader>
-        {returnSearch && <div className='shrink-0 border-b px-4 pt-4 pr-14 pb-3 sm:px-6'><Link className={cn(buttonVariants({ variant: 'outline' }), 'min-h-11')} to='/pricing/$modelId' params={{ modelId: props.model.model_name }} search={returnSearch}>{t('Open model page')}</Link></div>}
+        {returnSearch && <div className='shrink-0 border-b px-4 pt-4 pr-14 pb-3 sm:px-6'><Link className={cn(buttonVariants({ variant: 'outline' }), 'min-h-11')} onClick={onOpenPage} to='/pricing/$modelId' params={{ modelId: props.model.model_name }} search={returnSearch}>{t('Open model page')}</Link></div>}
         <div className='min-h-0 flex-1 overflow-y-auto px-4 pt-11 pb-5 sm:px-6 sm:pt-12 sm:pb-6'>
           <ModelDetailsContent {...contentProps} />
         </div>

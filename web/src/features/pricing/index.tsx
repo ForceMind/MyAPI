@@ -107,9 +107,8 @@ export function Pricing() {
     openerRef.current = active?.getAttribute('data-pricing-model') === String(model?.id)
       ? active
       : document.querySelector<HTMLElement>(`[data-pricing-model="${model?.id}"]`)
-    if (model) rememberFocus('data-pricing-model', model.id)
     setSelectedModelName(modelName)
-  }, [models, rememberFocus])
+  }, [models])
 
   const selectedModel = useMemo(
     () =>
@@ -190,7 +189,7 @@ export function Pricing() {
     return (
       <PublicLayout showMainContainer={false}>
         <main className='mx-auto w-full max-w-[1200px] min-w-0 px-4 py-6 lg:px-6'>
-          <h1 ref={headingRef} tabIndex={-1} className='mb-4 text-2xl font-semibold'>{t('Model Square')}</h1>
+          <h1 data-pricing-heading ref={headingRef} tabIndex={-1} className='mb-4 text-2xl font-semibold'>{t('Model Square')}</h1>
           <Alert variant='destructive'>
             <AlertTitle>{t('Failed to load models')}</AlertTitle>
             <Button className='mt-3 min-h-11' disabled={isFetching} onClick={() => { void refetch() }}>{t('Retry')}</Button>
@@ -205,7 +204,7 @@ export function Pricing() {
       {/* The console's 1200px column and page header (design direction 3). */}
       <PageTransition className='mx-auto w-full max-w-[1200px] min-w-0 px-4 py-6 sm:py-8 lg:px-6'>
         <header className='mb-5 flex min-w-0 flex-col gap-1.5 sm:mb-6'>
-          <h1 ref={headingRef} tabIndex={-1} className='text-2xl leading-8 font-semibold tracking-tight wrap-break-word'>
+          <h1 data-pricing-heading ref={headingRef} tabIndex={-1} className='text-2xl leading-8 font-semibold tracking-tight wrap-break-word'>
             {t('Model Square')}
           </h1>
           <p className='text-muted-foreground text-sm leading-relaxed'>
@@ -298,6 +297,7 @@ export function Pricing() {
             key={selectedModel.model_name}
             returnSearch={{ ...catalogSearch, page: currentPage, pageSize, focusId: selectedModel.id }}
             returnFocus={openerRef}
+            onOpenPage={() => rememberFocus('data-pricing-model', selectedModel.id)}
             open={Boolean(selectedModel)}
             onOpenChange={(open) => {
               if (!open) setSelectedModelName(null)

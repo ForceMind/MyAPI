@@ -186,3 +186,23 @@ describe('model catalog mobile table', () => {
     expect(action).toHaveFocus()
   })
 })
+
+describe('model drawer saved-read updates', () => {
+  it('keeps the active tab and focus during a saved catalog refresh and returns to the live model action', async () => {
+    pricingRequest = async () => ({ data: populatedPricing })
+    const user = userEvent.setup()
+    const { client } = await renderCatalog()
+    await user.click(await screen.findByRole('button', { name: 'View model synthetic-model-01' }))
+    const dialog = await screen.findByRole('dialog')
+    const performance = within(dialog).getByRole('tab', { name: 'Performance' })
+    await user.click(performance)
+    expect(performance).toHaveFocus()
+    pricingRequest = async () => ({ data: { ...populatedPricing, data: populatedPricing.data.map((model) => ({ ...model, description: 'Updated saved catalog description' })) } })
+    await act(async () => { await client.invalidateQueries({ queryKey: ['pricing'] }) })
+    expect(performance).toHaveAttribute('aria-selected', 'true')
+    expect(performance).toHaveFocus()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'View model synthetic-model-01' })).toHaveFocus())
+  })
+})
