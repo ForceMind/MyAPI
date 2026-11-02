@@ -27,7 +27,7 @@ it('commits a cross-month single-calendar range to the filter draft before the o
   await user.click(screen.getByRole('button', { name: 'Filter' }))
   await user.click(screen.getByRole('button', { name: /^Date Range:/ }))
   expect(screen.getAllByRole('grid')).toHaveLength(1)
-  expect(screen.getByLabelText('End time')).toHaveValue('23:59:59')
+  expect(screen.getByLabelText('End Time')).toHaveValue('23:59:59')
   await user.click(screen.getByRole('button', { name: /October 29/ }))
   await user.click(screen.getByRole('button', { name: 'Next month' }))
   await user.click(screen.getByRole('button', { name: /November 2nd/ }))
