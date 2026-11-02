@@ -16,8 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useSearch } from '@tanstack/react-router'
-import { useMemo, useCallback, useState } from 'react'
+import { useNavigate, useSearch } from '@tanstack/react-router'
+import { useMemo, useCallback } from 'react'
 
 import { useDebounce } from '@/hooks/use-debounce'
 
@@ -31,20 +31,8 @@ import {
   type ViewMode,
 } from '../constants'
 import { filterAndSortModels, extractAllTags } from '../lib/filters'
+import type { PricingSearch } from '../catalog-state'
 import type { PricingModel, TokenUnit } from '../types'
-
-type FilterState = {
-  search?: string
-  sort?: string
-  vendor?: string
-  group?: string
-  quotaType?: string
-  endpointType?: string
-  tag?: string
-  tokenUnit?: TokenUnit
-  view?: ViewMode
-  rechargePrice?: boolean
-}
 
 function normalizeViewMode(value: unknown): ViewMode {
   if (value === VIEW_MODES.TABLE) {
@@ -54,19 +42,8 @@ function normalizeViewMode(value: unknown): ViewMode {
 }
 
 export function useFilters(models: PricingModel[]) {
-  const search = useSearch({ from: '/pricing/' })
-  const [filterState, setFilterState] = useState<FilterState>(() => ({
-    search: search.search,
-    sort: search.sort,
-    vendor: search.vendor,
-    group: search.group,
-    quotaType: search.quotaType,
-    endpointType: search.endpointType,
-    tag: search.tag,
-    tokenUnit: search.tokenUnit,
-    view: search.view,
-    rechargePrice: search.rechargePrice,
-  }))
+  const filterState = useSearch({ from: '/pricing/' })
+  const navigate = useNavigate({ from: '/pricing/' })
 
   const searchInput = filterState.search || ''
   const debouncedSearchInput = useDebounce(searchInput, 200)
@@ -81,17 +58,15 @@ export function useFilters(models: PricingModel[]) {
   const viewMode = normalizeViewMode(filterState.view)
   const showRechargePrice = filterState.rechargePrice === true
 
-  const updateFilters = useCallback((updates: Record<string, unknown>) => {
-    setFilterState((prev) => {
-      const next: Record<string, unknown> = { ...prev, ...updates }
-      for (const key of Object.keys(next)) {
-        if (next[key] === undefined || next[key] === null) {
-          delete next[key]
-        }
-      }
-      return next as FilterState
+  const updateFilters = useCallback((updates: Partial<PricingSearch>, resetPage = true) => {
+    void navigate({
+      replace: true,
+      search: (previous) => ({ ...previous, focusId: undefined, ...updates, ...(resetPage ? { page: undefined } : {}) }),
     })
-  }, [])
+  }, [navigate])
+
+  const setPage = useCallback((page: number) => updateFilters({ page }, false), [updateFilters])
+  const setPageSize = useCallback((pageSize: number) => updateFilters({ pageSize }), [updateFilters])
 
   const setSearchInput = useCallback(
     (v: string) => updateFilters({ search: v || undefined }),
@@ -128,16 +103,16 @@ export function useFilters(models: PricingModel[]) {
   )
   const setTokenUnit = useCallback(
     (v: TokenUnit) =>
-      updateFilters({ tokenUnit: v === DEFAULT_TOKEN_UNIT ? undefined : v }),
+      updateFilters({ tokenUnit: v === DEFAULT_TOKEN_UNIT ? undefined : v }, false),
     [updateFilters]
   )
   const setViewMode = useCallback(
     (v: ViewMode) =>
-      updateFilters({ view: v === VIEW_MODES.CARD ? undefined : v }),
+      updateFilters({ view: v === VIEW_MODES.CARD ? undefined : v }, false),
     [updateFilters]
   )
   const setShowRechargePrice = useCallback(
-    (v: boolean) => updateFilters({ rechargePrice: v || undefined }),
+    (v: boolean) => updateFilters({ rechargePrice: v || undefined }, false),
     [updateFilters]
   )
 
@@ -199,11 +174,18 @@ export function useFilters(models: PricingModel[]) {
     })
   }, [updateFilters])
 
+  const clearAll = useCallback(() => updateFilters({ search: undefined, vendor: undefined, group: undefined, quotaType: undefined, endpointType: undefined, tag: undefined }), [updateFilters])
+
   const clearSearch = useCallback(() => {
     updateFilters({ search: undefined })
   }, [updateFilters])
 
   return {
+    search: filterState,
+    page: filterState.page ?? 1,
+    pageSize: filterState.pageSize ?? 20,
+    setPage,
+    setPageSize,
     searchInput,
     sortBy,
     vendorFilter,
@@ -230,5 +212,6 @@ export function useFilters(models: PricingModel[]) {
     availableTags,
     clearFilters,
     clearSearch,
+    clearAll,
   }
 }

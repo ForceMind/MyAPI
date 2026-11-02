@@ -17,20 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
-import {
-  ArrowLeft,
-  CalendarClock,
-  Code2,
-  FileText,
-  HeartPulse,
-  Info,
-  Layers,
-  Maximize2,
-  Sparkles,
-  Timer,
-} from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
+import { ArrowLeft01Icon, ArrowRight01Icon, CodeIcon, DashboardSquare01Icon, FileSearchIcon, FlashIcon, HeartCheckIcon, InformationCircleIcon, Timer02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useMemo, useState, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
@@ -39,7 +29,7 @@ import { sideDrawerContentClassName } from '@/components/drawer-layout'
 import { GroupBadge } from '@/components/group-badge'
 import { PublicLayout } from '@/components/layout'
 import { Alert, AlertTitle } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
   Sheet,
   SheetContent,
@@ -56,9 +46,10 @@ import {
   formatUptimePct,
   getSuccessRateTextClass,
 } from '@/features/performance-metrics/lib/format'
-import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
 
+import type { PricingSearch } from '../catalog-state'
+import { ModelCatalogIdentity } from './model-catalog-identity'
 import { DEFAULT_TOKEN_UNIT } from '../constants'
 import { usePricingData } from '../hooks/use-pricing-data'
 import {
@@ -148,7 +139,7 @@ function normalizeCatalogItems(items?: readonly string[]): string[] {
 }
 
 function OverviewMetric(props: {
-  icon: React.ComponentType<{ className?: string }>
+  icon: React.ComponentProps<typeof HugeiconsIcon>['icon']
   label: string
   value: React.ReactNode
   valueClassName?: string
@@ -157,14 +148,14 @@ function OverviewMetric(props: {
 
   return (
     <div className='flex min-w-0 items-center gap-2 px-3 py-2'>
-      <Icon className='text-muted-foreground/70 size-3.5 shrink-0' />
+      <HugeiconsIcon icon={Icon} aria-hidden='true' className='text-muted-foreground/70 size-3.5 shrink-0' />
       <div className='min-w-0 flex-1'>
-        <div className='text-muted-foreground truncate text-[10px] font-medium tracking-wider uppercase'>
+        <div className='text-muted-foreground wrap-anywhere text-[10px] font-medium tracking-wider uppercase'>
           {props.label}
         </div>
         <div
           className={cn(
-            'text-foreground truncate font-mono text-sm font-semibold tabular-nums',
+            'text-foreground wrap-anywhere font-mono text-sm font-semibold tabular-nums',
             props.valueClassName
           )}
         >
@@ -212,17 +203,17 @@ function OverviewSummaryGrid(props: { model: PricingModel }) {
   return (
     <div className='bg-muted/20 grid overflow-hidden rounded-lg border sm:grid-cols-3 sm:divide-x'>
       <OverviewMetric
-        icon={Timer}
+        icon={Timer02Icon}
         label='TPS'
         value={formatThroughput(avgTps)}
       />
       <OverviewMetric
-        icon={Timer}
+        icon={Timer02Icon}
         label={t('Average latency')}
         value={formatLatency(avgLatency)}
       />
       <OverviewMetric
-        icon={HeartPulse}
+        icon={HeartCheckIcon}
         label={t('Success rate')}
         value={formatUptimePct(successRate)}
         valueClassName={getSuccessRateTextClass(successRate)}
@@ -292,7 +283,7 @@ function ModelBackendQuickStats(props: { model: PricingModel }) {
 
   const stats: {
     key: string
-    icon: React.ComponentType<{ className?: string }>
+    icon: React.ComponentProps<typeof HugeiconsIcon>['icon']
     label: string
     value: React.ReactNode
     hint?: string
@@ -301,7 +292,7 @@ function ModelBackendQuickStats(props: { model: PricingModel }) {
   if (contextLength > 0) {
     stats.push({
       key: 'context',
-      icon: Layers,
+      icon: DashboardSquare01Icon,
       label: t('Context'),
       value: formatCatalogTokenCount(contextLength),
       hint: t('Maximum input window'),
@@ -311,7 +302,7 @@ function ModelBackendQuickStats(props: { model: PricingModel }) {
   if (maxOutput > 0) {
     stats.push({
       key: 'max-output',
-      icon: Maximize2,
+      icon: ArrowRight01Icon,
       label: t('Max output'),
       value: formatCatalogTokenCount(maxOutput),
       hint: t('Maximum tokens per response'),
@@ -321,7 +312,7 @@ function ModelBackendQuickStats(props: { model: PricingModel }) {
   if (inputModalities.length > 0 || outputModalities.length > 0) {
     stats.push({
       key: 'modalities',
-      icon: FileText,
+      icon: FileSearchIcon,
       label: t('Modalities'),
       value: (
         <span className='inline-flex items-center gap-1'>
@@ -338,7 +329,7 @@ function ModelBackendQuickStats(props: { model: PricingModel }) {
   if (knowledgeCutoff) {
     stats.push({
       key: 'knowledge',
-      icon: Sparkles,
+      icon: FlashIcon,
       label: t('Knowledge cutoff'),
       value: knowledgeCutoff,
     })
@@ -347,7 +338,7 @@ function ModelBackendQuickStats(props: { model: PricingModel }) {
   if (releaseDate) {
     stats.push({
       key: 'release',
-      icon: CalendarClock,
+      icon: Timer02Icon,
       label: t('Released'),
       value: releaseDate,
     })
@@ -365,10 +356,10 @@ function ModelBackendQuickStats(props: { model: PricingModel }) {
             className='bg-background flex min-w-0 flex-col gap-0.5 px-3 py-2.5'
           >
             <span className='text-muted-foreground inline-flex min-w-0 items-center gap-1 text-[10px] font-medium tracking-wider uppercase'>
-              <Icon className='size-3 shrink-0' />
-              <span className='truncate'>{stat.label}</span>
+              <HugeiconsIcon icon={Icon} aria-hidden='true' className='size-3 shrink-0' />
+              <span className='wrap-anywhere'>{stat.label}</span>
             </span>
-            <span className='text-foreground truncate text-sm font-semibold tabular-nums'>
+            <span className='text-foreground wrap-anywhere text-sm font-semibold tabular-nums'>
               {stat.value}
             </span>
             {stat.hint && (
@@ -527,20 +518,15 @@ function ModelBackendDetailsSection(props: { model: PricingModel }) {
 function ModelHeader(props: { model: PricingModel }) {
   const { t } = useTranslation()
   const model = props.model
-  const modelIconKey = model.icon || model.vendor_icon
-  const modelIcon = modelIconKey ? getLobeIcon(modelIconKey, 20) : null
   const description = model.description || model.vendor_description || null
 
   return (
     <header className='pb-4'>
-      <div className='flex items-center gap-2.5'>
-        {modelIcon}
-        <h1 className='font-mono text-xl font-bold tracking-tight sm:text-2xl'>
-          {model.model_name}
-        </h1>
+      <div className='flex min-w-0 items-start justify-between gap-2.5'>
+        <ModelCatalogIdentity model={model} heading='h1' />
         <CopyButton
           value={model.model_name || ''}
-          className='size-6'
+          className='min-h-11 min-w-11'
           iconClassName='size-3'
           tooltip={t('Copy model name')}
           successTooltip={t('Copied!')}
@@ -548,10 +534,6 @@ function ModelHeader(props: { model: PricingModel }) {
         />
       </div>
       <div className='mt-1 flex flex-wrap items-center gap-1.5 text-xs'>
-        {model.vendor_name && (
-          <span className='text-muted-foreground'>{model.vendor_name}</span>
-        )}
-        <span className='text-muted-foreground/30'>·</span>
         <ModelBillingModeBadge model={model} />
       </div>
       {description && (
@@ -1119,11 +1101,11 @@ type TabValue = (typeof TAB_VALUES)[number]
 
 const TAB_META: Record<
   TabValue,
-  { icon: React.ComponentType<{ className?: string }>; labelKey: string }
+  { icon: React.ComponentProps<typeof HugeiconsIcon>['icon']; labelKey: string }
 > = {
-  overview: { icon: Info, labelKey: 'Overview' },
-  performance: { icon: HeartPulse, labelKey: 'Performance' },
-  api: { icon: Code2, labelKey: 'API' },
+  overview: { icon: InformationCircleIcon, labelKey: 'Overview' },
+  performance: { icon: HeartCheckIcon, labelKey: 'Performance' },
+  api: { icon: CodeIcon, labelKey: 'API' },
 }
 
 export interface ModelDetailsContentProps {
@@ -1158,9 +1140,9 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
               <TabsTrigger
                 key={value}
                 value={value}
-                className='h-auto min-h-10 min-w-0 flex-col gap-1 rounded-md px-1 py-2 text-xs whitespace-normal sm:flex-row sm:px-3 sm:text-sm'
+                className='h-auto min-h-11 min-w-0 flex-col gap-1 rounded-md px-1 py-2 text-xs whitespace-normal sm:flex-row sm:px-3 sm:text-sm'
               >
-                <Icon className='size-3.5' />
+                <HugeiconsIcon icon={Icon} aria-hidden='true' className='size-3.5' />
                 <span className='max-w-full min-w-0 wrap-break-word'>
                   {t(TAB_META[value].labelKey)}
                 </span>
@@ -1221,16 +1203,19 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
 export interface ModelDetailsDrawerProps extends ModelDetailsContentProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  returnSearch?: PricingSearch
+  returnFocus?: RefObject<HTMLElement | null>
 }
 
 export function ModelDetailsDrawer(props: ModelDetailsDrawerProps) {
   const { t } = useTranslation()
-  const { open, onOpenChange, ...contentProps } = props
+  const { open, onOpenChange, returnSearch, returnFocus, ...contentProps } = props
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side='right'
+        finalFocus={returnFocus}
         className={sideDrawerContentClassName(
           'sm:max-w-2xl lg:max-w-3xl xl:max-w-4xl 2xl:max-w-5xl'
         )}
@@ -1239,7 +1224,8 @@ export function ModelDetailsDrawer(props: ModelDetailsDrawerProps) {
           <SheetTitle>{props.model.model_name}</SheetTitle>
           <SheetDescription>{t('Model details')}</SheetDescription>
         </SheetHeader>
-        <div className='flex-1 overflow-y-auto px-4 pt-11 pb-5 sm:px-6 sm:pt-12 sm:pb-6'>
+        {returnSearch && <div className='shrink-0 border-b px-4 pt-4 pr-14 pb-3 sm:px-6'><Link className={cn(buttonVariants({ variant: 'outline' }), 'min-h-11')} to='/pricing/$modelId' params={{ modelId: props.model.model_name }} search={returnSearch}>{t('Open model page')}</Link></div>}
+        <div className='min-h-0 flex-1 overflow-y-auto px-4 pt-11 pb-5 sm:px-6 sm:pt-12 sm:pb-6'>
           <ModelDetailsContent {...contentProps} />
         </div>
       </SheetContent>
@@ -1276,7 +1262,7 @@ export function ModelDetails() {
   }, [models, modelId])
 
   const handleBack = () => {
-    navigate({ to: '/pricing', search })
+    navigate({ to: '/pricing', search: { ...search, ...(model ? { focusId: model.id } : {}) } })
   }
 
   if (isLoading) {
@@ -1362,9 +1348,9 @@ export function ModelDetails() {
           variant='ghost'
           size='sm'
           onClick={handleBack}
-          className='text-muted-foreground hover:text-foreground mb-4 h-auto gap-1 px-0 py-1 text-xs'
+          className='text-muted-foreground hover:text-foreground mb-4 min-h-11 gap-1 px-2 py-2 text-sm'
         >
-          <ArrowLeft className='size-3.5' />
+          <HugeiconsIcon icon={ArrowLeft01Icon} aria-hidden='true' className='size-3.5' />
           {t('Back')}
         </Button>
 

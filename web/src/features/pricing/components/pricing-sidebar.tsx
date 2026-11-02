@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ChevronDown, RotateCcw } from 'lucide-react'
+import { ArrowDown01Icon, Refresh01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -99,9 +100,10 @@ function FilterChip(props: {
   return (
     <button
       type='button'
+      aria-pressed={props.active}
       onClick={props.onClick}
       className={cn(
-        'group inline-flex max-w-full items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-all',
+        'group inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-all',
         props.active
           ? 'border-foreground/30 bg-foreground/5 text-foreground shadow-sm'
           : 'border-border/70 bg-background text-muted-foreground hover:border-border hover:bg-muted/50 hover:text-foreground'
@@ -111,7 +113,7 @@ function FilterChip(props: {
       {props.option.icon && (
         <span className='shrink-0'>{props.option.icon}</span>
       )}
-      <span className='truncate'>{props.option.label}</span>
+      <span className='min-w-0 text-left wrap-anywhere'>{props.option.label}</span>
       {(props.option.suffix || props.option.count != null) && (
         <span
           className={cn(
@@ -134,11 +136,11 @@ function FilterSection(props: FilterSectionProps) {
       defaultOpen
       className='border-border/70 border-b pb-3 last:border-b-0'
     >
-      <CollapsibleTrigger className='group flex w-full items-center justify-between py-2.5 text-left'>
+      <CollapsibleTrigger className='group flex min-h-11 w-full items-center justify-between py-2.5 text-left'>
         <span className='text-foreground text-sm font-semibold'>
           {props.title}
         </span>
-        <ChevronDown className='text-muted-foreground size-4 transition-transform group-data-[panel-open]:rotate-180' />
+        <HugeiconsIcon icon={ArrowDown01Icon} aria-hidden='true' className='text-muted-foreground size-4 transition-transform group-data-[panel-open]:rotate-180' />
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className='flex flex-wrap gap-1.5'>
@@ -260,9 +262,9 @@ export function PricingSidebar(props: PricingSidebarProps) {
           size='sm'
           onClick={props.onClearFilters}
           disabled={!props.hasActiveFilters}
-          className='h-7 gap-1.5 px-2 text-xs'
+          className='min-h-11 gap-1.5 px-2 text-xs'
         >
-          <RotateCcw className='size-3.5' />
+          <HugeiconsIcon icon={Refresh01Icon} aria-hidden='true' className='size-3.5' />
           {t('Reset')}
         </Button>
       </div>

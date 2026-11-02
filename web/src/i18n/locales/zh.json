@@ -7298,6 +7298,16 @@
     "Subscription share task": "订阅分额任务",
     "Usage estimates and unattributed growth": "用量估算与未归属增长",
     "Window observations not confirmed current": "未确认当前状态的窗口观察",
-    "Window period": "窗口周期"
+    "Window period": "窗口周期",
+    "Returned models": "已返回模型",
+    "Matching models": "符合筛选的模型",
+    "Providers in returned models": "已返回模型的供应商",
+    "Counts and filters cover models returned by this catalog read.": "统计与筛选仅覆盖本次目录读取返回的模型。",
+    "Model catalog pagination": "模型目录分页",
+    "View model {{model}}": "查看模型 {{model}}",
+    "Groups, endpoints and tags": "分组、端点与标签",
+    "Open model page": "打开模型详情页",
+    "No models are available in this catalog.": "此目录暂无可用模型。",
+    "The catalog returned no enabled models.": "目录未返回已启用的模型。"
   }
 }

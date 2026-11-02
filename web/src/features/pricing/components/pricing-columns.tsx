@@ -26,7 +26,6 @@ import {
 } from '@/components/data-table'
 import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge } from '@/components/status-badge'
-import { getLobeIcon } from '@/lib/lobe-icon'
 
 import { DEFAULT_TOKEN_UNIT } from '../constants'
 import {
@@ -37,10 +36,11 @@ import { parseTags } from '../lib/filters'
 import { isTokenBasedModel } from '../lib/model-helpers'
 import {
   formatPrice,
-  formatRequestPrice,
   stripTrailingZeros,
 } from '../lib/price'
 import type { PricingModel, TokenUnit } from '../types'
+import { ModelCatalogPrice } from './model-catalog-price'
+import { ModelCatalogIdentity } from './model-catalog-identity'
 import { ModelBillingModeBadge } from './model-billing-mode-badge'
 
 // ----------------------------------------------------------------------------
@@ -52,6 +52,7 @@ export interface PricingColumnsOptions {
   priceRate?: number
   usdExchangeRate?: number
   showRechargePrice?: boolean
+  onModelClick?: (modelName: string) => void
   selectedGroup?: string
 }
 
@@ -79,16 +80,10 @@ export function usePricingColumns(
       ),
       cell: ({ row }) => {
         const model = row.original
-        const modelIconKey = model.icon || model.vendor_icon
-        const modelIcon = modelIconKey ? getLobeIcon(modelIconKey, 14) : null
-
         return (
-          <div className='flex max-w-full min-w-0 items-center gap-2'>
-            {modelIcon}
-            <span className='truncate font-mono text-sm font-medium'>
-              {model.model_name}
-            </span>
-          </div>
+          <button type='button' className='min-h-11 w-full text-left' data-pricing-model={model.id} aria-label={t('View model {{model}}', { model: model.model_name })} onClick={(event) => { event.stopPropagation(); options.onModelClick?.(model.model_name) }}>
+            <ModelCatalogIdentity model={model} />
+          </button>
         )
       },
       minSize: 200,
@@ -112,127 +107,7 @@ export function usePricingColumns(
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('Price')} />
       ),
-      cell: ({ row }) => {
-        const model = row.original
-        const dynamicSummary = getDynamicPricingSummary(model, {
-          tokenUnit,
-          showRechargePrice,
-          priceRate,
-          usdExchangeRate,
-          groupRatioMultiplier: getDynamicDisplayGroupRatio(
-            model,
-            selectedGroup
-          ),
-        })
-
-        if (dynamicSummary) {
-          if (dynamicSummary.isSpecialExpression) {
-            return (
-              <div className='max-w-full min-w-0'>
-                <div className='text-xs font-medium text-amber-700 dark:text-amber-300'>
-                  {t('Special billing expression')}
-                </div>
-                <div className='text-muted-foreground text-[11px]'>
-                  {t('Unable to parse structured pricing')}
-                </div>
-                <code className='text-muted-foreground/70 mt-1 line-clamp-2 block font-mono text-[10px] leading-relaxed break-all'>
-                  {dynamicSummary.rawExpression}
-                </code>
-              </div>
-            )
-          }
-
-          const primaryEntries = dynamicSummary.primaryEntries.slice(0, 2)
-          if (primaryEntries.length === 0) {
-            return (
-              <span className='text-muted-foreground text-xs'>
-                {t('Dynamic Pricing')}
-              </span>
-            )
-          }
-
-          return (
-            <div className='max-w-full min-w-0'>
-              <span className='font-mono text-sm tabular-nums'>
-                {primaryEntries.map((entry, index) => (
-                  <span key={entry.key}>
-                    {index > 0 && (
-                      <span className='text-muted-foreground/40 mx-1'>/</span>
-                    )}
-                    {stripTrailingZeros(entry.formatted)}
-                  </span>
-                ))}
-              </span>
-              <div className='text-muted-foreground/50 text-[10px]'>
-                / {tokenUnitLabel} tokens
-                {dynamicSummary.tierCount > 1 &&
-                  ` · ${t('{{count}} tiers', {
-                    count: dynamicSummary.tierCount,
-                  })}`}
-              </div>
-            </div>
-          )
-        }
-
-        const isTokenBased = isTokenBasedModel(model)
-
-        if (isTokenBased) {
-          const inputPrice = stripTrailingZeros(
-            formatPrice(
-              model,
-              'input',
-              tokenUnit,
-              showRechargePrice,
-              priceRate,
-              usdExchangeRate,
-              selectedGroup
-            )
-          )
-          const outputPrice = stripTrailingZeros(
-            formatPrice(
-              model,
-              'output',
-              tokenUnit,
-              showRechargePrice,
-              priceRate,
-              usdExchangeRate,
-              selectedGroup
-            )
-          )
-
-          return (
-            <div className='max-w-full min-w-0'>
-              <span className='font-mono text-sm tabular-nums'>
-                {inputPrice}
-                <span className='text-muted-foreground/40 mx-1'>/</span>
-                {outputPrice}
-              </span>
-              <div className='text-muted-foreground/50 text-[10px]'>
-                / {tokenUnitLabel} tokens
-              </div>
-            </div>
-          )
-        }
-
-        const price = stripTrailingZeros(
-          formatRequestPrice(
-            model,
-            showRechargePrice,
-            priceRate,
-            usdExchangeRate,
-            selectedGroup
-          )
-        )
-
-        return (
-          <div className='max-w-full min-w-0'>
-            <span className='font-mono text-sm tabular-nums'>{price}</span>
-            <div className='text-muted-foreground/50 text-[10px]'>
-              / {t('request')}
-            </div>
-          </div>
-        )
-      },
+      cell: ({ row }) => <ModelCatalogPrice model={row.original} tokenUnit={tokenUnit} priceRate={priceRate} usdExchangeRate={usdExchangeRate} showRechargePrice={showRechargePrice} selectedGroup={selectedGroup} includeCached={false} />,
       size: 180,
       enableSorting: false,
     },

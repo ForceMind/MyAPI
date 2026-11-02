@@ -7298,6 +7298,16 @@
     "Subscription share task": "Subscription share task",
     "Usage estimates and unattributed growth": "Usage estimates and unattributed growth",
     "Window observations not confirmed current": "Window observations not confirmed current",
-    "Window period": "Window period"
+    "Window period": "Window period",
+    "Returned models": "Returned models",
+    "Matching models": "Matching models",
+    "Providers in returned models": "Providers in returned models",
+    "Counts and filters cover models returned by this catalog read.": "Counts and filters cover models returned by this catalog read.",
+    "Model catalog pagination": "Model catalog pagination",
+    "View model {{model}}": "View model {{model}}",
+    "Groups, endpoints and tags": "Groups, endpoints and tags",
+    "Open model page": "Open model page",
+    "No models are available in this catalog.": "No models are available in this catalog.",
+    "The catalog returned no enabled models.": "The catalog returned no enabled models."
   }
 }

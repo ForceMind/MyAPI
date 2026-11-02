@@ -82,7 +82,7 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
   return (
     <div
       className={cn(
-        'hidden w-[132px] grid-cols-[38px_48px_30px] gap-x-2 text-right tabular-nums min-[460px]:grid',
+        'grid w-[132px] grid-cols-[38px_48px_30px] gap-x-2 text-right tabular-nums',
         props.className
       )}
     >

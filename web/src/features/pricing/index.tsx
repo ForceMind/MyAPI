@@ -16,10 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { PublicLayout } from '@/components/layout'
+import { LogPagination } from '@/components/log-pagination'
+import { useRememberReturnFocus, useReturnFocus } from '@/components/object-page/return-focus'
+import { Alert, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { PageTransition } from '@/components/page-transition'
 
 import {
@@ -50,11 +54,19 @@ export function Pricing() {
     endpointMap,
     autoGroups,
     isLoading,
+    error,
+    refetch,
+    isFetching,
     priceRate,
     usdExchangeRate,
   } = usePricingData()
 
   const {
+    search: catalogSearch,
+    page,
+    pageSize,
+    setPage,
+    setPageSize,
     searchInput,
     sortBy,
     vendorFilter,
@@ -81,11 +93,20 @@ export function Pricing() {
     availableTags,
     clearFilters,
     clearSearch,
+    clearAll,
   } = useFilters(models || [])
 
+  const rememberFocus = useRememberReturnFocus()
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const openerRef = useRef<HTMLElement | null>(null)
+  const currentPage = Math.min(page, Math.max(1, Math.ceil(filteredModels.length / pageSize)))
+  useReturnFocus({ attribute: 'data-pricing-model', settled: !isLoading, rows: filteredModels, requestedId: catalogSearch.focusId, fallback: headingRef })
   const handleModelClick = useCallback((modelName: string) => {
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const model = models.find((item) => item.model_name === modelName)
+    if (model) rememberFocus('data-pricing-model', model.id)
     setSelectedModelName(modelName)
-  }, [])
+  }, [models, rememberFocus])
 
   const selectedModel = useMemo(
     () =>
@@ -106,14 +127,14 @@ export function Pricing() {
   )
 
   const handleClearAll = useCallback(() => {
-    clearFilters()
-    clearSearch()
-  }, [clearFilters, clearSearch])
+    clearAll()
+  }, [clearAll])
 
   const renderPricingContent = () => {
     if (filteredModels.length === 0) {
       return (
         <EmptyState
+          emptyCatalog={models.length === 0}
           searchQuery={searchInput}
           hasActiveFilters={hasActiveFilters}
           onClearFilters={handleClearAll}
@@ -125,6 +146,8 @@ export function Pricing() {
       return (
         <ModelCardGrid
           models={filteredModels}
+          page={currentPage}
+          pageSize={pageSize}
           onModelClick={handleModelClick}
           priceRate={priceRate}
           usdExchangeRate={usdExchangeRate}
@@ -138,6 +161,8 @@ export function Pricing() {
     return (
       <PricingTable
         models={filteredModels}
+        page={currentPage}
+        pageSize={pageSize}
         priceRate={priceRate}
         usdExchangeRate={usdExchangeRate}
         tokenUnit={tokenUnit}
@@ -158,12 +183,26 @@ export function Pricing() {
     )
   }
 
+  if (error) {
+    return (
+      <PublicLayout showMainContainer={false}>
+        <main className='mx-auto w-full max-w-[1200px] min-w-0 px-4 py-6 lg:px-6'>
+          <h1 ref={headingRef} tabIndex={-1} className='mb-4 text-2xl font-semibold'>{t('Model Square')}</h1>
+          <Alert variant='destructive'>
+            <AlertTitle>{t('Failed to load models')}</AlertTitle>
+            <Button className='mt-3 min-h-11' disabled={isFetching} onClick={() => { void refetch() }}>{t('Retry')}</Button>
+          </Alert>
+        </main>
+      </PublicLayout>
+    )
+  }
+
   return (
     <PublicLayout showMainContainer={false}>
       {/* The console's 1200px column and page header (design direction 3). */}
       <PageTransition className='mx-auto w-full max-w-[1200px] min-w-0 px-4 py-6 sm:py-8 lg:px-6'>
         <header className='mb-5 flex min-w-0 flex-col gap-1.5 sm:mb-6'>
-          <h1 className='text-2xl leading-8 font-semibold tracking-tight wrap-break-word'>
+          <h1 ref={headingRef} tabIndex={-1} className='text-2xl leading-8 font-semibold tracking-tight wrap-break-word'>
             {t('Model Square')}
           </h1>
           <p className='text-muted-foreground text-sm leading-relaxed'>
@@ -184,6 +223,14 @@ export function Pricing() {
           />
         </header>
 
+        <dl className='mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3'>
+          {[
+            [t('Returned models'), models.length],
+            [t('Matching models'), filteredModels.length],
+            [t('Providers in returned models'), models.length > 0 && models.some((model) => model.vendor_id == null) ? t('Unknown') : new Set(models.map((model) => model.vendor_id)).size],
+          ].map(([label, value]) => <div key={label} className='bg-card rounded-xl border p-4'><dt className='text-muted-foreground text-sm'>{label}</dt><dd className='mt-1 text-2xl font-semibold tabular-nums'>{value}</dd></div>)}
+        </dl>
+        <p className='text-muted-foreground mb-4 text-xs'>{t('Counts and filters cover models returned by this catalog read.')}</p>
         <div className='grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]'>
           <PricingSidebar
             quotaTypeFilter={quotaTypeFilter}
@@ -239,11 +286,15 @@ export function Pricing() {
             />
 
             {renderPricingContent()}
+            <LogPagination label={t('Model catalog pagination')} page={currentPage} pageSize={pageSize} total={models.length === 0 ? 0 : filteredModels.length} busy={false} onPageChange={setPage} onPageSizeChange={setPageSize} />
           </main>
         </div>
 
         {selectedModel && (
           <ModelDetailsDrawer
+            key={selectedModel.model_name}
+            returnSearch={{ ...catalogSearch, page: currentPage, pageSize, focusId: selectedModel.id }}
+            returnFocus={openerRef}
             open={Boolean(selectedModel)}
             onOpenChange={(open) => {
               if (!open) setSelectedModelName(null)

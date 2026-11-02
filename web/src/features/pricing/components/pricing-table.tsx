@@ -16,13 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { Row, PaginationState } from '@tanstack/react-table'
-import { useState, useCallback } from 'react'
+import type { Row } from '@tanstack/react-table'
+import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
-  DataTablePagination,
   DataTableRow,
+  MobileCardList,
   DataTableView,
   useDataTable,
 } from '@/components/data-table'
@@ -33,6 +33,8 @@ import { usePricingColumns } from './pricing-columns'
 
 export interface PricingTableProps {
   models: PricingModel[]
+  page?: number
+  pageSize?: number
   isLoading?: boolean
   priceRate?: number
   usdExchangeRate?: number
@@ -55,10 +57,9 @@ export function PricingTable(props: PricingTableProps) {
     onModelClick,
   } = props
 
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: DEFAULT_PRICING_PAGE_SIZE,
-  })
+  const pageSize = props.pageSize ?? DEFAULT_PRICING_PAGE_SIZE
+  const page = Math.min(props.page ?? 1, Math.max(1, Math.ceil(models.length / pageSize)))
+  const pagination = { pageIndex: page - 1, pageSize }
 
   const columns = usePricingColumns({
     tokenUnit,
@@ -66,6 +67,7 @@ export function PricingTable(props: PricingTableProps) {
     usdExchangeRate,
     showRechargePrice,
     selectedGroup,
+    onModelClick,
   })
 
   const { table } = useDataTable({
@@ -73,8 +75,8 @@ export function PricingTable(props: PricingTableProps) {
     columns,
     pageCount: Math.ceil(models.length / pagination.pageSize),
     pagination,
-    onPaginationChange: setPagination,
     manualPagination: false,
+    autoResetPageIndex: false,
     withFilteredRowModel: false,
     withSortedRowModel: false,
     withFacetedRowModel: false,
@@ -89,6 +91,8 @@ export function PricingTable(props: PricingTableProps) {
 
   return (
     <div className='space-y-4'>
+      <div className='md:hidden'><MobileCardList table={table} isLoading={isLoading} emptyTitle={t('No Models Found')} emptyDescription={t('No models match your current filters.')} /></div>
+      <div className='hidden min-w-0 md:block'>
       <DataTableView
         table={table}
         isLoading={isLoading}
@@ -108,8 +112,7 @@ export function PricingTable(props: PricingTableProps) {
           />
         )}
       />
-
-      {!isLoading && models.length > 0 && <DataTablePagination table={table} />}
+      </div>
     </div>
   )
 }

@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ArrowUpDown, Check, Filter, Grid2X2, Table2 } from 'lucide-react'
+import { ArrowDown01Icon, CodeIcon, DashboardSquare01Icon, FilterHorizontalIcon, Tick02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -59,7 +60,7 @@ import { PricingSidebar } from './pricing-sidebar'
 type SegmentOption = {
   value: string
   label?: string
-  icon?: React.ComponentType<{ className?: string }>
+  icon?: React.ComponentProps<typeof HugeiconsIcon>['icon']
   tooltip?: string
 }
 
@@ -104,7 +105,7 @@ function SegmentedControl(props: {
     <div
       role='group'
       aria-label={props.ariaLabel}
-      className='bg-muted/60 inline-flex h-8 items-center rounded-lg border p-0.5'
+      className='bg-muted/60 inline-flex min-h-11 items-center rounded-lg border p-0.5'
     >
       {props.options.map((option) => {
         const Icon = option.icon
@@ -115,15 +116,16 @@ function SegmentedControl(props: {
             type='button'
             onClick={() => props.onChange(option.value)}
             aria-pressed={isActive}
+            aria-label={option.label ?? option.tooltip}
             className={cn(
-              'inline-flex h-full items-center justify-center rounded-md text-xs font-medium transition-all',
-              Icon && !option.label ? 'w-7' : 'gap-1.5 px-3',
+              'inline-flex min-h-11 items-center justify-center rounded-md text-xs font-medium transition-all',
+              Icon && !option.label ? 'min-w-11' : 'gap-1.5 px-3',
               isActive
                 ? 'bg-primary text-primary-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            {Icon && <Icon className='size-3.5' />}
+            {Icon && <HugeiconsIcon icon={Icon} aria-hidden='true' className='size-3.5' />}
             {option.label}
           </button>
         )
@@ -174,9 +176,9 @@ export function PricingToolbar(props: PricingToolbarProps) {
             variant='outline'
             size='sm'
             onClick={() => setMobileFiltersOpen(true)}
-            className='gap-1.5 xl:hidden'
+            className='min-h-11 gap-1.5 xl:hidden'
           >
-            <Filter className='size-4' />
+            <HugeiconsIcon icon={FilterHorizontalIcon} aria-hidden='true' className='size-4' />
             {t('Filter')}
             {props.activeFilterCount > 0 && (
               <Badge className='ml-0.5 size-5 justify-center p-0 text-[10px]'>
@@ -190,7 +192,7 @@ export function PricingToolbar(props: PricingToolbarProps) {
               {props.filteredCount.toLocaleString()}
             </span>
             <span>{props.filteredCount === 1 ? t('model') : t('models')}</span>
-            {props.hasActiveFilters && props.totalCount && (
+            {props.hasActiveFilters && props.totalCount !== undefined && (
               <span className='text-muted-foreground/60 text-xs'>
                 / {props.totalCount.toLocaleString()}
               </span>
@@ -199,7 +201,7 @@ export function PricingToolbar(props: PricingToolbarProps) {
         </div>
 
         <div className='flex flex-wrap items-center gap-2'>
-          <div className='hidden items-center gap-2 sm:flex'>
+          <div className='flex flex-wrap items-center gap-2'>
             <SegmentedControl
               options={[
                 { value: 'standard', label: t('Standard') },
@@ -227,11 +229,11 @@ export function PricingToolbar(props: PricingToolbarProps) {
                   type='button'
                   variant='outline'
                   size='sm'
-                  className='h-8 gap-1.5 px-3 text-xs'
+                  className='min-h-11 gap-1.5 px-3 text-xs'
                 />
               }
             >
-              <ArrowUpDown className='size-3.5' />
+              <HugeiconsIcon icon={ArrowDown01Icon} aria-hidden='true' className='size-3.5' />
               <span>{sortLabels[props.sortBy as SortOption] || t('Sort')}</span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align='end' className='w-44'>
@@ -257,12 +259,12 @@ export function PricingToolbar(props: PricingToolbarProps) {
             options={[
               {
                 value: VIEW_MODES.CARD,
-                icon: Grid2X2,
+                icon: DashboardSquare01Icon,
                 tooltip: t('Card view'),
               },
               {
                 value: VIEW_MODES.TABLE,
-                icon: Table2,
+                icon: CodeIcon,
                 tooltip: t('Table view'),
               },
             ]}
