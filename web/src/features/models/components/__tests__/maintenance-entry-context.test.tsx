@@ -85,7 +85,7 @@ it('a late vendor write result cannot close or clear a new identity creation tas
   await user.click(screen.getByRole('button', { name: 'More actions' }))
   await user.click(await screen.findByRole('menuitem', { name: 'Add vendor' }))
   await user.type(await screen.findByLabelText('Vendor Name *'), 'Old pending vendor')
-  await user.click(screen.getByRole('button', { name: 'Create', exact: true }))
+  await user.click(screen.getByRole('button', { name: /^Create$/ }))
   await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
   await act(async () => { useAuthStore.getState().auth.setUser({ id: 2, role: ROLE.ADMIN, username: 'synthetic-new-admin' }) })
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())

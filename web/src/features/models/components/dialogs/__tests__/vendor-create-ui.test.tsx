@@ -34,7 +34,7 @@ function VendorCreateFixture() {
   const opener = useRef<HTMLButtonElement>(null)
   return (
     <QueryClientProvider client={client}>
-      <button ref={opener} onClick={() => setOpen(true)}>Create vendor entry</button>
+      <button type='button' ref={opener} onClick={() => setOpen(true)}>Create vendor entry</button>
       <VendorMutateDialog open={open} onOpenChange={setOpen} returnFocus={() => opener.current} />
     </QueryClientProvider>
   )
@@ -83,15 +83,15 @@ it('keeps a duplicate-name failure beside the draft and allows the same fields t
   await user.type(screen.getByLabelText('Vendor Name *'), longName)
   await user.type(screen.getByLabelText('Icon'), 'Anthropic')
   await user.type(screen.getByLabelText('Description'), 'Keep this draft after a failure')
-  await user.click(screen.getByRole('button', { name: 'Create', exact: true }))
+  await user.click(screen.getByRole('button', { name: /^Create$/ }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Vendor name already exists')
   expect(screen.getByLabelText('Vendor Name *')).toHaveValue(longName)
   expect(screen.getByLabelText('Icon')).toHaveValue('Anthropic')
   expect(screen.getByLabelText('Description')).toHaveValue('Keep this draft after a failure')
-  expect(screen.getByRole('button', { name: 'Create', exact: true })).toBeEnabled()
+  expect(screen.getByRole('button', { name: /^Create$/ })).toBeEnabled()
   await user.clear(screen.getByLabelText('Vendor Name *'))
   await user.type(screen.getByLabelText('Vendor Name *'), 'Corrected vendor')
-  await user.click(screen.getByRole('button', { name: 'Create', exact: true }))
+  await user.click(screen.getByRole('button', { name: /^Create$/ }))
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   expect(post).toHaveBeenLastCalledWith('/api/vendors/', { name: 'Corrected vendor', icon: 'Anthropic', description: 'Keep this draft after a failure', status: 1 }, { skipAuthRefresh: true })
 })
@@ -102,7 +102,7 @@ it('keeps a transport failure visible while retaining all entered fields', async
   const user = userEvent.setup()
   await user.type(screen.getByLabelText('Vendor Name *'), 'Retry vendor')
   await user.type(screen.getByLabelText('Description'), 'Unsaved description')
-  await user.click(screen.getByRole('button', { name: 'Create', exact: true }))
+  await user.click(screen.getByRole('button', { name: /^Create$/ }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Synthetic network failure')
   expect(screen.getByLabelText('Vendor Name *')).toHaveValue('Retry vendor')
   expect(screen.getByLabelText('Description')).toHaveValue('Unsaved description')
@@ -125,7 +125,7 @@ it('marks an empty vendor name invalid and returns keyboard focus to the require
   const post = vi.spyOn(api, 'post')
   render(<VendorCreateFixture />)
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'Create', exact: true }))
+  await user.click(screen.getByRole('button', { name: /^Create$/ }))
   expect(await screen.findByText('Vendor name is required')).toBeVisible()
   expect(screen.getByLabelText('Vendor Name *')).toHaveAttribute('aria-invalid', 'true')
   await waitFor(() => expect(screen.getByLabelText('Vendor Name *')).toHaveFocus())
@@ -139,12 +139,12 @@ it('keeps one scroll region between the fixed title and actions with 44px input 
   const scrollRegions = [...dialog.querySelectorAll<HTMLElement>('*')].filter((element) => element.classList.contains('overflow-y-auto'))
   expect(scrollRegions).toHaveLength(1)
   expect(scrollRegions[0]).not.toContainElement(screen.getByRole('heading', { name: 'Create Vendor' }))
-  expect(scrollRegions[0]).not.toContainElement(screen.getByRole('button', { name: 'Create', exact: true }))
+  expect(scrollRegions[0]).not.toContainElement(screen.getByRole('button', { name: /^Create$/ }))
   expect(scrollRegions[0]).toContainElement(screen.getByLabelText('Vendor Name *'))
   expect(screen.getByLabelText('Vendor Name *')).toHaveClass('min-h-11')
   expect(screen.getByLabelText('Icon')).toHaveClass('min-h-11')
   expect(screen.getByRole('button', { name: 'Cancel' })).toHaveClass('min-h-11')
-  expect(screen.getByRole('button', { name: 'Create', exact: true })).toHaveClass('min-h-11')
+  expect(screen.getByRole('button', { name: /^Create$/ })).toHaveClass('min-h-11')
   expect(screen.getByRole('button', { name: 'Close' })).toHaveClass('min-h-11', 'min-w-11')
 })
 
