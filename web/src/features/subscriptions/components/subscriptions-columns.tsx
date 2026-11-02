@@ -50,9 +50,9 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
           const plan = row.original.plan
           return (
             <div className='max-w-full min-w-0'>
-              <div className='truncate font-medium'>{plan.title}</div>
+              <div className='font-medium break-words whitespace-normal [overflow-wrap:anywhere]'>{plan.title}</div>
               {plan.subtitle && (
-                <div className='text-muted-foreground truncate text-xs'>
+                <div className='text-muted-foreground text-xs break-words whitespace-normal [overflow-wrap:anywhere]'>
                   {plan.subtitle}
                 </div>
               )}
@@ -65,11 +65,12 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
         accessorFn: (row) => row.plan.price_amount,
         id: 'price',
         header: t('Price'),
-        cell: ({ row }) => (
-          <span className='font-semibold tabular-nums'>
-            ${Number(row.original.plan.price_amount || 0).toFixed(2)}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const value: unknown = row.original.plan.price_amount
+          if (typeof value !== 'number' && (typeof value !== 'string' || !value.trim())) return <span>{t('Not available')}</span>
+          const amount = Number(value)
+          return <span className='font-semibold tabular-nums'>{Number.isFinite(amount) && amount >= 0 ? `$${amount.toFixed(2)}` : t('Not available')}</span>
+        },
         size: 100,
       },
       {
@@ -106,6 +107,7 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
       {
         accessorFn: (row) => row.plan.enabled,
         id: 'enabled',
+        filterFn: (row, _id, values) => !Array.isArray(values) || values.length === 0 || values.includes(String(row.original.plan.enabled)),
         header: t('Status'),
         cell: ({ row }) =>
           row.original.plan.enabled ? (
@@ -158,7 +160,10 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
         id: 'total_amount',
         header: t('Plan Quota'),
         cell: ({ row }) => {
-          const total = Number(row.original.plan.total_amount || 0)
+          const value: unknown = row.original.plan.total_amount
+          if (typeof value !== 'number' && (typeof value !== 'string' || !value.trim())) return <span>{t('Not available')}</span>
+          const total = Number(value)
+          if (!Number.isFinite(total) || total < 0) return <span>{t('Not available')}</span>
           return (
             <span className='text-muted-foreground'>
               {total > 0 ? formatQuota(total) : t('Unlimited')}
@@ -169,6 +174,8 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
       },
       {
         id: 'upgrade_group',
+        accessorFn: (row) => row.plan.upgrade_group ?? '',
+        filterFn: (row, _id, values) => !Array.isArray(values) || values.length === 0 || values.includes(row.original.plan.upgrade_group ?? ''),
         header: t('Upgrade Group'),
         cell: ({ row }) => {
           const group = row.original.plan.upgrade_group

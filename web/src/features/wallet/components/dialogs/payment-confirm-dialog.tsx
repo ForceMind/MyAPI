@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Loader2 } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -67,9 +67,9 @@ export function PaymentConfirmDialog({
   const discountAmount = hasDiscount ? originalAmount - paymentAmount : 0
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className='max-sm:w-[calc(100vw-1.5rem)] sm:max-w-md'>
-        <AlertDialogHeader>
+    <AlertDialog open={open} onOpenChange={(nextOpen) => (nextOpen || !processing) && onOpenChange(nextOpen)}>
+      <AlertDialogContent className='flex max-h-[calc(100dvh-2rem)] min-w-0 flex-col gap-0 overflow-hidden p-0 max-sm:w-[calc(100vw-1.5rem)] sm:max-w-md [&_[data-myapi-button]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11 [&_[data-myapi-button]]:min-w-11'>
+        <AlertDialogHeader className='shrink-0 border-b px-4 py-4 sm:px-6'>
           <AlertDialogTitle className='text-xl font-semibold'>
             {t('Confirm Payment')}
           </AlertDialogTitle>
@@ -78,8 +78,8 @@ export function PaymentConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className='space-y-3 py-3 sm:space-y-4 sm:py-4'>
-          <div className='flex items-center justify-between'>
+        <section role='region' tabIndex={0} aria-label={t('Payment details')} className='min-h-0 min-w-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4 [overflow-wrap:anywhere] sm:space-y-4 sm:px-6'>
+          <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
             <span className='text-muted-foreground text-sm'>
               {t('Topup Amount')}
             </span>
@@ -92,7 +92,7 @@ export function PaymentConfirmDialog({
             </span>
           </div>
 
-          <div className='flex items-center justify-between'>
+          <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
             <span className='text-muted-foreground text-sm'>
               {t('You Pay')}
             </span>
@@ -124,11 +124,11 @@ export function PaymentConfirmDialog({
           )}
 
           <div className='border-t pt-4'>
-            <div className='flex items-center justify-between'>
+            <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
               <span className='text-muted-foreground text-sm'>
                 {t('Payment Method')}
               </span>
-              <div className='flex items-center gap-2'>
+              <div className='flex min-w-0 flex-wrap items-center justify-end gap-2'>
                 {getPaymentIcon(
                   paymentMethod?.type,
                   'h-4 w-4',
@@ -139,14 +139,14 @@ export function PaymentConfirmDialog({
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <AlertDialogFooter className='grid grid-cols-2 gap-2 sm:flex'>
+        <AlertDialogFooter className='m-0 grid shrink-0 grid-cols-2 gap-2 border-t px-4 py-4 sm:flex sm:px-6'>
           <AlertDialogCancel disabled={processing}>
             {t('Cancel')}
           </AlertDialogCancel>
           <AlertDialogAction onClick={onConfirm} disabled={processing}>
-            {processing && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+            {processing && <Spinner aria-hidden='true' data-icon='inline-start' />}
             {t('Confirm Payment')}
           </AlertDialogAction>
         </AlertDialogFooter>

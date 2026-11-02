@@ -43,6 +43,7 @@ type ConfirmDialogProps = {
   isLoading?: boolean
   className?: string
   children?: React.ReactNode
+  returnFocus?: () => HTMLElement | null
 }
 
 export function ConfirmDialog(props: ConfirmDialogProps) {
@@ -58,23 +59,27 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
     isLoading,
     disabled = false,
     handleConfirm,
+    returnFocus,
     ...actions
   } = props
   return (
     <AlertDialog {...actions}>
-      <AlertDialogContent className={cn(className)}>
-        <AlertDialogHeader className='text-start'>
+      <AlertDialogContent finalFocus={returnFocus} className={cn('flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-0 [&_[data-myapi-button]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11 [&_[data-myapi-button]]:min-w-11', className, 'overflow-hidden')}>
+        <AlertDialogHeader className='shrink-0 border-b px-4 py-4 text-start sm:px-6'>
           <AlertDialogTitle>{title}</AlertDialogTitle>
+        </AlertDialogHeader>
+        <section aria-label={t('Confirmation details')} tabIndex={0} className='min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 [overflow-wrap:anywhere] sm:px-6'>
           <AlertDialogDescription render={<div />}>
             {desc}
           </AlertDialogDescription>
-        </AlertDialogHeader>
-        {children}
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>
+          {children}
+        </section>
+        <AlertDialogFooter className='m-0 shrink-0 rounded-none border-t px-4 py-3 sm:px-6'>
+          <AlertDialogCancel className='min-h-11 min-w-11' disabled={isLoading}>
             {cancelBtnText ?? t('Cancel')}
           </AlertDialogCancel>
           <Button
+            className='min-h-11 min-w-11'
             variant={destructive ? 'destructive' : 'default'}
             onClick={handleConfirm}
             disabled={disabled || isLoading}

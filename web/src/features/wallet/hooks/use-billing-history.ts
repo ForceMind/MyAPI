@@ -47,13 +47,14 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
   const isAdmin = useIsAdmin()
 
   const [records, setRecords] = useState<TopupRecord[]>([])
-  const [total, setTotal] = useState(0)
+  const [total, setTotal] = useState<number | undefined>(undefined)
   const [page, setPage] = useState(initialPage)
   const [pageSize, setPageSize] = useState(initialPageSize)
   const [keyword, setKeyword] = useState('')
   const debouncedKeyword = useDebounce(keyword)
   const requestIdRef = useRef(0)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [completing, setCompleting] = useState(false)
 
   /**
@@ -62,6 +63,7 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
   const fetchBillingHistory = useCallback(async () => {
     const requestId = ++requestIdRef.current
     setLoading(true)
+    setError(null)
     try {
       const response = isAdmin
         ? await getAllBillingHistory(page, pageSize, debouncedKeyword)
@@ -70,14 +72,26 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
       if (requestId !== requestIdRef.current) return
 
       if (isApiSuccess(response) && response.data) {
-        setRecords(response.data.items || [])
-        setTotal(response.data.total || 0)
+        const items = response.data.items === null && response.data.total === 0
+          ? []
+          : response.data.items
+        if (!Array.isArray(items)) {
+          throw new Error(i18next.t('Invalid billing history response'))
+        }
+        const count = response.data.total
+        setRecords(items)
+        setTotal(
+          typeof count === 'number' && Number.isSafeInteger(count) && count >= 0
+            ? count
+            : undefined
+        )
       } else {
         toast.error(
           response.message || i18next.t('Failed to load billing history')
         )
         setRecords([])
-        setTotal(0)
+        setTotal(undefined)
+        setError(response.message || i18next.t('Failed to load billing history'))
       }
     } catch (error) {
       if (requestId !== requestIdRef.current) return
@@ -86,7 +100,8 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
       console.error('Failed to fetch billing history:', error)
       toast.error(i18next.t('Failed to load billing history'))
       setRecords([])
-      setTotal(0)
+      setTotal(undefined)
+      setError(error instanceof Error ? error.message : i18next.t('Failed to load billing history'))
     } finally {
       if (requestId === requestIdRef.current) {
         setLoading(false)
@@ -166,6 +181,7 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
     pageSize,
     keyword,
     loading,
+    error,
     completing,
     isAdmin,
     handlePageChange,

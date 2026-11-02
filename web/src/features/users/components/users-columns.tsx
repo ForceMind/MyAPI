@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { ColumnDef } from '@tanstack/react-table'
+import type { ColumnDef, Row } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
 
 import { BadgeCell } from '@/components/data-table'
@@ -47,6 +47,10 @@ import type { UserUsagePolicy } from '../user-usage-policy-api'
 import { DataTableRowActions } from './data-table-row-actions'
 import { UserQuotaCell } from './user-quota-cell'
 
+function UserActionsCell(props: { row: Row<User> }) {
+  return <DataTableRowActions row={props.row} />
+}
+
 export function useUsersColumns(): ColumnDef<User>[] {
   const { t } = useTranslation()
   const funding = useFundingPresentation()
@@ -59,7 +63,7 @@ export function useUsersColumns(): ColumnDef<User>[] {
           checked={table.getIsAllPageRowsSelected()}
           indeterminate={table.getIsSomePageRowsSelected()}
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label='Select all'
+          aria-label={t('Select all')}
           className='translate-y-[2px]'
         />
       ),
@@ -67,7 +71,7 @@ export function useUsersColumns(): ColumnDef<User>[] {
         <Checkbox
           checked={row.getIsSelected()}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label='Select row'
+          aria-label={t('Select row')}
           className='translate-y-[2px]'
         />
       ),
@@ -360,7 +364,7 @@ export function useUsersColumns(): ColumnDef<User>[] {
     {
       id: 'actions',
       header: () => t('Actions'),
-      cell: ({ row }) => <DataTableRowActions row={row} />,
+      cell: UserActionsCell,
       meta: { pinned: 'right' as const },
     },
   ]

@@ -66,7 +66,7 @@ export async function getTopupInfo(): Promise<TopupInfoResponse> {
 export async function redeemTopupCode(
   request: RedemptionRequest
 ): Promise<RedemptionResponse> {
-  const res = await api.post('/api/user/topup', request)
+  const res = await api.post('/api/user/topup', request, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -114,6 +114,7 @@ export async function requestPayment(
 ): Promise<PaymentResponse> {
   const res = await api.post('/api/user/pay', request, {
     skipBusinessError: true,
+    skipAuthRefresh: true,
   } as Record<string, unknown>)
   return {
     ...res.data,
@@ -129,6 +130,7 @@ export async function requestStripePayment(
 ): Promise<StripePaymentResponse> {
   const res = await api.post('/api/user/stripe/pay', request, {
     skipBusinessError: true,
+    skipAuthRefresh: true,
   } as Record<string, unknown>)
   return res.data
 }
@@ -141,6 +143,7 @@ export async function requestCreemPayment(
 ): Promise<CreemPaymentResponse> {
   const res = await api.post('/api/user/creem/pay', request, {
     skipBusinessError: true,
+    skipAuthRefresh: true,
   } as Record<string, unknown>)
   return res.data
 }
@@ -153,6 +156,7 @@ export async function requestWaffoPayment(
 ): Promise<WaffoPaymentResponse> {
   const res = await api.post('/api/user/waffo/pay', request, {
     skipBusinessError: true,
+    skipAuthRefresh: true,
   } as Record<string, unknown>)
   return res.data
 }
@@ -177,6 +181,7 @@ export async function requestWaffoPancakePayment(
 ): Promise<WaffoPancakePaymentResponse> {
   const res = await api.post('/api/user/waffo-pancake/pay', request, {
     skipBusinessError: true,
+    skipAuthRefresh: true,
   } as Record<string, unknown>)
   return res.data
 }
@@ -195,7 +200,7 @@ export async function getAffiliateCode(): Promise<AffiliateCodeResponse> {
 export async function transferAffiliateQuota(
   request: AffiliateTransferRequest
 ): Promise<AffiliateTransferResponse> {
-  const res = await api.post('/api/user/aff_transfer', request)
+  const res = await api.post('/api/user/aff_transfer', request, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -243,6 +248,6 @@ export async function getAllBillingHistory(
 export async function completeOrder(
   request: CompleteOrderRequest
 ): Promise<ApiResponse> {
-  const res = await api.post('/api/user/topup/complete', request)
+  const res = await api.post('/api/user/topup/complete', request, { skipAuthRefresh: true })
   return res.data
 }

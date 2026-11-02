@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { ColumnDef } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
+import { useMemo } from 'react'
 
 import { MaskedValueDisplay } from '@/components/masked-value-display'
 import { StatusBadge } from '@/components/status-badge'
@@ -37,7 +38,7 @@ import { DataTableRowActions } from './data-table-row-actions'
 
 export function useRedemptionsColumns(): ColumnDef<Redemption>[] {
   const { t } = useTranslation()
-  return [
+  return useMemo((): ColumnDef<Redemption>[] => [
     {
       id: 'select',
       header: ({ table }) => (
@@ -46,7 +47,7 @@ export function useRedemptionsColumns(): ColumnDef<Redemption>[] {
           indeterminate={table.getIsSomePageRowsSelected()}
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
           aria-label={t('Select all')}
-          className='translate-y-[2px]'
+          className='translate-y-[2px] after:-inset-3.5'
         />
       ),
       cell: ({ row }) => (
@@ -54,7 +55,7 @@ export function useRedemptionsColumns(): ColumnDef<Redemption>[] {
           checked={row.getIsSelected()}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
           aria-label={t('Select row')}
-          className='translate-y-[2px]'
+          className='translate-y-[2px] after:-inset-3.5'
         />
       ),
       enableSorting: false,
@@ -77,7 +78,7 @@ export function useRedemptionsColumns(): ColumnDef<Redemption>[] {
       header: t('Name'),
       meta: { mobileTitle: true },
       cell: ({ row }) => (
-        <span className='font-medium'>{row.getValue('name')}</span>
+        <span className='font-medium break-words whitespace-normal [overflow-wrap:anywhere]'>{row.getValue('name')}</span>
       ),
       size: 180,
     },
@@ -258,5 +259,5 @@ export function useRedemptionsColumns(): ColumnDef<Redemption>[] {
       cell: ({ row }) => <DataTableRowActions row={row} />,
       meta: { pinned: 'right' as const },
     },
-  ]
+  ], [t])
 }

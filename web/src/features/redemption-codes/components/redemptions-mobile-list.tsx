@@ -18,12 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { Database01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import type { Table as TanstackTable } from '@tanstack/react-table'
+import { flexRender, type Row, type Table as TanstackTable } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
 
 import { DISABLED_ROW_MOBILE } from '@/components/data-table'
-import { MaskedValueDisplay } from '@/components/masked-value-display'
-import { StatusBadge } from '@/components/status-badge'
 import {
   Empty,
   EmptyDescription,
@@ -32,13 +30,12 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-import { REDEMPTION_STATUS, REDEMPTION_STATUSES } from '../constants'
+import { REDEMPTION_STATUS } from '../constants'
 import { isRedemptionExpired } from '../lib'
 import type { Redemption } from '../types'
-import { DataTableRowActions } from './data-table-row-actions'
+import { getCellLabel } from '@/components/data-table/layout/card-cell-utils'
 
 const MOBILE_SKELETON_KEYS = [
   'redemption-mobile-skeleton-1',
@@ -74,6 +71,8 @@ function RedemptionsMobileSkeleton() {
 interface RedemptionsMobileListProps {
   table: TanstackTable<Redemption>
   isLoading: boolean
+  emptyTitle?: string
+  emptyDescription?: string
 }
 
 export function RedemptionsMobileList(props: RedemptionsMobileListProps) {
@@ -90,11 +89,9 @@ export function RedemptionsMobileList(props: RedemptionsMobileListProps) {
             <EmptyMedia variant='icon'>
               <HugeiconsIcon icon={Database01Icon} className='size-6' />
             </EmptyMedia>
-            <EmptyTitle>{t('No Redemption Codes Found')}</EmptyTitle>
+            <EmptyTitle>{props.emptyTitle ?? t('No Redemption Codes Found')}</EmptyTitle>
             <EmptyDescription>
-              {t(
-                'No redemption codes available. Create your first redemption code to get started.'
-              )}
+              {props.emptyDescription ?? t('No redemption codes available. Create your first redemption code to get started.')}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -102,76 +99,23 @@ export function RedemptionsMobileList(props: RedemptionsMobileListProps) {
     )
   }
 
-  return (
-    <div className='divide-border overflow-hidden rounded-lg border'>
-      {rows.map((row) => {
-        const redemption = row.original
-        const expired = isRedemptionExpired(
-          redemption.expired_time,
-          redemption.status
-        )
-        const statusConfig = REDEMPTION_STATUSES[redemption.status]
-        const maskedKey = `${redemption.key.slice(0, 8)}******${redemption.key.slice(-8)}`
+  return <div className='grid min-w-0 gap-4'>{rows.map((row) => <RedemptionMobileCard key={row.id} row={row} />)}</div>
+}
 
-        return (
-          <div
-            key={row.id}
-            className={cn(
-              'bg-card flex min-w-0 items-start gap-2 border-b px-3 py-2.5 last:border-b-0',
-              expired || redemption.status !== REDEMPTION_STATUS.ENABLED
-                ? DISABLED_ROW_MOBILE
-                : undefined
-            )}
-          >
-            <div className='flex min-w-0 flex-1 flex-col gap-1.5'>
-              <div className='flex min-w-0 items-start justify-between gap-2'>
-                <div
-                  className='min-w-0 truncate text-sm font-semibold'
-                  title={redemption.name}
-                >
-                  {redemption.name}
-                </div>
-                {expired ? (
-                  <StatusBadge
-                    label={t('Expired')}
-                    variant='warning'
-                    copyable={false}
-                    className='shrink-0'
-                  />
-                ) : (
-                  statusConfig && (
-                    <StatusBadge
-                      label={t(statusConfig.labelKey)}
-                      variant={statusConfig.variant}
-                      copyable={false}
-                      className='shrink-0'
-                    />
-                  )
-                )}
-              </div>
-              <div className='min-w-0 [&_button:first-child]:max-w-full [&_button:first-child]:truncate [&_button:first-child]:px-0'>
-                <MaskedValueDisplay
-                  label={t('Full Code')}
-                  fullValue={redemption.key}
-                  maskedValue={maskedKey}
-                  copyTooltip={t('Copy code')}
-                  copyAriaLabel={t('Copy redemption code')}
-                />
-              </div>
-              <div className='text-caption text-muted-foreground flex min-w-0 flex-wrap gap-x-2'>
-                <span className='font-mono'>#{redemption.id}</span>
-                <span>
-                  {t('Quota')}{' '}
-                  <span className='text-foreground font-medium tabular-nums'>
-                    {formatQuota(redemption.quota)}
-                  </span>
-                </span>
-              </div>
-            </div>
-            <DataTableRowActions row={row} />
-          </div>
-        )
-      })}
-    </div>
-  )
+function RedemptionMobileCard({ row }: { row: Row<Redemption> }) {
+  const { t } = useTranslation()
+  const redemption = row.original
+  const cells = row.getAllCells()
+  const renderCell = (id: string) => {
+    const cell = cells.find((candidate) => candidate.column.id === id)
+    return cell ? flexRender(cell.column.columnDef.cell, cell.getContext()) : null
+  }
+  const expired = isRedemptionExpired(redemption.expired_time, redemption.status)
+  return <article aria-label={redemption.name} className={cn('bg-card min-w-0 space-y-4 rounded-xl border p-4', (expired || redemption.status !== REDEMPTION_STATUS.ENABLED) && DISABLED_ROW_MOBILE)}>
+    <div className='flex min-w-0 items-start gap-3'><span className='inline-flex min-h-11 min-w-11 items-center justify-center [&_[data-slot=checkbox]]:after:-inset-3.5'>{renderCell('select')}</span><div className='min-w-0 flex-1 wrap-anywhere'>{renderCell('name')}</div>{renderCell('status')}</div>
+    <div className='min-w-0 [&_[data-myapi-button]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11 [&_[data-myapi-button]]:min-w-11'>{renderCell('code')}</div>
+    <dl className='grid min-w-0 gap-3 sm:grid-cols-2'>{cells.filter((cell) => ['id', 'quota', 'expired_time'].includes(cell.column.id)).map((cell) => <div key={cell.id} className='min-w-0'><dt className='text-muted-foreground text-xs'>{getCellLabel(cell)}</dt><dd className='mt-1 wrap-anywhere'>{flexRender(cell.column.columnDef.cell, cell.getContext())}</dd></div>)}</dl>
+    <details className='min-w-0 rounded-lg border p-3'><summary className='min-h-11 cursor-pointer py-3 font-medium'>{t('More details')}</summary><dl className='mt-3 grid min-w-0 gap-3'>{cells.filter((cell) => !['select', 'name', 'status', 'code', 'id', 'quota', 'expired_time', 'actions'].includes(cell.column.id)).map((cell) => <div key={cell.id} className='min-w-0'><dt className='text-muted-foreground text-xs'>{getCellLabel(cell)}</dt><dd className='mt-1 wrap-anywhere'>{flexRender(cell.column.columnDef.cell, cell.getContext())}</dd></div>)}</dl></details>
+    <div className='border-t pt-3'>{renderCell('actions')}</div>
+  </article>
 }

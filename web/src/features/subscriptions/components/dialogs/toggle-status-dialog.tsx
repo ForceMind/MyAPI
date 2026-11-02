@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -27,8 +27,12 @@ import { useSubscriptions } from '../subscriptions-provider'
 
 export function ToggleStatusDialog() {
   const { t } = useTranslation()
-  const { open, setOpen, currentRow, triggerRefresh } = useSubscriptions()
+  const { open, setOpen, currentRow, triggerRefresh, returnFocus } = useSubscriptions()
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    if (open === 'toggle-status') setError('')
+  }, [open, currentRow?.plan.id])
 
   if (open !== 'toggle-status' || !currentRow) return null
 
@@ -42,6 +46,7 @@ export function ToggleStatusDialog() {
 
   const handleConfirm = async () => {
     setLoading(true)
+    setError('')
     try {
       const res = await patchPlanStatus(currentRow.plan.id, !isEnabled)
       if (res.success) {
@@ -50,8 +55,11 @@ export function ToggleStatusDialog() {
         )
         triggerRefresh()
         setOpen(null)
+      } else {
+        setError(res.message || t('Operation failed'))
       }
-    } catch {
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : t('Operation failed'))
       toast.error(t('Operation failed'))
     } finally {
       setLoading(false)
@@ -61,13 +69,17 @@ export function ToggleStatusDialog() {
   return (
     <ConfirmDialog
       open
-      onOpenChange={(v) => !v && setOpen(null)}
+      className='[&_[data-myapi-button]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11 [&_[data-myapi-button]]:min-w-11'
+      returnFocus={returnFocus}
+      onOpenChange={(v) => !v && !loading && setOpen(null)}
       title={title}
-      desc={description}
+      desc={<div className='flex min-w-0 flex-col gap-2 [overflow-wrap:anywhere]'><p className='font-medium'>{currentRow.plan.title}</p><p className='font-mono text-xs'>#{currentRow.plan.id}</p><p>{description}</p></div>}
       handleConfirm={handleConfirm}
       isLoading={loading}
       confirmText={isEnabled ? t('Disable') : t('Enable')}
       destructive={isEnabled}
-    />
+    >
+      {error && <p role='alert' className='text-destructive text-sm break-words'>{error}</p>}
+    </ConfirmDialog>
   )
 }

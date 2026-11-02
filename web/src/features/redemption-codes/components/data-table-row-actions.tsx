@@ -17,8 +17,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { Row } from '@tanstack/react-table'
-import { Trash2, Edit, Power, PowerOff } from 'lucide-react'
+import { Delete02Icon, Edit02Icon, PowerIcon, PowerOffIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
+import { useRef, useState } from 'react'
+import { useAuthStore } from '@/stores/auth-store'
 import { toast } from 'sonner'
 
 import { DataTableRowActionMenu } from '@/components/data-table/core/row-action-menu'
@@ -50,6 +53,14 @@ export function DataTableRowActions<TData>({
   const { t } = useTranslation()
   const redemption = redemptionSchema.parse(row.original)
   const { setOpen, setCurrentRow, triggerRefresh } = useRedemptions()
+  const pending = useRef(false)
+  const [isToggling, setIsToggling] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
+  const isCurrentIdentity = () => {
+    const { auth } = useAuthStore.getState()
+    return identity === `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`
+  }
   const isEnabled = redemption.status === REDEMPTION_STATUS.ENABLED
   const isUsed = redemption.status === REDEMPTION_STATUS.USED
   const isExpired = isRedemptionExpired(
@@ -58,17 +69,27 @@ export function DataTableRowActions<TData>({
   )
 
   const handleToggleStatus = async () => {
+    if (pending.current || !isCurrentIdentity()) return
+    pending.current = true
+    setIsToggling(true)
+    setActionError(null)
     const newStatus = isEnabled
       ? REDEMPTION_STATUS.DISABLED
       : REDEMPTION_STATUS.ENABLED
 
-    const result = await updateRedemptionStatus(redemption.id, newStatus)
-    if (result.success) {
-      const message = isEnabled
-        ? t(SUCCESS_MESSAGES.REDEMPTION_DISABLED)
-        : t(SUCCESS_MESSAGES.REDEMPTION_ENABLED)
-      toast.success(message)
-      triggerRefresh()
+    try {
+      const result = await updateRedemptionStatus(redemption.id, newStatus)
+      if (!isCurrentIdentity()) return
+      if (result.success) {
+        const message = isEnabled ? t(SUCCESS_MESSAGES.REDEMPTION_DISABLED) : t(SUCCESS_MESSAGES.REDEMPTION_ENABLED)
+        toast.success(message)
+        triggerRefresh()
+      } else setActionError(result.message || t('Operation failed'))
+    } catch (error: unknown) {
+      if (isCurrentIdentity()) setActionError(error instanceof Error ? error.message : t('Operation failed'))
+    } finally {
+      pending.current = false
+      if (isCurrentIdentity()) setIsToggling(false)
     }
   }
 
@@ -76,7 +97,7 @@ export function DataTableRowActions<TData>({
   const canToggle = !isUsed && !isExpired
 
   return (
-    <div className='-ml-1.5 flex items-center gap-1'>
+    <div data-redemption-actions={String(redemption.id)} className='flex flex-wrap items-center gap-1 [&_[data-myapi-button]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11 [&_[data-myapi-button]]:min-w-11'>
       <Tooltip>
         <TooltipTrigger
           render={
@@ -84,34 +105,36 @@ export function DataTableRowActions<TData>({
               variant='ghost'
               size='icon-sm'
               onClick={() => {
+                if (pending.current) return
                 setCurrentRow(redemption)
                 setOpen('update')
               }}
-              disabled={!canEdit}
+              disabled={!canEdit || isToggling}
               aria-label={t('Edit')}
+                data-redemption-action='edit'
             />
           }
         >
-          <Edit />
+          <HugeiconsIcon icon={Edit02Icon} aria-hidden='true' />
         </TooltipTrigger>
         <TooltipContent>{t('Edit')}</TooltipContent>
       </Tooltip>
 
       <DataTableRowActionMenu ariaLabel={t('Open menu')} modal={false}>
         {canToggle && (
-          <DropdownMenuItem onClick={handleToggleStatus}>
+          <DropdownMenuItem className='min-h-11' disabled={isToggling} onClick={handleToggleStatus}>
             {isEnabled ? (
               <>
                 {t('Disable')}
                 <DropdownMenuShortcut>
-                  <PowerOff size={16} />
+                  <HugeiconsIcon icon={PowerOffIcon} className='size-4' aria-hidden='true' />
                 </DropdownMenuShortcut>
               </>
             ) : (
               <>
                 {t('Enable')}
                 <DropdownMenuShortcut>
-                  <Power size={16} />
+                  <HugeiconsIcon icon={PowerIcon} className='size-4' aria-hidden='true' />
                 </DropdownMenuShortcut>
               </>
             )}
@@ -119,18 +142,21 @@ export function DataTableRowActions<TData>({
         )}
         {canToggle && <DropdownMenuSeparator />}
         <DropdownMenuItem
+          disabled={isToggling}
           onClick={() => {
+            if (pending.current) return
             setCurrentRow(redemption)
             setOpen('delete')
           }}
-          className='text-destructive focus:text-destructive'
+          className='text-destructive focus:text-destructive min-h-11'
         >
           {t('Delete')}
           <DropdownMenuShortcut>
-            <Trash2 size={16} />
+            <HugeiconsIcon icon={Delete02Icon} className='size-4' aria-hidden='true' />
           </DropdownMenuShortcut>
         </DropdownMenuItem>
       </DataTableRowActionMenu>
+      {actionError && <p role='alert' className='text-destructive basis-full text-xs break-words'>{actionError}</p>}
     </div>
   )
 }

@@ -17,7 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { Row } from '@tanstack/react-table'
-import { Pencil, Power, PowerOff, RotateCcw } from 'lucide-react'
+import { Edit02Icon, PowerIcon, PowerOffIcon, Refresh01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -56,7 +57,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   }
 
   return (
-    <div className='-ml-1.5 flex items-center gap-1'>
+    <div data-plan-actions={String(row.original.plan.id)} className='flex flex-wrap items-center gap-1 [&_[data-myapi-button]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11 [&_[data-myapi-button]]:min-w-11'>
       <Tooltip>
         <TooltipTrigger
           render={
@@ -66,10 +67,11 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
               disabled={!complianceConfirmed}
               onClick={handleEdit}
               aria-label={t('Edit')}
+                data-plan-action='edit'
             />
           }
         >
-          <Pencil />
+          <HugeiconsIcon icon={Edit02Icon} aria-hidden='true' />
         </TooltipTrigger>
         <TooltipContent>{t('Edit')}</TooltipContent>
       </Tooltip>
@@ -83,10 +85,11 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
               disabled={!complianceConfirmed}
               onClick={handleResetSubscriptions}
               aria-label={t('Reset subscription quota')}
+                data-plan-action='reset'
             />
           }
         >
-          <RotateCcw />
+          <HugeiconsIcon icon={Refresh01Icon} aria-hidden='true' />
         </TooltipTrigger>
         <TooltipContent>{t('Reset subscription quota')}</TooltipContent>
       </Tooltip>
@@ -100,6 +103,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
               disabled={!complianceConfirmed}
               onClick={handleToggleStatus}
               aria-label={toggleLabel}
+              data-plan-action='status'
               className={
                 isEnabled
                   ? 'text-destructive hover:text-destructive'
@@ -108,7 +112,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
             />
           }
         >
-          {isEnabled ? <PowerOff /> : <Power />}
+          <HugeiconsIcon icon={isEnabled ? PowerOffIcon : PowerIcon} aria-hidden='true' />
         </TooltipTrigger>
         <TooltipContent>{toggleLabel}</TooltipContent>
       </Tooltip>

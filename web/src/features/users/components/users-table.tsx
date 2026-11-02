@@ -36,6 +36,8 @@ import {
   useDataTable,
 } from '@/components/data-table'
 import { ErrorState } from '@/components/error-state'
+import { getCellLabel } from '@/components/data-table/layout/card-cell-utils'
+import { LogPagination } from '@/components/log-pagination'
 import { StatusBadge } from '@/components/status-badge'
 import {
   Empty,
@@ -49,6 +51,8 @@ import { useMediaQuery } from '@/hooks'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 import { cn } from '@/lib/utils'
+import { getLogPageCount, normalizeLogPagination } from '@/lib/log-pagination'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { getUsers, searchUsers } from '../api'
 import {
@@ -146,7 +150,7 @@ function UsersMobileList(props: {
         // The usage cell carries the funding and usage-policy rules of the
         // table column, so the record renders that same cell.
         const quotaCell = row
-          .getVisibleCells()
+          .getAllCells()
           .find((cell) => cell.column.id === 'quota')
 
         return (
@@ -157,11 +161,12 @@ function UsersMobileList(props: {
               isDisabledUserRow(user) && DISABLED_ROW_MOBILE
             )}
           >
+            <span className='inline-flex min-h-11 min-w-11 items-center justify-center'>{row.getAllCells().filter((cell) => cell.column.id === 'select').map((cell) => <span key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</span>)}</span>
             <div className='flex min-w-0 flex-1 flex-col gap-1.5'>
               <div className='flex min-w-0 items-start justify-between gap-2'>
                 <div className='min-w-0'>
                   <div
-                    className='truncate text-sm font-semibold'
+                    className='text-sm font-semibold break-all'
                     title={user.username}
                   >
                     {user.username}
@@ -169,7 +174,7 @@ function UsersMobileList(props: {
                   {user.display_name &&
                     user.display_name !== user.username && (
                       <div
-                        className='text-caption text-muted-foreground truncate'
+                        className='text-caption text-muted-foreground break-all'
                         title={user.display_name}
                       >
                         {user.display_name}
@@ -190,7 +195,7 @@ function UsersMobileList(props: {
                 {roleConfig && <span>{t(roleConfig.labelKey)}</span>}
                 <span>{getAccountTierLabel(user.group, t)}</span>
                 {user.remark && (
-                  <span className='max-w-full truncate' title={user.remark}>
+                  <span className='max-w-full break-words' title={user.remark}>
                     {user.remark}
                   </span>
                 )}
@@ -203,6 +208,15 @@ function UsersMobileList(props: {
                   )}
                 </div>
               )}
+              <details className='mt-2 min-w-0 rounded-lg border p-3'>
+                <summary className='min-h-11 cursor-pointer py-3 font-medium'>{t('More details')}</summary>
+                <dl className='mt-3 grid min-w-0 gap-4 [&_.truncate]:overflow-visible [&_.truncate]:whitespace-normal [&_.truncate]:break-all'>
+                  {row.getAllCells().filter((cell) => !['select', 'username', 'status', 'quota', 'actions'].includes(cell.column.id)).map((cell) => (
+                    <div key={cell.id} className='min-w-0'><dt className='text-muted-foreground mb-1 text-xs'>{getCellLabel(cell)}</dt><dd className='min-w-0 break-words'>{flexRender(cell.column.columnDef.cell, cell.getContext())}</dd></div>
+                  ))}
+                  <div><dt className='text-muted-foreground mb-1 text-xs'>{t('Requests:')}</dt><dd>{user.request_count.toLocaleString()}</dd></div>
+                </dl>
+              </details>
             </div>
             <DataTableRowActions row={row} />
           </div>
@@ -216,6 +230,7 @@ export function UsersTable() {
   const { t } = useTranslation()
   const columns = useUsersColumns()
   const { refreshTrigger } = useUsers()
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
   const isMobile = useMediaQuery('(max-width: 640px)')
   const [sorting, setSorting] = useState<SortingState>([])
 
@@ -224,7 +239,7 @@ export function UsersTable() {
     onGlobalFilterChange,
     columnFilters,
     onColumnFiltersChange,
-    pagination,
+    pagination: urlPagination,
     onPaginationChange,
     ensurePageInRange,
   } = useTableUrlState({
@@ -238,6 +253,7 @@ export function UsersTable() {
       { columnId: 'group', searchKey: 'group', type: 'string' },
     ],
   })
+  const pagination = normalizeLogPagination(urlPagination.pageIndex, urlPagination.pageSize)
   const statusFilter =
     (columnFilters.find((filter) => filter.id === 'status')?.value as
       | string[]
@@ -284,6 +300,7 @@ export function UsersTable() {
       groupFilter,
       sortParams,
       refreshTrigger,
+      identity,
     ],
     queryFn: async () => {
       const hasFilter = globalFilter?.trim()
@@ -306,23 +323,27 @@ export function UsersTable() {
             })
           : await getUsers(params)
 
-      if (!result.success) {
+      if (!result.success || !result.data || !Array.isArray(result.data.items)) {
         throw new Error('Failed to load users')
       }
 
       return {
         items: result.data?.items || [],
-        total: result.data?.total || 0,
+        total: result.data?.total,
       }
     },
-    placeholderData: (previousData) => previousData,
   })
 
-  const users = isError ? [] : data?.items || []
+  const users = useMemo(() => isError ? [] : data?.items || [], [isError, data?.items])
+  const rawTotal = data?.total
+  const total = !isError && typeof rawTotal === 'number' && Number.isSafeInteger(rawTotal) && rawTotal >= users.length && rawTotal >= 0 ? rawTotal : undefined
+  const pageCount = getLogPageCount(total, pagination.pageSize)
 
   const { table } = useDataTable({
     data: users,
     columns,
+    getRowId: (user) => String(user.id),
+    pageCount: pageCount ?? -1,
     enableRowSelection: true,
     columnFilters,
     globalFilter,
@@ -348,11 +369,13 @@ export function UsersTable() {
     manualPagination: true,
     manualFiltering: true,
     manualSorting: true,
-    totalCount: isError ? 0 : data?.total || 0,
-    ensurePageInRange: isError ? undefined : ensurePageInRange,
+    totalCount: total,
+    ensurePageInRange: total === undefined ? undefined : ensurePageInRange,
   })
 
   return (
+    <>
+    <h2 data-users-heading tabIndex={-1} className='sr-only'>{t('Users')}</h2>
     <DataTablePage
       table={table}
       mobileQuery={CONSOLE_MOBILE_QUERY}
@@ -376,6 +399,7 @@ export function UsersTable() {
       )}
       skeletonKeyPrefix='users-skeleton'
       applyHeaderSize
+      pagination={<LogPagination label={t('User pagination')} page={pagination.pageIndex + 1} pageSize={pagination.pageSize} total={total} busy={isLoading || isFetching} onPageChange={(page) => onPaginationChange({ pageIndex: page - 1, pageSize: pagination.pageSize })} onPageSizeChange={(pageSize) => onPaginationChange({ pageIndex: 0, pageSize })} />}
       toolbarProps={{
         searchPlaceholder: t('Filter by username, name or email...'),
         searchDebounceMs: 500,
@@ -400,5 +424,6 @@ export function UsersTable() {
       }
       bulkActions={<DataTableBulkActions table={table} />}
     />
+    </>
   )
 }

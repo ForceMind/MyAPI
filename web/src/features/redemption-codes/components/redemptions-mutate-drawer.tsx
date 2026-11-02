@@ -85,7 +85,7 @@ export function RedemptionsMutateDrawer({
   const { t } = useTranslation()
   const isUpdate = !!currentRow
   const redemptionId = currentRow?.id
-  const { triggerRefresh } = useRedemptions()
+  const { triggerRefresh, returnFocus } = useRedemptions()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [redemptionLoadState, setRedemptionLoadState] = useState<
     'idle' | 'loading' | 'ready' | 'error'
@@ -241,7 +241,7 @@ export function RedemptionsMutateDrawer({
         }
       }}
     >
-      <SheetContent className={sideDrawerContentClassName('sm:max-w-[600px]')}>
+      <SheetContent finalFocus={returnFocus} className={sideDrawerContentClassName('sm:max-w-[600px] [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=native-select]]:min-h-11 [&_[data-slot=checkbox]]:after:-inset-3.5 [&_[data-slot=switch]]:after:-inset-y-3 [&_[data-slot=sheet-close]]:min-h-11 [&_[data-slot=sheet-close]]:min-w-11')}>
         <SheetHeader className={sideDrawerHeaderClassName()}>
           <SheetTitle>
             {isUpdate
@@ -410,7 +410,7 @@ export function RedemptionsMutateDrawer({
           </form>
         </Form>
         <SheetFooter className={sideDrawerFooterClassName()}>
-          <SheetClose render={<Button variant='outline' />}>
+          <SheetClose render={<Button className='min-h-11' variant='outline' />}>
             {t('Close')}
           </SheetClose>
           <Button

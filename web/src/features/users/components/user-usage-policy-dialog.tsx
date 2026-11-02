@@ -13,6 +13,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogHeader,
+  DialogFooter,
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useStatus } from '@/hooks/use-status'
@@ -31,15 +32,18 @@ export function UserUsagePolicyDialog(props: {
   userId: number
   onClose: () => void
   onSaved?: () => void
+  returnFocus?: () => HTMLElement | null
 }) {
   const actor = useAuthStore((state) => state.auth.user)
+  const sid = useAuthStore((state) => state.auth.session?.sid ?? null)
   if (!actor) return null
   return (
     <UserUsagePolicySession
-      key={`${actor.id}:${actor.role}:${props.userId}`}
+      key={`${actor.id}:${actor.role}:${sid}:${props.userId}`}
       {...props}
       actorId={actor.id}
       role={actor.role}
+      sid={sid}
     />
   )
 }
@@ -47,8 +51,10 @@ function UserUsagePolicySession(props: {
   userId: number
   actorId: number
   role: number
+  sid: string | null
   onClose: () => void
   onSaved?: () => void
+  returnFocus?: () => HTMLElement | null
 }) {
   const { t } = useTranslation()
   const client = useQueryClient()
@@ -59,6 +65,7 @@ function UserUsagePolicySession(props: {
     'user-usage-policy',
     props.actorId,
     props.role,
+    props.sid,
     props.userId,
   ]
   const [locked, setLocked] = useState(false)
@@ -78,6 +85,7 @@ function UserUsagePolicySession(props: {
       if (
         actor?.id !== props.actorId ||
         actor.role !== props.role ||
+        (useAuthStore.getState().auth.session?.sid ?? null) !== props.sid ||
         actor.role !== 100
       ) {
         throw new Error('Session changed')
@@ -87,7 +95,7 @@ function UserUsagePolicySession(props: {
     retry: false,
     onSuccess: (data) => {
       const actor = useAuthStore.getState().auth.user
-      if (actor?.id !== props.actorId || actor.role !== props.role) return
+      if (actor?.id !== props.actorId || actor.role !== props.role || (useAuthStore.getState().auth.session?.sid ?? null) !== props.sid) return
       client.setQueryData(queryKey, data)
       operation.current = null
       setLocked(false)
@@ -140,10 +148,11 @@ function UserUsagePolicySession(props: {
       }}
     >
       <DialogContent
-        className='max-h-[85dvh] min-w-0 overflow-y-auto sm:max-w-lg'
+        finalFocus={props.returnFocus}
+        className='flex h-dvh max-h-dvh w-screen min-w-0 max-w-none flex-col overflow-hidden sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-lg [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11'
         showCloseButton={!mutation.isPending}
       >
-        <DialogHeader>
+        <DialogHeader className='shrink-0 text-start'>
           <DialogTitle className='pr-12'>{t('User usage policy')}</DialogTitle>
           <DialogDescription>
             {t(
@@ -151,6 +160,8 @@ function UserUsagePolicySession(props: {
             )}
           </DialogDescription>
         </DialogHeader>
+        <div className='min-h-0 space-y-4 overflow-y-auto overscroll-contain'>
+        <p className='text-muted-foreground text-sm'>{t('User ID')}: <span className='font-mono'>{props.userId}</span></p>
         <section
           aria-label={t('Current configuration')}
           className='flex min-w-0 flex-col gap-3 rounded-md border p-3 text-sm'
@@ -241,7 +252,8 @@ function UserUsagePolicySession(props: {
             )}
           </p>
         )}
-        <div className='flex flex-wrap justify-end gap-2'>
+        </div>
+        <DialogFooter className='shrink-0 flex-wrap gap-2 border-t pt-4'>
           <Button
             variant='outline'
             disabled={busy || locked}
@@ -261,7 +273,7 @@ function UserUsagePolicySession(props: {
           >
             {t('Close')}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

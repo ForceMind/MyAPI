@@ -16,11 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Search, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft01Icon, ArrowRight01Icon, Copy01Icon, Search01Icon, Tick02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Dialog } from '@/components/dialog'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { StatusBadge } from '@/components/status-badge'
 import {
   AlertDialog,
@@ -76,6 +78,8 @@ export function BillingHistoryDialog({
     pageSize,
     keyword,
     loading,
+    error,
+    refresh,
     completing,
     isAdmin,
     handlePageChange,
@@ -85,38 +89,37 @@ export function BillingHistoryDialog({
   } = useBillingHistory()
 
   const [confirmTradeNo, setConfirmTradeNo] = useState<string | null>(null)
+  const [completionError, setCompletionError] = useState('')
   const { copyToClipboard, copiedText } = useCopyToClipboard({ notify: false })
 
-  const totalPages = Math.ceil(total / pageSize)
+  const totalPages = total === undefined ? undefined : Math.ceil(total / pageSize)
 
   const handleConfirmComplete = async () => {
     if (confirmTradeNo) {
+      setCompletionError('')
       const success = await handleCompleteOrder(confirmTradeNo)
       if (success) {
         setConfirmTradeNo(null)
+      } else {
+        setCompletionError(t('Failed to complete order'))
       }
     }
   }
 
   return (
     <>
-      <Dialog
-        open={open}
-        onOpenChange={onOpenChange}
-        title={t('Billing History')}
-        description={t(
-          'View your topup transaction records and payment history'
-        )}
-        contentClassName='flex max-h-[calc(100dvh-2rem)] flex-col max-sm:w-screen max-sm:max-w-none max-sm:rounded-none max-sm:p-4 sm:max-w-4xl'
-        contentHeight='auto'
-        bodyClassName='space-y-3'
-      >
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className='flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-[min(85dvh,800px)] sm:max-h-[calc(100dvh-3rem)] sm:max-w-4xl sm:rounded-xl [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'>
+          <DialogHeader className='shrink-0 border-b px-4 py-4 pr-16 sm:px-6 sm:pr-16'><DialogTitle>{t('Billing History')}</DialogTitle><DialogDescription>{t('View your topup transaction records and payment history')}</DialogDescription></DialogHeader>
+          <section role='region' tabIndex={0} aria-label={t('Billing history results')} className='min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [overflow-wrap:anywhere] sm:px-6'>
         <div className='min-h-0 space-y-3'>
+          {error && <Alert variant='destructive'><AlertTitle>{t('Unable to load billing history')}</AlertTitle><AlertDescription>{error}</AlertDescription><Button className='mt-3 min-h-11 w-fit' variant='outline' disabled={loading} onClick={() => { void refresh() }}>{t('Retry')}</Button></Alert>}
           {/* Search and Filter Bar */}
           <div className='flex items-center gap-2'>
             <div className='relative flex-1'>
-              <Search className='text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2' />
+              <HugeiconsIcon icon={Search01Icon} className='text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2' />
               <Input
+                aria-label={t('Search billing history')}
                 placeholder={t('Search by order number...')}
                 value={keyword}
                 onChange={(e) => handleSearch(e.target.value)}
@@ -135,10 +138,10 @@ export function BillingHistoryDialog({
                 value !== null && handlePageSizeChange(Number.parseInt(value))
               }
             >
-              <SelectTrigger className='h-9 w-[92px] sm:w-32'>
+              <SelectTrigger aria-label={t('Rows per page')} className='min-h-11 w-[92px] sm:w-32'>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent alignItemWithTrigger={false}>
+              <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11'>
                 <SelectGroup>
                   <SelectItem value='10'>{t('10 / page')}</SelectItem>
                   <SelectItem value='20'>{t('20 / page')}</SelectItem>
@@ -150,7 +153,7 @@ export function BillingHistoryDialog({
           </div>
 
           {/* Records List */}
-          <div className='max-h-[min(54vh,520px)] overflow-y-auto pr-1'>
+          <div className='min-w-0'>
             {loading && (
               <div className='space-y-3'>
                 {BILLING_HISTORY_SKELETON_IDS.map((id) => (
@@ -171,7 +174,7 @@ export function BillingHistoryDialog({
                 ))}
               </div>
             )}
-            {!loading && records.length === 0 && (
+            {!loading && !error && total !== undefined && records.length === 0 && (
               <div className='text-muted-foreground flex min-h-40 flex-col items-center justify-center py-10 text-center'>
                 <p className='text-sm font-medium'>
                   {t('No billing records found')}
@@ -183,7 +186,7 @@ export function BillingHistoryDialog({
                 </p>
               </div>
             )}
-            {!loading && records.length > 0 && (
+            {!loading && !error && records.length > 0 && (
               <ul className='divide-border divide-y overflow-hidden rounded-lg border'>
                 {records.map((record) => {
                   const statusConfig = getStatusConfig(record.status)
@@ -196,21 +199,21 @@ export function BillingHistoryDialog({
                       <div className='flex items-start justify-between gap-2'>
                         <div className='flex min-w-0 flex-1 flex-col gap-0.5'>
                           <div className='flex min-w-0 items-center gap-2'>
-                            <code className='text-foreground truncate font-mono text-sm'>
+                            <code className='text-foreground min-w-0 font-mono text-sm break-words [overflow-wrap:anywhere]'>
                               {record.trade_no}
                             </code>
                             <Button
                               type='button'
                               variant='ghost'
                               size='sm'
-                              className='h-6 w-6 shrink-0 p-0'
+                              className='min-h-11 min-w-11 shrink-0 p-0'
                               aria-label={t('Copy')}
                               onClick={() => copyToClipboard(record.trade_no)}
                             >
                               {copiedText === record.trade_no ? (
-                                <Check className='h-3 w-3' />
+                                <HugeiconsIcon icon={Tick02Icon} className='h-3 w-3' />
                               ) : (
-                                <Copy className='h-3 w-3' />
+                                <HugeiconsIcon icon={Copy01Icon} className='h-3 w-3' />
                               )}
                             </Button>
                             {isAdmin && record.user_id != null && (
@@ -273,7 +276,7 @@ export function BillingHistoryDialog({
                             type='button'
                             size='sm'
                             variant='outline'
-                            onClick={() => setConfirmTradeNo(record.trade_no)}
+                            onClick={() => { setCompletionError(''); setConfirmTradeNo(record.trade_no) }}
                             disabled={completing}
                           >
                             {t('Complete Order')}
@@ -287,62 +290,42 @@ export function BillingHistoryDialog({
             )}
           </div>
 
-          {/* Pagination */}
-          {!loading && records.length > 0 && (
-            <div className='flex flex-col items-center gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between'>
-              <div className='text-muted-foreground text-xs sm:text-sm'>
-                {t('Showing')} {(page - 1) * pageSize + 1}-
-                {Math.min(page * pageSize, total)} {t('of')} {total}
-              </div>
-              <div className='flex items-center gap-2'>
-                <Button
-                  type='button'
-                  variant='outline'
-                  size='sm'
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page <= 1}
-                  className='h-8 w-8 p-0'
-                  aria-label={t('Previous page')}
-                >
-                  <ChevronLeft className='h-4 w-4' />
-                </Button>
-                <div className='text-muted-foreground flex items-center gap-1 text-sm'>
-                  <span className='font-medium'>{page}</span>
-                  <span>/</span>
-                  <span>{totalPages}</span>
-                </div>
-                <Button
-                  type='button'
-                  variant='outline'
-                  size='sm'
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page >= totalPages}
-                  className='h-8 w-8 p-0'
-                  aria-label={t('Next page')}
-                >
-                  <ChevronRight className='h-4 w-4' />
-                </Button>
-              </div>
-            </div>
-          )}
+          {!loading && !error && total === undefined && records.length === 0 && <p role='status' className='text-muted-foreground py-6 text-sm'>{t('Record total unavailable')}</p>}
         </div>
+          </section>
+          <DialogFooter role='group' aria-label={t('Actions')} className='m-0 shrink-0 flex-col gap-3 rounded-none px-4 py-4 sm:flex-col sm:px-6'>
+            {!loading && !error && records.length > 0 && <nav aria-label={t('Billing history pagination')} className='flex w-full flex-wrap items-center justify-between gap-3'>
+              <span className='text-muted-foreground text-sm'>{total === undefined ? t('Record total unavailable') : <>{t('Showing')} {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} {t('of')} {total}</>}</span>
+              <div className='flex items-center gap-2'>
+                <Button type='button' variant='outline' size='icon' className='min-h-11 min-w-11' onClick={() => handlePageChange(page - 1)} disabled={total === undefined || page <= 1} aria-label={t('Previous page')}><HugeiconsIcon icon={ArrowLeft01Icon} aria-hidden='true' className='size-4' /></Button>
+                <span className='text-muted-foreground text-sm'>{page} / {totalPages ?? t('Unknown')}</span>
+                <Button type='button' variant='outline' size='icon' className='min-h-11 min-w-11' onClick={() => handlePageChange(page + 1)} disabled={totalPages === undefined || page >= totalPages} aria-label={t('Next page')}><HugeiconsIcon icon={ArrowRight01Icon} aria-hidden='true' className='size-4' /></Button>
+              </div>
+            </nav>}
+            <div className='flex w-full justify-end'><Button className='min-h-11' variant='outline' onClick={() => onOpenChange(false)}>{t('Close')}</Button></div>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       {/* Confirm Complete Order Dialog */}
       <AlertDialog
         open={!!confirmTradeNo}
-        onOpenChange={(open) => !open && setConfirmTradeNo(null)}
+        onOpenChange={(open) => !open && !completing && setConfirmTradeNo(null)}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
+        <AlertDialogContent className='flex max-h-[calc(100dvh-2rem)] min-w-0 flex-col gap-0 overflow-hidden p-0 [&_[data-myapi-button]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11 [&_[data-myapi-button]]:min-w-11'>
+          <AlertDialogHeader className='shrink-0 border-b px-4 py-4 sm:px-6'>
             <AlertDialogTitle>{t('Complete Order')}</AlertDialogTitle>
+          </AlertDialogHeader>
+          <section role='region' tabIndex={0} aria-label={t('Confirmation details')} className='min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [overflow-wrap:anywhere] sm:px-6'>
             <AlertDialogDescription>
               {t(
                 'Are you sure you want to manually complete this order? The user will be credited with the corresponding quota.'
               )}
+              <code className='mt-3 block font-mono text-xs break-words [overflow-wrap:anywhere]'>{confirmTradeNo}</code>
             </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
+            {completionError && <p role='alert' className='text-destructive mt-3 text-sm'>{completionError}</p>}
+          </section>
+          <AlertDialogFooter className='m-0 shrink-0 border-t px-4 py-4 sm:px-6'>
             <AlertDialogCancel disabled={completing}>
               {t('Cancel')}
             </AlertDialogCancel>

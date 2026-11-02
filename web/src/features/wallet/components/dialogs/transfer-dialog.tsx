@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Loader2 } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -84,17 +84,19 @@ export function TransferDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(nextOpen) => (nextOpen || !transferring) && onOpenChange(nextOpen)}
+      showCloseButton={!transferring}
       title={t('Transfer Rewards')}
       description={t('Move affiliate rewards to your main balance')}
       contentClassName='max-sm:w-[calc(100vw-1.5rem)] sm:max-w-md'
       titleClassName='text-xl font-semibold'
-      footerClassName='grid grid-cols-2 gap-2 sm:flex'
+      footerClassName='grid grid-cols-2 gap-2 sm:flex [&_[data-myapi-button]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11 [&_[data-myapi-button]]:min-w-11'
       contentHeight='auto'
-      bodyClassName='space-y-4'
+      bodyClassName='space-y-4 [overflow-wrap:anywhere]'
       footer={
         <>
           <Button
+            className='min-h-11'
             variant='outline'
             onClick={() => onOpenChange(false)}
             disabled={transferring}
@@ -102,10 +104,11 @@ export function TransferDialog({
             {t('Cancel')}
           </Button>
           <Button
+            className='min-h-11'
             onClick={handleConfirm}
             disabled={transferring || !canTransfer}
           >
-            {transferring && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+            {transferring && <Spinner aria-hidden='true' data-icon='inline-start' />}
             {t('Transfer')}
           </Button>
         </>
@@ -136,7 +139,7 @@ export function TransferDialog({
             min={minimumAmount}
             max={maximumAmount}
             step={minimumAmount}
-            className='font-mono text-lg'
+            className='min-h-11 font-mono text-lg'
           />
           <p className='text-muted-foreground text-xs'>
             {t('Minimum:')} {formatQuota(minimumQuota)}

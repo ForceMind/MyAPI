@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogHeader,
+  DialogFooter,
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
@@ -38,6 +39,7 @@ type DialogProps = {
   tokenId?: number
   onClose: () => void
   onSaved?: () => void
+  returnFocus?: () => HTMLElement | null
 }
 
 export function AccessPolicyDialog(props: DialogProps) {
@@ -76,10 +78,11 @@ function AccessPolicySession(props: DialogProps & { scope: AccessSession }) {
       }}
     >
       <DialogContent
-        className='max-h-[85dvh] min-w-0 overflow-y-auto sm:max-w-xl'
+        finalFocus={props.returnFocus}
+        className='flex h-dvh max-h-dvh w-screen min-w-0 max-w-none flex-col overflow-hidden sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-xl [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_input]:min-h-11 [&_select]:min-h-11'
         showCloseButton={false}
       >
-        <DialogHeader>
+        <DialogHeader className='shrink-0 text-start'>
           <DialogTitle>{t('Assigned access')}</DialogTitle>
           <DialogDescription>
             {t(
@@ -87,6 +90,7 @@ function AccessPolicySession(props: DialogProps & { scope: AccessSession }) {
             )}
           </DialogDescription>
         </DialogHeader>
+        <div className='min-h-0 space-y-4 overflow-y-auto overscroll-contain'>
         <p className='text-muted-foreground text-xs break-words'>
           {t(
             'Assigned access supports OpenAI Chat and Responses, and Codex Responses. Other request paths are denied.'
@@ -193,11 +197,12 @@ function AccessPolicySession(props: DialogProps & { scope: AccessSession }) {
             {t('Only administrators can change assigned access.')}
           </p>
         )}
-        <div className='flex justify-end'>
+        </div>
+        <DialogFooter className='shrink-0 border-t pt-4'>
           <Button type='button' variant='outline' onClick={props.onClose}>
             {t('Close')}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

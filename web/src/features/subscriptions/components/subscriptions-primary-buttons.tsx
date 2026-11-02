@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Plus } from 'lucide-react'
+import { PlusSignIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -30,10 +31,12 @@ export function SubscriptionsPrimaryButtons() {
     <div className='flex gap-2'>
       <Button
         size='sm'
+        className='min-h-11'
+        data-plan-create
         onClick={() => setOpen('create')}
         disabled={!complianceConfirmed}
       >
-        <Plus className='h-4 w-4' />
+        <HugeiconsIcon icon={PlusSignIcon} aria-hidden='true' className='h-4 w-4' />
         {t('Create Plan')}
       </Button>
     </div>

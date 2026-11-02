@@ -49,7 +49,7 @@ export function DataTableBulkActions<TData>({
         value={contentToCopy}
         variant='outline'
         size='icon'
-        className='size-8'
+        className='min-h-11 min-w-11'
         tooltip={t('Copy selected codes')}
         successTooltip={t('Codes copied!')}
         aria-label={t('Copy selected codes')}

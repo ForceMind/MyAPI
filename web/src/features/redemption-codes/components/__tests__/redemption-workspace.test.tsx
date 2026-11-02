@@ -31,7 +31,8 @@ beforeEach(() => {
   failRead = null
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
-    if (url !== '/api/redemption/' && url !== '/api/redemption/search') throw new Error(`Unexpected GET ${url}`)
+    const request = new URL(String(url), 'https://synthetic.invalid')
+    if (request.pathname !== '/api/redemption/' && request.pathname !== '/api/redemption/search') throw new Error(`Unexpected GET ${url}`)
     if (failRead === 'transport') throw new Error('Synthetic redemption read failed')
     if (failRead === 'business') return { data: { success: false, message: 'Synthetic redemption read failed' } }
     return { data: { success: true, data: { items: rows, total } } }
@@ -53,7 +54,7 @@ it('keeps unavailable totals unknown and the requested page while bounding an ol
   const pager = screen.getByRole('navigation', { name: 'Redemption codes pagination' })
   expect(pager).toHaveTextContent('Record total unavailable')
   expect(within(pager).getByRole('button', { name: 'Last page' })).toBeDisabled()
-  expect(api.get).toHaveBeenCalledWith('/api/redemption/', { params: { p: 4, page_size: 100 } })
+  expect(api.get).toHaveBeenCalledWith('/api/redemption/?p=4&page_size=100')
 })
 
 it.each(['transport', 'business'] as const)('shows %s reread failure without stale rows or a successful empty state', async (failure) => {
@@ -86,7 +87,7 @@ it('corrects a confirmed zero total to page one without converting it to an unkn
   total = 0
   await renderCodes('/redemption-codes/?page=4&pageSize=20')
   await screen.findByText('No Redemption Codes Found')
-  await waitFor(() => expect(vi.mocked(api.get).mock.calls.at(-1)).toEqual(['/api/redemption/', { params: { p: 1, page_size: 20 } }]))
+  await waitFor(() => expect(vi.mocked(api.get).mock.calls.at(-1)).toEqual(['/api/redemption/?p=1&page_size=20']))
   const pager = screen.getByRole('navigation', { name: 'Redemption codes pagination' })
   expect(pager).not.toHaveTextContent('Record total unavailable')
   expect(within(pager).getByRole('button', { name: 'Last page' })).toBeDisabled()

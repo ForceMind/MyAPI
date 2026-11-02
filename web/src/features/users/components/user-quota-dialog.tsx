@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils'
 
 import { adjustUserQuota } from '../api'
 import type { QuotaAdjustMode } from '../types'
+import { useUserTask } from '../hooks/use-user-task'
 
 interface UserQuotaDialogProps {
   open: boolean
@@ -37,13 +38,17 @@ interface UserQuotaDialogProps {
   userId: number
   currentQuota: number
   onSuccess: () => void
+  returnFocus?: () => HTMLElement | null
 }
 
 export function UserQuotaDialog(props: UserQuotaDialogProps) {
   const { t } = useTranslation()
+  const id = useId()
   const [mode, setMode] = useState<QuotaAdjustMode>('add')
   const [amount, setAmount] = useState('')
   const [loading, setLoading] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const task = useUserTask(props.open, props.userId)
   // 每次尝试（同一组参数）生成一次 request_id；失败重试复用同一标识，
   // 使服务端按 (user, request_id) 幂等，成功或参数变化后重新生成。
   const attemptRef = useRef<{
@@ -52,6 +57,18 @@ export function UserQuotaDialog(props: UserQuotaDialogProps) {
     value: number
     requestId: string
   } | null>(null)
+  const attemptScope = useRef<string | null>(null)
+  useEffect(() => {
+    const scope = JSON.stringify([task.identity, props.userId])
+    if (attemptScope.current === scope) return
+    attemptScope.current = scope
+    attemptRef.current = null
+    setAmount('')
+    setMode('add')
+    setLoading(false)
+    setActionError(null)
+  }, [task, props.userId])
+  useEffect(() => { if (props.open) setLoading(false) }, [props.open])
 
   const { meta: currencyMeta } = getCurrencyDisplay()
   const currencyLabel = getCurrencyLabel()
@@ -81,7 +98,11 @@ export function UserQuotaDialog(props: UserQuotaDialogProps) {
     if (!amount && mode !== 'override') return
     if (quotaValue <= 0 && mode !== 'override') return
 
+    const operation = task.begin()
+    if (!operation) return
+
     setLoading(true)
+    setActionError(null)
     try {
       const value =
         mode === 'override' ? parseQuotaFromDollars(amountValue) : quotaValue
@@ -106,6 +127,7 @@ export function UserQuotaDialog(props: UserQuotaDialogProps) {
         value: submitValue,
         request_id: attemptRef.current.requestId,
       })
+      if (!operation.isCurrent()) return
       if (result.success) {
         attemptRef.current = null
         toast.success(t('Quota adjusted successfully'))
@@ -114,16 +136,21 @@ export function UserQuotaDialog(props: UserQuotaDialogProps) {
         props.onOpenChange(false)
         props.onSuccess()
       } else {
+        setActionError(result.message || t('Failed to adjust quota'))
         toast.error(result.message || t('Failed to adjust quota'))
       }
     } catch (e: unknown) {
+      if (!operation.isCurrent()) return
+      setActionError(e instanceof Error ? e.message : t('Failed to adjust quota'))
       toast.error(e instanceof Error ? e.message : t('Failed to adjust quota'))
     } finally {
-      setLoading(false)
+      if (operation.isCurrent()) setLoading(false)
+      operation.finish()
     }
   }
 
   const handleCancel = () => {
+    if (task.isPending()) return
     setAmount('')
     setMode('add')
     props.onOpenChange(false)
@@ -136,14 +163,17 @@ export function UserQuotaDialog(props: UserQuotaDialogProps) {
   return (
     <Dialog
       open={props.open}
-      onOpenChange={props.onOpenChange}
+      onOpenChange={(next) => { if (!task.isPending()) props.onOpenChange(next) }}
+      returnFocus={props.returnFocus}
+      showCloseButton={!loading}
       title={t('Adjust Quota')}
       description={t('Select an operation mode and enter the amount')}
       contentHeight='auto'
+      contentClassName='h-dvh max-h-dvh w-screen max-w-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-lg [&_[data-myapi-button]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11 [&_[data-myapi-button]]:min-w-11 [&_input]:min-h-11'
       bodyClassName='space-y-4'
       footer={
         <>
-          <Button variant='outline' onClick={handleCancel}>
+          <Button variant='outline' disabled={loading} onClick={handleCancel}>
             {t('Cancel')}
           </Button>
           <Button onClick={handleConfirm} disabled={loading}>
@@ -153,11 +183,14 @@ export function UserQuotaDialog(props: UserQuotaDialogProps) {
       }
     >
       <div className='space-y-4'>
+        <p className='text-muted-foreground text-sm'>{t('User ID')}: <span className='font-mono'>{props.userId}</span></p>
+        {actionError ? <div role='alert' className='text-destructive text-sm break-words'>{actionError}</div> : null}
+        <fieldset disabled={loading} className='min-w-0 space-y-4 border-0 p-0'>
         <div className='text-muted-foreground text-sm'>{getPreviewText()}</div>
 
         <div className='space-y-2'>
           <Label>{t('Mode')}</Label>
-          <div className='flex gap-1'>
+          <div role='group' aria-label={t('Mode')} className='flex flex-wrap gap-1'>
             {(['add', 'subtract', 'override'] as const).map((m) => {
               let labelKey = 'Override'
               if (m === 'add') {
@@ -175,6 +208,7 @@ export function UserQuotaDialog(props: UserQuotaDialogProps) {
                     mode === m &&
                       'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground'
                   )}
+                  aria-pressed={mode === m}
                   onClick={() => {
                     setMode(m)
                     setAmount('')
@@ -188,10 +222,11 @@ export function UserQuotaDialog(props: UserQuotaDialogProps) {
         </div>
 
         <div className='space-y-2'>
-          <Label>
+          <Label htmlFor={`${id}-amount`}>
             {t('Amount')} ({currencyLabel})
           </Label>
           <Input
+            id={`${id}-amount`}
             type='number'
             step={tokensOnly ? 1 : 0.000001}
             min={mode === 'override' ? undefined : 0}
@@ -203,6 +238,7 @@ export function UserQuotaDialog(props: UserQuotaDialogProps) {
             }}
           />
         </div>
+        </fieldset>
       </div>
     </Dialog>
   )

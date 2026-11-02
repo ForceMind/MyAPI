@@ -17,7 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CalendarClock, CreditCard, RefreshCw, Settings2 } from 'lucide-react'
+import { Calendar03Icon, CreditCardIcon, Refresh01Icon, Settings02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useState } from 'react'
 import { useForm, type Resolver } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -94,7 +95,7 @@ export function SubscriptionsMutateDrawer({
 }: Props) {
   const { t } = useTranslation()
   const isEdit = !!currentRow?.plan?.id
-  const { triggerRefresh } = useSubscriptions()
+  const { triggerRefresh, returnFocus } = useSubscriptions()
   const { meta: currencyMeta } = getCurrencyDisplay()
   const tokensOnly = currencyMeta.kind === 'tokens'
   const currencyLabel = getCurrencyLabel()
@@ -258,7 +259,7 @@ export function SubscriptionsMutateDrawer({
         }
       }}
     >
-      <SheetContent className={sideDrawerContentClassName('sm:max-w-[600px]')}>
+      <SheetContent finalFocus={returnFocus} className={sideDrawerContentClassName('sm:max-w-[600px] [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=native-select]]:min-h-11 [&_[data-slot=checkbox]]:after:-inset-3.5 [&_[data-slot=switch]]:after:-inset-y-3 [&_[data-slot=sheet-close]]:min-h-11 [&_[data-slot=sheet-close]]:min-w-11')}>
         <SheetHeader className={sideDrawerHeaderClassName()}>
           <SheetTitle>
             {isEdit ? t('Update plan info') : t('Create new subscription plan')}
@@ -281,7 +282,7 @@ export function SubscriptionsMutateDrawer({
             <SideDrawerSection>
               <h3 className='flex items-center gap-2 text-sm font-medium'>
                 <IconBadge tone='info' size='xs'>
-                  <Settings2 />
+                  <HugeiconsIcon icon={Settings02Icon} />
                 </IconBadge>
                 {t('Basic Info')}
               </h3>
@@ -585,7 +586,7 @@ export function SubscriptionsMutateDrawer({
             <SideDrawerSection>
               <h3 className='flex items-center gap-2 text-sm font-medium'>
                 <IconBadge tone='chart-4' size='xs'>
-                  <CalendarClock />
+                  <HugeiconsIcon icon={Calendar03Icon} />
                 </IconBadge>
                 {t('Duration Settings')}
               </h3>
@@ -679,7 +680,7 @@ export function SubscriptionsMutateDrawer({
             <SideDrawerSection>
               <h3 className='flex items-center gap-2 text-sm font-medium'>
                 <IconBadge tone='success' size='xs'>
-                  <RefreshCw />
+                  <HugeiconsIcon icon={Refresh01Icon} />
                 </IconBadge>
                 {t('Quota Reset')}
               </h3>
@@ -749,7 +750,7 @@ export function SubscriptionsMutateDrawer({
             <SideDrawerSection>
               <h3 className='flex items-center gap-2 text-sm font-medium'>
                 <IconBadge tone='warning' size='xs'>
-                  <CreditCard />
+                  <HugeiconsIcon icon={CreditCardIcon} />
                 </IconBadge>
                 {t('Third-party Payment Config')}
               </h3>
@@ -759,7 +760,7 @@ export function SubscriptionsMutateDrawer({
                 name='stripe_price_id'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Stripe Price ID</FormLabel>
+                    <FormLabel>{t('Stripe Price ID')}</FormLabel>
                     <FormControl>
                       <Input {...field} placeholder='price_...' />
                     </FormControl>
@@ -773,7 +774,7 @@ export function SubscriptionsMutateDrawer({
                 name='creem_product_id'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Creem Product ID</FormLabel>
+                    <FormLabel>{t('Creem Product ID')}</FormLabel>
                     <FormControl>
                       <Input {...field} placeholder='prod_...' />
                     </FormControl>
@@ -799,7 +800,7 @@ export function SubscriptionsMutateDrawer({
                   }
                   return (
                     <FormItem>
-                      <FormLabel>Waffo Pancake Product ID</FormLabel>
+                      <FormLabel>{t('Waffo Pancake Product ID')}</FormLabel>
                       <div className='flex gap-2'>
                         <Select
                           items={items}
@@ -846,7 +847,7 @@ export function SubscriptionsMutateDrawer({
           </form>
         </Form>
         <SheetFooter className={sideDrawerFooterClassName()}>
-          <SheetClose render={<Button variant='outline' />}>
+          <SheetClose render={<Button className='min-h-11' variant='outline' />}>
             {t('Close')}
           </SheetClose>
           <Button

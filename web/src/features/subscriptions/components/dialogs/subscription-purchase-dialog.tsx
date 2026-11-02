@@ -16,12 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Crown, CalendarClock, Package } from 'lucide-react'
+import { Calendar03Icon, CrownIcon, PackageIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { Dialog } from '@/components/dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { GroupBadge } from '@/components/group-badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -264,58 +265,48 @@ export function SubscriptionPurchaseDialog(props: Props) {
   }
 
   return (
-    <Dialog
-      open={props.open}
-      onOpenChange={props.onOpenChange}
-      title={
-        <>
-          <Crown className='h-5 w-5' />
-          {t('Purchase Subscription')}
-        </>
-      }
-      contentClassName='max-sm:w-[calc(100vw-1.5rem)] sm:max-w-md'
-      titleClassName='flex items-center gap-2'
-      contentHeight='auto'
-      bodyClassName='space-y-4'
-    >
+    <Dialog open={props.open} onOpenChange={(nextOpen) => (nextOpen || !paying) && props.onOpenChange(nextOpen)}>
+      <DialogContent showCloseButton={!paying} className='flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[90dvh] sm:max-w-lg sm:rounded-xl [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'>
+        <DialogHeader className='shrink-0 border-b px-4 py-4 pr-16 sm:px-6 sm:pr-16'><DialogTitle className='flex items-center gap-2'><HugeiconsIcon icon={CrownIcon} aria-hidden='true' className='size-5' />{t('Purchase Subscription')}</DialogTitle></DialogHeader>
+        <section role='region' tabIndex={0} aria-label={t('Subscription purchase details')} className='min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [overflow-wrap:anywhere] sm:px-6'>
       <div className='space-y-3 sm:space-y-4'>
         <div className='bg-muted/50 space-y-2.5 rounded-lg border p-3 sm:space-y-3 sm:p-4'>
-          <div className='flex justify-between'>
+          <div className='flex min-w-0 flex-wrap justify-between gap-2'>
             <span className='text-muted-foreground text-sm'>
               {t('Plan Name')}
             </span>
-            <span className='max-w-[200px] truncate text-sm font-medium'>
+            <span className='min-w-0 text-right text-sm font-medium break-words [overflow-wrap:anywhere]'>
               {plan.title}
             </span>
           </div>
-          <div className='flex items-center justify-between'>
+          <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
             <span className='text-muted-foreground text-sm'>
               {t('Validity Period')}
             </span>
             <span className='flex items-center gap-1 text-sm'>
-              <CalendarClock className='h-3.5 w-3.5' />
+              <HugeiconsIcon icon={Calendar03Icon} className='h-3.5 w-3.5' />
               {formatDuration(plan, t)}
             </span>
           </div>
           {formatResetPeriod(plan, t) !== t('No Reset') && (
-            <div className='flex justify-between'>
+            <div className='flex min-w-0 flex-wrap justify-between gap-2'>
               <span className='text-muted-foreground text-sm'>
                 {t('Reset Period')}
               </span>
               <span className='text-sm'>{formatResetPeriod(plan, t)}</span>
             </div>
           )}
-          <div className='flex items-center justify-between'>
+          <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
             <span className='text-muted-foreground text-sm'>
               {t('Plan Quota')}
             </span>
             <span className='flex items-center gap-1 text-sm'>
-              <Package className='h-3.5 w-3.5' />
+              <HugeiconsIcon icon={PackageIcon} className='h-3.5 w-3.5' />
               {totalAmount > 0 ? formatQuota(totalAmount) : t('Unlimited')}
             </span>
           </div>
           {plan.upgrade_group && (
-            <div className='flex items-center justify-between'>
+            <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
               <span className='text-muted-foreground text-sm'>
                 {t('Upgrade Group')}
               </span>
@@ -323,7 +314,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
             </div>
           )}
           <Separator />
-          <div className='flex items-center justify-between'>
+          <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
             <span className='text-sm font-medium'>{t('Amount Due')}</span>
             <span className='text-primary text-lg font-bold'>${price}</span>
           </div>
@@ -360,6 +351,14 @@ export function SubscriptionPurchaseDialog(props: Props) {
               </Alert>
             )
           )}
+
+        </div>
+
+      </div>
+        </section>
+        <DialogFooter role='group' aria-label={t('Actions')} className='m-0 shrink-0 flex-col gap-3 rounded-none px-4 py-4 sm:flex-col sm:px-6'>
+          <div className='flex w-full flex-col gap-3 [&_[data-myapi-button]]:h-auto [&_[data-myapi-button]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11 [&_[data-myapi-button]]:whitespace-normal'>
+          <div className='grid grid-cols-2 gap-2'>
           <Button
             variant='outline'
             onClick={handlePayBalance}
@@ -369,15 +368,15 @@ export function SubscriptionPurchaseDialog(props: Props) {
           >
             {t('Pay with Balance')}
           </Button>
-        </div>
-
+            <Button className='min-h-11' variant='outline' disabled={paying} onClick={() => props.onOpenChange(false)}>{t('Cancel')}</Button>
+          </div>
         {hasAnyPayment && (
           <div className='space-y-3'>
             <p className='text-muted-foreground text-xs'>
               {t('Select payment method')}
             </p>
             {(hasStripe || hasCreem || hasWaffoPancake) && (
-              <div className='grid grid-cols-2 gap-2 sm:flex'>
+              <div className='grid grid-cols-3 gap-2 sm:flex'>
                 {hasStripe && (
                   <Button
                     variant='outline'
@@ -421,10 +420,10 @@ export function SubscriptionPurchaseDialog(props: Props) {
                   onValueChange={(v) => v !== null && setSelectedEpayMethod(v)}
                   disabled={limitReached}
                 >
-                  <SelectTrigger className='flex-1'>
-                    <SelectValue>{selectedEpayMethodLabel}</SelectValue>
+                  <SelectTrigger aria-label={t('Select payment method')} className='h-auto min-h-11 flex-1 whitespace-normal'>
+                    <SelectValue className='min-w-0 whitespace-normal break-words [overflow-wrap:anywhere]'>{selectedEpayMethodLabel}</SelectValue>
                   </SelectTrigger>
-                  <SelectContent alignItemWithTrigger={false}>
+                  <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11'>
                     <SelectGroup>
                       {(props.epayMethods || []).map((m) => (
                         <SelectItem key={m.type} value={m.type}>
@@ -444,7 +443,11 @@ export function SubscriptionPurchaseDialog(props: Props) {
             )}
           </div>
         )}
-      </div>
+
+
+          </div>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   )
 }

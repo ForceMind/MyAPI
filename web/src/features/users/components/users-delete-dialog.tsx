@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -26,36 +26,51 @@ import { deleteUser } from '../api'
 import { ERROR_MESSAGES } from '../constants'
 import { getUserActionMessage } from '../lib'
 import { useUsers } from './users-provider'
+import { useUserTask } from '../hooks/use-user-task'
 
 export function UsersDeleteDialog() {
   const { t } = useTranslation()
-  const { open, setOpen, currentRow, triggerRefresh } = useUsers()
+  const { open, setOpen, currentRow, triggerRefresh, returnFocus } = useUsers()
   const [isDeleting, setIsDeleting] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const task = useUserTask(open === 'delete', currentRow?.id)
+  useEffect(() => {
+    if (open === 'delete') { setIsDeleting(false); setActionError(null) }
+  }, [open, currentRow?.id, task])
 
   const handleDelete = async () => {
     if (!currentRow) return
+    const operation = task.begin()
+    if (!operation) return
 
     setIsDeleting(true)
+    setActionError(null)
     try {
       const result = await deleteUser(currentRow.id)
+      if (!operation.isCurrent()) return
       if (result.success) {
         toast.success(t(getUserActionMessage('delete')))
         setOpen(null)
         triggerRefresh()
       } else {
+        setActionError(result.message || t(ERROR_MESSAGES.DELETE_FAILED))
         toast.error(result.message || t(ERROR_MESSAGES.DELETE_FAILED))
       }
     } catch {
+      if (!operation.isCurrent()) return
+      setActionError(t(ERROR_MESSAGES.UNEXPECTED))
       toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     } finally {
-      setIsDeleting(false)
+      if (operation.isCurrent()) setIsDeleting(false)
+      operation.finish()
     }
   }
 
   return (
     <ConfirmDialog
       open={open === 'delete'}
-      onOpenChange={(open) => !open && setOpen(null)}
+      onOpenChange={(next) => { if (!next && !task.isPending()) setOpen(null) }}
+      returnFocus={returnFocus}
       title={t('Are you sure?')}
       desc={
         <>
@@ -68,6 +83,9 @@ export function UsersDeleteDialog() {
       destructive
       isLoading={isDeleting}
       handleConfirm={handleDelete}
-    />
+    >
+      <p className='text-muted-foreground text-sm'>{t('User ID')}: {currentRow?.id}</p>
+      {actionError ? <div role='alert' className='text-destructive text-sm break-words'>{actionError}</div> : null}
+    </ConfirmDialog>
   )
 }

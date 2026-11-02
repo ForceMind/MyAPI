@@ -16,13 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Plus, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { Delete02Icon, PlusSignIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Button } from '@/components/ui/button'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { deleteInvalidRedemptions } from '../api'
 import { ERROR_MESSAGES } from '../constants'
@@ -34,25 +36,42 @@ export function RedemptionsPrimaryButtons() {
   const [showDeleteInvalidConfirm, setShowDeleteInvalidConfirm] =
     useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const pending = useRef(false)
+  const deleteTrigger = useRef<HTMLButtonElement>(null)
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
+  const isCurrentIdentity = () => {
+    const { auth } = useAuthStore.getState()
+    return identity === `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`
+  }
 
   const handleDeleteInvalid = async () => {
+    if (pending.current || !isCurrentIdentity()) return
+    pending.current = true
+    setActionError(null)
     setIsDeleting(true)
     try {
       const result = await deleteInvalidRedemptions()
+      if (!isCurrentIdentity()) return
       if (result.success) {
-        const count = result.data || 0
-        toast.success(
-          t('Successfully deleted {{count}} invalid redemption codes', {
-            count,
-          })
-        )
+        const count = result.data
+        if (typeof count === 'number' && Number.isSafeInteger(count) && count >= 0) toast.success(t('Successfully deleted {{count}} invalid redemption codes', { count }))
+        else toast.success(t('Deleted successfully'))
         triggerRefresh()
         setShowDeleteInvalidConfirm(false)
       } else {
-        toast.error(result.message || t(ERROR_MESSAGES.DELETE_INVALID_FAILED))
+        const message = result.message || t(ERROR_MESSAGES.DELETE_INVALID_FAILED)
+        setActionError(message)
+        toast.error(message)
       }
+    } catch (error: unknown) {
+      if (!isCurrentIdentity()) return
+      const message = error instanceof Error ? error.message : t(ERROR_MESSAGES.DELETE_INVALID_FAILED)
+      setActionError(message)
+      toast.error(message)
     } finally {
-      setIsDeleting(false)
+      pending.current = false
+      if (isCurrentIdentity()) setIsDeleting(false)
     }
   }
 
@@ -62,13 +81,15 @@ export function RedemptionsPrimaryButtons() {
         <Button
           size='sm'
           variant='outline'
-          onClick={() => setShowDeleteInvalidConfirm(true)}
+          className='min-h-11'
+          ref={deleteTrigger}
+          onClick={() => { setActionError(null); setShowDeleteInvalidConfirm(true) }}
         >
-          <Trash2 className='text-destructive h-4 w-4' />
+          <HugeiconsIcon icon={Delete02Icon} aria-hidden='true' className='text-destructive h-4 w-4' />
           {t('Delete Invalid')}
         </Button>
-        <Button size='sm' onClick={() => setOpen('create')}>
-          <Plus className='h-4 w-4' />
+        <Button size='sm' className='min-h-11' data-redemption-create onClick={() => setOpen('create')}>
+          <HugeiconsIcon icon={PlusSignIcon} aria-hidden='true' className='h-4 w-4' />
           {t('Create Code')}
         </Button>
       </div>
@@ -76,7 +97,8 @@ export function RedemptionsPrimaryButtons() {
       <ConfirmDialog
         destructive
         open={showDeleteInvalidConfirm}
-        onOpenChange={setShowDeleteInvalidConfirm}
+        onOpenChange={(open) => { if (!pending.current) setShowDeleteInvalidConfirm(open) }}
+        returnFocus={() => deleteTrigger.current}
         handleConfirm={handleDeleteInvalid}
         isLoading={isDeleting}
         className='max-w-md'
@@ -92,7 +114,9 @@ export function RedemptionsPrimaryButtons() {
           </>
         }
         confirmText={t('Delete Invalid')}
-      />
+      >
+        {actionError && <p role='alert' className='text-destructive text-sm break-words'>{actionError}</p>}
+      </ConfirmDialog>
     </>
   )
 }

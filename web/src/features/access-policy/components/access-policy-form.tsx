@@ -50,7 +50,7 @@ function PolicyDimension(props: {
     >
       <legend className='px-1 font-medium'>{props.label}</legend>
       <FieldGroup className='gap-3'>
-        <Field orientation='horizontal' data-disabled={props.disabled}>
+        <Field orientation='horizontal' data-disabled={props.disabled} className='min-h-11'>
           <Checkbox
             id={`${id}-inherit`}
             checked={inherited}
@@ -116,7 +116,7 @@ export function AccessPolicyForm(props: {
       })}
     >
       <FieldGroup className='gap-4'>
-        <Field orientation='horizontal' data-disabled={disabled}>
+        <Field orientation='horizontal' data-disabled={disabled} className='min-h-11'>
           <Checkbox
             id={`${id}-enabled`}
             checked={form.watch('enabled')}
@@ -185,7 +185,7 @@ export function AccessPolicyForm(props: {
               'Removing this assignment may restore access allowed by legacy rules. Other restrictions remain active.'
             )}
           </p>
-          <Field orientation='horizontal' data-disabled={disabled}>
+          <Field orientation='horizontal' data-disabled={disabled} className='min-h-11'>
             <Checkbox
               id={`${id}-remove`}
               checked={confirmRemoval}
@@ -201,7 +201,7 @@ export function AccessPolicyForm(props: {
           <Button
             type='button'
             variant='destructive'
-            className='h-auto min-h-8 whitespace-normal'
+            className='h-auto min-h-11 whitespace-normal'
             disabled={disabled || !confirmRemoval}
             onClick={() => {
               if (!disabled && confirmRemoval) props.onRemove()

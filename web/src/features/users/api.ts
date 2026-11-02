@@ -96,7 +96,7 @@ export async function getUser(id: number): Promise<ApiResponse<User>> {
 export async function createUser(
   data: UserFormData
 ): Promise<ApiResponse<User>> {
-  const res = await api.post('/api/user/', data)
+  const res = await api.post('/api/user/', data, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -106,7 +106,7 @@ export async function createUser(
 export async function updateUser(
   data: UserFormData & { id: number }
 ): Promise<ApiResponse<Partial<User>>> {
-  const res = await api.put('/api/user/', data)
+  const res = await api.put('/api/user/', data, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -114,7 +114,7 @@ export async function updateUser(
  * Delete a single user (hard delete)
  */
 export async function deleteUser(id: number): Promise<ApiResponse> {
-  const res = await api.delete(`/api/user/${id}/`)
+  const res = await api.delete(`/api/user/${id}/`, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -125,7 +125,7 @@ export async function manageUser(
   id: number,
   action: ManageUserAction
 ): Promise<ApiResponse<Partial<User>>> {
-  const res = await api.post('/api/user/manage', { id, action })
+  const res = await api.post('/api/user/manage', { id, action }, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -135,7 +135,7 @@ export async function manageUser(
 export async function adjustUserQuota(
   payload: ManageUserQuotaPayload
 ): Promise<ApiResponse<Partial<User>>> {
-  const res = await api.post('/api/user/manage', payload)
+  const res = await api.post('/api/user/manage', payload, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -143,7 +143,7 @@ export async function adjustUserQuota(
  * Reset user's Passkey registration
  */
 export async function resetUserPasskey(id: number): Promise<ApiResponse> {
-  const res = await api.delete(`/api/user/${id}/reset_passkey`)
+  const res = await api.delete(`/api/user/${id}/reset_passkey`, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -151,7 +151,7 @@ export async function resetUserPasskey(id: number): Promise<ApiResponse> {
  * Reset user's Two-Factor Authentication setup
  */
 export async function resetUserTwoFA(id: number): Promise<ApiResponse> {
-  const res = await api.delete(`/api/user/${id}/2fa`)
+  const res = await api.delete(`/api/user/${id}/2fa`, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -196,7 +196,7 @@ export async function adminClearUserBinding(
   userId: number,
   bindingType: string
 ): Promise<ApiResponse> {
-  const res = await api.delete(`/api/user/${userId}/bindings/${bindingType}`)
+  const res = await api.delete(`/api/user/${userId}/bindings/${bindingType}`, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -208,7 +208,8 @@ export async function adminUnbindCustomOAuth(
   providerId: number
 ): Promise<ApiResponse> {
   const res = await api.delete(
-    `/api/user/${userId}/oauth/bindings/${providerId}`
+    `/api/user/${userId}/oauth/bindings/${providerId}`,
+    { skipAuthRefresh: true }
   )
   return res.data
 }

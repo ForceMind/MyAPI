@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { Pencil } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -95,17 +95,20 @@ import {
 import type { User } from '../types'
 import { UserQuotaDialog } from './user-quota-dialog'
 import { useUsers } from './users-provider'
+import { useUserTask } from '../hooks/use-user-task'
 
 type UsersMutateDrawerProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   currentRow?: User
+  returnFocus?: () => HTMLElement | null
 }
 
 export function UsersMutateDrawer({
   open,
   onOpenChange,
   currentRow,
+  returnFocus,
 }: UsersMutateDrawerProps) {
   const { t } = useTranslation()
   const isUpdate = !!currentRow
@@ -113,10 +116,19 @@ export function UsersMutateDrawer({
   const currentUser = useAuthStore((s) => s.auth.user)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [quotaDialogOpen, setQuotaDialogOpen] = useState(false)
+  const quotaOpener = useRef<HTMLButtonElement>(null)
+  const task = useUserTask(open, currentRow?.id)
+  const initialized = useRef<string | null>(null)
+  const [readError, setReadError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [detailLoaded, setDetailLoaded] = useState(!isUpdate)
+  const [readAttempt, setReadAttempt] = useState(0)
+  const [quotaReadError, setQuotaReadError] = useState<string | null>(null)
+  const [quotaReading, setQuotaReading] = useState(false)
 
   // Fetch groups
   const { data: groupsData } = useQuery({
-    queryKey: ['groups'],
+    queryKey: ['groups', task.identity],
     queryFn: getGroups,
     staleTime: 5 * 60 * 1000,
   })
@@ -125,7 +137,7 @@ export function UsersMutateDrawer({
 
   // Permission catalog is owned by the backend; fetched once and reused.
   const { data: permissionCatalog = EMPTY_PERMISSION_CATALOG } = useQuery({
-    queryKey: ['admin-permission-catalog'],
+    queryKey: ['admin-permission-catalog', task.identity],
     queryFn: getPermissionCatalog,
     staleTime: 5 * 60 * 1000,
   })
@@ -137,15 +149,30 @@ export function UsersMutateDrawer({
 
   // Load existing data when updating
   useEffect(() => {
+    if (!open) { initialized.current = null; return }
+    const snapshot = task.capture()
+    const key = JSON.stringify([task.identity, currentRow?.id ?? 'create', readAttempt])
+    if (initialized.current === key) return
+    initialized.current = key
+    setReadError(null)
+    setSaveError(null)
+    setQuotaReadError(null)
+    setQuotaReading(false)
+    setIsSubmitting(false)
+    setDetailLoaded(!isUpdate)
     if (open && isUpdate && currentRow) {
       // For update, fetch fresh data
       void getUser(currentRow.id)
         .then((result) => {
-          if (result.success && result.data) {
+          if (!snapshot.isCurrent()) return
+          if (result.success && result.data && result.data.id === currentRow.id) {
             form.reset(transformUserToFormDefaults(result.data))
-          }
+            setDetailLoaded(true)
+          } else setReadError(result.message || t('Failed to load user'))
         })
         .catch((error: unknown) => {
+          if (!snapshot.isCurrent()) return
+          setReadError(t('Failed to load user'))
           // eslint-disable-next-line no-console
           console.error('Failed to load user:', error)
         })
@@ -153,13 +180,15 @@ export function UsersMutateDrawer({
       // For create, reset to defaults
       form.reset(USER_FORM_DEFAULT_VALUES)
     }
-  }, [open, isUpdate, currentRow, form])
+  }, [open, isUpdate, currentRow, form, task, t, readAttempt])
 
   const { meta: currencyMeta } = getCurrencyDisplay()
   const currencyLabel = getCurrencyLabel()
   const tokensOnly = currencyMeta.kind === 'tokens'
 
   const currentQuotaRaw = form.watch('quota_dollars') || 0
+  let quotaDisplay = tokensOnly ? String(currentQuotaRaw || 0) : (currentQuotaRaw || 0).toFixed(6)
+  if (quotaReadError || quotaReading) quotaDisplay = t('Unknown')
   const selectedRole = form.watch('role')
   const selectedGroup = form.watch('group')
   const explicitAccountTierId = form.watch('account_tier_id')
@@ -172,6 +201,7 @@ export function UsersMutateDrawer({
   const targetIsAdmin = (selectedRole ?? currentRow?.role ?? 0) >= ROLE.ADMIN
 
   const onSubmit = async (data: UserFormValues) => {
+    if (isUpdate && !detailLoaded) return
     if (!isUpdate) {
       const passwordLength = data.password?.length || 0
       if (passwordLength < 8 || passwordLength > 20) {
@@ -183,7 +213,11 @@ export function UsersMutateDrawer({
       }
     }
 
+    const operation = task.begin()
+    if (!operation) return
+
     setIsSubmitting(true)
+    setSaveError(null)
     try {
       const payload = transformFormDataToPayload(
         data,
@@ -193,6 +227,7 @@ export function UsersMutateDrawer({
       const result = isUpdate
         ? await updateUser(payload as typeof payload & { id: number })
         : await createUser(payload)
+      if (!operation.isCurrent()) return
 
       if (result.success) {
         toast.success(
@@ -203,6 +238,7 @@ export function UsersMutateDrawer({
         onOpenChange(false)
         triggerRefresh()
       } else {
+        setSaveError(result.message || (isUpdate ? t(ERROR_MESSAGES.UPDATE_FAILED) : t(ERROR_MESSAGES.CREATE_FAILED)))
         toast.error(
           result.message ||
             (isUpdate
@@ -211,19 +247,33 @@ export function UsersMutateDrawer({
         )
       }
     } catch {
+      if (!operation.isCurrent()) return
+      setSaveError(t(ERROR_MESSAGES.UNEXPECTED))
       toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     } finally {
-      setIsSubmitting(false)
+      if (operation.isCurrent()) setIsSubmitting(false)
+      operation.finish()
     }
   }
 
   const refreshUserData = async () => {
     if (!currentRow) return
-    const result = await getUser(currentRow.id)
-    if (result.success && result.data) {
-      form.reset(transformUserToFormDefaults(result.data))
-    }
+    const snapshot = task.capture()
     triggerRefresh()
+    setQuotaReading(true)
+    setQuotaReadError(null)
+    try {
+      const result = await getUser(currentRow.id)
+      if (!snapshot.isCurrent()) return
+      if (result.success && result.data && result.data.id === currentRow.id) {
+        form.setValue('quota_dollars', transformUserToFormDefaults(result.data).quota_dollars)
+        setQuotaReadError(null)
+      } else setQuotaReadError(t('Failed to load user'))
+    } catch {
+      if (snapshot.isCurrent()) setQuotaReadError(t('Failed to load user'))
+    } finally {
+      if (snapshot.isCurrent()) setQuotaReading(false)
+    }
   }
 
   return (
@@ -231,6 +281,7 @@ export function UsersMutateDrawer({
       <Sheet
         open={open}
         onOpenChange={(v) => {
+          if (task.isPending()) return
           onOpenChange(v)
           if (!v) {
             form.reset()
@@ -238,7 +289,9 @@ export function UsersMutateDrawer({
         }}
       >
         <SheetContent
-          className={sideDrawerContentClassName('sm:max-w-[600px]')}
+          showCloseButton={!isSubmitting}
+          finalFocus={returnFocus}
+          className={sideDrawerContentClassName('sm:max-w-[680px] [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=select-trigger]]:min-h-11 [&_input]:min-h-11 [&_textarea]:min-h-11')}
         >
           <SheetHeader className={sideDrawerHeaderClassName()}>
             <SheetTitle>
@@ -256,6 +309,12 @@ export function UsersMutateDrawer({
               onSubmit={form.handleSubmit(onSubmit)}
               className={sideDrawerFormClassName()}
             >
+              {currentRow ? <p className='text-muted-foreground text-sm break-words'>{t('User ID')}: <span className='font-mono'>{currentRow.id}</span> · {currentRow.username}</p> : null}
+              {readError ? <div role='alert' className='text-destructive space-y-3 text-sm break-words'><p>{readError}</p><Button type='button' variant='outline' onClick={() => setReadAttempt((value) => value + 1)}>{t('Retry')}</Button></div> : null}
+              {saveError ? <div role='alert' className='text-destructive text-sm break-words'>{saveError}</div> : null}
+              {quotaReading ? <p role='status'>{t('Loading...')}</p> : null}
+              {quotaReadError ? <div role='alert' className='text-destructive space-y-3 text-sm'><p>{quotaReadError}</p><Button type='button' variant='outline' disabled={isSubmitting || quotaReading} onClick={() => void refreshUserData()}>{t('Refresh')}</Button></div> : null}
+              <fieldset disabled={isSubmitting || (isUpdate && !detailLoaded)} className='contents'>
               {/* Basic Information */}
               <SideDrawerSection>
                 <h3 className='text-sm font-medium'>
@@ -447,11 +506,7 @@ export function UsersMutateDrawer({
                         <div className='flex gap-2'>
                           <FormControl>
                             <Input
-                              value={
-                                tokensOnly
-                                  ? String(field.value || 0)
-                                  : (field.value || 0).toFixed(6)
-                              }
+                              value={quotaDisplay}
                               readOnly
                               className='flex-1'
                             />
@@ -459,6 +514,8 @@ export function UsersMutateDrawer({
                           <Button
                             type='button'
                             variant='outline'
+                            ref={quotaOpener}
+                            disabled={Boolean(quotaReadError) || quotaReading}
                             onClick={() => setQuotaDialogOpen(true)}
                           >
                             <Pencil className='mr-1 h-4 w-4' />
@@ -466,7 +523,7 @@ export function UsersMutateDrawer({
                           </Button>
                         </div>
                         <FormDescription>
-                          {formatQuota(parseQuotaFromDollars(field.value || 0))}
+                          {quotaReadError || quotaReading ? t('Unknown') : formatQuota(parseQuotaFromDollars(field.value || 0))}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -616,13 +673,14 @@ export function UsersMutateDrawer({
                   </div>
                 </SideDrawerSection>
               )}
+              </fieldset>
             </form>
           </Form>
           <SheetFooter className={sideDrawerFooterClassName()}>
             <SheetClose render={<Button variant='outline' />}>
               {t('Close')}
             </SheetClose>
-            <Button form='user-form' type='submit' disabled={isSubmitting}>
+            <Button form='user-form' type='submit' disabled={isSubmitting || (isUpdate && !detailLoaded)}>
               {isSubmitting ? t('Saving...') : t('Save changes')}
             </Button>
           </SheetFooter>
@@ -634,6 +692,7 @@ export function UsersMutateDrawer({
         <UserQuotaDialog
           open={quotaDialogOpen}
           onOpenChange={setQuotaDialogOpen}
+          returnFocus={() => quotaOpener.current}
           userId={currentRow.id}
           currentQuota={parseQuotaFromDollars(currentQuotaRaw || 0)}
           onSuccess={refreshUserData}

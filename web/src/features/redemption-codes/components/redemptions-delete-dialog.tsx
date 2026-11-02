@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -37,20 +37,29 @@ import { useRedemptions } from './redemptions-provider'
 
 export function RedemptionsDeleteDialog() {
   const { t } = useTranslation()
-  const { open, setOpen, currentRow, triggerRefresh } = useRedemptions()
+  const { open, setOpen, currentRow, triggerRefresh, returnFocus } = useRedemptions()
   const [isDeleting, setIsDeleting] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    if (open === 'delete') setError('')
+  }, [open, currentRow?.id])
 
   const handleDelete = async () => {
     if (!currentRow) return
 
     setIsDeleting(true)
+    setError('')
     try {
       const result = await deleteRedemption(currentRow.id)
       if (result.success) {
         toast.success(t(SUCCESS_MESSAGES.REDEMPTION_DELETED))
         setOpen(null)
         triggerRefresh()
+      } else {
+        setError(result.message || t('Operation failed'))
       }
+    } catch (cause: unknown) {
+      setError(cause instanceof Error ? cause.message : t('Operation failed'))
     } finally {
       setIsDeleting(false)
     }
@@ -59,18 +68,22 @@ export function RedemptionsDeleteDialog() {
   return (
     <AlertDialog
       open={open === 'delete'}
-      onOpenChange={(open) => !open && setOpen(null)}
+      onOpenChange={(open) => !open && !isDeleting && setOpen(null)}
     >
-      <AlertDialogContent>
-        <AlertDialogHeader>
+      <AlertDialogContent finalFocus={returnFocus} className='flex max-h-[calc(100dvh-2rem)] min-w-0 flex-col gap-0 overflow-hidden p-0 [&_[data-myapi-button]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11 [&_[data-myapi-button]]:min-w-11'>
+        <AlertDialogHeader className='shrink-0 border-b px-4 py-4 sm:px-6'>
           <AlertDialogTitle>{t('Are you sure?')}</AlertDialogTitle>
+        </AlertDialogHeader>
+        <section role='region' tabIndex={0} aria-label={t('Confirmation details')} className='min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [overflow-wrap:anywhere] sm:px-6'>
           <AlertDialogDescription>
             {t('This will permanently delete redemption code')}{' '}
-            <span className='font-semibold'>{currentRow?.name}</span>
+            <span className='mt-2 block font-semibold break-words [overflow-wrap:anywhere]'>{currentRow?.name}</span>
+            {currentRow && <span className='mt-1 block font-mono text-xs'>#{currentRow.id}</span>}
             {t('. This action cannot be undone.')}
           </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
+          {error && <p role='alert' className='text-destructive mt-3 text-sm'>{error}</p>}
+        </section>
+        <AlertDialogFooter className='m-0 shrink-0 border-t px-4 py-4 sm:px-6'>
           <AlertDialogCancel disabled={isDeleting}>
             {t('Cancel')}
           </AlertDialogCancel>

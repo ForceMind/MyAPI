@@ -27,7 +27,7 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react'
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -36,7 +36,6 @@ import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Dialog } from '@/components/dialog'
 import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import {
   Tooltip,
@@ -46,6 +45,7 @@ import {
 } from '@/components/ui/tooltip'
 import { api } from '@/lib/api'
 import { indexCustomOAuthBindings, type CustomOAuthBinding } from '@/lib/oauth'
+import { useAuthStore } from '@/stores/auth-store'
 
 import {
   getUser,
@@ -54,12 +54,14 @@ import {
   adminUnbindCustomOAuth,
 } from '../../api'
 import type { User } from '../../types'
+import { useUserTask } from '../../hooks/use-user-task'
 
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   userId: number | null
   onUnbindSuccess?: () => void
+  returnFocus?: () => HTMLElement | null
 }
 
 interface BindingItem {
@@ -160,7 +162,19 @@ function CustomProviderIcon(props: { iconUrl?: string }) {
 }
 
 export function UserBindingDialog(props: Props) {
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
+  return <UserBindingTask key={JSON.stringify([identity, props.userId])} {...props} />
+}
+
+function UserBindingTask(props: Props) {
   const { t } = useTranslation()
+  const task = useUserTask(props.open, props.userId)
+  const readGeneration = useRef(0)
+  const opened = useRef<string | null>(null)
+  const confirmationOpener = useRef<HTMLElement | null>(null)
+  const closeButton = useRef<HTMLButtonElement>(null)
+  const [readError, setReadError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [oauthBindings, setOauthBindings] = useState<CustomOAuthBinding[]>([])
   const [statusInfo, setStatusInfo] = useState<StatusInfo>({})
@@ -171,7 +185,13 @@ export function UserBindingDialog(props: Props) {
 
   const fetchData = useCallback(async () => {
     if (!props.userId) return
+    const snapshot = task.capture()
+    const request = ++readGeneration.current
     setLoading(true)
+    setReadError(null)
+    setUser(null)
+    setOauthBindings([])
+    setStatusInfo({})
     try {
       const [userRes, oauthRes, statusRes] = await Promise.all([
         getUser(props.userId),
@@ -187,6 +207,11 @@ export function UserBindingDialog(props: Props) {
             data: {},
           })),
       ])
+      if (!snapshot.isCurrent() || request !== readGeneration.current) return
+      if (!userRes.success || !userRes.data || userRes.data.id !== props.userId || !oauthRes.success || !Array.isArray(oauthRes.data) || !statusRes.success || !statusRes.data || typeof statusRes.data !== 'object') {
+        setReadError(t('Failed to load'))
+        return
+      }
       if (userRes.success && userRes.data) {
         setUser(userRes.data)
       }
@@ -197,22 +222,31 @@ export function UserBindingDialog(props: Props) {
         setStatusInfo(statusRes.data as StatusInfo)
       }
     } catch {
+      if (!snapshot.isCurrent() || request !== readGeneration.current) return
+      setReadError(t('Failed to load'))
       toast.error(t('Failed to load'))
     } finally {
-      setLoading(false)
+      if (snapshot.isCurrent() && request === readGeneration.current) setLoading(false)
     }
-  }, [props.userId, t])
+  }, [props.userId, t, task])
 
   useEffect(() => {
+    if (!props.open) opened.current = null
     if (props.open && props.userId) {
+      const key = JSON.stringify([task.identity, props.userId])
+      if (opened.current === key) return
+      opened.current = key
       setShowBoundOnly(true)
+      setUnbinding(false)
+      setUnbindTarget(null)
+      setActionError(null)
       fetchData()
     } else {
       setUser(null)
       setOauthBindings([])
       setStatusInfo({})
     }
-  }, [props.open, props.userId, fetchData])
+  }, [props.open, props.userId, fetchData, task])
 
   const allBindings = useMemo<BindingItem[]>(() => {
     const items: BindingItem[] = []
@@ -282,7 +316,10 @@ export function UserBindingDialog(props: Props) {
 
   const handleUnbind = async () => {
     if (!unbindTarget || !props.userId) return
+    const operation = task.begin()
+    if (!operation) return
     setUnbinding(true)
+    setActionError(null)
     try {
       let res
       if (unbindTarget.type === 'builtin') {
@@ -293,20 +330,26 @@ export function UserBindingDialog(props: Props) {
           unbindTarget.providerId
         )
       }
+      if (!operation.isCurrent()) return
       if (res?.success) {
         toast.success(
           t('Unbound {{provider}}', { provider: unbindTarget.label })
         )
         await fetchData()
+        if (!operation.isCurrent()) return
         props.onUnbindSuccess?.()
+        setUnbindTarget(null)
       } else {
+        setActionError(res?.message || t('Unbind failed'))
         toast.error(res?.message || t('Unbind failed'))
       }
     } catch {
+      if (!operation.isCurrent()) return
+      setActionError(t('Unbind failed'))
       toast.error(t('Unbind failed'))
     } finally {
-      setUnbinding(false)
-      setUnbindTarget(null)
+      if (operation.isCurrent()) setUnbinding(false)
+      operation.finish()
     }
   }
 
@@ -314,7 +357,9 @@ export function UserBindingDialog(props: Props) {
     <>
       <Dialog
         open={props.open}
-        onOpenChange={props.onOpenChange}
+        onOpenChange={(next) => { if (!task.isPending()) props.onOpenChange(next) }}
+        returnFocus={props.returnFocus}
+        showCloseButton={!unbinding}
         title={
           <>
             <Link2 className='h-5 w-5' />
@@ -322,19 +367,23 @@ export function UserBindingDialog(props: Props) {
           </>
         }
         description={t('Manage account bindings for this user')}
-        contentClassName='sm:max-w-lg'
+        contentClassName='h-dvh max-h-dvh w-screen max-w-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-xl [&_[data-myapi-button]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11 [&_[data-myapi-button]]:min-w-11'
         titleClassName='flex items-center gap-2'
         descriptionClassName='sr-only'
         contentHeight='auto'
         bodyClassName='space-y-4'
+        footer={<><Button variant='outline' disabled={loading || unbinding} onClick={() => void fetchData()}>{t('Refresh')}</Button><Button ref={closeButton} variant='outline' disabled={unbinding} onClick={() => props.onOpenChange(false)}>{t('Close')}</Button></>}
       >
+        <p className='text-muted-foreground text-sm'>{t('User ID')}: <span className='font-mono'>{props.userId}</span></p>
         {loading ? (
           <div className='flex items-center justify-center py-8'>
             <Loader2 className='text-muted-foreground h-6 w-6 animate-spin' />
           </div>
+        ) : readError ? (
+          <div role='alert' className='text-destructive text-sm'>{readError}</div>
         ) : (
           <div className='space-y-3'>
-            <div className='flex items-center justify-between'>
+            <div className='flex flex-wrap items-center justify-between gap-3'>
               {user && (
                 <p className='text-muted-foreground text-sm'>
                   {user.username} (ID: {user.id})
@@ -370,7 +419,7 @@ export function UserBindingDialog(props: Props) {
 
             <Separator />
 
-            <ScrollArea className='max-h-[50vh]'>
+            <div>
               {displayedBindings.length === 0 ? (
                 <p className='text-muted-foreground py-4 text-center text-sm'>
                   {showBoundOnly
@@ -404,7 +453,7 @@ export function UserBindingDialog(props: Props) {
                               />
                             )}
                           </div>
-                          <p className='text-muted-foreground max-w-[140px] truncate text-xs'>
+                          <p className='text-muted-foreground text-xs break-all'>
                             {binding.isBound ? binding.value : t('Not bound')}
                           </p>
                         </div>
@@ -414,7 +463,12 @@ export function UserBindingDialog(props: Props) {
                           variant='ghost'
                           size='sm'
                           className='text-destructive hover:text-destructive h-7 w-7 shrink-0 p-0'
-                          onClick={() => setUnbindTarget(binding)}
+                          aria-label={t('Unbind {{provider}}', { provider: binding.label })}
+                          onClick={() => {
+                            confirmationOpener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+                            setActionError(null)
+                            setUnbindTarget(binding)
+                          }}
                         >
                           <Unlink className='h-3.5 w-3.5' />
                         </Button>
@@ -423,7 +477,7 @@ export function UserBindingDialog(props: Props) {
                   ))}
                 </div>
               )}
-            </ScrollArea>
+            </div>
 
             <p className='text-muted-foreground text-xs'>
               {t('Bound')}: {boundCount} / {allBindings.length}
@@ -434,7 +488,8 @@ export function UserBindingDialog(props: Props) {
 
       <ConfirmDialog
         open={!!unbindTarget}
-        onOpenChange={(open) => !open && setUnbindTarget(null)}
+        onOpenChange={(next) => { if (!next && !task.isPending()) setUnbindTarget(null) }}
+        returnFocus={() => confirmationOpener.current?.isConnected ? confirmationOpener.current : closeButton.current}
         title={t('Confirm Unbind')}
         desc={t(
           'Are you sure you want to unbind {{provider}} for this user? The user will no longer be able to log in via this method.',
@@ -446,7 +501,10 @@ export function UserBindingDialog(props: Props) {
         destructive
         handleConfirm={handleUnbind}
         isLoading={unbinding}
-      />
+      >
+        <p className='text-muted-foreground text-sm'>{t('User ID')}: {props.userId}</p>
+        {actionError ? <div role='alert' className='text-destructive text-sm break-words'>{actionError}</div> : null}
+      </ConfirmDialog>
     </>
   )
 }

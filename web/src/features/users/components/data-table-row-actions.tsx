@@ -29,7 +29,7 @@ import {
   Link2,
   CreditCard,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -60,6 +60,7 @@ import { getUserActionMessage } from '../lib'
 import type { User, ManageUserAction } from '../types'
 import { UserBindingDialog } from './dialogs/user-binding-dialog'
 import { useUsers } from './users-provider'
+import { useUserTask } from '../hooks/use-user-task'
 
 interface DataTableRowActionsProps {
   row: Row<User>
@@ -73,6 +74,11 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const [resetTwoFAOpen, setResetTwoFAOpen] = useState(false)
   const [bindingDialogOpen, setBindingDialogOpen] = useState(false)
   const [subscriptionsDialogOpen, setSubscriptionsDialogOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const task = useUserTask(true, user.id)
+  const actions = useRef<HTMLDivElement>(null)
+  const returnFocus = useCallback(() => actions.current?.querySelector<HTMLElement>('button[aria-haspopup]') ?? null, [])
   const canEditAssignedAccess = useAuthStore(
     (state) => (state.auth.user?.role ?? 0) >= 10
   )
@@ -91,8 +97,12 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   }
 
   const handleManage = async (action: Exclude<ManageUserAction, 'delete'>) => {
+    const operation = task.begin()
+    if (!operation) return
+    setBusy(true)
     try {
       const result = await manageUser(user.id, action)
+      if (!operation.isCurrent()) return
       if (result.success) {
         toast.success(t(getUserActionMessage(action)))
         triggerRefresh()
@@ -102,39 +112,65 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         )
       }
     } catch {
+      if (!operation.isCurrent()) return
       toast.error(t(ERROR_MESSAGES.UNEXPECTED))
+    } finally {
+      if (operation.isCurrent()) setBusy(false)
+      operation.finish()
     }
   }
 
   const handleResetPasskey = async () => {
+    if (user.role === USER_ROLE.ROOT) return
+    const operation = task.begin()
+    if (!operation) return
+    setBusy(true)
+    setActionError(null)
     try {
       const result = await resetUserPasskey(user.id)
+      if (!operation.isCurrent()) return
       if (result.success) {
         toast.success(t('Passkey reset successfully'))
         triggerRefresh()
+        setResetPasskeyOpen(false)
       } else {
+        setActionError(result.message || t('Failed to reset Passkey'))
         toast.error(result.message || t('Failed to reset Passkey'))
       }
     } catch {
+      if (!operation.isCurrent()) return
+      setActionError(t(ERROR_MESSAGES.UNEXPECTED))
       toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     } finally {
-      setResetPasskeyOpen(false)
+      if (operation.isCurrent()) setBusy(false)
+      operation.finish()
     }
   }
 
   const handleResetTwoFA = async () => {
+    if (user.role === USER_ROLE.ROOT) return
+    const operation = task.begin()
+    if (!operation) return
+    setBusy(true)
+    setActionError(null)
     try {
       const result = await resetUserTwoFA(user.id)
+      if (!operation.isCurrent()) return
       if (result.success) {
         toast.success(t('Two-factor authentication reset'))
         triggerRefresh()
+        setResetTwoFAOpen(false)
       } else {
+        setActionError(result.message || t('Failed to reset 2FA'))
         toast.error(result.message || t('Failed to reset 2FA'))
       }
     } catch {
+      if (!operation.isCurrent()) return
+      setActionError(t(ERROR_MESSAGES.UNEXPECTED))
       toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     } finally {
-      setResetTwoFAOpen(false)
+      if (operation.isCurrent()) setBusy(false)
+      operation.finish()
     }
   }
 
@@ -147,7 +183,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   }
 
   return (
-    <div className='-ml-1.5 flex items-center gap-1'>
+    <div ref={actions} data-user-actions={String(user.id)} aria-busy={busy} className='flex items-center gap-1 [&_[data-myapi-button]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11 [&_[data-myapi-button]]:min-w-11'>
       <Tooltip>
         <TooltipTrigger
           render={
@@ -155,6 +191,8 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
               variant='ghost'
               size='icon-sm'
               onClick={handleEdit}
+              disabled={busy}
+              data-user-edit={String(user.id)}
               aria-label={t('Edit')}
             />
           }
@@ -256,6 +294,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         <DropdownMenuItem
           onSelect={(event) => {
             event.preventDefault()
+            setActionError(null)
             setResetPasskeyOpen(true)
           }}
           disabled={isRoot}
@@ -269,6 +308,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         <DropdownMenuItem
           onSelect={(event) => {
             event.preventDefault()
+            setActionError(null)
             setResetTwoFAOpen(true)
           }}
           disabled={isRoot}
@@ -295,7 +335,8 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
 
       <ConfirmDialog
         open={resetPasskeyOpen}
-        onOpenChange={setResetPasskeyOpen}
+        onOpenChange={(next) => { if (!task.isPending()) setResetPasskeyOpen(next) }}
+        returnFocus={returnFocus}
         title={t('Reset Passkey')}
         desc={t(
           'Reset Passkey for {{username}}? The user will need to register a new Passkey before using passwordless login.',
@@ -303,11 +344,13 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         )}
         confirmText={t('Reset Passkey')}
         handleConfirm={handleResetPasskey}
-      />
+        isLoading={busy}
+      >{actionError ? <div role='alert' className='text-destructive text-sm break-words'>{actionError}</div> : null}</ConfirmDialog>
 
       <ConfirmDialog
         open={resetTwoFAOpen}
-        onOpenChange={setResetTwoFAOpen}
+        onOpenChange={(next) => { if (!task.isPending()) setResetTwoFAOpen(next) }}
+        returnFocus={returnFocus}
         title={t('Reset Two-Factor Authentication')}
         desc={t(
           'Reset 2FA for {{username}}? The user must set up 2FA again to continue using it.',
@@ -315,13 +358,15 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         )}
         confirmText={t('Reset 2FA')}
         handleConfirm={handleResetTwoFA}
-      />
+        isLoading={busy}
+      >{actionError ? <div role='alert' className='text-destructive text-sm break-words'>{actionError}</div> : null}</ConfirmDialog>
 
       <UserBindingDialog
         open={bindingDialogOpen}
         onOpenChange={setBindingDialogOpen}
         userId={user.id}
         onUnbindSuccess={triggerRefresh}
+        returnFocus={returnFocus}
       />
 
       <UserSubscriptionsDialog
@@ -329,6 +374,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         onOpenChange={setSubscriptionsDialogOpen}
         user={{ id: user.id, username: user.username }}
         onSuccess={triggerRefresh}
+        returnFocus={returnFocus}
       />
     </div>
   )

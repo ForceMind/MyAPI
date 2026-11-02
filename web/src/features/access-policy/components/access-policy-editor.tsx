@@ -148,7 +148,7 @@ export function AccessPolicyEditor(props: {
         type='button'
         variant='outline'
         disabled={busy}
-        className='h-auto min-h-8 whitespace-normal'
+        className='h-auto min-h-11 whitespace-normal'
         onClick={async () => {
           const result = await query.refetch()
           if (!session.isCurrent()) return

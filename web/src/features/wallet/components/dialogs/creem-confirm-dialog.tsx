@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Loader2 } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
@@ -48,41 +48,43 @@ export function CreemConfirmDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(nextOpen) => (nextOpen || !processing) && onOpenChange(nextOpen)}
+      showCloseButton={!processing}
       title={t('Confirm Creem Purchase')}
       description={t('Review your purchase details before proceeding.')}
       contentClassName='max-sm:w-[calc(100vw-1.5rem)] sm:max-w-[425px]'
-      footerClassName='grid grid-cols-2 gap-2 sm:flex'
+      footerClassName='grid grid-cols-2 gap-2 sm:flex [&_[data-myapi-button]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11 [&_[data-myapi-button]]:min-w-11'
       contentHeight='auto'
-      bodyClassName='space-y-4'
+      bodyClassName='space-y-4 [overflow-wrap:anywhere]'
       footer={
         <>
           <Button
+            className='min-h-11'
             variant='outline'
             onClick={() => onOpenChange(false)}
             disabled={processing}
           >
             {t('Cancel')}
           </Button>
-          <Button onClick={onConfirm} disabled={processing}>
-            {processing && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+          <Button className='min-h-11' onClick={onConfirm} disabled={processing}>
+            {processing && <Spinner aria-hidden='true' data-icon='inline-start' />}
             {t('Confirm Payment')}
           </Button>
         </>
       }
     >
-      <div className='space-y-3 py-3 sm:space-y-4 sm:py-4'>
-        <div className='flex items-center justify-between'>
+      <div role='region' tabIndex={0} aria-label={t('Payment details')} className='space-y-3 py-3 sm:space-y-4 sm:py-4'>
+        <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
           <span className='text-muted-foreground'>{t('Product')}</span>
-          <span className='font-medium'>{product.name}</span>
+          <span className='min-w-0 text-right font-medium break-words [overflow-wrap:anywhere]'>{product.name}</span>
         </div>
-        <div className='flex items-center justify-between'>
+        <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
           <span className='text-muted-foreground'>{t('Price')}</span>
           <span className='text-primary font-medium'>
             {formatCreemPrice(product.price, product.currency)}
           </span>
         </div>
-        <div className='flex items-center justify-between'>
+        <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
           <span className='text-muted-foreground'>{t('Quota')}</span>
           <span className='font-medium'>{formatNumber(product.quota)}</span>
         </div>

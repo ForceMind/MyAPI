@@ -44,7 +44,7 @@ export async function getAdminPlans(): Promise<ApiResponse<PlanRecord[]>> {
 export async function createPlan(
   data: PlanPayload
 ): Promise<ApiResponse<PlanRecord>> {
-  const res = await api.post('/api/subscription/admin/plans', data)
+  const res = await api.post('/api/subscription/admin/plans', data, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -52,7 +52,7 @@ export async function updatePlan(
   id: number,
   data: PlanPayload
 ): Promise<ApiResponse<PlanRecord>> {
-  const res = await api.put(`/api/subscription/admin/plans/${id}`, data)
+  const res = await api.put(`/api/subscription/admin/plans/${id}`, data, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -62,7 +62,7 @@ export async function patchPlanStatus(
 ): Promise<ApiResponse> {
   const res = await api.patch(`/api/subscription/admin/plans/${id}`, {
     enabled,
-  })
+  }, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -85,7 +85,8 @@ export async function createUserSubscription(
 ): Promise<ApiResponse<{ message?: string }>> {
   const res = await api.post(
     `/api/subscription/admin/users/${userId}/subscriptions`,
-    data
+    data,
+    { skipAuthRefresh: true }
   )
   return res.data
 }
@@ -94,7 +95,9 @@ export async function invalidateUserSubscription(
   subId: number
 ): Promise<ApiResponse<{ message?: string }>> {
   const res = await api.post(
-    `/api/subscription/admin/user_subscriptions/${subId}/invalidate`
+    `/api/subscription/admin/user_subscriptions/${subId}/invalidate`,
+    undefined,
+    { skipAuthRefresh: true }
   )
   return res.data
 }
@@ -103,7 +106,8 @@ export async function deleteUserSubscription(
   subId: number
 ): Promise<ApiResponse> {
   const res = await api.delete(
-    `/api/subscription/admin/user_subscriptions/${subId}`
+    `/api/subscription/admin/user_subscriptions/${subId}`,
+    { skipAuthRefresh: true }
   )
   return res.data
 }
@@ -114,7 +118,8 @@ export async function resetUserSubscriptionsByPlan(
 ): Promise<ApiResponse<SubscriptionResetResult>> {
   const res = await api.post(
     `/api/subscription/admin/users/${userId}/subscriptions/reset`,
-    data
+    data,
+    { skipAuthRefresh: true }
   )
   return res.data
 }
@@ -125,7 +130,8 @@ export async function resetPlanSubscriptions(
 ): Promise<ApiResponse<SubscriptionResetResult>> {
   const res = await api.post(
     `/api/subscription/admin/plans/${planId}/subscriptions/reset`,
-    data
+    data,
+    { skipAuthRefresh: true }
   )
   return res.data
 }
@@ -137,28 +143,28 @@ export async function resetPlanSubscriptions(
 export async function paySubscriptionStripe(
   data: SubscriptionPayRequest
 ): Promise<SubscriptionPayResponse> {
-  const res = await api.post('/api/subscription/stripe/pay', data)
+  const res = await api.post('/api/subscription/stripe/pay', data, { skipAuthRefresh: true })
   return res.data
 }
 
 export async function paySubscriptionCreem(
   data: SubscriptionPayRequest
 ): Promise<SubscriptionPayResponse> {
-  const res = await api.post('/api/subscription/creem/pay', data)
+  const res = await api.post('/api/subscription/creem/pay', data, { skipAuthRefresh: true })
   return res.data
 }
 
 export async function paySubscriptionWaffoPancake(
   data: SubscriptionPayRequest
 ): Promise<SubscriptionPayResponse> {
-  const res = await api.post('/api/subscription/waffo-pancake/pay', data)
+  const res = await api.post('/api/subscription/waffo-pancake/pay', data, { skipAuthRefresh: true })
   return res.data
 }
 
 export async function paySubscriptionBalance(
   data: SubscriptionPayRequest
 ): Promise<SubscriptionPayResponse> {
-  const res = await api.post('/api/subscription/balance/pay', data)
+  const res = await api.post('/api/subscription/balance/pay', data, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -172,7 +178,8 @@ export async function createWaffoPancakeSubscriptionProduct(data: {
 > {
   const res = await api.post(
     '/api/option/waffo-pancake/subscription-product',
-    data
+    data,
+    { skipAuthRefresh: true }
   )
   return res.data
 }
@@ -194,7 +201,7 @@ export async function listWaffoPancakeSubscriptionProductOptions(): Promise<
 export async function paySubscriptionEpay(
   data: SubscriptionPayRequest & { payment_method: string }
 ): Promise<SubscriptionPayResponse & { url?: string }> {
-  const res = await api.post('/api/subscription/epay/pay', data)
+  const res = await api.post('/api/subscription/epay/pay', data, { skipAuthRefresh: true })
   return {
     ...res.data,
     url: res.data.url || (res as unknown as { url?: string }).url,
@@ -229,7 +236,7 @@ export async function updateBillingPreference(
 ): Promise<ApiResponse<{ billing_preference?: string }>> {
   const res = await api.put('/api/subscription/self/preference', {
     billing_preference: preference,
-  })
+  }, { skipAuthRefresh: true })
   return res.data
 }
 

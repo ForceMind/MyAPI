@@ -32,7 +32,7 @@ export function UserUsagePolicyForm(props: {
         if (!props.busy) props.onSubmit(value.noBalance)
       })}
     >
-      <Field orientation='horizontal'>
+      <Field orientation='horizontal' className='min-h-11'>
         <Checkbox
           id={`${id}-no-balance`}
           checked={form.watch('noBalance')}
@@ -50,7 +50,7 @@ export function UserUsagePolicyForm(props: {
           'Turning this off restores the stored user allowance, which may be zero.'
         )}
       </p>
-      <Field orientation='horizontal'>
+      <Field orientation='horizontal' className='min-h-11'>
         <Checkbox
           id={`${id}-confirmed`}
           checked={form.watch('confirmed')}
