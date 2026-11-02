@@ -460,6 +460,7 @@ export async function getDeploymentLogs(
  */
 export async function getHardwareTypes(): Promise<{
   success: boolean
+  message?: string
   data?: { hardware_types?: Array<Record<string, unknown>> }
 }> {
   const res = await api.get('/api/deployments/hardware-types')

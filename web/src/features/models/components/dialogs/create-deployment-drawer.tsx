@@ -401,6 +401,10 @@ export function CreateDeploymentDrawer({
     (typeof quoteTotal === 'string' && /^-?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i.test(quoteTotal.trim()) && Number.isFinite(Number(quoteTotal)))
   )
 
+  let estimatedCost = t('Not available')
+  if (isLoadingPrice || isFetchingPrice) estimatedCost = t('Calculating...')
+  else if (quoteKnown && priceSummary) estimatedCost = priceSummary
+
   return (
     <Sheet
       open={open}
@@ -428,7 +432,7 @@ export function CreateDeploymentDrawer({
             ['deployment-advanced', t('Advanced Configuration')],
           ].map(([id, label]) => (
             <Button key={id} type='button' variant='ghost' size='sm' onClick={() => {
-              const heading = document.getElementById(id)
+              const heading = document.querySelector<HTMLElement>(`#${id}`)
               heading?.scrollIntoView({ block: 'start' })
               heading?.focus({ preventScroll: true })
             }}>{label}</Button>
@@ -664,7 +668,7 @@ export function CreateDeploymentDrawer({
                 {t('Price estimation description')}
               </p>
               <output aria-label={t('Estimated cost')} className='rounded-lg border p-3 font-mono text-sm break-words'>
-                {isLoadingPrice || isFetchingPrice ? t('Calculating...') : (quoteKnown && priceSummary ? priceSummary : t('Not available'))}
+                {estimatedCost}
               </output>
 
               <FormField

@@ -118,6 +118,7 @@ it('a phone missing list exposes the entire model name and copies the exact name
   expect(body).toHaveClass('min-h-0', 'overflow-y-auto')
   const copyAction = screen.getByRole('button', { name: `Copy model name "${modelName}"` })
   expect(copyAction).toHaveClass('min-h-11', 'min-w-11')
+  expect(screen.getByRole('button', { name: `Configure model "${modelName}"` })).toHaveClass('min-h-11')
   await user.click(copyAction)
   expect(copy).toHaveBeenCalledWith(modelName)
   expect(body).not.toContainElement(screen.getByRole('navigation', { name: 'Missing models pagination' }))
