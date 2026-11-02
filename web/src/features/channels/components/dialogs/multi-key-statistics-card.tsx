@@ -20,8 +20,8 @@ import { useTranslation } from 'react-i18next'
 
 type StatisticsCardProps = {
   label: string
-  count: number
-  total: number
+  count: number | undefined
+  total: number | undefined
 }
 
 export function StatisticsCard({ label, count, total }: StatisticsCardProps) {
@@ -32,9 +32,9 @@ export function StatisticsCard({ label, count, total }: StatisticsCardProps) {
         {label}
       </div>
       <div className='flex items-baseline gap-2'>
-        <span className='text-foreground text-2xl font-semibold'>{count}</span>
+        <span className='text-foreground text-2xl font-semibold'>{count ?? t('Unknown')}</span>
         <span className='text-muted-foreground text-sm'>
-          {t('of')} {total}
+          {t('of')} {total ?? t('Unknown')}
         </span>
       </div>
     </div>

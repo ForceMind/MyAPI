@@ -151,6 +151,7 @@ import {
   OPENAI_FIELD_PASSTHROUGH_TYPES,
 } from '../../constants'
 import { useChannelMutateForm } from '../../hooks/use-channel-mutate-form'
+import { useChannelTask } from '../../hooks/use-channel-task'
 import {
   CHANNEL_FORM_DEFAULT_VALUES,
   CHANNEL_TYPE_ADVANCED_CUSTOM,
@@ -211,6 +212,7 @@ type ChannelMutateDrawerProps = {
   submitLabel?: string
   /** Receives the saved connection IDs after a successful save. */
   onSaved?: (channelIds: number[]) => void
+  returnFocus?: () => HTMLElement | null
 }
 
 type ModelMappingGuardrail = {
@@ -638,6 +640,7 @@ export function ChannelMutateDrawer({
   title,
   submitLabel,
   onSaved,
+  returnFocus,
 }: ChannelMutateDrawerProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -653,6 +656,7 @@ export function ChannelMutateDrawer({
   const [channelKey, setChannelKey] = useState<string | null>(null)
   const [isChannelKeyLoading, setIsChannelKeyLoading] = useState(false)
   const [codexOAuthDialogOpen, setCodexOAuthDialogOpen] = useState(false)
+  const codexOAuthOpener = useRef<HTMLButtonElement>(null)
   const [codexLocalAuthDialogOpen, setCodexLocalAuthDialogOpen] =
     useState(false)
   const [isCodexCredentialRefreshing, setIsCodexCredentialRefreshing] =
@@ -689,6 +693,15 @@ export function ChannelMutateDrawer({
 
   const isEditing = Boolean(currentRow)
   const channelId = currentRow?.id ?? null
+  const task = useChannelTask(open, channelId)
+  const saveAttempt = useRef<ReturnType<typeof task.begin>>(null)
+  const [savePending, setSavePending] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  useEffect(() => {
+    saveAttempt.current = null
+    setSavePending(false)
+    setSaveError(null)
+  }, [open, channelId, task.identity])
   const sensitiveLocked = isEditing && !canEditSensitive
 
   const initializedChannelRef = useRef<number | null>(null)
@@ -698,7 +711,7 @@ export function ChannelMutateDrawer({
     isLoading: isDetailLoading,
     isFetching: isDetailFetching,
   } = useQuery({
-    queryKey: channelsQueryKeys.detail(channelId || 0),
+    queryKey: [...channelsQueryKeys.detail(channelId || 0), task.identity],
     queryFn: () => getChannel(channelId || 0),
     enabled: open && isEditing && Boolean(channelId),
   })
@@ -710,19 +723,19 @@ export function ChannelMutateDrawer({
 
   // Fetch available groups
   const { data: groupsData, isLoading: isLoadingGroups } = useQuery({
-    queryKey: ['groups'],
+    queryKey: ['groups', task.identity],
     queryFn: getGroups,
   })
 
   // Fetch all available models
   const { data: allModelsData } = useQuery({
-    queryKey: ['channel_models'],
+    queryKey: ['channel_models', task.identity],
     queryFn: getAllModels,
   })
 
   // Fetch prefill model groups
   const { data: prefillGroupsData } = useQuery({
-    queryKey: ['prefill_groups', 'model'],
+    queryKey: ['prefill_groups', 'model', task.identity],
     queryFn: () => getPrefillGroups('model'),
   })
 
@@ -1649,6 +1662,7 @@ export function ChannelMutateDrawer({
     // The Codex OAuth import saves through its own request and reports no
     // response here, so the saved IDs are optional.
     (response?: ChannelMutationResponse<unknown>) => {
+      if (saveAttempt.current && !saveAttempt.current.isCurrent()) return
       queryClient.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
       if (channelId) {
         queryClient.invalidateQueries({
@@ -1728,110 +1742,125 @@ export function ChannelMutateDrawer({
     isEditing,
     isMultiKeyChannel,
     onSuccess: handleSuccess,
+    captureResultGuard: () => task.capture().isCurrent,
   })
 
-  const isSubmitting = channelMutation.isPending
+  const isSubmitting = channelMutation.isPending || savePending
 
   // Submit handler
   const onSubmit = useCallback(
     async (data: ChannelFormValues) => {
-      // Validate key is required when creating
-      if (!isEditing && !data.key?.trim()) {
-        form.setError('key', {
-          type: 'manual',
-          message: ERROR_MESSAGES.REQUIRED_KEY,
-        })
-        return
-      }
-
-      if (sensitiveLocked) {
-        const dirtyFields = form.formState.dirtyFields as Partial<
-          Record<keyof ChannelFormValues, unknown>
-        >
-        const hasSensitiveChanges = SENSITIVE_FORM_FIELDS.some((field) =>
-          Boolean(dirtyFields[field])
-        )
-        if (hasSensitiveChanges) {
-          toast.error(
-            t('You do not have permission to edit sensitive channel settings.')
-          )
-          return
-        }
-      }
-
-      // Validate status_code_mapping entries
-      if (data.status_code_mapping?.trim()) {
-        const invalidEntries = collectInvalidStatusCodeEntries(
-          data.status_code_mapping
-        )
-        if (invalidEntries.length > 0) {
-          toast.error(
-            t('Invalid status code mapping entries: {{entries}}', {
-              entries: invalidEntries.join(', '),
-            })
-          )
+      const operation = task.begin()
+      if (!operation) return
+      saveAttempt.current = operation
+      setSavePending(true)
+      setSaveError(null)
+      try {
+        // Validate key is required when creating
+        if (!isEditing && !data.key?.trim()) {
+          form.setError('key', {
+            type: 'manual',
+            message: ERROR_MESSAGES.REQUIRED_KEY,
+          })
           return
         }
 
-        const riskyRedirects = collectNewDisallowedStatusCodeRedirects(
-          initialStatusCodeMappingRef.current,
-          data.status_code_mapping
-        )
-        if (riskyRedirects.length > 0) {
-          const confirmed = await confirmStatusCodeRisk(riskyRedirects)
-          if (!confirmed) return
-        }
-      }
-
-      // Validate model_mapping JSON format
-      const hasModelMapping =
-        typeof data.model_mapping === 'string' &&
-        data.model_mapping.trim() !== ''
-      const modelMappingValue = data.model_mapping || ''
-
-      if (hasModelMapping) {
-        const validation = validateModelMappingJson(modelMappingValue)
-        if (!validation.valid) {
-          toast.error(t(validation.error || 'Invalid model mapping'))
-          return
-        }
-      }
-
-      // Normalize models array
-      const normalizedModels = parseModelsString(data.models || '')
-
-      // Check for missing models in model_mapping
-      if (hasModelMapping) {
-        const missingModels = findMissingModelsInMapping(
-          modelMappingValue,
-          normalizedModels
-        )
-
-        const shouldPromptMissing =
-          missingModels.length > 0 &&
-          hasModelConfigChanged(
-            normalizedModels,
-            data.model_mapping || '',
-            initialModelsRef.current,
-            initialModelMappingRef.current
+        if (sensitiveLocked) {
+          const dirtyFields = form.formState.dirtyFields as Partial<
+            Record<keyof ChannelFormValues, unknown>
+          >
+          const hasSensitiveChanges = SENSITIVE_FORM_FIELDS.some((field) =>
+            Boolean(dirtyFields[field])
           )
-
-        if (shouldPromptMissing) {
-          const confirmAction = await confirmMissingModelMappings(missingModels)
-          if (confirmAction === 'cancel') {
+          if (hasSensitiveChanges) {
+            toast.error(
+              t('You do not have permission to edit sensitive channel settings.')
+            )
             return
           }
-          if (confirmAction === 'add') {
-            const updatedModels = [
-              ...new Set([...normalizedModels, ...missingModels]),
-            ]
-            data.models = formatModelsArray(updatedModels)
-            form.setValue('models', data.models)
+        }
+
+        // Validate status_code_mapping entries
+        if (data.status_code_mapping?.trim()) {
+          const invalidEntries = collectInvalidStatusCodeEntries(
+            data.status_code_mapping
+          )
+          if (invalidEntries.length > 0) {
+            toast.error(
+              t('Invalid status code mapping entries: {{entries}}', {
+                entries: invalidEntries.join(', '),
+              })
+            )
+            return
+          }
+
+          const riskyRedirects = collectNewDisallowedStatusCodeRedirects(
+            initialStatusCodeMappingRef.current,
+            data.status_code_mapping
+          )
+          if (riskyRedirects.length > 0) {
+            const confirmed = await confirmStatusCodeRisk(riskyRedirects)
+            if (!operation.isCurrent()) return
+            if (!confirmed) return
           }
         }
-      }
 
-      await channelMutation.mutateAsync(data)
+        // Validate model_mapping JSON format
+        const hasModelMapping =
+          typeof data.model_mapping === 'string' &&
+          data.model_mapping.trim() !== ''
+        const modelMappingValue = data.model_mapping || ''
+
+        if (hasModelMapping) {
+          const validation = validateModelMappingJson(modelMappingValue)
+          if (!validation.valid) {
+            toast.error(t(validation.error || 'Invalid model mapping'))
+            return
+          }
+        }
+
+        // Normalize models array
+        const normalizedModels = parseModelsString(data.models || '')
+
+        // Check for missing models in model_mapping
+        if (hasModelMapping) {
+          const missingModels = findMissingModelsInMapping(
+            modelMappingValue,
+            normalizedModels
+          )
+
+          const shouldPromptMissing =
+            missingModels.length > 0 &&
+            hasModelConfigChanged(
+              normalizedModels,
+              data.model_mapping || '',
+              initialModelsRef.current,
+              initialModelMappingRef.current
+            )
+
+          if (shouldPromptMissing) {
+            const confirmAction = await confirmMissingModelMappings(missingModels)
+            if (!operation.isCurrent()) return
+            if (confirmAction === 'cancel') {
+              return
+            }
+            if (confirmAction === 'add') {
+              const updatedModels = [
+                ...new Set([...normalizedModels, ...missingModels]),
+              ]
+              data.models = formatModelsArray(updatedModels)
+              form.setValue('models', data.models)
+            }
+          }
+        }
+
+        if (operation.isCurrent()) await channelMutation.mutateAsync(data)
+      } catch (error) {
+        if (operation.isCurrent()) setSaveError(error instanceof Error ? error.message : t('Operation failed'))
+      } finally {
+        if (operation.isCurrent()) setSavePending(false)
+        operation.finish()
+      }
     },
     [
       isEditing,
@@ -1841,6 +1870,7 @@ export function ChannelMutateDrawer({
       confirmStatusCodeRisk,
       channelMutation,
       t,
+      task.begin,
     ]
   )
 
@@ -1955,6 +1985,7 @@ export function ChannelMutateDrawer({
   // Handle drawer close
   const handleOpenChange = useCallback(
     (v: boolean) => {
+      if (task.isPending() || channelMutation.isPending) return
       onOpenChange(v)
       if (!v) {
         form.reset(CHANNEL_FORM_DEFAULT_VALUES)
@@ -1965,13 +1996,13 @@ export function ChannelMutateDrawer({
         setClipboardConnectionInfo(null)
       }
     },
-    [onOpenChange, form]
+    [onOpenChange, form, task.isPending, channelMutation.isPending]
   )
 
   return (
     <>
       <Sheet open={open} onOpenChange={handleOpenChange}>
-        <SheetContent className={sideDrawerContentClassName('sm:max-w-5xl')}>
+        <SheetContent showCloseButton={!isSubmitting} finalFocus={returnFocus} className={sideDrawerContentClassName('sm:max-w-5xl [&_button]:min-h-11 [&_button]:min-w-11 [&_input]:min-h-11')}>
           <SheetHeader className={sideDrawerHeaderClassName()}>
             <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
               <div className='min-w-0'>
@@ -2058,6 +2089,8 @@ export function ChannelMutateDrawer({
               onSubmit={form.handleSubmit(onSubmit, onInvalid)}
               className={sideDrawerFormClassName('gap-5')}
             >
+              {saveError ? <div role='alert' className='text-destructive text-sm break-words'>{saveError}</div> : null}
+              <fieldset disabled={isSubmitting} className='contents'>
               {isChannelDetailLoading ? (
                 <ChannelEditorLoadingState />
               ) : (
@@ -3323,6 +3356,7 @@ export function ChannelMutateDrawer({
                                         onClick={() =>
                                           setCodexOAuthDialogOpen(true)
                                         }
+                                        ref={codexOAuthOpener}
                                         disabled={sensitiveLocked}
                                       >
                                         <Link2 className='mr-2 h-4 w-4' />
@@ -3377,6 +3411,7 @@ export function ChannelMutateDrawer({
 
                               <CodexOAuthDialog
                                 open={codexOAuthDialogOpen}
+                                returnFocus={() => codexOAuthOpener.current}
                                 onOpenChange={setCodexOAuthDialogOpen}
                                 channelId={
                                   isEditing ? channelId || undefined : undefined
@@ -5113,6 +5148,7 @@ export function ChannelMutateDrawer({
                   </div>
                 </div>
               )}
+              </fieldset>
             </form>
           </Form>
 

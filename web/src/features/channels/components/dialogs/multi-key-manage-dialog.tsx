@@ -17,16 +17,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQueryClient } from '@tanstack/react-query'
-import { Loader2, RefreshCw, Trash2, Power, PowerOff } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { Delete02Icon, Loading03Icon, PowerIcon, PowerOffIcon, Refresh01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { ConfirmDialog } from '@/components/confirm-dialog'
 import { StaticDataTable } from '@/components/data-table'
 import { Dialog } from '@/components/dialog'
 import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import {
   Select,
   SelectContent,
@@ -65,19 +66,28 @@ import type { KeyStatus, MultiKeyConfirmAction } from '../../types'
 import { useChannels } from '../channels-provider'
 import { StatisticsCard } from './multi-key-statistics-card'
 import { MultiKeyTableRowActions } from './multi-key-table-row-actions'
+import { useChannelTask } from '../../hooks/use-channel-task'
 
 type MultiKeyManageDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
+  returnFocus?: () => HTMLElement | null
 }
 
 export function MultiKeyManageDialog({
   open,
   onOpenChange,
+  returnFocus,
 }: MultiKeyManageDialogProps) {
   const { t } = useTranslation()
   const { currentRow } = useChannels()
   const queryClient = useQueryClient()
+  const task = useChannelTask(open, currentRow?.id)
+  const readGeneration = useRef(0)
+  const refreshButton = useRef<HTMLButtonElement>(null)
+  const confirmationOpener = useRef<HTMLElement | null>(null)
+  const [readError, setReadError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const currentUser = useAuthStore((s) => s.auth.user)
   const canEditSensitive = hasPermission(
     currentUser,
@@ -90,27 +100,35 @@ export function MultiKeyManageDialog({
   const [keys, setKeys] = useState<KeyStatus[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
-  const [total, setTotal] = useState(0)
-  const [totalPages, setTotalPages] = useState(0)
-  const [enabledCount, setEnabledCount] = useState(0)
-  const [manualDisabledCount, setManualDisabledCount] = useState(0)
-  const [autoDisabledCount, setAutoDisabledCount] = useState(0)
+  const [total, setTotal] = useState<number | undefined>()
+  const [totalPages, setTotalPages] = useState<number | undefined>()
+  const [enabledCount, setEnabledCount] = useState<number | undefined>()
+  const [manualDisabledCount, setManualDisabledCount] = useState<number | undefined>()
+  const [autoDisabledCount, setAutoDisabledCount] = useState<number | undefined>()
 
   // UI state
   const [statusFilter, setStatusFilter] = useState<number | null>(null)
   const [confirmAction, setConfirmAction] =
     useState<MultiKeyConfirmAction | null>(null)
   const [isPerformingAction, setIsPerformingAction] = useState(false)
+  const openConfirmation = (action: MultiKeyConfirmAction) => {
+    confirmationOpener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    setActionError(null)
+    setConfirmAction(action)
+  }
 
   // Reset and load data when dialog opens
   useEffect(() => {
     if (open && currentRow) {
       setCurrentPage(1)
       setStatusFilter(null)
+      setConfirmAction(null)
+      setActionError(null)
+      setIsPerformingAction(false)
       loadKeyStatus(1, pageSize, null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, currentRow?.id])
+  }, [open, currentRow?.id, task.identity])
 
   const loadKeyStatus = async (
     page: number = currentPage,
@@ -118,8 +136,17 @@ export function MultiKeyManageDialog({
     status: number | null = statusFilter
   ) => {
     if (!currentRow) return
-
+    const snapshot = task.capture()
+    const request = ++readGeneration.current
+    if (!snapshot.isCurrent()) return
     setIsLoading(true)
+    setReadError(null)
+    setKeys([])
+    setTotal(undefined)
+    setTotalPages(undefined)
+    setEnabledCount(undefined)
+    setManualDisabledCount(undefined)
+    setAutoDisabledCount(undefined)
     try {
       const response = await getMultiKeyStatus(
         currentRow.id,
@@ -127,25 +154,30 @@ export function MultiKeyManageDialog({
         size,
         status === null ? undefined : status
       )
+      if (!snapshot.isCurrent() || request !== readGeneration.current) return
 
       if (response.success && response.data) {
         setKeys(response.data.keys || [])
-        setTotal(response.data.total || 0)
+        const counts = [response.data.total, response.data.total_pages, response.data.enabled_count, response.data.manual_disabled_count, response.data.auto_disabled_count].map((value) => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : undefined)
+        setTotal(counts[0])
         setCurrentPage(response.data.page || 1)
         setPageSize(response.data.page_size || 10)
-        setTotalPages(response.data.total_pages || 0)
-        setEnabledCount(response.data.enabled_count || 0)
-        setManualDisabledCount(response.data.manual_disabled_count || 0)
-        setAutoDisabledCount(response.data.auto_disabled_count || 0)
+        setTotalPages(counts[1])
+        setEnabledCount(counts[2])
+        setManualDisabledCount(counts[3])
+        setAutoDisabledCount(counts[4])
       } else {
+        setReadError(response.message || t('Failed to load key status'))
         toast.error(response.message || t('Failed to load key status'))
       }
     } catch (error: unknown) {
+      if (!snapshot.isCurrent() || request !== readGeneration.current) return
+      setReadError(error instanceof Error ? error.message : t('Failed to load key status'))
       toast.error(
         error instanceof Error ? error.message : t('Failed to load key status')
       )
     } finally {
-      setIsLoading(false)
+      if (snapshot.isCurrent() && request === readGeneration.current) setIsLoading(false)
     }
   }
 
@@ -172,7 +204,11 @@ export function MultiKeyManageDialog({
       return
     }
 
+    const operation = task.begin()
+    if (!operation) return
+
     setIsPerformingAction(true)
+    setActionError(null)
     try {
       const { type, keyIndex } = confirmAction
       let response
@@ -191,6 +227,7 @@ export function MultiKeyManageDialog({
       } else if (type === 'delete-disabled') {
         response = await deleteDisabledMultiKeys(currentRow.id)
       }
+      if (!operation.isCurrent()) return
 
       if (response?.success) {
         notifyChannelMutationSuccess(
@@ -198,6 +235,7 @@ export function MultiKeyManageDialog({
           response.message || t('Operation successful')
         )
         queryClient.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
+        setConfirmAction(null)
 
         // Reload data - reset to page 1 for bulk actions
         const isBulkAction = type.includes('all') || type === 'delete-disabled'
@@ -208,15 +246,18 @@ export function MultiKeyManageDialog({
           loadKeyStatus(currentPage, pageSize)
         }
       } else {
+        setActionError(response?.message || t('Operation failed'))
         toast.error(response?.message || t('Operation failed'))
       }
     } catch (error: unknown) {
+      if (!operation.isCurrent()) return
+      setActionError(error instanceof Error ? error.message : t('Operation failed'))
       toast.error(
         error instanceof Error ? error.message : t('Operation failed')
       )
     } finally {
-      setIsPerformingAction(false)
-      setConfirmAction(null)
+      if (operation.isCurrent()) setIsPerformingAction(false)
+      operation.finish()
     }
   }
 
@@ -243,7 +284,9 @@ export function MultiKeyManageDialog({
     <>
       <Dialog
         open={open}
-        onOpenChange={onOpenChange}
+        onOpenChange={(next) => { if (!task.isPending()) onOpenChange(next) }}
+        returnFocus={returnFocus}
+        showCloseButton={!isPerformingAction}
         title={
           <>
             {t('Multi-Key Management')}
@@ -268,14 +311,15 @@ export function MultiKeyManageDialog({
         description={t(
           'Manage multi-key status and configuration for this channel'
         )}
-        contentClassName='flex max-h-[90vh] max-w-5xl flex-col'
-        titleClassName='flex items-center gap-2'
+        contentClassName='h-dvh max-h-dvh w-screen max-w-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-5xl [&_button]:min-h-11 [&_button]:min-w-11'
+        titleClassName='flex flex-wrap items-center gap-2'
         contentHeight='min(72vh, 720px)'
         bodyClassName='space-y-4'
       >
-        <div className='flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden'>
+        <div className='flex min-h-0 flex-1 flex-col space-y-4'>
+          {readError ? <div role='alert' className='text-destructive text-sm break-words'>{readError}</div> : null}
           {/* Statistics */}
-          <div className='grid shrink-0 grid-cols-3 gap-3'>
+          <div className='grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-3'>
             <StatisticsCard
               label={t('Enabled')}
               count={enabledCount}
@@ -296,7 +340,7 @@ export function MultiKeyManageDialog({
           <Separator className='shrink-0' />
 
           {/* Toolbar */}
-          <div className='flex shrink-0 items-center justify-between'>
+          <div className='flex shrink-0 flex-wrap items-center justify-between gap-3'>
             <Select
               items={MULTI_KEY_FILTER_OPTIONS.map((option) => ({
                 value: option.value,
@@ -305,7 +349,7 @@ export function MultiKeyManageDialog({
               value={statusFilter === null ? 'all' : statusFilter.toString()}
               onValueChange={(v) => v !== null && handleStatusFilterChange(v)}
             >
-              <SelectTrigger className='w-40'>
+              <SelectTrigger aria-label={t('Status')} className='min-h-11 w-40'>
                 <SelectValue placeholder={t('All Status')} />
               </SelectTrigger>
               <SelectContent alignItemWithTrigger={false}>
@@ -319,45 +363,47 @@ export function MultiKeyManageDialog({
               </SelectContent>
             </Select>
 
-            <div className='flex items-center gap-2'>
+            <div className='flex flex-wrap items-center gap-2'>
               <Button
                 variant='outline'
                 size='sm'
+                ref={refreshButton}
+                aria-label={t('Refresh')}
                 onClick={() => loadKeyStatus()}
                 disabled={isLoading}
               >
-                <RefreshCw className='h-4 w-4' />
+                <HugeiconsIcon icon={Refresh01Icon} aria-hidden='true' className='h-4 w-4' />
               </Button>
 
-              {manualDisabledCount + autoDisabledCount > 0 && (
+              {((manualDisabledCount ?? 0) + (autoDisabledCount ?? 0)) > 0 && (
                 <Button
                   variant='default'
                   size='sm'
-                  onClick={() => setConfirmAction({ type: 'enable-all' })}
+                  onClick={() => openConfirmation({ type: 'enable-all' })}
                 >
-                  <Power className='mr-2 h-4 w-4' />
+                  <HugeiconsIcon icon={PowerIcon} aria-hidden='true' className='mr-2 h-4 w-4' />
                   {t('Enable All')}
                 </Button>
               )}
 
-              {enabledCount > 0 && (
+              {enabledCount !== undefined && enabledCount > 0 && (
                 <Button
                   variant='destructive'
                   size='sm'
-                  onClick={() => setConfirmAction({ type: 'disable-all' })}
+                  onClick={() => openConfirmation({ type: 'disable-all' })}
                 >
-                  <PowerOff className='mr-2 h-4 w-4' />
+                  <HugeiconsIcon icon={PowerOffIcon} aria-hidden='true' className='mr-2 h-4 w-4' />
                   {t('Disable All')}
                 </Button>
               )}
 
-              {autoDisabledCount > 0 && (
+              {autoDisabledCount !== undefined && autoDisabledCount > 0 && (
                 <Button
                   variant='destructive'
                   size='sm'
                   onClick={() => {
                     if (!canEditSensitive) return
-                    setConfirmAction({ type: 'delete-disabled' })
+                    openConfirmation({ type: 'delete-disabled' })
                   }}
                   disabled={!canEditSensitive}
                   title={
@@ -366,7 +412,7 @@ export function MultiKeyManageDialog({
                       : t('No permission to perform this action')
                   }
                 >
-                  <Trash2 className='mr-2 h-4 w-4' />
+                  <HugeiconsIcon icon={Delete02Icon} aria-hidden='true' className='mr-2 h-4 w-4' />
                   {t('Delete Auto-Disabled')}
                 </Button>
               )}
@@ -379,13 +425,13 @@ export function MultiKeyManageDialog({
           )}
 
           {/* Table */}
-          <div className='min-h-0 flex-1 overflow-auto rounded-md border'>
+          <div className='min-w-0 overflow-x-auto rounded-md border'>
             {isLoading ? (
               <div className='flex items-center justify-center py-12'>
-                <Loader2 className='text-muted-foreground h-8 w-8 animate-spin' />
+                <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='text-muted-foreground h-8 w-8 animate-spin' />
               </div>
             ) : null}
-            {!isLoading && keys.length === 0 ? (
+            {!isLoading && !readError && keys.length === 0 ? (
               <div className='text-muted-foreground py-12 text-center'>
                 {t('No keys found')}
               </div>
@@ -433,7 +479,7 @@ export function MultiKeyManageDialog({
                         keyIndex={key.index}
                         status={key.status}
                         canDelete={canEditSensitive}
-                        onAction={setConfirmAction}
+                        onAction={openConfirmation}
                       />
                     ),
                   },
@@ -443,7 +489,7 @@ export function MultiKeyManageDialog({
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
+          {totalPages !== undefined && totalPages > 1 && (
             <div className='flex shrink-0 items-center justify-between'>
               <div className='text-muted-foreground text-sm'>
                 {t('Page {{current}} of {{total}}', {
@@ -475,15 +521,28 @@ export function MultiKeyManageDialog({
       </Dialog>
 
       {/* Confirmation Dialog */}
-      <ConfirmDialog
+      <AlertDialog
         open={confirmAction !== null}
-        onOpenChange={(open) => !open && setConfirmAction(null)}
-        title={t('Confirm Action')}
-        desc={t(getMultiKeyConfirmMessage(confirmAction))}
-        destructive={isDestructiveAction(confirmAction)}
-        isLoading={isPerformingAction}
-        handleConfirm={performAction}
-      />
+        onOpenChange={(next) => { if (!next && !task.isPending()) { setConfirmAction(null); setActionError(null) } }}
+      >
+        <AlertDialogContent finalFocus={() => {
+          const original = confirmationOpener.current
+          if (original?.isConnected) return original
+          const refresh = refreshButton.current
+          return refresh?.disabled ? refresh.closest<HTMLElement>('[data-slot=dialog-content]') : refresh
+        }} className='[&_button]:min-h-11 [&_button]:min-w-11'>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('Confirm Action')}</AlertDialogTitle>
+            <AlertDialogDescription>{t(getMultiKeyConfirmMessage(confirmAction))}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <p className='text-sm break-words'>{currentRow.name} · {t('ID')}: {currentRow.id}{confirmAction?.keyIndex !== undefined ? ` · #${confirmAction.keyIndex + 1}` : ''}</p>
+          {actionError ? <div role='alert' className='text-destructive text-sm break-words'>{actionError}</div> : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPerformingAction}>{t('Cancel')}</AlertDialogCancel>
+            <Button onClick={performAction} disabled={isPerformingAction} variant={isDestructiveAction(confirmAction) ? 'destructive' : 'default'}>{t('Continue')}</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

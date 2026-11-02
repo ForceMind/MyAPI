@@ -7370,6 +7370,13 @@
     "Please try again.": "Please try again.",
     "Copy model name \"{{name}}\"": "Copy model name \"{{name}}\"",
     "Configure model \"{{name}}\"": "Configure model \"{{name}}\"",
-    "Missing models pagination": "Missing models pagination"
+    "Missing models pagination": "Missing models pagination",
+    "Model mapping {{number}}": "Model mapping {{number}}",
+    "Usage budget task": "Usage budget task",
+    "Model scope task": "Model scope task",
+    "Credential maintenance task": "Credential maintenance task",
+    "Credential rotation task": "Credential rotation task",
+    "CC Switch import task": "CC Switch import task",
+    "Unable to load available models": "Unable to load available models"
   }
 }

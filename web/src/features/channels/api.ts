@@ -235,6 +235,7 @@ export async function createChannel(
     '/api/channel',
     data,
     channelActionConfig({
+      skipAuthRefresh: true,
       headers: operationKey ? { 'Idempotency-Key': operationKey } : undefined,
     })
   )
@@ -251,7 +252,7 @@ export async function updateChannel(
   const res = await api.put(
     '/api/channel/',
     { id, ...data },
-    channelActionConfig()
+    channelActionConfig({ skipAuthRefresh: true })
   )
   return res.data
 }
@@ -577,7 +578,7 @@ export async function startCodexOAuth(
   const path = channelId
     ? `/api/channel/${channelId}/codex/oauth/start`
     : '/api/channel/codex/oauth/start'
-  const res = await api.post(path, {}, channelActionConfig())
+  const res = await api.post(path, {}, channelActionConfig({ skipAuthRefresh: true }))
   return res.data
 }
 
@@ -589,7 +590,7 @@ export async function completeCodexOAuth(
   const path = channelId
     ? `/api/channel/${channelId}/codex/oauth/complete`
     : '/api/channel/codex/oauth/complete'
-  const res = await api.post(path, { input, create }, channelActionConfig())
+  const res = await api.post(path, { input, create }, channelActionConfig({ skipAuthRefresh: true }))
   return res.data
 }
 
@@ -703,7 +704,7 @@ export async function manageMultiKeys(
   const res = await api.post(
     '/api/channel/multi_key/manage',
     params,
-    channelActionConfig()
+    channelActionConfig(params.action === 'get_key_status' ? {} : { skipAuthRefresh: true })
   )
   return res.data
 }

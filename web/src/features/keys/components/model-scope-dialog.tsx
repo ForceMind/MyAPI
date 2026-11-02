@@ -9,7 +9,8 @@ version.
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import type { TFunction } from 'i18next'
-import { AlertTriangle, Check, Plus, RotateCcw, X } from 'lucide-react'
+import { Alert02Icon, Cancel01Icon, PlusSignIcon, Refresh01Icon, Tick02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -331,10 +332,10 @@ function ModelScopeSession(props: ModelScopeSessionProps) {
       }}
     >
       <DialogContent
-        className='max-h-[calc(100dvh-10rem-env(safe-area-inset-bottom))] min-w-0 overflow-y-auto sm:max-h-[90dvh] sm:max-w-2xl'
+        className='flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[90dvh] sm:max-w-2xl sm:rounded-xl [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=native-select]]:min-h-11 [&_[data-slot=checkbox]]:after:-inset-3.5 [&_[data-slot=radio-group-item]]:after:-inset-3.5 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'
         showCloseButton={false}
       >
-        <DialogHeader>
+        <DialogHeader className='min-w-0 shrink-0 border-b px-4 py-4 pr-16 sm:px-6 sm:pr-16'>
           <DialogTitle>{t('Model scope')}</DialogTitle>
           <DialogDescription>
             {t(
@@ -342,6 +343,7 @@ function ModelScopeSession(props: ModelScopeSessionProps) {
             )}
           </DialogDescription>
         </DialogHeader>
+        <section role='region' tabIndex={0} aria-label={t('Model scope task')} className='flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-5 [overflow-wrap:anywhere] sm:px-6'>
 
         {!currentScope && !scopeQuery.isError && (
           <div role='status' className='flex flex-col gap-3'>
@@ -359,7 +361,7 @@ function ModelScopeSession(props: ModelScopeSessionProps) {
                 disabled={scopeQuery.isFetching}
                 onClick={() => void scopeQuery.refetch()}
               >
-                <RotateCcw data-icon='inline-start' />
+                <HugeiconsIcon icon={Refresh01Icon} data-icon='inline-start' />
                 {t('Retry')}
               </Button>
             </AlertDescription>
@@ -493,7 +495,7 @@ function ModelScopeSession(props: ModelScopeSessionProps) {
                                 if (!needsReadback) setSaveError(null)
                               }}
                             >
-                              <X aria-hidden='true' />
+                              <HugeiconsIcon icon={Cancel01Icon} aria-hidden='true' />
                             </Button>
                           )}
                         </div>
@@ -549,7 +551,7 @@ function ModelScopeSession(props: ModelScopeSessionProps) {
                     )}
                     {candidates.length > 0 && (
                       <div
-                        className='flex max-h-48 min-w-0 flex-col gap-1 overflow-y-auto rounded-lg border p-1'
+                        className='flex min-w-0 flex-col gap-1 rounded-lg border p-1'
                         aria-label={t('Current model catalog suggestions')}
                       >
                         {candidates.map((model) => (
@@ -557,7 +559,7 @@ function ModelScopeSession(props: ModelScopeSessionProps) {
                             key={model}
                             type='button'
                             variant='ghost'
-                            className='h-auto min-h-10 justify-start whitespace-normal'
+                            className='h-auto min-h-11 justify-start whitespace-normal'
                             onClick={() => {
                               setDraft({
                                 ...draft,
@@ -566,7 +568,7 @@ function ModelScopeSession(props: ModelScopeSessionProps) {
                               if (!needsReadback) setSaveError(null)
                             }}
                           >
-                            <Plus data-icon='inline-start' />
+                            <HugeiconsIcon icon={PlusSignIcon} data-icon='inline-start' />
                             <span className='text-left font-mono break-all'>
                               {model}
                             </span>
@@ -599,7 +601,7 @@ function ModelScopeSession(props: ModelScopeSessionProps) {
 
             {draft.mode === 'blocked' && dirty && (
               <Alert variant='destructive'>
-                <AlertTriangle aria-hidden='true' />
+                <HugeiconsIcon icon={Alert02Icon} aria-hidden='true' />
                 <AlertTitle>{t('Confirm blocking all models')}</AlertTitle>
                 <AlertDescription className='mt-2'>
                   <Label className='flex cursor-pointer items-start gap-2'>
@@ -657,7 +659,8 @@ function ModelScopeSession(props: ModelScopeSessionProps) {
           </FieldGroup>
         )}
 
-        <DialogFooter>
+        </section>
+        <DialogFooter role='group' aria-label={t('Actions')} className='m-0 shrink-0 flex-row flex-wrap justify-end rounded-none px-4 py-4 sm:px-6'>
           <Button
             type='button'
             variant='outline'
@@ -668,7 +671,7 @@ function ModelScopeSession(props: ModelScopeSessionProps) {
           </Button>
           <Button type='button' disabled={!canSave} onClick={() => void save()}>
             {saving ? t('Saving...') : t('Save model scope')}
-            {!saving && <Check data-icon='inline-end' />}
+            {!saving && <HugeiconsIcon icon={Tick02Icon} data-icon='inline-end' />}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -7,6 +7,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -171,10 +172,10 @@ function TokenBudgetSession(props: {
       }}
     >
       <DialogContent
-        className='max-h-[85dvh] min-w-0 overflow-y-auto sm:max-w-xl'
+        className='flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[90dvh] sm:max-w-xl sm:rounded-xl [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=native-select]]:min-h-11 [&_[data-slot=checkbox]]:after:-inset-3.5 [&_[data-slot=radio-group-item]]:after:-inset-3.5 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'
         showCloseButton={!mutation.isPending}
       >
-        <DialogHeader>
+        <DialogHeader className='min-w-0 shrink-0 border-b px-4 py-4 pr-16 sm:px-6 sm:pr-16'>
           <DialogTitle className='pr-12'>
             {t('API Key usage budgets')}
           </DialogTitle>
@@ -184,6 +185,7 @@ function TokenBudgetSession(props: {
             )}
           </DialogDescription>
         </DialogHeader>
+        <section role='region' tabIndex={0} aria-label={t('Usage budget task')} className='flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-5 [overflow-wrap:anywhere] sm:px-6'>
         <section
           aria-label={t('Budget types and scope')}
           className='flex min-w-0 flex-col gap-2 rounded-md border p-3 text-sm'
@@ -468,8 +470,10 @@ function TokenBudgetSession(props: {
             )}
           </p>
         )}
-        <div className='flex flex-wrap justify-end gap-2'>
+        </section>
+        <DialogFooter role='group' aria-label={t('Actions')} className='m-0 shrink-0 flex-row flex-wrap justify-end rounded-none px-4 py-4 sm:px-6'>
           <Button
+            className='min-h-11'
             variant='outline'
             disabled={busy || locked}
             onClick={() => {
@@ -480,6 +484,7 @@ function TokenBudgetSession(props: {
             {t('Refresh')}
           </Button>
           <Button
+            className='min-h-11'
             variant='outline'
             disabled={mutation.isPending}
             onClick={() => {
@@ -488,7 +493,7 @@ function TokenBudgetSession(props: {
           >
             {t('Close')}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

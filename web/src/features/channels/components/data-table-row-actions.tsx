@@ -175,7 +175,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   }
 
   return (
-    <div className='flex min-w-0 flex-wrap items-center gap-1' data-row-actions='' onClick={(event) => event.stopPropagation()}>
+    <div className='flex min-w-0 flex-wrap items-center gap-1' data-row-actions='' data-channel-actions={String(channel.id)} onClick={(event) => event.stopPropagation()}>
       <Link to='/connections/$connectionId' params={{ connectionId: String(channel.id) }} search={{ connectionReturn }} state={{ inspectorBack: true }} onClick={() => rememberFocus('data-connection-link', channel.id)} className='text-primary rounded-md px-2 py-1 text-sm underline-offset-4 hover:underline focus-visible:underline'>
         {t('View')}
       </Link>
@@ -191,6 +191,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
                   handleEdit()
                 }}
                 aria-label={t('Edit')}
+                data-channel-edit={String(channel.id)}
                 disabled={!canWrite}
               />
             }

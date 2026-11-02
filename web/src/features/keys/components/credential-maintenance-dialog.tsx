@@ -7,14 +7,8 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { useQuery } from '@tanstack/react-query'
-import {
-  AlertTriangle,
-  ArrowRight,
-  CheckCircle2,
-  KeyRound,
-  RefreshCw,
-  ShieldCheck,
-} from 'lucide-react'
+import { Alert02Icon, ArrowRight01Icon, CheckmarkCircle02Icon, Key01Icon, Refresh01Icon, Shield01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -538,12 +532,12 @@ function CredentialMaintenanceSession(props: {
         <DialogContent
           ref={dialogRef}
           initialFocus={dialogRef}
-          className='max-h-[calc(100dvh-10rem-env(safe-area-inset-bottom))] min-w-0 overflow-y-auto sm:max-h-[90dvh] sm:max-w-3xl'
+          className='flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[90dvh] sm:max-w-3xl sm:rounded-xl [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=native-select]]:min-h-11 [&_[data-slot=checkbox]]:after:-inset-3.5 [&_[data-slot=radio-group-item]]:after:-inset-3.5 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'
           showCloseButton={phase !== 'submitting'}
         >
-          <DialogHeader className='min-w-0 pr-10'>
+          <DialogHeader className='min-w-0 shrink-0 border-b px-4 py-4 pr-16 sm:px-6 sm:pr-16'>
             <DialogTitle className='flex min-w-0 items-center gap-2 break-words'>
-              <KeyRound className='text-primary shrink-0' aria-hidden='true' />
+              <HugeiconsIcon icon={Key01Icon} className='text-primary shrink-0' aria-hidden='true' />
               {t('Credential maintenance')}
             </DialogTitle>
             <DialogDescription>
@@ -552,6 +546,7 @@ function CredentialMaintenanceSession(props: {
               )}
             </DialogDescription>
           </DialogHeader>
+        <section role='region' tabIndex={0} aria-label={t('Credential maintenance task')} className='flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-5 [overflow-wrap:anywhere] sm:px-6'>
 
           {maintenance.isPending && (
             <div role='status' className='flex flex-col gap-3'>
@@ -578,7 +573,7 @@ function CredentialMaintenanceSession(props: {
                   disabled={maintenance.isFetching}
                   onClick={() => void maintenance.refetch()}
                 >
-                  <RefreshCw data-icon='inline-start' aria-hidden='true' />
+                  <HugeiconsIcon icon={Refresh01Icon} data-icon='inline-start' aria-hidden='true' />
                   {t('Retry')}
                 </Button>
               </AlertDescription>
@@ -652,7 +647,7 @@ function CredentialMaintenanceSession(props: {
                       name={data.migration.source.channel_name}
                       subject={redactedHint(data.migration.source.subject_hint)}
                     />
-                    <ArrowRight
+                    <HugeiconsIcon icon={ArrowRight01Icon}
                       className='text-muted-foreground hidden sm:block'
                       aria-hidden='true'
                     />
@@ -675,7 +670,7 @@ function CredentialMaintenanceSession(props: {
                 )}
                 {missingSourceWindows && (
                   <Alert>
-                    <AlertTriangle aria-hidden='true' />
+                    <HugeiconsIcon icon={Alert02Icon} aria-hidden='true' />
                     <AlertTitle>{t('No allocated source windows')}</AlertTitle>
                     <AlertDescription>
                       {t(
@@ -757,7 +752,7 @@ function CredentialMaintenanceSession(props: {
                                   {t('Share')}: {source.share_bps / 100}%
                                 </p>
                               </div>
-                              <ArrowRight
+                              <HugeiconsIcon icon={ArrowRight01Icon}
                                 className='text-muted-foreground hidden sm:block'
                                 aria-hidden='true'
                               />
@@ -934,7 +929,7 @@ function CredentialMaintenanceSession(props: {
                             variant='outline'
                             onClick={reloadCurrentState}
                           >
-                            <RefreshCw
+                            <HugeiconsIcon icon={Refresh01Icon}
                               data-icon='inline-start'
                               aria-hidden='true'
                             />
@@ -958,7 +953,7 @@ function CredentialMaintenanceSession(props: {
                       {phase === 'verifying' || phase === 'submitting' ? (
                         <Spinner data-icon='inline-start' />
                       ) : (
-                        <ShieldCheck
+                        <HugeiconsIcon icon={Shield01Icon}
                           data-icon='inline-start'
                           aria-hidden='true'
                         />
@@ -972,7 +967,7 @@ function CredentialMaintenanceSession(props: {
 
                 {(phase === 'unknown' || phase === 'recovering') && (
                   <Alert>
-                    <AlertTriangle aria-hidden='true' />
+                    <HugeiconsIcon icon={Alert02Icon} aria-hidden='true' />
                     <AlertTitle>{t('Migration result is unknown')}</AlertTitle>
                     <AlertDescription className='flex flex-col items-start gap-3'>
                       <span>
@@ -990,7 +985,7 @@ function CredentialMaintenanceSession(props: {
                           {receiptChecking ? (
                             <Spinner data-icon='inline-start' />
                           ) : (
-                            <RefreshCw
+                            <HugeiconsIcon icon={Refresh01Icon}
                               data-icon='inline-start'
                               aria-hidden='true'
                             />
@@ -1004,7 +999,7 @@ function CredentialMaintenanceSession(props: {
                           variant='outline'
                           onClick={reloadCurrentState}
                         >
-                          <RefreshCw
+                          <HugeiconsIcon icon={Refresh01Icon}
                             data-icon='inline-start'
                             aria-hidden='true'
                           />
@@ -1017,7 +1012,7 @@ function CredentialMaintenanceSession(props: {
 
                 {receipt && phase === 'committed' && (
                   <Alert>
-                    <CheckCircle2 aria-hidden='true' />
+                    <HugeiconsIcon icon={CheckmarkCircle02Icon} aria-hidden='true' />
                     <AlertTitle>{t('Account migration committed')}</AlertTitle>
                     <AlertDescription>
                       <p>
@@ -1040,10 +1035,12 @@ function CredentialMaintenanceSession(props: {
             </div>
           )}
 
-          <DialogFooter>
+          </section>
+        <DialogFooter role='group' aria-label={t('Actions')} className='m-0 shrink-0 flex-row flex-wrap justify-end rounded-none px-4 py-4 sm:px-6'>
             <Button
               type='button'
               variant='outline'
+              className='min-h-11'
               disabled={phase === 'submitting'}
               onClick={close}
             >

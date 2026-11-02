@@ -24,7 +24,10 @@ import React, {
   useState,
   useCallback,
   useMemo,
+  useRef,
 } from 'react'
+
+import { useAuthStore } from '@/stores/auth-store'
 
 import { useChannelUpstreamUpdates } from '../hooks/use-channel-upstream-updates'
 import { channelsQueryKeys } from '../lib'
@@ -65,6 +68,7 @@ type ChannelsContextType = {
   sensitiveVisible: boolean
   setSensitiveVisible: (visible: boolean) => void
   upstream: UpstreamUpdateState
+  returnFocus: () => HTMLElement | null
 }
 
 // ============================================================================
@@ -80,7 +84,32 @@ const ChannelsContext = createContext<ChannelsContextType | undefined>(
 // ============================================================================
 
 export function ChannelsProvider({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState<DialogType>(null)
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
+  return <ChannelsSessionProvider key={identity} identity={identity}>{children}</ChannelsSessionProvider>
+}
+
+function ChannelsSessionProvider({ children, identity }: { children: React.ReactNode; identity: string }) {
+  const [open, setOpenState] = useState<DialogType>(null)
+  const opener = useRef<{ node: HTMLElement | null; id: string | null; edit: boolean } | null>(null)
+  const setOpen = useCallback((next: DialogType) => {
+    if (next !== null) {
+      const focused = document.activeElement instanceof HTMLElement ? document.activeElement : null
+      const popupTrigger = document.querySelector<HTMLElement>('[data-channel-actions] button[data-popup-open]')
+      const node = focused?.getAttribute('role') === 'menuitem' ? popupTrigger : focused
+      const container = node?.closest<HTMLElement>('[data-channel-actions]')
+      opener.current = { node, id: container?.dataset.channelActions ?? null, edit: Boolean(node?.hasAttribute('data-channel-edit')) }
+    }
+    setOpenState(next)
+  }, [])
+  const returnFocus = useCallback(() => {
+    const { auth } = useAuthStore.getState()
+    if (identity !== `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`) return null
+    const action = opener.current
+    if (action?.node?.isConnected) return action.node
+    if (!action?.id) return null
+    const container = [...document.querySelectorAll<HTMLElement>('[data-channel-actions]')].find((element) => element.dataset.channelActions === action.id)
+    return container?.querySelector<HTMLElement>(action.edit ? '[data-channel-edit]' : 'button[aria-haspopup]') ?? null
+  }, [identity])
   const [currentRow, setCurrentRow] = useState<Channel | null>(null)
   const [currentTag, setCurrentTag] = useState<string | null>(null)
   const [enableTagMode, setEnableTagMode] = useState(() => {
@@ -118,6 +147,7 @@ export function ChannelsProvider({ children }: { children: React.ReactNode }) {
       sensitiveVisible,
       setSensitiveVisible,
       upstream,
+      returnFocus,
     }),
     [
       open,
@@ -128,6 +158,8 @@ export function ChannelsProvider({ children }: { children: React.ReactNode }) {
       batchMode,
       sensitiveVisible,
       upstream,
+      setOpen,
+      returnFocus,
     ]
   )
 

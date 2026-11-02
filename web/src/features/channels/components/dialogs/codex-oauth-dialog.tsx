@@ -16,13 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import {
-  Check,
-  ClipboardPaste,
-  Copy,
-  ExternalLink,
-  Loader2,
-} from 'lucide-react'
+import { Copy01Icon, LinkSquare02Icon, Loading03Icon, Tick02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -38,10 +33,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 
 import { completeCodexOAuth, startCodexOAuth } from '../../api'
 import type { AddChannelRequest } from '../../types'
+import { useChannelTask } from '../../hooks/use-channel-task'
 
 type CodexOAuthDialogProps = {
   open: boolean
@@ -49,6 +46,7 @@ type CodexOAuthDialogProps = {
   channelId?: number
   getCreatePayload?: () => Promise<AddChannelRequest | null>
   onCredentialSaved?: () => void
+  returnFocus?: () => HTMLElement | null
 }
 
 const INITIAL_STATE = {
@@ -62,17 +60,23 @@ export function CodexOAuthDialog(props: CodexOAuthDialogProps) {
   const { t } = useTranslation()
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const [state, setState] = useState(INITIAL_STATE)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const task = useChannelTask(props.open, props.channelId)
 
   useEffect(() => {
-    if (!props.open) setState(INITIAL_STATE)
-  }, [props.open])
+    setState(INITIAL_STATE)
+    setActionError(null)
+  }, [props.open, props.channelId, task.identity])
 
   const canComplete = useMemo(
-    () => Boolean(state.callbackUrl.trim()) && !state.isCompleting,
-    [state.callbackUrl, state.isCompleting]
+    () => Boolean(state.callbackUrl.trim()) && !state.isCompleting && !state.isStarting,
+    [state.callbackUrl, state.isCompleting, state.isStarting]
   )
 
   const handleStart = async () => {
+    const operation = task.begin()
+    if (!operation) return
+    setActionError(null)
     setState((previous) => ({ ...previous, isStarting: true }))
     try {
       if (!props.channelId && !(await props.getCreatePayload?.())) {
@@ -80,7 +84,9 @@ export function CodexOAuthDialog(props: CodexOAuthDialogProps) {
           t('Complete the required channel fields before import.')
         )
       }
+      if (!operation.isCurrent()) return
       const response = await startCodexOAuth(props.channelId)
+      if (!operation.isCurrent()) return
       if (!response.success) {
         throw new Error(response.message || t('Failed to start Codex login'))
       }
@@ -95,23 +101,29 @@ export function CodexOAuthDialog(props: CodexOAuthDialogProps) {
         toast.info(t('Copy and open the authorization link'))
       }
     } catch (error) {
+      if (!operation.isCurrent()) return
+      setActionError(error instanceof Error ? error.message : t('Failed to start Codex login'))
       toast.error(
         error instanceof Error ? error.message : t('Codex login failed')
       )
     } finally {
-      setState((previous) => ({ ...previous, isStarting: false }))
+      if (operation.isCurrent()) setState((previous) => ({ ...previous, isStarting: false }))
+      operation.finish()
     }
   }
 
   const pasteCallbackFromClipboard = async () => {
+    const operation = task.capture()
     try {
       const callbackUrl = await navigator.clipboard.readText()
+      if (!operation.isCurrent()) return
       if (!callbackUrl.trim()) throw new Error(t('Clipboard is empty'))
       setState((previous) => ({
         ...previous,
         callbackUrl: callbackUrl.trim(),
       }))
     } catch (error) {
+      if (!operation.isCurrent()) return
       toast.error(
         error instanceof Error ? error.message : t('Unable to read clipboard')
       )
@@ -121,6 +133,9 @@ export function CodexOAuthDialog(props: CodexOAuthDialogProps) {
   const handleComplete = async () => {
     const input = state.callbackUrl.trim()
     if (!input) return
+    const operation = task.begin()
+    if (!operation) return
+    setActionError(null)
     setState((previous) => ({ ...previous, isCompleting: true }))
     try {
       const create = props.channelId
@@ -131,11 +146,13 @@ export function CodexOAuthDialog(props: CodexOAuthDialogProps) {
           t('Complete the required channel fields before import.')
         )
       }
+      if (!operation.isCurrent()) return
       const response = await completeCodexOAuth(
         input,
         props.channelId,
         create ?? undefined
       )
+      if (!operation.isCurrent()) return
       if (!response.success) {
         throw new Error(response.message || t('Codex authorization failed'))
       }
@@ -144,18 +161,21 @@ export function CodexOAuthDialog(props: CodexOAuthDialogProps) {
       toast.success(t('Codex credential saved'))
       props.onOpenChange(false)
     } catch (error) {
+      if (!operation.isCurrent()) return
+      setActionError(error instanceof Error ? error.message : t('Codex authorization failed'))
       toast.error(
         error instanceof Error ? error.message : t('Codex authorization failed')
       )
     } finally {
-      setState((previous) => ({ ...previous, isCompleting: false }))
+      if (operation.isCurrent()) setState((previous) => ({ ...previous, isCompleting: false }))
+      operation.finish()
     }
   }
 
   return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className='sm:max-w-2xl'>
-        <DialogHeader>
+    <Dialog open={props.open} onOpenChange={(next) => { if (!task.isPending()) props.onOpenChange(next) }}>
+      <DialogContent finalFocus={props.returnFocus} showCloseButton={!state.isStarting && !state.isCompleting} className='flex h-dvh max-h-dvh w-screen max-w-none flex-col overflow-hidden sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-2xl [&_button]:min-h-11 [&_button]:min-w-11 [&_input]:min-h-11'>
+        <DialogHeader className='shrink-0 text-start'>
           <DialogTitle>{t('Sign in to Codex with ChatGPT')}</DialogTitle>
           <DialogDescription>
             {props.channelId
@@ -164,7 +184,8 @@ export function CodexOAuthDialog(props: CodexOAuthDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className='space-y-4'>
+        <div className='min-h-0 space-y-4 overflow-y-auto overscroll-contain'>
+          {actionError ? <div role='alert' className='text-destructive text-sm break-words'>{actionError}</div> : null}
           <Alert>
             <AlertDescription>
               {t(
@@ -177,12 +198,12 @@ export function CodexOAuthDialog(props: CodexOAuthDialogProps) {
             <Button
               type='button'
               onClick={handleStart}
-              disabled={state.isStarting}
+              disabled={state.isStarting || state.isCompleting}
             >
               {state.isStarting ? (
-                <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='mr-2 h-4 w-4 animate-spin' />
               ) : (
-                <ExternalLink className='mr-2 h-4 w-4' />
+                <HugeiconsIcon icon={LinkSquare02Icon} aria-hidden='true' className='mr-2 h-4 w-4' />
               )}
               {t('Open ChatGPT login')}
             </Button>
@@ -193,18 +214,20 @@ export function CodexOAuthDialog(props: CodexOAuthDialogProps) {
               onClick={() => copyToClipboard(state.authorizeUrl)}
             >
               {copiedText === state.authorizeUrl ? (
-                <Check className='mr-2 h-4 w-4 text-green-600' />
+                <HugeiconsIcon icon={Tick02Icon} aria-hidden='true' className='mr-2 h-4 w-4 text-green-600' />
               ) : (
-                <Copy className='mr-2 h-4 w-4' />
+                <HugeiconsIcon icon={Copy01Icon} aria-hidden='true' className='mr-2 h-4 w-4' />
               )}
               {t('Copy login link')}
             </Button>
           </div>
 
           <div className='space-y-2'>
-            <div className='text-sm font-medium'>{t('Callback URL')}</div>
-            <div className='flex gap-2'>
+            <Label htmlFor='codex-oauth-callback'>{t('Callback URL')}</Label>
+            <div className='flex min-w-0 gap-2'>
               <Input
+                id='codex-oauth-callback'
+                disabled={state.isStarting || state.isCompleting}
                 value={state.callbackUrl}
                 onChange={(event) =>
                   setState((previous) => ({
@@ -220,15 +243,17 @@ export function CodexOAuthDialog(props: CodexOAuthDialogProps) {
                 type='button'
                 variant='outline'
                 onClick={pasteCallbackFromClipboard}
+                disabled={state.isStarting || state.isCompleting}
+                aria-label={t('Paste from clipboard')}
                 title={t('Paste from clipboard')}
               >
-                <ClipboardPaste className='h-4 w-4' />
+                <HugeiconsIcon icon={Copy01Icon} aria-hidden='true' className='h-4 w-4' />
               </Button>
             </div>
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className='shrink-0 border-t pt-4'>
           <Button
             type='button'
             variant='outline'
@@ -243,7 +268,7 @@ export function CodexOAuthDialog(props: CodexOAuthDialogProps) {
             disabled={!canComplete}
           >
             {state.isCompleting && (
-              <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+              <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='mr-2 h-4 w-4 animate-spin' />
             )}
             {state.isCompleting ? t('Authorizing...') : t('Complete login')}
           </Button>

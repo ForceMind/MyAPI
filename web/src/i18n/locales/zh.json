@@ -7370,6 +7370,13 @@
     "Please try again.": "请重试。",
     "Copy model name \"{{name}}\"": "复制模型名称“{{name}}”",
     "Configure model \"{{name}}\"": "配置模型“{{name}}”",
-    "Missing models pagination": "缺失模型分页"
+    "Missing models pagination": "缺失模型分页",
+    "Model mapping {{number}}": "模型映射 {{number}}",
+    "Usage budget task": "用量预算任务",
+    "Model scope task": "模型范围任务",
+    "Credential maintenance task": "凭据维护任务",
+    "Credential rotation task": "凭据轮换任务",
+    "CC Switch import task": "CC Switch 导入任务",
+    "Unable to load available models": "无法加载可用模型"
   }
 }

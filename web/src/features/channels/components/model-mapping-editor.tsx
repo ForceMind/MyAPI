@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Code, Plus, Table, Trash2 } from 'lucide-react'
+import { CodeIcon, DashboardSquare01Icon, Delete02Icon, PlusSignIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -24,6 +25,7 @@ import { JsonCodeEditor } from '@/components/json-code-editor'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 type ModelMappingEditorProps = {
@@ -225,14 +227,14 @@ export function ModelMappingEditor(props: ModelMappingEditorProps) {
   return (
     <div className='space-y-2'>
       <Tabs value={mode} onValueChange={handleModeChange} className='space-y-2'>
-        <div className='flex items-center justify-between gap-3'>
-          <TabsList>
-            <TabsTrigger value='visual'>
-              <Table className='h-4 w-4' aria-hidden='true' />
+        <div className='flex flex-wrap items-center justify-between gap-3'>
+          <TabsList className='h-auto min-h-11'>
+            <TabsTrigger value='visual' className='min-h-11'>
+              <HugeiconsIcon icon={DashboardSquare01Icon} className='h-4 w-4' aria-hidden='true' />
               {t('Visual')}
             </TabsTrigger>
-            <TabsTrigger value='json'>
-              <Code className='h-4 w-4' aria-hidden='true' />
+            <TabsTrigger value='json' className='min-h-11'>
+              <HugeiconsIcon icon={CodeIcon} className='h-4 w-4' aria-hidden='true' />
               {t('JSON')}
             </TabsTrigger>
           </TabsList>
@@ -240,7 +242,7 @@ export function ModelMappingEditor(props: ModelMappingEditorProps) {
             type='button'
             variant='link'
             size='sm'
-            className='h-auto p-0'
+            className='h-auto min-h-11 px-2 py-2 whitespace-normal'
             onClick={handleFillTemplate}
             disabled={props.disabled}
           >
@@ -267,46 +269,52 @@ export function ModelMappingEditor(props: ModelMappingEditorProps) {
         <TabsContent value='visual' className='space-y-2'>
           {rows.length > 0 ? (
             <div className='space-y-2'>
-              <div className='grid grid-cols-[1fr_1fr_auto] gap-2 text-sm font-medium'>
-                <div>{t('Original Model')}</div>
-                <div>{t('Replacement Model')}</div>
-                <div className='w-10' />
-              </div>
-              {rows.map((row) => (
-                <div
+              {rows.map((row, index) => (
+                <fieldset
                   key={row.id}
-                  className='grid grid-cols-[1fr_1fr_auto] gap-2'
+                  className='grid min-w-0 grid-cols-1 gap-3 rounded-lg border p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]'
                 >
-                  <Input
-                    value={row.from}
-                    onChange={(e) =>
-                      handleRowChange(row.id, 'from', e.target.value)
-                    }
-                    placeholder='gpt-3.5-turbo'
-                    disabled={props.disabled}
-                    list={sourceListId}
-                  />
-                  <Input
-                    value={row.to}
-                    onChange={(e) =>
-                      handleRowChange(row.id, 'to', e.target.value)
-                    }
-                    placeholder='gpt-3.5-turbo-0125'
-                    disabled={props.disabled}
-                    list={targetListId}
-                  />
+                  <legend className='sr-only'>{t('Model mapping {{number}}', { number: index + 1 })}</legend>
+                  <div className='min-w-0 space-y-2'>
+                    <Label htmlFor={`${sourceListId}-${row.id}`}>{t('Original Model')}</Label>
+                    <Input
+                      id={`${sourceListId}-${row.id}`}
+                      className='min-h-11'
+                      value={row.from}
+                      onChange={(e) =>
+                        handleRowChange(row.id, 'from', e.target.value)
+                      }
+                      placeholder='gpt-3.5-turbo'
+                      disabled={props.disabled}
+                      list={sourceListId}
+                    />
+                  </div>
+                  <div className='min-w-0 space-y-2'>
+                    <Label htmlFor={`${targetListId}-${row.id}`}>{t('Replacement Model')}</Label>
+                    <Input
+                      id={`${targetListId}-${row.id}`}
+                      className='min-h-11'
+                      value={row.to}
+                      onChange={(e) =>
+                        handleRowChange(row.id, 'to', e.target.value)
+                      }
+                      placeholder='gpt-3.5-turbo-0125'
+                      disabled={props.disabled}
+                      list={targetListId}
+                    />
+                  </div>
                   <Button
                     type='button'
                     variant='ghost'
                     size='icon'
                     onClick={() => handleDeleteRow(row.id)}
                     disabled={props.disabled}
-                    className='h-10 w-10'
+                    className='text-destructive min-h-11 min-w-11 justify-self-end sm:self-end'
                     aria-label={t('Delete mapping')}
                   >
-                    <Trash2 className='h-4 w-4' aria-hidden='true' />
+                    <HugeiconsIcon icon={Delete02Icon} className='h-4 w-4' aria-hidden='true' />
                   </Button>
-                </div>
+                </fieldset>
               ))}
             </div>
           ) : (
@@ -322,9 +330,9 @@ export function ModelMappingEditor(props: ModelMappingEditorProps) {
             size='sm'
             onClick={handleAddRow}
             disabled={props.disabled}
-            className='w-full'
+            className='min-h-11 w-full'
           >
-            <Plus className='mr-2 h-4 w-4' />
+            <HugeiconsIcon icon={PlusSignIcon} className='mr-2 h-4 w-4' aria-hidden='true' />
             {t('Add Mapping')}
           </Button>
         </TabsContent>

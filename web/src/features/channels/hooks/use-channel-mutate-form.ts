@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -36,6 +36,7 @@ import {
   resolveChannelOperationAttempt,
   notifyChannelMutationSuccess,
   type ChannelFormValues,
+  channelsQueryKeys,
 } from '../lib'
 import { isModelRouteConfigChanged } from '../lib/channel-form-errors'
 import type { Channel, ChannelMutationResponse } from '../types'
@@ -45,6 +46,7 @@ type UseChannelMutateFormParams = {
   isEditing: boolean
   isMultiKeyChannel: boolean
   onSuccess: (response: ChannelMutationResponse<unknown>) => void
+  captureResultGuard?: () => () => boolean
 }
 
 const SENSITIVE_UPDATE_FIELDS = [
@@ -86,6 +88,7 @@ function getErrorMessage(error: unknown): string | undefined {
 
 export function useChannelMutateForm(props: UseChannelMutateFormParams) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const createOperationRef = useRef<{
     fingerprint: string
     operationKey: string
@@ -98,6 +101,7 @@ export function useChannelMutateForm(props: UseChannelMutateFormParams) {
   )
 
   return useMutation({
+    onMutate: () => ({ isCurrent: props.captureResultGuard?.(), channelId: props.currentRow?.id }),
     mutationFn: async (
       data: ChannelFormValues
     ): Promise<{
@@ -152,11 +156,17 @@ export function useChannelMutateForm(props: UseChannelMutateFormParams) {
       createOperationRef.current = null
       return { messageKey: SUCCESS_MESSAGES.CREATED, response }
     },
-    onSuccess: ({ messageKey, response }) => {
+    onSuccess: ({ messageKey, response }, _variables, context) => {
+      if (context?.isCurrent && !context.isCurrent()) {
+        queryClient.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
+        if (context.channelId !== undefined) queryClient.invalidateQueries({ queryKey: channelsQueryKeys.detail(context.channelId) })
+        return
+      }
       notifyChannelMutationSuccess(response, t(messageKey))
       props.onSuccess(response)
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, _variables, context) => {
+      if (context?.isCurrent && !context.isCurrent()) return
       if (isModelRouteConfigChanged(error)) {
         toast.error(
           t(

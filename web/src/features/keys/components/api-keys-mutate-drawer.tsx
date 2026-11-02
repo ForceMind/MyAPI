@@ -525,7 +525,7 @@ export function ApiKeysMutateDrawer({
       }}
     >
       <SheetContent
-        className={sideDrawerContentClassName('max-w-none sm:!max-w-[620px]')}
+        className={sideDrawerContentClassName('max-w-none sm:!max-w-[620px] [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=native-select]]:min-h-11 [&_[data-slot=checkbox]]:after:-inset-3.5 [&_[data-slot=radio-group-item]]:after:-inset-3.5 [&_[data-slot=sheet-close]]:min-h-11 [&_[data-slot=sheet-close]]:min-w-11')}
       >
         <SheetHeader className={sideDrawerHeaderClassName()}>
           <SheetTitle>
@@ -702,7 +702,7 @@ export function ApiKeysMutateDrawer({
                           type='button'
                           variant='outline'
                           size='sm'
-                          className='h-auto min-h-8 min-w-0 px-2 py-2 text-xs wrap-anywhere whitespace-normal sm:px-3 sm:text-sm pointer-coarse:min-h-11'
+                          className='h-auto min-h-11 min-w-0 px-2 py-2 text-xs wrap-anywhere whitespace-normal sm:px-3 sm:text-sm'
                           onClick={() => handleSetExpiry(0, 0, 0)}
                         >
                           {t('Never')}
@@ -711,7 +711,7 @@ export function ApiKeysMutateDrawer({
                           type='button'
                           variant='outline'
                           size='sm'
-                          className='h-auto min-h-8 min-w-0 px-2 py-2 text-xs wrap-anywhere whitespace-normal sm:px-3 sm:text-sm pointer-coarse:min-h-11'
+                          className='h-auto min-h-11 min-w-0 px-2 py-2 text-xs wrap-anywhere whitespace-normal sm:px-3 sm:text-sm'
                           onClick={() => handleSetExpiry(1, 0, 0)}
                         >
                           {t('1 Month')}
@@ -720,7 +720,7 @@ export function ApiKeysMutateDrawer({
                           type='button'
                           variant='outline'
                           size='sm'
-                          className='h-auto min-h-8 min-w-0 px-2 py-2 text-xs wrap-anywhere whitespace-normal sm:px-3 sm:text-sm pointer-coarse:min-h-11'
+                          className='h-auto min-h-11 min-w-0 px-2 py-2 text-xs wrap-anywhere whitespace-normal sm:px-3 sm:text-sm'
                           onClick={() => handleSetExpiry(0, 1, 0)}
                         >
                           {t('1 Day')}
@@ -729,7 +729,7 @@ export function ApiKeysMutateDrawer({
                           type='button'
                           variant='outline'
                           size='sm'
-                          className='h-auto min-h-8 min-w-0 px-2 py-2 text-xs wrap-anywhere whitespace-normal sm:px-3 sm:text-sm pointer-coarse:min-h-11'
+                          className='h-auto min-h-11 min-w-0 px-2 py-2 text-xs wrap-anywhere whitespace-normal sm:px-3 sm:text-sm'
                           onClick={() => handleSetExpiry(0, 0, 1)}
                         >
                           {t('1 Hour')}
@@ -883,7 +883,7 @@ export function ApiKeysMutateDrawer({
                             <p className='text-muted-foreground text-xs font-medium'>
                               {t('Stored model IDs')}
                             </p>
-                            <div className='bg-background mt-1 max-h-32 overflow-y-auto rounded-md border px-2.5 py-2'>
+                            <div className='bg-background mt-1 rounded-md border px-2.5 py-2'>
                               <p className='font-mono text-xs break-all whitespace-pre-wrap'>
                                 {displayedModelScope.models}
                               </p>
@@ -965,7 +965,7 @@ export function ApiKeysMutateDrawer({
             render={
               <Button
                 variant='outline'
-                className='h-auto min-h-9 w-full min-w-0 py-2 wrap-anywhere whitespace-normal sm:w-auto pointer-coarse:min-h-11'
+                className='h-auto min-h-11 w-full min-w-0 py-2 wrap-anywhere whitespace-normal sm:w-auto'
               />
             }
           >
@@ -975,7 +975,7 @@ export function ApiKeysMutateDrawer({
             type='button'
             onClick={form.handleSubmit(onSubmit, onInvalid)}
             disabled={!isFormInitialized || isSubmitting}
-            className='h-auto min-h-9 w-full min-w-0 py-2 wrap-anywhere whitespace-normal sm:w-auto pointer-coarse:min-h-11'
+            className='h-auto min-h-11 w-full min-w-0 py-2 wrap-anywhere whitespace-normal sm:w-auto'
           >
             {isSubmitting ? t('Saving...') : t('Save changes')}
           </Button>

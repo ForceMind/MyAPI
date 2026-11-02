@@ -29,7 +29,7 @@ import { UpstreamUpdateDialog } from './dialogs/upstream-update-dialog'
 import { ChannelMutateDrawer } from './drawers/channel-mutate-drawer'
 
 export function ChannelsDialogs() {
-  const { open, setOpen, currentRow, upstream } = useChannels()
+  const { open, setOpen, currentRow, upstream, returnFocus } = useChannels()
 
   return (
     <>
@@ -38,6 +38,7 @@ export function ChannelsDialogs() {
         open={open === 'create-channel' || open === 'update-channel'}
         onOpenChange={(v) => !v && setOpen(null)}
         currentRow={open === 'update-channel' ? currentRow : null}
+        returnFocus={returnFocus}
       />
 
       {/* Test Channel Dialog */}
@@ -74,6 +75,7 @@ export function ChannelsDialogs() {
       <MultiKeyManageDialog
         open={open === 'multi-key-manage'}
         onOpenChange={(v) => !v && setOpen(null)}
+        returnFocus={returnFocus}
       />
 
       {/* Tag Batch Edit Dialog */}

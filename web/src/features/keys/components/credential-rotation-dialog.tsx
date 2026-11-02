@@ -6,16 +6,8 @@ it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Copy,
-  Eye,
-  EyeOff,
-  RefreshCw,
-  RotateCw,
-  ShieldCheck,
-} from 'lucide-react'
+import { Alert02Icon, CheckmarkCircle02Icon, Copy01Icon, Refresh01Icon, Shield01Icon, ViewIcon, ViewOffIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -68,7 +60,7 @@ type RotationPhase =
   | 'committed'
 
 const mobileActionClass =
-  'h-auto min-h-9 w-full min-w-0 whitespace-normal sm:w-auto'
+  'h-auto min-h-11 w-full min-w-0 whitespace-normal sm:w-auto'
 
 export function CredentialRotationDialog(props: {
   open: boolean
@@ -484,16 +476,16 @@ export function CredentialRotationDialog(props: {
     <>
       <Dialog open={props.open} onOpenChange={(open) => !open && close()}>
         <DialogContent
-          className='max-h-[calc(100dvh-3rem-env(safe-area-inset-bottom))] min-w-0 overflow-y-auto sm:max-h-[90dvh] sm:max-w-xl'
+          className='flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[90dvh] sm:max-w-xl sm:rounded-xl [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=native-select]]:min-h-11 [&_[data-slot=checkbox]]:after:-inset-3.5 [&_[data-slot=radio-group-item]]:after:-inset-3.5 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'
           showCloseButton={
             phase !== 'submitting' &&
             phase !== 'verifying' &&
             (phase !== 'revealed' || secretSaved)
           }
         >
-          <DialogHeader className='min-w-0 pr-10'>
+          <DialogHeader className='min-w-0 shrink-0 border-b px-4 py-4 pr-16 sm:px-6 sm:pr-16'>
             <DialogTitle className='flex min-w-0 items-center gap-2 break-words'>
-              <RotateCw className='text-primary shrink-0' aria-hidden='true' />
+              <HugeiconsIcon icon={Refresh01Icon} className='text-primary shrink-0' aria-hidden='true' />
               {t('Credential rotation')}
             </DialogTitle>
             <DialogDescription>
@@ -502,6 +494,7 @@ export function CredentialRotationDialog(props: {
               )}
             </DialogDescription>
           </DialogHeader>
+        <section role='region' tabIndex={0} aria-label={t('Credential rotation task')} className='flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-5 [overflow-wrap:anywhere] sm:px-6'>
 
           <section className='bg-muted/30 rounded-xl border p-4 text-sm'>
             <p className='font-medium break-words'>{props.tokenName}</p>
@@ -513,7 +506,7 @@ export function CredentialRotationDialog(props: {
           {(phase === 'idle' || phase === 'previewing') && (
             <div className='flex flex-col gap-4'>
               <Alert>
-                <ShieldCheck aria-hidden='true' />
+                <HugeiconsIcon icon={Shield01Icon} aria-hidden='true' />
                 <AlertTitle>{t('Check rotation eligibility')}</AlertTitle>
                 <AlertDescription>
                   {t(
@@ -546,7 +539,7 @@ export function CredentialRotationDialog(props: {
                   variant='outline'
                   onClick={resetRejectedOperation}
                 >
-                  <RefreshCw data-icon='inline-start' aria-hidden='true' />
+                  <HugeiconsIcon icon={Refresh01Icon} data-icon='inline-start' aria-hidden='true' />
                   {t('Reload current state')}
                 </Button>
               )}
@@ -572,7 +565,7 @@ export function CredentialRotationDialog(props: {
               </div>
               {previewReady ? (
                 <Alert>
-                  <CheckCircle2 aria-hidden='true' />
+                  <HugeiconsIcon icon={CheckmarkCircle02Icon} aria-hidden='true' />
                   <AlertTitle>{t('Rotation is ready')}</AlertTitle>
                   <AlertDescription>
                     <ul className='list-disc space-y-1 pl-4'>
@@ -592,7 +585,7 @@ export function CredentialRotationDialog(props: {
                 </Alert>
               ) : (
                 <Alert>
-                  <AlertTriangle aria-hidden='true' />
+                  <HugeiconsIcon icon={Alert02Icon} aria-hidden='true' />
                   <AlertTitle>
                     {preview.status === 'unknown'
                       ? t('Rotation eligibility is unknown')
@@ -671,7 +664,7 @@ export function CredentialRotationDialog(props: {
                       variant='outline'
                       onClick={resetRejectedOperation}
                     >
-                      <RefreshCw data-icon='inline-start' aria-hidden='true' />
+                      <HugeiconsIcon icon={Refresh01Icon} data-icon='inline-start' aria-hidden='true' />
                       {t('Reload current state')}
                     </Button>
                   )}
@@ -686,7 +679,7 @@ export function CredentialRotationDialog(props: {
                     }
                     onClick={() => void beginCommit()}
                   >
-                    <ShieldCheck data-icon='inline-start' aria-hidden='true' />
+                    <HugeiconsIcon icon={Shield01Icon} data-icon='inline-start' aria-hidden='true' />
                     {t('Verify and rotate Key')}
                   </Button>
                 </div>
@@ -696,7 +689,7 @@ export function CredentialRotationDialog(props: {
 
           {(phase === 'recovering' || phase === 'unknown') && (
             <Alert>
-              <AlertTriangle aria-hidden='true' />
+              <HugeiconsIcon icon={Alert02Icon} aria-hidden='true' />
               <AlertTitle>{t('Rotation result is unknown')}</AlertTitle>
               <AlertDescription className='flex flex-col items-start gap-3'>
                 <span>
@@ -720,7 +713,7 @@ export function CredentialRotationDialog(props: {
                     {receiptChecking ? (
                       <Spinner data-icon='inline-start' />
                     ) : (
-                      <RefreshCw data-icon='inline-start' aria-hidden='true' />
+                      <HugeiconsIcon icon={Refresh01Icon} data-icon='inline-start' aria-hidden='true' />
                     )}
                     {t('Check rotation receipt')}
                   </Button>
@@ -732,7 +725,7 @@ export function CredentialRotationDialog(props: {
                     variant='outline'
                     onClick={reloadCurrentState}
                   >
-                    <RefreshCw data-icon='inline-start' aria-hidden='true' />
+                    <HugeiconsIcon icon={Refresh01Icon} data-icon='inline-start' aria-hidden='true' />
                     {t('Reload current state')}
                   </Button>
                 )}
@@ -754,7 +747,7 @@ export function CredentialRotationDialog(props: {
           {phase === 'revealed' && receipt && secret && (
             <div className='flex flex-col gap-4'>
               <Alert>
-                <CheckCircle2 aria-hidden='true' />
+                <HugeiconsIcon icon={CheckmarkCircle02Icon} aria-hidden='true' />
                 <AlertTitle>{t('Key value rotated')}</AlertTitle>
                 <AlertDescription>
                   {t(
@@ -784,9 +777,9 @@ export function CredentialRotationDialog(props: {
                     onClick={() => setSecretVisible((visible) => !visible)}
                   >
                     {secretVisible ? (
-                      <EyeOff data-icon='inline-start' aria-hidden='true' />
+                      <HugeiconsIcon icon={ViewOffIcon} data-icon='inline-start' aria-hidden='true' />
                     ) : (
-                      <Eye data-icon='inline-start' aria-hidden='true' />
+                      <HugeiconsIcon icon={ViewIcon} data-icon='inline-start' aria-hidden='true' />
                     )}
                     {secretVisible ? t('Hide value') : t('Show value')}
                   </Button>
@@ -796,7 +789,7 @@ export function CredentialRotationDialog(props: {
                     variant='outline'
                     onClick={() => void copySecret()}
                   >
-                    <Copy data-icon='inline-start' aria-hidden='true' />
+                    <HugeiconsIcon icon={Copy01Icon} data-icon='inline-start' aria-hidden='true' />
                     {copied ? t('Copied') : t('Copy value')}
                   </Button>
                 </div>
@@ -819,7 +812,7 @@ export function CredentialRotationDialog(props: {
           {phase === 'committed' && receipt && (
             <div className='flex flex-col gap-3'>
               <Alert>
-                <CheckCircle2 aria-hidden='true' />
+                <HugeiconsIcon icon={CheckmarkCircle02Icon} aria-hidden='true' />
                 <AlertTitle>{t('Credential rotation committed')}</AlertTitle>
                 <AlertDescription>
                   <p>{t('The old Key value is no longer valid.')}</p>
@@ -844,14 +837,15 @@ export function CredentialRotationDialog(props: {
                   variant='outline'
                   onClick={retryClearCommittedState}
                 >
-                  <RefreshCw data-icon='inline-start' aria-hidden='true' />
+                  <HugeiconsIcon icon={Refresh01Icon} data-icon='inline-start' aria-hidden='true' />
                   {t('Reload current state')}
                 </Button>
               )}
             </div>
           )}
 
-          <DialogFooter>
+          </section>
+        <DialogFooter role='group' aria-label={t('Actions')} className='m-0 shrink-0 flex-row flex-wrap justify-end rounded-none px-4 py-4 sm:px-6'>
             <Button
               className={mobileActionClass}
               type='button'

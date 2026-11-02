@@ -17,11 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useId, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { Dialog } from '@/components/dialog'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { ComboboxInput } from '@/components/ui/combobox-input'
 import { Label } from '@/components/ui/label'
@@ -99,14 +100,21 @@ export function CCSwitchDialog(props: Props) {
   const [app, setApp] = useState<AppType>('claude')
   const [name, setName] = useState<string>(APP_CONFIGS.claude.defaultName)
   const [models, setModels] = useState<Record<string, string>>({})
+  const id = useId()
 
-  const { data: modelsData } = useQuery({
+  const modelsQuery = useQuery({
     queryKey: ['user-models-ccswitch'],
-    queryFn: getUserModels,
+    queryFn: async () => {
+      const response = await getUserModels()
+      if (!response.success) throw new Error(response.message || t('Unable to load available models'))
+      return response
+    },
+    retry: false,
     enabled: props.open,
     staleTime: 5 * 60 * 1000,
   })
 
+  const modelsData = modelsQuery.data
   const modelOptions = useMemo(() => {
     const items = modelsData?.data ?? []
     return items.map((m) => ({ value: m, label: m }))
@@ -146,80 +154,37 @@ export function CCSwitchDialog(props: Props) {
   }
 
   return (
-    <Dialog
-      open={props.open}
-      onOpenChange={props.onOpenChange}
-      title={t('Import to CC Switch')}
-      contentClassName='sm:max-w-md'
-      contentHeight='auto'
-      bodyClassName={
-        currentConfig.modelFields.length === 1 ? 'space-y-4 pb-52' : 'space-y-4'
-      }
-      footer={
-        <>
-          <Button variant='outline' onClick={() => props.onOpenChange(false)}>
-            {t('Cancel')}
-          </Button>
-          <Button onClick={handleSubmit}>{t('Open CC Switch')}</Button>
-        </>
-      }
-    >
-      <div className='space-y-4'>
-        <div className='space-y-2'>
-          <Label>{t('Application')}</Label>
-          <RadioGroup
-            value={app}
-            onValueChange={handleAppChange}
-            className='flex gap-4'
-          >
-            {(
-              Object.entries(APP_CONFIGS) as [
-                AppType,
-                (typeof APP_CONFIGS)[AppType],
-              ][]
-            ).map(([key, cfg]) => (
-              <div key={key} className='flex items-center gap-2'>
-                <RadioGroupItem value={key} id={`app-${key}`} />
-                <Label htmlFor={`app-${key}`} className='cursor-pointer'>
-                  {cfg.label}
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
-        </div>
-
-        <div className='space-y-2'>
-          <Label>{t('Name')}</Label>
-          <ComboboxInput
-            options={[]}
-            value={name}
-            onValueChange={setName}
-            placeholder={currentConfig.defaultName}
-            emptyText=''
-            allowCustomValue
-          />
-        </div>
-
-        {currentConfig.modelFields.map((field) => (
-          <div key={field.key} className='space-y-2'>
-            <Label>
-              {t(field.labelKey)}
-              {field.required && (
-                <span className='text-destructive ml-0.5'>*</span>
-              )}
-            </Label>
-            <ComboboxInput
-              options={modelOptions}
-              value={models[field.key] || ''}
-              onValueChange={(v) =>
-                setModels((prev) => ({ ...prev, [field.key]: v }))
-              }
-              placeholder={t('Select or enter model name')}
-              emptyText={t('No models found')}
-            />
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      <DialogContent className='flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[90dvh] sm:max-w-xl sm:rounded-xl [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'>
+        <DialogHeader className='shrink-0 border-b px-4 py-4 pr-16 sm:px-6 sm:pr-16'>
+          <DialogTitle>{t('Import to CC Switch')}</DialogTitle>
+        </DialogHeader>
+        <section role='region' aria-label={t('CC Switch import task')} className='flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-5 [overflow-wrap:anywhere] sm:px-6 [&_[role=listbox]]:max-h-none [&_[role=listbox]]:overflow-visible [&_div:has(>[role=listbox])]:static [&_[role=option]]:min-h-11 [&_[role=option]]:items-start [&_[role=option]_span]:overflow-visible [&_[role=option]_span]:text-clip [&_[role=option]_span]:whitespace-normal [&_[role=option]_span]:[overflow-wrap:anywhere]'>
+          {modelsQuery.isFetching && <p role='status' className='text-muted-foreground text-sm'>{t('Loading...')}</p>}
+          {modelsQuery.isError && <Alert variant='destructive'><AlertTitle>{t('Unable to load available models')}</AlertTitle><AlertDescription>{modelsQuery.error instanceof Error ? modelsQuery.error.message : t('Please try again.')}</AlertDescription><Button className='mt-3 min-h-11 w-fit' variant='outline' disabled={modelsQuery.isFetching} onClick={() => { void modelsQuery.refetch() }}>{t('Retry')}</Button></Alert>}
+          <fieldset className='min-w-0'>
+            <legend className='mb-2 text-sm font-medium'>{t('Application')}</legend>
+            <RadioGroup aria-label={t('Application')} value={app} onValueChange={handleAppChange} className='grid gap-2 sm:grid-cols-3'>
+              {(Object.entries(APP_CONFIGS) as [AppType, (typeof APP_CONFIGS)[AppType]][]).map(([key, config]) => <div key={key} className='flex min-h-11 min-w-0 items-center gap-2 rounded-lg border px-3'>
+                <RadioGroupItem value={key} id={`${id}-app-${key}`} aria-labelledby={`${id}-app-${key}-label`} />
+                <Label id={`${id}-app-${key}-label`} htmlFor={`${id}-app-${key}`} className='min-h-11 flex-1 cursor-pointer'>{config.label}</Label>
+              </div>)}
+            </RadioGroup>
+          </fieldset>
+          <div className='flex min-w-0 flex-col gap-2'>
+            <Label htmlFor={`${id}-name`}>{t('Name')}</Label>
+            <ComboboxInput id={`${id}-name`} className='min-h-11' options={[]} value={name} onValueChange={setName} placeholder={currentConfig.defaultName} emptyText='' allowCustomValue />
           </div>
-        ))}
-      </div>
+          {currentConfig.modelFields.map((field) => <div key={field.key} className='flex min-w-0 flex-col gap-2'>
+            <Label htmlFor={`${id}-${field.key}`}>{t(field.labelKey)}{field.required && <span className='text-destructive'> *</span>}</Label>
+            <ComboboxInput id={`${id}-${field.key}`} className='min-h-11' options={modelOptions} value={models[field.key] || ''} onValueChange={(value) => setModels((current) => ({ ...current, [field.key]: value }))} placeholder={t('Select or enter model name')} emptyText={t('No models found')} />
+          </div>)}
+        </section>
+        <DialogFooter role='group' aria-label={t('Actions')} className='m-0 shrink-0 flex-row flex-wrap justify-end rounded-none px-4 py-4 sm:px-6'>
+          <Button className='min-h-11' variant='outline' onClick={() => props.onOpenChange(false)}>{t('Cancel')}</Button>
+          <Button className='min-h-11' onClick={handleSubmit}>{t('Open CC Switch')}</Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   )
 }
