@@ -17,8 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQueryClient } from '@tanstack/react-query'
-import { Loader2, Search, Info, ChevronDown } from 'lucide-react'
-import { useState, useEffect, useMemo, type ReactNode } from 'react'
+import { ArrowDown01Icon, InformationCircleIcon, Loading03Icon, Search01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -48,6 +49,7 @@ import {
   parseModelsString,
 } from '../../lib'
 import { useChannels } from '../channels-provider'
+import { useChannelTask } from '../../hooks/use-channel-task'
 
 function normalizeModelNameList(models: readonly string[]): string[] {
   return [...new Set(models.map((m) => normalizeModelName(m)).filter(Boolean))]
@@ -60,6 +62,7 @@ type FetchModelsDialogBaseProps = {
   redirectSourceModels?: string[]
   customFetcher?: () => Promise<string[]>
   channelName?: string | null
+  returnFocus?: () => HTMLElement | null
 }
 
 type FetchModelsDialogProps = FetchModelsDialogBaseProps &
@@ -83,11 +86,15 @@ export function FetchModelsDialog({
   customFetcher,
   existingModelsOverride,
   channelName,
+  returnFocus,
 }: FetchModelsDialogProps) {
   const { t } = useTranslation()
   const { currentRow } = useChannels()
   const activeChannel = customFetcher ? null : currentRow
   const queryClient = useQueryClient()
+  const task = useChannelTask(open, activeChannel?.id)
+  const readGeneration = useRef(0)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [isFetching, setIsFetching] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [fetchedModels, setFetchedModels] = useState<string[]>([])
@@ -133,78 +140,101 @@ export function FetchModelsDialog({
   }, [fetchedModelSet, redirectSourceKeysSet, searchKeyword, selectedModels])
 
   useEffect(() => {
+    setFetchedModels([])
+    setSelectedModels([])
+    setSearchKeyword('')
+    setActionError(null)
+    setIsSaving(false)
+    setIsFetching(false)
     if (open && (activeChannel || customFetcher)) {
       handleFetchModels()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, activeChannel?.id, customFetcher])
+  }, [open, activeChannel?.id, customFetcher, task.identity])
 
   const handleFetchModels = async () => {
     if (!activeChannel && !customFetcher) return
-
+    const snapshot = task.capture()
+    const request = ++readGeneration.current
     setIsFetching(true)
+    setActionError(null)
     try {
       if (customFetcher) {
         const list = await customFetcher()
+        if (!snapshot.isCurrent() || request !== readGeneration.current) return
         setFetchedModels(list)
         setSelectedModels(existingModels)
         toast.success(t('Fetched {{count}} models', { count: list.length }))
       } else if (activeChannel) {
         const response = await fetchUpstreamModels(activeChannel.id)
+        if (!snapshot.isCurrent() || request !== readGeneration.current) return
         if (response.success) {
           const list = Array.isArray(response.data) ? response.data : []
           setFetchedModels(list)
           setSelectedModels(existingModels)
           toast.success(t('Fetched {{count}} models', { count: list.length }))
         } else {
+          setActionError(response.message || t('Failed to fetch models'))
           toast.error(response.message || t('Failed to fetch models'))
           setFetchedModels([])
         }
       }
     } catch (error: unknown) {
+      if (!snapshot.isCurrent() || request !== readGeneration.current) return
+      setActionError(error instanceof Error ? error.message : t('Failed to fetch models'))
       toast.error(
         error instanceof Error ? error.message : t('Failed to fetch models')
       )
       setFetchedModels([])
     } finally {
-      setIsFetching(false)
+      if (snapshot.isCurrent() && request === readGeneration.current) setIsFetching(false)
     }
   }
 
   const handleSave = async () => {
-    // If onModelsSelected callback is provided, use it (form filling mode)
-    if (onModelsSelected) {
-      onModelsSelected(selectedModels)
-      toast.success(t('Models filled to form'))
-      onOpenChange(false)
-      return
-    }
-
-    // Otherwise, directly save to API (standalone mode)
-    if (!activeChannel) return
-    setIsSaving(true)
+    const operation = task.begin()
+    if (!operation) return
+    setActionError(null)
     try {
+      // If onModelsSelected callback is provided, use it (form filling mode)
+      if (onModelsSelected) {
+        onModelsSelected(selectedModels)
+        toast.success(t('Models filled to form'))
+        onOpenChange(false)
+        return
+      }
+
+      // Otherwise, directly save to API (standalone mode)
+      if (!activeChannel) return
+      setIsSaving(true)
       const modelsString = selectedModels.join(',')
       const response = await updateChannel(activeChannel.id, {
         models: modelsString,
       })
+      if (response.success) queryClient.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
+      if (!operation.isCurrent()) return
       if (response.success) {
         toast.success(t('Models updated successfully'))
-        queryClient.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
         onOpenChange(false)
       } else {
+        setActionError(response.message || t('Failed to update models'))
         toast.error(response.message || t('Failed to update models'))
       }
     } catch (error: unknown) {
+      if (!operation.isCurrent()) return
+      setActionError(error instanceof Error ? error.message : t('Failed to update models'))
       toast.error(
         error instanceof Error ? error.message : t('Failed to update models')
       )
     } finally {
-      setIsSaving(false)
+      if (operation.isCurrent()) setIsSaving(false)
+      operation.finish()
     }
   }
 
   const handleClose = () => {
+    if (task.isPending()) return
+    readGeneration.current += 1
     setFetchedModels([])
     setSelectedModels([])
     setSearchKeyword('')
@@ -288,31 +318,34 @@ export function FetchModelsDialog({
 
     return (
       <Collapsible key={categoryName} defaultOpen>
-        <CollapsibleTrigger className='hover:bg-muted/50 flex w-full items-center justify-between rounded-lg border p-3'>
+        <div className='flex min-w-0 items-center justify-between gap-2 rounded-lg border p-3'>
+        <CollapsibleTrigger className='hover:bg-muted/50 min-h-11 min-w-0 flex-1 text-start'>
           <div className='flex items-center gap-2'>
-            <ChevronDown className='h-4 w-4' />
+            <HugeiconsIcon icon={ArrowDown01Icon} aria-hidden='true' className='h-4 w-4' />
             <span className='font-medium'>
               {categoryName} ({categoryModels.length})
             </span>
           </div>
+        </CollapsibleTrigger>
           <div className='flex items-center gap-2'>
             <span className='text-muted-foreground text-sm'>
               {categoryModels.filter((m) => selectedModels.includes(m)).length}{' '}
-              / {categoryModels.length} selected
+              / {categoryModels.length} {t('Selected')}
             </span>
             <Checkbox
               checked={allSelected}
+              aria-label={t('Select all models in "{{category}}"', { category: categoryName })}
               onCheckedChange={(checked) =>
                 toggleCategory(categoryModels, !!checked)
               }
               onClick={(e) => e.stopPropagation()}
             />
           </div>
-        </CollapsibleTrigger>
+        </div>
         <CollapsibleContent className='px-4 py-2'>
-          <div className='grid grid-cols-2 gap-2'>
+          <div className='grid grid-cols-1 gap-2 sm:grid-cols-2'>
             {categoryModels.map((model) => (
-              <div key={model} className='flex items-center space-x-2'>
+              <div key={model} className='flex min-w-0 items-start gap-2 py-1'>
                 <Checkbox
                   id={model}
                   checked={selectedModels.includes(model)}
@@ -320,13 +353,13 @@ export function FetchModelsDialog({
                 />
                 <Label
                   htmlFor={model}
-                  className='flex cursor-pointer items-center gap-1.5 text-sm font-normal'
+                  className='flex min-h-11 min-w-0 cursor-pointer items-center gap-1.5 text-sm font-normal break-all'
                 >
                   <span>{model}</span>
                   {redirectOnlySet.has(normalizeModelName(model)) && (
                     <Tooltip>
                       <TooltipTrigger
-                        render={<Info className='h-3.5 w-3.5 text-amber-500' />}
+                        render={<HugeiconsIcon icon={InformationCircleIcon} aria-hidden='true' className='h-3.5 w-3.5 text-amber-500' />}
                       />
                       <TooltipContent>
                         {t('From model redirect, not yet added to models list')}
@@ -379,7 +412,15 @@ export function FetchModelsDialog({
   } else if (isFetching) {
     dialogBody = (
       <div className='flex items-center justify-center py-12'>
-        <Loader2 className='text-muted-foreground h-8 w-8 animate-spin' />
+        <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='text-muted-foreground h-8 w-8 animate-spin' />
+      </div>
+    )
+  } else if (actionError && fetchedModels.length === 0 && selectedModels.length > 0) {
+    dialogBody = (
+      <div className='space-y-4'>
+        <p className='text-muted-foreground text-sm'>{t('{{n}} model(s) selected', { n: selectedModels.length })}</p>
+        {renderModelCategory(t('Models'), selectedModels)}
+        <Button variant='outline' onClick={handleFetchModels}>{t('Fetch Models')}</Button>
       </div>
     )
   } else if (fetchedModels.length === 0 && removedModels.length === 0) {
@@ -400,7 +441,7 @@ export function FetchModelsDialog({
       <div className='space-y-4'>
         {/* Search Bar */}
         <div className='relative'>
-          <Search className='text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2' />
+          <HugeiconsIcon icon={Search01Icon} aria-hidden='true' className='text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2' />
           <Input
             placeholder={t('Search models...')}
             value={searchKeyword}
@@ -439,7 +480,7 @@ export function FetchModelsDialog({
 
           <TabsContent
             value='new'
-            className='max-h-96 space-y-2 overflow-y-auto'
+            className='space-y-2'
           >
             {getSortedCategoryEntries(newModelsByCategory).map(
               ([category, models]) => renderModelCategory(category, models)
@@ -448,7 +489,7 @@ export function FetchModelsDialog({
 
           <TabsContent
             value='existing'
-            className='max-h-96 space-y-2 overflow-y-auto'
+            className='space-y-2'
           >
             {getSortedCategoryEntries(existingModelsByCategory).map(
               ([category, models]) => renderModelCategory(category, models)
@@ -458,7 +499,7 @@ export function FetchModelsDialog({
           {removedModels.length > 0 && (
             <TabsContent
               value='removed'
-              className='max-h-96 space-y-2 overflow-y-auto'
+              className='space-y-2'
             >
               <p className='text-muted-foreground text-xs'>
                 {t(
@@ -481,10 +522,12 @@ export function FetchModelsDialog({
   return (
     <Dialog
       open={open}
+      returnFocus={returnFocus}
       onOpenChange={handleClose}
+      showCloseButton={!isSaving}
       title={t('Fetch Models')}
       description={dialogDescription}
-      contentClassName='max-w-3xl'
+      contentClassName='h-dvh max-h-dvh w-screen max-w-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-3xl [&_button]:min-h-11 [&_button]:min-w-11 [&_input]:min-h-11'
       contentHeight='auto'
       bodyClassName='space-y-4'
       footer={
@@ -494,14 +537,15 @@ export function FetchModelsDialog({
               {t('Cancel')}
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+              {isSaving && <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='mr-2 h-4 w-4 animate-spin' />}
               {isSaving ? t('Saving...') : t('Save Models')}
             </Button>
           </>
         ) : null
       }
     >
-      {dialogBody}
+      {actionError ? <div role='alert' className='text-destructive text-sm break-words'>{actionError}</div> : null}
+      <fieldset disabled={isSaving} className='contents'>{dialogBody}</fieldset>
     </Dialog>
   )
 }

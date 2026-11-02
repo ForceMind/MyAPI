@@ -125,7 +125,7 @@ export function useChannelUpstreamUpdates(refresh: () => Promise<void>) {
             ignore_models: ignoreModels,
             remove_models: normalizeModelList(selectedRemove),
           },
-          upstreamUpdateRequestConfig
+          { ...upstreamUpdateRequestConfig, skipAuthRefresh: true }
         )
         const response = res.data || {}
         const { success, message, data } = response

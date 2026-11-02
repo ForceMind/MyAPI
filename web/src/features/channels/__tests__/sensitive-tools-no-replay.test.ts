@@ -1,3 +1,4 @@
+import { act, cleanup, renderHook } from '@testing-library/react'
 import axios, { AxiosError, type AxiosAdapter, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -10,7 +11,8 @@ const adapter: AxiosAdapter = (config) => transport(config)
 const defaultAdapter = axios.defaults.adapter
 axios.defaults.adapter = adapter
 const { useAuthStore } = await import('@/stores/auth-store')
-const { createChannel, updateChannel, startCodexOAuth, completeCodexOAuth, manageMultiKeys } = await import('../api')
+const { createChannel, updateChannel, startCodexOAuth, completeCodexOAuth, manageMultiKeys, deleteOllamaModel } = await import('../api')
+const { useChannelUpstreamUpdates } = await import('../hooks/use-channel-upstream-updates')
 axios.defaults.adapter = defaultAdapter
 
 const originalAuth = useAuthStore.getState()
@@ -28,6 +30,7 @@ function response(config: InternalAxiosRequestConfig, data: unknown): AxiosRespo
   return { config, data, status: 200, statusText: 'OK', headers: {} }
 }
 const cases = [
+  { name: 'delete selected Ollama model', method: 'delete', url: '/api/channel/ollama/delete', body: { channel_id: 17, model_name: 'synthetic/model:fixed' }, run: () => deleteOllamaModel({ channel_id: 17, model_name: 'synthetic/model:fixed' }) },
   { name: 'create channel', method: 'post', url: '/api/channel', body: { mode: 'single', channel: { name: 'Synthetic channel', type: 57, key: 'synthetic-placeholder' } }, run: () => createChannel({ mode: 'single', channel: { name: 'Synthetic channel', type: 57, key: 'synthetic-placeholder' } }, 'synthetic-stable-operation-key') },
   { name: 'update channel', method: 'put', url: '/api/channel/', body: { id: 17, name: 'Synthetic channel', weight: 0, auto_ban: 0 }, run: () => updateChannel(17, { name: 'Synthetic channel', weight: 0, auto_ban: 0 }) },
   { name: 'start new OAuth task', method: 'post', url: '/api/channel/codex/oauth/start', body: {}, run: () => startCodexOAuth() },
@@ -57,7 +60,7 @@ beforeEach(() => {
     return response(config, { success: true })
   }
 })
-afterEach(() => { useAuthStore.setState(originalAuth); localStorage.clear(); vi.restoreAllMocks() })
+afterEach(() => { cleanup(); useAuthStore.setState(originalAuth); localStorage.clear(); vi.restoreAllMocks() })
 
 describe('sensitive channel writes do not replay', () => {
   it.each(cases)('$name rejects 401 after one dispatch without authentication refresh or write replay', async (testCase) => {
@@ -97,4 +100,24 @@ it('keeps the read-only multi-key status request eligible for authentication ref
     { channel_id: 17, action: 'get_key_status', page: 2, page_size: 50 },
     { channel_id: 17, action: 'get_key_status', page: 2, page_size: 50 },
   ])
+})
+
+it.each([401, 403, 0])('upstream selected updates dispatch once and preserve the exact selection on status %s', async (status) => {
+  target = '/api/channel/upstream_updates/apply'
+  failureStatus = status
+  const refresh = vi.fn().mockResolvedValue(undefined)
+  const { result } = renderHook(() => useChannelUpstreamUpdates(refresh))
+  act(() => { result.current.openModal({ id: 17 }, ['synthetic-new', 'synthetic-ignored'], ['synthetic-removed']) })
+  await act(async () => { await result.current.applyUpdates({ addModels: ['synthetic-new'], removeModels: ['synthetic-removed'] }) })
+  expect(writes).toHaveLength(1)
+  expect(refreshes).toHaveLength(0)
+  expect(writes[0].method).toBe('post')
+  expect(JSON.parse(writes[0].data)).toEqual({ id: 17, add_models: ['synthetic-new'], ignore_models: ['synthetic-ignored'], remove_models: ['synthetic-removed'] })
+  expect(result.current.showModal).toBe(status !== 0)
+  if (status === 0) expect(refresh).toHaveBeenCalledTimes(1)
+  else {
+    expect(refresh).not.toHaveBeenCalled()
+    expect(result.current.addModels).toEqual(['synthetic-new', 'synthetic-ignored'])
+    expect(result.current.removeModels).toEqual(['synthetic-removed'])
+  }
 })

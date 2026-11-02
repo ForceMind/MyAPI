@@ -7377,6 +7377,16 @@
     "Credential maintenance task": "凭据维护任务",
     "Credential rotation task": "凭据轮换任务",
     "CC Switch import task": "CC Switch 导入任务",
-    "Unable to load available models": "无法加载可用模型"
+    "Unable to load available models": "无法加载可用模型",
+    "Delete model {{name}}": "删除模型 {{name}}",
+    "Select model {{name}}": "选择模型 {{name}}",
+    "Select all models in \"{{category}}\"": "选择“{{category}}”中的全部模型",
+    "Selected": "已选",
+    "Add rule": "添加规则",
+    "Advanced routing task": "高级路由任务",
+    "Edit rule {{number}}": "编辑规则 {{number}}",
+    "Parameter override task": "参数覆盖任务",
+    "Search rules": "搜索规则",
+    "Select a rule to edit its fields and conditions. JSON Text edits the full override object.": "选择一条规则编辑字段和条件。JSON 文本用于编辑完整参数覆盖对象。"
   }
 }

@@ -16,15 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import {
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  GripVertical,
-  Plus,
-  Search,
-  Trash2,
-} from 'lucide-react'
+import { ArrowDown01Icon, ArrowUp01Icon, Copy01Icon, Delete02Icon, DragDropVerticalIcon, PlusSignIcon, Search01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import {
   type DragEvent,
   type KeyboardEvent,
@@ -36,7 +29,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { Dialog } from '@/components/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { JsonCodeEditor } from '@/components/json-code-editor'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -46,7 +39,6 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Select,
   SelectContent,
@@ -1746,33 +1738,13 @@ export function ParamOverrideEditorDialog(
   // ---------------------------------------------------------------------------
 
   return (
-    <Dialog
-      open={props.open}
-      onOpenChange={props.onOpenChange}
-      title={t('Parameter Override')}
-      description={t(
-        'Create request parameter override rules with a visual editor or raw JSON.'
-      )}
-      contentClassName='flex max-h-[90vh] flex-col gap-0 p-0 sm:max-w-5xl'
-      headerClassName='border-b px-6 py-4'
-      footerClassName='border-t px-6 py-4'
-      contentHeight='min(72vh, 720px)'
-      bodyClassName='space-y-4'
-      footer={
-        <>
-          <Button
-            type='button'
-            variant='outline'
-            onClick={() => props.onOpenChange(false)}
-          >
-            {t('Cancel')}
-          </Button>
-          <Button type='button' onClick={handleSave}>
-            {t('Save')}
-          </Button>
-        </>
-      }
-    >
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      <DialogContent className='flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-[min(85dvh,900px)] sm:max-h-[calc(100dvh-3rem)] sm:max-w-5xl sm:rounded-xl [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=select-trigger]]:h-auto [&_[data-slot=switch]]:after:-inset-y-3 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'>
+        <DialogHeader className='shrink-0 border-b px-4 py-4 pr-16 sm:px-6 sm:pr-16'>
+          <DialogTitle>{t('Parameter Override')}</DialogTitle>
+          <DialogDescription>{t('Create request parameter override rules with a visual editor or raw JSON.')}</DialogDescription>
+        </DialogHeader>
+        <section role='region' tabIndex={0} aria-label={t('Parameter override task')} className='flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain [overflow-wrap:anywhere]'>
       {/* Toolbar */}
       <div className='bg-muted/30 border-b px-4 py-3'>
         <div className='flex flex-wrap items-center gap-2'>
@@ -1782,6 +1754,7 @@ export function ParamOverrideEditorDialog(
           <Button
             type='button'
             variant={editMode === 'visual' ? 'default' : 'outline'}
+            aria-pressed={editMode === 'visual'}
             size='sm'
             onClick={switchToVisualMode}
           >
@@ -1790,6 +1763,7 @@ export function ParamOverrideEditorDialog(
           <Button
             type='button'
             variant={editMode === 'json' ? 'default' : 'outline'}
+            aria-pressed={editMode === 'json'}
             size='sm'
             onClick={switchToJsonMode}
           >
@@ -1811,10 +1785,10 @@ export function ParamOverrideEditorDialog(
               setTemplatePresetKey(v || 'operations_default')
             }
           >
-            <SelectTrigger className='h-8 w-[220px]'>
+            <SelectTrigger aria-label={t('Template')} className='min-h-11 w-full sm:w-[220px]'>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent alignItemWithTrigger={false}>
+            <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11'>
               <SelectGroup>
                 {templatePresetOptions.map((o) => (
                   <SelectItem key={o.value} value={o.value}>
@@ -1850,8 +1824,9 @@ export function ParamOverrideEditorDialog(
           </Button>
         </div>
       </div>
+      {editMode === 'visual' && visualMode === 'operations' && <p className='text-muted-foreground px-4 py-2 text-xs'>{t('Select a rule to edit its fields and conditions. JSON Text edits the full override object.')}</p>}
       {/* Content */}
-      <div className='min-h-0 flex-1 overflow-hidden'>
+      <div className='min-w-0'>
         {editMode === 'visual' &&
           (visualMode === 'legacy' ? (
             <div className='p-4'>
@@ -1872,9 +1847,9 @@ export function ParamOverrideEditorDialog(
               </p>
             </div>
           ) : (
-            <div className='flex h-full'>
+            <div className='flex min-w-0 flex-col lg:flex-row'>
               {/* Left sidebar */}
-              <div className='flex w-[280px] flex-shrink-0 flex-col border-r'>
+              <div className='flex w-full min-w-0 flex-col border-b lg:w-[280px] lg:shrink-0 lg:border-r lg:border-b-0'>
                 <div className='flex items-center justify-between border-b px-3 py-2'>
                   <div className='flex items-center gap-2'>
                     <span className='text-sm font-medium'>{t('Rules')}</span>
@@ -1887,8 +1862,9 @@ export function ParamOverrideEditorDialog(
                     variant='ghost'
                     size='sm'
                     onClick={addOperation}
+                    aria-label={t('Add rule')}
                   >
-                    <Plus className='h-4 w-4' />
+                    <HugeiconsIcon icon={PlusSignIcon} className='h-4 w-4' />
                   </Button>
                 </div>
 
@@ -1910,17 +1886,18 @@ export function ParamOverrideEditorDialog(
 
                 <div className='px-3 py-2'>
                   <div className='relative'>
-                    <Search className='text-muted-foreground absolute top-2.5 left-2.5 h-3.5 w-3.5' />
+                    <HugeiconsIcon icon={Search01Icon} className='text-muted-foreground absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2' />
                     <Input
                       value={operationSearch}
                       onChange={(e) => setOperationSearch(e.target.value)}
                       placeholder={t('Search rules...')}
+                      aria-label={t('Search rules')}
                       className='h-8 pl-8 text-xs'
                     />
                   </div>
                 </div>
 
-                <ScrollArea className='flex-1'>
+                <div className='min-w-0'>
                   <div className='flex flex-col gap-1 px-3 pb-3'>
                     {filteredOperations.length === 0 ? (
                       <p className='text-muted-foreground py-4 text-center text-xs'>
@@ -1941,6 +1918,8 @@ export function ParamOverrideEditorDialog(
                           <div
                             key={operation.id}
                             role='button'
+                            aria-label={t('Edit rule {{number}}', { number: index + 1 })}
+                            aria-pressed={isActive}
                             tabIndex={0}
                             draggable={operations.length > 1}
                             onClick={() => setSelectedOperationId(operation.id)}
@@ -1957,7 +1936,7 @@ export function ParamOverrideEditorDialog(
                               }
                             }}
                             className={cn(
-                              'cursor-pointer rounded-lg border p-2.5 transition-colors',
+                              'min-h-11 cursor-pointer rounded-lg border p-2.5 transition-colors',
                               isActive
                                 ? 'border-primary bg-primary/5'
                                 : 'hover:bg-muted/50',
@@ -1971,7 +1950,7 @@ export function ParamOverrideEditorDialog(
                             )}
                           >
                             <div className='flex items-start gap-2'>
-                              <GripVertical
+                              <HugeiconsIcon icon={DragDropVerticalIcon}
                                 className={cn(
                                   'text-muted-foreground mt-0.5 h-3.5 w-3.5 flex-shrink-0',
                                   operations.length > 1
@@ -1991,11 +1970,11 @@ export function ParamOverrideEditorDialog(
                                     {operation.conditions.length}
                                   </Badge>
                                 </div>
-                                <p className='text-muted-foreground mt-0.5 line-clamp-1 text-[11px]'>
+                                <p className='text-muted-foreground mt-0.5 break-words [overflow-wrap:anywhere] text-[11px]'>
                                   {getOperationSummary(operation, index)}
                                 </p>
                                 {operation.description.trim() && (
-                                  <p className='text-muted-foreground mt-0.5 line-clamp-2 text-[10px]'>
+                                  <p className='text-muted-foreground mt-0.5 break-words [overflow-wrap:anywhere] text-[10px]'>
                                     {operation.description}
                                   </p>
                                 )}
@@ -2020,11 +1999,11 @@ export function ParamOverrideEditorDialog(
                       })
                     )}
                   </div>
-                </ScrollArea>
+                </div>
               </div>
 
               {/* Right panel - Rule editor */}
-              <div className='flex min-w-0 flex-1 flex-col overflow-y-auto'>
+              <div className='flex min-w-0 flex-1 flex-col'>
                 {selectedOperation ? (
                   <RuleEditor
                     operation={selectedOperation}
@@ -2086,12 +2065,17 @@ export function ParamOverrideEditorDialog(
               {t('Edit JSON text directly. Format will be validated on save.')}
             </p>
             {jsonError && (
-              <p className='text-destructive mt-1 text-xs'>{jsonError}</p>
+              <p role='alert' className='text-destructive mt-1 text-xs'>{jsonError}</p>
             )}
           </div>
         )}
       </div>
-      {/* Footer */}
+        </section>
+        <DialogFooter role='group' aria-label={t('Actions')} className='m-0 shrink-0 flex-row flex-wrap justify-end rounded-none px-4 py-4 sm:px-6'>
+          <Button type='button' variant='outline' className='min-h-11' onClick={() => props.onOpenChange(false)}>{t('Cancel')}</Button>
+          <Button type='button' className='min-h-11' onClick={handleSave}>{t('Save')}</Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   )
 }
@@ -2205,6 +2189,7 @@ function RuleEditor(ruleEditorProps: RuleEditorProps) {
           </div>
           <Textarea
             value={operation.value_text}
+            aria-label={t(getModeValueLabel(mode))}
             onChange={(e) =>
               ruleEditorProps.updateOperation(operation.id, {
                 value_text: e.target.value,
@@ -2239,6 +2224,7 @@ function RuleEditor(ruleEditorProps: RuleEditorProps) {
             </label>
             <Input
               value={operation.from}
+              aria-label={t(getModeFromLabel(mode))}
               onChange={(e) =>
                 ruleEditorProps.updateOperation(operation.id, {
                   from: e.target.value,
@@ -2256,6 +2242,7 @@ function RuleEditor(ruleEditorProps: RuleEditorProps) {
             </label>
             <Input
               value={operation.to}
+              aria-label={t(getModeToLabel(mode))}
               onChange={(e) =>
                 ruleEditorProps.updateOperation(operation.id, {
                   to: e.target.value,
@@ -2271,7 +2258,7 @@ function RuleEditor(ruleEditorProps: RuleEditorProps) {
   }
 
   return (
-    <ScrollArea className='flex-1'>
+    <div className='min-w-0'>
       <div className='space-y-4 p-4'>
         {/* Header */}
         <div className='flex items-center justify-between'>
@@ -2279,7 +2266,7 @@ function RuleEditor(ruleEditorProps: RuleEditorProps) {
             <Badge variant='outline'>
               #{ruleEditorProps.operationIndex + 1}
             </Badge>
-            <span className='text-muted-foreground line-clamp-1 text-xs'>
+            <span className='text-muted-foreground break-words [overflow-wrap:anywhere] text-xs'>
               {getOperationSummary(operation, ruleEditorProps.operationIndex)}
             </span>
           </div>
@@ -2290,7 +2277,7 @@ function RuleEditor(ruleEditorProps: RuleEditorProps) {
               size='sm'
               onClick={() => ruleEditorProps.duplicateOperation(operation.id)}
             >
-              <Copy className='mr-1 h-3.5 w-3.5' />
+              <HugeiconsIcon icon={Copy01Icon} className='mr-1 h-3.5 w-3.5' />
               {t('Duplicate')}
             </Button>
             <Button
@@ -2300,7 +2287,7 @@ function RuleEditor(ruleEditorProps: RuleEditorProps) {
               className='text-destructive hover:text-destructive'
               onClick={() => ruleEditorProps.removeOperation(operation.id)}
             >
-              <Trash2 className='mr-1 h-3.5 w-3.5' />
+              <HugeiconsIcon icon={Delete02Icon} className='mr-1 h-3.5 w-3.5' />
               {t('Delete')}
             </Button>
           </div>
@@ -2323,10 +2310,10 @@ function RuleEditor(ruleEditorProps: RuleEditorProps) {
                 })
               }
             >
-              <SelectTrigger className='h-9'>
+              <SelectTrigger aria-label={t('Operation Type')} className='h-9'>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent alignItemWithTrigger={false}>
+              <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11'>
                 <SelectGroup>
                   {OPERATION_MODE_OPTIONS.map((o) => (
                     <SelectItem key={o.value} value={o.value}>
@@ -2344,6 +2331,7 @@ function RuleEditor(ruleEditorProps: RuleEditorProps) {
               </label>
               <Input
                 value={operation.path}
+                aria-label={t(getModePathLabel(mode))}
                 onChange={(e) =>
                   ruleEditorProps.updateOperation(operation.id, {
                     path: e.target.value,
@@ -2375,6 +2363,7 @@ function RuleEditor(ruleEditorProps: RuleEditorProps) {
           </div>
           <Input
             value={operation.description}
+            aria-label={t('Rule Description (optional)')}
             onChange={(e) =>
               ruleEditorProps.updateOperation(operation.id, {
                 description: e.target.value,
@@ -2432,7 +2421,7 @@ function RuleEditor(ruleEditorProps: RuleEditorProps) {
                 <SelectTrigger className='h-7 w-[120px] text-xs'>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent alignItemWithTrigger={false}>
+                <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11'>
                   <SelectGroup>
                     <SelectItem value='OR'>{t('Match Any (OR)')}</SelectItem>
                     <SelectItem value='AND'>{t('Match All (AND)')}</SelectItem>
@@ -2450,7 +2439,7 @@ function RuleEditor(ruleEditorProps: RuleEditorProps) {
                     className='h-7 text-xs'
                     onClick={ruleEditorProps.expandAllConditions}
                   >
-                    <ChevronDown className='mr-1 h-3 w-3' />
+                    <HugeiconsIcon icon={ArrowDown01Icon} className='mr-1 h-3 w-3' />
                     {t('Expand All')}
                   </Button>
                   <Button
@@ -2460,7 +2449,7 @@ function RuleEditor(ruleEditorProps: RuleEditorProps) {
                     className='h-7 text-xs'
                     onClick={ruleEditorProps.collapseAllConditions}
                   >
-                    <ChevronUp className='mr-1 h-3 w-3' />
+                    <HugeiconsIcon icon={ArrowUp01Icon} className='mr-1 h-3 w-3' />
                     {t('Collapse All')}
                   </Button>
                 </>
@@ -2472,7 +2461,7 @@ function RuleEditor(ruleEditorProps: RuleEditorProps) {
                 className='h-7 text-xs'
                 onClick={() => ruleEditorProps.addCondition(operation.id)}
               >
-                <Plus className='mr-1 h-3 w-3' />
+                <HugeiconsIcon icon={PlusSignIcon} className='mr-1 h-3 w-3' />
                 {t('Add Condition')}
               </Button>
             </div>
@@ -2507,7 +2496,7 @@ function RuleEditor(ruleEditorProps: RuleEditorProps) {
           )}
         </div>
       </div>
-    </ScrollArea>
+    </div>
   )
 }
 
@@ -2549,9 +2538,9 @@ function ConditionEditor(conditionEditorProps: ConditionEditorProps) {
             </span>
           </div>
           {conditionEditorProps.expanded ? (
-            <ChevronUp className='text-muted-foreground h-3.5 w-3.5' />
+            <HugeiconsIcon icon={ArrowUp01Icon} className='text-muted-foreground h-3.5 w-3.5' />
           ) : (
-            <ChevronDown className='text-muted-foreground h-3.5 w-3.5' />
+            <HugeiconsIcon icon={ArrowDown01Icon} className='text-muted-foreground h-3.5 w-3.5' />
           )}
         </CollapsibleTrigger>
         <CollapsibleContent>
@@ -2572,7 +2561,7 @@ function ConditionEditor(conditionEditorProps: ConditionEditorProps) {
                   )
                 }
               >
-                <Trash2 className='mr-1 h-3 w-3' />
+                <HugeiconsIcon icon={Delete02Icon} className='mr-1 h-3 w-3' />
                 {t('Delete Condition')}
               </Button>
             </div>
@@ -2616,7 +2605,7 @@ function ConditionEditor(conditionEditorProps: ConditionEditorProps) {
                   <SelectTrigger className='h-8 text-xs'>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent alignItemWithTrigger={false}>
+                  <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11'>
                     <SelectGroup>
                       {CONDITION_MODE_OPTIONS.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
@@ -2996,7 +2985,7 @@ function PruneObjectsEditor(pruneObjectsEditorProps: PruneObjectsEditorProps) {
                 <SelectTrigger className='h-8 text-xs'>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent alignItemWithTrigger={false}>
+                <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11'>
                   <SelectGroup>
                     <SelectItem value='AND'>
                       {t('All Must Match (AND)')}
@@ -3059,7 +3048,7 @@ function PruneObjectsEditor(pruneObjectsEditorProps: PruneObjectsEditorProps) {
                   )
                 }
               >
-                <Plus className='mr-1 h-3 w-3' />
+                <HugeiconsIcon icon={PlusSignIcon} className='mr-1 h-3 w-3' />
                 {t('Add Condition')}
               </Button>
             </div>
@@ -3092,7 +3081,7 @@ function PruneObjectsEditor(pruneObjectsEditorProps: PruneObjectsEditorProps) {
                           )
                         }
                       >
-                        <Trash2 className='mr-1 h-3 w-3' />
+                        <HugeiconsIcon icon={Delete02Icon} className='mr-1 h-3 w-3' />
                         {t('Delete')}
                       </Button>
                     </div>
@@ -3136,7 +3125,7 @@ function PruneObjectsEditor(pruneObjectsEditorProps: PruneObjectsEditorProps) {
                           <SelectTrigger className='h-7 text-xs'>
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent alignItemWithTrigger={false}>
+                          <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11'>
                             <SelectGroup>
                               {CONDITION_MODE_OPTIONS.map((o) => (
                                 <SelectItem key={o.value} value={o.value}>
@@ -3251,7 +3240,7 @@ function SyncFieldsEditor(syncFieldsEditorProps: SyncFieldsEditorProps) {
               <SelectTrigger className='h-8 w-[110px] text-xs'>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent alignItemWithTrigger={false}>
+              <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11'>
                 <SelectGroup>
                   {SYNC_TARGET_TYPE_OPTIONS.map((o) => (
                     <SelectItem key={o.value} value={o.value}>
@@ -3306,7 +3295,7 @@ function SyncFieldsEditor(syncFieldsEditorProps: SyncFieldsEditorProps) {
               <SelectTrigger className='h-8 w-[110px] text-xs'>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent alignItemWithTrigger={false}>
+              <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11'>
                 <SelectGroup>
                   {SYNC_TARGET_TYPE_OPTIONS.map((o) => (
                     <SelectItem key={o.value} value={o.value}>

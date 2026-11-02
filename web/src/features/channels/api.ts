@@ -890,7 +890,7 @@ export async function deleteOllamaModel(params: {
 }): Promise<{ success: boolean; message?: string }> {
   const res = await api.delete(
     '/api/channel/ollama/delete',
-    channelActionConfig({ data: params })
+    channelActionConfig({ data: params, skipAuthRefresh: true })
   )
   return res.data
 }

@@ -7377,6 +7377,16 @@
     "Credential maintenance task": "Credential maintenance task",
     "Credential rotation task": "Credential rotation task",
     "CC Switch import task": "CC Switch import task",
-    "Unable to load available models": "Unable to load available models"
+    "Unable to load available models": "Unable to load available models",
+    "Delete model {{name}}": "Delete model {{name}}",
+    "Select model {{name}}": "Select model {{name}}",
+    "Select all models in \"{{category}}\"": "Select all models in \"{{category}}\"",
+    "Selected": "Selected",
+    "Add rule": "Add rule",
+    "Advanced routing task": "Advanced routing task",
+    "Edit rule {{number}}": "Edit rule {{number}}",
+    "Parameter override task": "Parameter override task",
+    "Search rules": "Search rules",
+    "Select a rule to edit its fields and conditions. JSON Text edits the full override object.": "Select a rule to edit its fields and conditions. JSON Text edits the full override object."
   }
 }

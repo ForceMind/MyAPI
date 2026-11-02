@@ -16,8 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Search } from 'lucide-react'
-import { useState, useMemo } from 'react'
+import { Search01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
@@ -26,8 +27,8 @@ import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useChannelTask } from '../../hooks/use-channel-task'
 
 interface UpstreamUpdateDialogProps {
   open: boolean
@@ -35,12 +36,19 @@ interface UpstreamUpdateDialogProps {
   removeModels: string[]
   preferredTab: 'add' | 'remove'
   confirmLoading: boolean
-  onConfirm: (data: { addModels: string[]; removeModels: string[] }) => void
+  onConfirm: (data: { addModels: string[]; removeModels: string[] }) => void | Promise<void>
   onCancel: () => void
+  channelId?: number | null
+  returnFocus?: () => HTMLElement | null
 }
 
 export function UpstreamUpdateDialog(props: UpstreamUpdateDialogProps) {
   const { t } = useTranslation()
+  const task = useChannelTask(props.open, props.channelId)
+  const initialized = useRef<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const busy = props.confirmLoading || submitting
   const [activeTab, setActiveTab] = useState(props.preferredTab)
   const [searchAdd, setSearchAdd] = useState('')
   const [searchRemove, setSearchRemove] = useState('')
@@ -51,6 +59,20 @@ export function UpstreamUpdateDialog(props: UpstreamUpdateDialogProps) {
     () => new Set(props.removeModels)
   )
   const [partialConfirmOpen, setPartialConfirmOpen] = useState(false)
+  useEffect(() => {
+    if (!props.open) { initialized.current = null; return }
+    const key = JSON.stringify([task.identity, props.channelId])
+    if (initialized.current === key) return
+    initialized.current = key
+    setActiveTab(props.preferredTab)
+    setSelectedAdd(new Set(props.addModels))
+    setSelectedRemove(new Set(props.removeModels))
+    setSearchAdd('')
+    setSearchRemove('')
+    setSubmitting(false)
+    setActionError(null)
+    setPartialConfirmOpen(false)
+  }, [props.open, props.channelId, task.identity, props.preferredTab, props.addModels, props.removeModels])
 
   const filteredAdd = useMemo(
     () =>
@@ -94,7 +116,24 @@ export function UpstreamUpdateDialog(props: UpstreamUpdateDialogProps) {
     setter(next)
   }
 
+  const submitSelection = async () => {
+    if (props.confirmLoading) return
+    const operation = task.begin()
+    if (!operation) return
+    setSubmitting(true)
+    setActionError(null)
+    try {
+      await props.onConfirm({ addModels: [...selectedAdd], removeModels: [...selectedRemove] })
+    } catch (error) {
+      if (operation.isCurrent()) setActionError(error instanceof Error ? error.message : t('Operation failed'))
+    } finally {
+      if (operation.isCurrent()) setSubmitting(false)
+      operation.finish()
+    }
+  }
+
   const handleConfirm = () => {
+    if (busy || task.isPending()) return
     const hasAdd = props.addModels.length > 0
     const hasRemove = props.removeModels.length > 0
     const selectedAddArr = [...selectedAdd]
@@ -107,30 +146,29 @@ export function UpstreamUpdateDialog(props: UpstreamUpdateDialogProps) {
       return
     }
 
-    props.onConfirm({
-      addModels: selectedAddArr,
-      removeModels: selectedRemoveArr,
-    })
+    void submitSelection()
   }
 
   return (
     <>
       <Dialog
         open={props.open}
-        onOpenChange={(v) => !v && props.onCancel()}
+        onOpenChange={(v) => { if (!v && !busy && !task.isPending()) props.onCancel() }}
+        returnFocus={props.returnFocus}
+        showCloseButton={!busy}
         title={t('Upstream Model Updates')}
-        contentClassName='sm:max-w-lg'
+        contentClassName='h-dvh max-h-dvh w-screen max-w-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-2xl [&_button]:min-h-11 [&_button]:min-w-11 [&_input]:min-h-11'
         contentHeight='auto'
         bodyClassName='space-y-4'
         footer={
           <>
-            <Button variant='outline' onClick={props.onCancel}>
+            <Button variant='outline' disabled={busy} onClick={props.onCancel}>
               {t('Cancel')}
             </Button>
             <Button
               onClick={handleConfirm}
               disabled={
-                props.confirmLoading ||
+                busy ||
                 (props.addModels.length === 0 &&
                   props.removeModels.length === 0)
               }
@@ -140,6 +178,8 @@ export function UpstreamUpdateDialog(props: UpstreamUpdateDialogProps) {
           </>
         }
       >
+        {actionError ? <div role='alert' className='text-destructive text-sm break-words'>{actionError}</div> : null}
+        <fieldset disabled={busy} className='contents'>
         <p className='text-muted-foreground text-sm'>
           {t(
             'Select models to process. Unselected "add" models will be ignored.'
@@ -166,7 +206,7 @@ export function UpstreamUpdateDialog(props: UpstreamUpdateDialogProps) {
 
           <TabsContent value='add' className='space-y-3'>
             <div className='relative'>
-              <Search className='text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4' />
+              <HugeiconsIcon icon={Search01Icon} aria-hidden='true' className='text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4' />
               <Input
                 placeholder={t('Search models...')}
                 className='pl-8'
@@ -187,13 +227,13 @@ export function UpstreamUpdateDialog(props: UpstreamUpdateDialogProps) {
                 </span>
               </div>
             )}
-            <ScrollArea className='h-[280px] rounded-md border p-2'>
+            <div className='rounded-md border p-2'>
               {filteredAdd.length > 0 ? (
                 <div className='space-y-1'>
                   {filteredAdd.map((model) => (
                     <label
                       key={model}
-                      className='hover:bg-accent flex cursor-pointer items-center gap-2 rounded px-2 py-1.5'
+                      className='hover:bg-accent flex min-h-11 cursor-pointer items-start gap-2 rounded px-2 py-2'
                     >
                       <Checkbox
                         checked={selectedAdd.has(model)}
@@ -201,7 +241,7 @@ export function UpstreamUpdateDialog(props: UpstreamUpdateDialogProps) {
                           toggleModel(model, selectedAdd, setSelectedAdd)
                         }
                       />
-                      <span className='truncate text-sm'>{model}</span>
+                      <span className='min-w-0 text-sm break-all'>{model}</span>
                     </label>
                   ))}
                 </div>
@@ -212,12 +252,12 @@ export function UpstreamUpdateDialog(props: UpstreamUpdateDialogProps) {
                     : t('No matching results')}
                 </p>
               )}
-            </ScrollArea>
+            </div>
           </TabsContent>
 
           <TabsContent value='remove' className='space-y-3'>
             <div className='relative'>
-              <Search className='text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4' />
+              <HugeiconsIcon icon={Search01Icon} aria-hidden='true' className='text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4' />
               <Input
                 placeholder={t('Search models...')}
                 className='pl-8'
@@ -242,13 +282,13 @@ export function UpstreamUpdateDialog(props: UpstreamUpdateDialogProps) {
                 </span>
               </div>
             )}
-            <ScrollArea className='h-[280px] rounded-md border p-2'>
+            <div className='rounded-md border p-2'>
               {filteredRemove.length > 0 ? (
                 <div className='space-y-1'>
                   {filteredRemove.map((model) => (
                     <label
                       key={model}
-                      className='hover:bg-accent flex cursor-pointer items-center gap-2 rounded px-2 py-1.5'
+                      className='hover:bg-accent flex min-h-11 cursor-pointer items-start gap-2 rounded px-2 py-2'
                     >
                       <Checkbox
                         checked={selectedRemove.has(model)}
@@ -256,7 +296,7 @@ export function UpstreamUpdateDialog(props: UpstreamUpdateDialogProps) {
                           toggleModel(model, selectedRemove, setSelectedRemove)
                         }
                       />
-                      <span className='truncate text-sm'>{model}</span>
+                      <span className='min-w-0 text-sm break-all'>{model}</span>
                     </label>
                   ))}
                 </div>
@@ -267,24 +307,23 @@ export function UpstreamUpdateDialog(props: UpstreamUpdateDialogProps) {
                     : t('No matching results')}
                 </p>
               )}
-            </ScrollArea>
+            </div>
           </TabsContent>
         </Tabs>
+        </fieldset>
       </Dialog>
 
       <ConfirmDialog
         open={partialConfirmOpen}
-        onOpenChange={setPartialConfirmOpen}
+        onOpenChange={(next) => { if (!busy && !task.isPending()) setPartialConfirmOpen(next) }}
+        isLoading={busy}
         title={t('Partial Submission')}
         desc={t(
           'There are both add and remove models pending, but you only selected one type. Confirm submitting only the selected items?'
         )}
         handleConfirm={() => {
           setPartialConfirmOpen(false)
-          props.onConfirm({
-            addModels: [...selectedAdd],
-            removeModels: [...selectedRemove],
-          })
+          void submitSelection()
         }}
       />
     </>

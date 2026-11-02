@@ -49,18 +49,21 @@ export function ChannelsDialogs() {
 
       {/* Balance Query Dialog */}
       <BalanceQueryDialog
+        returnFocus={returnFocus}
         open={open === 'balance-query'}
         onOpenChange={(v) => !v && setOpen(null)}
       />
 
       {/* Fetch Models Dialog */}
       <FetchModelsDialog
+        returnFocus={returnFocus}
         open={open === 'fetch-models'}
         onOpenChange={(v) => !v && setOpen(null)}
       />
 
       {/* Ollama Models Dialog */}
       <OllamaModelsDialog
+        returnFocus={returnFocus}
         open={open === 'ollama-models'}
         onOpenChange={(v) => !v && setOpen(null)}
       />
@@ -92,6 +95,8 @@ export function ChannelsDialogs() {
 
       {/* Upstream Model Update Dialog */}
       <UpstreamUpdateDialog
+        returnFocus={returnFocus}
+        channelId={upstream.channel?.id}
         open={upstream.showModal}
         addModels={upstream.addModels}
         removeModels={upstream.removeModels}

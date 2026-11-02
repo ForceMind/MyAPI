@@ -176,7 +176,7 @@ export function CCSwitchDialog(props: Props) {
             <ComboboxInput id={`${id}-name`} className='min-h-11' options={[]} value={name} onValueChange={setName} placeholder={currentConfig.defaultName} emptyText='' allowCustomValue />
           </div>
           {currentConfig.modelFields.map((field) => <div key={field.key} className='flex min-w-0 flex-col gap-2'>
-            <Label htmlFor={`${id}-${field.key}`}>{t(field.labelKey)}{field.required && <span className='text-destructive'> *</span>}</Label>
+            <Label htmlFor={`${id}-${field.key}`}>{t(field.labelKey)}{field.required && ' '}{field.required && <span className='text-destructive'>*</span>}</Label>
             <ComboboxInput id={`${id}-${field.key}`} className='min-h-11' options={modelOptions} value={models[field.key] || ''} onValueChange={(value) => setModels((current) => ({ ...current, [field.key]: value }))} placeholder={t('Select or enter model name')} emptyText={t('No models found')} />
           </div>)}
         </section>

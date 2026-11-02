@@ -180,3 +180,6 @@ CI专项入口扩大为整个connections、channels/components/__tests__与chann
 ### 2026-11-02 账号窗口与分额展示验证入口
 
 新增 `bun run test src/features/personal-upstream src/features/keys/components/__tests__/subscription-share-layout.test.tsx`，原Key/连接/日志专项及全量/后端矩阵不减。保护返回范围统计/筛选、历史错误判定上下文、0/null/unknown分区、真实返回路由与焦点、只读刷新不重置Key/草稿/确认/展开、固定动作区/可滚动全部证据及320px长译文关键说明。单选名称与描述关联分离，不改value、mutation和安全期望。全部runner执行，浏览器安装/Chromium及真实API混合作业保持跳过，本机不运行工具链或下载构件；收尾交接提交同样读取自身完整CI。
+
+
+2026-11-03联合候选补充：ddffc5c0的真实Axios原凭据绑定三用例已在Actions失败，日志已读；必要依赖仅把现有前端认证头拦截器设为同步执行，其他API/重试语义不变。模型/Key/渠道全部UI12候选尚待完整CI，后续UI13源码WIP不混入声明；全部构建测试仍Actions，浏览器/生产/真实供应商仍不执行。

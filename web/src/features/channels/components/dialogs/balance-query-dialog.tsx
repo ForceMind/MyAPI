@@ -17,8 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQueryClient } from '@tanstack/react-query'
-import { Loader2, RefreshCw, DollarSign } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Loading03Icon, Refresh01Icon, Wallet01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -32,6 +33,7 @@ import { Button } from '@/components/ui/button'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { formatCurrencyFromUSD } from '@/lib/currency'
 import { formatTimestampToDate } from '@/lib/format'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { getCodexUsage, updateChannelBalance } from '../../api'
 import { channelsQueryKeys } from '../../lib'
@@ -41,17 +43,28 @@ import {
   CodexUsageDialog,
   type CodexUsageDialogData,
 } from './codex-usage-dialog'
+import { useChannelTask } from '../../hooks/use-channel-task'
 
 type BalanceQueryDialogProps = {
   initialRawResponse?: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  returnFocus?: () => HTMLElement | null
 }
 
 export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
+  const { currentRow } = useChannels()
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
+  return <BalanceQueryTask key={JSON.stringify([identity, currentRow?.id])} {...props} />
+}
+
+function BalanceQueryTask(props: BalanceQueryDialogProps) {
   const { t } = useTranslation()
   const { currentRow, setCurrentRow } = useChannels()
   const queryClient = useQueryClient()
+  const task = useChannelTask(props.open, currentRow?.id)
+  const readGeneration = useRef(0)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [isQuerying, setIsQuerying] = useState(false)
   const [balance, setBalance] = useState<number | null>(null)
   const [balanceUpdatedTime, setBalanceUpdatedTime] = useState<number | null>(
@@ -68,20 +81,27 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
   const handleQueryCodexUsage = async () => {
     const row = currentRow
     if (!row) return
+    const operation = task.begin()
+    if (!operation) return
+    const request = ++readGeneration.current
+    setActionError(null)
     setIsQuerying(true)
     try {
       const res = await getCodexUsage(row.id)
+      if (!operation.isCurrent() || request !== readGeneration.current) return
       if (!res.success) {
         throw new Error(res.message || t('Failed to fetch usage'))
       }
       setCodexUsageResponse(res)
     } catch (error: unknown) {
+      if (!operation.isCurrent() || request !== readGeneration.current) return
       const message =
         error instanceof Error ? error.message : t('Failed to fetch usage')
       setCodexUsageResponse({ success: false, message })
       toast.error(message)
     } finally {
-      setIsQuerying(false)
+      if (operation.isCurrent() && request === readGeneration.current) setIsQuerying(false)
+      operation.finish()
     }
   }
 
@@ -90,15 +110,20 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
     if (!props.open) return
     handleQueryCodexUsage()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.open, isCodex])
+  }, [props.open, isCodex, currentRow?.id, task.identity])
 
   if (!currentRow) return null
 
   const handleQueryBalance = async () => {
+    const operation = task.begin()
+    if (!operation) return
+    const request = ++readGeneration.current
+    setActionError(null)
     setIsQuerying(true)
     try {
       const response = await updateChannelBalance(currentRow.id)
-      if (response.success && response.balance !== undefined) {
+      if (!operation.isCurrent() || request !== readGeneration.current) return
+      if (response.success && typeof response.balance === 'number' && Number.isFinite(response.balance)) {
         const newBalance = response.balance
         const now = Math.floor(Date.now() / 1000)
 
@@ -121,21 +146,27 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
           queryKey: ['channel-quota-history', currentRow.id],
         })
         setRawResponse(null)
-      } else if (response.success && response.raw_response !== undefined) {
+      } else if (response.success && typeof response.raw_response === 'string') {
         setRawResponse(response.raw_response)
       } else {
+        setActionError(response.message || t('Failed to query balance'))
         toast.error(response.message || t('Failed to query balance'))
       }
     } catch (error: unknown) {
+      if (!operation.isCurrent() || request !== readGeneration.current) return
+      setActionError(error instanceof Error ? error.message : t('Failed to query balance'))
       toast.error(
         error instanceof Error ? error.message : t('Failed to query balance')
       )
     } finally {
-      setIsQuerying(false)
+      if (operation.isCurrent() && request === readGeneration.current) setIsQuerying(false)
+      operation.finish()
     }
   }
 
   const handleClose = () => {
+    readGeneration.current += 1
+    setIsQuerying(false)
     setBalance(null)
     setBalanceUpdatedTime(null)
     setRawResponse(null)
@@ -151,7 +182,8 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
     })
 
   const formatDate = (timestamp: number) => {
-    if (!timestamp) return 'Never'
+    if (timestamp === 0) return t('Never')
+    if (!Number.isFinite(timestamp)) return t('Unknown')
     return formatTimestampToDate(timestamp)
   }
 
@@ -174,6 +206,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
   return (
     <Dialog
       open={props.open}
+      returnFocus={props.returnFocus}
       onOpenChange={handleClose}
       title={t('Query Balance')}
       description={
@@ -183,6 +216,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
         </>
       }
       contentHeight='auto'
+      contentClassName='h-dvh max-h-dvh w-screen max-w-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] [&_button]:min-h-11 [&_button]:min-w-11'
       bodyClassName='space-y-4'
       footer={
         <Button variant='outline' onClick={handleClose} disabled={isQuerying}>
@@ -191,6 +225,7 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
       }
     >
       <div className='space-y-4 py-4'>
+        {actionError ? <div role='alert' className='text-destructive text-sm break-words'>{actionError}</div> : null}
         {rawResponse !== null ? (
           <>
             <Alert>
@@ -217,14 +252,14 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
             <div className='bg-muted/50 rounded-lg border p-4'>
               <div className='text-muted-foreground mb-2 flex items-center gap-2 text-sm'>
                 <IconBadge tone='success' size='xs'>
-                  <DollarSign />
+                  <HugeiconsIcon icon={Wallet01Icon} aria-hidden='true' />
                 </IconBadge>
                 <span>{t('Current Balance')}</span>
               </div>
               <div className='text-2xl font-bold'>
                 {balance !== null
                   ? formatBalance(balance)
-                  : formatBalance(currentRow.balance)}
+                  : (typeof currentRow.balance === 'number' && Number.isFinite(currentRow.balance) ? formatBalance(currentRow.balance) : t('Unknown'))}
               </div>
               <div className='text-muted-foreground mt-2 text-xs'>
                 {t('Last updated:')}{' '}
@@ -243,8 +278,8 @@ export function BalanceQueryDialog(props: BalanceQueryDialogProps) {
           onClick={handleQueryBalance}
           disabled={isQuerying}
         >
-          {isQuerying && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
-          {!isQuerying && <RefreshCw className='mr-2 h-4 w-4' />}
+          {isQuerying && <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='mr-2 h-4 w-4 animate-spin' />}
+          {!isQuerying && <HugeiconsIcon icon={Refresh01Icon} aria-hidden='true' className='mr-2 h-4 w-4' />}
           {isQuerying ? t('Querying...') : t('Update Balance')}
         </Button>
       </div>

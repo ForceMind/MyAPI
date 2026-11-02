@@ -16,29 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import {
-  ArrowDown,
-  ArrowDownToLine,
-  ArrowRight,
-  ArrowUp,
-  Check,
-  ChevronDown,
-  ChevronRight,
-  CircleDollarSign,
-  Code2,
-  Info,
-  ListTree,
-  Plus,
-  Shuffle,
-  Trash2,
-  type LucideIcon,
-} from 'lucide-react'
+import { ArrowDown01Icon, ArrowDownDoubleIcon, ArrowRight01Icon, ArrowUp01Icon, CodeIcon, Delete02Icon, DollarCircleIcon, InformationCircleIcon, ListViewIcon, PlusSignIcon, ShuffleIcon, Tick02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
-import { Dialog } from '@/components/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { JsonCodeEditor } from '@/components/json-code-editor'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -125,9 +110,9 @@ type AdvancedCustomEditorDialogProps = {
 
 type AdvancedCustomEditorTab = 'forwarding' | 'models' | 'balance' | 'json'
 
-const longSelectContentClass = 'w-[360px] max-w-[calc(100vw-2rem)]'
+const longSelectContentClass = 'w-[360px] max-w-[calc(100vw-2rem)] [&_[data-slot=select-item]]:min-h-11'
 const longSelectItemClass =
-  'items-start py-2 [&_[data-slot=select-item-text]]:min-w-0 [&_[data-slot=select-item-text]]:shrink [&_[data-slot=select-item-text]]:whitespace-normal'
+  'min-h-11 items-start py-2 [&_[data-slot=select-item-text]]:min-w-0 [&_[data-slot=select-item-text]]:shrink [&_[data-slot=select-item-text]]:whitespace-normal'
 const routeEditorGridClassName =
   'lg:grid-cols-[minmax(9rem,0.9fr)_minmax(0,1fr)_minmax(0,1.25fr)_minmax(0,1.1fr)_minmax(0,0.85fr)_7rem]'
 const upstreamPathDescriptionKey =
@@ -205,11 +190,11 @@ export function RouteModeBadges(props: { routes: AdvancedCustomRoute[] }) {
       className='max-w-full'
     >
       {item.converter === 'none' ? (
-        <ArrowRight aria-hidden='true' />
+        <HugeiconsIcon icon={ArrowRight01Icon} aria-hidden='true' />
       ) : (
-        <Shuffle aria-hidden='true' />
+        <HugeiconsIcon icon={ShuffleIcon} aria-hidden='true' />
       )}
-      <span className='truncate'>{t(item.label)}</span>
+      <span className='whitespace-normal break-words [overflow-wrap:anywhere]'>{t(item.label)}</span>
     </Badge>
   ))
 }
@@ -656,31 +641,13 @@ export function AdvancedCustomEditorDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={t('Advanced Custom Routes')}
-      description={t('Advanced Custom')}
-      contentClassName='flex max-h-[90vh] flex-col gap-0 p-0 sm:max-w-5xl'
-      headerClassName='border-b px-6 py-4'
-      footerClassName='border-t px-6 py-4'
-      contentHeight='70vh'
-      footer={
-        <>
-          <Button
-            type='button'
-            variant='outline'
-            onClick={() => onOpenChange(false)}
-          >
-            {t('Cancel')}
-          </Button>
-          <Button type='button' onClick={saveConfig}>
-            <Check data-icon='inline-start' />
-            {t('Save changes')}
-          </Button>
-        </>
-      }
-    >
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className='flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-[min(85dvh,900px)] sm:max-h-[calc(100dvh-3rem)] sm:max-w-5xl sm:rounded-xl [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=select-trigger]]:h-auto [&_[data-slot=switch]]:after:-inset-y-3 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'>
+        <DialogHeader className='shrink-0 border-b px-4 py-4 pr-16 sm:px-6 sm:pr-16'>
+          <DialogTitle>{t('Advanced Custom Routes')}</DialogTitle>
+          <DialogDescription>{t('Advanced Custom')}</DialogDescription>
+        </DialogHeader>
+        <section role='region' tabIndex={0} aria-label={t('Advanced routing task')} className='flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain [overflow-wrap:anywhere]'>
       <Tabs
         value={activeTab}
         onValueChange={(value) => switchTab(value as AdvancedCustomEditorTab)}
@@ -688,27 +655,27 @@ export function AdvancedCustomEditorDialog({
       >
         <div className='border-b px-4 py-3'>
           <TabsList className='grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4'>
-            <TabsTrigger value='forwarding'>
-              <ListTree className='size-4' aria-hidden='true' />
+            <TabsTrigger className='min-h-11 whitespace-normal' value='forwarding'>
+              <HugeiconsIcon icon={ListViewIcon} className='size-4' aria-hidden='true' />
               {t('Forwarding Routes')}
               <Badge variant='outline'>{routeRows.length}</Badge>
             </TabsTrigger>
-            <TabsTrigger value='models'>
-              <ListTree className='size-4' aria-hidden='true' />
+            <TabsTrigger className='min-h-11 whitespace-normal' value='models'>
+              <HugeiconsIcon icon={ListViewIcon} className='size-4' aria-hidden='true' />
               {t('Model List')}
               <Badge variant='outline'>
                 {modelListRoute ? t('Configured') : t('Not configured')}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value='balance'>
-              <CircleDollarSign className='size-4' aria-hidden='true' />
+            <TabsTrigger className='min-h-11 whitespace-normal' value='balance'>
+              <HugeiconsIcon icon={DollarCircleIcon} className='size-4' aria-hidden='true' />
               {t('Balance Query')}
               <Badge variant='outline'>
                 {balanceRoute ? t('Configured') : t('Not configured')}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value='json'>
-              <Code2 className='size-4' aria-hidden='true' />
+            <TabsTrigger className='min-h-11 whitespace-normal' value='json'>
+              <HugeiconsIcon icon={CodeIcon} className='size-4' aria-hidden='true' />
               {t('Full JSON')}
             </TabsTrigger>
           </TabsList>
@@ -734,7 +701,7 @@ export function AdvancedCustomEditorDialog({
                   size='sm'
                   disabled={availableIncomingPathOptions.length === 0}
                 >
-                  <Plus data-icon='inline-start' />
+                  <HugeiconsIcon icon={PlusSignIcon} data-icon='inline-start' />
                   <SelectValue placeholder={t('Add route')} />
                 </SelectTrigger>
                 <SelectContent
@@ -766,10 +733,10 @@ export function AdvancedCustomEditorDialog({
                   if (typeof value === 'string') selectTemplate(value)
                 }}
               >
-                <SelectTrigger size='sm'>
+                <SelectTrigger size='sm' aria-label={t('Add template')}>
                   <SelectValue placeholder={t('Add template')} />
                 </SelectTrigger>
-                <SelectContent align='end' alignItemWithTrigger={false}>
+                <SelectContent align='end' alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11'>
                   <SelectGroup>
                     {ADVANCED_CUSTOM_TEMPLATE_OPTIONS.map((template) => (
                       <SelectItem key={template.value} value={template.value}>
@@ -849,19 +816,19 @@ export function AdvancedCustomEditorDialog({
                   }
                 >
                   {expandedRouteGroups.has(routeGroup.incomingPath) ? (
-                    <ChevronDown
+                    <HugeiconsIcon icon={ArrowDown01Icon}
                       className='size-4 shrink-0'
                       aria-hidden='true'
                     />
                   ) : (
-                    <ChevronRight
+                    <HugeiconsIcon icon={ArrowRight01Icon}
                       className='size-4 shrink-0'
                       aria-hidden='true'
                     />
                   )}
                   <span className='min-w-0 flex-1'>
                     <span className='flex min-w-0 flex-wrap items-center gap-2'>
-                      <span className='truncate font-medium'>
+                      <span className='font-medium whitespace-normal break-words [overflow-wrap:anywhere]'>
                         {getAdvancedCustomIncomingPathLabel(
                           routeGroup.incomingPath
                         )}
@@ -872,7 +839,7 @@ export function AdvancedCustomEditorDialog({
                         )}
                       />
                     </span>
-                    <span className='text-muted-foreground block truncate font-mono text-xs'>
+                    <span className='text-muted-foreground block font-mono text-xs whitespace-normal break-words [overflow-wrap:anywhere]'>
                       {routeGroup.incomingPath}
                     </span>
                   </span>
@@ -960,13 +927,19 @@ export function AdvancedCustomEditorDialog({
             {t('Edit JSON text directly. Format will be validated on save.')}
           </p>
           {jsonError ? (
-            <p className='text-destructive mt-1 text-xs'>{jsonError}</p>
+            <p role='alert' className='text-destructive mt-1 text-xs'>{jsonError}</p>
           ) : null}
         </TabsContent>
       </Tabs>
-
+        </section>
+        <DialogFooter role='group' aria-label={t('Actions')} className='m-0 shrink-0 flex-row flex-wrap justify-end rounded-none px-4 py-4 sm:px-6'>
+          <Button type='button' variant='outline' className='min-h-11' onClick={() => onOpenChange(false)}>{t('Cancel')}</Button>
+          <Button type='button' className='min-h-11' onClick={saveConfig}><HugeiconsIcon icon={Tick02Icon} data-icon='inline-start' />{t('Save changes')}</Button>
+        </DialogFooter>
+      </DialogContent>
       <ConfirmDialog
         open={templateConfirmOpen}
+        className='max-h-[calc(100dvh-2rem)] overflow-y-auto [&_button]:min-h-11 [&_button]:min-w-11'
         onOpenChange={setTemplateConfirmOpen}
         title={t('Replace forwarding routes?')}
         desc={t(
@@ -1014,7 +987,7 @@ function ManagementRouteEditor({
           type='button'
           onClick={() => onChange(createAdvancedCustomManagementRoute(path))}
         >
-          <Plus data-icon='inline-start' />
+          <HugeiconsIcon icon={PlusSignIcon} data-icon='inline-start' />
           {t('Add management route')}
         </Button>
       </div>
@@ -1051,7 +1024,7 @@ function ManagementRouteEditor({
           size='sm'
           onClick={() => onChange(null)}
         >
-          <Trash2 data-icon='inline-start' />
+          <HugeiconsIcon icon={Delete02Icon} data-icon='inline-start' />
           {t('Delete')}
         </Button>
       </div>
@@ -1083,11 +1056,11 @@ function ManagementRouteEditor({
             }
           >
             <SelectTrigger>
-              <SelectValue className='min-w-0 truncate'>
+              <SelectValue className='min-w-0 whitespace-normal break-words [overflow-wrap:anywhere]'>
                 {t(getOptionLabel(ADVANCED_CUSTOM_AUTH_MODE_OPTIONS, authMode))}
               </SelectValue>
             </SelectTrigger>
-            <SelectContent alignItemWithTrigger={false}>
+            <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11'>
               <SelectGroup>
                 {ADVANCED_CUSTOM_AUTH_MODE_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
@@ -1208,7 +1181,7 @@ function RouteGroupEditor({
               onValueChange={onIncomingPathChange}
             >
               <SelectTrigger className='h-9 max-w-full lg:max-w-[420px]'>
-                <SelectValue className='min-w-0 truncate'>
+                <SelectValue className='min-w-0 whitespace-normal break-words [overflow-wrap:anywhere]'>
                   {incomingPathLabel}
                 </SelectValue>
               </SelectTrigger>
@@ -1249,7 +1222,7 @@ function RouteGroupEditor({
               size='sm'
               onClick={onAddRoute}
             >
-              <Plus data-icon='inline-start' />
+              <HugeiconsIcon icon={PlusSignIcon} data-icon='inline-start' />
               {t('Add split')}
             </Button>
           ) : null}
@@ -1450,26 +1423,26 @@ function RouteEditor({
           <div className='flex shrink-0 items-center gap-1 lg:hidden'>
             <TooltipIconButton
               label={t('Move route up')}
-              icon={ArrowUp}
+              icon={ArrowUp01Icon}
               disabled={!canMoveUp}
               onClick={onMoveUp}
             />
             <TooltipIconButton
               label={t('Move route down')}
-              icon={ArrowDown}
+              icon={ArrowDown01Icon}
               disabled={!canMoveDown}
               onClick={onMoveDown}
             />
             {catchAllOutOfOrder ? (
               <TooltipIconButton
                 label={t('Move fallback to end')}
-                icon={ArrowDownToLine}
+                icon={ArrowDownDoubleIcon}
                 onClick={onMoveCatchAllToEnd}
               />
             ) : null}
             <TooltipIconButton
               label={t('Delete')}
-              icon={Trash2}
+              icon={Delete02Icon}
               onClick={onRemove}
             />
           </div>
@@ -1523,7 +1496,7 @@ function RouteEditor({
                         <span className='font-sans text-[10px] font-semibold tracking-normal uppercase'>
                           {t(ruleKind === 'regex' ? 'Regex' : 'Exact')}
                         </span>
-                        <span className='truncate'>{displayModel}</span>
+                        <span className='whitespace-normal break-words [overflow-wrap:anywhere]'>{displayModel}</span>
                       </Badge>
                     )
                   })
@@ -1568,7 +1541,7 @@ function RouteEditor({
             }
           >
             <SelectTrigger className='w-full max-w-full lg:h-8'>
-              <SelectValue className='min-w-0 truncate'>
+              <SelectValue className='min-w-0 whitespace-normal break-words [overflow-wrap:anywhere]'>
                 {t(converterTriggerLabel)}
               </SelectValue>
             </SelectTrigger>
@@ -1605,11 +1578,11 @@ function RouteEditor({
             }
           >
             <SelectTrigger className='w-full max-w-full lg:h-8'>
-              <SelectValue className='min-w-0 truncate'>
+              <SelectValue className='min-w-0 whitespace-normal break-words [overflow-wrap:anywhere]'>
                 {t(authLabel)}
               </SelectValue>
             </SelectTrigger>
-            <SelectContent alignItemWithTrigger={false}>
+            <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11'>
               <SelectGroup>
                 {ADVANCED_CUSTOM_AUTH_MODE_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
@@ -1624,26 +1597,26 @@ function RouteEditor({
         <div className='hidden items-center justify-end gap-1 lg:flex'>
           <TooltipIconButton
             label={t('Move route up')}
-            icon={ArrowUp}
+            icon={ArrowUp01Icon}
             disabled={!canMoveUp}
             onClick={onMoveUp}
           />
           <TooltipIconButton
             label={t('Move route down')}
-            icon={ArrowDown}
+            icon={ArrowDown01Icon}
             disabled={!canMoveDown}
             onClick={onMoveDown}
           />
           {catchAllOutOfOrder ? (
             <TooltipIconButton
               label={t('Move fallback to end')}
-              icon={ArrowDownToLine}
+              icon={ArrowDownDoubleIcon}
               onClick={onMoveCatchAllToEnd}
             />
           ) : null}
           <TooltipIconButton
             label={t('Delete')}
-            icon={Trash2}
+            icon={Delete02Icon}
             onClick={onRemove}
           />
         </div>
@@ -1715,7 +1688,7 @@ function ModelRuleHelpPopover() {
           />
         }
       >
-        <Info className='size-3.5' aria-hidden='true' />
+        <HugeiconsIcon icon={InformationCircleIcon} className='size-3.5' aria-hidden='true' />
       </PopoverTrigger>
       <PopoverContent
         align='start'
@@ -1760,7 +1733,7 @@ function TooltipIconButton({
   onClick,
 }: {
   label: string
-  icon: LucideIcon
+  icon: IconSvgElement
   disabled?: boolean
   onClick: () => void
 }) {
@@ -1778,7 +1751,7 @@ function TooltipIconButton({
             />
           }
         >
-          <Icon data-icon='inline-start' aria-hidden='true' />
+          <HugeiconsIcon icon={Icon} data-icon='inline-start' aria-hidden='true' />
           <span className='sr-only'>{label}</span>
         </TooltipTrigger>
         <TooltipContent side='top'>{label}</TooltipContent>

@@ -109,8 +109,14 @@ export function SyncWizardDialog(props: SyncWizardDialogProps) {
     props.onOpenChange(nextOpen)
   }
 
+  const isCurrentIdentity = () => {
+    const auth = useAuthStore.getState().auth
+    if ((auth.user?.role ?? 0) < ROLE.ADMIN) return false
+    return `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}` === identity
+  }
+
   const handleSync = async () => {
-    if (!props.open || !isAdmin || request.current) return
+    if (!props.open || !isAdmin || !isCurrentIdentity() || request.current) return
     const token = ++generation.current
     const controller = new AbortController()
     request.current = controller
@@ -121,7 +127,7 @@ export function SyncWizardDialog(props: SyncWizardDialogProps) {
       const preview = await previewUpstreamDiff(
         { locale, source }, controller.signal
       )
-      if (token !== generation.current || controller.signal.aborted) return
+      if (token !== generation.current || controller.signal.aborted || !isCurrentIdentity()) return
       if (!preview.success) {
         throw new Error(preview.message || t('Failed to preview upstream diff'))
       }
@@ -132,9 +138,10 @@ export function SyncWizardDialog(props: SyncWizardDialogProps) {
         setOpen('upstream-conflict')
         return
       }
+      if (!isCurrentIdentity()) return
       setIsWriting(true)
       const response = await syncUpstream({ locale, source }, controller.signal)
-      if (token !== generation.current || controller.signal.aborted) return
+      if (token !== generation.current || controller.signal.aborted || !isCurrentIdentity()) return
       if (!response.success) {
         throw new Error(response.message || t('Sync failed'))
       }
@@ -156,10 +163,10 @@ export function SyncWizardDialog(props: SyncWizardDialogProps) {
       void queryClient.invalidateQueries({ queryKey: vendorsQueryKeys.lists() })
       handleOpenChange(false)
     } catch (cause: unknown) {
-      if (token !== generation.current || controller.signal.aborted) return
+      if (token !== generation.current || controller.signal.aborted || !isCurrentIdentity()) return
       setError(cause instanceof Error ? cause.message : t('Sync failed'))
     } finally {
-      if (token === generation.current) {
+      if (token === generation.current && isCurrentIdentity()) {
         request.current = null
         setIsSyncing(false)
         setIsWriting(false)

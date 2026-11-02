@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
@@ -10,6 +10,25 @@ import { useAuthStore } from '@/stores/auth-store'
 import { ModelsProvider, useModels } from '../../models-provider'
 import { SyncWizardDialog } from '../sync-wizard-dialog'
 import { UpstreamConflictDialog } from '../upstream-conflict-dialog'
+
+type IdentityChange = 'user' | 'role' | 'session' | 'revoked'
+function changeIdentity(kind: IdentityChange) {
+  useAuthStore.setState((state) => {
+    const user = state.auth.user
+    if (!user) throw new Error('Expected the synthetic authenticated actor')
+    let role = user.role
+    if (kind === 'role') role = ROLE.SUPER_ADMIN
+    else if (kind === 'revoked') role = ROLE.USER
+    return {
+      ...state,
+      auth: {
+        ...state.auth,
+        user: { ...user, id: kind === 'user' ? 2 : user.id, role },
+        session: kind === 'session' ? { sid: 'synthetic-new-session', current: true, login_method: 'password', ip: '', user_agent: 'synthetic-test', created_at: 1, last_active_at: 1, expires_at: 4_000_000_000 } : state.auth.session,
+      },
+    }
+  })
+}
 
 const originalAuth = useAuthStore.getState()
 let client: QueryClient
@@ -156,4 +175,46 @@ it('a preview containing conflicts requires field selection and a second confirm
   await user.click(screen.getByRole('button', { name: 'Apply Overwrite' }))
   await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
   expect(post.mock.calls[0]?.[1]).toEqual({ locale: 'zh', source: 'official', overwrite: [{ model_name: 'synthetic-model', fields: ['description'] }] })
+})
+
+it.each([
+  { kind: 'user', resolveFirst: true },
+  { kind: 'user', resolveFirst: false },
+  { kind: 'role', resolveFirst: true },
+  { kind: 'session', resolveFirst: true },
+  { kind: 'revoked', resolveFirst: false },
+] as const)('a $kind boundary and old preview resolution inside the same act cannot dispatch a write (resolve first=$resolveFirst)', async ({ kind, resolveFirst }) => {
+  let complete: ((value: { data: { success: boolean; data: { conflicts: [] } } }) => void) | undefined
+  const pending = new Promise<{ data: { success: boolean; data: { conflicts: [] } } }>((resolve) => { complete = resolve })
+  const get = vi.spyOn(api, 'get').mockReturnValue(pending)
+  const post = vi.spyOn(api, 'post').mockRejectedValue(new Error('Unexpected synthetic write across identity'))
+  const user = userEvent.setup()
+  renderTools()
+  await user.click(screen.getByRole('button', { name: 'Open sync' }))
+  await user.click(screen.getByRole('button', { name: 'Sync Now' }))
+  await waitFor(() => expect(get).toHaveBeenCalledTimes(1))
+  await act(async () => {
+    if (resolveFirst) complete?.({ data: { success: true, data: { conflicts: [] } } })
+    changeIdentity(kind)
+    if (!resolveFirst) complete?.({ data: { success: true, data: { conflicts: [] } } })
+    await pending
+  })
+  expect(post).not.toHaveBeenCalled()
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+it('an already rendered Sync control cannot start preview after an identity change in the same act', async () => {
+  const get = vi.spyOn(api, 'get').mockRejectedValue(new Error('Unexpected synthetic preview across identity'))
+  const post = vi.spyOn(api, 'post').mockRejectedValue(new Error('Unexpected synthetic write across identity'))
+  const user = userEvent.setup()
+  renderTools()
+  await user.click(screen.getByRole('button', { name: 'Open sync' }))
+  const sync = screen.getByRole('button', { name: 'Sync Now' })
+  expect(sync).toBeEnabled()
+  await act(async () => {
+    changeIdentity('role')
+    fireEvent.click(sync)
+  })
+  expect(get).not.toHaveBeenCalled()
+  expect(post).not.toHaveBeenCalled()
 })

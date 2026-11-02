@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
@@ -10,6 +10,25 @@ import { useAuthStore } from '@/stores/auth-store'
 import type { SyncDiffData } from '../../../types'
 import { ModelsProvider, useModels } from '../../models-provider'
 import { UpstreamConflictDialog } from '../upstream-conflict-dialog'
+
+type IdentityChange = 'user' | 'role' | 'session' | 'revoked'
+function changeIdentity(kind: IdentityChange) {
+  useAuthStore.setState((state) => {
+    const user = state.auth.user
+    if (!user) throw new Error('Expected the synthetic authenticated actor')
+    let role = user.role
+    if (kind === 'role') role = ROLE.SUPER_ADMIN
+    else if (kind === 'revoked') role = ROLE.USER
+    return {
+      ...state,
+      auth: {
+        ...state.auth,
+        user: { ...user, id: kind === 'user' ? 2 : user.id, role },
+        session: kind === 'session' ? { sid: 'synthetic-new-session', current: true, login_method: 'password', ip: '', user_agent: 'synthetic-test', created_at: 1, last_active_at: 1, expires_at: 4_000_000_000 } : state.auth.session,
+      },
+    }
+  })
+}
 
 const originalAuth = useAuthStore.getState()
 let client: QueryClient
@@ -158,4 +177,22 @@ it('searching to another page keeps hidden selected fields explicit and select a
   await user.click(screen.getByRole('button', { name: 'Apply Overwrite' }))
   await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
   expect(post.mock.calls[0]?.[1]).toEqual({ locale: 'zh', source: 'official', overwrite: conflicts.map((entry) => ({ model_name: entry.model_name, fields: ['description', 'tags'] })) })
+})
+
+it.each(['user', 'role', 'session', 'revoked'] as const)('the previously rendered Apply control cannot write across a $kind boundary in the same act', async (kind) => {
+  const post = vi.spyOn(api, 'post').mockRejectedValue(new Error('Unexpected synthetic overwrite across identity'))
+  const user = userEvent.setup()
+  renderTools(conflicts.slice(0, 1))
+  await user.click(screen.getByRole('button', { name: 'Open conflicts' }))
+  const field = screen.getAllByRole('checkbox', { name: 'Select row' }).at(0)
+  if (!field) throw new Error('Expected the synthetic field selection control')
+  await user.click(field)
+  const apply = screen.getByRole('button', { name: 'Apply Overwrite' })
+  expect(apply).toBeEnabled()
+  await act(async () => {
+    changeIdentity(kind)
+    fireEvent.click(apply)
+  })
+  expect(post).not.toHaveBeenCalled()
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })

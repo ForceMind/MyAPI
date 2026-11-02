@@ -167,8 +167,14 @@ export function UpstreamConflictDialog(props: UpstreamConflictDialogProps) {
     })
   }
 
+  const isCurrentIdentity = () => {
+    const auth = useAuthStore.getState().auth
+    if ((auth.user?.role ?? 0) < ROLE.ADMIN) return false
+    return `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}` === identity
+  }
+
   const handleApplyOverwrite = async () => {
-    if (!props.open || !isAdmin || request.current) return
+    if (!props.open || !isAdmin || !isCurrentIdentity() || request.current) return
     const grouped = new Map<string, Set<string>>()
     for (const row of selectedRows) {
       const fields = grouped.get(row.modelName) ?? new Set<string>()
@@ -188,22 +194,23 @@ export function UpstreamConflictDialog(props: UpstreamConflictDialogProps) {
     setIsSubmitting(true)
     setError('')
     try {
+      if (!isCurrentIdentity()) return
       const response = await applyUpstreamOverwrite({
         overwrite,
         locale: syncWizardOptions.locale,
         source: syncWizardOptions.source,
       }, controller.signal)
-      if (token !== generation.current || controller.signal.aborted) return
+      if (token !== generation.current || controller.signal.aborted || !isCurrentIdentity()) return
       if (!response.success) throw new Error(response.message || t('Failed to apply overwrite.'))
       toast.success(t('Selected conflicts were overwritten successfully.'))
       void queryClient.invalidateQueries({ queryKey: modelsQueryKeys.lists() })
       void queryClient.invalidateQueries({ queryKey: vendorsQueryKeys.lists() })
       handleOpenChange(false)
     } catch (cause: unknown) {
-      if (token !== generation.current || controller.signal.aborted) return
+      if (token !== generation.current || controller.signal.aborted || !isCurrentIdentity()) return
       setError(cause instanceof Error ? cause.message : t('Failed to apply overwrite.'))
     } finally {
-      if (token === generation.current) {
+      if (token === generation.current && isCurrentIdentity()) {
         request.current = null
         setIsSubmitting(false)
       }
