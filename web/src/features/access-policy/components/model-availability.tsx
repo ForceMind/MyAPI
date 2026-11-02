@@ -30,7 +30,7 @@ export function ModelAvailabilityList(props: { models: ModelAvailability[] }) {
       {props.models.length === 0 && (
         <p role='status'>{t('No public models to display.')}</p>
       )}
-      <ul className='max-h-64 min-w-0 space-y-2 overflow-y-auto'>
+      <ul className='min-w-0 space-y-2'>
         {props.models.map((item) => (
           <li
             key={item.model}

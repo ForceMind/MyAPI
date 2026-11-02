@@ -109,7 +109,7 @@ it('filters the returned plan set by name and status without dispatching a write
   const statusFilter = statusControls.at(0)
   if (!statusFilter) throw new Error('Plan status filter is missing')
   await user.click(statusFilter)
-  await user.click(screen.getByRole('menuitemcheckbox', { name: 'Disable' }))
+  await user.click(within(screen.getByRole('listbox', { name: 'Suggestions' })).getByRole('option', { name: 'Disable' }))
   await user.keyboard('{Escape}')
   await waitFor(() => expect(screen.queryByText('synthetic-plan-001')).not.toBeInTheDocument())
   expect(screen.getByText('synthetic-plan-002')).toBeVisible()
