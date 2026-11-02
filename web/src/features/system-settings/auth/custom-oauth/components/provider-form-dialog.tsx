@@ -17,11 +17,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { type Resolver, useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
+import { useAuthStore } from '@/stores/auth-store'
+import { FormNavigationGuard } from '../../../components/form-navigation-guard'
+import { isCurrentSettingsFrame, useSettingsReloadScope } from '../../../components/settings-page-context'
+import { useResetForm } from '../../../hooks/use-reset-form'
 import { Dialog } from '@/components/dialog'
 import { JsonCodeEditor } from '@/components/json-code-editor'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -75,15 +79,27 @@ type ProviderFormDialogProps = {
   onOpenChange: (open: boolean) => void
   provider?: CustomOAuthProvider | null
   serverAddress: string
+  returnFocus?: () => HTMLElement | null
 }
 
 const PROVIDER_FORM_ID = 'custom-oauth-provider-form'
 
 export function ProviderFormDialog(props: ProviderFormDialogProps) {
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
+  return <ProviderFormTask key={JSON.stringify([identity, props.provider?.id, props.open])} {...props} identity={identity} />
+}
+
+function ProviderFormTask(props: ProviderFormDialogProps & { identity: string }) {
   const { t } = useTranslation()
   const isEditing = !!props.provider
-  const createProvider = useCreateProvider()
-  const updateProvider = useUpdateProvider()
+  const scope = useSettingsReloadScope()
+  const alive = useRef(true)
+  const submitting = useRef(false)
+  const [error, setError] = useState<string | null>(null)
+  useLayoutEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
+  const isCurrent = () => alive.current && props.open && isCurrentSettingsFrame(scope, props.identity)
+  const createProvider = useCreateProvider({ captureResultGuard: () => isCurrent })
+  const updateProvider = useUpdateProvider({ captureResultGuard: () => isCurrent })
 
   const form = useForm<CustomOAuthFormValues>({
     resolver: zodResolver(
@@ -118,9 +134,7 @@ export function ProviderFormDialog(props: ProviderFormDialogProps) {
     t('Site URL')
   )
 
-  useEffect(() => {
-    if (props.open && props.provider) {
-      form.reset({
+  useResetForm(form, props.provider ? {
         name: props.provider.name,
         slug: props.provider.slug,
         icon: props.provider.icon || '',
@@ -139,47 +153,23 @@ export function ProviderFormDialog(props: ProviderFormDialogProps) {
         auth_style: props.provider.auth_style ?? 0,
         access_policy: props.provider.access_policy || '',
         access_denied_message: props.provider.access_denied_message || '',
-      })
-    } else if (props.open && !props.provider) {
-      form.reset({
-        name: '',
-        slug: '',
-        icon: '',
-        enabled: true,
-        client_id: '',
-        client_secret: '',
-        authorization_endpoint: '',
-        token_endpoint: '',
-        user_info_endpoint: '',
-        scopes: '',
-        user_id_field: '',
-        username_field: '',
-        display_name_field: '',
-        email_field: '',
-        well_known: '',
-        auth_style: 0,
-        access_policy: '',
-        access_denied_message: '',
-      })
-    }
-  }, [props.open, props.provider, form])
+      } : form.formState.defaultValues)
 
   const onSubmit = async (values: CustomOAuthFormValues) => {
-    if (isEditing && props.provider) {
-      const res = await updateProvider.mutateAsync({
-        id: props.provider.id,
-        data: values,
-      })
-      if (res.success) {
-        props.onOpenChange(false)
-      }
-    } else {
-      const res = await createProvider.mutateAsync(
-        values as Omit<CustomOAuthProvider, 'id'>
-      )
-      if (res.success) {
-        props.onOpenChange(false)
-      }
+    if (submitting.current || !isCurrent()) return
+    submitting.current = true
+    setError(null)
+    try {
+      const res = isEditing && props.provider
+        ? await updateProvider.mutateAsync({ id: props.provider.id, data: values })
+        : await createProvider.mutateAsync(values as Omit<CustomOAuthProvider, 'id'>)
+      if (!isCurrent()) return
+      if (res.success) props.onOpenChange(false)
+      else setError(res.message || t('Failed to update setting'))
+    } catch (cause) {
+      if (isCurrent()) setError(cause instanceof Error ? cause.message : t('Failed to update setting'))
+    } finally {
+      submitting.current = false
     }
   }
 
@@ -192,16 +182,19 @@ export function ProviderFormDialog(props: ProviderFormDialogProps) {
   }
 
   return (
+    <>
+    <FormNavigationGuard when={props.open && form.formState.isDirty} />
     <Dialog
       open={props.open}
-      onOpenChange={props.onOpenChange}
+      onOpenChange={(next) => { if (!submitting.current) props.onOpenChange(next) }}
+      returnFocus={props.returnFocus}
       title={isEditing ? t('Edit OAuth Provider') : t('Add OAuth Provider')}
       description={
         isEditing
           ? t('Update the configuration for this custom OAuth provider.')
           : t('Configure a new custom OAuth provider for user authentication.')
       }
-      contentClassName='max-h-[85vh] overflow-y-auto sm:max-w-2xl'
+      contentClassName='h-dvh max-h-dvh w-screen max-w-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-2xl pointer-coarse:[&_[data-slot=input]]:min-h-11 pointer-coarse:[&_[data-slot=select-trigger]]:min-h-11'
       contentHeight='auto'
       bodyClassName='space-y-4'
       footer={
@@ -220,6 +213,7 @@ export function ProviderFormDialog(props: ProviderFormDialogProps) {
         </>
       }
     >
+      {error && <p role='alert' className='text-destructive text-sm break-words'>{error}</p>}
       <Form {...form}>
         <SettingsForm
           id={PROVIDER_FORM_ID}
@@ -247,7 +241,7 @@ export function ProviderFormDialog(props: ProviderFormDialogProps) {
                   <CopyButton
                     value={callbackUrl}
                     size='icon'
-                    className='size-7'
+                    className='size-7 pointer-coarse:size-11'
                     tooltip={t('Copy callback URL')}
                     aria-label={t('Copy callback URL')}
                   />
@@ -426,7 +420,7 @@ export function ProviderFormDialog(props: ProviderFormDialogProps) {
           <div className='space-y-4'>
             <div className='flex items-center justify-between'>
               <h4 className='text-sm font-medium'>{t('Endpoints')}</h4>
-              <DiscoveryButton form={form} />
+              <DiscoveryButton form={form} isCurrent={isCurrent} disabled={isPending} />
             </div>
 
             <FormField
@@ -722,5 +716,6 @@ export function ProviderFormDialog(props: ProviderFormDialogProps) {
         </SettingsForm>
       </Form>
     </Dialog>
+    </>
   )
 }

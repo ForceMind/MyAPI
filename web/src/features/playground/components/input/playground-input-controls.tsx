@@ -55,7 +55,7 @@ export function PlaygroundInputControls(props: PlaygroundInputControlsProps) {
   }))
   const selectedKey = keyOptions.find((key) => key.value === props.keyId)
   return (
-    <div className='flex w-full flex-wrap items-center gap-2'>
+    <div className='flex w-full flex-wrap items-center gap-2 [&_[data-myapi-button]]:min-h-11 [&_[data-myapi-button]]:min-w-11 [&_[role=combobox]]:min-h-11'>
       {props.tools}
       <Field
         aria-label={t('API key')}
@@ -64,7 +64,7 @@ export function PlaygroundInputControls(props: PlaygroundInputControlsProps) {
         <NativeSelect
           aria-label={t('API key')}
           aria-describedby={props.keyId ? identityId : undefined}
-          className='w-full min-w-0 [&_select]:h-11 sm:[&_select]:h-8'
+          className='w-full min-w-0 [&_select]:h-11'
           value={props.keyId ?? ''}
           disabled={props.disabled || props.isLoadingKeys}
           onChange={(event) =>

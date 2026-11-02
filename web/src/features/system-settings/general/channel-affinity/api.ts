@@ -36,6 +36,7 @@ export async function clearAllCache(): Promise<{
   message?: string
 }> {
   const res = await api.delete('/api/option/channel_affinity_cache', {
+    skipAuthRefresh: true,
     params: { all: true },
   })
   return res.data
@@ -45,6 +46,7 @@ export async function clearRuleCache(
   ruleName: string
 ): Promise<{ success: boolean; message?: string }> {
   const res = await api.delete('/api/option/channel_affinity_cache', {
+    skipAuthRefresh: true,
     params: { rule_name: ruleName },
   })
   return res.data

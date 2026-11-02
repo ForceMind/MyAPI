@@ -60,7 +60,7 @@ export async function updateOptionsTypedBulk(
   const res = await api.put<TypedBulkOptionsUpdateResponse>(
     '/api/option/typed-bulk',
     request,
-    { skipErrorHandler: true }
+    { skipErrorHandler: true, skipAuthRefresh: true }
   )
   return res.data
 }
@@ -70,7 +70,8 @@ export async function updatePaymentFundingOptions(
 ) {
   const res = await api.put<UpdateOptionResponse>(
     '/api/option/payment-funding',
-    request
+    request,
+    { skipAuthRefresh: true }
   )
   return res.data
 }
@@ -78,7 +79,8 @@ export async function updatePaymentFundingOptions(
 export async function confirmPaymentCompliance() {
   const res = await api.post<ConfirmPaymentComplianceResponse>(
     '/api/option/payment_compliance',
-    { confirmed: true }
+    { confirmed: true },
+    { skipAuthRefresh: true }
   )
   return res.data
 }
@@ -89,6 +91,7 @@ export async function startLogCleanupTask(targetTimestamp: number) {
     null,
     {
       params: { target_timestamp: targetTimestamp },
+      skipAuthRefresh: true,
     }
   )
   return res.data
@@ -120,7 +123,9 @@ export async function listSystemTasks(limit = 20) {
 
 export async function resetModelRatios() {
   const res = await api.post<UpdateOptionResponse>(
-    '/api/option/rest_model_ratio'
+    '/api/option/rest_model_ratio',
+    undefined,
+    { skipAuthRefresh: true }
   )
   return res.data
 }

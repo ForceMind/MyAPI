@@ -169,7 +169,7 @@ export function SidebarModulesCard({
       const serialized = JSON.stringify(config)
       const res = await api.put('/api/user/self', {
         sidebar_modules: serialized,
-      })
+      }, { skipAuthRefresh: true })
       if (res.data.success) {
         // Sync to auth-store so useSidebarConfig re-runs and the sidebar
         // updates immediately without needing a page refresh.

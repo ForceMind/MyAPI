@@ -143,7 +143,8 @@ function SystemTasksTable(props: SystemTasksListProps) {
                 <TableCell className='py-3 align-middle'>
                   <div className='flex items-center gap-2'>
                     <Progress
-                      value={progress ?? 0}
+                      value={progress}
+                      aria-label={t('Progress')}
                       className={cn(
                         'w-24',
                         PROGRESS_BAR_CLASS_NAME[task.status]
@@ -154,7 +155,7 @@ function SystemTasksTable(props: SystemTasksListProps) {
                     </span>
                   </div>
                 </TableCell>
-                <TableCell className='text-muted-foreground max-w-[280px] truncate py-3 align-middle font-mono text-xs'>
+                <TableCell className='text-muted-foreground max-w-[280px] break-words whitespace-pre-wrap [overflow-wrap:anywhere] py-3 align-middle font-mono text-xs'>
                   {task.locked_by || '-'}
                 </TableCell>
                 <TableCell
@@ -168,7 +169,7 @@ function SystemTasksTable(props: SystemTasksListProps) {
                   )}
                 </TableCell>
                 <TableCell
-                  className='text-destructive max-w-[220px] truncate py-3 pr-4 align-middle text-xs'
+                  className='text-destructive max-w-[220px] break-words whitespace-pre-wrap [overflow-wrap:anywhere] py-3 pr-4 align-middle text-xs'
                   title={task.error || undefined}
                 >
                   {task.error || '-'}
@@ -210,7 +211,7 @@ function SystemTaskRecords(props: SystemTasksListProps) {
             </div>
             <div className='flex items-center gap-2'>
               <Progress
-                value={progress ?? 0}
+                value={progress}
                 aria-label={t('Progress')}
                 className={cn(
                   'min-w-0 flex-1',

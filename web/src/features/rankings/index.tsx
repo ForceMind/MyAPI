@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 import { PublicLayout } from '@/components/layout'
 import { PageTransition } from '@/components/page-transition'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 
 import {
   MarketShareSection,
@@ -46,7 +47,12 @@ export function Rankings() {
     : 'week'
 
   const rankingsQuery = useRankings(period)
-  const snapshot = rankingsQuery.data?.data
+  const candidate = rankingsQuery.data?.success === true ? rankingsQuery.data.data : undefined
+  const snapshot = candidate && Array.isArray(candidate.models) && Array.isArray(candidate.vendors)
+    && Array.isArray(candidate.top_movers) && Array.isArray(candidate.top_droppers)
+    && Array.isArray(candidate.models_history?.points) && Array.isArray(candidate.models_history?.models)
+    && Array.isArray(candidate.vendor_share_history?.points) && Array.isArray(candidate.vendor_share_history?.vendors)
+    ? candidate : undefined
 
   const handlePeriodChange = (next: RankingPeriod) => {
     navigate({
@@ -62,12 +68,14 @@ export function Rankings() {
         <RankingsHero period={period} onPeriodChange={handlePeriodChange} />
 
         {rankingsQuery.isLoading && <RankingsLoading />}
-        {!rankingsQuery.isLoading && !snapshot && (
+        {!rankingsQuery.isLoading && (rankingsQuery.isError || !snapshot) && (
           <RankingsError
-            message={
+            onRetry={() => void rankingsQuery.refetch()}
+            isRetrying={rankingsQuery.isFetching}
+            message={rankingsQuery.data?.message || (
               rankingsQuery.error instanceof Error
                 ? rankingsQuery.error.message
-                : t('Unable to load rankings data')
+                : t('Unable to load rankings data'))
             }
           />
         )}
@@ -106,16 +114,17 @@ function RankingsLoading() {
   )
 }
 
-function RankingsError(props: { message: string }) {
+function RankingsError(props: { message: string; onRetry: () => void; isRetrying: boolean }) {
   const { t } = useTranslation()
   return (
-    <div className='bg-card rounded-card border px-6 py-12 text-center'>
+    <div role='alert' className='bg-card rounded-card border px-6 py-12 text-center'>
       <h2 className='text-foreground text-base font-semibold'>
         {t('Unable to load rankings')}
       </h2>
-      <p className='text-muted-foreground mx-auto mt-2 max-w-md text-sm'>
+      <p className='text-muted-foreground mx-auto mt-2 max-w-md text-sm break-words'>
         {props.message}
       </p>
+      <Button type='button' variant='outline' className='mt-4' onClick={props.onRetry} disabled={props.isRetrying}>{t('Retry')}</Button>
     </div>
   )
 }

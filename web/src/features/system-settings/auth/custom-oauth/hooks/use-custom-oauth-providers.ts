@@ -17,14 +17,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
+import i18next from 'i18next'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { getCustomOAuthProviders } from '../api'
 
 export function useCustomOAuthProviders() {
+  const identity = useAuthStore((state) => [state.auth.user?.id ?? null, state.auth.user?.role ?? 0, state.auth.session?.sid ?? null].join(':'))
   return useQuery({
-    queryKey: ['custom-oauth-providers'],
+    queryKey: ['custom-oauth-providers', identity],
     queryFn: async () => {
       const res = await getCustomOAuthProviders()
+      if (!res.success || (res.data != null && !Array.isArray(res.data))) throw new Error(res.message || i18next.t('Unable to load settings'))
       return res.data ?? []
     },
   })

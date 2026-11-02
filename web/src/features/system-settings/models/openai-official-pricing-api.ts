@@ -56,7 +56,7 @@ export async function saveOfficialOpenAIPriceSource(
   const response = await api.post<{ success: boolean; data?: unknown }>(
     '/api/ratio_sync/openai/versions',
     undefined,
-    { signal, skipErrorHandler: true }
+    { signal, skipErrorHandler: true, skipAuthRefresh: true }
   )
   if (!response.data.success) {
     throw new Error('official_pricing_source_save_failed')

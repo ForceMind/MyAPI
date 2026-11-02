@@ -20,12 +20,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import i18next from 'i18next'
 import { toast } from 'sonner'
+import { useSettingsReloadScope } from '../components/settings-page-context'
+import { useLayoutEffect, useRef } from 'react'
+import { useAuthStore } from '@/stores/auth-store'
+import { markReportedOptionFailure, OptionUpdateError } from './use-update-option'
 
 import { getOptionsTypedBulkRevision, updateOptionsTypedBulk } from '../api'
 import type {
   TypedBulkOptionItem,
   TypedBulkOptionType,
   TypedBulkRevisionResponse,
+  SystemOptionsResponse,
 } from '../types'
 
 export const TYPED_BULK_REVISION_QUERY_KEY = [
@@ -114,14 +119,25 @@ function readRevision(data: TypedBulkRevisionResponse | undefined): number {
  */
 export function useUpdateTypedBulkOptions() {
   const queryClient = useQueryClient()
+  const reloadScope = useSettingsReloadScope()
+  const initialAuth = useAuthStore.getState().auth
+  const actor = useRef(`${initialAuth.user?.id ?? null}:${initialAuth.user?.role ?? 0}:${initialAuth.session?.sid ?? null}`)
+  const mounted = useRef(true)
+  useLayoutEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+  const isCurrent = () => {
+    const { auth } = useAuthStore.getState()
+    return mounted.current && reloadScope.isActive() && actor.current === `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`
+  }
 
   return useMutation({
     mutationFn: async (items: TypedBulkOptionItem[]) => {
+      if (!isCurrent()) throw new OptionUpdateError(i18next.t('Session changed'))
       const revisionResponse = await queryClient.fetchQuery({
         queryKey: TYPED_BULK_REVISION_QUERY_KEY,
         queryFn: getOptionsTypedBulkRevision,
         staleTime: 60 * 1000,
       })
+      if (!isCurrent()) throw new OptionUpdateError(i18next.t('Session changed'))
       return updateOptionsTypedBulk({
         expected_revision: readRevision(revisionResponse),
         items,
@@ -129,7 +145,7 @@ export function useUpdateTypedBulkOptions() {
     },
     onSuccess: (data, items) => {
       if (!data.success) {
-        toast.error(data.message || i18next.t('Failed to update setting'))
+        if (isCurrent()) toast.error(data.message || i18next.t('Failed to update setting'))
         return
       }
 
@@ -155,9 +171,11 @@ export function useUpdateTypedBulkOptions() {
         }
       }
 
-      toast.success(i18next.t('Setting updated successfully'))
+      if (isCurrent()) toast.success(i18next.t('Setting updated successfully'))
     },
     onError: (error: Error) => {
+      markReportedOptionFailure(error)
+      if (!isCurrent()) return
       if (isAxiosError(error)) {
         const status = error.response?.status
         const message =
@@ -173,13 +191,23 @@ export function useUpdateTypedBulkOptions() {
             {
               action: {
                 label: i18next.t('Reload'),
-                onClick: () => {
-                  queryClient.invalidateQueries({
-                    queryKey: ['system-options'],
-                  })
-                  queryClient.invalidateQueries({
-                    queryKey: TYPED_BULK_REVISION_QUERY_KEY,
-                  })
+                onClick: async () => {
+                  try {
+                    await Promise.all([
+                      queryClient.invalidateQueries({ queryKey: ['system-options'] }, { throwOnError: true }),
+                      queryClient.invalidateQueries({ queryKey: TYPED_BULK_REVISION_QUERY_KEY }, { throwOnError: true }),
+                    ])
+                    if (!reloadScope.isActive() || !reloadScope.hasEditors()) return
+                    const options = queryClient.getQueryData<SystemOptionsResponse>(['system-options'])
+                    const revision = queryClient.getQueryData<TypedBulkRevisionResponse>(TYPED_BULK_REVISION_QUERY_KEY)
+                    if (options?.success !== true || !Array.isArray(options.data) || revision?.success === false) {
+                      toast.error(i18next.t('Unable to load settings'))
+                      return
+                    }
+                    reloadScope.acceptReload()
+                  } catch {
+                    if (reloadScope.isActive() && reloadScope.hasEditors()) toast.error(i18next.t('Unable to load settings'))
+                  }
                 },
               },
             }

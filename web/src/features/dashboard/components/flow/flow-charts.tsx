@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
+import { CanceledError } from 'axios'
 import { VChart } from '@visactor/react-vchart'
 import type { EventParamsDefinition, IVChart } from '@visactor/vchart'
 import {
@@ -42,6 +43,7 @@ import { useTranslation } from 'react-i18next'
 
 import { MultiSelect } from '@/components/multi-select'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import {
   Empty,
   EmptyDescription,
@@ -253,6 +255,7 @@ function formatFlowMetricNumber(value: number): string {
 
 export function FlowCharts(props: FlowChartsProps) {
   const { t } = useTranslation()
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
   const { resolvedTheme, themeReady } = useChartTheme()
   const palette = useChartPalette(resolvedTheme)
   const chartInstanceRef = useRef<IVChart | null>(null)
@@ -334,9 +337,20 @@ export function FlowCharts(props: FlowChartsProps) {
     error: flowError,
     isError,
     isLoading,
+    isFetching,
+    refetch,
   } = useQuery({
-    queryKey: ['dashboard', 'flow', flowQueryParams, flowRole],
-    queryFn: () => getFlowQuotaDates(flowQueryParams, isAdmin),
+    queryKey: ['dashboard', 'flow', flowQueryParams, flowRole, identity],
+    queryFn: async ({ signal }) => {
+      const isCurrent = () => {
+        const { auth } = useAuthStore.getState()
+        return !signal.aborted && identity === `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`
+      }
+      if (!isCurrent()) throw new CanceledError('Analytics request scope changed')
+      const result = await getFlowQuotaDates(flowQueryParams, isAdmin)
+      if (!isCurrent()) throw new CanceledError('Analytics request scope changed')
+      return result
+    },
     select: (res) =>
       requireSuccessfulFlowRows(res, t('Please try again later.')),
     staleTime: 60_000,
@@ -517,6 +531,15 @@ export function FlowCharts(props: FlowChartsProps) {
           <CircleAlert />
           <AlertTitle>{t('Failed to load')}</AlertTitle>
           <AlertDescription>{flowErrorMessage}</AlertDescription>
+          <Button
+            type='button'
+            variant='outline'
+            className='mt-3 min-h-11 min-w-11'
+            disabled={isFetching}
+            onClick={() => void refetch()}
+          >
+            {t('Retry')}
+          </Button>
         </Alert>
       </div>
     )
@@ -535,7 +558,7 @@ export function FlowCharts(props: FlowChartsProps) {
   }
 
   return (
-    <div className='flex flex-col gap-3'>
+    <div className='flex flex-col gap-3 [&_[role=tab]]:min-h-11 [&_[role=tab]]:min-w-11 [&_[role=tablist]]:h-auto [&_[role=tablist]]:flex-wrap [&_[role=tablist]]:max-w-full [&_[data-myapi-button]]:min-h-11 [&_[data-myapi-button]]:min-w-11'>
       <div className='flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between'>
         <div className='flex min-w-0 flex-wrap items-end gap-2'>
           <div className='flex min-w-0 flex-col gap-1.5'>
@@ -549,7 +572,7 @@ export function FlowCharts(props: FlowChartsProps) {
                     render={
                       <button
                         type='button'
-                        className='text-muted-foreground/60 hover:text-foreground flex size-5 shrink-0 items-center justify-center rounded-md'
+                        className='text-muted-foreground/60 hover:text-foreground flex size-11 shrink-0 items-center justify-center rounded-md'
                         aria-label={t('Flow width metric')}
                       />
                     }
@@ -565,9 +588,12 @@ export function FlowCharts(props: FlowChartsProps) {
             <Tabs
               value={metric}
               onValueChange={(value) => setMetric(value as FlowMetric)}
-              className='shrink-0'
+              className='min-w-0 max-w-full'
             >
-              <TabsList aria-label={t('Flow width metric')}>
+              <TabsList
+                className='h-auto min-h-12 max-w-full flex-wrap'
+                aria-label={t('Flow width metric')}
+              >
                 {FLOW_METRIC_OPTIONS.map((option) => {
                   const Icon = option.icon
                   return (
@@ -592,9 +618,12 @@ export function FlowCharts(props: FlowChartsProps) {
             <Tabs
               value={String(topNodeLimit)}
               onValueChange={(value) => setTopNodeLimit(Number(value))}
-              className='shrink-0'
+              className='min-w-0 max-w-full'
             >
-              <TabsList aria-label={t('Display limit')}>
+              <TabsList
+                className='h-auto min-h-12 max-w-full flex-wrap'
+                aria-label={t('Display limit')}
+              >
                 {FLOW_TOP_LIMIT_OPTIONS.map((limit) => (
                   <TabsTrigger
                     key={limit}
@@ -617,9 +646,12 @@ export function FlowCharts(props: FlowChartsProps) {
               onValueChange={(value) =>
                 setOverflowMode(value as FlowOverflowMode)
               }
-              className='shrink-0'
+              className='min-w-0 max-w-full'
             >
-              <TabsList aria-label={t('Overflow items')}>
+              <TabsList
+                className='h-auto min-h-12 max-w-full flex-wrap'
+                aria-label={t('Overflow items')}
+              >
                 {FLOW_OVERFLOW_MODE_OPTIONS.map((option) => (
                   <TabsTrigger
                     key={option.value}
@@ -678,7 +710,7 @@ export function FlowCharts(props: FlowChartsProps) {
                   render={
                     <button
                       type='button'
-                      className='text-muted-foreground/60 hover:text-foreground flex size-6 shrink-0 items-center justify-center rounded-md'
+                      className='text-muted-foreground/60 hover:text-foreground flex size-11 shrink-0 items-center justify-center rounded-md'
                       aria-label={t('Show or hide flow columns')}
                     />
                   }
@@ -706,7 +738,10 @@ export function FlowCharts(props: FlowChartsProps) {
                             pressed={visible}
                             onPressedChange={() => toggleStage(stage)}
                             aria-label={t(meta.labelKey)}
-                            className={cn('shrink-0', !visible && 'opacity-50')}
+                            className={cn(
+                              'min-h-11 min-w-11 shrink-0',
+                              !visible && 'opacity-50'
+                            )}
                           />
                         }
                       >

@@ -48,17 +48,16 @@ export function LegalDocument({
   emptyMessage,
 }: LegalDocumentProps) {
   const { t } = useTranslation()
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: [queryKey],
     queryFn: fetchDocument,
     staleTime: 10 * 60 * 1000,
   })
 
-  const rawContent = data?.data?.trim() ?? ''
+  const rawContent = typeof data?.data === 'string' ? data.data.trim() : ''
   const hasContent = rawContent.length > 0
   const isUrl = hasContent && isHttpUrl(rawContent)
   const contentIsHtml = hasContent && isLikelyHtml(rawContent)
-  const success = data?.success ?? false
 
   if (isLoading) {
     return (
@@ -73,7 +72,15 @@ export function LegalDocument({
     )
   }
 
-  if (!success || !hasContent) {
+  if (isError || data?.success !== true || typeof data.data !== 'string') {
+    return <PublicLayout><div role='alert' className='mx-auto max-w-2xl space-y-4 rounded-lg border p-5 break-words'>
+      <h1 className='text-lg font-semibold'>{title}</h1>
+      <p className='text-muted-foreground text-sm'>{data?.message || (error instanceof Error ? error.message : t('Unable to load content'))}</p>
+      <Button type='button' variant='outline' onClick={() => void refetch()} disabled={isFetching}>{t('Retry')}</Button>
+    </div></PublicLayout>
+  }
+
+  if (!hasContent) {
     return (
       <PublicLayout>
         <div className='mx-auto max-w-2xl'>
@@ -137,7 +144,7 @@ export function LegalDocument({
           <RichContent
             mode='markdown'
             content={rawContent}
-            className='prose-neutral dark:prose-invert max-w-none'
+            className='prose-neutral dark:prose-invert max-w-none break-words'
           />
         </div>
       )}

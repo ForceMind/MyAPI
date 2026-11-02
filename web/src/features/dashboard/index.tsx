@@ -180,6 +180,11 @@ const SECTION_META: Record<DashboardSectionId, { titleKey: string }> = {
 }
 
 export function Dashboard() {
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
+  return <DashboardSession key={identity} />
+}
+
+function DashboardSession() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const params = route.useParams()
@@ -189,6 +194,7 @@ export function Dashboard() {
 
   const [modelData, setModelData] = useState<QuotaDataItem[]>([])
   const [dataLoading, setDataLoading] = useState(false)
+  const [modelDataError, setModelDataError] = useState(false)
   const [modelTimezoneOffset, setModelTimezoneOffset] = useState(
     () => -new Date().getTimezoneOffset()
   )
@@ -221,10 +227,12 @@ export function Dashboard() {
     (
       data: QuotaDataItem[],
       loading: boolean,
-      timezoneOffsetMinutes?: number
+      timezoneOffsetMinutes?: number,
+      failed = false
     ) => {
       setModelData(data)
       setDataLoading(loading)
+      setModelDataError(failed)
       if (timezoneOffsetMinutes != null) {
         setModelTimezoneOffset(timezoneOffsetMinutes)
       }
@@ -407,35 +415,39 @@ export function Dashboard() {
                   </Suspense>
                 </FadeIn>
               )}
-              <FadeIn delay={0.1}>
-                <Suspense fallback={<ModelChartsFallback />}>
-                  <LazyConsumptionDistributionChart
-                    data={modelData}
-                    loading={dataLoading}
-                    defaultChartType={
-                      chartPreferences.consumptionDistributionChart
-                    }
-                    timeGranularity={
-                      modelFilters.time_granularity || DEFAULT_TIME_GRANULARITY
-                    }
-                    timezoneOffsetMinutes={modelTimezoneOffset}
-                    onTimeGranularityChange={handleModelGranularityChange}
-                  />
-                </Suspense>
-              </FadeIn>
-              <FadeIn delay={0.15}>
-                <Suspense fallback={<ModelChartsFallback />}>
-                  <LazyModelCharts
-                    data={modelData}
-                    loading={dataLoading}
-                    defaultChartTab={chartPreferences.modelAnalyticsChart}
-                    timeGranularity={
-                      modelFilters.time_granularity || DEFAULT_TIME_GRANULARITY
-                    }
-                    timezoneOffsetMinutes={modelTimezoneOffset}
-                  />
-                </Suspense>
-              </FadeIn>
+              {!modelDataError && (
+                <>
+                  <FadeIn delay={0.1}>
+                    <Suspense fallback={<ModelChartsFallback />}>
+                      <LazyConsumptionDistributionChart
+                        data={modelData}
+                        loading={dataLoading}
+                        defaultChartType={
+                          chartPreferences.consumptionDistributionChart
+                        }
+                        timeGranularity={
+                          modelFilters.time_granularity || DEFAULT_TIME_GRANULARITY
+                        }
+                        timezoneOffsetMinutes={modelTimezoneOffset}
+                        onTimeGranularityChange={handleModelGranularityChange}
+                      />
+                    </Suspense>
+                  </FadeIn>
+                  <FadeIn delay={0.15}>
+                    <Suspense fallback={<ModelChartsFallback />}>
+                      <LazyModelCharts
+                        data={modelData}
+                        loading={dataLoading}
+                        defaultChartTab={chartPreferences.modelAnalyticsChart}
+                        timeGranularity={
+                          modelFilters.time_granularity || DEFAULT_TIME_GRANULARITY
+                        }
+                        timezoneOffsetMinutes={modelTimezoneOffset}
+                      />
+                    </Suspense>
+                  </FadeIn>
+                </>
+              )}
             </>
           )}
           {activeSection === 'users' && (

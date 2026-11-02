@@ -22,3 +22,7 @@ section[id]{scroll-margin-top:104px}
 .light-preview .docs-panel{background:linear-gradient(110deg,#eef0ff,#e8f5f2);border-color:#b9c7e3}
 .light-preview .button-dark{background:#dbe2ef;color:#16213a}
 .light-preview .provider-bar{background:#dce3ef}
+
+/* Preserve long UI labels and touch access without changing the desktop density. */
+:where(h1,h2,h3,p,.brand,.button,.text-link,.footer-links a){overflow-wrap:anywhere}
+@media (pointer:coarse){.icon-button,.menu-button{min-width:44px;min-height:44px}.button,.desktop-nav a,.mobile-menu a,.footer-links a,.text-link{min-height:44px}.desktop-nav a,.mobile-menu a,.footer-links a,.text-link{display:inline-flex;align-items:center}.mobile-menu{max-height:calc(100dvh - 100px);overflow-y:auto;overscroll-behavior:contain}}

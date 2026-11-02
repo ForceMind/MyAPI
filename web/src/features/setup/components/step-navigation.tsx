@@ -57,7 +57,7 @@ export function StepNavigation({
             variant='outline'
             onClick={onBack}
             disabled={isSubmitting}
-            className='h-auto min-h-10 whitespace-normal'
+            className='h-auto min-h-11 whitespace-normal'
           >
             {t('Back')}
           </Button>
@@ -68,7 +68,7 @@ export function StepNavigation({
             type='button'
             onClick={onNext}
             disabled={isSubmitting}
-            className='ms-auto h-auto min-h-10 whitespace-normal'
+            className='ms-auto h-auto min-h-11 whitespace-normal'
           >
             {t('Next')}
           </Button>
@@ -80,7 +80,7 @@ export function StepNavigation({
             onClick={onSubmit}
             disabled={isSubmitting}
             aria-busy={isSubmitting}
-            className='ms-auto h-auto min-h-10 max-w-full whitespace-normal'
+            className='ms-auto h-auto min-h-11 max-w-full whitespace-normal'
           >
             {isSubmitting ? (
               <>

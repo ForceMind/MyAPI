@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useTranslation } from 'react-i18next'
+
 import { cn } from '@/lib/utils'
 
 type GrowthTextProps = {
@@ -29,6 +31,7 @@ type GrowthTextProps = {
  * still aligns inside a tabular column.
  */
 export function GrowthText(props: GrowthTextProps) {
+  const { t } = useTranslation()
   const v = props.value
   if (!Number.isFinite(v) || v === 0) {
     return (
@@ -38,7 +41,7 @@ export function GrowthText(props: GrowthTextProps) {
           props.className
         )}
       >
-        0%
+        {Number.isFinite(v) ? '0%' : t('Unknown')}
       </span>
     )
   }

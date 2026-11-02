@@ -64,7 +64,8 @@ export async function updatePromptLearningPolicy(
 ): Promise<PromptLearningPolicy> {
   const response = await api.put<ApiResponse<PromptLearningPolicy>>(
     '/api/user/prompt-learning',
-    { enabled }
+    { enabled },
+    { skipAuthRefresh: true }
   )
   return requireSuccess(response.data)
 }
@@ -93,7 +94,9 @@ export async function getPromptLearningRuns(
 
 export async function cancelPromptLearningRun(runId: number): Promise<void> {
   const response = await api.post<ApiResponse<{ cancelled: boolean }>>(
-    `/api/user/prompt-learning/runs/${runId}/cancel`
+    `/api/user/prompt-learning/runs/${runId}/cancel`,
+    undefined,
+    { skipAuthRefresh: true }
   )
   const result = requireSuccess(response.data)
   if (!result.cancelled) {
@@ -112,6 +115,6 @@ export async function createPromptLearningVersion(input: {
     command_id: input.commandId,
     content: input.content,
     parent_id: input.parentId,
-  })
+  }, { skipAuthRefresh: true })
   return requireSuccess(response.data)
 }

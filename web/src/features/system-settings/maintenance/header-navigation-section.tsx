@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import * as z from 'zod'
@@ -42,6 +42,9 @@ import {
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
+import { FormNavigationGuard } from '../components/form-navigation-guard'
+import { FormDirtyIndicator } from '../components/form-dirty-indicator'
+import { useResetForm } from '../hooks/use-reset-form'
 import {
   HEADER_NAV_DEFAULT,
   type HeaderNavModulesConfig,
@@ -110,9 +113,7 @@ export function HeaderNavigationSection({
     defaultValues: formDefaults,
   })
 
-  useEffect(() => {
-    form.reset(formDefaults)
-  }, [formDefaults, form])
+  useResetForm(form, formDefaults)
 
   const onSubmit = async (values: HeaderNavFormValues) => {
     const payload: HeaderNavModulesConfig = {
@@ -145,7 +146,7 @@ export function HeaderNavigationSection({
   }
 
   const resetToDefault = () => {
-    form.reset(toFormValues(HEADER_NAV_DEFAULT))
+    form.reset(toFormValues(HEADER_NAV_DEFAULT), { keepDefaultValues: true })
   }
 
   const simpleModules: Array<{
@@ -209,6 +210,9 @@ export function HeaderNavigationSection({
   ]
 
   return (
+    <>
+    <FormNavigationGuard when={form.formState.isDirty} />
+    <FormDirtyIndicator isDirty={form.formState.isDirty} />
     <SettingsSection title={t('Header navigation')}>
       <Form {...form}>
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
@@ -297,5 +301,6 @@ export function HeaderNavigationSection({
         </SettingsForm>
       </Form>
     </SettingsSection>
+    </>
   )
 }

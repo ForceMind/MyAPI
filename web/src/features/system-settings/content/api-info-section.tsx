@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus, Trash2, Save } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -64,6 +64,10 @@ import { getBgColorClass } from '@/lib/colors'
 import { SettingsSwitchField } from '../components/settings-form-layout'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
+import { FormNavigationGuard } from '../components/form-navigation-guard'
+import { FormDirtyIndicator } from '../components/form-dirty-indicator'
+import { SettingsJSONRepair } from '../components/settings-json-repair'
+import { useContentEntries } from './use-content-entries'
 
 type ApiInfo = {
   id: number
@@ -107,37 +111,21 @@ const colorOptions = [
   { value: 'slate', label: 'Slate' },
 ]
 
-function parseApiInfoList(data: string): ApiInfo[] {
-  try {
-    const parsed = JSON.parse(data || '[]')
-    if (!Array.isArray(parsed)) return []
-
-    return parsed.map((item, idx) => ({
-      ...item,
-      id: item.id || idx + 1,
-    }))
-  } catch {
-    return []
-  }
-}
-
 export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
   const apiInfoSchema = createApiInfoSchema(t)
-  const parsedApiInfoList = useMemo(() => parseApiInfoList(data), [data])
-  const [draftApiInfoList, setDraftApiInfoList] = useState<ApiInfo[] | null>(
-    null
-  )
+  const draft = useContentEntries<ApiInfo>(data, (entry) => apiInfoSchema.safeParse(entry).success)
   const [isEnabledDraft, setIsEnabledDraft] = useState<boolean | null>(null)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [showDialog, setShowDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [editingApiInfo, setEditingApiInfo] = useState<ApiInfo | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<'single' | 'batch'>('single')
-  const apiInfoList = draftApiInfoList ?? parsedApiInfoList
+  const apiInfoList = draft.entries
+  const setDraftApiInfoList = (entries: ApiInfo[]) => { draft.setEntries(entries); draft.markChanged(true) }
   const isEnabled = isEnabledDraft ?? enabled
-  const hasChanges = draftApiInfoList !== null
+  const hasChanges = draft.isDirty
 
   const form = useForm<ApiInfoFormValues>({
     resolver: zodResolver(apiInfoSchema),
@@ -155,14 +143,17 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
         key: 'console_setting.api_info_enabled',
         value: checked,
       })
+      if (!draft.isCurrent()) return
       setIsEnabledDraft(checked)
       toast.success(t('Setting saved'))
     } catch {
+      if (!draft.isCurrent()) return
       toast.error(t('Failed to update setting'))
     }
   }
 
   const handleAdd = () => {
+    if (draft.incompatible) return
     setEditingApiInfo(null)
     form.reset({
       url: '',
@@ -191,6 +182,7 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
   }
 
   const handleBatchDelete = () => {
+    if (draft.incompatible) return
     if (selectedIds.length === 0) {
       toast.error(t('Please select items to delete'))
       return
@@ -200,6 +192,7 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
   }
 
   const confirmDelete = () => {
+    if (draft.incompatible) return
     if (deleteTarget === 'single' && editingApiInfo) {
       setDraftApiInfoList(
         apiInfoList.filter((item) => item.id !== editingApiInfo.id)
@@ -221,6 +214,7 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
   }
 
   const handleSubmitForm = (values: ApiInfoFormValues) => {
+    if (draft.incompatible) return
     if (editingApiInfo) {
       setDraftApiInfoList(
         apiInfoList.map((item) =>
@@ -237,15 +231,19 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
   }
 
   const handleSaveAll = async () => {
+    if (draft.incompatible) return
+    const saved = apiInfoList
     try {
       const result = await updateOption.mutateAsync({
         key: 'console_setting.api_info',
-        value: JSON.stringify(apiInfoList),
+        value: JSON.stringify(saved),
       })
       if (result.success) {
-        setDraftApiInfoList(null)
+        if (!draft.isCurrent()) return
+        draft.acknowledge(saved)
       }
     } catch {
+      if (!draft.isCurrent()) return
       toast.error(t('Failed to save API info'))
     }
   }
@@ -263,11 +261,15 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
   const getColorClass = (color: string) => getBgColorClass(color)
 
   return (
+    <>
+    <FormNavigationGuard when={hasChanges || (showDialog && form.formState.isDirty)} />
+    <FormDirtyIndicator isDirty={hasChanges || (showDialog && form.formState.isDirty)} />
     <SettingsSection title={t('API Addresses')}>
       <div className='space-y-4'>
+        {draft.incompatible && <SettingsJSONRepair source={draft.source} canApply={draft.canApplyRaw} onApply={(raw) => { const applied = draft.applyRaw(raw); if (applied) setSelectedIds([]); return applied }} />}
         <div className='flex flex-wrap items-center justify-between gap-2'>
           <div className='flex flex-wrap items-center gap-2'>
-            <Button onClick={handleAdd} size='sm'>
+            <Button onClick={handleAdd} size='sm' disabled={draft.incompatible}>
               <Plus className='mr-2 h-4 w-4' />
               {t('Add API')}
             </Button>
@@ -275,7 +277,7 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
               onClick={handleBatchDelete}
               size='sm'
               variant='destructive'
-              disabled={selectedIds.length === 0}
+              disabled={draft.incompatible || selectedIds.length === 0}
             >
               <Trash2 className='mr-2 h-4 w-4' />
               {t('Delete (')}
@@ -285,13 +287,14 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
               onClick={handleSaveAll}
               size='sm'
               variant='secondary'
-              disabled={!hasChanges || updateOption.isPending}
+              disabled={draft.incompatible || !hasChanges || updateOption.isPending}
             >
               <Save className='mr-2 h-4 w-4' />
               {updateOption.isPending ? t('Saving...') : t('Save Settings')}
             </Button>
           </div>
           <SettingsSwitchField
+            disabled={updateOption.isPending}
             checked={isEnabled}
             onCheckedChange={handleToggleEnabled}
             label={t('Enabled')}
@@ -299,7 +302,7 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
           />
         </div>
 
-        <StaticDataTable
+        {!draft.incompatible && <StaticDataTable
           data={apiInfoList}
           getRowKey={(apiInfo) => apiInfo.id}
           emptyContent={t('No API Domains yet. Click "Add API" to create one.')}
@@ -328,7 +331,7 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
             {
               id: 'url',
               header: t('URL'),
-              cellClassName: 'max-w-xs truncate font-mono text-sm',
+              cellClassName: 'max-w-xs whitespace-normal break-all font-mono text-sm',
               cell: (apiInfo) => (
                 <BadgeCell>
                   <StatusBadge
@@ -355,7 +358,7 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
             {
               id: 'description',
               header: t('Description'),
-              cellClassName: 'max-w-xs truncate',
+              cellClassName: 'max-w-xs whitespace-normal break-all',
               cell: (apiInfo) => apiInfo.description,
             },
             {
@@ -384,7 +387,7 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
               ),
             },
           ]}
-        />
+        />}
       </div>
 
       <Dialog
@@ -392,6 +395,7 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
         onOpenChange={setShowDialog}
         title={editingApiInfo ? t('Edit API Shortcut') : t('Add API Shortcut')}
         description={t('Configure API documentation links for the dashboard')}
+        contentClassName='h-dvh max-h-dvh w-screen max-w-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-2xl pointer-coarse:[&_[data-slot=input]]:min-h-11 pointer-coarse:[&_[role=combobox]]:min-h-11'
         contentHeight='auto'
         bodyClassName='space-y-4'
         footer={
@@ -415,6 +419,7 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
             onSubmit={form.handleSubmit(handleSubmitForm)}
             className='space-y-4'
           >
+            <p className='text-muted-foreground text-xs'>{t('Item edits change the local draft. Use Save Settings on the page to persist them.')}</p>
             <FormField
               control={form.control}
               name='url'
@@ -515,9 +520,11 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
       </Dialog>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
+        <AlertDialogContent className='flex max-h-[calc(100dvh-2rem)] min-w-0 flex-col overflow-hidden'>
+          <AlertDialogHeader className='shrink-0'>
             <AlertDialogTitle>{t('Are you sure?')}</AlertDialogTitle>
+          </AlertDialogHeader>
+          <div tabIndex={0} role='region' aria-label={t('Confirmation details')} className='min-h-0 space-y-3 overflow-y-auto overscroll-contain'>
             <AlertDialogDescription>
               {deleteTarget === 'single'
                 ? t('This API shortcut will be removed from the list.')
@@ -525,15 +532,17 @@ export function ApiInfoSection({ enabled, data }: ApiInfoSectionProps) {
                     count: selectedIds.length,
                   })}
             </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
+            <p className='text-muted-foreground text-xs'>{t('This only changes the local draft. Use Save Settings on the page to persist it.')}</p>
+          </div>
+          <AlertDialogFooter className='shrink-0'>
             <AlertDialogCancel>{t('Cancel')}</AlertDialogCancel>
-            <AlertDialogAction variant='destructive' onClick={confirmDelete}>
+            <AlertDialogAction variant='destructive' disabled={draft.incompatible} onClick={confirmDelete}>
               {t('Delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </SettingsSection>
+    </>
   )
 }

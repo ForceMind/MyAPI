@@ -38,6 +38,9 @@ import { SettingsForm } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
+import { useResetForm } from '../hooks/use-reset-form'
+import { FormNavigationGuard } from '../components/form-navigation-guard'
+import { FormDirtyIndicator } from '../components/form-dirty-indicator'
 import { ChatSettingsVisualEditor } from './chat-settings-visual-editor'
 import { formatJsonForEditor, normalizeJsonString } from './utils'
 
@@ -109,9 +112,9 @@ export function ChatSettingsSection({
   })
 
   const initialNormalizedRef = useRef(normalizeJsonString(defaultValue, '[]'))
+  useResetForm(form, { Chats: formatted })
 
   useEffect(() => {
-    form.reset({ Chats: formatJsonForEditor(defaultValue, '[]') })
     initialNormalizedRef.current = normalizeJsonString(defaultValue, '[]')
   }, [defaultValue, form])
 
@@ -128,6 +131,9 @@ export function ChatSettingsSection({
   }
 
   return (
+    <>
+    <FormNavigationGuard when={form.formState.isDirty} />
+    <FormDirtyIndicator isDirty={form.formState.isDirty} />
     <SettingsSection title={t('Chat Presets')}>
       <Form {...form}>
         {/* eslint-disable-next-line react-hooks/refs */}
@@ -156,6 +162,8 @@ export function ChatSettingsSection({
                       <ChatSettingsVisualEditor
                         value={field.value}
                         onChange={field.onChange}
+                        getCurrentValue={() => form.getValues('Chats')}
+                        onRequestJSON={() => setEditMode('json')}
                       />
                     </FormControl>
                     <FormMessage />
@@ -199,5 +207,6 @@ export function ChatSettingsSection({
         </SettingsForm>
       </Form>
     </SettingsSection>
+    </>
   )
 }

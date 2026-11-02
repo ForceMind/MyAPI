@@ -96,7 +96,8 @@ export async function deleteFullContentLogFile(
   filename: string
 ): Promise<ApiEnvelope<{ deleted_bytes: number }>> {
   const response = await api.delete(
-    `/api/full-content-logs/files/${encodeURIComponent(filename)}`
+    `/api/full-content-logs/files/${encodeURIComponent(filename)}`,
+    { skipAuthRefresh: true }
   )
   return response.data as ApiEnvelope<{ deleted_bytes: number }>
 }
@@ -104,7 +105,7 @@ export async function deleteFullContentLogFile(
 export async function deleteAllFullContentLogFiles(): Promise<
   ApiEnvelope<{ deleted_count: number; freed_bytes: number }>
 > {
-  const response = await api.delete('/api/full-content-logs/files')
+  const response = await api.delete('/api/full-content-logs/files', { skipAuthRefresh: true })
   return response.data as ApiEnvelope<{
     deleted_count: number
     freed_bytes: number

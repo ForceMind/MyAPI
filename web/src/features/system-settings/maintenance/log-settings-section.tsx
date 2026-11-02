@@ -75,6 +75,7 @@ import {
 } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
+import { useResetForm } from '../hooks/use-reset-form'
 import { useUpdateOption } from '../hooks/use-update-option'
 import type { LogCleanupTask } from '../types'
 
@@ -160,22 +161,24 @@ export function LogSettingsSection({
   )
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [serverLogInfo, setServerLogInfo] = useState<ServerLogInfo | null>(null)
+  const [serverLogReadError, setServerLogReadError] = useState('')
   const [serverLogCleanupMode, setServerLogCleanupMode] = useState('by_count')
   const [serverLogCleanupValue, setServerLogCleanupValue] = useState(10)
   const [serverLogCleanupLoading, setServerLogCleanupLoading] = useState(false)
 
   const fetchServerLogInfo = useCallback(async () => {
+    setServerLogReadError('')
     try {
       const res = await api.get('/api/performance/logs')
-      if (res.data.success) setServerLogInfo(res.data.data)
-    } catch {
-      /* ignore */
+      if (!res.data.success || !res.data.data || typeof res.data.data.enabled !== 'boolean') throw new Error(res.data.message || t('Unable to load log storage information'))
+      setServerLogInfo(res.data.data)
+    } catch (cause: unknown) {
+      setServerLogInfo(null)
+      setServerLogReadError(cause instanceof Error ? cause.message : t('Unable to load log storage information'))
     }
-  }, [])
+  }, [t])
 
-  useEffect(() => {
-    form.reset({ LogConsumeEnabled: defaultEnabled })
-  }, [defaultEnabled, form])
+  useResetForm(form, { LogConsumeEnabled: defaultEnabled })
 
   useEffect(() => {
     fetchServerLogInfo()
@@ -313,7 +316,8 @@ export function LogSettingsSection({
     setServerLogCleanupLoading(true)
     try {
       const res = await api.delete(
-        `/api/performance/logs?mode=${serverLogCleanupMode}&value=${serverLogCleanupValue}`
+        `/api/performance/logs?mode=${serverLogCleanupMode}&value=${serverLogCleanupValue}`,
+        { skipAuthRefresh: true }
       )
       if (res.data.success) {
         const { deleted_count, freed_bytes } = res.data.data
@@ -439,6 +443,7 @@ export function LogSettingsSection({
           </p>
         </div>
 
+        {serverLogReadError && <Alert variant='destructive'><AlertDescription>{serverLogReadError}</AlertDescription><Button className='mt-3 min-h-11 w-fit' variant='outline' onClick={() => { void fetchServerLogInfo() }}>{t('Retry')}</Button></Alert>}
         {serverLogInfo !== null &&
           (serverLogInfo.enabled ? (
             <div className='space-y-4'>
@@ -448,7 +453,7 @@ export function LogSettingsSection({
                     <span className='text-muted-foreground'>
                       {t('Log Directory')}:
                     </span>{' '}
-                    <span className='font-mono text-xs'>
+                    <span className='font-mono text-xs break-words [overflow-wrap:anywhere]'>
                       {serverLogInfo.log_dir}
                     </span>
                   </div>
@@ -492,7 +497,7 @@ export function LogSettingsSection({
                     <SelectTrigger className='w-[160px]'>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent alignItemWithTrigger={false}>
+                    <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11 [&_[role=option]]:min-h-11'>
                       <SelectGroup>
                         <SelectItem value='by_count'>
                           {t('Retain last N files')}
@@ -521,7 +526,7 @@ export function LogSettingsSection({
                     className='w-[120px]'
                   />
                 </div>
-                <AlertDialog>
+                <AlertDialog onOpenChange={(open, details) => { if (!open && serverLogCleanupLoading) details.cancel() }}>
                   <AlertDialogTrigger
                     render={
                       <Button
@@ -536,12 +541,13 @@ export function LogSettingsSection({
                       ? t('Cleaning...')
                       : t('Clean Up Log Files')}
                   </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
+                  <AlertDialogContent className='flex max-h-[calc(100dvh-2rem)] min-w-0 flex-col gap-0 overflow-hidden p-0 [&_[data-myapi-button]]:min-h-11 [&_[data-myapi-button]]:min-w-11'>
+                    <AlertDialogHeader className='shrink-0 border-b px-4 py-4 sm:px-6'>
                       <AlertDialogTitle>
                         {t('Confirm log file cleanup?')}
                       </AlertDialogTitle>
-                      <AlertDialogDescription>
+                      </AlertDialogHeader>
+        <section role='region' tabIndex={0} aria-label={t('Confirmation details')} className='min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [overflow-wrap:anywhere] sm:px-6'><AlertDialogDescription>
                         {serverLogCleanupMode === 'by_count'
                           ? t(
                               'Only the last {{value}} log files will be retained; the rest will be deleted.',
@@ -555,13 +561,13 @@ export function LogSettingsSection({
                                 value: serverLogCleanupValue,
                               }
                             )}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>{t('Cancel')}</AlertDialogCancel>
+                      </AlertDialogDescription></section>
+                    <AlertDialogFooter className='m-0 shrink-0 border-t px-4 py-4 sm:px-6'>
+                      <AlertDialogCancel disabled={serverLogCleanupLoading}>{t('Cancel')}</AlertDialogCancel>
                       <AlertDialogAction
                         variant='destructive'
                         onClick={cleanupServerLogFiles}
+                        disabled={serverLogCleanupLoading}
                       >
                         {t('Confirm Cleanup')}
                       </AlertDialogAction>
@@ -581,11 +587,12 @@ export function LogSettingsSection({
           ))}
       </div>
 
-      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
+      <AlertDialog open={showConfirmDialog} onOpenChange={(open) => { if (open || !isStartingLogCleanup) setShowConfirmDialog(open) }}>
+        <AlertDialogContent className='flex max-h-[calc(100dvh-2rem)] min-w-0 flex-col gap-0 overflow-hidden p-0 [&_[data-myapi-button]]:min-h-11 [&_[data-myapi-button]]:min-w-11'>
+          <AlertDialogHeader className='shrink-0 border-b px-4 py-4 sm:px-6'>
             <AlertDialogTitle>{t('Confirm log cleanup')}</AlertDialogTitle>
-            <AlertDialogDescription>
+            </AlertDialogHeader>
+        <section role='region' tabIndex={0} aria-label={t('Confirmation details')} className='min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [overflow-wrap:anywhere] sm:px-6'><AlertDialogDescription>
               {formattedPurgeDate
                 ? t(
                     'This will permanently remove all log entries created before {{date}}.',
@@ -595,9 +602,8 @@ export function LogSettingsSection({
                     'This will permanently remove log entries before the selected timestamp.'
                   )}{' '}
               {t('This action cannot be undone.')}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
+            </AlertDialogDescription></section>
+          <AlertDialogFooter className='m-0 shrink-0 border-t px-4 py-4 sm:px-6'>
             <AlertDialogCancel disabled={isStartingLogCleanup}>
               {t('Cancel')}
             </AlertDialogCancel>

@@ -125,7 +125,7 @@ export function Home() {
             mode='html'
             htmlVariant='isolated'
             content={content}
-            className='custom-home-content'
+            className='custom-home-content break-words'
           />
         </PublicLayout>
       )
@@ -137,7 +137,7 @@ export function Home() {
           <RichContent
             mode='markdown'
             content={content}
-            className='custom-home-content'
+            className='custom-home-content break-words'
           />
         </div>
       </PublicLayout>
@@ -200,7 +200,7 @@ export function Home() {
               <img src='/myapi-logo-v1.png' alt='' className='size-9' />
               MyAPI · {t('Self-hosted gateway')}
             </div>
-            <h1 className='max-w-2xl text-4xl leading-tight font-semibold tracking-tight sm:text-5xl'>
+            <h1 className='max-w-2xl text-4xl leading-tight break-words font-semibold tracking-tight sm:text-5xl'>
               {t('Your gateway. Every request in view.')}
             </h1>
             <p className='text-muted-foreground mt-5 max-w-xl text-base leading-relaxed'>

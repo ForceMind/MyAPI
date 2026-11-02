@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
@@ -39,6 +39,9 @@ import {
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
+import { FormNavigationGuard } from '../components/form-navigation-guard'
+import { FormDirtyIndicator } from '../components/form-dirty-indicator'
+import { useResetForm } from '../hooks/use-reset-form'
 import {
   SIDEBAR_MODULES_DEFAULT,
   type SidebarModulesAdminConfig,
@@ -162,9 +165,7 @@ export function SidebarModulesSection({
     defaultValues: formDefaults,
   })
 
-  useEffect(() => {
-    form.reset(formDefaults)
-  }, [formDefaults, form])
+  useResetForm(form, formDefaults)
 
   const onSubmit = async (values: SidebarFormValues) => {
     const serialized = serializeSidebarModulesAdmin(values)
@@ -179,12 +180,15 @@ export function SidebarModulesSection({
   }
 
   const resetToDefault = () => {
-    form.reset(SIDEBAR_MODULES_DEFAULT)
+    form.reset(SIDEBAR_MODULES_DEFAULT, { keepDefaultValues: true })
   }
 
   const sections = Object.entries(config)
 
   return (
+    <>
+    <FormNavigationGuard when={form.formState.isDirty} />
+    <FormDirtyIndicator isDirty={form.formState.isDirty} />
     <SettingsSection title={t('Console modules')}>
       <Form {...form}>
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
@@ -270,5 +274,6 @@ export function SidebarModulesSection({
         </SettingsForm>
       </Form>
     </SettingsSection>
+    </>
   )
 }

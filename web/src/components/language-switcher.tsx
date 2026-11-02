@@ -47,7 +47,7 @@ export function useInterfaceLanguage() {
       await i18n.changeLanguage(code)
       if (user) {
         try {
-          await api.put('/api/user/self', { language: code })
+          await api.put('/api/user/self', { language: code }, { skipAuthRefresh: true })
         } catch {
           // Best-effort persistence; don't block the UI on failure
         }

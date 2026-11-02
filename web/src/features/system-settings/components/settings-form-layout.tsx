@@ -16,12 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { ComponentProps, ReactNode } from 'react'
+import { useId, type ComponentProps, type ReactNode } from 'react'
 
 import { FormItem } from '@/components/ui/form'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
+import { isReportedOptionFailure } from '../hooks/use-update-option'
 
 type SettingsFormGridProps = {
   children: ReactNode
@@ -115,15 +116,17 @@ export function SettingsSwitchField({
   className,
   ...props
 }: SettingsSwitchFieldProps) {
+  const id = useId()
   return (
     <SettingsSwitchRow className={className} {...props}>
       <SettingsSwitchContent>
-        <Label className='text-sm font-medium'>{label}</Label>
+        <Label htmlFor={id} className='text-sm font-medium'>{label}</Label>
         {description ? (
           <p className='text-muted-foreground text-xs'>{description}</p>
         ) : null}
       </SettingsSwitchContent>
       <Switch
+        id={id}
         checked={checked}
         onCheckedChange={onCheckedChange}
         disabled={disabled}
@@ -168,9 +171,18 @@ export function SettingsControlChildren({
   )
 }
 
-export function SettingsForm({ className, ...props }: ComponentProps<'form'>) {
+export function SettingsForm({ className, onSubmit, ...props }: ComponentProps<'form'>) {
   return (
     <form
+      onSubmit={onSubmit ? (event) => {
+        try {
+          void Promise.resolve(onSubmit(event)).catch((error: unknown) => {
+            if (!isReportedOptionFailure(error)) throw error
+          })
+        } catch (error) {
+          if (!isReportedOptionFailure(error)) throw error
+        }
+      } : undefined}
       className={cn(
         'grid min-w-0 gap-x-5 gap-y-6 lg:grid-cols-2',
         'lg:[&>*:not([data-slot=form-item])]:col-span-2',

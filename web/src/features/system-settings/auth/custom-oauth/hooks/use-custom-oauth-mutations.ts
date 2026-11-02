@@ -28,6 +28,8 @@ import {
 } from '../api'
 import type { CustomOAuthProvider, DiscoveryResponse } from '../types'
 
+type MutationTaskOptions = { captureResultGuard?: () => (() => boolean) }
+
 function useInvalidateOnSuccess() {
   const queryClient = useQueryClient()
   return {
@@ -38,28 +40,35 @@ function useInvalidateOnSuccess() {
   }
 }
 
-export function useCreateProvider() {
+export function useCreateProvider(options?: MutationTaskOptions) {
   const invalidate = useInvalidateOnSuccess()
 
   return useMutation({
+    retry: false,
+    onMutate: () => ({ isCurrent: options?.captureResultGuard?.() }),
     mutationFn: (data: Omit<CustomOAuthProvider, 'id'>) =>
       createCustomOAuthProvider(data),
-    onSuccess: (res) => {
+    onSuccess: (res, _variables, context) => {
       if (res.success) {
-        toast.success(i18next.t('Provider created successfully'))
         invalidate.onSuccess()
+        if (context?.isCurrent?.() !== false) toast.success(i18next.t('Provider created successfully'))
+      } else if (context?.isCurrent?.() !== false) {
+        toast.error(res.message || i18next.t('Failed to update setting'))
       }
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _variables, context) => {
+      if (context?.isCurrent?.() === false) return
       toast.error(error.message || i18next.t('Failed to create provider'))
     },
   })
 }
 
-export function useUpdateProvider() {
+export function useUpdateProvider(options?: MutationTaskOptions) {
   const invalidate = useInvalidateOnSuccess()
 
   return useMutation({
+    retry: false,
+    onMutate: () => ({ isCurrent: options?.captureResultGuard?.() }),
     mutationFn: ({
       id,
       data,
@@ -67,44 +76,57 @@ export function useUpdateProvider() {
       id: number
       data: Partial<CustomOAuthProvider>
     }) => updateCustomOAuthProvider(id, data),
-    onSuccess: (res) => {
+    onSuccess: (res, _variables, context) => {
       if (res.success) {
-        toast.success(i18next.t('Provider updated successfully'))
         invalidate.onSuccess()
+        if (context?.isCurrent?.() !== false) toast.success(i18next.t('Provider updated successfully'))
+      } else if (context?.isCurrent?.() !== false) {
+        toast.error(res.message || i18next.t('Failed to update setting'))
       }
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _variables, context) => {
+      if (context?.isCurrent?.() === false) return
       toast.error(error.message || i18next.t('Failed to update provider'))
     },
   })
 }
 
-export function useDeleteProvider() {
+export function useDeleteProvider(options?: MutationTaskOptions) {
   const invalidate = useInvalidateOnSuccess()
 
   return useMutation({
+    retry: false,
+    onMutate: () => ({ isCurrent: options?.captureResultGuard?.() }),
     mutationFn: (id: number) => deleteCustomOAuthProvider(id),
-    onSuccess: (res) => {
+    onSuccess: (res, _variables, context) => {
       if (res.success) {
-        toast.success(i18next.t('Provider deleted successfully'))
         invalidate.onSuccess()
+        if (context?.isCurrent?.() !== false) toast.success(i18next.t('Provider deleted successfully'))
+      } else if (context?.isCurrent?.() !== false) {
+        toast.error(res.message || i18next.t('Failed to update setting'))
       }
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _variables, context) => {
+      if (context?.isCurrent?.() === false) return
       toast.error(error.message || i18next.t('Failed to delete provider'))
     },
   })
 }
 
-export function useDiscoverEndpoints() {
+export function useDiscoverEndpoints(options?: MutationTaskOptions) {
   return useMutation({
+    retry: false,
+    onMutate: () => ({ isCurrent: options?.captureResultGuard?.() }),
     mutationFn: (wellKnownUrl: string) => discoverOIDCEndpoints(wellKnownUrl),
-    onSuccess: (res: DiscoveryResponse) => {
+    onSuccess: (res: DiscoveryResponse, _variables, context) => {
       if (res.success) {
-        toast.success(i18next.t('OIDC endpoints discovered successfully'))
+        if (context?.isCurrent?.() !== false) toast.success(i18next.t('OIDC endpoints discovered successfully'))
+      } else if (context?.isCurrent?.() !== false) {
+        toast.error(res.message || i18next.t('Failed to update setting'))
       }
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _variables, context) => {
+      if (context?.isCurrent?.() === false) return
       toast.error(
         error.message || i18next.t('Failed to discover OIDC endpoints')
       )

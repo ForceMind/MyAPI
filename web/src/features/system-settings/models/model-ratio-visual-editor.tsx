@@ -24,7 +24,8 @@ import type {
   VisibilityState,
   SortingState,
 } from '@tanstack/react-table'
-import { Copy, Plus } from 'lucide-react'
+import { Copy01Icon, PlusSignIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import {
   useState,
   useMemo,
@@ -136,7 +137,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
   ref
 ) {
   const { t } = useTranslation()
-  const isMobile = useMediaQuery('(max-width: 767px)')
+  const isMobile = useMediaQuery('(max-width: 1279px)')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
   const [editData, setEditData] = useState<ModelRatioData | null>(null)
@@ -676,8 +677,8 @@ const ModelRatioVisualEditorComponent = forwardRef<
   }
 
   return (
-    <div className='flex flex-col gap-4'>
-      <div className='grid h-[clamp(720px,calc(100vh-12rem),900px)] min-h-0 gap-4 md:grid-cols-[minmax(300px,0.72fr)_minmax(520px,1.28fr)] xl:grid-cols-[minmax(320px,0.68fr)_minmax(640px,1.32fr)]'>
+    <div className='flex min-w-0 flex-col gap-4 [&_[data-myapi-button]]:min-h-11 [&_[data-myapi-button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11'>
+      <div className='grid h-[min(74dvh,900px)] min-h-[min(28rem,70dvh)] min-w-0 gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]'>
         <div className='flex min-h-0 min-w-0 flex-col gap-3'>
           <DataTableToolbar
             table={table}
@@ -709,7 +710,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
             preActions={
               filterMode === 'unset' ? undefined : (
                 <Button onClick={handleAdd}>
-                  <Plus data-icon='inline-start' />
+                  <HugeiconsIcon icon={PlusSignIcon} data-icon='inline-start' />
                   {t('Add model')}
                 </Button>
               )
@@ -773,7 +774,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
           {hasRows && <DataTablePagination table={table} />}
         </div>
 
-        <div className='hidden min-h-0 min-w-0 md:block'>
+        <div className='hidden min-h-0 min-w-0 xl:block'>
           {editorOpen ? (
             <ModelPricingEditorPanel
               ref={editorPanelRef}
@@ -794,7 +795,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
               </p>
               {filterMode !== 'unset' && (
                 <Button variant='outline' onClick={handleAdd}>
-                  <Plus data-icon='inline-start' />
+                  <HugeiconsIcon icon={PlusSignIcon} data-icon='inline-start' />
                   {t('Add model')}
                 </Button>
               )}
@@ -805,7 +806,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
 
       <DataTableBulkActions table={table} entityName={t('model')}>
         <Button size='sm' disabled={!editData} onClick={handleBatchCopy}>
-          <Copy data-icon='inline-start' />
+          <HugeiconsIcon icon={Copy01Icon} data-icon='inline-start' />
           {editData
             ? t('Copy {{name}} pricing', { name: editData.name })
             : t('Open a source model first')}

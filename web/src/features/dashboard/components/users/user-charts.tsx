@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
+import { CanceledError } from 'axios'
 import { VChart } from '@visactor/react-vchart'
 import { Loader2 } from 'lucide-react'
 import {
@@ -30,6 +31,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useThemeCustomization } from '@/context/theme-customization-provider'
@@ -56,6 +58,7 @@ import { useChartPalette } from '@/lib/chart-palette'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 import { getRollingDateRange, type TimeGranularity } from '@/lib/time'
 import { VCHART_OPTION } from '@/lib/vchart'
+import { useAuthStore } from '@/stores/auth-store'
 
 let themeManagerPromise: Promise<
   (typeof import('@visactor/vchart'))['ThemeManager']
@@ -87,6 +90,7 @@ interface UserChartsProps {
 
 export function UserCharts(props: UserChartsProps) {
   const { t } = useTranslation()
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
   const { resolvedTheme } = useTheme()
   const { customization } = useThemeCustomization()
   const palette = useChartPalette(`${resolvedTheme}:${customization.preset}`)
@@ -182,10 +186,24 @@ export function UserCharts(props: UserChartsProps) {
     isError,
     error,
     isLoading,
+    isFetching,
+    refetch,
   } = useQuery({
-    queryKey: ['dashboard', 'user-quota', queryParams],
-    queryFn: () => getUserQuotaDataByUsers(queryParams),
-    select: (res) => res.data ?? [],
+    queryKey: ['dashboard', 'user-quota', queryParams, identity],
+    queryFn: async ({ signal }) => {
+      const isCurrent = () => {
+        const { auth } = useAuthStore.getState()
+        return !signal.aborted && identity === `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`
+      }
+      if (!isCurrent()) throw new CanceledError('Analytics request scope changed')
+      const result = await getUserQuotaDataByUsers(queryParams)
+      if (!isCurrent()) throw new CanceledError('Analytics request scope changed')
+      return result
+    },
+    select: (res) => {
+      if (!Array.isArray(res.data)) throw new Error(t('Failed to load'))
+      return res.data
+    },
     staleTime: 60_000,
   })
 
@@ -212,13 +230,16 @@ export function UserCharts(props: UserChartsProps) {
 
   return (
     <div className='space-y-3'>
-      <div className='flex items-center gap-1.5 overflow-x-auto pb-1 sm:gap-2'>
+      <div className='flex flex-wrap items-center gap-1.5 pb-1 sm:gap-2 [&_[role=tab]]:min-h-11 [&_[role=tab]]:min-w-11 [&_[role=tablist]]:h-auto [&_[role=tablist]]:flex-wrap [&_[role=tablist]]:max-w-full'>
         <Tabs
           value={String(selectedRange)}
           onValueChange={(value) => handleRangeChange(Number(value))}
-          className='shrink-0'
+          className='min-w-0 max-w-full'
         >
-          <TabsList>
+          <TabsList
+            className='h-auto min-h-12 max-w-full flex-wrap'
+            aria-label={t('Time range')}
+          >
             {TIME_RANGE_PRESETS.map((preset) => (
               <TabsTrigger
                 key={preset.days}
@@ -237,9 +258,12 @@ export function UserCharts(props: UserChartsProps) {
           onValueChange={(value) =>
             handleGranularityChange(value as TimeGranularity)
           }
-          className='shrink-0'
+          className='min-w-0 max-w-full'
         >
-          <TabsList>
+          <TabsList
+            className='h-auto min-h-12 max-w-full flex-wrap'
+            aria-label={t('Time Granularity')}
+          >
             {TIME_GRANULARITY_OPTIONS.map((opt) => (
               <TabsTrigger
                 key={opt.value}
@@ -255,9 +279,12 @@ export function UserCharts(props: UserChartsProps) {
         <Tabs
           value={String(topUserLimit)}
           onValueChange={(value) => handleTopUserLimitChange(Number(value))}
-          className='shrink-0'
+          className='min-w-0 max-w-full'
         >
-          <TabsList>
+          <TabsList
+            className='h-auto min-h-12 max-w-full flex-wrap'
+            aria-label={t('Top Users')}
+          >
             <span className='text-muted-foreground px-2 text-xs font-medium whitespace-nowrap'>
               {t('Top Users')}
             </span>
@@ -285,10 +312,22 @@ export function UserCharts(props: UserChartsProps) {
           if (!isLoading) {
             if (isError) {
               chartContent = (
-                <div className='text-muted-foreground flex h-full items-center justify-center px-4 text-center text-sm'>
+                <div
+                  role='alert'
+                  className='text-muted-foreground flex h-full flex-col items-center justify-center gap-3 px-4 text-center text-sm [overflow-wrap:anywhere]'
+                >
                   {error instanceof Error && error.message
                     ? error.message
                     : t('Failed to load')}
+                  <Button
+                    type='button'
+                    variant='outline'
+                    className='min-h-11 min-w-11'
+                    disabled={isFetching}
+                    onClick={() => void refetch()}
+                  >
+                    {t('Retry')}
+                  </Button>
                 </div>
               )
             } else if (themeReady && spec) {

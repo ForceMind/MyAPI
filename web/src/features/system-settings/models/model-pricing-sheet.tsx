@@ -17,7 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { AlertTriangle, Save } from 'lucide-react'
+import { Alert02Icon, SaveIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import {
   forwardRef,
   useCallback,
@@ -480,14 +481,14 @@ export const ModelPricingEditorPanel = forwardRef<
   return (
     <div
       className={cn(
-        'bg-background flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border',
+        'bg-background flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border [&_[data-myapi-button]]:min-h-11 [&_[data-myapi-button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11',
         className
       )}
     >
       <div className='border-b p-4'>
         <div className='flex flex-wrap items-start justify-between gap-3'>
           <div className='min-w-0'>
-            <h3 className='truncate text-base font-medium'>
+            <h3 className='text-base font-medium break-words [overflow-wrap:anywhere]'>
               {isEditMode ? t('Edit model pricing') : t('Add model pricing')}
             </h3>
           </div>
@@ -500,12 +501,12 @@ export const ModelPricingEditorPanel = forwardRef<
           className='flex min-h-0 flex-1 flex-col'
           autoComplete='off'
         >
-          <div className='min-h-0 flex-1 overflow-y-auto p-4 pb-6'>
+          <div role='region' tabIndex={0} aria-label={t('Model pricing details')} className='min-h-0 flex-1 overflow-y-auto p-4 pb-6 [overflow-wrap:anywhere]'>
             <div className='grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(220px,260px)]'>
               <FieldGroup>
                 {warnings.length > 0 && (
                   <Alert variant='destructive'>
-                    <AlertTriangle data-icon='inline-start' />
+                    <HugeiconsIcon icon={Alert02Icon} data-icon='inline-start' />
                     <AlertDescription>
                       <div className='flex flex-col gap-1'>
                         {warnings.map((warning) => (
@@ -669,7 +670,7 @@ export const ModelPricingEditorPanel = forwardRef<
                           'min-w-0 text-sm',
                           row.multiline
                             ? 'font-mono text-xs leading-5 break-words whitespace-pre-wrap'
-                            : 'truncate'
+                            : 'break-words whitespace-normal [overflow-wrap:anywhere]'
                         )}
                       >
                         {row.value}
@@ -688,9 +689,9 @@ export const ModelPricingEditorPanel = forwardRef<
                     type='button'
                     onClick={onSave}
                     disabled={isSaving}
-                    className='w-full sm:w-auto'
+                    className='min-h-11 w-full sm:w-auto'
                   >
-                    <Save data-icon='inline-start' />
+                    <HugeiconsIcon icon={SaveIcon} data-icon='inline-start' />
                     {isSaving ? t('Saving...') : t('Save model prices')}
                   </Button>
                 )}

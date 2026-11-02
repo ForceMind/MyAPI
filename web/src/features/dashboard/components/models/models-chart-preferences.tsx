@@ -71,7 +71,12 @@ export function ModelsChartPreferences(props: ModelsChartPreferencesProps) {
       open={open}
       onOpenChange={handleOpenChange}
       trigger={
-        <Button variant='outline' size='sm'>
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          className='min-h-11 min-w-11'
+        >
           <Settings2 className='mr-2 h-4 w-4' />
           {t('Preferences')}
         </Button>
@@ -80,9 +85,9 @@ export function ModelsChartPreferences(props: ModelsChartPreferencesProps) {
       description={t('Set default ranges and charts for model analytics.')}
       contentClassName='sm:max-w-md'
       contentHeight='auto'
-      bodyClassName='grid gap-3'
+      bodyClassName='grid gap-3 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=select-trigger]]:min-w-11'
       footer={
-        <Button onClick={handleSave} type='button'>
+        <Button className='min-h-11 min-w-11' onClick={handleSave} type='button'>
           <Save className='mr-2 h-4 w-4' />
           {t('Save Preferences')}
         </Button>

@@ -116,7 +116,7 @@ export function ModelsSection(props: ModelsSectionProps) {
               key: (datum: Record<string, unknown>) =>
                 String(datum?.model ?? ''),
               value: (datum: Record<string, unknown>) =>
-                formatTokens(Number(datum?.tokens) || 0),
+                typeof datum?.tokens === 'number' && Number.isFinite(datum.tokens) ? formatTokens(datum.tokens) : t('Unknown'),
             },
           ],
         },
@@ -130,7 +130,7 @@ export function ModelsSection(props: ModelsSectionProps) {
               key: (datum: Record<string, unknown>) =>
                 String(datum?.model ?? ''),
               value: (datum: Record<string, unknown>) =>
-                Number(datum?.tokens) || 0,
+                typeof datum?.tokens === 'number' && Number.isFinite(datum.tokens) ? datum.tokens : Number.NaN,
             },
           ],
           updateContent: (
@@ -142,7 +142,7 @@ export function ModelsSection(props: ModelsSectionProps) {
             const overflow = array.slice(TOOLTIP_MAX_ROWS)
             const result = visible.map((item) => ({
               key: item.key,
-              value: formatTokens(Number(item.value) || 0),
+              value: Number.isFinite(Number(item.value)) ? formatTokens(Number(item.value)) : t('Unknown'),
             }))
             if (overflow.length > 0) {
               const otherSum = overflow.reduce(
@@ -151,10 +151,10 @@ export function ModelsSection(props: ModelsSectionProps) {
               )
               result.push({
                 key: t('+{{count}} more', { count: overflow.length }),
-                value: formatTokens(otherSum),
+                value: overflow.every((item) => Number.isFinite(Number(item.value))) ? formatTokens(otherSum) : t('Unknown'),
               })
             }
-            result.unshift({ key: t('Total:'), value: formatTokens(sum) })
+            result.unshift({ key: t('Total:'), value: array.every((item) => Number.isFinite(Number(item.value))) ? formatTokens(sum) : t('Unknown') })
             return result
           },
         },

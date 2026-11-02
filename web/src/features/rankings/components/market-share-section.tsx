@@ -18,15 +18,17 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { VChart } from '@visactor/react-vchart'
 import { PieChart } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { VCHART_OPTION } from '@/lib/vchart'
+import { Button } from '@/components/ui/button'
 
 import { formatShare, formatTokens } from '../lib/format'
 import type { RankingPeriod, VendorRanking, VendorShareSeries } from '../types'
-import { VendorLink } from './entity-links'
+import { ModelLink, VendorLink } from './entity-links'
+import { GrowthText } from './growth-text'
 
 const PERIOD_DESCRIPTIONS: Record<RankingPeriod, string> = {
   today: 'Token share by model author across the last 24 hours',
@@ -102,6 +104,7 @@ type MarketShareSectionProps = {
  */
 export function MarketShareSection(props: MarketShareSectionProps) {
   const { t } = useTranslation()
+  const [showAll, setShowAll] = useState(false)
   const { resolvedTheme, themeReady } = useChartTheme()
   const chartTextColor =
     resolvedTheme === 'dark'
@@ -172,7 +175,7 @@ export function MarketShareSection(props: MarketShareSectionProps) {
               key: (datum: Record<string, unknown>) =>
                 String(datum?.vendor ?? ''),
               value: (datum: Record<string, unknown>) =>
-                `${(Number(datum?.share) * 100).toFixed(1)}% · ${formatTokens(Number(datum?.tokens) || 0)}`,
+                `${typeof datum?.share === 'number' && Number.isFinite(datum.share) ? `${(datum.share * 100).toFixed(1)}%` : t('Unknown')} · ${typeof datum?.tokens === 'number' && Number.isFinite(datum.tokens) ? formatTokens(datum.tokens) : t('Unknown')}`,
             },
           ],
         },
@@ -186,27 +189,27 @@ export function MarketShareSection(props: MarketShareSectionProps) {
               key: (datum: Record<string, unknown>) =>
                 String(datum?.vendor ?? ''),
               value: (datum: Record<string, unknown>) =>
-                Number(datum?.share) || 0,
+                typeof datum?.share === 'number' && Number.isFinite(datum.share) ? datum.share : Number.NaN,
             },
           ],
           updateContent: (
             array: Array<{ key: string; value: string | number }>
           ) => {
             return array
-              .filter((item) => Number(item.value) > 0.001)
+              .filter((item) => !Number.isFinite(Number(item.value)) || Number(item.value) > 0.001)
               .sort((a, b) => Number(b.value) - Number(a.value))
               .map((item) => ({
                 key: item.key,
-                value: `${(Number(item.value) * 100).toFixed(1)}%`,
+                value: Number.isFinite(Number(item.value)) ? `${(Number(item.value) * 100).toFixed(1)}%` : t('Unknown'),
               }))
           },
         },
       },
       animationAppear: { duration: 500 },
     }
-  }, [chartGridColor, chartTextColor, colourMap, orderedPoints])
+  }, [chartGridColor, chartTextColor, colourMap, orderedPoints, t])
 
-  const visible = props.rows.slice(0, MAX_VENDORS_IN_LIST)
+  const visible = showAll ? props.rows : props.rows.slice(0, MAX_VENDORS_IN_LIST)
   const half = Math.ceil(visible.length / 2)
   const left = visible.slice(0, half)
   const right = visible.slice(half)
@@ -266,6 +269,7 @@ export function MarketShareSection(props: MarketShareSectionProps) {
             )}
           </div>
         )}
+        {props.rows.length > MAX_VENDORS_IN_LIST && <div className='px-5 pb-4'><Button type='button' variant='outline' aria-expanded={showAll} onClick={() => setShowAll((previous) => !previous)}>{showAll ? t('Show fewer vendors') : t('Show all vendors')}</Button></div>}
       </div>
     </section>
   )
@@ -275,12 +279,13 @@ function VendorList(props: {
   rows: VendorRanking[]
   colourMap: Record<string, string>
 }) {
+  const { t } = useTranslation()
   return (
     <ul>
       {props.rows.map((vendor) => (
         <li key={vendor.vendor} className='flex items-center gap-3 py-2.5'>
           <span className='text-muted-foreground/80 w-6 shrink-0 text-right font-mono text-xs tabular-nums'>
-            {vendor.rank}.
+            {Number.isFinite(vendor.rank) ? `${vendor.rank}.` : t('Unknown')}
           </span>
           <span
             aria-hidden
@@ -289,18 +294,23 @@ function VendorList(props: {
               backgroundColor: props.colourMap[vendor.vendor] ?? '#94a3b8',
             }}
           />
-          <VendorLink
-            vendor={vendor.vendor}
-            className='text-foreground min-w-0 flex-1 truncate text-sm font-medium'
-          >
-            {vendor.vendor}
-          </VendorLink>
+          <div className='min-w-0 flex-1'>
+            <VendorLink vendor={vendor.vendor} className='text-foreground block whitespace-normal break-all text-sm font-medium'>{vendor.vendor}</VendorLink>
+            <details className='mt-1 text-xs'>
+              <summary className='text-muted-foreground cursor-pointer py-2 pointer-coarse:min-h-11'>{t('Ranking details')}</summary>
+              <dl className='space-y-2 py-2 break-words'>
+                <div><dt className='text-muted-foreground'>{t('Models')}</dt><dd>{Number.isFinite(vendor.models_count) ? vendor.models_count : t('Unknown')}</dd></div>
+                <div><dt className='text-muted-foreground'>{t('Top model')}</dt><dd>{vendor.top_model ? <ModelLink modelName={vendor.top_model} className='break-all'>{vendor.top_model}</ModelLink> : t('Unknown')}</dd></div>
+                <div><dt className='text-muted-foreground'>{t('Growth')}</dt><dd><GrowthText value={vendor.growth_pct} /></dd></div>
+              </dl>
+            </details>
+          </div>
           <div className='shrink-0 text-right'>
             <div className='text-foreground font-mono text-sm font-semibold tabular-nums'>
-              {formatTokens(vendor.total_tokens)}
+              {Number.isFinite(vendor.total_tokens) ? formatTokens(vendor.total_tokens) : t('Unknown')}
             </div>
             <div className='text-muted-foreground/80 font-mono text-[11px] tabular-nums'>
-              {formatShare(vendor.share)}
+              {Number.isFinite(vendor.share) ? formatShare(vendor.share) : t('Unknown')}
             </div>
           </div>
         </li>

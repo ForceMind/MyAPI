@@ -108,6 +108,7 @@ export function PlaygroundMessageEditor({
           aria-label={t('Save & Submit')}
           disabled={!canSave}
           onClick={() => onSaveEditAndSubmit?.(editText)}
+          className='min-h-11 min-w-11'
           size='icon-sm'
           type='button'
         >
@@ -119,6 +120,7 @@ export function PlaygroundMessageEditor({
         aria-label={t('Save')}
         disabled={!canSave}
         onClick={() => onSaveEdit?.(editText)}
+        className='min-h-11 min-w-11'
         size='icon-sm'
         type='button'
         variant={showSaveAndSubmit ? 'ghost' : 'default'}
@@ -130,6 +132,7 @@ export function PlaygroundMessageEditor({
         <Button
           aria-label={t('Reset')}
           onClick={() => onEditTextChange(originalText)}
+          className='min-h-11 min-w-11'
           size='icon-sm'
           type='button'
           variant='ghost'
@@ -141,6 +144,7 @@ export function PlaygroundMessageEditor({
       <Button
         aria-label={t('Cancel')}
         onClick={handleCancel}
+        className='min-h-11 min-w-11'
         size='icon-sm'
         type='button'
         variant='ghost'
@@ -161,7 +165,7 @@ export function PlaygroundMessageEditor({
         onKeyDown={handleKeyDown}
         rows={8}
         title={
-          <span className='inline-flex items-center gap-2'>
+          <span className='inline-flex flex-wrap items-center gap-2'>
             <span>{t('Edit')}</span>
             <span className='text-muted-foreground/80 normal-case'>
               {hasChanged ? t('Unsaved changes') : t('No changes')}

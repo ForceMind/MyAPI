@@ -25,13 +25,13 @@ import { StaticRowActions } from '@/components/data-table/static/static-row-acti
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
-import { safeJsonParseWithValidation } from '../utils/json-parser'
-import { isArray } from '../utils/json-validators'
 import { ChatDialog, type ChatEntryData } from './chat-dialog'
 
 type ChatSettingsVisualEditorProps = {
   value: string
   onChange: (value: string) => void
+  getCurrentValue?: () => string
+  onRequestJSON?: () => void
 }
 
 type ChatEntry = ChatEntryData
@@ -39,35 +39,38 @@ type ChatEntry = ChatEntryData
 export function ChatSettingsVisualEditor({
   value,
   onChange,
+  getCurrentValue,
+  onRequestJSON,
 }: ChatSettingsVisualEditorProps) {
   const { t } = useTranslation()
   const [searchText, setSearchText] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editData, setEditData] = useState<ChatEntry | null>(null)
 
-  const chats = useMemo(() => {
-    const parsed = safeJsonParseWithValidation<unknown[]>(value, {
-      fallback: [],
-      validator: isArray,
-      validatorMessage: 'Chats must be a JSON array',
-      context: 'chats',
-    })
-
-    return parsed
-      .map((item) => {
-        if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
-          const entries = Object.entries(item)
-          if (entries.length === 1) {
-            const [name, url] = entries[0]
-            return { name, url: String(url) }
-          }
-        }
-        return null
-      })
-      .filter((item): item is ChatEntry => item !== null)
+  const [openedSource, setOpenedSource] = useState(value)
+  const parsedState = useMemo(() => {
+    try {
+      const parsed: unknown = JSON.parse(value || '[]')
+      if (!Array.isArray(parsed)) return null
+      const entries: ChatEntry[] = []
+      const names = new Set<string>()
+      for (const item of parsed) {
+        if (typeof item !== 'object' || item === null || Array.isArray(item)) return null
+        const fields = Object.entries(item)
+        if (fields.length !== 1) return null
+        const [name, url] = fields[0]
+        if (typeof url !== 'string' || names.has(name)) return null
+        names.add(name)
+        entries.push({ name, url })
+      }
+      return { source: parsed, entries }
+    } catch { return null }
   }, [value])
+  const chats = parsedState?.entries
+  const blocked = parsedState === null || (dialogOpen && openedSource !== value)
 
   const filteredChats = useMemo(() => {
+    if (!chats) return []
     if (!searchText) return chats
     const lowerSearch = searchText.toLowerCase()
     return chats.filter(
@@ -78,11 +81,8 @@ export function ChatSettingsVisualEditor({
   }, [chats, searchText])
 
   const handleSave = (data: ChatEntryData) => {
-    const chatsArray = safeJsonParseWithValidation<unknown[]>(value, {
-      fallback: [],
-      validator: isArray,
-      silent: true,
-    })
+    if (!parsedState || openedSource !== (getCurrentValue?.() ?? value)) return false
+    const chatsArray = parsedState.source
 
     let updatedArray = [...chatsArray]
 
@@ -101,11 +101,8 @@ export function ChatSettingsVisualEditor({
   }
 
   const handleDelete = (name: string) => {
-    const chatsArray = safeJsonParseWithValidation<unknown[]>(value, {
-      fallback: [],
-      validator: isArray,
-      silent: true,
-    })
+    if (!parsedState || (getCurrentValue?.() ?? value) !== value) return
+    const chatsArray = parsedState.source
 
     const updatedArray = chatsArray.filter((item) => {
       if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
@@ -118,21 +115,30 @@ export function ChatSettingsVisualEditor({
   }
 
   const handleEdit = (chat: ChatEntry) => {
+    setOpenedSource(value)
     setEditData(chat)
     setDialogOpen(true)
   }
 
   const handleAdd = () => {
+    setOpenedSource(value)
     setEditData(null)
     setDialogOpen(true)
   }
 
   return (
-    <div className='space-y-4'>
+    <div className='space-y-4 pointer-coarse:[&_[data-slot=input]]:min-h-11'>
+      {!parsedState && <div role='alert' className='space-y-3 rounded-lg border p-4 text-sm'>
+        <p>{t('This configuration cannot be edited safely as a list. The original JSON has been preserved.')}</p>
+        <pre aria-label={t('Original JSON')} className='whitespace-pre-wrap break-all'>{value}</pre>
+        {onRequestJSON && <Button type='button' variant='outline' onClick={onRequestJSON}>{t('Repair JSON')}</Button>}
+      </div>}
+      {parsedState && <>
       <div className='flex items-center gap-4'>
         <div className='relative flex-1'>
           <Search className='text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4' />
           <Input
+            aria-label={t('Search chat presets...')}
             placeholder={t('Search chat presets...')}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
@@ -159,13 +165,13 @@ export function ChatSettingsVisualEditor({
           {
             id: 'name',
             header: t('Chat Client Name'),
-            cellClassName: 'font-medium',
+            cellClassName: 'font-medium whitespace-normal break-all',
             cell: (chat) => chat.name,
           },
           {
             id: 'url',
             header: t('URL'),
-            cellClassName: 'max-w-md truncate font-mono text-sm',
+            cellClassName: 'whitespace-normal break-all font-mono text-sm',
             cell: (chat) => chat.url,
           },
           {
@@ -186,11 +192,13 @@ export function ChatSettingsVisualEditor({
         ]}
       />
 
+      </>}
       <ChatDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSave={handleSave}
         editData={editData}
+        blocked={blocked}
       />
     </div>
   )

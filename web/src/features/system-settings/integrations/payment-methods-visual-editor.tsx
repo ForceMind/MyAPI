@@ -338,7 +338,7 @@ export function PaymentMethodsVisualEditor({
                         className='text-muted-foreground size-5 shrink-0'
                         title={iconName}
                       />
-                      <span className='text-muted-foreground truncate font-mono text-sm'>
+                      <span className='text-muted-foreground font-mono text-sm break-words [overflow-wrap:anywhere]'>
                         {iconName}
                       </span>
                     </div>
@@ -439,7 +439,7 @@ export function PaymentMethodsVisualEditor({
                             className='text-muted-foreground size-5 shrink-0'
                             title={iconName}
                           />
-                          <span className='text-muted-foreground truncate font-mono text-xs'>
+                          <span className='text-muted-foreground font-mono text-xs break-words [overflow-wrap:anywhere]'>
                             {iconName}
                           </span>
                         </div>

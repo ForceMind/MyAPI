@@ -60,8 +60,9 @@ export type RateLimitEntryData = {
 type RateLimitDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSave: (data: RateLimitEntryData) => void
+  onSave: (data: RateLimitEntryData) => void | boolean
   editData?: RateLimitEntryData | null
+  blocked?: boolean
 }
 
 export function RateLimitDialog({
@@ -69,6 +70,7 @@ export function RateLimitDialog({
   onOpenChange,
   onSave,
   editData,
+  blocked = false,
 }: RateLimitDialogProps) {
   const { t } = useTranslation()
   const isEditMode = !!editData
@@ -95,7 +97,7 @@ export function RateLimitDialog({
   }, [editData, form, open])
 
   const handleSubmit = (values: RateLimitDialogFormValues) => {
-    onSave(values)
+    if (blocked || onSave(values) === false) return
     form.reset()
     onOpenChange(false)
   }
@@ -110,7 +112,7 @@ export function RateLimitDialog({
       description={t(
         'Configure rate limiting rules for a specific user group.'
       )}
-      contentClassName='sm:max-w-[500px]'
+      contentClassName='sm:max-w-[500px] pointer-coarse:[&_[data-slot=input]]:min-h-11'
       contentHeight='auto'
       bodyClassName='space-y-4'
       footer={
@@ -122,12 +124,13 @@ export function RateLimitDialog({
           >
             {t('Cancel')}
           </Button>
-          <Button type='submit' form={RATE_LIMIT_FORM_ID}>
+          <Button type='submit' form={RATE_LIMIT_FORM_ID} disabled={blocked}>
             {isEditMode ? t('Update') : t('Add')}
           </Button>
         </>
       }
     >
+      {blocked && <p role='alert'>{t('The configuration changed. Close this dialog and review the original JSON before applying edits.')}</p>}
       <Form {...form}>
         <form
           id={RATE_LIMIT_FORM_ID}

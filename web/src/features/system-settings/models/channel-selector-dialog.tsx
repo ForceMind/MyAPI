@@ -17,7 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { ColumnDef, RowSelectionState } from '@tanstack/react-table'
-import { Search } from 'lucide-react'
+import { Search01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -26,7 +27,7 @@ import {
   DataTableView,
   useDataTable,
 } from '@/components/data-table'
-import { Dialog } from '@/components/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -177,7 +178,7 @@ export function ChannelSelectorDialog({
           const url = row.getValue('base_url') as string
           return (
             <span
-              className='text-muted-foreground block max-w-xs truncate font-mono text-xs'
+              className='text-muted-foreground block font-mono text-xs break-words whitespace-normal [overflow-wrap:anywhere]'
               title={url}
             >
               {url}
@@ -248,7 +249,7 @@ export function ChannelSelectorDialog({
                 <SelectTrigger className='h-8 w-32'>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent alignItemWithTrigger={false}>
+                <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11 [&_[role=option]]:min-h-11'>
                   <SelectGroup>
                     {ENDPOINT_OPTIONS.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
@@ -316,30 +317,16 @@ export function ChannelSelectorDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={t('Select Sync Channels')}
-      description={t(
-        'Choose channels to sync upstream ratio configurations from'
-      )}
-      contentClassName='flex max-h-[90vh] max-w-[calc(100%-2rem)] flex-col sm:max-w-[90vw] xl:max-w-[1400px]'
-      contentHeight='min(72vh, 720px)'
-      bodyClassName='flex h-full min-h-0 flex-col overflow-hidden'
-      footer={
-        <>
-          <Button variant='outline' onClick={() => onOpenChange(false)}>
-            {t('Cancel')}
-          </Button>
-          <Button onClick={handleConfirm}>{t('Confirm Selection')}</Button>
-        </>
-      }
-    >
-      <div className='flex h-full min-h-0 flex-col gap-4 overflow-hidden'>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className='flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-[min(85dvh,800px)] sm:max-h-[calc(100dvh-3rem)] sm:max-w-5xl sm:rounded-xl [&_[data-myapi-button]]:min-h-11 [&_[data-myapi-button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'>
+        <DialogHeader className='shrink-0 border-b px-4 py-4 pr-16 sm:px-6 sm:pr-16'><DialogTitle>{t('Select Sync Channels')}</DialogTitle><DialogDescription>{t('Choose channels to sync upstream ratio configurations from')}</DialogDescription></DialogHeader>
+        <section role='region' tabIndex={0} aria-label={t('Ratio sync channels')} className='min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [overflow-wrap:anywhere] sm:px-6'>
+      <div className='flex min-w-0 flex-col gap-4'>
         <div className='flex shrink-0 items-center gap-2'>
           <div className='relative flex-1'>
-            <Search className='text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2' />
+            <HugeiconsIcon icon={Search01Icon} className='text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2' />
             <Input
+              aria-label={t('Search sync channels')}
               placeholder={t('Search by name or URL...')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -350,12 +337,8 @@ export function ChannelSelectorDialog({
 
         <DataTableView
           table={table}
-          containerClassName='min-h-0 flex-1 rounded-md'
-          tableContainerClassName='h-full min-h-0'
+          containerClassName='min-w-0 rounded-md'
           tableHeaderClassName='[background-color:var(--table-header)]'
-          splitHeaderScrollClassName='h-full'
-          bodyContainerClassName='[scrollbar-gutter:stable]'
-          splitHeader
           getColumnClassName={(columnId, part) => {
             if (columnId === 'select') return 'w-11 text-center align-middle'
             if (columnId === 'status') {
@@ -367,10 +350,13 @@ export function ChannelSelectorDialog({
           emptyCellClassName='h-24 text-center'
         />
 
-        <div className='shrink-0'>
-          <DataTablePagination table={table} />
-        </div>
       </div>
+        </section>
+        <DialogFooter role='group' aria-label={t('Actions')} className='m-0 shrink-0 flex-col gap-3 rounded-none px-4 py-4 sm:flex-col sm:px-6'>
+          <nav aria-label={t('Ratio sync pagination')} className='w-full'><DataTablePagination table={table} /></nav>
+          <div className='flex w-full flex-wrap justify-end gap-2'><Button className='min-h-11' variant='outline' onClick={() => onOpenChange(false)}>{t('Cancel')}</Button><Button className='min-h-11' onClick={handleConfirm}>{t('Confirm Selection')}</Button></div>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   )
 }

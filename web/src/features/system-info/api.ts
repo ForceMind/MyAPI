@@ -32,14 +32,16 @@ export async function listSystemInstances() {
 
 export async function deleteStaleSystemInstances() {
   const res = await api.delete<SystemInstanceDeleteResponse>(
-    '/api/system-info/stale-instances'
+    '/api/system-info/stale-instances',
+    { skipAuthRefresh: true }
   )
   return res.data
 }
 
 export async function deleteStaleSystemInstance(nodeName: string) {
   const res = await api.delete<SystemInstanceDeleteResponse>(
-    `/api/system-info/instances/${encodeURIComponent(nodeName)}`
+    `/api/system-info/instances/${encodeURIComponent(nodeName)}`,
+    { skipAuthRefresh: true }
   )
   return res.data
 }

@@ -80,7 +80,7 @@ export async function createWaffoPancakePair(params: {
     merchant_id: params.merchantID,
     private_key: params.privateKey,
     return_url: params.returnURL,
-  })
+  }, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -97,6 +97,6 @@ export async function saveWaffoPancakeConfig(params: {
     return_url: params.returnURL,
     store_id: params.storeID,
     product_id: params.productID,
-  })
+  }, { skipAuthRefresh: true })
   return res.data
 }

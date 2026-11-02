@@ -221,7 +221,8 @@ export function PublicHeader(props: PublicHeaderProps) {
         <div className='mx-auto flex h-14 w-full max-w-[1200px] min-w-0 items-center gap-5 px-4 lg:px-6'>
           <Link
             to={homeUrl}
-            className='flex min-w-0 items-center gap-2.5'
+            className='flex min-h-11 min-w-0 items-center gap-2.5'
+            title={displaySiteName}
           >
             <div className='flex size-7 shrink-0 items-center justify-center'>
               {logoContent}
@@ -353,12 +354,13 @@ export function PublicHeader(props: PublicHeaderProps) {
             : 'pointer-events-none opacity-0'
         )}
       >
-        <div className='flex h-full flex-col justify-between px-8 pt-20 pb-10'>
-          <nav className='flex flex-col gap-1'>
+        <div className='flex h-full min-h-0 flex-col justify-between overflow-y-auto overscroll-contain px-8 pt-20 pb-10'>
+          <nav aria-label={t('Navigation')} className='flex shrink-0 flex-col gap-1'>
+            <p className='mb-4 text-base font-semibold break-all'>{displaySiteName}</p>
             {keyedLinks.map((link, index) => {
               const isActive = pathname === link.href
               const linkClassName = cn(
-                'flex items-center gap-3 py-3 text-base font-medium tracking-tight transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]',
+                'flex min-h-11 items-center gap-3 py-3 text-base font-medium tracking-tight transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]',
                 mobileOpen
                   ? 'translate-y-0 opacity-100'
                   : 'translate-y-4 opacity-0',

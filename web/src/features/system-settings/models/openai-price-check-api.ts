@@ -80,7 +80,7 @@ export async function startOpenAIPriceCheck() {
   const response = await api.post(
     '/api/ratio_sync/openai/check',
     {},
-    { skipErrorHandler: true }
+    { skipErrorHandler: true, skipAuthRefresh: true }
   )
   return z
     .object({
@@ -100,7 +100,7 @@ export async function setOpenAIPriceCheckEnabled(enabled: boolean) {
   const response = await api.put(
     '/api/option/',
     { key: 'OpenAIOfficialPriceCheckEnabled', value: String(enabled) },
-    { skipErrorHandler: true }
+    { skipErrorHandler: true, skipAuthRefresh: true }
   )
   z.object({ success: z.literal(true) }).parse(response.data)
 }

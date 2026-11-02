@@ -172,7 +172,7 @@ export function useChannelUpstreamUpdates(refresh: () => Promise<void>) {
       const res = await api.post(
         '/api/channel/upstream_updates/apply_all',
         {},
-        upstreamUpdateRequestConfig
+        { ...upstreamUpdateRequestConfig, skipAuthRefresh: true }
       )
       const response = res.data || {}
       const { success, message, data } = response
@@ -218,7 +218,7 @@ export function useChannelUpstreamUpdates(refresh: () => Promise<void>) {
         const res = await api.post(
           '/api/channel/upstream_updates/detect',
           { id: ch.id },
-          upstreamUpdateRequestConfig
+          { ...upstreamUpdateRequestConfig, skipAuthRefresh: true }
         )
         const response = res.data || {}
         const { success, message, data } = response
@@ -258,7 +258,7 @@ export function useChannelUpstreamUpdates(refresh: () => Promise<void>) {
       const res = await api.post(
         '/api/channel/upstream_updates/detect_all',
         {},
-        upstreamUpdateRequestConfig
+        { ...upstreamUpdateRequestConfig, skipAuthRefresh: true }
       )
       const { success, message } = res.data || {}
       if (!success) {

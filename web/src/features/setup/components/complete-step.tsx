@@ -74,7 +74,7 @@ export function CompleteStep({ status, values }: CompleteStepProps) {
               {t('Database')}
             </dt>
             <dd className='flex flex-wrap items-center gap-2'>
-              <span className='text-sm font-semibold'>{dbType}</span>
+              <span className='text-sm font-semibold break-all'>{dbType}</span>
               <StatusBadge
                 label={dbType}
                 variant={databaseVariant}
@@ -89,7 +89,7 @@ export function CompleteStep({ status, values }: CompleteStepProps) {
             <dt className='text-caption text-muted-foreground'>
               {t('Administrator account')}
             </dt>
-            <dd className='text-sm font-semibold'>
+            <dd className='text-sm font-semibold break-all'>
               {status?.root_init
                 ? t('Existing account will be reused')
                 : values.username || t('Not set yet')}
@@ -102,7 +102,7 @@ export function CompleteStep({ status, values }: CompleteStepProps) {
             <dt className='text-caption text-muted-foreground'>
               {t('Usage mode')}
             </dt>
-            <dd className='text-sm font-semibold'>{t(usageLabelKey)}</dd>
+            <dd className='text-sm font-semibold break-all'>{t(usageLabelKey)}</dd>
           </div>
         </dl>
       </div>

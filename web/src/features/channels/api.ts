@@ -267,7 +267,7 @@ export async function updateChannelStatus(
   const res = await api.post(
     `/api/channel/${id}/status`,
     { status },
-    channelActionConfig()
+    channelActionConfig({ skipAuthRefresh: true })
   )
   return res.data
 }
@@ -282,7 +282,7 @@ export async function batchUpdateChannelStatus(
   const res = await api.post(
     '/api/channel/status/batch',
     { ids, status },
-    channelActionConfig()
+    channelActionConfig({ skipAuthRefresh: true })
   )
   return res.data
 }
@@ -293,7 +293,7 @@ export async function batchUpdateChannelStatus(
 export async function deleteChannel(
   id: number
 ): Promise<ChannelMutationResponse> {
-  const res = await api.delete(`/api/channel/${id}`, channelActionConfig())
+  const res = await api.delete(`/api/channel/${id}`, channelActionConfig({ skipAuthRefresh: true }))
   return res.data
 }
 
@@ -303,7 +303,7 @@ export async function deleteChannel(
 export async function batchDeleteChannels(
   data: BatchDeleteParams
 ): Promise<ChannelMutationResponse<number>> {
-  const res = await api.post('/api/channel/batch', data, channelActionConfig())
+  const res = await api.post('/api/channel/batch', data, channelActionConfig({ skipAuthRefresh: true }))
   return res.data
 }
 
@@ -316,7 +316,7 @@ export async function batchSetChannelTag(
   const res = await api.post(
     '/api/channel/batch/tag',
     data,
-    channelActionConfig()
+    channelActionConfig({ skipAuthRefresh: true })
   )
   return res.data
 }
@@ -336,13 +336,13 @@ export async function testChannel(
     const res = await api.post(
       `/api/channel/test/${id}`,
       params,
-      channelActionConfig()
+      channelActionConfig({ skipAuthRefresh: true })
     )
     return res.data
   }
   const res = await api.get(
     `/api/channel/test/${id}`,
-    channelActionConfig({ params })
+    channelActionConfig({ params, skipAuthRefresh: true })
   )
   return res.data
 }
@@ -355,7 +355,7 @@ export async function updateChannelBalance(
 ): Promise<ChannelBalanceResponse> {
   const res = await api.get(
     `/api/channel/update_balance/${id}`,
-    channelActionConfig()
+    channelActionConfig({ skipAuthRefresh: true })
   )
   return res.data
 }
@@ -481,7 +481,7 @@ export async function updateChannelQuotaAlertDeliverySettings(request: {
   const res = await api.put(
     '/api/channel/quota/alerts/delivery',
     request,
-    channelActionConfig()
+    channelActionConfig({ skipAuthRefresh: true })
   )
   return res.data
 }
@@ -490,7 +490,7 @@ export async function runChannelQuotaAlertDelivery(): Promise<ChannelQuotaAlertD
   const res = await api.post(
     '/api/channel/quota/alerts/delivery/run',
     undefined,
-    channelActionConfig()
+    channelActionConfig({ skipAuthRefresh: true })
   )
   return res.data
 }
@@ -503,7 +503,7 @@ export async function fetchUpstreamModels(
 ): Promise<FetchModelsResponse> {
   const res = await api.get(
     `/api/channel/fetch_models/${id}`,
-    channelActionConfig()
+    channelActionConfig({ skipAuthRefresh: true })
   )
   return res.data
 }
@@ -520,6 +520,7 @@ export async function copyChannel(
     `/api/channel/copy/${id}`,
     null,
     channelActionConfig({
+      skipAuthRefresh: true,
       params: queryParams,
       headers: operationKey ? { 'Idempotency-Key': operationKey } : undefined,
     })
@@ -536,7 +537,7 @@ export async function fixChannelAbilities(): Promise<
   const res = await api.post(
     '/api/channel/fix',
     undefined,
-    channelActionConfig()
+    channelActionConfig({ skipAuthRefresh: true })
   )
   return res.data
 }
@@ -547,7 +548,7 @@ export async function fixChannelAbilities(): Promise<
 export async function deleteDisabledChannels(): Promise<
   ChannelMutationResponse<number>
 > {
-  const res = await api.delete('/api/channel/disabled', channelActionConfig())
+  const res = await api.delete('/api/channel/disabled', channelActionConfig({ skipAuthRefresh: true }))
   return res.data
 }
 
@@ -562,6 +563,7 @@ export async function getChannelKey(
     `/api/channel/${id}/key`,
     undefined,
     channelActionConfig({
+      skipAuthRefresh: true,
       headers: proofToken ? { 'X-Security-Proof': proofToken } : undefined,
     })
   )
@@ -600,7 +602,7 @@ export async function refreshCodexCredential(
   const res = await api.post(
     `/api/channel/${channelId}/codex/refresh`,
     {},
-    channelActionConfig()
+    channelActionConfig({ skipAuthRefresh: true })
   )
   return res.data
 }
@@ -621,6 +623,7 @@ export async function importCodexLocalAuthForNewChannel(
     '/api/channel/codex/local-auth/import',
     data,
     channelActionConfig({
+      skipAuthRefresh: true,
       headers: proofToken ? { 'X-Security-Proof': proofToken } : undefined,
     })
   )
@@ -635,6 +638,7 @@ export async function importCodexLocalAuthForChannel(
     `/api/channel/${channelId}/codex/local-auth/import`,
     undefined,
     channelActionConfig({
+      skipAuthRefresh: true,
       headers: proofToken ? { 'X-Security-Proof': proofToken } : undefined,
     })
   )
@@ -646,7 +650,7 @@ export async function getCodexUsage(
 ): Promise<CodexUsageResponse> {
   const res = await api.get(
     `/api/channel/${channelId}/codex/usage`,
-    channelActionConfig({ disableDuplicate: true })
+    channelActionConfig({ disableDuplicate: true, skipAuthRefresh: true })
   )
   return res.data
 }
@@ -675,7 +679,7 @@ export async function getCodexResetCredits(
 ): Promise<CodexResetCreditsResponse> {
   const res = await api.get(
     `/api/channel/${channelId}/codex/usage/reset-credits`,
-    channelActionConfig({ disableDuplicate: true })
+    channelActionConfig({ disableDuplicate: true, skipAuthRefresh: true })
   )
   return res.data
 }
@@ -686,7 +690,7 @@ export async function resetCodexUsage(
   const res = await api.post(
     `/api/channel/${channelId}/codex/usage/reset`,
     {},
-    channelActionConfig({ disableDuplicate: true })
+    channelActionConfig({ disableDuplicate: true, skipAuthRefresh: true })
   )
   return res.data
 }
@@ -818,7 +822,7 @@ export async function enableTagChannels(
   const res = await api.post(
     '/api/channel/tag/enabled',
     { tag },
-    channelActionConfig()
+    channelActionConfig({ skipAuthRefresh: true })
   )
   return res.data
 }
@@ -832,7 +836,7 @@ export async function disableTagChannels(
   const res = await api.post(
     '/api/channel/tag/disabled',
     { tag },
-    channelActionConfig()
+    channelActionConfig({ skipAuthRefresh: true })
   )
   return res.data
 }
@@ -843,7 +847,7 @@ export async function disableTagChannels(
 export async function editTagChannels(
   params: TagOperationParams
 ): Promise<ChannelMutationResponse> {
-  const res = await api.put('/api/channel/tag', params, channelActionConfig())
+  const res = await api.put('/api/channel/tag', params, channelActionConfig({ skipAuthRefresh: true }))
   return res.data
 }
 
@@ -876,7 +880,7 @@ export async function fetchModels(data: {
   const res = await api.post(
     '/api/channel/fetch_models',
     data,
-    channelActionConfig()
+    channelActionConfig({ skipAuthRefresh: true })
   )
   return res.data
 }
@@ -902,7 +906,7 @@ export async function testAllChannels(): Promise<{
   success: boolean
   message?: string
 }> {
-  const res = await api.get('/api/channel/test', channelActionConfig())
+  const res = await api.get('/api/channel/test', channelActionConfig({ skipAuthRefresh: true }))
   return res.data
 }
 
@@ -915,7 +919,7 @@ export async function updateAllChannelsBalance(): Promise<{
 }> {
   const res = await api.get(
     '/api/channel/update_balance',
-    channelActionConfig()
+    channelActionConfig({ skipAuthRefresh: true })
   )
   return res.data
 }
@@ -1001,7 +1005,7 @@ export async function refreshChannelModelDiscovery(
   const res = await api.post(
     `/api/channel/model-discovery/${id}`,
     undefined,
-    channelActionConfig()
+    channelActionConfig({ skipAuthRefresh: true })
   )
   return res.data
 }

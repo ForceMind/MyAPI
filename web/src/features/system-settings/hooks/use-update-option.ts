@@ -19,9 +19,26 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import i18next from 'i18next'
 import { toast } from 'sonner'
+import { isAxiosError } from 'axios'
+import { useLayoutEffect, useRef } from 'react'
+
+import { useAuthStore } from '@/stores/auth-store'
+import { useSettingsReloadScope } from '../components/settings-page-context'
 
 import { updateSystemOption } from '../api'
 import type { UpdateOptionRequest } from '../types'
+
+export class OptionUpdateError extends Error {}
+
+const reportedFailures = new WeakSet<object>()
+
+export function markReportedOptionFailure(error: unknown): void {
+  if (error instanceof OptionUpdateError || isAxiosError(error)) reportedFailures.add(error)
+}
+
+export function isReportedOptionFailure(error: unknown): boolean {
+  return error instanceof OptionUpdateError || (isAxiosError(error) && reportedFailures.has(error))
+}
 
 // Configuration keys that require status refresh
 const STATUS_RELATED_KEYS = new Set([
@@ -41,9 +58,21 @@ const STATUS_RELATED_KEYS = new Set([
 
 export function useUpdateOption() {
   const queryClient = useQueryClient()
+  const reloadScope = useSettingsReloadScope()
+  const initialAuth = useAuthStore.getState().auth
+  const actor = useRef(`${initialAuth.user?.id ?? null}:${initialAuth.user?.role ?? 0}:${initialAuth.session?.sid ?? null}`)
+  const mounted = useRef(true)
+  useLayoutEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
 
   return useMutation({
-    mutationFn: (request: UpdateOptionRequest) => updateSystemOption(request),
+    mutationFn: async (request: UpdateOptionRequest) => {
+      const { auth } = useAuthStore.getState()
+      if (!mounted.current || !reloadScope.isActive() || actor.current !== `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`) throw new OptionUpdateError(i18next.t('Session changed'))
+      const data = await updateSystemOption(request)
+      if (data?.success !== true) throw new OptionUpdateError(data?.message || i18next.t('Failed to update setting'))
+      return data
+    },
+    retry: false,
     onSuccess: (data, variables) => {
       if (data.success) {
         // Always refresh system-options
@@ -59,12 +88,16 @@ export function useUpdateOption() {
           }
         }
 
-        toast.success(i18next.t('Setting updated successfully'))
+        const { auth } = useAuthStore.getState()
+        if (mounted.current && reloadScope.isActive() && actor.current === `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`) toast.success(i18next.t('Setting updated successfully'))
       } else {
         toast.error(data.message || i18next.t('Failed to update setting'))
       }
     },
     onError: (error: Error) => {
+      markReportedOptionFailure(error)
+      const { auth } = useAuthStore.getState()
+      if (!mounted.current || !reloadScope.isActive() || actor.current !== `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`) return
       toast.error(error.message || i18next.t('Failed to update setting'))
     },
   })

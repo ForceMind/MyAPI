@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next'
 
 import { getLobeIcon } from '@/lib/lobe-icon'
 
-import { formatTokens } from '../lib/format'
+import { formatShare, formatTokens } from '../lib/format'
 import type { ModelRanking } from '../types'
 import { ModelLink, VendorLink } from './entity-links'
 import { GrowthText } from './growth-text'
@@ -80,7 +80,7 @@ function ModelList(props: {
           }
         >
           <span className='text-muted-foreground/80 w-6 shrink-0 text-right font-mono text-xs tabular-nums'>
-            {row.rank}.
+            {Number.isFinite(row.rank) ? `${row.rank}.` : t('Unknown')}
           </span>
           <span className='shrink-0'>
             {getLobeIcon(row.vendor_icon, compact ? 20 : 22)}
@@ -90,8 +90,8 @@ function ModelList(props: {
               modelName={row.model_name}
               className={
                 compact
-                  ? 'text-foreground block truncate font-mono text-xs font-medium'
-                  : 'text-foreground block truncate font-mono text-sm font-medium'
+                  ? 'text-foreground block whitespace-normal break-all font-mono text-xs font-medium'
+                  : 'text-foreground block whitespace-normal break-all font-mono text-sm font-medium'
               }
             >
               {row.model_name}
@@ -99,8 +99,8 @@ function ModelList(props: {
             <p
               className={
                 compact
-                  ? 'text-muted-foreground/80 truncate text-[11px] italic'
-                  : 'text-muted-foreground/80 truncate text-xs italic'
+                  ? 'text-muted-foreground/80 whitespace-normal break-all text-[11px] italic'
+                  : 'text-muted-foreground/80 whitespace-normal break-all text-xs italic'
               }
             >
               by{' '}
@@ -108,8 +108,16 @@ function ModelList(props: {
                 {row.vendor.toLowerCase()}
               </VendorLink>
             </p>
+            <details className='mt-1 text-xs'>
+              <summary className='text-muted-foreground cursor-pointer py-2 pointer-coarse:min-h-11'>{t('Ranking details')}</summary>
+              <dl className='space-y-2 py-2 break-words'>
+                <div><dt className='text-muted-foreground'>{t('Category')}</dt><dd>{row.category}</dd></div>
+                <div><dt className='text-muted-foreground'>{t('Previous rank')}</dt><dd>{row.previous_rank === undefined && t('New')}{row.previous_rank !== undefined && (Number.isFinite(row.previous_rank) ? row.previous_rank : t('Unknown'))}</dd></div>
+                <div><dt className='text-muted-foreground'>{t('Token share')}</dt><dd>{Number.isFinite(row.share) ? formatShare(row.share) : t('Unknown')}</dd></div>
+              </dl>
+            </details>
           </div>
-          <div className='shrink-0 text-right'>
+          <div className='max-w-[45%] shrink-0 text-right break-words'>
             <div
               className={
                 compact
@@ -117,7 +125,7 @@ function ModelList(props: {
                   : 'text-foreground font-mono text-sm font-semibold tabular-nums'
               }
             >
-              {formatTokens(row.total_tokens)}
+              {Number.isFinite(row.total_tokens) ? formatTokens(row.total_tokens) : t('Unknown')}
               {!compact && (
                 <>
                   {' '}

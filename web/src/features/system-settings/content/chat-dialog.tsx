@@ -53,8 +53,9 @@ export type ChatEntryData = {
 type ChatDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSave: (data: ChatEntryData) => void
+  onSave: (data: ChatEntryData) => void | boolean
   editData?: ChatEntryData | null
+  blocked?: boolean
 }
 
 export function ChatDialog({
@@ -62,6 +63,7 @@ export function ChatDialog({
   onOpenChange,
   onSave,
   editData,
+  blocked = false,
 }: ChatDialogProps) {
   const { t } = useTranslation()
   const isEditMode = !!editData
@@ -87,7 +89,7 @@ export function ChatDialog({
   }, [editData, form, open])
 
   const handleSubmit = (values: ChatDialogFormValues) => {
-    onSave(values)
+    if (blocked || onSave(values) === false) return
     form.reset()
     onOpenChange(false)
   }
@@ -98,7 +100,7 @@ export function ChatDialog({
       onOpenChange={onOpenChange}
       title={isEditMode ? t('Edit chat preset') : t('Add chat preset')}
       description={t('Configure a predefined chat link for end users.')}
-      contentClassName='sm:max-w-[500px]'
+      contentClassName='sm:max-w-[500px] pointer-coarse:[&_[data-slot=input]]:min-h-11'
       contentHeight='auto'
       bodyClassName='space-y-4'
       footer={
@@ -110,12 +112,13 @@ export function ChatDialog({
           >
             {t('Cancel')}
           </Button>
-          <Button type='submit' form={CHAT_DIALOG_FORM_ID}>
+          <Button type='submit' form={CHAT_DIALOG_FORM_ID} disabled={blocked}>
             {isEditMode ? t('Update') : t('Add')}
           </Button>
         </>
       }
     >
+      {blocked && <p role='alert'>{t('The configuration changed. Close this dialog and review the original JSON before applying edits.')}</p>}
       <Form {...form}>
         <form
           id={CHAT_DIALOG_FORM_ID}

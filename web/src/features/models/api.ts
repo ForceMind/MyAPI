@@ -86,7 +86,7 @@ export async function createModel(
 export async function updateModel(
   data: Partial<Model> & { id: number }
 ): Promise<{ success: boolean; message?: string; data?: Model }> {
-  const res = await api.put('/api/models/', data)
+  const res = await api.put('/api/models/', data, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -97,7 +97,7 @@ export async function updateModelStatus(
   id: number,
   status: number
 ): Promise<{ success: boolean; message?: string }> {
-  const res = await api.put('/api/models/?status_only=true', { id, status })
+  const res = await api.put('/api/models/?status_only=true', { id, status }, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -107,7 +107,7 @@ export async function updateModelStatus(
 export async function deleteModel(
   id: number
 ): Promise<{ success: boolean; message?: string }> {
-  const res = await api.delete(`/api/models/${id}`)
+  const res = await api.delete(`/api/models/${id}`, { skipAuthRefresh: true })
   return res.data
 }
 

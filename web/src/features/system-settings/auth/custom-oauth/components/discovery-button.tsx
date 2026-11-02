@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Search } from 'lucide-react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -28,13 +29,23 @@ import type { CustomOAuthFormValues } from '../types'
 
 type DiscoveryButtonProps = {
   form: UseFormReturn<CustomOAuthFormValues>
+  isCurrent?: () => boolean
+  disabled?: boolean
 }
 
 export function DiscoveryButton(props: DiscoveryButtonProps) {
   const { t } = useTranslation()
-  const discover = useDiscoverEndpoints()
+  const alive = useRef(true)
+  const pending = useRef(false)
+  const [error, setError] = useState<string | null>(null)
+  useLayoutEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
+  const discover = useDiscoverEndpoints({ captureResultGuard: () => {
+    const source = props.form.getValues('well_known')
+    return () => alive.current && props.isCurrent?.() !== false && props.form.getValues('well_known') === source
+  } })
 
   const handleDiscover = async () => {
+    if (pending.current || props.disabled || props.isCurrent?.() === false) return
     const wellKnown = props.form.getValues('well_known')
     if (!wellKnown) {
       toast.error(t('Please enter a Well-Known URL first'))
@@ -46,22 +57,28 @@ export function DiscoveryButton(props: DiscoveryButtonProps) {
       return
     }
 
+    pending.current = true
+    setError(null)
+    const before = props.form.getValues()
+    try {
     const res = await discover.mutateAsync(wellKnown)
-    if (res.success && res.data?.discovery) {
+    if (!alive.current || props.isCurrent?.() === false || props.form.getValues('well_known') !== wellKnown) return
+    if (!res.success) { setError(res.message || t('Failed to discover OIDC endpoints')); return }
+    if (res.data?.discovery) {
       const disc = res.data.discovery
-      if (disc.authorization_endpoint) {
+      if (disc.authorization_endpoint && props.form.getValues('authorization_endpoint') === before.authorization_endpoint) {
         props.form.setValue(
           'authorization_endpoint',
           disc.authorization_endpoint,
           { shouldDirty: true }
         )
       }
-      if (disc.token_endpoint) {
+      if (disc.token_endpoint && props.form.getValues('token_endpoint') === before.token_endpoint) {
         props.form.setValue('token_endpoint', disc.token_endpoint, {
           shouldDirty: true,
         })
       }
-      if (disc.userinfo_endpoint) {
+      if (disc.userinfo_endpoint && props.form.getValues('user_info_endpoint') === before.user_info_endpoint) {
         props.form.setValue('user_info_endpoint', disc.userinfo_endpoint, {
           shouldDirty: true,
         })
@@ -80,18 +97,24 @@ export function DiscoveryButton(props: DiscoveryButtonProps) {
         }
       }
     }
+    } catch (cause) {
+      if (alive.current && props.isCurrent?.() !== false) setError(cause instanceof Error ? cause.message : t('Failed to discover OIDC endpoints'))
+    } finally { pending.current = false }
   }
 
   return (
+    <div className='space-y-2'>
     <Button
       type='button'
       variant='outline'
       size='sm'
       onClick={handleDiscover}
-      disabled={discover.isPending}
+      disabled={discover.isPending || props.disabled}
     >
       <Search className='mr-1.5 h-3.5 w-3.5' />
       {discover.isPending ? t('Discovering...') : t('Auto-discover')}
     </Button>
+    {error && <p role='alert' className='text-destructive text-sm break-words'>{error}</p>}
+    </div>
   )
 }

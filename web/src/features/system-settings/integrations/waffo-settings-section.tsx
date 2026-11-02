@@ -175,7 +175,7 @@ export function WaffoSettingsSection({
           />
         </div>
 
-        <div className='grid grid-cols-2 gap-4'>
+        <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
           <div className='grid gap-1.5'>
             <Label>{t('API Key (Production)')}</Label>
             <Input
@@ -208,7 +208,7 @@ export function WaffoSettingsSection({
           />
         </div>
 
-        <div className='grid grid-cols-2 gap-4'>
+        <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
           <div className='grid gap-1.5'>
             <Label>{t('RSA Private Key (Production)')}</Label>
             <Textarea
@@ -233,7 +233,7 @@ export function WaffoSettingsSection({
           </div>
         </div>
 
-        <div className='grid grid-cols-2 gap-4'>
+        <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
           <div className='grid gap-1.5'>
             <Label>{t('Waffo Public Key (Production)')}</Label>
             <Textarea
@@ -294,7 +294,7 @@ export function WaffoSettingsSection({
           </div>
         </div>
 
-        <div className='grid grid-cols-2 gap-4'>
+        <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
           <div className='grid gap-1.5'>
             <Label>{t('Callback notification URL')}</Label>
             <Input

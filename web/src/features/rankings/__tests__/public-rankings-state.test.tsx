@@ -16,6 +16,10 @@ import { MarketShareSection } from '../components/market-share-section'
 import { Rankings } from '../index'
 import type { ModelRanking, VendorRanking } from '../types'
 
+// Isolate the third-party chart renderer; ranking components and data stay real.
+vi.mock('@visactor/react-vchart', () => ({ VChart: () => <div data-testid='ranking-chart' /> }))
+vi.mock('@visactor/vchart', () => ({ ThemeManager: { setCurrentTheme: vi.fn() } }))
+
 const originalAuth = useAuthStore.getState()
 let client: QueryClient
 const empty = { models: [], vendors: [], top_movers: [], top_droppers: [], models_history: { points: [], models: [], buckets: 0 }, vendor_share_history: { points: [], vendors: [], buckets: 0 } }

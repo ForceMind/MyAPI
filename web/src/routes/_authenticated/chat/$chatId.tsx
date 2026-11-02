@@ -70,6 +70,8 @@ function ChatRouteContent() {
     isPending,
     isError,
     error,
+    refetch,
+    isFetching,
   } = useActiveChatKey(Boolean(preset && requiresActiveKey))
 
   const iframeSrc = useMemo(() => {
@@ -144,12 +146,13 @@ function ChatRouteContent() {
     const message =
       error instanceof Error
         ? error.message
-        : 'Unable to generate chat link. Please check your API keys.'
+        : t('Unable to generate chat link. Please check your API keys.')
     return (
       <div className='flex h-full flex-col items-center justify-center p-6'>
         <Alert variant='destructive' className='max-w-xl'>
           <AlertTitle>{t('Unable to open chat')}</AlertTitle>
           <AlertDescription>{message}</AlertDescription>
+          <Button className='mt-3 min-h-11 w-fit' variant='outline' disabled={isFetching} onClick={() => { void refetch() }}>{t('Retry')}</Button>
         </Alert>
       </div>
     )
@@ -177,7 +180,7 @@ function ChatRouteContent() {
       className='h-full w-full border-0'
       allow='camera; microphone'
       sandbox='allow-scripts allow-forms'
-      title={`Chat preset: ${preset.name}`}
+      title={t('Chat preset: {{name}}', { name: preset.name, interpolation: { escapeValue: false } })}
     />
   )
 }

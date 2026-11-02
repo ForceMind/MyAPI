@@ -43,6 +43,8 @@ import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
 import { useResetForm } from '../hooks/use-reset-form'
 import { useUpdateOption } from '../hooks/use-update-option'
+import { FormNavigationGuard } from '../components/form-navigation-guard'
+import { FormDirtyIndicator } from '../components/form-dirty-indicator'
 
 const basicAuthSchema = z.object({
   PasswordLoginEnabled: z.boolean(),
@@ -107,6 +109,9 @@ export function BasicAuthSection({ defaultValues }: BasicAuthSectionProps) {
   }
 
   return (
+    <>
+    <FormNavigationGuard when={form.formState.isDirty} />
+    <FormDirtyIndicator isDirty={form.formState.isDirty} />
     <SettingsSection title={t('Basic Authentication')}>
       <Form {...form}>
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
@@ -265,5 +270,6 @@ export function BasicAuthSection({ defaultValues }: BasicAuthSectionProps) {
         </SettingsForm>
       </Form>
     </SettingsSection>
+    </>
   )
 }

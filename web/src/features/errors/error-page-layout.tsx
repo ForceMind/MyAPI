@@ -46,12 +46,12 @@ export function ErrorPageLayout(props: ErrorPageLayoutProps) {
         </Heading>
         <div
           id={descriptionId}
-          className='text-muted-foreground mt-3 space-y-3 text-sm leading-relaxed'
+          className='text-muted-foreground mt-3 space-y-3 text-sm leading-relaxed break-words'
         >
           {props.children}
         </div>
         {props.actions && (
-          <div className='mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap [&_[data-slot=button]]:h-auto [&_[data-slot=button]]:min-h-10 [&_[data-slot=button]]:whitespace-normal'>
+          <div className='mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap [&_[data-myapi-button]]:h-auto [&_[data-myapi-button]]:min-h-11 [&_[data-myapi-button]]:whitespace-normal'>
             {props.actions}
           </div>
         )}

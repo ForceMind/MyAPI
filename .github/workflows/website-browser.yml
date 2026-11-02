@@ -15,6 +15,10 @@ on:
       - '.github/workflows/website-browser.yml'
   workflow_dispatch:
     inputs:
+      run_browser:
+        description: 'Explicitly authorize browser execution for this manual run'
+        type: boolean
+        default: false
       security_evidence:
         description: 'Recheck security screenshots against an unchanged qualified application build'
         type: boolean
@@ -40,7 +44,7 @@ concurrency:
 
 jobs:
   chromium:
-    if: github.event_name != 'workflow_dispatch' || !inputs.security_evidence
+    if: github.event_name == 'workflow_dispatch' && inputs.run_browser && !inputs.security_evidence
     name: Mobile Chromium smoke
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -74,7 +78,7 @@ jobs:
           retention-days: 7
 
   security-evidence:
-    if: github.event_name == 'workflow_dispatch' && inputs.security_evidence
+    if: github.event_name == 'workflow_dispatch' && inputs.run_browser && inputs.security_evidence
     name: Qualified-build security evidence
     runs-on: ubuntu-latest
     timeout-minutes: 10

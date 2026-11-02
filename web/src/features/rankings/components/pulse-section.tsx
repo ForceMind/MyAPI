@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils'
 
 import type { RankingMover } from '../types'
 import { ModelLink, VendorLink } from './entity-links'
+import { GrowthText } from './growth-text'
 
 type PulseSectionProps = {
   movers: RankingMover[]
@@ -109,22 +110,24 @@ function PulseEmpty(props: { label: string }) {
 }
 
 function MoverRow(props: { row: RankingMover; intent: 'up' | 'down' }) {
+  const { t } = useTranslation()
   return (
     <li className='flex items-center gap-3 px-4 py-2'>
       <span className='shrink-0'>{getLobeIcon(props.row.vendor_icon, 20)}</span>
       <div className='min-w-0 flex-1'>
         <ModelLink
           modelName={props.row.model_name}
-          className='text-foreground block truncate font-mono text-xs font-medium'
+          className='text-foreground block whitespace-normal break-all font-mono text-xs font-medium'
         >
           {props.row.model_name}
         </ModelLink>
-        <p className='text-muted-foreground/80 truncate text-[11px]'>
-          #{props.row.current_rank} ·{' '}
+        <p className='text-muted-foreground/80 whitespace-normal break-all text-[11px]'>
+          #{Number.isFinite(props.row.current_rank) ? props.row.current_rank : t('Unknown')} ·{' '}
           <VendorLink vendor={props.row.vendor}>
             {props.row.vendor.toLowerCase()}
           </VendorLink>
         </p>
+        <GrowthText value={props.row.growth_pct} className='text-[11px]' />
       </div>
       <span
         className={cn(
@@ -139,7 +142,7 @@ function MoverRow(props: { row: RankingMover; intent: 'up' | 'down' }) {
         ) : (
           <ArrowDownRight className='size-3' />
         )}
-        {Math.abs(props.row.rank_delta)}
+        {Number.isFinite(props.row.rank_delta) ? Math.abs(props.row.rank_delta) : t('Unknown')}
       </span>
     </li>
   )

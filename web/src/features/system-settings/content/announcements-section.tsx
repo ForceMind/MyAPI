@@ -65,6 +65,10 @@ import dayjs from '@/lib/dayjs'
 import { SettingsSwitchField } from '../components/settings-form-layout'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
+import { FormNavigationGuard } from '../components/form-navigation-guard'
+import { FormDirtyIndicator } from '../components/form-dirty-indicator'
+import { SettingsJSONRepair } from '../components/settings-json-repair'
+import { useContentEntries } from './use-content-entries'
 
 type Announcement = {
   id: number
@@ -135,9 +139,12 @@ export function AnnouncementsSection({
 }: AnnouncementsSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
-  const [announcements, setAnnouncements] = useState<Announcement[]>([])
+  const draft = useContentEntries<Announcement>(data, (entry) => announcementSchema.safeParse(entry).success)
+  const announcements = draft.entries
+  const setAnnouncements = draft.setEntries
   const [isEnabled, setIsEnabled] = useState(enabled)
-  const [hasChanges, setHasChanges] = useState(false)
+  const hasChanges = draft.isDirty
+  const setHasChanges = draft.markChanged
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [showDialog, setShowDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -155,21 +162,6 @@ export function AnnouncementsSection({
     },
   })
 
-  useEffect(() => {
-    try {
-      const parsed = JSON.parse(data || '[]')
-      if (Array.isArray(parsed)) {
-        setAnnouncements(
-          parsed.map((item, idx) => ({
-            ...item,
-            id: item.id || idx + 1,
-          }))
-        )
-      }
-    } catch {
-      setAnnouncements([])
-    }
-  }, [data])
 
   useEffect(() => {
     setIsEnabled(enabled)
@@ -181,14 +173,17 @@ export function AnnouncementsSection({
         key: 'console_setting.announcements_enabled',
         value: checked,
       })
+      if (!draft.isCurrent()) return
       setIsEnabled(checked)
       toast.success(t('Setting saved'))
     } catch {
+      if (!draft.isCurrent()) return
       toast.error(t('Failed to update setting'))
     }
   }
 
   const handleAdd = () => {
+    if (draft.incompatible) return
     setEditingAnnouncement(null)
     form.reset({
       content: '',
@@ -217,6 +212,7 @@ export function AnnouncementsSection({
   }
 
   const handleBatchDelete = () => {
+    if (draft.incompatible) return
     if (selectedIds.length === 0) {
       toast.error(t('Please select items to delete'))
       return
@@ -226,6 +222,7 @@ export function AnnouncementsSection({
   }
 
   const confirmDelete = () => {
+    if (draft.incompatible) return
     if (deleteTarget === 'single' && editingAnnouncement) {
       setAnnouncements((prev) =>
         prev.filter((item) => item.id !== editingAnnouncement.id)
@@ -249,6 +246,7 @@ export function AnnouncementsSection({
   }
 
   const handleSubmitForm = (values: AnnouncementFormValues) => {
+    if (draft.incompatible) return
     if (editingAnnouncement) {
       setAnnouncements((prev) =>
         prev.map((item) =>
@@ -266,14 +264,18 @@ export function AnnouncementsSection({
   }
 
   const handleSaveAll = async () => {
+    if (draft.incompatible) return
+    const saved = announcements
     try {
       await updateOption.mutateAsync({
         key: 'console_setting.announcements',
-        value: JSON.stringify(announcements),
+        value: JSON.stringify(saved),
       })
-      setHasChanges(false)
+      if (!draft.isCurrent()) return
+      draft.acknowledge(saved)
       toast.success(t('Announcements saved successfully'))
     } catch {
+      if (!draft.isCurrent()) return
       toast.error(t('Failed to save announcements'))
     }
   }
@@ -310,11 +312,15 @@ export function AnnouncementsSection({
   }
 
   return (
+    <>
+    <FormNavigationGuard when={hasChanges || (showDialog && form.formState.isDirty)} />
+    <FormDirtyIndicator isDirty={hasChanges || (showDialog && form.formState.isDirty)} />
     <SettingsSection title={t('Announcements')}>
       <div className='space-y-4'>
+        {draft.incompatible && <SettingsJSONRepair source={draft.source} canApply={draft.canApplyRaw} onApply={(raw) => { const applied = draft.applyRaw(raw); if (applied) setSelectedIds([]); return applied }} />}
         <div className='flex flex-wrap items-center justify-between gap-2'>
           <div className='flex flex-wrap items-center gap-2'>
-            <Button onClick={handleAdd} size='sm'>
+            <Button onClick={handleAdd} size='sm' disabled={draft.incompatible}>
               <Plus className='mr-2 h-4 w-4' />
               {t('Add Announcement')}
             </Button>
@@ -322,7 +328,7 @@ export function AnnouncementsSection({
               onClick={handleBatchDelete}
               size='sm'
               variant='destructive'
-              disabled={selectedIds.length === 0}
+              disabled={draft.incompatible || selectedIds.length === 0}
             >
               <Trash2 className='mr-2 h-4 w-4' />
               {t('Delete (')}
@@ -332,13 +338,14 @@ export function AnnouncementsSection({
               onClick={handleSaveAll}
               size='sm'
               variant='secondary'
-              disabled={!hasChanges || updateOption.isPending}
+              disabled={draft.incompatible || !hasChanges || updateOption.isPending}
             >
               <Save className='mr-2 h-4 w-4' />
               {updateOption.isPending ? t('Saving...') : t('Save Settings')}
             </Button>
           </div>
           <SettingsSwitchField
+            disabled={updateOption.isPending}
             checked={isEnabled}
             onCheckedChange={handleToggleEnabled}
             label={t('Enabled')}
@@ -346,7 +353,7 @@ export function AnnouncementsSection({
           />
         </div>
 
-        <StaticDataTable
+        {!draft.incompatible && <StaticDataTable
           data={sortedAnnouncements}
           getRowKey={(announcement) => announcement.id}
           emptyContent={t(
@@ -377,7 +384,7 @@ export function AnnouncementsSection({
             {
               id: 'content',
               header: t('Content'),
-              cellClassName: 'max-w-xs truncate',
+              cellClassName: 'max-w-xs whitespace-normal break-all',
               cell: (announcement) => announcement.content,
             },
             {
@@ -416,7 +423,7 @@ export function AnnouncementsSection({
             {
               id: 'extra',
               header: t('Extra'),
-              cellClassName: 'text-muted-foreground max-w-xs truncate',
+              cellClassName: 'text-muted-foreground max-w-xs whitespace-normal break-all',
               cell: (announcement) => announcement.extra || '-',
             },
             {
@@ -433,7 +440,7 @@ export function AnnouncementsSection({
               ),
             },
           ]}
-        />
+        />}
       </div>
 
       <Dialog
@@ -445,7 +452,7 @@ export function AnnouncementsSection({
         description={t(
           'Create or update system announcements for the dashboard'
         )}
-        contentClassName='max-w-2xl'
+        contentClassName='h-dvh max-h-dvh w-screen max-w-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-2xl pointer-coarse:[&_[data-slot=input]]:min-h-11 pointer-coarse:[&_[role=combobox]]:min-h-11'
         contentHeight='auto'
         bodyClassName='space-y-4'
         footer={
@@ -469,6 +476,7 @@ export function AnnouncementsSection({
             onSubmit={form.handleSubmit(handleSubmitForm)}
             className='space-y-4'
           >
+            <p className='text-muted-foreground text-xs'>{t('Item edits change the local draft. Use Save Settings on the page to persist them.')}</p>
             <FormField
               control={form.control}
               name='content'
@@ -588,9 +596,11 @@ export function AnnouncementsSection({
       </Dialog>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
+        <AlertDialogContent className='flex max-h-[calc(100dvh-2rem)] min-w-0 flex-col overflow-hidden'>
+          <AlertDialogHeader className='shrink-0'>
             <AlertDialogTitle>{t('Are you sure?')}</AlertDialogTitle>
+          </AlertDialogHeader>
+          <div tabIndex={0} role='region' aria-label={t('Confirmation details')} className='min-h-0 space-y-3 overflow-y-auto overscroll-contain'>
             <AlertDialogDescription>
               {deleteTarget === 'single'
                 ? t('This announcement will be removed from the list.')
@@ -598,15 +608,17 @@ export function AnnouncementsSection({
                     count: selectedIds.length,
                   })}
             </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
+            <p className='text-muted-foreground text-xs'>{t('This only changes the local draft. Use Save Settings on the page to persist it.')}</p>
+          </div>
+          <AlertDialogFooter className='shrink-0'>
             <AlertDialogCancel>{t('Cancel')}</AlertDialogCancel>
-            <AlertDialogAction variant='destructive' onClick={confirmDelete}>
+            <AlertDialogAction variant='destructive' disabled={draft.incompatible} onClick={confirmDelete}>
               {t('Delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </SettingsSection>
+    </>
   )
 }

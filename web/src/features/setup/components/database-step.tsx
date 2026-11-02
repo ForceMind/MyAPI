@@ -87,7 +87,7 @@ export function DatabaseStep({ status }: DatabaseStepProps) {
           <p className='text-muted-foreground text-sm font-medium'>
             {t('Detected database')}
           </p>
-          <p className='text-foreground text-base font-semibold'>
+          <p className='text-foreground text-base font-semibold break-all'>
             {meta?.label ?? t('Unknown')}
           </p>
           <p className='text-muted-foreground text-sm'>

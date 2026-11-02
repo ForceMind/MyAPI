@@ -1,6 +1,6 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, expect, it, vi } from 'vitest'
 
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -8,6 +8,14 @@ import type { DashboardChartPreferences } from '../../../types'
 import { ModelsFilter } from '../models-filter-dialog'
 
 const originalAuth = useAuthStore.getState()
+const originalAnimations = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'getAnimations')
+beforeAll(() => {
+  if (!originalAnimations) Object.defineProperty(HTMLElement.prototype, 'getAnimations', { configurable: true, value: () => [] })
+})
+afterAll(() => {
+  if (originalAnimations) Object.defineProperty(HTMLElement.prototype, 'getAnimations', originalAnimations)
+  else Reflect.deleteProperty(HTMLElement.prototype, 'getAnimations')
+})
 const preferences: DashboardChartPreferences = { consumptionDistributionChart: 'bar', modelAnalyticsChart: 'trend', defaultTimeRangeDays: 7, defaultTimeGranularity: 'day' }
 afterEach(() => { cleanup(); useAuthStore.setState(originalAuth); vi.restoreAllMocks() })
 

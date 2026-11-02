@@ -51,7 +51,7 @@ export async function getCustomOAuthProvider(
 export async function createCustomOAuthProvider(
   data: Omit<CustomOAuthProvider, 'id'>
 ): Promise<ApiResponse<CustomOAuthProvider>> {
-  const res = await api.post('/api/custom-oauth-provider/', data)
+  const res = await api.post('/api/custom-oauth-provider/', data, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -59,14 +59,14 @@ export async function updateCustomOAuthProvider(
   id: number,
   data: Partial<CustomOAuthProvider>
 ): Promise<ApiResponse<CustomOAuthProvider>> {
-  const res = await api.put(`/api/custom-oauth-provider/${id}`, data)
+  const res = await api.put(`/api/custom-oauth-provider/${id}`, data, { skipAuthRefresh: true })
   return res.data
 }
 
 export async function deleteCustomOAuthProvider(
   id: number
 ): Promise<ApiResponse> {
-  const res = await api.delete(`/api/custom-oauth-provider/${id}`)
+  const res = await api.delete(`/api/custom-oauth-provider/${id}`, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -75,6 +75,6 @@ export async function discoverOIDCEndpoints(
 ): Promise<DiscoveryResponse> {
   const res = await api.post('/api/custom-oauth-provider/discovery', {
     well_known_url: wellKnownUrl,
-  })
+  }, { skipAuthRefresh: true })
   return res.data
 }

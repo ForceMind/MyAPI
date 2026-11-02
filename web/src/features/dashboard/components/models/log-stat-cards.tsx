@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { ErrorState } from '@/components/error-state'
 import { StatTile } from '@/components/stat-tile'
 import { getUserQuotaDates } from '@/features/dashboard/api'
 import { useModelStatCardsConfig } from '@/features/dashboard/hooks/use-dashboard-config'
@@ -42,7 +43,8 @@ interface LogStatCardsProps {
   onDataUpdate?: (
     data: QuotaDataItem[],
     loading: boolean,
-    timezoneOffsetMinutes?: number
+    timezoneOffsetMinutes?: number,
+    failed?: boolean
   ) => void
 }
 
@@ -66,6 +68,7 @@ export function LogStatCards(props: LogStatCardsProps) {
   const statCardsConfig = useModelStatCardsConfig()
   const user = useAuthStore((state) => state.auth.user)
   const isAdmin = !!(user?.role && user.role >= 10)
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
   const [stats, setStats] = useState<{
     totalQuota: number
     totalCount: number
@@ -73,6 +76,7 @@ export function LogStatCards(props: LogStatCardsProps) {
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [retryGeneration, setRetryGeneration] = useState(0)
 
   const [timeRangeMinutes, setTimeRangeMinutes] = useState(0)
 
@@ -80,6 +84,11 @@ export function LogStatCards(props: LogStatCardsProps) {
 
   useEffect(() => {
     const abortController = new AbortController()
+    const isCurrent = () => {
+      const { auth } = useAuthStore.getState()
+      return !abortController.signal.aborted && identity === `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`
+    }
+    if (!isCurrent()) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
 
@@ -96,16 +105,19 @@ export function LogStatCards(props: LogStatCardsProps) {
 
     void getUserQuotaDates(queryParams, isAdmin)
       .then((res) => {
-        if (abortController.signal.aborted) return
-        const data = res?.data || []
+        if (!isCurrent()) return
+        if (!Array.isArray(res?.data)) {
+          throw new Error(t('Failed to load model analytics'))
+        }
+        const data = res.data
         setStats(calculateDashboardStats(data))
         onDataUpdate?.(data, false, queryParams.timezone_offset)
       })
       .catch((reason: unknown) => {
-        if (abortController.signal.aborted) return
+        if (!isCurrent()) return
         setStats(null)
         setError(true)
-        onDataUpdate?.([], false, queryParams.timezone_offset)
+        onDataUpdate?.([], false, queryParams.timezone_offset, true)
         toast.error(
           reason instanceof Error && reason.message
             ? reason.message
@@ -113,7 +125,7 @@ export function LogStatCards(props: LogStatCardsProps) {
         )
       })
       .finally(() => {
-        if (!abortController.signal.aborted) {
+        if (isCurrent()) {
           setLoading(false)
         }
       })
@@ -121,7 +133,7 @@ export function LogStatCards(props: LogStatCardsProps) {
     return () => {
       abortController.abort()
     }
-  }, [filters, isAdmin, onDataUpdate, t])
+  }, [filters, identity, isAdmin, onDataUpdate, retryGeneration, t])
 
   const adaptedStats = {
     rpm: stats?.totalCount ?? 0,
@@ -151,24 +163,32 @@ export function LogStatCards(props: LogStatCardsProps) {
   // The same figures as the Key and connection pages (design v2 StatInline);
   // a failed read shows "--", never zero.
   return (
-    <dl className='grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5'>
-      {items.map((it) => (
-        <StatTile
-          key={it.title}
-          label={it.title}
-          loading={loading}
-          value={
-            error ? (
-              <span className='text-muted-foreground'>--</span>
-            ) : (
-              <span className='block truncate' title={it.fullValue}>
-                {it.value}
-              </span>
-            )
-          }
-          detail={<span className='max-md:hidden'>{it.desc}</span>}
+    <div className='space-y-3 [&_[data-myapi-button]]:min-h-11 [&_[data-myapi-button]]:min-w-11'>
+      {error && (
+        <ErrorState
+          title={t('Failed to load model analytics')}
+          onRetry={() => setRetryGeneration((value) => value + 1)}
         />
-      ))}
-    </dl>
+      )}
+      <dl className='grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5'>
+        {items.map((it) => (
+          <StatTile
+            key={it.title}
+            label={it.title}
+            loading={loading}
+            value={
+              error ? (
+                <span className='text-muted-foreground'>--</span>
+              ) : (
+                <span className='block truncate' title={it.fullValue}>
+                  {it.value}
+                </span>
+              )
+            }
+            detail={<span className='max-md:hidden'>{it.desc}</span>}
+          />
+        ))}
+      </dl>
+    </div>
   )
 }

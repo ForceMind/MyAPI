@@ -917,14 +917,14 @@ export function PaymentSettingsSection({
             saveLabel='Save all settings'
           />
           <Tabs defaultValue='general' className='min-w-0'>
-            <div className='overflow-x-auto pb-1'>
-              <TabsList className='grid min-w-[44rem] grid-cols-6'>
-                <TabsTrigger value='general'>{t('General')}</TabsTrigger>
-                <TabsTrigger value='epay'>Epay</TabsTrigger>
-                <TabsTrigger value='stripe'>{t('Stripe')}</TabsTrigger>
-                <TabsTrigger value='creem'>Creem</TabsTrigger>
-                <TabsTrigger value='waffo-pancake'>Waffo Pancake</TabsTrigger>
-                <TabsTrigger value='waffo'>Waffo</TabsTrigger>
+            <div className='min-w-0 pb-1'>
+              <TabsList className='grid h-auto w-full min-w-0 grid-cols-2 gap-1 sm:grid-cols-3 xl:grid-cols-6'>
+                <TabsTrigger className='h-auto min-h-11 min-w-0 whitespace-normal' value='general'>{t('General')}</TabsTrigger>
+                <TabsTrigger className='h-auto min-h-11 min-w-0 whitespace-normal' value='epay'>Epay</TabsTrigger>
+                <TabsTrigger className='h-auto min-h-11 min-w-0 whitespace-normal' value='stripe'>{t('Stripe')}</TabsTrigger>
+                <TabsTrigger className='h-auto min-h-11 min-w-0 whitespace-normal' value='creem'>Creem</TabsTrigger>
+                <TabsTrigger className='h-auto min-h-11 min-w-0 whitespace-normal' value='waffo-pancake'>Waffo Pancake</TabsTrigger>
+                <TabsTrigger className='h-auto min-h-11 min-w-0 whitespace-normal' value='waffo'>Waffo</TabsTrigger>
               </TabsList>
             </div>
 

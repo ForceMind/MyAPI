@@ -44,6 +44,7 @@ export async function writeUserUsagePolicy(
 ): Promise<UserUsagePolicy> {
   const response = await api.put(`/api/user/${userId}/usage-policy`, body, {
     skipErrorHandler: true,
+    skipAuthRefresh: true,
   })
   return parsePolicy(response.data, userId)
 }

@@ -26,11 +26,14 @@ import { Input } from '@/components/ui/input'
 import {
   Popover,
   PopoverContent,
+  PopoverDescription,
+  PopoverTitle,
   PopoverTrigger,
 } from '@/components/ui/popover'
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -115,8 +118,11 @@ function PlaygroundParameterContent({
 
   return (
     <div
+      role='region'
+      aria-label={t('Parameters')}
+      tabIndex={0}
       className={cn(
-        'grid gap-3',
+        'grid min-h-0 gap-3',
         PLAYGROUND_PARAMETER_PANEL_SCROLL_CLASS,
         compact ? 'px-4 pb-4' : 'p-1'
       )}
@@ -158,16 +164,16 @@ function PlaygroundParameterContent({
           >
             <div className='flex items-start justify-between gap-3'>
               <div className='min-w-0 space-y-1'>
-                <div className='flex min-w-0 items-center gap-2'>
+                <div className='flex min-w-0 flex-wrap items-center gap-2'>
                   <label
-                    className='truncate text-sm leading-5 font-medium'
+                    className='text-sm leading-5 font-medium [overflow-wrap:anywhere]'
                     htmlFor={controlId}
                     id={labelId}
                   >
                     {t(control.labelKey)}
                   </label>
                   <Badge
-                    className='h-5 max-w-24 shrink-0 px-1.5 font-mono text-[11px]'
+                    className='min-h-5 max-w-full whitespace-normal px-1.5 font-mono text-[11px]'
                     variant='outline'
                   >
                     {t(getParameterControlValueText(control.key, value))}
@@ -211,7 +217,7 @@ function PlaygroundParameterContent({
             {control.valueType === 'slider' ? (
               <Slider
                 aria-labelledby={labelId}
-                className='py-1.5'
+                className='min-h-11 py-1.5'
                 disabled={disabled || unsupported || !enabled}
                 id={controlId}
                 max={control.max}
@@ -230,6 +236,7 @@ function PlaygroundParameterContent({
               />
             ) : (
               <Input
+                className='min-h-11'
                 disabled={disabled || unsupported || !enabled}
                 id={controlId}
                 inputMode='numeric'
@@ -277,7 +284,8 @@ export function PlaygroundParameterPanel(props: PlaygroundParameterPanelProps) {
   const trigger = (
     <PromptInputButton
       aria-label={t('Parameters')}
-      className='text-muted-foreground hover:text-foreground hover:bg-muted/70 relative font-medium'
+      type='button'
+      className='text-muted-foreground hover:text-foreground hover:bg-muted/70 relative min-h-11 min-w-11 font-medium'
       disabled={props.disabled}
       variant='ghost'
     >
@@ -301,8 +309,11 @@ export function PlaygroundParameterPanel(props: PlaygroundParameterPanelProps) {
           className='max-h-[85vh] overflow-hidden rounded-t-xl'
           side='bottom'
         >
-          <SheetHeader>
+          <SheetHeader className='shrink-0'>
             <SheetTitle>{t('Parameter settings')}</SheetTitle>
+            <SheetDescription>
+              {t('Only enabled parameters are sent with the request.')}
+            </SheetDescription>
           </SheetHeader>
           <PlaygroundParameterContent {...props} compact />
         </SheetContent>
@@ -326,10 +337,10 @@ export function PlaygroundParameterPanel(props: PlaygroundParameterPanelProps) {
         sideOffset={8}
       >
         <div className='space-y-1 px-1'>
-          <div className='text-sm font-semibold'>{t('Parameter settings')}</div>
-          <div className='text-muted-foreground text-xs leading-4'>
+          <PopoverTitle>{t('Parameter settings')}</PopoverTitle>
+          <PopoverDescription className='text-xs leading-4'>
             {t('Only enabled parameters are sent with the request.')}
-          </div>
+          </PopoverDescription>
         </div>
         <PlaygroundParameterContent {...props} />
       </PopoverContent>

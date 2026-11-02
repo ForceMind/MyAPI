@@ -33,7 +33,7 @@ function formatJsonForEditor(value: string, fallback: string) {
   try {
     return JSON.stringify(JSON.parse(raw), null, 2)
   } catch {
-    return fallback
+    return value
   }
 }
 

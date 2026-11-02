@@ -62,7 +62,8 @@ export function KeyActions(props: {
       if (!isCurrentSession()) throw new Error('Session changed')
       const response = await updateApiKeyStatus(
         props.apiKey.id,
-        active ? API_KEY_STATUS.DISABLED : API_KEY_STATUS.ENABLED
+        active ? API_KEY_STATUS.DISABLED : API_KEY_STATUS.ENABLED,
+        { skipAuthRefresh: true }
       )
       if (!response.success) throw new Error('Status update failed')
     },
@@ -75,7 +76,7 @@ export function KeyActions(props: {
     if (copying || !isCurrentSession()) return
     setCopying(true)
     try {
-      const response = await fetchTokenKey(props.apiKey.id)
+      const response = await fetchTokenKey(props.apiKey.id, { skipAuthRefresh: true })
       if (!isCurrentSession()) return
       if (!response.success || !response.data?.key) {
         throw new Error('Key unavailable')

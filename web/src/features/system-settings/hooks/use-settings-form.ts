@@ -26,6 +26,12 @@ import {
 } from 'react-hook-form'
 import { toast } from 'sonner'
 
+import { useAuthStore } from '@/stores/auth-store'
+
+import { mergeDirtySettingsValues, preserveSettingsEdits } from './use-reset-form'
+import { isReportedOptionFailure } from './use-update-option'
+import { useSettingsReloadGeneration, useSettingsReloadScope } from '../components/settings-page-context'
+
 type SettingsFormOptions<T extends FieldValues> = UseFormProps<T> & {
   onSubmit: (data: T, changedFields: Record<string, unknown>) => Promise<void>
   compareValues?: (a: unknown, b: unknown) => boolean
@@ -194,6 +200,18 @@ export function useSettingsForm<T extends FieldValues>({
   )
 
   const form = useForm<T>({ ...formOptions, defaultValues: expandedDefaults })
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
+  const actor = useRef(identity)
+  const reloadGeneration = useSettingsReloadGeneration()
+  const reloadScope = useSettingsReloadScope()
+  const lastReload = useRef(reloadGeneration)
+  const mounted = useRef(true)
+  const sending = useRef(false)
+  const dirtyFields = form.formState.dirtyFields
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
 
   const defaultValuesRef = useRef<T>((expandedDefaults ?? ({} as T)) as T)
   const baselineRef = useRef<Record<string, unknown>>(
@@ -212,15 +230,22 @@ export function useSettingsForm<T extends FieldValues>({
     const flattened = flattenValues(expandedDefaults as T)
     const serialized = JSON.stringify(flattened)
 
-    if (serialized === serializedDefaultsRef.current) {
+    const actorChanged = actor.current !== identity
+    const explicitReload = reloadGeneration !== lastReload.current
+    if (!actorChanged && !explicitReload && serialized === serializedDefaultsRef.current) {
       return
     }
 
     baselineRef.current = flattened
     defaultValuesRef.current = expandedDefaults as T
     serializedDefaultsRef.current = serialized
+    const resetTask = actorChanged || explicitReload
+    const next = resetTask ? expandedDefaults as T : mergeDirtySettingsValues(expandedDefaults as T, form.getValues(), dirtyFields)
     form.reset(expandedDefaults as T)
-  }, [expandedDefaults, form])
+    if (!resetTask) form.reset(next, { keepDefaultValues: true })
+    actor.current = identity
+    lastReload.current = reloadGeneration
+  }, [expandedDefaults, form, identity, dirtyFields, reloadGeneration])
 
   const defaultCompare = (a: unknown, b: unknown): boolean => {
     if (a === b) return true
@@ -243,6 +268,9 @@ export function useSettingsForm<T extends FieldValues>({
   const compare = compareValues || defaultCompare
 
   const handleSubmit = async (data: T) => {
+    if (sending.current || !mounted.current || !reloadScope.isActive()) return
+    const { auth } = useAuthStore.getState()
+    if (identity !== `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`) return
     const dirtyValues = collectDirtyValues(form.formState.dirtyFields, data)
     const changedEntries = Object.entries(dirtyValues).filter(
       ([key, value]) => !compare(value, baselineRef.current[key])
@@ -261,13 +289,28 @@ export function useSettingsForm<T extends FieldValues>({
       {}
     )
 
-    await onSubmit(data, changedFields)
+    sending.current = true
+    const submittedInputs = structuredClone(form.getValues())
+    try {
+      await onSubmit(data, changedFields)
+    } catch (error) {
+      sending.current = false
+      if (isReportedOptionFailure(error)) return
+      throw error
+    }
+    sending.current = false
 
-    const flattenedValues = flattenValues(data)
-    baselineRef.current = flattenedValues
-    defaultValuesRef.current = data
-    serializedDefaultsRef.current = JSON.stringify(flattenedValues)
-    form.reset(data)
+    const latestAuth = useAuthStore.getState().auth
+    if (!mounted.current || !reloadScope.isActive() || identity !== `${latestAuth.user?.id ?? null}:${latestAuth.user?.role ?? 0}:${latestAuth.session?.sid ?? null}`) return
+
+    const current = form.getValues()
+    const acknowledged = { ...flattenValues(data), ...baselineRef.current, ...changedFields }
+    baselineRef.current = acknowledged
+    const saved = expandDotPaths(acknowledged as T) as T
+    defaultValuesRef.current = saved
+    const next = preserveSettingsEdits(saved, submittedInputs, current)
+    form.reset(saved)
+    form.reset(next, { keepDefaultValues: true })
   }
 
   const handleReset = () => {

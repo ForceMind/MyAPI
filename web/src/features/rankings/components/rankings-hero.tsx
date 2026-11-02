@@ -70,7 +70,7 @@ export function RankingsHero(props: RankingsHeroProps) {
               aria-selected={isActive}
               onClick={() => props.onPeriodChange(p.id)}
               className={cn(
-                'focus-visible:ring-ring/40 relative -mb-px rounded-sm px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none',
+                'focus-visible:ring-ring/40 relative -mb-px min-h-11 rounded-sm px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none',
                 isActive
                   ? 'text-foreground'
                   : 'text-muted-foreground hover:text-foreground'

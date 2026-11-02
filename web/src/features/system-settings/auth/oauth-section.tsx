@@ -47,7 +47,9 @@ import {
   SettingsSwitchContent,
   SettingsSwitchItem,
 } from '../components/settings-form-layout'
-import { SettingsPageFormActions } from '../components/settings-page-context'
+import { SettingsPageFormActions, useSettingsReloadScope, isCurrentSettingsFrame } from '../components/settings-page-context'
+import { useResetForm, preserveSettingsEdits } from '../hooks/use-reset-form'
+import { useAuthStore } from '@/stores/auth-store'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
 import {
@@ -276,6 +278,10 @@ export function OAuthSection(props: OAuthSectionProps) {
     defaultValues: formDefaults,
   })
 
+  const frame = useSettingsReloadScope()
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
+  useResetForm(form, formDefaults)
+
   const baselineRef = useRef<FlatOAuthDefaults>(props.defaultValues)
   const baselineSerializedRef = useRef<string>(
     JSON.stringify(props.defaultValues)
@@ -286,10 +292,11 @@ export function OAuthSection(props: OAuthSectionProps) {
     if (serialized === baselineSerializedRef.current) return
     baselineRef.current = props.defaultValues
     baselineSerializedRef.current = serialized
-    form.reset(buildFormDefaults(props.defaultValues))
-  }, [props.defaultValues, form])
+  }, [props.defaultValues])
 
   const onSubmit = async (values: OAuthFormValues) => {
+    const submittedInputs = structuredClone(form.getValues())
+    if (!isCurrentSettingsFrame(frame, identity)) return
     let finalValues = values
 
     if (values.oidc.well_known && values.oidc.well_known.trim() !== '') {
@@ -304,6 +311,7 @@ export function OAuthSection(props: OAuthSectionProps) {
 
       try {
         const res = await axios.create().get(wellKnown)
+        if (!isCurrentSettingsFrame(frame, identity)) return
         const authEndpoint = res.data['authorization_endpoint'] || ''
         const tokenEndpoint = res.data['token_endpoint'] || ''
         const userInfoEndpoint = res.data['userinfo_endpoint'] || ''
@@ -318,12 +326,13 @@ export function OAuthSection(props: OAuthSectionProps) {
           },
         }
 
-        form.setValue('oidc.authorization_endpoint', authEndpoint)
-        form.setValue('oidc.token_endpoint', tokenEndpoint)
-        form.setValue('oidc.user_info_endpoint', userInfoEndpoint)
+        if (form.getValues('oidc.authorization_endpoint') === submittedInputs.oidc.authorization_endpoint) form.setValue('oidc.authorization_endpoint', authEndpoint)
+        if (form.getValues('oidc.token_endpoint') === submittedInputs.oidc.token_endpoint) form.setValue('oidc.token_endpoint', tokenEndpoint)
+        if (form.getValues('oidc.user_info_endpoint') === submittedInputs.oidc.user_info_endpoint) form.setValue('oidc.user_info_endpoint', userInfoEndpoint)
 
         toast.success(t('OIDC configuration fetched successfully'))
       } catch (err) {
+        if (!isCurrentSettingsFrame(frame, identity)) return
         // eslint-disable-next-line no-console
         console.error(err)
         toast.error(
@@ -352,9 +361,14 @@ export function OAuthSection(props: OAuthSectionProps) {
       })
     }
 
-    baselineRef.current = normalized
-    baselineSerializedRef.current = JSON.stringify(normalized)
-    form.reset(buildFormDefaults(normalized))
+    if (!isCurrentSettingsFrame(frame, identity)) return
+    const acknowledged = { ...baselineRef.current }
+    for (const key of changedKeys) Object.assign(acknowledged, { [key]: normalized[key] })
+    baselineRef.current = acknowledged
+    const saved = buildFormDefaults(acknowledged)
+    const next = preserveSettingsEdits(saved, submittedInputs, form.getValues())
+    form.reset(saved)
+    form.reset(next, { keepDefaultValues: true })
   }
 
   const handleReset = () => {
@@ -378,7 +392,7 @@ export function OAuthSection(props: OAuthSectionProps) {
             <FormDirtyIndicator isDirty={form.formState.isDirty} />
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className='grid w-full grid-cols-6'>
+              <TabsList className='grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-6'>
                 <TabsTrigger value='github'>{t('GitHub')}</TabsTrigger>
                 <TabsTrigger value='discord'>{t('Discord')}</TabsTrigger>
                 <TabsTrigger value='oidc'>{t('OIDC')}</TabsTrigger>

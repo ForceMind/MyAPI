@@ -17,7 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -47,6 +46,7 @@ import {
 } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
+import { useResetForm } from '../hooks/use-reset-form'
 import {
   toTypedBulkItem,
   useTypedBulkRevision,
@@ -156,9 +156,7 @@ export function GlobalSettingsCard({ defaultValues }: GlobalSettingsCardProps) {
     defaultValues: defaultValues as GlobalModelSettingsFormInput,
   })
 
-  useEffect(() => {
-    form.reset(defaultValues as GlobalModelSettingsFormInput)
-  }, [defaultValues, form])
+  useResetForm(form, defaultValues)
 
   const pingEnabled = form.watch('general_setting.ping_interval_enabled')
 
@@ -219,7 +217,7 @@ export function GlobalSettingsCard({ defaultValues }: GlobalSettingsCardProps) {
                 <FormLabel>
                   {t('Models that skip thinking suffix processing')}
                 </FormLabel>
-                <FormControl>
+                <FormControl aria-invalid={Boolean(form.formState.errors.global?.thinking_model_blacklist) || undefined}>
                   <JsonCodeEditor
                     value={field.value}
                     onChange={(value) => field.onChange(value)}
@@ -269,7 +267,7 @@ export function GlobalSettingsCard({ defaultValues }: GlobalSettingsCardProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t('Policy JSON')}</FormLabel>
-                  <FormControl>
+                  <FormControl aria-invalid={Boolean(form.formState.errors.global?.chat_completions_to_responses_policy) || undefined}>
                     <JsonCodeEditor
                       value={field.value}
                       onChange={(value) => field.onChange(value)}

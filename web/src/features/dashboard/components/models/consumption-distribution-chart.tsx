@@ -152,7 +152,7 @@ export function ConsumptionDistributionChart(
         <div className='flex w-full flex-wrap items-center gap-1.5 sm:w-auto sm:gap-2'>
           {props.onTimeGranularityChange && (
             <div
-              className='myapi-chart-controls bg-muted/60 inline-flex h-7 max-w-full overflow-x-auto rounded-lg border p-0.5 sm:h-8'
+              className='myapi-chart-controls bg-muted/60 inline-flex max-w-full flex-wrap rounded-lg border p-0.5'
               aria-label={t('Time Granularity')}
             >
               {TIME_GRANULARITY_OPTIONS.map((option) => (
@@ -161,7 +161,7 @@ export function ConsumptionDistributionChart(
                   type='button'
                   aria-pressed={timeGranularity === option.value}
                   onClick={() => props.onTimeGranularityChange?.(option.value)}
-                  className={`shrink-0 rounded-md px-2.5 text-xs font-medium transition-colors ${
+                  className={`min-h-11 min-w-11 shrink-0 rounded-md px-2.5 text-xs font-medium transition-colors ${
                     timeGranularity === option.value
                       ? 'bg-background text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
@@ -173,15 +173,16 @@ export function ConsumptionDistributionChart(
             </div>
           )}
 
-          <div className='myapi-chart-controls bg-muted/60 inline-flex h-7 max-w-full overflow-x-auto rounded-lg border p-0.5 sm:h-8'>
+          <div className='myapi-chart-controls bg-muted/60 inline-flex max-w-full flex-wrap rounded-lg border p-0.5'>
             {CONSUMPTION_DISTRIBUTION_CHART_OPTIONS.map((item) => {
               const Icon = CHART_TYPE_ICONS[item.value]
               return (
                 <button
                   key={item.value}
                   type='button'
+                  aria-pressed={chartType === item.value}
                   onClick={() => setChartType(item.value)}
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors ${
+                  className={`inline-flex min-h-11 min-w-11 shrink-0 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors ${
                     chartType === item.value
                       ? 'bg-background text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'

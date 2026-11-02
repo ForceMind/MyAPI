@@ -336,7 +336,7 @@ export function SetupWizard() {
     !statusResponse?.data?.status
 
   return (
-    <div className='myapi-auth-surface flex min-h-svh min-w-0 flex-col'>
+    <div className='myapi-auth-surface flex min-h-svh min-w-0 flex-col pointer-coarse:[&_[data-slot=input]]:min-h-11 pointer-coarse:[&_[data-myapi-button]]:min-h-11'>
       {/* The sign-in pages' brand bar, with the interface language. */}
       <header className='myapi-auth-bar'>
         <div className='mx-auto flex min-h-14 w-full max-w-[1200px] min-w-0 items-center justify-between gap-4 px-4 py-2 lg:px-6'>

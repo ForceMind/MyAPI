@@ -124,7 +124,7 @@ export async function reconcileUsageReview(
           }
         : {}),
     },
-    { skipErrorHandler: true }
+    { skipErrorHandler: true, skipAuthRefresh: true }
   )
   return parseReview(response.data, requestId)
 }
@@ -142,7 +142,7 @@ export async function recoverTextDispatchUsage(
       confirmed_reliable_evidence: true,
       confirmed_request_finished: true,
     },
-    { skipErrorHandler: true }
+    { skipErrorHandler: true, skipAuthRefresh: true }
   )
   return parseReview(response.data, requestId)
 }

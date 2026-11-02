@@ -118,7 +118,7 @@ export function AmountDiscountDialog({
       description={t(
         'Set a discount rate for a specific recharge amount threshold.'
       )}
-      contentClassName='sm:max-w-[500px]'
+      contentClassName='sm:max-w-[500px] [&_[data-myapi-button]]:min-h-11 [&_[data-myapi-button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'
       contentHeight='auto'
       bodyClassName='space-y-4'
       footer={
@@ -130,12 +130,13 @@ export function AmountDiscountDialog({
           >
             {t('Cancel')}
           </Button>
-          <Button type='submit' form={AMOUNT_DISCOUNT_FORM_ID}>
+          <Button className='min-h-11' type='submit' form={AMOUNT_DISCOUNT_FORM_ID}>
             {isEditMode ? t('Update') : t('Add')}
           </Button>
         </>
       }
     >
+      <section role='region' tabIndex={0} aria-label={t('Payment configuration details')} className='min-w-0 [overflow-wrap:anywhere]'>
       <Form {...form}>
         <form
           id={AMOUNT_DISCOUNT_FORM_ID}
@@ -208,6 +209,7 @@ export function AmountDiscountDialog({
           />
         </form>
       </Form>
+      </section>
     </Dialog>
   )
 }

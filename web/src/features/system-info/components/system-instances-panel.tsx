@@ -20,11 +20,11 @@ import {
   Alert02Icon,
   Delete02Icon,
   Refresh01Icon,
+  Loading03Icon,
   ServerStack01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -330,13 +330,13 @@ function SystemInstancesTable(props: SystemInstancesListProps) {
                 <TableCell className='px-4 py-2.5 align-middle'>
                   <div className='min-w-0'>
                     <div className='flex min-w-0 items-center gap-1.5'>
-                      <span className='truncate text-sm font-medium'>
+                      <span className='text-sm font-medium break-words whitespace-normal [overflow-wrap:anywhere]'>
                         {getNodeName(instance)}
                       </span>
                       {instance.info?.node?.should_configure_manually ===
                         true && <NodeNameHint />}
                     </div>
-                    <div className='text-muted-foreground truncate font-mono text-[11px]'>
+                    <div className='text-muted-foreground font-mono text-[11px] break-words whitespace-normal [overflow-wrap:anywhere]'>
                       {instance.info?.host?.hostname || '-'}
                     </div>
                   </div>
@@ -395,12 +395,12 @@ function SystemInstancesTable(props: SystemInstancesListProps) {
                   />
                 </TableCell>
                 <TableCell className='py-2.5 align-middle'>
-                  <div className='truncate font-mono text-xs'>
+                  <div className='font-mono text-xs break-words whitespace-normal [overflow-wrap:anywhere]'>
                     {instance.info?.runtime?.version || '-'}
                   </div>
                 </TableCell>
                 <TableCell className='py-2.5 align-middle'>
-                  <div className='truncate font-mono text-xs'>
+                  <div className='font-mono text-xs break-words whitespace-normal [overflow-wrap:anywhere]'>
                     {runtimeLabel(instance)}
                   </div>
                 </TableCell>
@@ -437,7 +437,7 @@ function SystemInstancesTable(props: SystemInstancesListProps) {
                               aria-label={t('Delete stale instance')}
                             >
                               {isDeletingThisInstance ? (
-                                <Loader2
+                                <HugeiconsIcon icon={Loading03Icon}
                                   className='size-3 animate-spin'
                                   aria-hidden='true'
                                 />
@@ -546,7 +546,7 @@ function SystemInstanceRecords(props: SystemInstancesListProps) {
                 disabled={props.isDeletingInstance || isDeletingThisInstance}
               >
                 {isDeletingThisInstance ? (
-                  <Loader2
+                  <HugeiconsIcon icon={Loading03Icon}
                     data-icon='inline-start'
                     className='animate-spin'
                     aria-hidden='true'
@@ -645,7 +645,7 @@ export function SystemInstancesPanel() {
     deletingNodeName,
     isDeletingInstance:
       isMutatingInstance || deleteStaleInstancesMutation.isPending,
-    onDeleteStaleInstance: setDeleteTarget,
+    onDeleteStaleInstance: (instance) => { deleteStaleInstanceMutation.reset(); setDeleteTarget(instance) },
   }
 
   let instancesContent: ReactNode
@@ -716,13 +716,13 @@ export function SystemInstancesPanel() {
                   type='button'
                   variant='destructive'
                   size='sm'
-                  onClick={() => setDeleteAllConfirmOpen(true)}
+                  onClick={() => { deleteStaleInstancesMutation.reset(); setDeleteAllConfirmOpen(true) }}
                   disabled={
                     isMutatingInstance || deleteStaleInstancesMutation.isPending
                   }
                 >
                   {deleteStaleInstancesMutation.isPending ? (
-                    <Loader2
+                    <HugeiconsIcon icon={Loading03Icon}
                       data-icon='inline-start'
                       className='animate-spin'
                       aria-hidden='true'
@@ -764,12 +764,9 @@ export function SystemInstancesPanel() {
 
       <ConfirmDialog
         open={deleteAllConfirmOpen}
-        onOpenChange={setDeleteAllConfirmOpen}
+        onOpenChange={(open) => { if (open || !deleteStaleInstancesMutation.isPending) setDeleteAllConfirmOpen(open) }}
         title={t('Delete stale instances')}
-        desc={t(
-          'Delete {{count}} stale instance records? Online instances will not be deleted.',
-          { count: staleInstances.length }
-        )}
+        desc={<div className='flex flex-col gap-3'><p>{t('Delete {{count}} stale instance records? Online instances will not be deleted.', { count: staleInstances.length })}</p>{deleteStaleInstancesMutation.isError && <p role='alert' className='text-destructive'>{deleteStaleInstancesMutation.error instanceof Error ? deleteStaleInstancesMutation.error.message : t('Delete failed')}</p>}</div>}
         destructive
         isLoading={deleteStaleInstancesMutation.isPending}
         confirmText={
@@ -783,17 +780,13 @@ export function SystemInstancesPanel() {
       <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null)
+          if (!open && !deleteStaleInstanceMutation.isPending) setDeleteTarget(null)
         }}
         title={t('Delete stale instance')}
-        desc={
-          deleteTarget
-            ? t(
-                'Delete stale instance "{{name}}"? If it has reported again, it will not be deleted.',
-                { name: getNodeName(deleteTarget) }
-              )
-            : ''
-        }
+        desc={<div className='flex min-w-0 flex-col gap-3 [overflow-wrap:anywhere]'>
+          {deleteTarget && <><p>{t('Delete stale instance "{{name}}"? If it has reported again, it will not be deleted.', { name: getNodeName(deleteTarget), interpolation: { escapeValue: false } })}</p><dl className='grid gap-2 text-sm'><div><dt className='text-muted-foreground'>{t('Instance ID')}</dt><dd className='font-mono'>{deleteTarget.node_name}</dd></div><div><dt className='text-muted-foreground'>{t('Hostname')}</dt><dd>{deleteTarget.info?.host?.hostname || '-'}</dd></div></dl></>}
+          {deleteStaleInstanceMutation.isError && <p role='alert' className='text-destructive'>{deleteStaleInstanceMutation.error instanceof Error ? deleteStaleInstanceMutation.error.message : t('Delete failed')}</p>}
+        </div>}
         destructive
         isLoading={deleteStaleInstanceMutation.isPending}
         confirmText={

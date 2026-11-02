@@ -17,7 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import * as z from 'zod'
@@ -36,6 +35,9 @@ import { SettingsForm } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
+import { FormNavigationGuard } from '../components/form-navigation-guard'
+import { FormDirtyIndicator } from '../components/form-dirty-indicator'
+import { useResetForm } from '../hooks/use-reset-form'
 
 const noticeSchema = z.object({
   Notice: z.string().optional(),
@@ -57,9 +59,7 @@ export function NoticeSection({ defaultValue }: NoticeSectionProps) {
     },
   })
 
-  useEffect(() => {
-    form.reset({ Notice: defaultValue ?? '' })
-  }, [defaultValue, form])
+  useResetForm(form, { Notice: defaultValue ?? '' })
 
   const onSubmit = async (values: NoticeFormValues) => {
     const normalized = values.Notice ?? ''
@@ -73,6 +73,9 @@ export function NoticeSection({ defaultValue }: NoticeSectionProps) {
   }
 
   return (
+    <>
+    <FormNavigationGuard when={form.formState.isDirty} />
+    <FormDirtyIndicator isDirty={form.formState.isDirty} />
     <SettingsSection title={t('System Notice')}>
       <Form {...form}>
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
@@ -103,5 +106,6 @@ export function NoticeSection({ defaultValue }: NoticeSectionProps) {
         </SettingsForm>
       </Form>
     </SettingsSection>
+    </>
   )
 }

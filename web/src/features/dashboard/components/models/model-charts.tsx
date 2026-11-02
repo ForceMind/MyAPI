@@ -147,13 +147,14 @@ export function ModelCharts(props: ModelChartsProps) {
           </span>
         </div>
 
-        <div className='myapi-chart-controls bg-muted/60 inline-flex h-7 w-full overflow-x-auto rounded-lg border p-0.5 sm:h-8 sm:w-auto'>
+        <div className='myapi-chart-controls bg-muted/60 inline-flex w-full flex-wrap rounded-lg border p-0.5 sm:w-auto'>
           {MODEL_ANALYTICS_CHART_OPTIONS.map((tab) => (
             <button
               key={tab.value}
               type='button'
+              aria-pressed={activeTab === tab.value}
               onClick={() => setActiveTab(tab.value)}
-              className={`shrink-0 rounded-md px-3 text-xs font-medium transition-colors ${
+              className={`min-h-11 min-w-11 shrink-0 rounded-md px-3 text-xs font-medium transition-colors ${
                 activeTab === tab.value
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'

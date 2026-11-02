@@ -16,10 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
+import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 import { SettingsSection } from '../../components/settings-section'
@@ -35,8 +36,9 @@ type CustomOAuthSectionProps = {
 
 export function CustomOAuthSection(props: CustomOAuthSectionProps) {
   const { t } = useTranslation()
-  const { data: providers = [], isLoading } = useCustomOAuthProviders()
+  const { data: providers = [], isLoading, isError, error, refetch } = useCustomOAuthProviders()
   const [dialogOpen, setDialogOpen] = useState(false)
+  const focusProvider = useRef<number | null>(null)
   const [editingProvider, setEditingProvider] =
     useState<CustomOAuthProvider | null>(null)
   const callbackFormat = buildOAuthCallbackUrl(
@@ -46,11 +48,13 @@ export function CustomOAuthSection(props: CustomOAuthSectionProps) {
   )
 
   const handleCreate = () => {
+    focusProvider.current = null
     setEditingProvider(null)
     setDialogOpen(true)
   }
 
   const handleEdit = (provider: CustomOAuthProvider) => {
+    focusProvider.current = provider.id
     setEditingProvider(provider)
     setDialogOpen(true)
   }
@@ -71,6 +75,10 @@ export function CustomOAuthSection(props: CustomOAuthSectionProps) {
       </SettingsSection>
     )
   }
+
+  if (isError) return <SettingsSection title={t('Custom OAuth Providers')}>
+    <div role='alert' className='text-destructive space-y-3 text-sm'><p>{error.message || t('Unable to load settings')}</p><Button type='button' variant='outline' onClick={() => void refetch()}>{t('Retry')}</Button></div>
+  </SettingsSection>
 
   return (
     <SettingsSection title={t('Custom OAuth Providers')}>
@@ -113,6 +121,7 @@ export function CustomOAuthSection(props: CustomOAuthSectionProps) {
         onOpenChange={handleDialogChange}
         provider={editingProvider}
         serverAddress={props.serverAddress}
+        returnFocus={() => document.querySelector<HTMLElement>(`[data-provider-actions="${focusProvider.current}"] button`) ?? document.querySelector<HTMLElement>('[data-provider-create]')}
       />
     </SettingsSection>
   )

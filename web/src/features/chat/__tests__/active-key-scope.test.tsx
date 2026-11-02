@@ -15,7 +15,7 @@ function bundle(sid: string): AuthBundle {
   return { access_token: 'synthetic-chat-access', token_type: 'Bearer', access_expires_at: 4_000_000_000, user: { id: 1, role: 1, username: 'synthetic-user' }, session: { sid, current: true, login_method: 'password', ip: '127.0.0.1', user_agent: 'test', created_at: 1, last_active_at: 1, expires_at: 4_000_000_000 } }
 }
 function list(id: number) {
-  return { data: { success: true, data: { total: 1, items: [apiKeySchema.parse({ id, name: 'Synthetic chat key', key: 'synthetic-masked', status: 1, remain_quota: 500000, unlimited_quota: true })] } } }
+  return { data: { success: true, data: { total: 1, page: 1, page_size: 50, items: [apiKeySchema.parse({ id, name: 'Synthetic chat key', key: 'synthetic-masked', status: 1, remain_quota: 500000, used_quota: 0, unlimited_quota: true, expired_time: -1, created_time: 1, accessed_time: 1, model_limits_enabled: false })] } } }
 }
 beforeEach(() => {
   localStorage.clear()

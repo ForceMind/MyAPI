@@ -225,8 +225,8 @@ function ModelBadge(props: { model: PerfModelSummary }) {
   const model = props.model
 
   return (
-    <span className='bg-muted/50 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1'>
-      <span className='max-w-[10rem] truncate font-mono text-[11px]'>
+    <span className='bg-muted/50 inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1'>
+      <span className='min-w-0 font-mono text-[11px] [overflow-wrap:anywhere]'>
         {model.model_name}
       </span>
       <span

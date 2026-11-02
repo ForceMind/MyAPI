@@ -55,7 +55,7 @@ export async function applyQuotaWriterTransition(
   const res = await api.post<QuotaWriterApiEnvelope<QuotaWriterTransition>>(
     '/api/quota-writer/apply',
     request,
-    { skipErrorHandler: true }
+    { skipErrorHandler: true, skipAuthRefresh: true }
   )
   return res.data
 }
@@ -75,7 +75,7 @@ export async function driveQuotaWriterDrains(budget: number) {
   const res = await api.post<QuotaWriterApiEnvelope<QuotaWriterDrainReport>>(
     '/api/quota-writer/drain',
     null,
-    { params: { budget }, skipErrorHandler: true }
+    { params: { budget }, skipErrorHandler: true, skipAuthRefresh: true }
   )
   return res.data
 }

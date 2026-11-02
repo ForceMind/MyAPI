@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -51,14 +51,16 @@ import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth-store'
 
 import {
   SettingsForm,
   SettingsSwitchContent,
   SettingsSwitchItem,
 } from '../components/settings-form-layout'
-import { SettingsPageFormActions } from '../components/settings-page-context'
+import { isCurrentSettingsFrame, SettingsPageFormActions, useSettingsReloadScope } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
+import { preserveSettingsEdits, useResetForm } from '../hooks/use-reset-form'
 import { useUpdateOption } from '../hooks/use-update-option'
 import { safeNumberFieldProps } from '../utils/numeric-field'
 
@@ -188,6 +190,22 @@ export function PerformanceSection(props: Props) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
   const [stats, setStats] = useState<PerformanceStats | null>(null)
+  const [statsError, setStatsError] = useState('')
+  const [statsLoading, setStatsLoading] = useState(false)
+  const statsRead = useRef(0)
+  const frame = useSettingsReloadScope()
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
+  const actor = useRef(identity)
+  const alive = useRef(true)
+  const saveFlight = useRef(false)
+  useLayoutEffect(() => {
+    alive.current = true
+    return () => { alive.current = false; statsRead.current += 1 }
+  }, [])
+  const isCurrent = useCallback(() => alive.current && isCurrentSettingsFrame(frame, actor.current), [frame])
+  const cacheCleanupFlight = useRef(false)
+  const [cacheCleanupPending, setCacheCleanupPending] = useState(false)
+  const [cacheCleanupError, setCacheCleanupError] = useState('')
 
   const formDefaults = useMemo(
     () => buildFormDefaults(props.defaultValues),
@@ -199,6 +217,8 @@ export function PerformanceSection(props: Props) {
     defaultValues: formDefaults,
   })
 
+  useResetForm(form, formDefaults)
+
   const baselineRef = useRef<FlatPerfDefaults>(props.defaultValues)
   const baselineSerializedRef = useRef<string>(
     JSON.stringify(props.defaultValues)
@@ -209,23 +229,34 @@ export function PerformanceSection(props: Props) {
     if (serialized === baselineSerializedRef.current) return
     baselineRef.current = props.defaultValues
     baselineSerializedRef.current = serialized
-    form.reset(buildFormDefaults(props.defaultValues))
   }, [props.defaultValues, form])
 
   const fetchStats = useCallback(async () => {
+    if (!isCurrent()) return
+    const read = ++statsRead.current
+    setStatsLoading(true)
+    setStatsError('')
     try {
       const res = await api.get('/api/performance/stats')
-      if (res.data.success) setStats(res.data.data)
-    } catch {
-      /* ignore */
+      if (!isCurrent() || read !== statsRead.current) return
+      if (!res.data.success || !res.data.data) throw new Error(res.data.message || t('Unable to load performance statistics'))
+      setStats(res.data.data)
+    } catch (cause: unknown) {
+      if (!isCurrent() || read !== statsRead.current) return
+      setStats(null)
+      setStatsError(cause instanceof Error ? cause.message : t('Unable to load performance statistics'))
+    } finally {
+      if (isCurrent() && read === statsRead.current) setStatsLoading(false)
     }
-  }, [])
+  }, [t, isCurrent])
 
   useEffect(() => {
     fetchStats()
   }, [fetchStats])
 
   const onSubmit = async (values: PerfFormValues) => {
+    if (saveFlight.current || !isCurrent()) return
+    const submittedInputs = structuredClone(form.getValues())
     const normalized = normalizeFormValues(values)
     const changedKeys = (
       Object.keys(normalized) as Array<keyof FlatPerfDefaults>
@@ -236,51 +267,73 @@ export function PerformanceSection(props: Props) {
       return
     }
 
-    for (const key of changedKeys) {
-      await updateOption.mutateAsync({
-        key,
-        value: normalized[key],
-      })
-    }
-
-    baselineRef.current = normalized
-    baselineSerializedRef.current = JSON.stringify(normalized)
-    form.reset(buildFormDefaults(normalized))
-    fetchStats()
+    saveFlight.current = true
+    try {
+      for (const key of changedKeys) {
+        await updateOption.mutateAsync({ key, value: normalized[key] })
+      }
+      if (!isCurrent()) return
+      const acknowledged = { ...baselineRef.current }
+      for (const key of changedKeys) Object.assign(acknowledged, { [key]: normalized[key] })
+      baselineRef.current = acknowledged
+      const saved = buildFormDefaults(acknowledged)
+      const next = preserveSettingsEdits(saved, submittedInputs, form.getValues())
+      form.reset(saved)
+      form.reset(next, { keepDefaultValues: true })
+      void fetchStats()
+    } finally { saveFlight.current = false }
   }
 
   const clearDiskCache = async () => {
+    if (cacheCleanupFlight.current || !isCurrent()) return
+    cacheCleanupFlight.current = true
+    setCacheCleanupPending(true)
+    setCacheCleanupError('')
     try {
-      const res = await api.delete('/api/performance/disk_cache')
+      const res = await api.delete('/api/performance/disk_cache', { skipAuthRefresh: true })
+      if (!isCurrent()) return
       if (res.data.success) {
         toast.success(t('Disk cache cleared'))
         fetchStats()
+      } else {
+        setCacheCleanupError(res.data.message || t('Cleanup failed'))
       }
     } catch {
+      if (!isCurrent()) return
+      setCacheCleanupError(t('Cleanup failed'))
       toast.error(t('Cleanup failed'))
+    } finally {
+      cacheCleanupFlight.current = false
+      if (isCurrent()) setCacheCleanupPending(false)
     }
   }
 
   const resetStats = async () => {
+    if (!isCurrent()) return
     try {
-      const res = await api.post('/api/performance/reset_stats')
+      const res = await api.post('/api/performance/reset_stats', undefined, { skipAuthRefresh: true })
+      if (!isCurrent()) return
       if (res.data.success) {
         toast.success(t('Statistics reset'))
         fetchStats()
       }
     } catch {
+      if (!isCurrent()) return
       toast.error(t('Reset failed'))
     }
   }
 
   const forceGC = async () => {
+    if (!isCurrent()) return
     try {
-      const res = await api.post('/api/performance/gc')
+      const res = await api.post('/api/performance/gc', undefined, { skipAuthRefresh: true })
+      if (!isCurrent()) return
       if (res.data.success) {
         toast.success(t('GC executed'))
         fetchStats()
       }
     } catch {
+      if (!isCurrent()) return
       toast.error(t('GC execution failed'))
     }
   }
@@ -533,31 +586,32 @@ export function PerformanceSection(props: Props) {
 
       {/* Performance Stats Dashboard */}
       <div className='space-y-4'>
-        <div className='flex items-center gap-2'>
+        <div className='flex flex-wrap items-center gap-2'>
           <h4 className='font-medium'>{t('Performance Monitor')}</h4>
-          <Button variant='outline' size='sm' onClick={fetchStats}>
+          <Button variant='outline' size='sm' onClick={fetchStats} disabled={statsLoading}>
             {t('Refresh Stats')}
           </Button>
-          <AlertDialog>
-            <AlertDialogTrigger render={<Button variant='outline' size='sm' />}>
+          <AlertDialog onOpenChange={(open, details) => { if (!open && cacheCleanupPending) details.cancel() }} >
+            <AlertDialogTrigger render={<Button variant='outline' size='sm' disabled={cacheCleanupPending} />}>
               {t('Clean up inactive cache')}
             </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
+            <AlertDialogContent className='flex max-h-[calc(100dvh-2rem)] min-w-0 flex-col gap-0 overflow-hidden p-0 [&_[data-myapi-button]]:min-h-11 [&_[data-myapi-button]]:min-w-11'>
+              <AlertDialogHeader className='shrink-0 border-b px-4 py-4 sm:px-6'>
                 <AlertDialogTitle>
                   {t('Confirm cleanup of inactive disk cache?')}
                 </AlertDialogTitle>
-                <AlertDialogDescription>
+                </AlertDialogHeader>
+        <section role='region' tabIndex={0} aria-label={t('Confirmation details')} className='min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [overflow-wrap:anywhere] sm:px-6'><AlertDialogDescription>
                   {t(
                     'This will delete temporary cache files that have not been used for more than 10 minutes'
                   )}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>{t('Cancel')}</AlertDialogCancel>
+                </AlertDialogDescription>{cacheCleanupError && <p role='alert' className='text-destructive mt-3 text-sm'>{cacheCleanupError}</p>}</section>
+              <AlertDialogFooter className='m-0 shrink-0 border-t px-4 py-4 sm:px-6'>
+                <AlertDialogCancel disabled={cacheCleanupPending}>{t('Cancel')}</AlertDialogCancel>
                 <AlertDialogAction
                   variant='destructive'
                   onClick={clearDiskCache}
+                  disabled={cacheCleanupPending}
                 >
                   {t('Confirm')}
                 </AlertDialogAction>
@@ -572,29 +626,30 @@ export function PerformanceSection(props: Props) {
           </Button>
         </div>
 
-        {stats && (
+        {statsLoading && <p role='status' className='text-muted-foreground text-sm'>{t('Loading...')}</p>}
+        {statsError && <Alert variant='destructive'><AlertDescription>{statsError}</AlertDescription><Button className='mt-3 min-h-11 w-fit' variant='outline' disabled={statsLoading} onClick={() => { void fetchStats() }}>{t('Retry')}</Button></Alert>}
+        {!statsLoading && !statsError && stats && (
           <>
             <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
+              {stats.cache_stats ? <>
               <div className='space-y-2 rounded-lg border p-4'>
                 <p className='text-sm font-medium'>
                   {t('Request Body Disk Cache')}
                 </p>
-                <Progress value={diskCachePercent} />
+                {Number.isFinite(stats.cache_stats.current_disk_usage_bytes) && Number.isFinite(stats.cache_stats.disk_cache_max_bytes) ? <Progress value={diskCachePercent} /> : <p className='text-muted-foreground text-xs'>{t('Not available')}</p>}
                 <div className='text-muted-foreground flex justify-between text-xs'>
                   <span>
-                    {formatBytes(
-                      stats.cache_stats?.current_disk_usage_bytes ?? 0
-                    )}{' '}
+                    {Number.isFinite(stats.cache_stats.current_disk_usage_bytes) ? formatBytes(stats.cache_stats.current_disk_usage_bytes) : t('Not available')}{' '}
                     /{' '}
-                    {formatBytes(stats.cache_stats?.disk_cache_max_bytes ?? 0)}
+                    {Number.isFinite(stats.cache_stats.disk_cache_max_bytes) ? formatBytes(stats.cache_stats.disk_cache_max_bytes) : t('Not available')}
                   </span>
                   <span>
                     {t('Active Files')}:{' '}
-                    {stats.cache_stats?.active_disk_files ?? 0}
+                    {Number.isFinite(stats.cache_stats.active_disk_files) ? stats.cache_stats.active_disk_files : t('Not available')}
                   </span>
                 </div>
                 <StatusBadge variant='neutral' copyable={false}>
-                  {t('Disk Hits')}: {stats.cache_stats?.disk_cache_hits ?? 0}
+                  {t('Disk Hits')}: {Number.isFinite(stats.cache_stats.disk_cache_hits) ? stats.cache_stats.disk_cache_hits : t('Not available')}
                 </StatusBadge>
               </div>
               <div className='space-y-2 rounded-lg border p-4'>
@@ -604,20 +659,19 @@ export function PerformanceSection(props: Props) {
                 <div className='text-muted-foreground flex justify-between text-xs'>
                   <span>
                     {t('Current Cache Size')}:{' '}
-                    {formatBytes(
-                      stats.cache_stats?.current_memory_usage_bytes ?? 0
-                    )}
+                    {Number.isFinite(stats.cache_stats.current_memory_usage_bytes) ? formatBytes(stats.cache_stats.current_memory_usage_bytes) : t('Not available')}
                   </span>
                   <span>
                     {t('Active Cache Count')}:{' '}
-                    {stats.cache_stats?.active_memory_buffers ?? 0}
+                    {Number.isFinite(stats.cache_stats.active_memory_buffers) ? stats.cache_stats.active_memory_buffers : t('Not available')}
                   </span>
                 </div>
                 <StatusBadge variant='neutral' copyable={false}>
                   {t('Memory Hits')}:{' '}
-                  {stats.cache_stats?.memory_cache_hits ?? 0}
+                  {Number.isFinite(stats.cache_stats.memory_cache_hits) ? stats.cache_stats.memory_cache_hits : t('Not available')}
                 </StatusBadge>
               </div>
+              </> : <p role='status' className='text-muted-foreground rounded-lg border p-4 text-sm'>{t('Cache statistics unavailable')}</p>}
             </div>
 
             {stats.disk_space_info && stats.disk_space_info.total > 0 && (
@@ -625,18 +679,16 @@ export function PerformanceSection(props: Props) {
                 <p className='mb-2 text-sm font-medium'>
                   {t('Cache Directory Disk Space')}
                 </p>
-                <Progress
-                  value={Math.round(stats.disk_space_info.used_percent)}
-                />
+                {Number.isFinite(stats.disk_space_info.used_percent) ? <Progress value={Math.round(stats.disk_space_info.used_percent)} /> : <p className='text-muted-foreground text-xs'>{t('Not available')}</p>}
                 <div className='text-muted-foreground mt-2 flex justify-between text-xs'>
                   <span>
-                    {t('Used')}: {formatBytes(stats.disk_space_info.used)}
+                    {t('Used')}: {Number.isFinite(stats.disk_space_info.used) ? formatBytes(stats.disk_space_info.used) : t('Not available')}
                   </span>
                   <span>
-                    {t('Available')}: {formatBytes(stats.disk_space_info.free)}
+                    {t('Available')}: {Number.isFinite(stats.disk_space_info.free) ? formatBytes(stats.disk_space_info.free) : t('Not available')}
                   </span>
                   <span>
-                    {t('Total')}: {formatBytes(stats.disk_space_info.total)}
+                    {t('Total')}: {Number.isFinite(stats.disk_space_info.total) ? formatBytes(stats.disk_space_info.total) : t('Not available')}
                   </span>
                 </div>
               </div>
@@ -652,29 +704,29 @@ export function PerformanceSection(props: Props) {
                     <span className='text-muted-foreground'>
                       {t('Allocated Memory')}:
                     </span>{' '}
-                    {formatBytes(stats.memory_stats.alloc)}
+                    {Number.isFinite(stats.memory_stats.alloc) ? formatBytes(stats.memory_stats.alloc) : t('Not available')}
                   </div>
                   <div>
                     <span className='text-muted-foreground'>
                       {t('Total Allocated')}:
                     </span>{' '}
-                    {formatBytes(stats.memory_stats.total_alloc)}
+                    {Number.isFinite(stats.memory_stats.total_alloc) ? formatBytes(stats.memory_stats.total_alloc) : t('Not available')}
                   </div>
                   <div>
                     <span className='text-muted-foreground'>
                       {t('System Memory')}:
                     </span>{' '}
-                    {formatBytes(stats.memory_stats.sys)}
+                    {Number.isFinite(stats.memory_stats.sys) ? formatBytes(stats.memory_stats.sys) : t('Not available')}
                   </div>
                   <div>
                     <span className='text-muted-foreground'>
                       {t('GC Count')}:
                     </span>{' '}
-                    {stats.memory_stats.num_gc}
+                    {Number.isFinite(stats.memory_stats.num_gc) ? stats.memory_stats.num_gc : t('Not available')}
                   </div>
                   <div>
                     <span className='text-muted-foreground'>Goroutines:</span>{' '}
-                    {stats.memory_stats.num_goroutine}
+                    {Number.isFinite(stats.memory_stats.num_goroutine) ? stats.memory_stats.num_goroutine : t('Not available')}
                   </div>
                 </div>
               </div>
@@ -691,20 +743,20 @@ export function PerformanceSection(props: Props) {
                       {t('Cache Directory')}:
                     </span>{' '}
                     <span className='font-mono'>
-                      {stats.disk_cache_info.path}
+                      {typeof stats.disk_cache_info.path === 'string' ? stats.disk_cache_info.path : t('Not available')}
                     </span>
                   </div>
                   <div>
                     <span className='text-muted-foreground'>
                       {t('Directory File Count')}:
                     </span>{' '}
-                    {stats.disk_cache_info.file_count}
+                    {Number.isFinite(stats.disk_cache_info.file_count) ? stats.disk_cache_info.file_count : t('Not available')}
                   </div>
                   <div>
                     <span className='text-muted-foreground'>
                       {t('Directory Total Size')}:
                     </span>{' '}
-                    {formatBytes(stats.disk_cache_info.total_size)}
+                    {Number.isFinite(stats.disk_cache_info.total_size) ? formatBytes(stats.disk_cache_info.total_size) : t('Not available')}
                   </div>
                 </div>
               </div>

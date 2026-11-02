@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next'
 import { ErrorState } from '@/components/error-state'
 import { SectionPageLayout } from '@/components/layout'
 import { LoadingState } from '@/components/loading-state'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { useSystemOptions, getOptionValue } from '../hooks/use-system-options'
 import type { SystemOption } from '../types'
@@ -116,10 +117,12 @@ export function SettingsPage<
   resolveSettings,
 }: SettingsPageProps<TSettings, TSectionId, TExtraArgs>) {
   const { t } = useTranslation()
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
   const { data, isLoading, isError, refetch } = useSystemOptions()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const params = useParams({ from: routePath as any })
   const activeSection = (params?.section ?? defaultSection) as TSectionId
+  const frameKey = JSON.stringify([identity, activeSection])
   const sectionMeta = getSectionMeta(activeSection)
   const options =
     data?.success && Array.isArray(data.data) ? data.data : undefined
@@ -136,7 +139,7 @@ export function SettingsPage<
 
   if (isLoading) {
     return (
-      <SettingsPageFrame title={t(sectionMeta.titleKey)}>
+      <SettingsPageFrame key={frameKey} title={t(sectionMeta.titleKey)}>
         <LoadingState message={t(loadingMessage)} />
       </SettingsPageFrame>
     )
@@ -144,7 +147,7 @@ export function SettingsPage<
 
   if (isError || !data?.success || !Array.isArray(data.data)) {
     return (
-      <SettingsPageFrame title={t(sectionMeta.titleKey)}>
+      <SettingsPageFrame key={frameKey} title={t(sectionMeta.titleKey)}>
         <ErrorState
           title={t('Unable to load settings')}
           description={t('Please try again later.')}
@@ -161,7 +164,7 @@ export function SettingsPage<
   )
 
   return (
-    <SettingsPageFrame title={t(sectionMeta.titleKey)}>
+    <SettingsPageFrame key={frameKey} title={t(sectionMeta.titleKey)}>
       {sectionContent}
     </SettingsPageFrame>
   )

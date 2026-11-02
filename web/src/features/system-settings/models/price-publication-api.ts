@@ -100,6 +100,7 @@ export async function applyPricePublication(request: PricePublicationRequest) {
       code?: string
     }>('/api/ratio_sync/openai/publications', request, {
       skipErrorHandler: true,
+      skipAuthRefresh: true,
     })
     if (!response.data.success) {
       throw new Error(response.data.code ?? 'price_publication_failed')

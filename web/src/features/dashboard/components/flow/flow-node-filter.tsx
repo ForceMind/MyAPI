@@ -109,6 +109,7 @@ export function FlowNodeFilterControl(props: FlowNodeFilterControlProps) {
                 type='button'
                 variant='outline'
                 size='sm'
+                className='min-h-11 min-w-11'
                 aria-label={t('Filter by node')}
               />
             }
@@ -122,7 +123,7 @@ export function FlowNodeFilterControl(props: FlowNodeFilterControlProps) {
             )}
           </PopoverTrigger>
           <PopoverContent
-            className='w-[min(28rem,calc(100vw-2rem))] p-0'
+            className='w-[min(28rem,calc(100vw-2rem))] p-0 [&_[data-slot=input-group]]:h-11! [&_[data-slot=command-input]]:min-h-11'
             align='start'
           >
             <PopoverHeader className='px-3 pt-3'>
@@ -132,7 +133,10 @@ export function FlowNodeFilterControl(props: FlowNodeFilterControlProps) {
               </PopoverDescription>
             </PopoverHeader>
             <Command>
-              <CommandInput placeholder={t('Filter by node')} />
+              <CommandInput
+                aria-label={t('Filter by node')}
+                placeholder={t('Filter by node')}
+              />
               <CommandList>
                 <CommandEmpty>{t('No nodes')}</CommandEmpty>
                 {optionsByStage.map((group) => {
@@ -152,6 +156,7 @@ export function FlowNodeFilterControl(props: FlowNodeFilterControlProps) {
                             key={key}
                             value={`${stageLabel} ${option.label} ${props.metricLabel} ${metricValueLabel}`}
                             data-checked={selectedKeys.has(key)}
+                            className='min-h-11 flex-wrap'
                             onSelect={() =>
                               props.onToggleNode({
                                 kind: option.kind,
@@ -164,10 +169,10 @@ export function FlowNodeFilterControl(props: FlowNodeFilterControlProps) {
                               style={{ backgroundColor: option.color }}
                               aria-hidden='true'
                             />
-                            <span className='min-w-0 flex-1 truncate'>
+                            <span className='min-w-0 flex-1 [overflow-wrap:anywhere]'>
                               {option.label}
                             </span>
-                            <span className='text-muted-foreground flex shrink-0 items-center gap-1 text-xs'>
+                            <span className='text-muted-foreground flex min-w-0 flex-wrap items-center gap-1 text-xs [overflow-wrap:anywhere]'>
                               <span>{props.metricLabel}</span>
                               <span className='font-mono'>
                                 {metricValueLabel}
@@ -185,7 +190,7 @@ export function FlowNodeFilterControl(props: FlowNodeFilterControlProps) {
                     <CommandGroup>
                       <CommandItem
                         onSelect={props.onClearNodes}
-                        className='justify-center text-center'
+                        className='min-h-11 justify-center text-center'
                       >
                         {t('Clear node filters')}
                       </CommandItem>
@@ -201,15 +206,16 @@ export function FlowNodeFilterControl(props: FlowNodeFilterControlProps) {
           <Badge
             key={flowNodeFilterKey(option)}
             variant='secondary'
-            className='max-w-[14rem] rounded-sm pr-1'
+            className='max-w-full whitespace-normal rounded-sm pr-1'
           >
-            <span className='truncate'>
+            <span className='min-w-0 [overflow-wrap:anywhere]'>
               {t(props.stageLabels[option.kind])}: {option.label}
             </span>
             <button
               type='button'
-              className='hover:bg-muted-foreground/15 flex size-4 shrink-0 items-center justify-center rounded-sm'
+              className='hover:bg-muted-foreground/15 flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-sm'
               aria-label={t('Remove node filter')}
+              aria-description={`${t(props.stageLabels[option.kind])}: ${option.label}`}
               onClick={() =>
                 props.onRemoveNode({ kind: option.kind, id: option.id })
               }
@@ -224,6 +230,7 @@ export function FlowNodeFilterControl(props: FlowNodeFilterControlProps) {
             type='button'
             variant='ghost'
             size='xs'
+            className='min-h-11 min-w-11'
             onClick={props.onClearNodes}
           >
             {t('Clear')}

@@ -17,7 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import * as z from 'zod'
@@ -42,6 +41,9 @@ import {
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
+import { FormNavigationGuard } from '../components/form-navigation-guard'
+import { FormDirtyIndicator } from '../components/form-dirty-indicator'
+import { useResetForm } from '../hooks/use-reset-form'
 
 const botProtectionSchema = z.object({
   TurnstileCheckEnabled: z.boolean(),
@@ -66,9 +68,7 @@ export function BotProtectionSection({
     defaultValues,
   })
 
-  useEffect(() => {
-    form.reset(defaultValues)
-  }, [defaultValues, form])
+  useResetForm(form, defaultValues)
 
   const onSubmit = async (data: BotProtectionFormValues) => {
     const updates = Object.entries(data).filter(
@@ -82,6 +82,9 @@ export function BotProtectionSection({
   }
 
   return (
+    <>
+    <FormNavigationGuard when={form.formState.isDirty} />
+    <FormDirtyIndicator isDirty={form.formState.isDirty} />
     <SettingsSection title={t('Bot Protection')}>
       <Form {...form}>
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)} autoComplete='off'>
@@ -151,5 +154,6 @@ export function BotProtectionSection({
         </SettingsForm>
       </Form>
     </SettingsSection>
+    </>
   )
 }

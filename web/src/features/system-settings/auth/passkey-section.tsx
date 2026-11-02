@@ -50,7 +50,11 @@ import {
   SettingsSwitchContent,
   SettingsSwitchItem,
 } from '../components/settings-form-layout'
-import { SettingsPageFormActions } from '../components/settings-page-context'
+import { SettingsPageFormActions, useSettingsReloadScope, isCurrentSettingsFrame } from '../components/settings-page-context'
+import { useResetForm, preserveSettingsEdits } from '../hooks/use-reset-form'
+import { FormNavigationGuard } from '../components/form-navigation-guard'
+import { FormDirtyIndicator } from '../components/form-dirty-indicator'
+import { useAuthStore } from '@/stores/auth-store'
 import { SettingsSection } from '../components/settings-section'
 import {
   toTypedBulkItem,
@@ -157,6 +161,10 @@ export function PasskeySection(props: PasskeySectionProps) {
     defaultValues: formDefaults,
   })
 
+  const frame = useSettingsReloadScope()
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
+  useResetForm(form, formDefaults)
+
   const baselineRef = useRef<FlatPasskeyDefaults>(props.defaultValues)
   const baselineSerializedRef = useRef<string>(
     JSON.stringify(props.defaultValues)
@@ -167,10 +175,11 @@ export function PasskeySection(props: PasskeySectionProps) {
     if (serialized === baselineSerializedRef.current) return
     baselineRef.current = props.defaultValues
     baselineSerializedRef.current = serialized
-    form.reset(buildFormDefaults(props.defaultValues))
-  }, [props.defaultValues, form])
+  }, [props.defaultValues])
 
   const onSubmit = async (values: PasskeyFormValues) => {
+    const submittedInputs = structuredClone(form.getValues())
+    if (!isCurrentSettingsFrame(frame, identity)) return
     const normalized = normalizeFormValues(values)
     const changedKeys = (
       Object.keys(normalized) as Array<keyof FlatPasskeyDefaults>
@@ -181,16 +190,24 @@ export function PasskeySection(props: PasskeySectionProps) {
       return
     }
 
-    await updateTypedBulk.mutateAsync(
+    const result = await updateTypedBulk.mutateAsync(
       changedKeys.map((key) => toTypedBulkItem(key, normalized[key]))
     )
+    if (!result.success || !isCurrentSettingsFrame(frame, identity)) return
 
-    baselineRef.current = normalized
-    baselineSerializedRef.current = JSON.stringify(normalized)
-    form.reset(buildFormDefaults(normalized))
+    const acknowledged = { ...baselineRef.current }
+    for (const key of changedKeys) Object.assign(acknowledged, { [key]: normalized[key] })
+    baselineRef.current = acknowledged
+    const saved = buildFormDefaults(acknowledged)
+    const next = preserveSettingsEdits(saved, submittedInputs, form.getValues())
+    form.reset(saved)
+    form.reset(next, { keepDefaultValues: true })
   }
 
   return (
+    <>
+    <FormNavigationGuard when={form.formState.isDirty} />
+    <FormDirtyIndicator isDirty={form.formState.isDirty} />
     <SettingsSection title={t('Passkey Authentication')}>
       <Form {...form}>
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
@@ -415,5 +432,6 @@ export function PasskeySection(props: PasskeySectionProps) {
         </SettingsForm>
       </Form>
     </SettingsSection>
+    </>
   )
 }

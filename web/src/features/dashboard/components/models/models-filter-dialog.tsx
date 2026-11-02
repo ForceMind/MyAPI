@@ -16,17 +16,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Filter, RotateCcw, Calendar, Search } from 'lucide-react'
+import { Calendar03Icon, FilterHorizontalIcon, Refresh01Icon, Search01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { DateTimePicker } from '@/components/datetime-picker'
+import { DateTimeRangePicker } from '@/components/date-time-range-picker'
 import { Dialog } from '@/components/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Select,
   SelectContent,
@@ -206,8 +206,8 @@ export function ModelsFilter(props: ModelsFilterProps) {
       open={open}
       onOpenChange={handleOpenChange}
       trigger={
-        <Button variant='outline' size='sm'>
-          <Filter className='mr-2 h-4 w-4' />
+        <Button variant='outline' size='sm' className='min-h-11'>
+          <HugeiconsIcon icon={FilterHorizontalIcon} aria-hidden='true' className='mr-2 h-4 w-4' />
           {t('Filter')}
         </Button>
       }
@@ -216,28 +216,29 @@ export function ModelsFilter(props: ModelsFilterProps) {
         props.descriptionKey ??
           'Filter the model analytics view by time range and user.'
       )}
-      contentClassName='max-sm:h-dvh max-sm:w-screen max-sm:max-w-none max-sm:rounded-none max-sm:p-4 sm:max-w-lg'
-      contentHeight='min(48vh, 460px)'
-      footerClassName='grid grid-cols-2 gap-2 sm:flex'
+      contentClassName='h-dvh max-h-dvh w-screen max-w-none rounded-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-lg sm:rounded-xl'
+      contentHeight='auto'
+      bodyClassName='min-h-0'
+      headerClassName='shrink-0'
+      footerClassName='grid shrink-0 grid-cols-2 gap-2 border-t pt-4 sm:flex'
       footer={
         <>
-          <Button onClick={handleReset} variant='outline' type='button'>
-            <RotateCcw className='mr-2 h-4 w-4' />
+          <Button onClick={handleReset} className='min-h-11' variant='outline' type='button'>
+            <HugeiconsIcon icon={Refresh01Icon} aria-hidden='true' className='mr-2 h-4 w-4' />
             {t('Reset')}
           </Button>
-          <Button onClick={handleApply} type='submit'>
-            <Search className='mr-2 h-4 w-4' />
+          <Button onClick={handleApply} className='min-h-11' type='submit'>
+            <HugeiconsIcon icon={Search01Icon} aria-hidden='true' className='mr-2 h-4 w-4' />
             {t('Apply Filters')}
           </Button>
         </>
       }
     >
-      <ScrollArea className='h-full pr-3 sm:pr-4'>
         <div className='grid gap-2.5 py-2'>
           {/* Quick time range selection */}
           <div className='grid gap-2'>
             <Label className='flex items-center gap-2'>
-              <Calendar className='h-4 w-4' />
+              <HugeiconsIcon icon={Calendar03Icon} aria-hidden='true' className='h-4 w-4' />
               {t('Quick Range')}
             </Label>
             <div className='grid grid-cols-2 gap-2 sm:flex'>
@@ -249,7 +250,7 @@ export function ModelsFilter(props: ModelsFilterProps) {
                   variant={selectedRange === range.days ? 'default' : 'outline'}
                   onClick={() => handleQuickRange(range.days)}
                   className={cn(
-                    'flex-1',
+                    'min-h-11 flex-1 whitespace-normal',
                     selectedRange === range.days &&
                       'ring-ring ring-2 ring-offset-2'
                   )}
@@ -262,30 +263,14 @@ export function ModelsFilter(props: ModelsFilterProps) {
 
           <SectionDivider label={t('Custom Time Range')} />
 
-          {/* Custom time range */}
-          <div className='grid gap-2.5'>
-            <div className='grid gap-2'>
-              <Label htmlFor='start_timestamp'>{t('Start Time')}</Label>
-              <DateTimePicker
-                value={filters.start_timestamp}
-                onChange={(date) =>
-                  handleChange('start_timestamp', date || undefined)
-                }
-                placeholder={t('Select start time')}
-              />
-            </div>
-
-            <div className='grid gap-2'>
-              <Label htmlFor='end_timestamp'>{t('End Time')}</Label>
-              <DateTimePicker
-                value={filters.end_timestamp}
-                onChange={(date) =>
-                  handleChange('end_timestamp', date || undefined)
-                }
-                placeholder={t('Select end time')}
-              />
-            </div>
-          </div>
+          <DateTimeRangePicker
+            start={filters.start_timestamp}
+            end={filters.end_timestamp}
+            onChange={({ start, end }) => {
+              setFilters((current) => ({ ...current, start_timestamp: start, end_timestamp: end }))
+              setSelectedRange(null)
+            }}
+          />
 
           <SectionDivider label={t('Chart Settings')} />
 
@@ -301,7 +286,7 @@ export function ModelsFilter(props: ModelsFilterProps) {
                 handleGranularityChange(value as TimeGranularity)
               }
             >
-              <SelectTrigger>
+              <SelectTrigger className='min-h-11'>
                 <SelectValue placeholder={t('Select time granularity')} />
               </SelectTrigger>
               <SelectContent alignItemWithTrigger={false}>
@@ -325,6 +310,7 @@ export function ModelsFilter(props: ModelsFilterProps) {
                 <Label htmlFor='username'>{t('Username')}</Label>
                 <Input
                   id='username'
+                  className='min-h-11'
                   placeholder={t('Filter by username')}
                   value={filters.username}
                   onChange={(e) => handleChange('username', e.target.value)}
@@ -333,7 +319,6 @@ export function ModelsFilter(props: ModelsFilterProps) {
             </>
           )}
         </div>
-      </ScrollArea>
     </Dialog>
   )
 }

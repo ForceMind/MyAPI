@@ -121,7 +121,7 @@ export function CreemProductDialog({
       onOpenChange={onOpenChange}
       title={isEditMode ? t('Edit product') : t('Add product')}
       description={t('Configure a Creem product for user recharge options.')}
-      contentClassName='sm:max-w-[500px]'
+      contentClassName='sm:max-w-[500px] [&_[data-myapi-button]]:min-h-11 [&_[data-myapi-button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'
       contentHeight='auto'
       bodyClassName='space-y-4'
       footer={
@@ -133,12 +133,13 @@ export function CreemProductDialog({
           >
             {t('Cancel')}
           </Button>
-          <Button type='submit' form={CREEM_PRODUCT_FORM_ID}>
+          <Button className='min-h-11' type='submit' form={CREEM_PRODUCT_FORM_ID}>
             {isEditMode ? t('Update') : t('Add')}
           </Button>
         </>
       }
     >
+      <section role='region' tabIndex={0} aria-label={t('Payment configuration details')} className='min-w-0 [overflow-wrap:anywhere]'>
       <Form {...form}>
         <form
           id={CREEM_PRODUCT_FORM_ID}
@@ -203,7 +204,7 @@ export function CreemProductDialog({
                         <SelectValue placeholder={t('Select currency')} />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent alignItemWithTrigger={false}>
+                    <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11 [&_[role=option]]:min-h-11'>
                       <SelectGroup>
                         <SelectItem value='USD'>USD ($)</SelectItem>
                         <SelectItem value='EUR'>EUR (€)</SelectItem>
@@ -259,6 +260,7 @@ export function CreemProductDialog({
           />
         </form>
       </Form>
+      </section>
     </Dialog>
   )
 }

@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ExternalLinkIcon, RefreshCcwIcon } from 'lucide-react'
+import { LinkSquare02Icon, Refresh01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -128,7 +129,7 @@ export function UpdateCheckerSection({
               t('Checking updates...')
             ) : (
               <>
-                <RefreshCcwIcon className='me-2 h-4 w-4' />
+                <HugeiconsIcon icon={Refresh01Icon} className='me-2 h-4 w-4' />
                 {t('Check for updates')}
               </>
             )}
@@ -143,6 +144,7 @@ export function UpdateCheckerSection({
           release?.tag_name
             ? t('New version available: {{version}}', {
                 version: release.tag_name,
+                interpolation: { escapeValue: false },
               })
             : t('Release details')
         }
@@ -154,7 +156,7 @@ export function UpdateCheckerSection({
               )}`
             : undefined
         }
-        contentClassName='max-h-[80vh] overflow-y-auto'
+        contentClassName='max-h-[calc(100dvh-2rem)] sm:max-w-3xl [&_[data-myapi-button]]:min-h-11 [&_[data-myapi-button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[role=combobox]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'
         contentHeight='auto'
         bodyClassName='space-y-4'
         footer={
@@ -168,14 +170,14 @@ export function UpdateCheckerSection({
             </Button>
             {release?.html_url && (
               <Button type='button' onClick={goToRelease}>
-                <ExternalLinkIcon className='me-2 h-4 w-4' />
+                <HugeiconsIcon icon={LinkSquare02Icon} className='me-2 h-4 w-4' />
                 {t('Open release')}
               </Button>
             )}
           </>
         }
       >
-        <div className='space-y-4'>
+        <div role='region' tabIndex={0} aria-label={t('Release details')} className='min-w-0 space-y-4 [overflow-wrap:anywhere]'>
           {release?.body ? (
             <Markdown>{release.body}</Markdown>
           ) : (

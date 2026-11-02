@@ -54,6 +54,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { SettingsSwitchField } from '../components/settings-form-layout'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
+import { FormNavigationGuard } from '../components/form-navigation-guard'
+import { FormDirtyIndicator } from '../components/form-dirty-indicator'
+import { SettingsJSONRepair } from '../components/settings-json-repair'
+import { useContentEntries } from './use-content-entries'
 
 type FAQ = {
   id: number
@@ -84,9 +88,12 @@ const FAQ_FORM_ID = 'faq-form'
 export function FAQSection({ enabled, data }: FAQSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
-  const [faqList, setFaqList] = useState<FAQ[]>([])
+  const draft = useContentEntries<FAQ>(data, (entry) => faqSchema.safeParse(entry).success)
+  const faqList = draft.entries
+  const setFaqList = draft.setEntries
   const [isEnabled, setIsEnabled] = useState(enabled)
-  const [hasChanges, setHasChanges] = useState(false)
+  const hasChanges = draft.isDirty
+  const setHasChanges = draft.markChanged
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [showDialog, setShowDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -101,21 +108,6 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
     },
   })
 
-  useEffect(() => {
-    try {
-      const parsed = JSON.parse(data || '[]')
-      if (Array.isArray(parsed)) {
-        setFaqList(
-          parsed.map((item, idx) => ({
-            ...item,
-            id: item.id || idx + 1,
-          }))
-        )
-      }
-    } catch {
-      setFaqList([])
-    }
-  }, [data])
 
   useEffect(() => {
     setIsEnabled(enabled)
@@ -127,14 +119,17 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
         key: 'console_setting.faq_enabled',
         value: checked,
       })
+      if (!draft.isCurrent()) return
       setIsEnabled(checked)
       toast.success(t('Setting saved'))
     } catch {
+      if (!draft.isCurrent()) return
       toast.error(t('Failed to update setting'))
     }
   }
 
   const handleAdd = () => {
+    if (draft.incompatible) return
     setEditingFaq(null)
     form.reset({
       question: '',
@@ -159,6 +154,7 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
   }
 
   const handleBatchDelete = () => {
+    if (draft.incompatible) return
     if (selectedIds.length === 0) {
       toast.error(t('Please select items to delete'))
       return
@@ -168,6 +164,7 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
   }
 
   const confirmDelete = () => {
+    if (draft.incompatible) return
     if (deleteTarget === 'single' && editingFaq) {
       setFaqList((prev) => prev.filter((item) => item.id !== editingFaq.id))
       setHasChanges(true)
@@ -189,6 +186,7 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
   }
 
   const handleSubmitForm = (values: FAQFormValues) => {
+    if (draft.incompatible) return
     if (editingFaq) {
       setFaqList((prev) =>
         prev.map((item) =>
@@ -206,14 +204,18 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
   }
 
   const handleSaveAll = async () => {
+    if (draft.incompatible) return
+    const saved = faqList
     try {
       await updateOption.mutateAsync({
         key: 'console_setting.faq',
-        value: JSON.stringify(faqList),
+        value: JSON.stringify(saved),
       })
-      setHasChanges(false)
+      if (!draft.isCurrent()) return
+      draft.acknowledge(saved)
       toast.success(t('FAQ saved successfully'))
     } catch {
+      if (!draft.isCurrent()) return
       toast.error(t('Failed to save FAQ'))
     }
   }
@@ -229,11 +231,15 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
   }
 
   return (
+    <>
+    <FormNavigationGuard when={hasChanges || (showDialog && form.formState.isDirty)} />
+    <FormDirtyIndicator isDirty={hasChanges || (showDialog && form.formState.isDirty)} />
     <SettingsSection title={t('FAQ')}>
       <div className='space-y-4'>
+        {draft.incompatible && <SettingsJSONRepair source={draft.source} canApply={draft.canApplyRaw} onApply={(raw) => { const applied = draft.applyRaw(raw); if (applied) setSelectedIds([]); return applied }} />}
         <div className='flex flex-wrap items-center justify-between gap-2'>
           <div className='flex flex-wrap items-center gap-2'>
-            <Button onClick={handleAdd} size='sm'>
+            <Button onClick={handleAdd} size='sm' disabled={draft.incompatible}>
               <Plus className='mr-2 h-4 w-4' />
               {t('Add FAQ')}
             </Button>
@@ -241,7 +247,7 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
               onClick={handleBatchDelete}
               size='sm'
               variant='destructive'
-              disabled={selectedIds.length === 0}
+              disabled={draft.incompatible || selectedIds.length === 0}
             >
               <Trash2 className='mr-2 h-4 w-4' />
               {t('Delete (')}
@@ -251,13 +257,14 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
               onClick={handleSaveAll}
               size='sm'
               variant='secondary'
-              disabled={!hasChanges || updateOption.isPending}
+              disabled={draft.incompatible || !hasChanges || updateOption.isPending}
             >
               <Save className='mr-2 h-4 w-4' />
               {updateOption.isPending ? t('Saving...') : t('Save Settings')}
             </Button>
           </div>
           <SettingsSwitchField
+            disabled={updateOption.isPending}
             checked={isEnabled}
             onCheckedChange={handleToggleEnabled}
             label={t('Enabled')}
@@ -265,7 +272,7 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
           />
         </div>
 
-        <StaticDataTable
+        {!draft.incompatible && <StaticDataTable
           data={faqList}
           getRowKey={(faq) => faq.id}
           emptyContent={t('No FAQ entries yet. Click "Add FAQ" to create one.')}
@@ -293,13 +300,13 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
             {
               id: 'question',
               header: t('Question'),
-              cellClassName: 'max-w-xs truncate font-medium',
+              cellClassName: 'max-w-xs whitespace-normal break-all font-medium',
               cell: (faq) => faq.question,
             },
             {
               id: 'answer',
               header: t('Answer'),
-              cellClassName: 'text-muted-foreground max-w-md truncate',
+              cellClassName: 'text-muted-foreground max-w-md whitespace-normal break-all',
               cell: (faq) => faq.answer,
             },
             {
@@ -316,7 +323,7 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
               ),
             },
           ]}
-        />
+        />}
       </div>
 
       <Dialog
@@ -324,7 +331,7 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
         onOpenChange={setShowDialog}
         title={editingFaq ? t('Edit FAQ') : t('Add FAQ')}
         description={t('Create or update frequently asked questions for users')}
-        contentClassName='max-w-2xl'
+        contentClassName='h-dvh max-h-dvh w-screen max-w-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-2xl pointer-coarse:[&_[data-slot=input]]:min-h-11 pointer-coarse:[&_[role=combobox]]:min-h-11'
         contentHeight='auto'
         bodyClassName='space-y-4'
         footer={
@@ -348,6 +355,7 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
             onSubmit={form.handleSubmit(handleSubmitForm)}
             className='space-y-4'
           >
+            <p className='text-muted-foreground text-xs'>{t('Item edits change the local draft. Use Save Settings on the page to persist them.')}</p>
             <FormField
               control={form.control}
               name='question'
@@ -394,9 +402,11 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
       </Dialog>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
+        <AlertDialogContent className='flex max-h-[calc(100dvh-2rem)] min-w-0 flex-col overflow-hidden'>
+          <AlertDialogHeader className='shrink-0'>
             <AlertDialogTitle>{t('Are you sure?')}</AlertDialogTitle>
+          </AlertDialogHeader>
+          <div tabIndex={0} role='region' aria-label={t('Confirmation details')} className='min-h-0 space-y-3 overflow-y-auto overscroll-contain'>
             <AlertDialogDescription>
               {deleteTarget === 'single'
                 ? t('This FAQ entry will be removed from the list.')
@@ -404,15 +414,17 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
                     count: selectedIds.length,
                   })}
             </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
+            <p className='text-muted-foreground text-xs'>{t('This only changes the local draft. Use Save Settings on the page to persist it.')}</p>
+          </div>
+          <AlertDialogFooter className='shrink-0'>
             <AlertDialogCancel>{t('Cancel')}</AlertDialogCancel>
-            <AlertDialogAction variant='destructive' onClick={confirmDelete}>
+            <AlertDialogAction variant='destructive' disabled={draft.incompatible} onClick={confirmDelete}>
               {t('Delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </SettingsSection>
+    </>
   )
 }

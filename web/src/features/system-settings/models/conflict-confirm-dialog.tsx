@@ -54,9 +54,9 @@ export function ConflictConfirmDialog({
 }: ConflictConfirmDialogProps) {
   const { t } = useTranslation()
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className='max-w-4xl'>
-        <AlertDialogHeader>
+    <AlertDialog open={open} onOpenChange={(nextOpen) => { if (nextOpen || !isLoading) onOpenChange(nextOpen) }}>
+      <AlertDialogContent className='flex max-h-[calc(100dvh-2rem)] min-w-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl [&_[data-myapi-button]]:min-h-11 [&_[data-myapi-button]]:min-w-11'>
+        <AlertDialogHeader className='shrink-0 border-b px-4 py-4 sm:px-6'>
           <AlertDialogTitle>{t('Confirm Billing Conflicts')}</AlertDialogTitle>
           <AlertDialogDescription>
             {t(
@@ -65,20 +65,21 @@ export function ConflictConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
+        <section role='region' tabIndex={0} aria-label={t('Billing conflict details')} className='min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [overflow-wrap:anywhere] sm:px-6'>
         <StaticDataTable
-          className='max-h-96 overflow-y-auto'
+          className='min-w-0'
           data={conflicts}
           columns={[
             {
               id: 'channel',
               header: t('Channel'),
-              cellClassName: 'font-medium',
+              cellClassName: 'font-medium whitespace-normal break-words [overflow-wrap:anywhere]',
               cell: (conflict) => conflict.channel,
             },
             {
               id: 'model',
               header: t('Model'),
-              cellClassName: 'font-mono text-sm',
+              cellClassName: 'font-mono text-sm whitespace-normal break-words [overflow-wrap:anywhere]',
               cell: (conflict) => conflict.model,
             },
             {
@@ -102,7 +103,8 @@ export function ConflictConfirmDialog({
           ]}
         />
 
-        <AlertDialogFooter>
+        </section>
+        <AlertDialogFooter className='m-0 shrink-0 border-t px-4 py-4 sm:px-6'>
           <AlertDialogCancel disabled={isLoading}>
             {t('Cancel')}
           </AlertDialogCancel>

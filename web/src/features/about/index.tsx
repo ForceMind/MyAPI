@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next'
 
 import { PublicLayout } from '@/components/layout'
 import { RichContent } from '@/components/rich-content'
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -118,12 +119,12 @@ function EmptyAboutState() {
 
 export function About() {
   const { t } = useTranslation()
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['about-content'],
     queryFn: getAboutContent,
   })
 
-  const rawContent = data?.data?.trim() ?? ''
+  const rawContent = typeof data?.data === 'string' ? data.data.trim() : ''
   const hasContent = rawContent.length > 0
   const isUrl = hasContent && isHttpUrl(rawContent)
   const contentIsHtml = hasContent && isLikelyHtml(rawContent)
@@ -139,6 +140,14 @@ export function About() {
         </div>
       </PublicLayout>
     )
+  }
+
+  if (isError || data?.success !== true || typeof data.data !== 'string') {
+    return <PublicLayout><div role='alert' className='mx-auto max-w-2xl space-y-4 rounded-lg border p-5 break-words'>
+      <h1 className='text-lg font-semibold'>{t('Unable to load content')}</h1>
+      <p className='text-muted-foreground text-sm'>{data?.message || (error instanceof Error ? error.message : t('Please try again later.'))}</p>
+      <Button type='button' variant='outline' onClick={() => void refetch()} disabled={isFetching}>{t('Retry')}</Button>
+    </div></PublicLayout>
   }
 
   if (!hasContent) {

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
+import { LogPagination } from '@/components/log-pagination'
 import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,6 +15,7 @@ import {
 } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { useAuthStore } from '@/stores/auth-store'
 
 import {
   cancelPromptLearningRun,
@@ -45,52 +47,113 @@ function downloadInstructionVersion(version: { content: string; id: number }) {
 }
 
 export function PromptLearning() {
+  const userId = useAuthStore((state) => state.auth.user?.id)
+  const role = useAuthStore((state) => state.auth.user?.role)
+  const sessionId = useAuthStore((state) => state.auth.session?.sid ?? null)
+  return (
+    <PromptLearningSession
+      key={JSON.stringify([userId, role, sessionId])}
+      userId={userId}
+      role={role}
+      sessionId={sessionId}
+    />
+  )
+}
+
+function PromptLearningSession(props: {
+  userId: number | undefined
+  role: number | undefined
+  sessionId: string | null
+}) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [content, setContent] = useState('')
   const [error, setError] = useState('')
+  const [versionPage, setVersionPage] = useState(1)
+  const [versionPageSize, setVersionPageSize] = useState(20)
+  const [runPage, setRunPage] = useState(1)
+  const [runPageSize, setRunPageSize] = useState(20)
+  const actorScope = [props.userId, props.role, props.sessionId]
+  const policyKey = [...promptLearningPolicyQueryKey, ...actorScope]
+  const versionKey = [...promptLearningVersionQueryKey, ...actorScope]
+  const runKey = [...promptLearningRunQueryKey, ...actorScope]
+  const isCurrentIdentity = () => {
+    const auth = useAuthStore.getState().auth
+    return (
+      auth.user?.id === props.userId &&
+      auth.user?.role === props.role &&
+      (auth.session?.sid ?? null) === props.sessionId
+    )
+  }
   const policyQuery = useQuery({
-    queryKey: promptLearningPolicyQueryKey,
-    queryFn: getPromptLearningPolicy,
+    queryKey: policyKey,
+    queryFn: () => {
+      if (!isCurrentIdentity()) throw new Error('Learning identity changed')
+      return getPromptLearningPolicy()
+    },
   })
   const versionsQuery = useQuery({
-    queryKey: promptLearningVersionQueryKey,
-    queryFn: () => getPromptLearningVersions(),
+    queryKey: [...versionKey, versionPage, versionPageSize],
+    queryFn: () => {
+      if (!isCurrentIdentity()) throw new Error('Learning identity changed')
+      return getPromptLearningVersions(versionPage, versionPageSize)
+    },
   })
   const runsQuery = useQuery({
-    queryKey: promptLearningRunQueryKey,
-    queryFn: () => getPromptLearningRuns(),
+    queryKey: [...runKey, runPage, runPageSize],
+    queryFn: () => {
+      if (!isCurrentIdentity()) throw new Error('Learning identity changed')
+      return getPromptLearningRuns(runPage, runPageSize)
+    },
   })
   const policyMutation = useMutation({
-    mutationFn: updatePromptLearningPolicy,
+    mutationFn: (nextEnabled: boolean) => {
+      if (!isCurrentIdentity()) throw new Error('Learning identity changed')
+      return updatePromptLearningPolicy(nextEnabled)
+    },
     onSuccess: async () => {
+      if (!isCurrentIdentity()) return
       setError('')
       await queryClient.invalidateQueries({
-        queryKey: promptLearningPolicyQueryKey,
+        queryKey: policyKey,
       })
     },
-    onError: () => setError(t('Failed to save learning policy')),
+    onError: () => {
+      if (isCurrentIdentity()) setError(t('Failed to save learning policy'))
+    },
   })
   const versionMutation = useMutation({
-    mutationFn: createPromptLearningVersion,
+    mutationFn: (input: Parameters<typeof createPromptLearningVersion>[0]) => {
+      if (!isCurrentIdentity()) throw new Error('Learning identity changed')
+      return createPromptLearningVersion(input)
+    },
     onSuccess: async () => {
+      if (!isCurrentIdentity()) return
       setContent('')
       setError('')
       await queryClient.invalidateQueries({
-        queryKey: promptLearningVersionQueryKey,
+        queryKey: versionKey,
       })
     },
-    onError: () => setError(t('Failed to save instruction version')),
+    onError: () => {
+      if (isCurrentIdentity()) setError(t('Failed to save instruction version'))
+    },
   })
   const runCancellationMutation = useMutation({
-    mutationFn: cancelPromptLearningRun,
+    mutationFn: (runId: number) => {
+      if (!isCurrentIdentity()) throw new Error('Learning identity changed')
+      return cancelPromptLearningRun(runId)
+    },
     onSuccess: async () => {
+      if (!isCurrentIdentity()) return
       setError('')
       await queryClient.invalidateQueries({
-        queryKey: promptLearningRunQueryKey,
+        queryKey: runKey,
       })
     },
-    onError: () => setError(t('Failed to cancel learning run.')),
+    onError: () => {
+      if (isCurrentIdentity()) setError(t('Failed to cancel learning run.'))
+    },
   })
 
   const policyReady =
@@ -110,7 +173,7 @@ export function PromptLearning() {
         )}
       </SectionPageLayout.Description>
       <SectionPageLayout.Content>
-        <div className='flex w-full min-w-0 flex-col gap-4 sm:gap-5'>
+        <div className='flex w-full min-w-0 flex-col gap-4 sm:gap-5 [&_[data-myapi-button]]:min-h-11 [&_[data-myapi-button]]:min-w-11'>
           <Card data-card-hover='false'>
             <CardHeader>
               <CardTitle>
@@ -208,7 +271,7 @@ export function PromptLearning() {
                         className='border-border rounded-lg border p-3'
                         key={run.id}
                       >
-                        <div className='text-muted-foreground flex justify-between gap-3 text-xs'>
+                        <div className='text-muted-foreground flex flex-wrap justify-between gap-3 text-xs [overflow-wrap:anywhere]'>
                           <span>{run.state}</span>
                           <span>
                             {new Date(run.updated_at * 1000).toLocaleString()}
@@ -234,7 +297,9 @@ export function PromptLearning() {
                             </Button>
                           </div>
                         )}
-                        <p className='mt-2 text-sm'>{run.model_ref}</p>
+                        <p className='mt-2 text-sm [overflow-wrap:anywhere]'>
+                          {run.model_ref}
+                        </p>
                         <p className='text-muted-foreground mt-1 text-sm'>
                           {t('Samples: {{count}}', { count: run.sample_count })}
                         </p>
@@ -242,6 +307,22 @@ export function PromptLearning() {
                     ))}
                   </div>
                 )}
+              <div className='mt-4 border-t pt-4'>
+                <LogPagination
+                  label={t('Learning run pagination')}
+                  page={runPage}
+                  pageSize={runPageSize}
+                  total={
+                    runsQuery.isSuccess ? runsQuery.data?.total : undefined
+                  }
+                  busy={runsQuery.isFetching}
+                  onPageChange={setRunPage}
+                  onPageSizeChange={(size) => {
+                    setRunPage(1)
+                    setRunPageSize(size)
+                  }}
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -324,7 +405,7 @@ export function PromptLearning() {
                         className='border-border rounded-lg border p-3'
                         key={version.id}
                       >
-                        <div className='text-muted-foreground mb-2 flex justify-between gap-3 text-xs'>
+                        <div className='text-muted-foreground mb-2 flex flex-wrap justify-between gap-3 text-xs'>
                           <span>{version.source}</span>
                           <span>
                             {new Date(
@@ -342,7 +423,7 @@ export function PromptLearning() {
                             {t('Download')}
                           </Button>
                         </div>
-                        <pre className='font-sans text-sm break-words whitespace-pre-wrap'>
+                        <pre className='font-sans text-sm [overflow-wrap:anywhere] whitespace-pre-wrap'>
                           {version.content}
                         </pre>
                       </article>
@@ -350,8 +431,26 @@ export function PromptLearning() {
                   </div>
                 )}
               {error && (
-                <p className='text-destructive mt-3 text-sm'>{error}</p>
+                <p role='alert' className='text-destructive mt-3 text-sm'>
+                  {error}
+                </p>
               )}
+              <div className='mt-4 border-t pt-4'>
+                <LogPagination
+                  label={t('Instruction version pagination')}
+                  page={versionPage}
+                  pageSize={versionPageSize}
+                  total={
+                    versionsQuery.isSuccess ? versionsQuery.data?.total : undefined
+                  }
+                  busy={versionsQuery.isFetching}
+                  onPageChange={setVersionPage}
+                  onPageSizeChange={(size) => {
+                    setVersionPage(1)
+                    setVersionPageSize(size)
+                  }}
+                />
+              </div>
             </CardContent>
           </Card>
         </div>

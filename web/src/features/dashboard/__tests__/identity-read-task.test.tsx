@@ -10,6 +10,9 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import { Dashboard } from '../index'
 
+vi.mock('@visactor/react-vchart', () => ({ VChart: () => <div data-testid='analysis-chart' /> }))
+vi.mock('@visactor/vchart', () => ({ ThemeManager: { setCurrentTheme: vi.fn() } }))
+
 const originalAuth = useAuthStore.getState()
 let client: QueryClient
 function setSession(sid: string) {

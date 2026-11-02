@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ChevronDown, Copy, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown01Icon, Copy01Icon, Delete02Icon, PlusSignIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import {
   memo,
   useCallback,
@@ -466,7 +467,7 @@ function ConditionRow({ condition, onChange, onRemove }: ConditionRowProps) {
               : condition.var}
           </SelectValue>
         </SelectTrigger>
-        <SelectContent alignItemWithTrigger={false}>
+        <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11 [&_[role=option]]:min-h-11'>
           <SelectGroup>
             {CONDITION_INPUT_OPTIONS.map((option) => (
               <SelectItem key={option.value} value={option.value}>
@@ -486,7 +487,7 @@ function ConditionRow({ condition, onChange, onRemove }: ConditionRowProps) {
         <SelectTrigger className='w-20' size='sm'>
           <SelectValue />
         </SelectTrigger>
-        <SelectContent alignItemWithTrigger={false}>
+        <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11 [&_[role=option]]:min-h-11'>
           <SelectGroup>
             {OPS.map((op) => (
               <SelectItem key={op} value={op}>
@@ -513,7 +514,7 @@ function ConditionRow({ condition, onChange, onRemove }: ConditionRowProps) {
         aria-label='remove'
         className='ml-auto'
       >
-        <Trash2 className='text-destructive h-4 w-4' />
+        <HugeiconsIcon icon={Delete02Icon} className='text-destructive h-4 w-4' />
       </Button>
     </div>
   )
@@ -653,7 +654,7 @@ function VisualTierCard({
           disabled={total <= 1}
           aria-label={t('Remove tier')}
         >
-          <Trash2 className='text-destructive h-4 w-4' />
+          <HugeiconsIcon icon={Delete02Icon} className='text-destructive h-4 w-4' />
         </Button>
       </div>
 
@@ -668,7 +669,7 @@ function VisualTierCard({
             disabled={tier.conditions.length >= 2}
             className='h-7 px-2 text-xs'
           >
-            <Plus className='mr-1 h-3 w-3' />
+            <HugeiconsIcon icon={PlusSignIcon} className='mr-1 h-3 w-3' />
             {t('Add condition')}
           </Button>
         </div>
@@ -722,16 +723,16 @@ function VisualTierCard({
                   value !== null && handleCacheModeChange(value as CacheMode)
                 }
               >
-                <TabsList className='h-8'>
+                <TabsList className='h-auto min-h-11'>
                   <TabsTrigger
                     value={CACHE_MODE_GENERIC}
-                    className='px-2 text-xs'
+                    className='min-h-11 px-2 text-xs whitespace-normal'
                   >
                     {t('Generic cache')}
                   </TabsTrigger>
                   <TabsTrigger
                     value={CACHE_MODE_TIMED}
-                    className='px-2 text-xs'
+                    className='min-h-11 px-2 text-xs whitespace-normal'
                   >
                     {t('Time-sliced cache (Claude)')}
                   </TabsTrigger>
@@ -759,7 +760,7 @@ function VisualTierCard({
           className='h-7 px-2 text-xs'
           onClick={() => setMediaOpen((prev) => !prev)}
         >
-          <ChevronDown
+          <HugeiconsIcon icon={ArrowDown01Icon}
             className={cn(
               'mr-1 h-3 w-3 transition-transform',
               mediaOpen && 'rotate-180'
@@ -876,7 +877,7 @@ function VisualEditor({ visualConfig, onChange }: VisualEditorProps) {
         className='h-9 w-36 justify-center'
         onClick={handleAddTier}
       >
-        <Plus className='mr-2 h-4 w-4' />
+        <HugeiconsIcon icon={PlusSignIcon} className='mr-2 h-4 w-4' />
         {t('Add tier')}
       </Button>
     </div>
@@ -1016,7 +1017,7 @@ function RuleConditionRow({
         <SelectTrigger className='w-32' size='sm'>
           <SelectValue>{getTimeFuncLabel(timeCond.timeFunc)}</SelectValue>
         </SelectTrigger>
-        <SelectContent alignItemWithTrigger={false}>
+        <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11 [&_[role=option]]:min-h-11'>
           <SelectGroup>
             {TIME_FUNCS.map((fn) => (
               <SelectItem key={fn} value={fn}>
@@ -1042,7 +1043,7 @@ function RuleConditionRow({
               ?.label ?? timeCond.timezone}
           </SelectValue>
         </SelectTrigger>
-        <SelectContent alignItemWithTrigger={false}>
+        <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11 [&_[role=option]]:min-h-11'>
           <SelectGroup>
             {COMMON_TIMEZONES.map((tz) => (
               <SelectItem key={tz.value} value={tz.value}>
@@ -1063,7 +1064,7 @@ function RuleConditionRow({
         <SelectTrigger className='w-32' size='sm'>
           <SelectValue>{getMatchLabel(timeCond.mode)}</SelectValue>
         </SelectTrigger>
-        <SelectContent alignItemWithTrigger={false}>
+        <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11 [&_[role=option]]:min-h-11'>
           <SelectGroup>
             {matchOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
@@ -1127,7 +1128,7 @@ function RuleConditionRow({
         <SelectTrigger className='w-32' size='sm'>
           <SelectValue>{getMatchLabel(phCond.mode)}</SelectValue>
         </SelectTrigger>
-        <SelectContent alignItemWithTrigger={false}>
+        <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11 [&_[role=option]]:min-h-11'>
           <SelectGroup>
             {matchOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
@@ -1164,7 +1165,7 @@ function RuleConditionRow({
         <SelectTrigger className='w-28' size='sm'>
           <SelectValue>{sourceLabel}</SelectValue>
         </SelectTrigger>
-        <SelectContent alignItemWithTrigger={false}>
+        <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11 [&_[role=option]]:min-h-11'>
           <SelectGroup>
             <SelectItem value={SOURCE_PARAM}>{t('Body param')}</SelectItem>
             <SelectItem value={SOURCE_HEADER}>{t('Header')}</SelectItem>
@@ -1182,7 +1183,7 @@ function RuleConditionRow({
         aria-label={t('Remove condition')}
         className='ml-auto'
       >
-        <Trash2 className='text-destructive h-4 w-4' />
+        <HugeiconsIcon icon={Delete02Icon} className='text-destructive h-4 w-4' />
       </Button>
     </div>
   )
@@ -1238,7 +1239,7 @@ function RuleGroupCard({
           onClick={onRemove}
           aria-label={t('Remove rule group')}
         >
-          <Trash2 className='text-destructive h-4 w-4' />
+          <HugeiconsIcon icon={Delete02Icon} className='text-destructive h-4 w-4' />
         </Button>
       </div>
 
@@ -1264,7 +1265,7 @@ function RuleGroupCard({
             size='sm'
             onClick={() => handleAddCondition(false)}
           >
-            <Plus className='mr-1 h-3 w-3' />
+            <HugeiconsIcon icon={PlusSignIcon} className='mr-1 h-3 w-3' />
             {t('Add param/header')}
           </Button>
           <Button
@@ -1272,7 +1273,7 @@ function RuleGroupCard({
             size='sm'
             onClick={() => handleAddCondition(true)}
           >
-            <Plus className='mr-1 h-3 w-3' />
+            <HugeiconsIcon icon={PlusSignIcon} className='mr-1 h-3 w-3' />
             {t('Add time condition')}
           </Button>
         </div>
@@ -1587,7 +1588,7 @@ function LlmPromptHelper({ modelName }: LlmPromptHelperProps) {
           <Button variant='ghost' size='sm' className='h-7 px-2 text-xs' />
         }
       >
-        <Copy className='mr-1.5 h-3 w-3' />
+        <HugeiconsIcon icon={Copy01Icon} className='mr-1.5 h-3 w-3' />
         {t('LLM prompt helper')}
       </CollapsibleTrigger>
       <CollapsibleContent className='mt-2'>
@@ -1604,7 +1605,7 @@ function LlmPromptHelper({ modelName }: LlmPromptHelperProps) {
               className='ml-3 shrink-0'
               onClick={handleCopy}
             >
-              <Copy className='mr-1.5 h-3 w-3' />
+              <HugeiconsIcon icon={Copy01Icon} className='mr-1.5 h-3 w-3' />
               {t('Copy prompt')}
             </Button>
           </div>
@@ -1789,7 +1790,7 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
             <SelectTrigger className='w-full sm:w-56' size='sm'>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent alignItemWithTrigger={false}>
+            <SelectContent alignItemWithTrigger={false} className='[&_[data-slot=select-item]]:min-h-11 [&_[role=option]]:min-h-11'>
               <SelectGroup>
                 <SelectItem value='visual'>{t('Visual editor')}</SelectItem>
                 <SelectItem value='raw'>{t('Expression editor')}</SelectItem>
@@ -1867,7 +1868,7 @@ export const TieredPricingEditor = memo(function TieredPricingEditor({
                     ])
                   }
                 >
-                  <Plus className='mr-2 h-4 w-4' />
+                  <HugeiconsIcon icon={PlusSignIcon} className='mr-2 h-4 w-4' />
                   {t('Add rule group')}
                 </Button>
               </>

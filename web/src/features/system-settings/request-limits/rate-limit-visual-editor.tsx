@@ -25,13 +25,13 @@ import { StaticRowActions } from '@/components/data-table/static/static-row-acti
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
-import { safeJsonParseWithValidation } from '../utils/json-parser'
-import { isObjectRecord } from '../utils/json-validators'
 import { RateLimitDialog, type RateLimitEntryData } from './rate-limit-dialog'
 
 type RateLimitVisualEditorProps = {
   value: string
   onChange: (value: string) => void
+  getCurrentValue?: () => string
+  onRequestJSON?: () => void
 }
 
 type RateLimitEntry = RateLimitEntryData
@@ -39,42 +39,32 @@ type RateLimitEntry = RateLimitEntryData
 export function RateLimitVisualEditor({
   value,
   onChange,
+  getCurrentValue,
+  onRequestJSON,
 }: RateLimitVisualEditorProps) {
   const { t } = useTranslation()
   const [searchText, setSearchText] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editData, setEditData] = useState<RateLimitEntry | null>(null)
 
-  const rateLimits = useMemo(() => {
-    if (!value || value.trim() === '') return []
-
-    const parsed = safeJsonParseWithValidation<Record<string, unknown>>(value, {
-      fallback: {},
-      validator: isObjectRecord,
-      validatorMessage: 'Rate limits must be a JSON object',
-      context: 'rate limits',
-    })
-
-    return Object.entries(parsed)
-      .map(([groupName, limits]) => {
-        if (
-          Array.isArray(limits) &&
-          limits.length === 2 &&
-          typeof limits[0] === 'number' &&
-          typeof limits[1] === 'number'
-        ) {
-          return {
-            groupName,
-            maxRequests: limits[0],
-            maxSuccess: limits[1],
-          }
-        }
-        return null
-      })
-      .filter((item): item is RateLimitEntry => item !== null)
+  const [openedSource, setOpenedSource] = useState(value)
+  const parsedState = useMemo(() => {
+    try {
+      const parsed: unknown = JSON.parse(value || '{}')
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null
+      const entries: RateLimitEntry[] = []
+      for (const [groupName, limits] of Object.entries(parsed)) {
+        if (!Array.isArray(limits) || limits.length !== 2 || !limits.every((limit) => typeof limit === 'number' && Number.isFinite(limit))) return null
+        entries.push({ groupName, maxRequests: limits[0], maxSuccess: limits[1] })
+      }
+      return { source: parsed as Record<string, unknown>, entries }
+    } catch { return null }
   }, [value])
+  const rateLimits = parsedState?.entries
+  const blocked = parsedState === null || (dialogOpen && openedSource !== value)
 
   const filteredRateLimits = useMemo(() => {
+    if (!rateLimits) return []
     if (!searchText) return rateLimits
     const lowerSearch = searchText.toLowerCase()
     return rateLimits.filter((limit) =>
@@ -83,11 +73,8 @@ export function RateLimitVisualEditor({
   }, [rateLimits, searchText])
 
   const handleSave = (data: RateLimitEntryData) => {
-    const parsed = safeJsonParseWithValidation<Record<string, unknown>>(value, {
-      fallback: {},
-      validator: isObjectRecord,
-      silent: true,
-    })
+    if (!parsedState || openedSource !== (getCurrentValue?.() ?? value)) return false
+    const parsed = JSON.parse(value || '{}') as Record<string, unknown>
 
     if (editData && editData.groupName !== data.groupName) {
       delete parsed[editData.groupName]
@@ -99,11 +86,8 @@ export function RateLimitVisualEditor({
   }
 
   const handleDelete = (groupName: string) => {
-    const parsed = safeJsonParseWithValidation<Record<string, unknown>>(value, {
-      fallback: {},
-      validator: isObjectRecord,
-      silent: true,
-    })
+    if (!parsedState || (getCurrentValue?.() ?? value) !== value) return
+    const parsed = JSON.parse(value || '{}') as Record<string, unknown>
 
     delete parsed[groupName]
 
@@ -111,21 +95,30 @@ export function RateLimitVisualEditor({
   }
 
   const handleEdit = (limit: RateLimitEntry) => {
+    setOpenedSource(value)
     setEditData(limit)
     setDialogOpen(true)
   }
 
   const handleAdd = () => {
+    setOpenedSource(value)
     setEditData(null)
     setDialogOpen(true)
   }
 
   return (
-    <div className='space-y-4'>
+    <div className='space-y-4 pointer-coarse:[&_[data-slot=input]]:min-h-11'>
+      {!parsedState && <div role='alert' className='space-y-3 rounded-lg border p-4 text-sm'>
+        <p>{t('This configuration cannot be edited safely as a list. The original JSON has been preserved.')}</p>
+        <pre aria-label={t('Original JSON')} className='whitespace-pre-wrap break-all'>{value}</pre>
+        {onRequestJSON && <Button type='button' variant='outline' onClick={onRequestJSON}>{t('Repair JSON')}</Button>}
+      </div>}
+      {parsedState && <>
       <div className='flex items-center gap-4'>
         <div className='relative flex-1'>
           <Search className='text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4' />
           <Input
+            aria-label={t('Search group names...')}
             placeholder={t('Search group names...')}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
@@ -152,7 +145,7 @@ export function RateLimitVisualEditor({
           {
             id: 'group',
             header: t('Group Name'),
-            cellClassName: 'font-medium',
+            cellClassName: 'font-medium whitespace-normal break-all',
             cell: (limit) => limit.groupName,
           },
           {
@@ -197,11 +190,13 @@ export function RateLimitVisualEditor({
         ]}
       />
 
+      </>}
       <RateLimitDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSave={handleSave}
         editData={editData}
+        blocked={blocked}
       />
     </div>
   )

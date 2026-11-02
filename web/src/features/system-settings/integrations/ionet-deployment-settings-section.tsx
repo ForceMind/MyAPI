@@ -176,7 +176,7 @@ export function IoNetDeploymentSettingsSection({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{t('io.net API Key')}</FormLabel>
-                    <div className='flex gap-2'>
+                    <div className='flex min-w-0 flex-col gap-2 sm:flex-row'>
                       <FormControl>
                         <Input
                           type='password'

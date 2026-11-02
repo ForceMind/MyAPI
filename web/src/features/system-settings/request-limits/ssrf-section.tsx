@@ -49,7 +49,11 @@ import {
   SettingsSwitchContent,
   SettingsSwitchItem,
 } from '../components/settings-form-layout'
-import { SettingsPageFormActions } from '../components/settings-page-context'
+import { SettingsPageFormActions, useSettingsReloadScope, isCurrentSettingsFrame } from '../components/settings-page-context'
+import { useResetForm, preserveSettingsEdits } from '../hooks/use-reset-form'
+import { FormNavigationGuard } from '../components/form-navigation-guard'
+import { FormDirtyIndicator } from '../components/form-dirty-indicator'
+import { useAuthStore } from '@/stores/auth-store'
 import { SettingsSection } from '../components/settings-section'
 import {
   toTypedBulkItem,
@@ -169,6 +173,7 @@ export function SSRFSection({ defaultValues }: SSRFSectionProps) {
   const baselineRef = useRef<NormalizedSSRFValues>(
     normalizeDefaults(defaultValues)
   )
+  const incomingSnapshot = useRef(JSON.stringify(normalizeDefaults(defaultValues)))
 
   const formDefaults = useMemo(
     () => buildFormDefaults(defaultValues),
@@ -180,12 +185,21 @@ export function SSRFSection({ defaultValues }: SSRFSectionProps) {
     defaultValues: formDefaults,
   })
 
+  const frame = useSettingsReloadScope()
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
+  useResetForm(form, formDefaults)
+
   useEffect(() => {
-    baselineRef.current = normalizeDefaults(defaultValues)
-    form.reset(buildFormDefaults(defaultValues))
-  }, [defaultValues, form])
+    const values = normalizeDefaults(defaultValues)
+    const serialized = JSON.stringify(values)
+    if (serialized === incomingSnapshot.current) return
+    incomingSnapshot.current = serialized
+    baselineRef.current = values
+  }, [defaultValues])
 
   const onSubmit = async (data: SSRFFormValues) => {
+    const submittedInputs = structuredClone(form.getValues())
+    if (!isCurrentSettingsFrame(frame, identity)) return
     const normalized = normalizeFormValues(data)
     const updates = (
       Object.keys(normalized) as Array<keyof NormalizedSSRFValues>
@@ -210,15 +224,25 @@ export function SSRFSection({ defaultValues }: SSRFSectionProps) {
       return toTypedBulkItem(key, value)
     })
 
-    await updateTypedBulk.mutateAsync(items)
+    const result = await updateTypedBulk.mutateAsync(items)
+    if (!result.success || !isCurrentSettingsFrame(frame, identity)) return
 
-    baselineRef.current = normalized
+    const acknowledged = { ...baselineRef.current }
+    for (const key of updates) Object.assign(acknowledged, { [key]: normalized[key] })
+    baselineRef.current = acknowledged
+    const saved = buildFormDefaults(acknowledged)
+    const next = preserveSettingsEdits(saved, submittedInputs, form.getValues())
+    form.reset(saved)
+    form.reset(next, { keepDefaultValues: true })
   }
 
   const domainFilterMode = form.watch('fetch_setting.domain_filter_mode')
   const ipFilterMode = form.watch('fetch_setting.ip_filter_mode')
 
   return (
+    <>
+    <FormNavigationGuard when={form.formState.isDirty} />
+    <FormDirtyIndicator isDirty={form.formState.isDirty} />
     <SettingsSection title={t('SSRF Protection')}>
       <Form {...form}>
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
@@ -448,5 +472,6 @@ export function SSRFSection({ defaultValues }: SSRFSectionProps) {
         </SettingsForm>
       </Form>
     </SettingsSection>
+    </>
   )
 }

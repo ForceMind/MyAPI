@@ -17,7 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import * as z from 'zod'
@@ -37,6 +36,9 @@ import { SettingsForm } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
+import { FormNavigationGuard } from '../components/form-navigation-guard'
+import { FormDirtyIndicator } from '../components/form-dirty-indicator'
+import { useResetForm } from '../hooks/use-reset-form'
 
 const tokenLimitSchema = z.object({
   token_setting: z.object({
@@ -78,9 +80,7 @@ export function TokenLimitSection({ defaultValues }: TokenLimitSectionProps) {
     defaultValues: buildFormDefaults(defaultValues),
   })
 
-  useEffect(() => {
-    form.reset(buildFormDefaults(defaultValues))
-  }, [defaultValues, form])
+  useResetForm(form, buildFormDefaults(defaultValues))
 
   const onSubmit = async (values: TokenLimitFormValues) => {
     const key = 'token_setting.max_user_tokens' as const
@@ -92,6 +92,9 @@ export function TokenLimitSection({ defaultValues }: TokenLimitSectionProps) {
   }
 
   return (
+    <>
+    <FormNavigationGuard when={form.formState.isDirty} />
+    <FormDirtyIndicator isDirty={form.formState.isDirty} />
     <SettingsSection title={t('Token Limits')}>
       <Form {...form}>
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
@@ -129,5 +132,6 @@ export function TokenLimitSection({ defaultValues }: TokenLimitSectionProps) {
         </SettingsForm>
       </Form>
     </SettingsSection>
+    </>
   )
 }

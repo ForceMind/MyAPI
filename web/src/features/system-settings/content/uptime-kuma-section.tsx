@@ -53,6 +53,10 @@ import { Input } from '@/components/ui/input'
 import { SettingsSwitchField } from '../components/settings-form-layout'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
+import { FormNavigationGuard } from '../components/form-navigation-guard'
+import { FormDirtyIndicator } from '../components/form-dirty-indicator'
+import { SettingsJSONRepair } from '../components/settings-json-repair'
+import { useContentEntries } from './use-content-entries'
 
 type UptimeKumaGroup = {
   id: number
@@ -92,9 +96,12 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
   const uptimeKumaSchema = createUptimeKumaSchema(t)
-  const [groups, setGroups] = useState<UptimeKumaGroup[]>([])
+  const draft = useContentEntries<UptimeKumaGroup>(data, (entry) => uptimeKumaSchema.safeParse(entry).success)
+  const groups = draft.entries
+  const setGroups = draft.setEntries
   const [isEnabled, setIsEnabled] = useState(enabled)
-  const [hasChanges, setHasChanges] = useState(false)
+  const hasChanges = draft.isDirty
+  const setHasChanges = draft.markChanged
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [showDialog, setShowDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -110,21 +117,6 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
     },
   })
 
-  useEffect(() => {
-    try {
-      const parsed = JSON.parse(data || '[]')
-      if (Array.isArray(parsed)) {
-        setGroups(
-          parsed.map((item, idx) => ({
-            ...item,
-            id: item.id || idx + 1,
-          }))
-        )
-      }
-    } catch {
-      setGroups([])
-    }
-  }, [data])
 
   useEffect(() => {
     setIsEnabled(enabled)
@@ -136,14 +128,17 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
         key: 'console_setting.uptime_kuma_enabled',
         value: checked,
       })
+      if (!draft.isCurrent()) return
       setIsEnabled(checked)
       toast.success(t('Setting saved'))
     } catch {
+      if (!draft.isCurrent()) return
       toast.error(t('Failed to update setting'))
     }
   }
 
   const handleAdd = () => {
+    if (draft.incompatible) return
     setEditingGroup(null)
     form.reset({
       categoryName: '',
@@ -170,6 +165,7 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
   }
 
   const handleBatchDelete = () => {
+    if (draft.incompatible) return
     if (selectedIds.length === 0) {
       toast.error(t('Please select items to delete'))
       return
@@ -179,6 +175,7 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
   }
 
   const confirmDelete = () => {
+    if (draft.incompatible) return
     if (deleteTarget === 'single' && editingGroup) {
       setGroups((prev) => prev.filter((item) => item.id !== editingGroup.id))
       setHasChanges(true)
@@ -198,6 +195,7 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
   }
 
   const handleSubmitForm = (values: UptimeKumaFormValues) => {
+    if (draft.incompatible) return
     if (editingGroup) {
       setGroups((prev) =>
         prev.map((item) =>
@@ -215,14 +213,18 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
   }
 
   const handleSaveAll = async () => {
+    if (draft.incompatible) return
+    const saved = groups
     try {
       await updateOption.mutateAsync({
         key: 'console_setting.uptime_kuma_groups',
-        value: JSON.stringify(groups),
+        value: JSON.stringify(saved),
       })
-      setHasChanges(false)
+      if (!draft.isCurrent()) return
+      draft.acknowledge(saved)
       toast.success(t('Uptime Kuma groups saved successfully'))
     } catch {
+      if (!draft.isCurrent()) return
       toast.error(t('Failed to save Uptime Kuma groups'))
     }
   }
@@ -238,11 +240,15 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
   }
 
   return (
+    <>
+    <FormNavigationGuard when={hasChanges || (showDialog && form.formState.isDirty)} />
+    <FormDirtyIndicator isDirty={hasChanges || (showDialog && form.formState.isDirty)} />
     <SettingsSection title={t('Uptime Kuma')}>
       <div className='space-y-4'>
+        {draft.incompatible && <SettingsJSONRepair source={draft.source} canApply={draft.canApplyRaw} onApply={(raw) => { const applied = draft.applyRaw(raw); if (applied) setSelectedIds([]); return applied }} />}
         <div className='flex flex-wrap items-center justify-between gap-2'>
           <div className='flex flex-wrap items-center gap-2'>
-            <Button onClick={handleAdd} size='sm'>
+            <Button onClick={handleAdd} size='sm' disabled={draft.incompatible}>
               <Plus className='mr-2 h-4 w-4' />
               {t('Add Group')}
             </Button>
@@ -250,7 +256,7 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
               onClick={handleBatchDelete}
               size='sm'
               variant='destructive'
-              disabled={selectedIds.length === 0}
+              disabled={draft.incompatible || selectedIds.length === 0}
             >
               <Trash2 className='mr-2 h-4 w-4' />
               {t('Delete (')}
@@ -260,13 +266,14 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
               onClick={handleSaveAll}
               size='sm'
               variant='secondary'
-              disabled={!hasChanges || updateOption.isPending}
+              disabled={draft.incompatible || !hasChanges || updateOption.isPending}
             >
               <Save className='mr-2 h-4 w-4' />
               {updateOption.isPending ? t('Saving...') : t('Save Settings')}
             </Button>
           </div>
           <SettingsSwitchField
+            disabled={updateOption.isPending}
             checked={isEnabled}
             onCheckedChange={handleToggleEnabled}
             label={t('Enabled')}
@@ -274,7 +281,7 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
           />
         </div>
 
-        <StaticDataTable
+        {!draft.incompatible && <StaticDataTable
           data={groups}
           getRowKey={(group) => group.id}
           emptyContent={t(
@@ -310,7 +317,7 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
             {
               id: 'url',
               header: t('Uptime Kuma URL'),
-              cellClassName: 'text-primary max-w-xs truncate font-mono text-sm',
+              cellClassName: 'text-primary max-w-xs whitespace-normal break-all font-mono text-sm',
               cell: (group) => group.url,
             },
             {
@@ -333,7 +340,7 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
               ),
             },
           ]}
-        />
+        />}
       </div>
 
       <Dialog
@@ -347,6 +354,7 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
         description={t(
           'Configure monitoring status page groups for the dashboard'
         )}
+        contentClassName='h-dvh max-h-dvh w-screen max-w-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-2xl pointer-coarse:[&_[data-slot=input]]:min-h-11 pointer-coarse:[&_[role=combobox]]:min-h-11'
         contentHeight='auto'
         bodyClassName='space-y-4'
         footer={
@@ -370,6 +378,7 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
             onSubmit={form.handleSubmit(handleSubmitForm)}
             className='space-y-4'
           >
+            <p className='text-muted-foreground text-xs'>{t('Item edits change the local draft. Use Save Settings on the page to persist them.')}</p>
             <FormField
               control={form.control}
               name='categoryName'
@@ -433,9 +442,11 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
       </Dialog>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
+        <AlertDialogContent className='flex max-h-[calc(100dvh-2rem)] min-w-0 flex-col overflow-hidden'>
+          <AlertDialogHeader className='shrink-0'>
             <AlertDialogTitle>{t('Are you sure?')}</AlertDialogTitle>
+          </AlertDialogHeader>
+          <div tabIndex={0} role='region' aria-label={t('Confirmation details')} className='min-h-0 space-y-3 overflow-y-auto overscroll-contain'>
             <AlertDialogDescription>
               {deleteTarget === 'single'
                 ? t('This Uptime Kuma group will be removed from the list.')
@@ -444,15 +455,17 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
                     { count: selectedIds.length }
                   )}
             </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
+            <p className='text-muted-foreground text-xs'>{t('This only changes the local draft. Use Save Settings on the page to persist it.')}</p>
+          </div>
+          <AlertDialogFooter className='shrink-0'>
             <AlertDialogCancel>{t('Cancel')}</AlertDialogCancel>
-            <AlertDialogAction variant='destructive' onClick={confirmDelete}>
+            <AlertDialogAction variant='destructive' disabled={draft.incompatible} onClick={confirmDelete}>
               {t('Delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </SettingsSection>
+    </>
   )
 }

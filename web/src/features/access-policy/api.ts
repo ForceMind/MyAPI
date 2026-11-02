@@ -109,7 +109,7 @@ export async function saveAssignedPolicy(
   const response = await api.put(
     `/api/access-policy/${target.subject}/${target.id}`,
     body,
-    targetConfig(target, signal)
+    { ...targetConfig(target, signal), skipAuthRefresh: true }
   )
   return verifyTarget(
     assignedPolicySchema.parse(responseData(response.data)),
@@ -126,6 +126,7 @@ export async function removeAssignedPolicy(
     `/api/access-policy/${target.subject}/${target.id}`,
     {
       ...targetConfig(target, signal),
+      skipAuthRefresh: true,
       data: { expected_revision: revision },
     }
   )
