@@ -143,7 +143,7 @@ test.each(['read', 'save', 'remove', 'preview', 'owner'] as const)(
   }
 )
 
-test('a user policy request retains normal authentication refresh and replay', async () => {
+test('a user policy read retains normal authentication refresh and replay', async () => {
   const requests: InternalAxiosRequestConfig[] = []
   const refreshes: InternalAxiosRequestConfig[] = []
   transport = (config) => {
@@ -170,10 +170,15 @@ test('a user policy request retains normal authentication refresh and replay', a
     )
   }
   await expect(
-    saveAssignedPolicy(userTarget, { ...candidate, expected_revision: 0 })
+    getAssignedPolicy(userTarget)
   ).resolves.toMatchObject({ subject: 'user', subject_id: 2, revision: 1 })
   expect(refreshes).toHaveLength(1)
   expect(requests).toHaveLength(2)
+  for (const request of requests) {
+    expect(request.method).toBe('get')
+    expect(request.url).toBe('/api/access-policy/user/2')
+    expect(request.data).toBeUndefined()
+  }
   expect(requests[1].headers.get('Authorization')).toBe(
     'Bearer synthetic-access-refreshed'
   )
