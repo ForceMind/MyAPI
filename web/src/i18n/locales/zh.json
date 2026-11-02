@@ -7308,6 +7308,9 @@
     "Groups, endpoints and tags": "分组、端点与标签",
     "Open model page": "打开模型详情页",
     "No models are available in this catalog.": "此目录暂无可用模型。",
-    "The catalog returned no enabled models.": "目录未返回已启用的模型。"
+    "The catalog returned no enabled models.": "目录未返回已启用的模型。",
+    "Model metadata pagination": "模型元数据分页",
+    "Model editor sections": "模型编辑分区",
+    "View description for {{model}}": "查看模型 {{model}} 的说明"
   }
 }

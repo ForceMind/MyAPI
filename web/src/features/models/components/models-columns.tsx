@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { ColumnDef } from '@tanstack/react-table'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BadgeCell, BadgeListCell } from '@/components/data-table'
@@ -25,12 +26,6 @@ import { ProviderBadge } from '@/components/provider-badge'
 import { StatusBadge } from '@/components/status-badge'
 import { TableId } from '@/components/table-id'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import { formatTimestampToDate } from '@/lib/format'
 import { getLobeIcon } from '@/lib/lobe-icon'
 
@@ -53,9 +48,10 @@ function getCompactModelIcon(iconKey: string) {
 /**
  * Generate models columns configuration
  */
-export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
+export function useModelsColumns(vendors: Vendor[] = [], mobile = false): ColumnDef<Model>[] {
   const { t } = useTranslation()
 
+  return useMemo<ColumnDef<Model>[]>(() => {
   // Get translated configs
   const NAME_RULE_CONFIG = getNameRuleConfig(t)
   const MODEL_STATUS_CONFIG = getModelStatusConfig(t)
@@ -75,14 +71,14 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
           checked={table.getIsAllPageRowsSelected()}
           indeterminate={table.getIsSomePageRowsSelected()}
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label='Select all'
+          aria-label={t('Select all')}
         />
       ),
       cell: ({ row }) => (
         <Checkbox
           checked={row.getIsSelected()}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label='Select row'
+          aria-label={t('Select row')}
         />
       ),
       enableSorting: false,
@@ -127,7 +123,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
               variant='neutral'
               copyText={name}
               size='sm'
-              className='-ml-1.5 font-mono'
+              className='-ml-1.5 max-w-full font-mono [&_*]:whitespace-normal [&_*]:wrap-anywhere'
             />
           </div>
         )
@@ -173,27 +169,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
           model.matched_models &&
           model.matched_models.length > 0
         ) {
-          const matchedBadges = model.matched_models.map((m) => (
-            <StatusBadge key={m} label={m} autoColor={m} size='sm' />
-          ))
-
-          return (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger
-                  render={<div className='inline-flex max-w-full min-w-0' />}
-                >
-                  {badge}
-                </TooltipTrigger>
-                <TooltipContent
-                  side='top'
-                  className='border-border bg-popover max-h-48 max-w-[320px] overflow-y-auto p-2'
-                >
-                  <div className='flex flex-wrap gap-1'>{matchedBadges}</div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )
+          return <details className='min-w-0'><summary className='min-h-11 cursor-pointer py-2'>{badge}</summary><div className='mt-2 flex min-w-0 flex-wrap gap-2'>{model.matched_models.map((name) => <span key={name} className='text-xs wrap-anywhere'>{name}</span>)}</div></details>
         }
 
         return badge
@@ -271,7 +247,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         const modelName = row.getValue('model_name') as string
 
         return (
-          <DescriptionCell modelName={modelName} description={description} />
+          <DescriptionCell modelId={row.original.id} modelName={modelName} description={description} />
         )
       },
       size: 150,
@@ -288,6 +264,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         const tagArray = parseModelTags(tags)
         return (
           <BadgeListCell
+            max={mobile ? tagArray.length : 2}
             items={tagArray.map((tag) => (
               <StatusBadge key={tag} label={tag} autoColor={tag} size='sm' />
             ))}
@@ -308,7 +285,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         const endpointArray = formatEndpointsDisplay(endpoints)
         return (
           <BadgeListCell
-            max={3}
+            max={mobile ? endpointArray.length : 3}
             items={endpointArray.map((ep) => (
               <StatusBadge key={ep} label={ep} autoColor={ep} size='sm' />
             ))}
@@ -333,6 +310,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         }>
         return (
           <BadgeListCell
+            max={mobile ? (channels?.length ?? 0) : 2}
             items={(channels ?? []).map((c) => (
               <StatusBadge
                 key={c.id}
@@ -357,7 +335,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         const groups = row.getValue('enable_groups') as string[]
         return (
           <BadgeListCell
-            max={3}
+            max={mobile ? (groups?.length ?? 0) : 3}
             items={(groups ?? []).map((g) => (
               <GroupBadge key={g} group={g} size='sm' />
             ))}
@@ -377,6 +355,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         const quotaTypes = row.getValue('quota_types') as number[]
         return (
           <BadgeListCell
+            max={mobile ? (quotaTypes?.length ?? 0) : 2}
             items={(quotaTypes ?? []).map((qt) => {
               const config = QUOTA_TYPE_CONFIG[qt]
               return (
@@ -475,4 +454,5 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
       meta: { pinned: 'right' as const },
     },
   ]
+  }, [t, vendors, mobile])
 }

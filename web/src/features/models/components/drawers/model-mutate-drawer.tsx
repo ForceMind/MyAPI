@@ -18,7 +18,9 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, Loader2 } from 'lucide-react'
+import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Spinner } from '@/components/ui/spinner'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -26,7 +28,7 @@ import { toast } from 'sonner'
 import * as z from 'zod'
 
 import {
-  SideDrawerSection,
+  sideDrawerSectionClassName,
   sideDrawerContentClassName,
   sideDrawerFooterClassName,
   sideDrawerFormClassName,
@@ -234,12 +236,14 @@ type ModelMutateDrawerProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   currentRow?: Model | null
+  returnFocus?: () => HTMLElement | null
 }
 
 export function ModelMutateDrawer({
   open,
   onOpenChange,
   currentRow,
+  returnFocus,
 }: ModelMutateDrawerProps) {
   const { t } = useTranslation()
   const canEditPricing = useAuthStore(
@@ -264,6 +268,7 @@ export function ModelMutateDrawer({
   // refetch, and including it in the deps would reset the form under the user.
   const modelSettingsRef = useRef<ModelSettings | null>(null)
   const pricingInitializedRef = useRef(false)
+  const formElementRef = useRef<HTMLFormElement>(null)
 
   // Fetch vendors for dropdown
   const { data: vendorsData } = useQuery({
@@ -485,7 +490,7 @@ export function ModelMutateDrawer({
         ...pricing.fields,
       })
     }
-  }, [open, isEditing, modelData, currentRow, form])
+  }, [open, isEditing, currentModelId, modelData, currentRow, form])
 
   // The first options response may arrive after the metadata form is usable.
   // Fill pricing once while retaining any metadata already typed by the user.
@@ -775,8 +780,8 @@ export function ModelMutateDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className={sideDrawerContentClassName('sm:max-w-2xl')}>
-        <SheetHeader className={sideDrawerHeaderClassName()}>
+      <SheetContent finalFocus={returnFocus} className={sideDrawerContentClassName('sm:max-w-3xl [&_[data-slot=sheet-close]]:min-h-11 [&_[data-slot=sheet-close]]:min-w-11')}>
+        <SheetHeader className={sideDrawerHeaderClassName('pr-16')}>
           <SheetTitle>
             {isEditing ? t('Edit Model') : t('Create Model')}
           </SheetTitle>
@@ -787,18 +792,29 @@ export function ModelMutateDrawer({
                   'Add a new model to the system by providing the necessary information.'
                 )}
           </SheetDescription>
+          {isEditing && <p className='text-muted-foreground mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs'><span className='font-mono'>#{currentModelId}</span><span className='wrap-anywhere'>{modelData?.data?.model_name ?? currentRow?.model_name}</span></p>}
         </SheetHeader>
 
+        <nav aria-label={t('Model editor sections')} className='bg-muted/20 flex shrink-0 flex-wrap gap-1 border-b px-4 py-2 sm:px-6'>
+          {[
+            { id: 'basic', label: t('Basic Information') },
+            { id: 'matching', label: t('Matching Rules') },
+            { id: 'endpoints', label: t('Endpoints') },
+            ...(canEditPricing ? [{ id: 'pricing', label: t('Pricing') }] : []),
+            { id: 'status', label: t('Status & Sync') },
+          ].map((section) => <Button key={section.id} type='button' variant='ghost' className='h-auto min-h-11 whitespace-normal' onClick={() => formElementRef.current?.querySelector(`[data-model-section="${section.id}"]`)?.scrollIntoView({ block: 'start' })}>{section.label}</Button>)}
+        </nav>
         <Form {...form}>
           <form
             id='model-form'
+            ref={formElementRef}
             onSubmit={form.handleSubmit(
               onSubmit as Parameters<typeof form.handleSubmit>[0]
             )}
-            className={sideDrawerFormClassName()}
+            className={sideDrawerFormClassName('[&_input]:min-h-11 [&_button]:min-h-11 [&_label]:wrap-anywhere')}
           >
             {/* Basic Information */}
-            <SideDrawerSection>
+            <section data-model-section='basic' className={sideDrawerSectionClassName('scroll-mt-4')}>
               <h3 className='text-sm font-semibold'>
                 {t('Basic Information')}
               </h3>
@@ -919,10 +935,10 @@ export function ModelMutateDrawer({
                   </FormItem>
                 )}
               />
-            </SideDrawerSection>
+            </section>
 
             {/* Matching Configuration */}
-            <SideDrawerSection>
+            <section data-model-section='matching' className={sideDrawerSectionClassName('scroll-mt-4')}>
               <h3 className='text-sm font-semibold'>{t('Matching Rules')}</h3>
 
               <FormField
@@ -937,7 +953,7 @@ export function ModelMutateDrawer({
                           field.onChange(Number.parseInt(value))
                         }
                         value={String(field.value)}
-                        className='grid grid-cols-2 gap-4'
+                        className='grid grid-cols-1 gap-3 sm:grid-cols-2'
                       >
                         {getNameRuleOptions(t).map((option) => (
                           <div
@@ -950,7 +966,7 @@ export function ModelMutateDrawer({
                             />
                             <Label
                               htmlFor={`rule-${option.value}`}
-                              className='cursor-pointer font-normal'
+                              className='inline-flex min-h-11 cursor-pointer items-center font-normal'
                             >
                               {option.label}
                             </Label>
@@ -965,11 +981,11 @@ export function ModelMutateDrawer({
                   </FormItem>
                 )}
               />
-            </SideDrawerSection>
+            </section>
 
             {/* Endpoints Configuration */}
-            <SideDrawerSection>
-              <div className='flex items-center justify-between'>
+            <section data-model-section='endpoints' className={sideDrawerSectionClassName('scroll-mt-4')}>
+              <div className='flex flex-wrap items-center justify-between gap-3'>
                 <h3 className='text-sm font-semibold'>{t('Endpoints')}</h3>
                 <Select<string>
                   items={Object.keys(ENDPOINT_TEMPLATES).map((key) => ({
@@ -980,7 +996,7 @@ export function ModelMutateDrawer({
                     v !== null && handleFillEndpointTemplate(v)
                   }
                 >
-                  <SelectTrigger size='sm' className='w-[200px]'>
+                  <SelectTrigger size='sm' className='min-h-11 w-full sm:w-[200px]'>
                     <SelectValue placeholder={t('Load template...')} />
                   </SelectTrigger>
                   <SelectContent alignItemWithTrigger={false}>
@@ -1022,11 +1038,11 @@ export function ModelMutateDrawer({
                   </FormItem>
                 )}
               />
-            </SideDrawerSection>
+            </section>
 
             {/* Pricing Configuration */}
             {canEditPricing && !hasModelSettings && (
-              <SideDrawerSection>
+              <section data-model-section='pricing' className={sideDrawerSectionClassName('scroll-mt-4')}>
                 {systemOptionsQuery.isPending ? (
                   <LoadingState message={t('Loading settings...')} />
                 ) : (
@@ -1036,10 +1052,10 @@ export function ModelMutateDrawer({
                     onRetry={() => void systemOptionsQuery.refetch()}
                   />
                 )}
-              </SideDrawerSection>
+              </section>
             )}
             {canEditPricing && hasModelSettings && (
-              <SideDrawerSection>
+              <section data-model-section='pricing' className={sideDrawerSectionClassName('scroll-mt-4')}>
                 <h3 className='text-sm font-semibold'>
                   {t('Pricing Configuration')}
                 </h3>
@@ -1261,7 +1277,7 @@ export function ModelMutateDrawer({
                         }
                       >
                         {t('Advanced options')}
-                        <ChevronDown
+                        <HugeiconsIcon icon={ArrowDown01Icon} aria-hidden='true'
                           className={`h-4 w-4 transition-transform duration-200 ${
                             advancedOpen ? 'rotate-180' : ''
                           }`}
@@ -1381,11 +1397,11 @@ export function ModelMutateDrawer({
                     </Collapsible>
                   </>
                 )}
-              </SideDrawerSection>
+              </section>
             )}
 
             {/* Status & Sync */}
-            <SideDrawerSection>
+            <section data-model-section='status' className={sideDrawerSectionClassName('scroll-mt-4')}>
               <h3 className='text-sm font-semibold'>{t('Status & Sync')}</h3>
 
               <FormField
@@ -1433,22 +1449,23 @@ export function ModelMutateDrawer({
                   </FormItem>
                 )}
               />
-            </SideDrawerSection>
+            </section>
           </form>
         </Form>
 
         <SheetFooter className={sideDrawerFooterClassName()}>
           <SheetClose
-            render={<Button variant='outline' disabled={isSubmitting} />}
+            render={<Button variant='outline' className='min-h-11' disabled={isSubmitting} />}
           >
             {t('Cancel')}
           </SheetClose>
           <Button
+            className='min-h-11'
             form='model-form'
             type='submit'
             disabled={isSubmitting || (canEditPricing && !hasModelSettings)}
           >
-            {isSubmitting && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
+            {isSubmitting && <Spinner className='mr-2 h-4 w-4 animate-spin' />}
             {isEditing ? t('Update Model') : t('Save changes')}
           </Button>
         </SheetFooter>

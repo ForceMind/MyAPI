@@ -28,6 +28,7 @@ import { useModels } from './models-provider'
 export function ModelsDialogs() {
   const {
     open,
+    returnFocus,
     setOpen,
     currentRow,
     currentVendor,
@@ -42,6 +43,7 @@ export function ModelsDialogs() {
         open={open === 'create-model' || open === 'update-model'}
         onOpenChange={(v) => !v && setOpen(null)}
         currentRow={currentRow}
+        returnFocus={returnFocus}
       />
 
       {/* Vendor Create/Update Dialog */}
@@ -84,6 +86,7 @@ export function ModelsDialogs() {
             setDescriptionData(null)
           }
         }}
+        returnFocus={returnFocus}
         modelName={descriptionData?.modelName || ''}
         description={descriptionData?.description || ''}
       />

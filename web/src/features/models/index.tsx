@@ -105,7 +105,7 @@ function ModelsContent() {
 
   return (
     <>
-      <SectionPageLayout fixedContent>
+      <SectionPageLayout fixedContent={activeSection === 'deployments'}>
         <SectionPageLayout.Title>{t(meta.titleKey)}</SectionPageLayout.Title>
         <SectionPageLayout.Description>
           {t('Maintain the model catalog and existing deployments.')}

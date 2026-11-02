@@ -7308,6 +7308,9 @@
     "Groups, endpoints and tags": "Groups, endpoints and tags",
     "Open model page": "Open model page",
     "No models are available in this catalog.": "No models are available in this catalog.",
-    "The catalog returned no enabled models.": "The catalog returned no enabled models."
+    "The catalog returned no enabled models.": "The catalog returned no enabled models.",
+    "Model metadata pagination": "Model metadata pagination",
+    "Model editor sections": "Model editor sections",
+    "View description for {{model}}": "View description for {{model}}"
   }
 }

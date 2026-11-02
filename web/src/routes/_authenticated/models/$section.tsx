@@ -28,8 +28,8 @@ import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
 const modelsSearchSchema = z.object({
-  page: z.number().optional().catch(1),
-  pageSize: z.number().optional().catch(10),
+  page: z.number().int().positive().max(2147483647).optional().catch(1),
+  pageSize: z.number().int().positive().max(100).optional().catch(10),
   filter: z.string().optional().catch(''),
   vendor: z.array(z.string()).optional().catch([]),
   status: z.array(z.string()).optional().catch([]),

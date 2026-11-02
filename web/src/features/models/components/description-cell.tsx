@@ -16,36 +16,44 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useTranslation } from 'react-i18next'
+
 import { Button } from '@/components/ui/button'
 
 import { useModels } from './models-provider'
 
 type DescriptionCellProps = {
+  modelId: number
   modelName: string
   description: string
 }
 
 export function DescriptionCell({
+  modelId,
   modelName,
   description,
 }: DescriptionCellProps) {
-  const { setOpen, setDescriptionData } = useModels()
+  const { t } = useTranslation()
+  const { setOpen, setDescriptionData, rememberOpener } = useModels()
 
   if (!description) {
     return <span className='text-muted-foreground text-xs'>-</span>
   }
 
   const handleClick = () => {
+    rememberOpener({ kind: 'description', id: modelId })
     setDescriptionData({ modelName, description })
     setOpen('description')
   }
 
   return (
-    <div className='max-w-[150px]'>
+    <div className='min-w-0'>
       <Button
         variant='link'
         onClick={handleClick}
-        className='text-muted-foreground hover:text-foreground block h-auto w-full cursor-pointer overflow-hidden p-0 text-left text-sm text-ellipsis whitespace-nowrap no-underline'
+        data-model-description={modelId}
+        aria-label={t('View description for {{model}}', { model: modelName })}
+        className='text-muted-foreground hover:text-foreground block h-auto min-h-11 w-full cursor-pointer py-2 text-left text-sm wrap-anywhere whitespace-normal no-underline'
       >
         {description}
       </Button>

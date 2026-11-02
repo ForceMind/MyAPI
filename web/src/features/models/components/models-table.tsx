@@ -22,6 +22,10 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DataTablePage, useDataTable } from '@/components/data-table'
+import { LogPagination } from '@/components/log-pagination'
+import { normalizeLogPagination, getLogPageCount } from '@/lib/log-pagination'
+import { useAuthStore } from '@/stores/auth-store'
+import { ModelMobileList } from './model-mobile-list'
 import { ErrorState } from '@/components/error-state'
 import { useMediaQuery } from '@/hooks'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
@@ -42,6 +46,7 @@ const route = getRouteApi('/_authenticated/models/$section')
 export function ModelsTable() {
   const { t } = useTranslation()
   const { selectedVendor } = useModels()
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
   const isMobile = useMediaQuery('(max-width: 640px)')
 
   // URL state management
@@ -50,7 +55,7 @@ export function ModelsTable() {
     onGlobalFilterChange,
     columnFilters,
     onColumnFiltersChange,
-    pagination,
+    pagination: urlPagination,
     onPaginationChange,
     ensurePageInRange,
   } = useTableUrlState({
@@ -67,6 +72,8 @@ export function ModelsTable() {
       { columnId: 'sync_official', searchKey: 'sync', type: 'array' },
     ],
   })
+
+  const pagination = normalizeLogPagination(urlPagination.pageIndex, urlPagination.pageSize)
 
   // Extract filters from column filters
   const statusFilter =
@@ -122,14 +129,14 @@ export function ModelsTable() {
   // Fetch models data
   // eslint-disable-next-line @tanstack/query/exhaustive-deps
   const { data, isError, isLoading, isFetching, refetch } = useQuery({
-    queryKey: modelsQueryKeys.list({
+    queryKey: [...modelsQueryKeys.list({
       keyword: globalFilter,
       vendor: activeVendorFilter,
       status: statusFilterValue,
       sync_official: syncFilterValue,
       p: pagination.pageIndex + 1,
       page_size: pagination.pageSize,
-    }),
+    }), identity],
     queryFn: async () => {
       const result = shouldSearch
         ? await searchModels({
@@ -154,17 +161,23 @@ export function ModelsTable() {
   })
 
   const models = isError ? [] : data?.data?.items || []
-  const totalCount = isError ? 0 : data?.data?.total || 0
+  const returnedTotal = data?.data?.total
+  const totalCount = !isError && typeof returnedTotal === 'number' && Number.isSafeInteger(returnedTotal) && returnedTotal >= models.length && returnedTotal >= 0
+    ? returnedTotal
+    : undefined
+  const pageCount = getLogPageCount(totalCount, pagination.pageSize)
   const vendorCounts = isError ? undefined : data?.data?.vendor_counts
 
   // Columns configuration
-  const columns = useModelsColumns(vendors)
+  const columns = useModelsColumns(vendors, isMobile)
 
   // React Table instance
   const { table } = useDataTable({
     data: models,
     columns,
     totalCount,
+    pageCount: pageCount ?? -1,
+    getRowId: (model) => String(model.id),
     initialColumnVisibility: {
       description: false,
       bound_channels: false,
@@ -179,24 +192,29 @@ export function ModelsTable() {
     onGlobalFilterChange,
     manualPagination: true,
     manualFiltering: true,
-    ensurePageInRange: isError ? undefined : ensurePageInRange,
+    ensurePageInRange: totalCount === undefined ? undefined : ensurePageInRange,
   })
 
   // Prepare filter options
   const vendorFilterOptions = [
     {
-      label: `${t('All Vendors')}${vendorCounts?.all ? ` (${vendorCounts.all})` : ''}`,
+      label: `${t('All Vendors')}${vendorCounts?.all !== undefined ? ` (${vendorCounts.all})` : ''}`,
       value: 'all',
     },
     ...vendorOptions.map((option) => ({
-      label: `${option.label}${vendorCounts?.[option.value] ? ` (${vendorCounts[option.value]})` : ''}`,
+      label: `${option.label}${vendorCounts?.[option.value] !== undefined ? ` (${vendorCounts[option.value]})` : ''}`,
       value: option.value,
     })),
   ]
 
   return (
+    <>
+    <h2 data-model-list-heading tabIndex={-1} className='sr-only'>{t('Models')}</h2>
     <DataTablePage
       table={table}
+      fixedHeight={false}
+      mobile={<ModelMobileList table={table} loading={isLoading} />}
+      pagination={<LogPagination label={t('Model metadata pagination')} page={pagination.pageIndex + 1} pageSize={pagination.pageSize} total={totalCount} busy={isLoading || isFetching} onPageChange={(page) => onPaginationChange({ pageIndex: page - 1, pageSize: pagination.pageSize })} onPageSizeChange={(pageSize) => onPaginationChange({ pageIndex: 0, pageSize })} />}
       columns={columns}
       isLoading={isLoading}
       isFetching={isFetching}
@@ -241,7 +259,9 @@ export function ModelsTable() {
           },
         ],
       }}
-      bulkActions={<DataTableBulkActions table={table} />}
+      bulkActions={isMobile ? undefined : <DataTableBulkActions table={table} />}
     />
+    {!isError && isMobile && <DataTableBulkActions table={table} />}
+    </>
   )
 }

@@ -18,7 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQueryClient } from '@tanstack/react-query'
 import type { Row } from '@tanstack/react-table'
-import { Pencil, Power, PowerOff, Trash2 } from 'lucide-react'
+import { Cancel01Icon, Delete02Icon, Edit02Icon, Tick02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -50,13 +51,14 @@ interface DataTableRowActionsProps {
 export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const { t } = useTranslation()
   const model = row.original
-  const { setOpen, setCurrentRow } = useModels()
+  const { setOpen, setCurrentRow, rememberOpener } = useModels()
   const queryClient = useQueryClient()
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   const isEnabled = isModelEnabled(model)
 
   const handleEdit = () => {
+    rememberOpener({ kind: 'edit', id: model.id })
     setCurrentRow(model)
     setOpen('update-model')
   }
@@ -76,11 +78,13 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
               variant='ghost'
               size='icon-sm'
               onClick={handleEdit}
+              data-model-edit={model.id}
+              className='min-h-11 min-w-11'
               aria-label={t('Edit')}
             />
           }
         >
-          <Pencil />
+          <HugeiconsIcon icon={Edit02Icon} aria-hidden='true' />
         </TooltipTrigger>
         <TooltipContent>{t('Edit')}</TooltipContent>
       </Tooltip>
@@ -95,13 +99,13 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
               aria-label={toggleLabel}
               className={
                 isEnabled
-                  ? 'text-destructive hover:text-destructive'
-                  : 'text-success hover:text-success'
+                  ? 'min-h-11 min-w-11 text-destructive hover:text-destructive'
+                  : 'min-h-11 min-w-11 text-success hover:text-success'
               }
             />
           }
         >
-          {isEnabled ? <PowerOff /> : <Power />}
+          {isEnabled ? <HugeiconsIcon icon={Cancel01Icon} aria-hidden='true' /> : <HugeiconsIcon icon={Tick02Icon} aria-hidden='true' />}
         </TooltipTrigger>
         <TooltipContent>{toggleLabel}</TooltipContent>
       </Tooltip>
@@ -116,7 +120,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         >
           {t('Delete')}
           <DropdownMenuShortcut>
-            <Trash2 size={16} />
+            <HugeiconsIcon icon={Delete02Icon} aria-hidden='true' size={16} />
           </DropdownMenuShortcut>
         </DropdownMenuItem>
       </DataTableRowActionMenu>

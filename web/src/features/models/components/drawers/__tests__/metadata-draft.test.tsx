@@ -18,8 +18,9 @@ it('preserves an unsaved metadata draft when a fresh detail response changes sav
   useAuthStore.getState().auth.setUser({ id: 1, username: 'synthetic-admin', role: ROLE.ADMIN })
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   let savedDescription = model.description
+  let savedName = model.model_name
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
-    if (url === '/api/models/24') return { data: { success: true, data: { ...model, description: savedDescription } } }
+    if (url === '/api/models/24') return { data: { success: true, data: { ...model, model_name: savedName, description: savedDescription } } }
     if (url === '/api/vendors/') return { data: { success: true, data: { items: [], total: 0 } } }
     throw new Error(`Unexpected GET ${url}`)
   })
@@ -28,7 +29,9 @@ it('preserves an unsaved metadata draft when a fresh detail response changes sav
   fireEvent.change(screen.getByLabelText('Model Name *'), { target: { value: 'unsaved-model-name' } })
   fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'unsaved description' } })
   savedDescription = 'changed saved description'
+  savedName = 'fresh-saved-model-name'
   await act(async () => { await client?.invalidateQueries({ queryKey: modelsQueryKeys.detail(model.id) }) })
+  await screen.findByText(savedName)
   expect(client.getQueryData<{ data: typeof model }>(modelsQueryKeys.detail(model.id))?.data.description).toBe(savedDescription)
   expect(screen.getByLabelText('Model Name *')).toHaveValue('unsaved-model-name')
   expect(screen.getByLabelText('Description')).toHaveValue('unsaved description')

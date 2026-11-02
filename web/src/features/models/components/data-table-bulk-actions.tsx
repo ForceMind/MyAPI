@@ -18,7 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQueryClient } from '@tanstack/react-query'
 import type { Table } from '@tanstack/react-table'
-import { Power, PowerOff, Trash2, Copy } from 'lucide-react'
+import { Cancel01Icon, Copy01Icon, Delete02Icon, Tick02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -95,6 +96,7 @@ export function DataTableBulkActions<TData>({
 
   return (
     <>
+      <div className='[&_[role=toolbar]]:right-3 [&_[role=toolbar]]:left-3 [&_[role=toolbar]]:translate-x-0 [&_[role=toolbar]>div]:flex-wrap [&_[role=toolbar]>div]:gap-2 [&_[role=toolbar]]:hover:scale-100 [&_[role=toolbar]_[data-slot=button]]:min-h-11 [&_[role=toolbar]_[data-slot=button]]:min-w-11'>
       <BulkActionsToolbar table={table} entityName='model'>
         <Tooltip>
           <TooltipTrigger
@@ -103,13 +105,13 @@ export function DataTableBulkActions<TData>({
                 variant='outline'
                 size='icon'
                 onClick={handleEnableAll}
-                className='size-8'
+                className='min-h-11 min-w-11'
                 aria-label={t('Enable selected models')}
                 title={t('Enable selected models')}
               />
             }
           >
-            <Power />
+            <HugeiconsIcon icon={Tick02Icon} aria-hidden='true' />
             <span className='sr-only'>{t('Enable selected models')}</span>
           </TooltipTrigger>
           <TooltipContent>
@@ -124,13 +126,13 @@ export function DataTableBulkActions<TData>({
                 variant='outline'
                 size='icon'
                 onClick={handleDisableAll}
-                className='size-8'
+                className='min-h-11 min-w-11'
                 aria-label={t('Disable selected models')}
                 title={t('Disable selected models')}
               />
             }
           >
-            <PowerOff />
+            <HugeiconsIcon icon={Cancel01Icon} aria-hidden='true' />
             <span className='sr-only'>{t('Disable selected models')}</span>
           </TooltipTrigger>
           <TooltipContent>
@@ -145,13 +147,13 @@ export function DataTableBulkActions<TData>({
                 variant='outline'
                 size='icon'
                 onClick={handleCopyNames}
-                className='size-8'
+                className='min-h-11 min-w-11'
                 aria-label={t('Copy model names')}
                 title={t('Copy model names')}
               />
             }
           >
-            <Copy />
+            <HugeiconsIcon icon={Copy01Icon} aria-hidden='true' />
             <span className='sr-only'>{t('Copy model names')}</span>
           </TooltipTrigger>
           <TooltipContent>
@@ -166,13 +168,13 @@ export function DataTableBulkActions<TData>({
                 variant='destructive'
                 size='icon'
                 onClick={() => setShowDeleteConfirm(true)}
-                className='size-8'
+                className='min-h-11 min-w-11'
                 aria-label={t('Delete selected models')}
                 title={t('Delete selected models')}
               />
             }
           >
-            <Trash2 />
+            <HugeiconsIcon icon={Delete02Icon} aria-hidden='true' />
             <span className='sr-only'>{t('Delete selected models')}</span>
           </TooltipTrigger>
           <TooltipContent>
@@ -180,6 +182,7 @@ export function DataTableBulkActions<TData>({
           </TooltipContent>
         </Tooltip>
       </BulkActionsToolbar>
+      </div>
 
       {/* Delete Confirmation Dialog */}
       <Dialog
@@ -205,7 +208,7 @@ export function DataTableBulkActions<TData>({
           </>
         }
       >
-        {' '}
+        <div className='max-h-48 space-y-2 overflow-y-auto text-sm'>{selectedModels.map((model) => <p key={model.id} className='wrap-anywhere'><span className='font-mono'>#{model.id}</span> {model.model_name}</p>)}</div>
       </Dialog>
     </>
   )

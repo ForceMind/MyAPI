@@ -17,7 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState } from 'react'
+import { useAuthStore } from '@/stores/auth-store'
+import React, { createContext, useCallback, useContext, useRef, useState } from 'react'
+
+import { findModelAction, type ModelActionTarget } from '../model-action-focus'
 
 import type {
   Model,
@@ -45,6 +48,8 @@ type DialogType =
   | null
 
 type ModelsContextType = {
+  rememberOpener: (target: ModelActionTarget) => void
+  returnFocus: () => HTMLElement | null
   open: DialogType
   setOpen: (open: DialogType) => void
   currentRow: Model | null
@@ -78,6 +83,21 @@ const ModelsContext = createContext<ModelsContextType | undefined>(undefined)
 // ============================================================================
 
 export function ModelsProvider({ children }: { children: React.ReactNode }) {
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
+  return <ModelsSessionProvider key={identity}>{children}</ModelsSessionProvider>
+}
+
+function ModelsSessionProvider({ children }: { children: React.ReactNode }) {
+  const opener = useRef<{ element: HTMLElement | null; target: ModelActionTarget } | null>(null)
+  const rememberOpener = useCallback((target: ModelActionTarget) => {
+    const active = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null
+    opener.current = { element: active, target }
+  }, [])
+  const returnFocus = useCallback(() => {
+    const remembered = opener.current
+    if (remembered?.element?.isConnected) return remembered.element
+    return (remembered ? findModelAction(remembered.target) : null) ?? document.querySelector<HTMLElement>('[data-model-list-heading]')
+  }, [])
   const [open, setOpen] = useState<DialogType>(null)
   const [currentRow, setCurrentRow] = useState<Model | null>(null)
   const [currentVendor, setCurrentVendor] = useState<Vendor | null>(null)
@@ -101,6 +121,8 @@ export function ModelsProvider({ children }: { children: React.ReactNode }) {
   return (
     <ModelsContext.Provider
       value={{
+        rememberOpener,
+        returnFocus,
         open,
         setOpen,
         currentRow,

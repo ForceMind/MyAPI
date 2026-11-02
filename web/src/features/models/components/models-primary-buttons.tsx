@@ -16,14 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import {
-  Plus,
-  MoreHorizontal,
-  RefreshCw,
-  List,
-  Building2,
-  AlertCircle,
-} from 'lucide-react'
+import { Alert02Icon, DashboardSquare01Icon, FilterHorizontalIcon, MoreHorizontalIcon, PlusSignIcon, Refresh01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -40,9 +34,10 @@ import { useModels } from './models-provider'
 
 export function ModelsPrimaryButtons() {
   const { t } = useTranslation()
-  const { setOpen, setCurrentRow } = useModels()
+  const { setOpen, setCurrentRow, rememberOpener } = useModels()
 
   const handleCreateModel = () => {
+    rememberOpener({ kind: 'create' })
     setCurrentRow(null)
     setOpen('create-model')
   }
@@ -66,8 +61,8 @@ export function ModelsPrimaryButtons() {
   return (
     <div className='flex items-center gap-2'>
       {/* Create Model */}
-      <Button onClick={handleCreateModel} size='sm'>
-        <Plus className='h-4 w-4' />
+      <Button data-model-create onClick={handleCreateModel} size='sm' className='min-h-11'>
+        <HugeiconsIcon icon={PlusSignIcon} aria-hidden='true' className='h-4 w-4' />
         {t('Add Model')}
       </Button>
 
@@ -79,24 +74,24 @@ export function ModelsPrimaryButtons() {
               variant='outline'
               size='sm'
               aria-label={t('More actions')}
-              className='pointer-coarse:min-w-11!'
+              className='min-h-11 min-w-11'
             />
           }
         >
-          <MoreHorizontal className='h-4 w-4' />
+          <HugeiconsIcon icon={MoreHorizontalIcon} aria-hidden='true' className='h-4 w-4' />
         </DropdownMenuTrigger>
         <DropdownMenuContent align='end' className='w-56'>
           <DropdownMenuItem onClick={handleMissingModels}>
             {t('Missing Models')}
             <DropdownMenuShortcut>
-              <AlertCircle className='h-4 w-4' />
+              <HugeiconsIcon icon={Alert02Icon} aria-hidden='true' className='h-4 w-4' />
             </DropdownMenuShortcut>
           </DropdownMenuItem>
 
           <DropdownMenuItem onClick={handleSync}>
             {t('Sync Upstream')}
             <DropdownMenuShortcut>
-              <RefreshCw className='h-4 w-4' />
+              <HugeiconsIcon icon={Refresh01Icon} aria-hidden='true' className='h-4 w-4' />
             </DropdownMenuShortcut>
           </DropdownMenuItem>
 
@@ -105,14 +100,14 @@ export function ModelsPrimaryButtons() {
           <DropdownMenuItem onClick={handlePrefillGroups}>
             {t('Prefill Groups')}
             <DropdownMenuShortcut>
-              <List className='h-4 w-4' />
+              <HugeiconsIcon icon={FilterHorizontalIcon} aria-hidden='true' className='h-4 w-4' />
             </DropdownMenuShortcut>
           </DropdownMenuItem>
 
           <DropdownMenuItem onClick={handleManageVendors}>
             {t('Manage Vendors')}
             <DropdownMenuShortcut>
-              <Building2 className='h-4 w-4' />
+              <HugeiconsIcon icon={DashboardSquare01Icon} aria-hidden='true' className='h-4 w-4' />
             </DropdownMenuShortcut>
           </DropdownMenuItem>
         </DropdownMenuContent>
