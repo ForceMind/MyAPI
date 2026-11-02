@@ -18,8 +18,9 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2 } from 'lucide-react'
-import { useEffect, useMemo } from 'react'
+import { Loading03Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm, type Resolver } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -45,6 +46,7 @@ import { Input } from '@/components/ui/input'
 
 import { getDeployment, updateDeployment } from '../../api'
 import { deploymentsQueryKeys } from '../../lib'
+import { useDeploymentTask } from '../../hooks/use-deployment-task'
 
 const schema = z.object({
   image_url: z.string().optional(),
@@ -80,13 +82,19 @@ export function UpdateConfigDialog({
   open,
   onOpenChange,
   deploymentId,
+  returnFocus,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   deploymentId: string | number | null
+  returnFocus?: () => HTMLElement | null
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const task = useDeploymentTask(open, deploymentId)
+  const initialized = useRef<string | null>(null)
+  const taskKey = JSON.stringify([task.identity, deploymentId])
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const form = useForm<Values>({
     resolver: zodResolver(schema) as unknown as Resolver<Values>,
@@ -104,7 +112,7 @@ export function UpdateConfigDialog({
   })
 
   const { data: detailsRes, isLoading } = useQuery({
-    queryKey: ['deployment-details-for-update', deploymentId],
+    queryKey: ['deployment-details-for-update', deploymentId, task.identity],
     queryFn: () => (deploymentId ? getDeployment(deploymentId) : null),
     enabled: open && deploymentId !== null,
   })
@@ -112,7 +120,13 @@ export function UpdateConfigDialog({
   const details = detailsRes?.data
 
   useEffect(() => {
-    if (!open || !details) return
+    if (!open) {
+      initialized.current = null
+      return
+    }
+    if (!details || initialized.current === taskKey) return
+    initialized.current = taskKey
+    setSubmitError(null)
     const containerConfig =
       details.container_config && typeof details.container_config === 'object'
         ? (details.container_config as Record<string, unknown>)
@@ -150,7 +164,7 @@ export function UpdateConfigDialog({
         : '',
       secret_env_json: '',
     })
-  }, [open, details, form])
+  }, [open, details, form, taskKey])
 
   const title = useMemo(
     () =>
@@ -162,6 +176,9 @@ export function UpdateConfigDialog({
 
   const onSubmit = async (values: Values) => {
     if (!deploymentId) return
+    const operation = task.begin()
+    if (!operation) return
+    setSubmitError(null)
     try {
       const env_variables = normalizeJsonObject(values.env_json)
       const secret_env_variables = normalizeJsonObject(values.secret_env_json)
@@ -193,6 +210,8 @@ export function UpdateConfigDialog({
         ...(secret_env_variables ? { secret_env_variables } : {}),
       })
 
+      if (!operation.isCurrent()) return
+
       if (res.success) {
         toast.success(t('Updated successfully'))
         queryClient.invalidateQueries({
@@ -202,27 +221,36 @@ export function UpdateConfigDialog({
         onOpenChange(false)
         return
       }
+      setSubmitError(res.message || t('Update failed'))
       toast.error(res.message || t('Update failed'))
     } catch (err: unknown) {
+      if (!operation.isCurrent()) return
       const msg = err instanceof Error ? err.message : t('Update failed')
+      setSubmitError(msg)
       toast.error(msg)
+    } finally {
+      operation.finish()
     }
   }
 
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      returnFocus={returnFocus}
+      onOpenChange={(next) => { if (!task.isPending()) onOpenChange(next) }}
+      showCloseButton={!form.formState.isSubmitting}
       title={title}
-      contentClassName='max-h-[calc(100dvh-2rem)] overflow-hidden max-sm:w-screen max-sm:max-w-none max-sm:rounded-none max-sm:p-4 sm:max-w-3xl'
+      contentClassName='h-dvh max-h-dvh w-screen max-w-none sm:w-full rounded-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-3xl sm:rounded-xl [&_button]:min-h-11 [&_button]:min-w-11 [&_input]:min-h-11'
       contentHeight='auto'
-      bodyClassName='space-y-4'
+      bodyClassName='space-y-4 break-words'
+      footerClassName='border-t pt-4'
       footer={
         isLoading ? null : (
           <>
             <Button
               type='button'
               variant='outline'
+              disabled={form.formState.isSubmitting}
               onClick={() => onOpenChange(false)}
             >
               {t('Cancel')}
@@ -233,7 +261,7 @@ export function UpdateConfigDialog({
               disabled={form.formState.isSubmitting}
             >
               {form.formState.isSubmitting ? (
-                <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='mr-2 h-4 w-4 animate-spin' />
               ) : null}
               {t('Update')}
             </Button>
@@ -241,12 +269,13 @@ export function UpdateConfigDialog({
         )
       }
     >
+      {submitError ? <div role='alert' className='text-destructive text-sm break-words'>{submitError}</div> : null}
       {isLoading ? (
         <div className='flex items-center justify-center py-10'>
-          <Loader2 className='text-muted-foreground h-6 w-6 animate-spin' />
+          <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='text-muted-foreground h-6 w-6 animate-spin' />
         </div>
       ) : (
-        <div className='max-h-[calc(100dvh-8.5rem)] overflow-y-auto py-2 pr-1 sm:max-h-[72vh]'>
+        <div className='py-2'>
           <Form {...form}>
             <form
               id={UPDATE_CONFIG_FORM_ID}
@@ -254,6 +283,7 @@ export function UpdateConfigDialog({
               autoComplete='off'
               className='space-y-4'
             >
+              <fieldset disabled={form.formState.isSubmitting} className='min-w-0 space-y-4 border-0 p-0'>
               <div className='grid gap-3 md:grid-cols-2 md:gap-4'>
                 <FormField
                   control={form.control}
@@ -338,7 +368,7 @@ export function UpdateConfigDialog({
                   <FormItem>
                     <FormLabel>{t('Command')}</FormLabel>
                     <FormControl>
-                      <Input placeholder='Optional' {...field} />
+                      <Input placeholder={t('Optional')} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -436,6 +466,7 @@ export function UpdateConfigDialog({
                   </div>
                 </CollapsibleContent>
               </Collapsible>
+              </fieldset>
             </form>
           </Form>
         </div>

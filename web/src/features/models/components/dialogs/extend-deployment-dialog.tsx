@@ -17,7 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2 } from 'lucide-react'
+import { Loading03Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -25,10 +26,12 @@ import { toast } from 'sonner'
 import { Dialog } from '@/components/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 
 import { estimatePrice, extendDeployment, getDeployment } from '../../api'
 import { deploymentsQueryKeys } from '../../lib'
+import { useDeploymentTask } from '../../hooks/use-deployment-task'
 
 function toInt(value: unknown, fallback: number) {
   const n = typeof value === 'number' ? value : Number(value)
@@ -39,26 +42,34 @@ export function ExtendDeploymentDialog({
   open,
   onOpenChange,
   deploymentId,
+  returnFocus,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   deploymentId: string | number | null
+  returnFocus?: () => HTMLElement | null
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const task = useDeploymentTask(open, deploymentId)
   const [hours, setHours] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const validDeploymentId =
     deploymentId === null || deploymentId === '' || deploymentId === 0
       ? null
       : deploymentId
 
   useEffect(() => {
-    if (open) setHours(1)
-  }, [open])
+    if (open) {
+      setHours(1)
+      setIsSubmitting(false)
+      setSubmitError(null)
+    }
+  }, [open, deploymentId, task.identity])
 
   const { data: detailsRes, isLoading: isLoadingDetails } = useQuery({
-    queryKey: ['deployment-details-for-extend', validDeploymentId],
+    queryKey: ['deployment-details-for-extend', validDeploymentId, task.identity],
     queryFn: () => {
       if (validDeploymentId === null) {
         return null
@@ -110,6 +121,7 @@ export function ExtendDeploymentDialog({
       validDeploymentId,
       hours,
       priceParams,
+      task.identity,
     ],
     queryFn: () =>
       priceParams
@@ -156,9 +168,13 @@ export function ExtendDeploymentDialog({
       toast.error(t('Please enter a valid duration'))
       return
     }
+    const operation = task.begin()
+    if (!operation) return
+    setSubmitError(null)
     setIsSubmitting(true)
     try {
       const res = await extendDeployment(validDeploymentId, h)
+      if (!operation.isCurrent()) return
       if (res.success) {
         toast.success(t('Extended successfully'))
         queryClient.invalidateQueries({
@@ -168,11 +184,15 @@ export function ExtendDeploymentDialog({
         onOpenChange(false)
         return
       }
+      setSubmitError(res.message || t('Extend failed'))
       toast.error(res.message || t('Extend failed'))
     } catch (err: unknown) {
+      if (!operation.isCurrent()) return
+      setSubmitError(err instanceof Error ? err.message : t('Extend failed'))
       toast.error(err instanceof Error ? err.message : t('Extend failed'))
     } finally {
-      setIsSubmitting(false)
+      if (operation.isCurrent()) setIsSubmitting(false)
+      operation.finish()
     }
   }
 
@@ -180,7 +200,7 @@ export function ExtendDeploymentDialog({
   if (isLoadingPrice || isFetchingPrice) {
     priceDisplay = (
       <span className='inline-flex items-center gap-2'>
-        <Loader2 className='h-4 w-4 animate-spin' />
+        <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='h-4 w-4 animate-spin' />
         {t('Calculating...')}
       </span>
     )
@@ -191,43 +211,48 @@ export function ExtendDeploymentDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      returnFocus={returnFocus}
+      onOpenChange={(next) => { if (!task.isPending()) onOpenChange(next) }}
+      showCloseButton={!isSubmitting}
       title={t('Extend deployment')}
-      contentClassName='sm:max-w-lg'
-      footerClassName='mt-4'
+      contentClassName='h-dvh max-h-dvh w-screen max-w-none sm:w-full rounded-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-lg sm:rounded-xl [&_button]:min-h-11 [&_button]:min-w-11 [&_input]:min-h-11'
+      footerClassName='border-t pt-4'
       contentHeight='auto'
       bodyClassName='space-y-4'
       footer={
         <>
-          <Button variant='outline' onClick={() => onOpenChange(false)}>
+          <Button variant='outline' disabled={isSubmitting} onClick={() => onOpenChange(false)}>
             {t('Cancel')}
           </Button>
           <Button onClick={() => void onSubmit()} disabled={!canSubmit}>
             {isSubmitting ? (
-              <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+              <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='mr-2 h-4 w-4 animate-spin' />
             ) : null}
             {t('Extend')}
           </Button>
         </>
       }
     >
+      {submitError ? <div role='alert' className='text-destructive text-sm break-words'>{submitError}</div> : null}
       {isLoadingDetails ? (
         <div className='flex items-center justify-center py-10'>
-          <Loader2 className='text-muted-foreground h-6 w-6 animate-spin' />
+          <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='text-muted-foreground h-6 w-6 animate-spin' />
         </div>
       ) : (
         <div className='space-y-4'>
           <div className='text-muted-foreground text-sm'>
             {t('Deployment ID')}:{' '}
-            <span className='font-mono'>{validDeploymentId ?? '—'}</span>
+            <span className='font-mono break-all'>{validDeploymentId ?? '—'}</span>
           </div>
 
           <div className='space-y-2'>
-            <div className='text-sm font-medium'>{t('Duration (hours)')}</div>
+            <Label htmlFor='deployment-extend-hours'>{t('Duration (hours)')}</Label>
             <Input
+              id='deployment-extend-hours'
               type='number'
               min={1}
               value={hours}
+              disabled={isSubmitting}
               onChange={(e) => setHours(toInt(e.target.value, 1))}
             />
             <div className='text-muted-foreground text-xs'>

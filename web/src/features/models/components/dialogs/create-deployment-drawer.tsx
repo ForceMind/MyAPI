@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -69,6 +69,7 @@ import {
   getHardwareTypes,
 } from '../../api'
 import { deploymentsQueryKeys } from '../../lib'
+import { useDeploymentTask } from '../../hooks/use-deployment-task'
 
 const BUILTIN_IMAGE = 'ollama/ollama:latest'
 const DEFAULT_TRAFFIC_PORT = 11434
@@ -103,12 +104,17 @@ function toNumber(value: unknown, fallback: number) {
 export function CreateDeploymentDrawer({
   open,
   onOpenChange,
+  returnFocus,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  returnFocus?: () => HTMLElement | null
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const task = useDeploymentTask(open)
+  const operation = useRef<ReturnType<typeof task.begin>>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -140,8 +146,8 @@ export function CreateDeploymentDrawer({
   const currency = form.watch('currency')
   const resourceName = form.watch('resource_private_name')
 
-  const { data: hardwareTypesData, isLoading: isLoadingHardware } = useQuery({
-    queryKey: ['deployment-hardware-types'],
+  const { data: hardwareTypesData, isLoading: isLoadingHardware, isError: hardwareError, error: hardwareReadError } = useQuery({
+    queryKey: ['deployment-hardware-types', task.identity],
     queryFn: getHardwareTypes,
     enabled: open,
   })
@@ -170,7 +176,7 @@ export function CreateDeploymentDrawer({
   }, [hardwareId, hardwareOptions, gpuCount, form])
 
   const { data: replicasData, isLoading: isLoadingReplicas } = useQuery({
-    queryKey: ['deployment-available-replicas', hardwareId, gpuCount],
+    queryKey: ['deployment-available-replicas', hardwareId, gpuCount, task.identity],
     queryFn: () =>
       getAvailableReplicas({
         hardware_id: hardwareId,
@@ -199,7 +205,7 @@ export function CreateDeploymentDrawer({
     return [...map.values()]
   }, [replicasData])
 
-  const { data: priceData, isLoading: _isLoadingPrice } = useQuery({
+  const { data: priceData, isLoading: isLoadingPrice, isFetching: isFetchingPrice, isError: priceError } = useQuery({
     queryKey: [
       'deployment-price',
       hardwareId,
@@ -208,6 +214,7 @@ export function CreateDeploymentDrawer({
       replicaCount,
       locationIds,
       currency,
+      task.identity,
     ],
     queryFn: () =>
       estimatePrice({
@@ -228,7 +235,7 @@ export function CreateDeploymentDrawer({
   })
 
   const { data: nameCheckData, isFetching: isCheckingName } = useQuery({
-    queryKey: ['deployment-name-check', resourceName],
+    queryKey: ['deployment-name-check', resourceName, task.identity],
     queryFn: async () => {
       const name = (resourceName || '').trim()
       if (!name) return null
@@ -331,6 +338,7 @@ export function CreateDeploymentDrawer({
       return await createDeployment(payload)
     },
     onSuccess: (data) => {
+      if (!operation.current?.isCurrent()) return
       if (data?.success) {
         toast.success(t('Deployment created successfully'))
         queryClient.invalidateQueries({
@@ -339,16 +347,21 @@ export function CreateDeploymentDrawer({
         onOpenChange(false)
         return
       }
+      setSubmitError(data?.message || t('Failed to create deployment'))
       toast.error(data?.message || t('Failed to create deployment'))
     },
     onError: (err: Error) => {
+      if (!operation.current?.isCurrent()) return
+      setSubmitError(err.message || t('Failed to create deployment'))
       toast.error(err.message || t('Failed to create deployment'))
     },
+    onSettled: () => { operation.current?.finish() },
   })
 
   // Reset form when opening
   useEffect(() => {
     if (!open) return
+    setSubmitError(null)
     form.reset({
       resource_private_name: '',
       image_url: BUILTIN_IMAGE,
@@ -366,7 +379,7 @@ export function CreateDeploymentDrawer({
       registry_secret: '',
       currency: 'usdc',
     })
-  }, [open, form])
+  }, [open, form, task.identity])
 
   const priceSummary = useMemo<string>(() => {
     const est = priceData?.data
@@ -379,19 +392,27 @@ export function CreateDeploymentDrawer({
     if (total === '' && currency === '') return ''
     return `${total} ${currency}`.trim()
   }, [priceData])
-  void priceSummary
+  const priceRecord = priceData?.data
+  const quoteTotal = priceRecord && typeof priceRecord === 'object'
+    ? (priceRecord as Record<string, unknown>).total_cost ?? (priceRecord as Record<string, unknown>).total
+    : undefined
+  const quoteKnown = !priceError && priceData?.success === true && (
+    (typeof quoteTotal === 'number' && Number.isFinite(quoteTotal)) ||
+    (typeof quoteTotal === 'string' && /^-?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i.test(quoteTotal.trim()) && Number.isFinite(Number(quoteTotal)))
+  )
 
   return (
     <Sheet
       open={open}
       onOpenChange={(v) => {
+        if (task.isPending()) return
         onOpenChange(v)
         if (!v) {
           form.reset()
         }
       }}
     >
-      <SheetContent className={sideDrawerContentClassName('sm:max-w-[600px]')}>
+      <SheetContent showCloseButton={!createMutation.isPending} finalFocus={returnFocus} className={sideDrawerContentClassName('sm:max-w-[680px] [&_input]:min-h-11 [&_button]:min-w-11 [&_button]:min-h-11')}>
         <SheetHeader className={sideDrawerHeaderClassName()}>
           <SheetTitle>{t('Create deployment')}</SheetTitle>
           <SheetDescription>
@@ -399,17 +420,39 @@ export function CreateDeploymentDrawer({
           </SheetDescription>
         </SheetHeader>
 
+        <nav aria-label={t('Create deployment')} className='flex shrink-0 flex-wrap gap-1 border-b px-4 py-2 sm:px-6'>
+          {[
+            ['deployment-basic', t('Basic Configuration')],
+            ['deployment-resources', t('Resource Configuration')],
+            ['deployment-price', t('Price estimation')],
+            ['deployment-advanced', t('Advanced Configuration')],
+          ].map(([id, label]) => (
+            <Button key={id} type='button' variant='ghost' size='sm' onClick={() => {
+              const heading = document.getElementById(id)
+              heading?.scrollIntoView({ block: 'start' })
+              heading?.focus({ preventScroll: true })
+            }}>{label}</Button>
+          ))}
+        </nav>
+
         <Form {...form}>
           <form
             id='deployment-form'
-            onSubmit={form.handleSubmit((values) =>
+            onSubmit={form.handleSubmit((values) => {
+              const admitted = task.begin()
+              if (!admitted) return
+              operation.current = admitted
+              setSubmitError(null)
               createMutation.mutate(values)
-            )}
+            })}
             className={sideDrawerFormClassName()}
           >
+            {submitError ? <div role='alert' className='text-destructive text-sm break-words'>{submitError}</div> : null}
+            {hardwareError || hardwareTypesData?.success === false ? <div role='alert' className='text-destructive text-sm break-words'>{hardwareReadError?.message || hardwareTypesData?.message || t('Failed to load deployment hardware')}</div> : null}
+            <fieldset disabled={createMutation.isPending} className='contents'>
             {/* Basic Configuration */}
             <SideDrawerSection>
-              <h3 className='text-sm font-medium'>
+              <h3 id='deployment-basic' tabIndex={-1} className='scroll-mt-4 text-sm font-medium'>
                 {t('Basic Configuration')}
               </h3>
 
@@ -449,7 +492,7 @@ export function CreateDeploymentDrawer({
 
             {/* Resource Configuration */}
             <SideDrawerSection>
-              <h3 className='text-sm font-medium'>
+              <h3 id='deployment-resources' tabIndex={-1} className='scroll-mt-4 text-sm font-medium'>
                 {t('Resource Configuration')}
               </h3>
 
@@ -616,10 +659,13 @@ export function CreateDeploymentDrawer({
 
             {/* Price Estimation */}
             <SideDrawerSection>
-              <h3 className='text-sm font-medium'>{t('Price estimation')}</h3>
+              <h3 id='deployment-price' tabIndex={-1} className='scroll-mt-4 text-sm font-medium'>{t('Price estimation')}</h3>
               <p className='text-muted-foreground text-xs'>
                 {t('Price estimation description')}
               </p>
+              <output aria-label={t('Estimated cost')} className='rounded-lg border p-3 font-mono text-sm break-words'>
+                {isLoadingPrice || isFetchingPrice ? t('Calculating...') : (quoteKnown && priceSummary ? priceSummary : t('Not available'))}
+              </output>
 
               <FormField
                 control={form.control}
@@ -654,7 +700,7 @@ export function CreateDeploymentDrawer({
 
             {/* Advanced Configuration */}
             <SideDrawerSection>
-              <h3 className='text-sm font-medium'>
+              <h3 id='deployment-advanced' tabIndex={-1} className='scroll-mt-4 text-sm font-medium'>
                 {t('Advanced Configuration')}
               </h3>
               <p className='text-muted-foreground text-xs'>
@@ -775,11 +821,12 @@ export function CreateDeploymentDrawer({
                 </div>
               </div>
             </SideDrawerSection>
+            </fieldset>
           </form>
         </Form>
 
         <SheetFooter className={sideDrawerFooterClassName()}>
-          <SheetClose render={<Button variant='outline' />}>
+          <SheetClose render={<Button variant='outline' disabled={createMutation.isPending} />}>
             {t('Cancel')}
           </SheetClose>
           <Button

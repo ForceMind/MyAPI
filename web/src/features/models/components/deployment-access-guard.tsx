@@ -17,15 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useNavigate } from '@tanstack/react-router'
-import {
-  AlertCircle,
-  CheckCircle2,
-  Circle,
-  Loader2,
-  Server,
-  Settings,
-  WifiOff,
-} from 'lucide-react'
+import { Alert02Icon, CheckmarkCircle02Icon, Loading03Icon, ServerStack01Icon, Settings02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -76,11 +69,11 @@ function LoadingStep({
   return (
     <div className='flex items-center gap-3'>
       {status === 'loading' && (
-        <Loader2 className='text-primary h-5 w-5 animate-spin' />
+        <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='text-primary h-5 w-5 animate-spin' />
       )}
-      {status === 'done' && <CheckCircle2 className='h-5 w-5 text-green-500' />}
+      {status === 'done' && <HugeiconsIcon icon={CheckmarkCircle02Icon} aria-hidden='true' className='h-5 w-5 text-green-500' />}
       {status === 'pending' && (
-        <Circle className='text-muted-foreground/40 h-5 w-5' />
+        <span aria-hidden='true' className='border-muted-foreground/40 h-5 w-5 rounded-full border' />
       )}
       <span
         className={cn(
@@ -126,9 +119,9 @@ export function DeploymentAccessGuard({
     const connectionStatus = getConnectionStatus(loadingPhase, connectionOk)
 
     return (
-      <div className='mx-auto mt-8 max-w-md'>
+      <div className='mx-auto my-6 w-full max-w-lg rounded-xl border p-4 sm:p-6 [&_button]:min-h-11 [&_button]:min-w-11'>
         <div className='flex flex-col items-center justify-center py-12'>
-          <Loader2 className='text-primary mb-6 h-10 w-10 animate-spin' />
+          <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='text-primary mb-6 h-10 w-10 animate-spin' />
           <div className='space-y-3'>
             <LoadingStep
               label={t('Loading configuration')}
@@ -157,10 +150,10 @@ export function DeploymentAccessGuard({
 
   if (!isEnabled) {
     return (
-      <div className='mx-auto mt-8 max-w-md'>
+      <div className='mx-auto my-6 w-full max-w-lg rounded-xl border p-4 sm:p-6 [&_button]:min-h-11 [&_button]:min-w-11'>
         <div className='text-center'>
           <div className='mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-900/20'>
-            <Server className='h-8 w-8 text-amber-600 dark:text-amber-400' />
+            <HugeiconsIcon icon={ServerStack01Icon} aria-hidden='true' className='h-8 w-8 text-amber-600 dark:text-amber-400' />
           </div>
           <h3 className='mb-6 text-xl font-semibold'>
             {t('Model deployment service is disabled')}
@@ -168,7 +161,7 @@ export function DeploymentAccessGuard({
         </div>
         <div className='space-y-4'>
           <Alert variant='default'>
-            <AlertCircle className='h-4 w-4' />
+            <HugeiconsIcon icon={Alert02Icon} aria-hidden='true' className='h-4 w-4' />
             <AlertTitle>{t('Configuration required')}</AlertTitle>
             <AlertDescription>
               {t(
@@ -178,7 +171,7 @@ export function DeploymentAccessGuard({
           </Alert>
           {isRoot && (
             <Button onClick={handleGoToSettings} className='w-full'>
-              <Settings className='mr-2 h-4 w-4' />
+              <HugeiconsIcon icon={Settings02Icon} aria-hidden='true' className='mr-2 h-4 w-4' />
               {t('Go to settings')}
             </Button>
           )}
@@ -190,10 +183,10 @@ export function DeploymentAccessGuard({
   // Connection error state
   if (connectionOk === false && connectionError) {
     return (
-      <div className='mx-auto mt-8 max-w-md'>
+      <div className='mx-auto my-6 w-full max-w-lg rounded-xl border p-4 sm:p-6 [&_button]:min-h-11 [&_button]:min-w-11'>
         <div className='text-center'>
           <div className='mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-100 dark:bg-red-900/20'>
-            <WifiOff className='h-8 w-8 text-red-600 dark:text-red-400' />
+            <HugeiconsIcon icon={Alert02Icon} aria-hidden='true' className='h-8 w-8 text-red-600 dark:text-red-400' />
           </div>
           <h3 className='mb-6 text-xl font-semibold'>
             {t('Connection failed')}
@@ -201,17 +194,17 @@ export function DeploymentAccessGuard({
         </div>
         <div className='space-y-4'>
           <Alert variant='destructive'>
-            <AlertCircle className='h-4 w-4' />
+            <HugeiconsIcon icon={Alert02Icon} aria-hidden='true' className='h-4 w-4' />
             <AlertTitle>{t('Connection error')}</AlertTitle>
             <AlertDescription>{t(connectionError)}</AlertDescription>
           </Alert>
-          <div className='flex gap-2'>
+          <div className='flex flex-wrap gap-2'>
             <Button variant='outline' onClick={onRetry} className='flex-1'>
               {t('Retry')}
             </Button>
             {isRoot && (
               <Button onClick={handleGoToSettings} className='flex-1'>
-                <Settings className='mr-2 h-4 w-4' />
+                <HugeiconsIcon icon={Settings02Icon} aria-hidden='true' className='mr-2 h-4 w-4' />
                 {t('Go to settings')}
               </Button>
             )}

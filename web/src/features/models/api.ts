@@ -76,7 +76,7 @@ export async function getModel(id: number): Promise<GetModelResponse> {
 export async function createModel(
   data: Partial<Model>
 ): Promise<{ success: boolean; message?: string; data?: Model }> {
-  const res = await api.post('/api/models/', data)
+  const res = await api.post('/api/models/', data, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -185,22 +185,28 @@ export async function deleteVendor(
 /**
  * Sync upstream models (missing only or with overwrite)
  */
-export async function syncUpstream(params?: {
-  locale?: SyncLocale
-  source?: SyncSource
-  overwrite?: SyncOverwritePayload[]
-}): Promise<SyncUpstreamResponse> {
-  const res = await api.post('/api/models/sync_upstream', params)
+export async function syncUpstream(
+  params?: {
+    locale?: SyncLocale
+    source?: SyncSource
+    overwrite?: SyncOverwritePayload[]
+  },
+  signal?: AbortSignal
+): Promise<SyncUpstreamResponse> {
+  const res = await api.post('/api/models/sync_upstream', params, { skipAuthRefresh: true, signal })
   return res.data
 }
 
 /**
  * Preview upstream diff
  */
-export async function previewUpstreamDiff(params?: {
-  locale?: SyncLocale
-  source?: SyncSource
-}): Promise<PreviewUpstreamDiffResponse> {
+export async function previewUpstreamDiff(
+  params?: {
+    locale?: SyncLocale
+    source?: SyncSource
+  },
+  signal?: AbortSignal
+): Promise<PreviewUpstreamDiffResponse> {
   const searchParams = new URLSearchParams()
   if (params?.locale) {
     searchParams.set('locale', params.locale)
@@ -212,19 +218,22 @@ export async function previewUpstreamDiff(params?: {
   const url = queryString
     ? `/api/models/sync_upstream/preview?${queryString}`
     : '/api/models/sync_upstream/preview'
-  const res = await api.get(url)
+  const res = await api.get(url, { signal })
   return res.data
 }
 
 /**
  * Apply upstream overwrite
  */
-export async function applyUpstreamOverwrite(params: {
-  overwrite: SyncOverwritePayload[]
-  locale?: SyncLocale
-  source?: SyncSource
-}): Promise<SyncUpstreamResponse> {
-  return syncUpstream(params)
+export async function applyUpstreamOverwrite(
+  params: {
+    overwrite: SyncOverwritePayload[]
+    locale?: SyncLocale
+    source?: SyncSource
+  },
+  signal?: AbortSignal
+): Promise<SyncUpstreamResponse> {
+  return syncUpstream(params, signal)
 }
 
 // ============================================================================
@@ -234,8 +243,8 @@ export async function applyUpstreamOverwrite(params: {
 /**
  * Get missing models (used but not configured)
  */
-export async function getMissingModels(): Promise<MissingModelsResponse> {
-  const res = await api.get('/api/models/missing')
+export async function getMissingModels(signal?: AbortSignal): Promise<MissingModelsResponse> {
+  const res = await api.get('/api/models/missing', { signal })
   return res.data
 }
 
@@ -422,7 +431,7 @@ export async function getDeploymentContainerDetails(
 export async function deleteDeployment(
   id: string | number
 ): Promise<{ success: boolean; message?: string }> {
-  const res = await api.delete(`/api/deployments/${id}`)
+  const res = await api.delete(`/api/deployments/${id}`, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -553,7 +562,7 @@ export async function createDeployment(data: {
   message?: string
   data?: Record<string, unknown>
 }> {
-  const res = await api.post('/api/deployments/', data)
+  const res = await api.post('/api/deployments/', data, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -582,7 +591,7 @@ export async function updateDeployment(
   if (data.traffic_port === null) {
     delete payload.traffic_port
   }
-  const res = await api.put(`/api/deployments/${id}`, payload)
+  const res = await api.put(`/api/deployments/${id}`, payload, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -597,7 +606,7 @@ export async function updateDeploymentName(
   message?: string
   data?: Record<string, unknown>
 }> {
-  const res = await api.put(`/api/deployments/${id}/name`, { name })
+  const res = await api.put(`/api/deployments/${id}/name`, { name }, { skipAuthRefresh: true })
   return res.data
 }
 
@@ -614,7 +623,7 @@ export async function extendDeployment(
 }> {
   const res = await api.post(`/api/deployments/${id}/extend`, {
     duration_hours: durationHours,
-  })
+  }, { skipAuthRefresh: true })
   return res.data
 }
 

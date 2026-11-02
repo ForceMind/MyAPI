@@ -17,39 +17,29 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQueryClient } from '@tanstack/react-query'
-import type { ColumnDef, RowSelectionState } from '@tanstack/react-table'
-import {
-  Search,
-  Info,
-  MousePointerClick,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react'
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { ArrowLeft01Icon, ArrowRight01Icon, Search01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { DataTableView, useDataTable } from '@/components/data-table'
-import { Dialog } from '@/components/dialog'
 import { StatusBadge } from '@/components/status-badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { ROLE } from '@/lib/roles'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { applyUpstreamOverwrite } from '../../api'
 import { modelsQueryKeys, vendorsQueryKeys } from '../../lib'
@@ -67,559 +57,223 @@ const FIELD_LABELS: Record<string, string> = {
   quota_types: 'Quota Types',
   enable_groups: 'Enable Groups',
 }
-
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const
 
-const formatValue = (value: unknown) => {
-  if (value === null || value === undefined) return '—'
-  if (typeof value === 'string') return value || '—'
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value)
+function ValuePreview({ value }: { value: unknown }) {
+  let display = '—'
+  if (typeof value === 'string') display = value || '—'
+  else if (typeof value === 'number' || typeof value === 'boolean') display = String(value)
+  else if (value !== undefined && value !== null) {
+    try {
+      display = JSON.stringify(value, null, 2) ?? '—'
+    } catch {
+      display = String(value)
+    }
   }
-  try {
-    return JSON.stringify(value, null, 2)
-  } catch {
-    return String(value)
-  }
+  return (
+    <pre className='bg-muted/50 text-muted-foreground min-w-0 rounded-md border p-3 font-mono text-xs break-words whitespace-pre-wrap [overflow-wrap:anywhere]'>
+      {display}
+    </pre>
+  )
 }
 
 type UpstreamConflictDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
+  returnFocus?: () => HTMLElement | null
 }
 
-type ConflictFieldRow = {
-  id: string
-  modelName: string
-  fieldKey: string
-  fieldLabel: string
-  localValue: unknown
-  upstreamValue: unknown
-}
-
-function ValuePreview({ value }: { value: unknown }) {
-  return (
-    <pre className='bg-muted/70 text-muted-foreground max-h-32 overflow-auto rounded-md border px-2 py-1.5 font-mono text-xs break-words whitespace-pre-wrap'>
-      {formatValue(value)}
-    </pre>
-  )
-}
-
-export function UpstreamConflictDialog({
-  open,
-  onOpenChange,
-}: UpstreamConflictDialogProps) {
+export function UpstreamConflictDialog(props: UpstreamConflictDialogProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const {
-    upstreamConflicts = [],
-    setUpstreamConflicts,
-    syncWizardOptions,
-  } = useModels()
+  const { upstreamConflicts, setUpstreamConflicts, syncWizardOptions } = useModels()
   const isMobile = useIsMobile()
+  const identity = useAuthStore(
+    (state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`
+  )
+  const isAdmin = useAuthStore(
+    (state) => (state.auth.user?.role ?? 0) >= ROLE.ADMIN
+  )
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 200)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [pageSize, setPageSize] = useState(10)
   const [pageIndex, setPageIndex] = useState(0)
+  const [error, setError] = useState('')
+  const generation = useRef(0)
+  const request = useRef<AbortController | null>(null)
 
   useEffect(() => {
-    if (open) {
-      setRowSelection({})
+    if (props.open) {
+      setSelected(new Set())
       setSearch('')
       setPageIndex(0)
+      setError('')
     }
-  }, [open, upstreamConflicts])
-
-  const conflictRows = useMemo<ConflictFieldRow[]>(() => {
-    return upstreamConflicts.flatMap((conflict) => {
-      if (!conflict.fields?.length) {
-        return []
-      }
-
-      return conflict.fields.map((field) => ({
-        id: `${conflict.model_name}-${field.field}`,
-        modelName: conflict.model_name,
-        fieldKey: field.field,
-        fieldLabel: FIELD_LABELS[field.field] || field.field,
-        localValue: field.local,
-        upstreamValue: field.upstream,
-      }))
-    })
-  }, [upstreamConflicts])
-
-  const totalModels = upstreamConflicts.length
-  const totalFields = conflictRows.length
-  const normalizedSearch = debouncedSearch.trim().toLowerCase()
-
-  const { matchingModelNames, visibleRowIds } = useMemo(() => {
-    if (!normalizedSearch) {
-      return { matchingModelNames: null, visibleRowIds: null }
-    }
-
-    const modelMatches = new Set<string>()
-    upstreamConflicts.forEach((conflict) => {
-      const modelMatch = conflict.model_name
-        ?.toLowerCase()
-        .includes(normalizedSearch)
-
-      if (modelMatch) {
-        modelMatches.add(conflict.model_name)
-        return
-      }
-
-      const fieldMatch = conflict.fields?.some((field) => {
-        const label = FIELD_LABELS[field.field] || field.field
-        return (
-          label.toLowerCase().includes(normalizedSearch) ||
-          field.field.toLowerCase().includes(normalizedSearch)
-        )
-      })
-
-      if (fieldMatch) {
-        modelMatches.add(conflict.model_name)
-      }
-    })
-
-    const rowIdSet = new Set<string>()
-    conflictRows.forEach((row) => {
-      if (
-        modelMatches.has(row.modelName) ||
-        row.fieldLabel.toLowerCase().includes(normalizedSearch) ||
-        row.fieldKey.toLowerCase().includes(normalizedSearch)
-      ) {
-        rowIdSet.add(row.id)
-      }
-    })
-
-    return { matchingModelNames: modelMatches, visibleRowIds: rowIdSet }
-  }, [normalizedSearch, upstreamConflicts, conflictRows])
-
-  const columns = useMemo<ColumnDef<ConflictFieldRow>[]>(() => {
-    const modelColumn: ColumnDef<ConflictFieldRow> = {
-      accessorKey: 'modelName',
-      header: 'Model',
-      cell: ({ row }) => (
-        <div className='flex items-start gap-3'>
-          {isMobile ? (
-            <Checkbox
-              checked={row.getIsSelected()}
-              onCheckedChange={(value) => row.toggleSelected(!!value)}
-              aria-label='Select row'
-            />
-          ) : null}
-          <div className='space-y-1'>
-            <p className='leading-none font-medium'>{row.original.modelName}</p>
-            <span className='text-muted-foreground font-mono text-xs'>
-              {row.original.fieldKey}
-            </span>
-            {isMobile ? (
-              <StatusBadge
-                label={row.original.fieldLabel}
-                variant='neutral'
-                size='sm'
-                copyable={false}
-              />
-            ) : null}
-          </div>
-        </div>
-      ),
-      size: 220,
-    }
-
-    const diffColumn: ColumnDef<ConflictFieldRow> = {
-      id: 'actions',
-      header: 'Diff',
-      enableSorting: false,
-      enableHiding: false,
-      cell: ({ row }) => (
-        <Popover>
-          <PopoverTrigger
-            render={
-              <Button
-                variant='ghost'
-                size='sm'
-                className={isMobile ? 'h-7 w-7 p-0' : 'h-7 gap-2 px-2 text-xs'}
-              />
-            }
-          >
-            <MousePointerClick className='h-3.5 w-3.5' />
-            {!isMobile && 'View diff'}
-          </PopoverTrigger>
-          <PopoverContent className='w-[min(90vw,24rem)] space-y-4 text-sm'>
-            <div>
-              <StatusBadge
-                label='Local'
-                variant='neutral'
-                size='sm'
-                copyable={false}
-                className='mb-1'
-              />
-              <pre className='bg-muted rounded-md p-2 text-xs'>
-                {formatValue(row.original.localValue)}
-              </pre>
-            </div>
-            <div>
-              <StatusBadge
-                label='Upstream'
-                variant='info'
-                size='sm'
-                copyable={false}
-                className='mb-1'
-              />
-              <pre className='bg-muted rounded-md p-2 text-xs'>
-                {formatValue(row.original.upstreamValue)}
-              </pre>
-            </div>
-          </PopoverContent>
-        </Popover>
-      ),
-      size: isMobile ? 50 : 140,
-    }
-
-    if (isMobile) {
-      return [modelColumn, diffColumn]
-    }
-
-    const selectionColumn: ColumnDef<ConflictFieldRow> = {
-      id: 'select',
-      header: ({ table }) => (
-        <Checkbox
-          checked={table.getIsAllPageRowsSelected()}
-          indeterminate={table.getIsSomePageRowsSelected()}
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label='Select all'
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label='Select row'
-        />
-      ),
-      enableSorting: false,
-      enableHiding: false,
-      size: 40,
-    }
-
-    return [
-      selectionColumn,
-      modelColumn,
-      {
-        accessorKey: 'fieldLabel',
-        header: 'Field',
-        cell: ({ row }) => (
-          <StatusBadge
-            label={row.original.fieldLabel}
-            variant='neutral'
-            size='sm'
-            copyable={false}
-          />
-        ),
-        enableSorting: false,
-        size: 160,
-      },
-      {
-        accessorKey: 'localValue',
-        header: 'Local Value',
-        cell: ({ row }) => <ValuePreview value={row.original.localValue} />,
-      },
-      {
-        accessorKey: 'upstreamValue',
-        header: 'Upstream Value',
-        cell: ({ row }) => <ValuePreview value={row.original.upstreamValue} />,
-      },
-    ]
-  }, [isMobile])
-
-  const { table } = useDataTable({
-    data: conflictRows,
-    columns,
-    rowSelection,
-    enableRowSelection: true,
-    onRowSelectionChange: setRowSelection,
-    getRowId: (row) => row.id,
-    withFilteredRowModel: false,
-    withPaginationRowModel: false,
-    withSortedRowModel: false,
-    withFacetedRowModel: false,
-  })
-
-  const totalSelectedFields = table.getSelectedRowModel().rows.length
-  const hasSelection = totalSelectedFields > 0
-  const allRows = table.getRowModel().rows
-  const filteredRows = visibleRowIds
-    ? allRows.filter((row) => visibleRowIds.has(row.id))
-    : allRows
-
-  const totalFilteredFields = filteredRows.length
-  const totalPages =
-    totalFilteredFields === 0 ? 1 : Math.ceil(totalFilteredFields / pageSize)
+  }, [props.open, upstreamConflicts])
 
   useEffect(() => {
-    setPageIndex((prev) => Math.min(prev, Math.max(0, totalPages - 1)))
-  }, [totalPages])
+    setIsSubmitting(false)
+    return () => {
+      generation.current += 1
+      request.current?.abort()
+      request.current = null
+    }
+  }, [props.open, identity])
 
-  const pageStart = pageIndex * pageSize
-  const paginatedRows = filteredRows.slice(pageStart, pageStart + pageSize)
-  const displayStart = totalFilteredFields === 0 ? 0 : pageStart + 1
-  const displayEnd =
-    totalFilteredFields === 0
-      ? 0
-      : Math.min(pageStart + pageSize, totalFilteredFields)
-  const currentPageDisplay = totalFilteredFields === 0 ? 0 : pageIndex + 1
-  const totalPagesDisplay = totalFilteredFields === 0 ? 0 : totalPages
+  const rows = useMemo(() => (upstreamConflicts ?? []).flatMap((conflict) => (conflict.fields ?? []).map((field) => ({
+    id: JSON.stringify([conflict.model_name, field.field]),
+    modelName: conflict.model_name,
+    fieldKey: field.field,
+    localValue: field.local,
+    upstreamValue: field.upstream,
+  }))), [upstreamConflicts])
 
-  const visibleModelCount = matchingModelNames?.size ?? totalModels
-  const visibleFieldCount = totalFilteredFields
-  const hasConflicts = totalFields > 0
-  const showSearchEmptyState = hasConflicts && totalFilteredFields === 0
+  const normalizedSearch = debouncedSearch.trim().toLowerCase()
+  // A field match keeps its model's complete set of differences in view.
+  const matchingModels = useMemo(() => new Set((upstreamConflicts ?? []).filter((conflict) =>
+    !normalizedSearch || conflict.model_name.toLowerCase().includes(normalizedSearch) || conflict.fields?.some((field) =>
+      field.field.toLowerCase().includes(normalizedSearch) || (FIELD_LABELS[field.field] ?? field.field).toLowerCase().includes(normalizedSearch)
+    )
+  ).map((conflict) => conflict.model_name)), [upstreamConflicts, normalizedSearch])
+  const filteredRows = rows.filter((row) => matchingModels.has(row.modelName))
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize))
+  const currentPage = Math.min(pageIndex, totalPages - 1)
+  const pageRows = filteredRows.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
+  const selectedRows = rows.filter((row) => selected.has(row.id))
+  const selectedOutsidePage = selectedRows.filter((row) => !pageRows.some((pageRow) => pageRow.id === row.id)).length
+  const allSelected = rows.length > 0 && selectedRows.length === rows.length
+  const displayStart = filteredRows.length ? currentPage * pageSize + 1 : 0
+  const displayEnd = Math.min((currentPage + 1) * pageSize, filteredRows.length)
 
-  const clearSelections = useCallback(() => {
-    setRowSelection({})
-  }, [])
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      generation.current += 1
+      request.current?.abort()
+      request.current = null
+      setUpstreamConflicts([])
+    }
+    props.onOpenChange(nextOpen)
+  }
+
+  const toggleField = (id: string, checked: boolean) => {
+    setSelected((current) => {
+      const next = new Set(current)
+      if (checked) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }
 
   const handleApplyOverwrite = async () => {
-    const selectedRows = table.getSelectedRowModel().rows
-    const groupedSelections = selectedRows.reduce<Record<string, Set<string>>>(
-      (acc, row) => {
-        const key = row.original.modelName
-        if (!acc[key]) {
-          acc[key] = new Set()
-        }
-        acc[key].add(row.original.fieldKey)
-        return acc
-      },
-      {}
+    if (!props.open || !isAdmin || request.current) return
+    const grouped = new Map<string, Set<string>>()
+    for (const row of selectedRows) {
+      const fields = grouped.get(row.modelName) ?? new Set<string>()
+      fields.add(row.fieldKey)
+      grouped.set(row.modelName, fields)
+    }
+    const overwrite: SyncOverwritePayload[] = [...grouped].map(
+      ([modelName, fields]) => ({ model_name: modelName, fields: [...fields] })
     )
-
-    const payload: SyncOverwritePayload[] = Object.entries(groupedSelections)
-      .map(([modelName, fields]) => ({
-        model_name: modelName,
-        fields: [...fields],
-      }))
-      .filter((item) => item.fields.length > 0)
-
-    if (payload.length === 0) {
-      toast.warning(t('Select at least one field to overwrite.'))
+    if (!overwrite.length) {
+      setError(t('Select at least one field to overwrite.'))
       return
     }
-
+    const token = ++generation.current
+    const controller = new AbortController()
+    request.current = controller
     setIsSubmitting(true)
+    setError('')
     try {
       const response = await applyUpstreamOverwrite({
-        overwrite: payload,
+        overwrite,
         locale: syncWizardOptions.locale,
         source: syncWizardOptions.source,
-      })
-
-      if (response.success) {
-        toast.success(t('Selected conflicts were overwritten successfully.'))
-        queryClient.invalidateQueries({ queryKey: modelsQueryKeys.lists() })
-        queryClient.invalidateQueries({ queryKey: vendorsQueryKeys.lists() })
-        setUpstreamConflicts([])
-        onOpenChange(false)
-      } else {
-        toast.error(response.message || t('Failed to apply overwrite.'))
-      }
-    } catch (error: unknown) {
-      toast.error((error as Error)?.message || t('Failed to apply overwrite.'))
+      }, controller.signal)
+      if (token !== generation.current || controller.signal.aborted) return
+      if (!response.success) throw new Error(response.message || t('Failed to apply overwrite.'))
+      toast.success(t('Selected conflicts were overwritten successfully.'))
+      void queryClient.invalidateQueries({ queryKey: modelsQueryKeys.lists() })
+      void queryClient.invalidateQueries({ queryKey: vendorsQueryKeys.lists() })
+      handleOpenChange(false)
+    } catch (cause: unknown) {
+      if (token !== generation.current || controller.signal.aborted) return
+      setError(cause instanceof Error ? cause.message : t('Failed to apply overwrite.'))
     } finally {
-      setIsSubmitting(false)
+      if (token === generation.current) {
+        request.current = null
+        setIsSubmitting(false)
+      }
     }
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) {
-          setUpstreamConflicts([])
-        }
-        onOpenChange(nextOpen)
-      }}
-      title={t('Resolve Conflicts')}
-      description={t(
-        'Select the fields you want to overwrite with upstream data. Unselected fields keep their local values.'
-      )}
-      contentClassName='w-full sm:max-w-5xl'
-      contentHeight='min(72vh, 720px)'
-      bodyClassName='flex flex-col gap-4'
-      initialFocus={!isMobile}
-      footerClassName='sm:justify-between'
-      footer={
-        <div className='flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-          <div className='text-muted-foreground flex flex-1 items-start gap-2 text-xs'>
-            <Info className='h-4 w-4 flex-shrink-0' />
-            <span>
-              {t(
-                'Only selected fields will be overwritten. You can re-run the sync wizard if new conflicts appear.'
-              )}
-            </span>
-          </div>
-          <div className='flex flex-col gap-2 sm:flex-row sm:justify-end'>
-            <Button
-              variant='outline'
-              onClick={() => {
-                setUpstreamConflicts([])
-                onOpenChange(false)
-              }}
-            >
-              {t('Cancel')}
-            </Button>
-            <Button
-              onClick={handleApplyOverwrite}
-              disabled={isSubmitting || !hasSelection}
-            >
-              {isSubmitting ? t('Applying...') : t('Apply Overwrite')}
-            </Button>
-          </div>
-        </div>
-      }
-    >
-      <div className='flex min-h-0 flex-1 flex-col gap-4'>
-        {!hasConflicts ? (
-          <div className='text-muted-foreground flex flex-1 items-center justify-center rounded-md border border-dashed p-8 text-center text-sm'>
-            {t('No conflict entries available.')}
-          </div>
-        ) : (
-          <div className='flex min-h-0 flex-1 flex-col gap-4 overflow-hidden'>
-            <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-              <div className='space-y-1'>
-                <div className='text-sm font-medium'>
-                  {visibleModelCount} {t('model')}
-                  {visibleModelCount === 1 ? '' : 's'} {t('with conflicts')}
-                </div>
-                <div className='text-muted-foreground text-xs'>
-                  {visibleFieldCount} {t('field')}
-                  {visibleFieldCount === 1 ? '' : 's'} {t('showing •')}{' '}
-                  {totalSelectedFields} {t('selected')}
-                </div>
+    <Dialog open={props.open} onOpenChange={handleOpenChange}>
+      <DialogContent className='flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-[min(85dvh,800px)] sm:max-h-[calc(100dvh-3rem)] sm:max-w-5xl sm:rounded-xl [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11' initialFocus={!isMobile} finalFocus={() => props.returnFocus?.() ?? false}>
+        <DialogHeader className='shrink-0 border-b px-4 py-4 pr-16 sm:px-6 sm:pr-16'>
+          <DialogTitle>{t('Resolve Conflicts')}</DialogTitle>
+          <DialogDescription>{t('Sync adds missing models and vendors, then overwrites selected fields. Unselected existing fields keep their local values.')}</DialogDescription>
+        </DialogHeader>
+        <section aria-label={t('Conflicting fields')} className='flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6'>
+          {error && <Alert variant='destructive'><AlertDescription>{error}</AlertDescription></Alert>}
+          {rows.length === 0 ? <p className='text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm'>{t('No conflict entries available.')}</p> : <>
+            <div className='flex flex-col gap-3 sm:flex-row sm:items-center'>
+              <div className='relative min-w-0 flex-1'>
+                <HugeiconsIcon icon={Search01Icon} aria-hidden='true' className='text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2' />
+                <Input className='min-h-11 pl-9' value={search} onChange={(event) => { setSearch(event.target.value); setPageIndex(0) }} placeholder={t('Search models or fields...')} aria-label={t('Search conflicting models or fields')} />
               </div>
-              <div className='flex w-full flex-col gap-2 sm:w-auto sm:flex-row'>
-                <div className='relative flex-1'>
-                  <Search className='text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2' />
-                  <Input
-                    value={search}
-                    onChange={(event) => {
-                      setSearch(event.target.value)
-                      setPageIndex(0)
-                    }}
-                    placeholder={t('Search models or fields...')}
-                    className='pl-9'
-                    aria-label={t('Search conflicting models or fields')}
-                  />
-                </div>
-                <Button
-                  variant='ghost'
-                  size='sm'
-                  onClick={clearSelections}
-                  disabled={!hasSelection}
-                >
-                  {t('Clear selection')}
-                </Button>
+              <Button className='min-h-11' variant='outline' onClick={() => setSelected(new Set())} disabled={!selectedRows.length || isSubmitting}>{t('Clear selection')}</Button>
+            </div>
+            <div className='flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between'>
+              <label className='flex min-h-11 cursor-pointer items-center gap-2'>
+                <Checkbox className='after:absolute after:-inset-3 relative' aria-label={t('Select all conflict fields')} checked={allSelected} indeterminate={selectedRows.length > 0 && !allSelected} disabled={isSubmitting || !isAdmin} onCheckedChange={(checked) => setSelected(checked ? new Set(rows.map((row) => row.id)) : new Set())} />
+                <span>{t('Select all conflict fields')}</span>
+              </label>
+              <div className='text-muted-foreground text-xs' aria-live='polite'>
+                <p>{t('{{count}} selected fields across all pages', { count: selectedRows.length })}</p>
+                {selectedOutsidePage > 0 && <p>{t('{{count}} selected fields outside this page', { count: selectedOutsidePage })}</p>}
               </div>
             </div>
-
-            {showSearchEmptyState ? (
-              <div className='text-muted-foreground flex flex-1 items-center justify-center rounded-md border border-dashed p-8 text-center text-sm'>
-                {t('No conflicts match your search.')}
-              </div>
-            ) : (
-              <div className='flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border'>
-                <div className='flex-1 overflow-auto'>
-                  <DataTableView
-                    table={table}
-                    rows={paginatedRows}
-                    containerClassName='border-0'
-                    tableContainerClassName={
-                      isMobile ? 'min-w-full' : 'min-w-[720px]'
-                    }
-                  />
-                </div>
-
-                <div className='bg-muted/40 flex flex-col gap-2 border-t px-2 py-1.5 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-3 sm:py-2'>
-                  <div className='text-muted-foreground text-xs'>
-                    {t('Showing')} {displayStart}-{displayEnd} {t('of')}{' '}
-                    {visibleFieldCount} {t('field')}
-                    {visibleFieldCount === 1 ? '' : 's'}
-                  </div>
-                  <div className='flex items-center justify-between gap-2 sm:flex-wrap sm:gap-3'>
-                    <div className='flex items-center gap-1.5 text-xs sm:gap-2'>
-                      <span className='hidden sm:inline'>
-                        {t('Rows per page')}
-                      </span>
-                      <Select
-                        items={PAGE_SIZE_OPTIONS.map((size) => ({
-                          value: String(size),
-                          label: size,
-                        }))}
-                        value={String(pageSize)}
-                        onValueChange={(value) => {
-                          setPageSize(Number(value))
-                          setPageIndex(0)
-                        }}
-                      >
-                        <SelectTrigger className='h-8 w-[70px] text-xs sm:h-8 sm:w-[72px]'>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent alignItemWithTrigger={false}>
-                          <SelectGroup>
-                            {PAGE_SIZE_OPTIONS.map((size) => (
-                              <SelectItem key={size} value={String(size)}>
-                                {size}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className='flex items-center gap-1'>
-                      <Button
-                        variant='outline'
-                        size='icon'
-                        className='h-7 w-7 sm:h-8 sm:w-8'
-                        onClick={() =>
-                          setPageIndex((prev) => Math.max(0, prev - 1))
-                        }
-                        disabled={pageIndex === 0}
-                        aria-label={t('Previous page')}
-                      >
-                        <ChevronLeft className='h-3.5 w-3.5 sm:h-4 sm:w-4' />
-                      </Button>
-                      <span className='text-xs font-medium'>
-                        {t('Page {{current}} of {{total}}', {
-                          current: currentPageDisplay,
-                          total: totalPagesDisplay,
-                        })}
-                      </span>
-                      <Button
-                        variant='outline'
-                        size='icon'
-                        className='h-7 w-7 sm:h-8 sm:w-8'
-                        onClick={() =>
-                          setPageIndex((prev) =>
-                            Math.min(totalPages - 1, prev + 1)
-                          )
-                        }
-                        disabled={
-                          pageIndex >= totalPages - 1 ||
-                          totalFilteredFields === 0
-                        }
-                        aria-label={t('Next page')}
-                      >
-                        <ChevronRight className='h-3.5 w-3.5 sm:h-4 sm:w-4' />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+            <p className='text-muted-foreground text-xs'>{t('Matching models: {{models}} · Conflict fields: {{fields}}', { models: matchingModels.size, fields: filteredRows.length })}</p>
+            <p className='text-muted-foreground text-xs'>{t('Search shows all fields of matching models. Select all includes every conflict, including hidden results.')}</p>
+            {!filteredRows.length && <p className='text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm'>{t('No conflicts match your search.')}</p>}
+            {filteredRows.length > 0 && isMobile &&
+              <div className='flex flex-col gap-3'>{pageRows.map((row) => <article key={row.id} className='flex min-w-0 flex-col gap-3 rounded-xl border p-4'>
+                <label className='flex min-h-11 min-w-0 cursor-pointer items-start gap-3'>
+                  <Checkbox className='relative after:absolute after:-inset-3' aria-label={t('Select row')} checked={selected.has(row.id)} disabled={isSubmitting || !isAdmin} onCheckedChange={(checked) => toggleField(row.id, !!checked)} />
+                  <span className='flex min-w-0 flex-col gap-2'><span className='font-medium break-words [overflow-wrap:anywhere]'>{row.modelName}</span><StatusBadge label={t(FIELD_LABELS[row.fieldKey] ?? row.fieldKey)} variant='neutral' copyable={false} /><span className='text-muted-foreground font-mono text-xs break-words [overflow-wrap:anywhere]'>{row.fieldKey}</span></span>
+                </label>
+                <div className='flex min-w-0 flex-col gap-1'><span className='text-xs font-medium'>{t('Local Value')}</span><ValuePreview value={row.localValue} /></div>
+                <div className='flex min-w-0 flex-col gap-1'><span className='text-xs font-medium'>{t('Upstream Value')}</span><ValuePreview value={row.upstreamValue} /></div>
+              </article>)}</div>}
+            {filteredRows.length > 0 && !isMobile &&
+              <table className='w-full table-fixed border-collapse text-left text-sm'>
+                <thead><tr className='border-b'><th scope='col' className='w-14 p-2'><span className='sr-only'>{t('Select')}</span></th><th scope='col' className='w-[24%] p-2'>{t('Model')}</th><th scope='col' className='w-[16%] p-2'>{t('Field')}</th><th scope='col' className='p-2'>{t('Local Value')}</th><th scope='col' className='p-2'>{t('Upstream Value')}</th></tr></thead>
+                <tbody>{pageRows.map((row) => <tr key={row.id} className='border-b'>
+                  <td className='p-2 align-top'><label className='flex min-h-11 min-w-11 cursor-pointer items-center justify-center'><Checkbox aria-label={t('Select row')} checked={selected.has(row.id)} disabled={isSubmitting || !isAdmin} onCheckedChange={(checked) => toggleField(row.id, !!checked)} /></label></td>
+                  <td className='p-2 align-top font-medium break-words [overflow-wrap:anywhere]'>{row.modelName}</td>
+                  <td className='p-2 align-top'><span className='flex flex-col gap-1 break-words [overflow-wrap:anywhere]'><span>{t(FIELD_LABELS[row.fieldKey] ?? row.fieldKey)}</span><span className='text-muted-foreground font-mono text-xs'>{row.fieldKey}</span></span></td>
+                  <td className='p-2 align-top'><ValuePreview value={row.localValue} /></td><td className='p-2 align-top'><ValuePreview value={row.upstreamValue} /></td>
+                </tr>)}</tbody>
+              </table>}
+          </>}
+          {isSubmitting && <p role='status' className='text-muted-foreground text-sm'>{t('Closing this dialog does not undo a sync already submitted.')}</p>}
+        </section>
+        <DialogFooter className='m-0 shrink-0 flex-col gap-3 rounded-none px-4 py-3 sm:flex-col sm:px-6'>
+          <nav aria-label={t('Conflict pagination')} className='flex w-full flex-wrap items-center justify-between gap-2'>
+            <span className='text-muted-foreground text-xs' aria-live='polite'>{t('Showing {{start}}–{{end}} of {{total}} fields', { start: displayStart, end: displayEnd, total: filteredRows.length })}</span>
+            <div className='flex flex-wrap items-center gap-2'>
+              <label className='flex items-center gap-2 text-xs'><span className='sr-only sm:not-sr-only'>{t('Rows per page')}</span><select aria-label={t('Rows per page')} className='border-input bg-background min-h-11 rounded-md border px-2' value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPageIndex(0) }}>{PAGE_SIZE_OPTIONS.map((size) => <option key={size} value={size}>{size}</option>)}</select></label>
+              <Button className='min-h-11 min-w-11' size='icon' variant='outline' aria-label={t('Previous page')} disabled={currentPage === 0} onClick={() => setPageIndex(currentPage - 1)}><HugeiconsIcon icon={ArrowLeft01Icon} aria-hidden='true' className='size-4' /></Button>
+              <span className='text-xs'>{t('Page {{current}} of {{total}}', { current: filteredRows.length ? currentPage + 1 : 0, total: filteredRows.length ? totalPages : 0 })}</span>
+              <Button className='min-h-11 min-w-11' size='icon' variant='outline' aria-label={t('Next page')} disabled={currentPage >= totalPages - 1 || !filteredRows.length} onClick={() => setPageIndex(currentPage + 1)}><HugeiconsIcon icon={ArrowRight01Icon} aria-hidden='true' className='size-4' /></Button>
+            </div>
+          </nav>
+          <div className='flex w-full flex-wrap justify-end gap-2'><Button className='min-h-11' variant='outline' onClick={() => handleOpenChange(false)}>{t('Cancel')}</Button><Button className='min-h-11' disabled={isSubmitting || !selectedRows.length || !isAdmin} onClick={() => { void handleApplyOverwrite() }}>{isSubmitting ? t('Applying...') : t('Apply Overwrite')}</Button></div>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   )
 }

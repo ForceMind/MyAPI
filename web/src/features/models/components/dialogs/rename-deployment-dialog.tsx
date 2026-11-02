@@ -17,42 +17,59 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { Loading03Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Dialog } from '@/components/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 import { checkClusterNameAvailability, updateDeploymentName } from '../../api'
 import { deploymentsQueryKeys } from '../../lib'
+import { useDeploymentTask } from '../../hooks/use-deployment-task'
 
 export function RenameDeploymentDialog({
   open,
   onOpenChange,
   deploymentId,
+  returnFocus,
   currentName,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   deploymentId: string | number | null
+  returnFocus?: () => HTMLElement | null
   currentName?: string
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const task = useDeploymentTask(open, deploymentId)
+  const initialized = useRef<string | null>(null)
+  const taskKey = JSON.stringify([task.identity, deploymentId])
   const [name, setName] = useState(currentName || '')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (open) setName(currentName || '')
-  }, [open, currentName])
+    if (!open) {
+      initialized.current = null
+      return
+    }
+    if (initialized.current === taskKey) return
+    initialized.current = taskKey
+    setName(currentName || '')
+    setIsSubmitting(false)
+    setSubmitError(null)
+  }, [open, taskKey, currentName])
 
   const trimmed = name.trim()
 
   const { data: checkRes, isFetching: isChecking } = useQuery({
-    queryKey: ['deployment-rename-check', trimmed],
+    queryKey: ['deployment-rename-check', trimmed, task.identity],
     queryFn: () => (trimmed ? checkClusterNameAvailability(trimmed) : null),
     enabled: open && Boolean(trimmed),
     staleTime: 10_000,
@@ -86,9 +103,14 @@ export function RenameDeploymentDialog({
       return
     }
 
+    const operation = task.begin()
+    if (!operation) return
+
+    setSubmitError(null)
     setIsSubmitting(true)
     try {
       const res = await updateDeploymentName(deploymentId, trimmed)
+      if (!operation.isCurrent()) return
       if (res.success) {
         toast.success(t('Renamed successfully'))
         queryClient.invalidateQueries({
@@ -98,47 +120,57 @@ export function RenameDeploymentDialog({
         onOpenChange(false)
         return
       }
+      setSubmitError(res.message || t('Rename failed'))
       toast.error(res.message || t('Rename failed'))
     } catch (err: unknown) {
+      if (!operation.isCurrent()) return
+      setSubmitError(err instanceof Error ? err.message : t('Rename failed'))
       toast.error(err instanceof Error ? err.message : t('Rename failed'))
     } finally {
-      setIsSubmitting(false)
+      if (operation.isCurrent()) setIsSubmitting(false)
+      operation.finish()
     }
   }
 
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      returnFocus={returnFocus}
+      onOpenChange={(next) => { if (!task.isPending()) onOpenChange(next) }}
+      showCloseButton={!isSubmitting}
       title={t('Rename deployment')}
-      contentClassName='sm:max-w-lg'
-      footerClassName='mt-4'
+      contentClassName='h-dvh max-h-dvh w-screen max-w-none sm:w-full rounded-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-lg sm:rounded-xl [&_button]:min-h-11 [&_button]:min-w-11 [&_input]:min-h-11'
+      footerClassName='border-t pt-4'
       contentHeight='auto'
       bodyClassName='space-y-4'
       footer={
         <>
-          <Button variant='outline' onClick={() => onOpenChange(false)}>
+          <Button variant='outline' disabled={isSubmitting} onClick={() => onOpenChange(false)}>
             {t('Cancel')}
           </Button>
           <Button onClick={() => void onSubmit()} disabled={!canSubmit}>
             {isSubmitting ? (
-              <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+              <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='mr-2 h-4 w-4 animate-spin' />
             ) : null}
             {t('Rename')}
           </Button>
         </>
       }
     >
+      {submitError ? <div role='alert' className='text-destructive text-sm break-words'>{submitError}</div> : null}
       <div className='space-y-2'>
         <div className='text-muted-foreground text-sm'>
           {t('Deployment ID')}:{' '}
-          <span className='font-mono'>{deploymentId}</span>
+          <span className='font-mono break-all'>{deploymentId}</span>
         </div>
+        <Label htmlFor='deployment-rename-name'>{t('Name')}</Label>
         <Input
+          id='deployment-rename-name'
           placeholder={t('Enter a new name')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           autoComplete='off'
+          disabled={isSubmitting}
         />
         <div className='text-muted-foreground text-xs'>{helper}</div>
       </div>

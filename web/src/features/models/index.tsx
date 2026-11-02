@@ -18,8 +18,9 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQueryClient } from '@tanstack/react-query'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
-import { Plus } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { PlusSignIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
@@ -83,6 +84,8 @@ function ModelsContent() {
 
   // Deployment create dialog state
   const [createDeploymentOpen, setCreateDeploymentOpen] = useState(false)
+  const createDeploymentTrigger = useRef<HTMLButtonElement>(null)
+  const returnToCreateDeployment = useCallback(() => createDeploymentTrigger.current, [])
 
   // keep context state in sync (for components that rely on it)
   useEffect(() => {
@@ -115,6 +118,8 @@ function ModelsContent() {
             <ModelsPrimaryButtons />
           ) : (
             <Button
+              ref={createDeploymentTrigger}
+              className='min-h-11'
               onClick={() => setCreateDeploymentOpen(true)}
               size='sm'
               disabled={
@@ -125,7 +130,7 @@ function ModelsContent() {
                 Boolean(deployment.settingsError)
               }
             >
-              <Plus className='h-4 w-4' />
+              <HugeiconsIcon icon={PlusSignIcon} aria-hidden='true' className='h-4 w-4' />
               {t('Create deployment')}
             </Button>
           )}
@@ -159,6 +164,7 @@ function ModelsContent() {
       <CreateDeploymentDrawer
         open={createDeploymentOpen}
         onOpenChange={setCreateDeploymentOpen}
+        returnFocus={returnToCreateDeployment}
       />
     </>
   )

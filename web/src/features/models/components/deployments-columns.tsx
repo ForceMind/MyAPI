@@ -17,7 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { ColumnDef } from '@tanstack/react-table'
-import { Eye, Info, Pencil, Settings2, Timer, Trash2 } from 'lucide-react'
+import { Delete02Icon, Edit02Icon, FileSearchIcon, InformationCircleIcon, Settings02Icon, Timer02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DataTableRowActionMenu } from '@/components/data-table/core/row-action-menu'
@@ -47,9 +49,12 @@ export function useDeploymentsColumns(opts: {
   onDelete: (deployment: Deployment) => void
 }): ColumnDef<Deployment>[] {
   const { t } = useTranslation()
-  const STATUS = getDeploymentStatusConfig(t)
+  const actions = useRef(opts)
+  useEffect(() => { actions.current = opts }, [opts])
 
-  return [
+  return useMemo<ColumnDef<Deployment>[]>(() => {
+    const STATUS = getDeploymentStatusConfig(t)
+    return [
     {
       accessorKey: 'id',
       header: t('ID'),
@@ -256,48 +261,49 @@ export function useDeploymentsColumns(opts: {
           ''
 
         return (
-          <div className='-ml-2.5 flex items-center gap-1'>
+          <div data-deployment-actions={String(id)} className='flex items-center gap-1 [&_button]:min-h-11 [&_button]:min-w-11'>
             <Button
+              data-deployment-logs
               variant='ghost'
               size='icon-sm'
-              onClick={() => opts.onViewLogs(id)}
+              onClick={() => actions.current.onViewLogs(id)}
               aria-label={t('View logs')}
             >
-              <Eye />
+              <HugeiconsIcon icon={FileSearchIcon} aria-hidden='true' />
             </Button>
             <DataTableRowActionMenu ariaLabel={t('Open menu')}>
-              <DropdownMenuItem onClick={() => opts.onViewDetails(id)}>
+              <DropdownMenuItem onClick={() => actions.current.onViewDetails(id)}>
                 {t('View details')}
                 <DropdownMenuShortcut>
-                  <Info size={16} />
+                  <HugeiconsIcon icon={InformationCircleIcon} aria-hidden='true' size={16} />
                 </DropdownMenuShortcut>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => opts.onUpdateConfig(id)}>
+              <DropdownMenuItem onClick={() => actions.current.onUpdateConfig(id)}>
                 {t('Update configuration')}
                 <DropdownMenuShortcut>
-                  <Settings2 size={16} />
+                  <HugeiconsIcon icon={Settings02Icon} aria-hidden='true' size={16} />
                 </DropdownMenuShortcut>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => opts.onExtend(id)}>
+              <DropdownMenuItem onClick={() => actions.current.onExtend(id)}>
                 {t('Extend deployment')}
                 <DropdownMenuShortcut>
-                  <Timer size={16} />
+                  <HugeiconsIcon icon={Timer02Icon} aria-hidden='true' size={16} />
                 </DropdownMenuShortcut>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => opts.onRename(id, currentName)}>
+              <DropdownMenuItem onClick={() => actions.current.onRename(id, currentName)}>
                 {t('Rename deployment')}
                 <DropdownMenuShortcut>
-                  <Pencil size={16} />
+                  <HugeiconsIcon icon={Edit02Icon} aria-hidden='true' size={16} />
                 </DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => opts.onDelete(row.original)}
+                onClick={() => actions.current.onDelete(row.original)}
                 className='text-destructive focus:text-destructive'
               >
                 {t('Delete')}
                 <DropdownMenuShortcut>
-                  <Trash2 size={16} />
+                  <HugeiconsIcon icon={Delete02Icon} aria-hidden='true' size={16} />
                 </DropdownMenuShortcut>
               </DropdownMenuItem>
             </DataTableRowActionMenu>
@@ -306,5 +312,6 @@ export function useDeploymentsColumns(opts: {
       },
       meta: { pinned: 'right' as const },
     },
-  ]
+    ]
+  }, [t])
 }

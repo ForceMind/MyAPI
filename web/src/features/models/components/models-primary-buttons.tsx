@@ -34,19 +34,24 @@ import { useModels } from './models-provider'
 
 export function ModelsPrimaryButtons() {
   const { t } = useTranslation()
-  const { setOpen, setCurrentRow, rememberOpener } = useModels()
+  const { setOpen, setCurrentRow, rememberOpener, setMissingView, setMissingReturnTarget } = useModels()
 
   const handleCreateModel = () => {
     rememberOpener({ kind: 'create' })
+    setMissingReturnTarget(null)
     setCurrentRow(null)
     setOpen('create-model')
   }
 
   const handleMissingModels = () => {
+    rememberOpener({ kind: 'tools' })
+    setMissingView({ search: '', page: 1, pageSize: 20 })
+    setMissingReturnTarget(null)
     setOpen('missing-models')
   }
 
   const handleSync = () => {
+    rememberOpener({ kind: 'tools' })
     setOpen('sync-wizard')
   }
 

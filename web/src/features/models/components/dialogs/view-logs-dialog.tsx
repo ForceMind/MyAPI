@@ -17,7 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { Download, Loader2, RefreshCcw, Terminal } from 'lucide-react'
+import { ArrowDown01Icon, CodeIcon, Loading03Icon, Refresh01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -39,8 +40,14 @@ For commercial licensing, please contact support@quantumnous.com
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Dialog } from '@/components/dialog'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { IconBadge } from '@/components/ui/icon-badge'
 import {
   Select,
@@ -53,19 +60,23 @@ import {
 import { Switch } from '@/components/ui/switch'
 
 import { getDeploymentLogs, listDeploymentContainers } from '../../api'
+import { useDeploymentTask } from '../../hooks/use-deployment-task'
 
 interface ViewLogsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   deploymentId: string | number | null
+  returnFocus?: () => HTMLElement | null
 }
 
 export function ViewLogsDialog({
   open,
   onOpenChange,
   deploymentId,
+  returnFocus,
 }: ViewLogsDialogProps) {
   const { t } = useTranslation()
+  const { identity } = useDeploymentTask(open, deploymentId)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [autoScroll, setAutoScroll] = useState(true)
   const [autoRefresh, setAutoRefresh] = useState(false)
@@ -77,8 +88,10 @@ export function ViewLogsDialog({
     isLoading: isLoadingContainers,
     refetch: refetchContainers,
     isFetching: isFetchingContainers,
+    isError: isContainersError,
+    error: containersError,
   } = useQuery({
-    queryKey: ['deployment-containers', deploymentId],
+    queryKey: ['deployment-containers', deploymentId, identity],
     queryFn: () =>
       deploymentId ? listDeploymentContainers(deploymentId) : null,
     enabled: open && deploymentId !== null,
@@ -86,8 +99,8 @@ export function ViewLogsDialog({
 
   const containers = useMemo(() => {
     const items = containersData?.data?.containers
-    return Array.isArray(items) ? items : []
-  }, [containersData?.data?.containers])
+    return !isContainersError && containersData?.success && Array.isArray(items) ? items : []
+  }, [containersData?.success, containersData?.data?.containers, isContainersError])
 
   useEffect(() => {
     if (!open) {
@@ -115,8 +128,10 @@ export function ViewLogsDialog({
     isLoading: isLoadingLogs,
     refetch: refetchLogs,
     isFetching: isFetchingLogs,
+    isError: isLogsError,
+    error: logsError,
   } = useQuery({
-    queryKey: ['deployment-logs', deploymentId, containerId, stream],
+    queryKey: ['deployment-logs', deploymentId, containerId, stream, identity],
     queryFn: () =>
       deploymentId && containerId
         ? getDeploymentLogs(deploymentId, {
@@ -131,8 +146,8 @@ export function ViewLogsDialog({
 
   const logsText = useMemo(() => {
     const raw = logsData?.data
-    return typeof raw === 'string' ? raw : ''
-  }, [logsData?.data])
+    return !isLogsError && logsData?.success && typeof raw === 'string' ? raw : ''
+  }, [logsData?.data, logsData?.success, isLogsError])
 
   const logLines = useMemo(() => {
     const normalized = logsText.replaceAll(/\r\n?/g, '\n')
@@ -167,6 +182,10 @@ export function ViewLogsDialog({
   let containerPlaceholder = t('Select')
   if (isLoadingContainers) {
     containerPlaceholder = t('Loading...')
+  } else if (isContainersError || containersData?.success === false) {
+    logsContent = <div role='alert' className='text-destructive py-8 text-center break-words'>{containersError?.message || containersData?.message || t('Failed to load containers')}</div>
+  } else if (isLogsError || logsData?.success === false) {
+    logsContent = <div role='alert' className='text-destructive py-8 text-center break-words'>{logsError?.message || logsData?.message || t('Failed to fetch deployment logs')}</div>
   } else if (containers.length === 0) {
     containerPlaceholder = t('No containers')
   }
@@ -174,28 +193,28 @@ export function ViewLogsDialog({
   if (isLoadingContainers || isLoadingLogs) {
     logsContent = (
       <div className='flex items-center justify-center py-8'>
-        <Loader2 className='h-6 w-6 animate-spin text-gray-400' />
+        <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='text-muted-foreground h-6 w-6 animate-spin' />
       </div>
     )
   } else if (containers.length === 0) {
     logsContent = (
-      <div className='py-8 text-center text-gray-400'>{t('No containers')}</div>
+      <div className='text-muted-foreground py-8 text-center'>{t('No containers')}</div>
     )
   } else if (!containerId) {
     logsContent = (
-      <div className='py-8 text-center text-gray-400'>
+      <div className='text-muted-foreground py-8 text-center'>
         {t('Please select a container')}
       </div>
     )
   } else if (!logsText.trim()) {
     logsContent = (
-      <div className='py-8 text-center text-gray-400'>{t('No logs')}</div>
+      <div className='text-muted-foreground py-8 text-center'>{t('No logs')}</div>
     )
   } else {
     logsContent = (
       <div className='font-mono text-sm'>
         {keyedLogLines.map(({ key, line }) => (
-          <div key={key} className='whitespace-pre-wrap text-gray-200'>
+          <div key={key} className='text-foreground whitespace-pre-wrap break-all'>
             {line}
           </div>
         ))}
@@ -204,26 +223,24 @@ export function ViewLogsDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={
-        <>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent finalFocus={returnFocus} className='flex h-dvh max-h-dvh w-screen max-w-none sm:w-full flex-col gap-4 overflow-hidden rounded-none p-4 sm:h-[80dvh] sm:max-h-[calc(100dvh-2rem)] sm:max-w-4xl sm:rounded-xl sm:p-6 [&_button]:min-h-11 [&_button]:min-w-11'>
+        <DialogHeader className='shrink-0 text-start'>
+          <DialogTitle className='flex items-center gap-2'>
           <IconBadge tone='chart-3' size='sm'>
-            <Terminal />
+            <HugeiconsIcon icon={CodeIcon} aria-hidden='true' />
           </IconBadge>
           {t('Deployment logs')}
-        </>
-      }
-      contentClassName='flex h-[calc(100dvh-2rem)] flex-col max-sm:w-screen max-sm:max-w-none max-sm:rounded-none max-sm:p-4 sm:h-[80vh] sm:max-w-4xl'
-      titleClassName='flex items-center gap-2'
-      contentHeight='min(72vh, 720px)'
-      bodyClassName='space-y-4'
-    >
+          </DialogTitle>
+          <div className='text-muted-foreground text-sm break-all'>{t('Deployment ID')}: {deploymentId}</div>
+        </DialogHeader>
+      <div ref={scrollRef} className='min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain'
+        onScroll={(e) => {
+          const target = e.currentTarget
+          const isAtBottom = target.scrollHeight - target.scrollTop - target.clientHeight < 50
+          setAutoScroll(isAtBottom)
+        }}>
       <div className='mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3'>
-        <div className='text-muted-foreground text-sm'>
-          {t('Deployment ID')}: {deploymentId}
-        </div>
         <div className='grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center'>
           <Button
             variant='outline'
@@ -235,9 +252,9 @@ export function ViewLogsDialog({
             disabled={isFetchingLogs || isFetchingContainers}
           >
             {isFetchingLogs || isFetchingContainers ? (
-              <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+              <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='mr-2 h-4 w-4 animate-spin' />
             ) : (
-              <RefreshCcw className='mr-2 h-4 w-4' />
+              <HugeiconsIcon icon={Refresh01Icon} aria-hidden='true' className='mr-2 h-4 w-4' />
             )}
             {t('Refresh')}
           </Button>
@@ -247,12 +264,12 @@ export function ViewLogsDialog({
             onClick={handleDownload}
             disabled={!logsText.trim()}
           >
-            <Download className='mr-2 h-4 w-4' />
+            <HugeiconsIcon icon={ArrowDown01Icon} aria-hidden='true' className='mr-2 h-4 w-4' />
             {t('Download')}
           </Button>
           <div className='col-span-2 flex items-center justify-between gap-2 rounded-md border px-3 py-1.5 sm:col-span-1'>
             <span className='text-xs'>{t('Auto refresh')}</span>
-            <Switch checked={autoRefresh} onCheckedChange={setAutoRefresh} />
+            <Switch aria-label={t('Auto refresh')} checked={autoRefresh} onCheckedChange={setAutoRefresh} />
           </div>
         </div>
       </div>
@@ -283,7 +300,7 @@ export function ViewLogsDialog({
             onValueChange={(v) => v !== null && setContainerId(v)}
             disabled={isLoadingContainers || containers.length === 0}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label={t('Container')} className='min-h-11 w-full'>
               <SelectValue placeholder={containerPlaceholder} />
             </SelectTrigger>
             <SelectContent alignItemWithTrigger={false}>
@@ -325,7 +342,7 @@ export function ViewLogsDialog({
               }
             }}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label={t('Stream')} className='min-h-11 w-full'>
               <SelectValue placeholder={t('Select')} />
             </SelectTrigger>
             <SelectContent alignItemWithTrigger={false}>
@@ -338,18 +355,14 @@ export function ViewLogsDialog({
           </Select>
         </div>
       </div>
-      <div
-        ref={scrollRef}
-        className='bg-muted flex-1 overflow-auto rounded-md border p-3 sm:p-4'
-        onScroll={(e) => {
-          const target = e.target as HTMLDivElement
-          const isAtBottom =
-            target.scrollHeight - target.scrollTop - target.clientHeight < 50
-          setAutoScroll(isAtBottom)
-        }}
-      >
+      <div className='bg-muted min-w-0 rounded-md border p-3 sm:p-4'>
         {logsContent}
       </div>
+      </div>
+      <DialogFooter className='shrink-0 border-t pt-4'>
+        <Button variant='outline' onClick={() => onOpenChange(false)}>{t('Close')}</Button>
+      </DialogFooter>
+      </DialogContent>
     </Dialog>
   )
 }

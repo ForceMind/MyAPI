@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 /* eslint-disable react-refresh/only-export-components */
 import { useAuthStore } from '@/stores/auth-store'
 import React, { createContext, useCallback, useContext, useRef, useState } from 'react'
+import type { LogPageSize } from '@/lib/log-pagination'
 
 import { findModelAction, type ModelActionTarget } from '../model-action-focus'
 
@@ -47,6 +48,9 @@ type DialogType =
   | 'description'
   | null
 
+type MissingModelsView = { search: string; page: number; pageSize: LogPageSize }
+type MissingModelReturnTarget = Extract<ModelActionTarget, { kind: 'missing-configure' }>
+
 type ModelsContextType = {
   rememberOpener: (target: ModelActionTarget) => void
   returnFocus: () => HTMLElement | null
@@ -54,6 +58,10 @@ type ModelsContextType = {
   setOpen: (open: DialogType) => void
   currentRow: Model | null
   setCurrentRow: (model: Model | null) => void
+  missingView: MissingModelsView
+  setMissingView: React.Dispatch<React.SetStateAction<MissingModelsView>>
+  missingReturnTarget: MissingModelReturnTarget | null
+  setMissingReturnTarget: (target: MissingModelReturnTarget | null) => void
   currentVendor: Vendor | null
   setCurrentVendor: (vendor: Vendor | null) => void
   selectedVendor: string | null
@@ -100,6 +108,8 @@ function ModelsSessionProvider({ children }: { children: React.ReactNode }) {
   }, [])
   const [open, setOpen] = useState<DialogType>(null)
   const [currentRow, setCurrentRow] = useState<Model | null>(null)
+  const [missingView, setMissingView] = useState<MissingModelsView>({ search: '', page: 1, pageSize: 20 })
+  const [missingReturnTarget, setMissingReturnTarget] = useState<MissingModelReturnTarget | null>(null)
   const [currentVendor, setCurrentVendor] = useState<Vendor | null>(null)
   const [selectedVendor, setSelectedVendor] = useState<string | null>(null)
   const [descriptionData, setDescriptionData] = useState<{
@@ -127,6 +137,10 @@ function ModelsSessionProvider({ children }: { children: React.ReactNode }) {
         setOpen,
         currentRow,
         setCurrentRow,
+        missingView,
+        setMissingView,
+        missingReturnTarget,
+        setMissingReturnTarget,
         currentVendor,
         setCurrentVendor,
         selectedVendor,

@@ -17,18 +17,30 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQueryClient } from '@tanstack/react-query'
-import { Loader2, RefreshCw } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Refresh01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { Dialog } from '@/components/dialog'
 import { StatusBadge } from '@/components/status-badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Spinner } from '@/components/ui/spinner'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { ROLE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { syncUpstream, previewUpstreamDiff } from '../../api'
 import { getSyncLocaleOptions, getSyncSourceOptions } from '../../constants'
@@ -39,12 +51,10 @@ import { useModels } from '../models-provider'
 type SyncWizardDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
+  returnFocus?: () => HTMLElement | null
 }
 
-export function SyncWizardDialog({
-  open,
-  onOpenChange,
-}: SyncWizardDialogProps) {
+export function SyncWizardDialog(props: SyncWizardDialogProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const {
@@ -54,192 +64,153 @@ export function SyncWizardDialog({
     syncWizardOptions,
   } = useModels()
   const isMobile = useIsMobile()
+  const identity = useAuthStore(
+    (state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`
+  )
+  const isAdmin = useAuthStore(
+    (state) => (state.auth.user?.role ?? 0) >= ROLE.ADMIN
+  )
   const [locale, setLocale] = useState<SyncLocale>('zh')
   const [source, setSource] = useState<SyncSource>('official')
   const [isSyncing, setIsSyncing] = useState(false)
-
-  // Get translated options
-  const SYNC_SOURCE_OPTIONS = getSyncSourceOptions(t)
-  const SYNC_LOCALE_OPTIONS = getSyncLocaleOptions(t)
+  const [isWriting, setIsWriting] = useState(false)
+  const [error, setError] = useState('')
+  const generation = useRef(0)
+  const request = useRef<AbortController | null>(null)
+  const changingView = useRef(false)
+  const sourceOptions = getSyncSourceOptions(t)
+  const localeOptions = getSyncLocaleOptions(t)
 
   useEffect(() => {
-    if (open) {
+    if (props.open) {
       setLocale(syncWizardOptions.locale || 'zh')
-      const preferredSource = SYNC_SOURCE_OPTIONS.find(
-        (option) => option.value === syncWizardOptions.source
-      )
-      setSource(
-        preferredSource && !preferredSource.disabled
-          ? (preferredSource.value as SyncSource)
-          : 'official'
-      )
+      setSource('official')
     }
-  }, [open, syncWizardOptions, SYNC_SOURCE_OPTIONS])
+  }, [props.open, syncWizardOptions.locale])
+
+  useEffect(() => {
+    setIsSyncing(false)
+    setIsWriting(false)
+    setError('')
+    if (props.open) changingView.current = false
+    return () => {
+      generation.current += 1
+      request.current?.abort()
+      request.current = null
+    }
+  }, [props.open, identity])
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      generation.current += 1
+      request.current?.abort()
+      request.current = null
+    }
+    props.onOpenChange(nextOpen)
+  }
 
   const handleSync = async () => {
+    if (!props.open || !isAdmin || request.current) return
+    const token = ++generation.current
+    const controller = new AbortController()
+    request.current = controller
     setIsSyncing(true)
+    setError('')
     try {
       setSyncWizardOptions({ locale, source })
-      const previewRes = await previewUpstreamDiff({ locale, source })
-
-      if (!previewRes.success) {
-        throw new Error(previewRes.message || 'Failed to preview upstream diff')
+      const preview = await previewUpstreamDiff(
+        { locale, source }, controller.signal
+      )
+      if (token !== generation.current || controller.signal.aborted) return
+      if (!preview.success) {
+        throw new Error(preview.message || t('Failed to preview upstream diff'))
       }
-
-      const conflicts = previewRes.data?.conflicts || []
-
+      const conflicts = preview.data?.conflicts || []
       if (conflicts.length > 0) {
-        toast.warning(
-          `Found ${conflicts.length} conflict${conflicts.length > 1 ? 's' : ''}. Please resolve them first.`
-        )
         setUpstreamConflicts(conflicts)
+        changingView.current = true
         setOpen('upstream-conflict')
         return
       }
-
-      // No conflicts, proceed with sync
-      const response = await syncUpstream({ locale, source })
-
-      if (response.success) {
-        const { created_models, created_vendors, updated_models } =
-          response.data || {}
-        toast.success(
-          `Sync completed! Created ${created_models || 0} models, updated ${updated_models || 0}, and added ${created_vendors || 0} vendors.`
-        )
-        queryClient.invalidateQueries({ queryKey: modelsQueryKeys.lists() })
-        queryClient.invalidateQueries({ queryKey: vendorsQueryKeys.lists() })
-        onOpenChange(false)
-      } else {
-        toast.error(response.message || 'Sync failed')
+      setIsWriting(true)
+      const response = await syncUpstream({ locale, source }, controller.signal)
+      if (token !== generation.current || controller.signal.aborted) return
+      if (!response.success) {
+        throw new Error(response.message || t('Sync failed'))
       }
-    } catch (error: unknown) {
-      toast.error((error as Error)?.message || 'Sync failed')
+      const counts = response.data
+      if (counts && [
+        counts.created_models,
+        counts.updated_models,
+        counts.created_vendors,
+      ].every((count) => typeof count === 'number' && Number.isSafeInteger(count) && count >= 0)) {
+        toast.success(t('Sync completed: {{models}} models created, {{updated}} updated, {{vendors}} vendors added.', {
+          models: counts.created_models,
+          updated: counts.updated_models,
+          vendors: counts.created_vendors,
+        }))
+      } else {
+        toast.success(t('Sync completed successfully.'))
+      }
+      void queryClient.invalidateQueries({ queryKey: modelsQueryKeys.lists() })
+      void queryClient.invalidateQueries({ queryKey: vendorsQueryKeys.lists() })
+      handleOpenChange(false)
+    } catch (cause: unknown) {
+      if (token !== generation.current || controller.signal.aborted) return
+      setError(cause instanceof Error ? cause.message : t('Sync failed'))
     } finally {
-      setIsSyncing(false)
+      if (token === generation.current) {
+        request.current = null
+        setIsSyncing(false)
+        setIsWriting(false)
+      }
     }
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={t('Sync Upstream Models')}
-      description={t('Synchronize models and vendors from an upstream source')}
-      initialFocus={!isMobile}
-      contentHeight='auto'
-      bodyClassName='flex flex-col gap-6'
-      footer={
-        <>
-          <Button
-            variant='outline'
-            onClick={() => onOpenChange(false)}
-            disabled={isSyncing}
-          >
-            {t('Cancel')}
-          </Button>
-          <Button onClick={handleSync} disabled={isSyncing}>
-            {isSyncing && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
-            <RefreshCw className='mr-2 h-4 w-4' />
-            {isSyncing ? t('Syncing...') : t('Sync Now')}
-          </Button>
-        </>
-      }
-    >
-      <div className='space-y-3'>
-        <div>
-          <Label className='text-base'>{t('Select Sync Source')}</Label>
-          <p className='text-muted-foreground text-sm'>
-            {t('Choose where to fetch upstream metadata.')}
-          </p>
-        </div>
-        <RadioGroup
-          value={source}
-          onValueChange={(value) => {
-            const selected = SYNC_SOURCE_OPTIONS.find(
-              (option) => option.value === value
-            )
-            if (!selected || selected.disabled) return
-            setSource(selected.value)
-          }}
-          className='grid gap-3 md:grid-cols-2'
-        >
-          {SYNC_SOURCE_OPTIONS.map((option) => {
-            const isActive = source === option.value
-            const isDisabled = option.disabled
-            return (
-              <Label
-                key={option.value}
-                htmlFor={`sync-source-${option.value}`}
-                className={cn(
-                  'flex-col items-start gap-0 rounded-lg border p-4 font-normal transition-all',
-                  isActive && 'border-primary ring-primary ring-1',
-                  isDisabled
-                    ? 'cursor-not-allowed opacity-60'
-                    : 'hover:border-primary/60 cursor-pointer'
-                )}
-              >
-                <div className='flex items-start gap-3'>
-                  <RadioGroupItem
-                    value={option.value}
-                    id={`sync-source-${option.value}`}
-                    disabled={isDisabled}
-                  />
-                  <div className='space-y-1'>
-                    <div className='flex items-center gap-2'>
-                      <span className='font-medium'>{option.label}</span>
-                      {option.value === 'official' && (
-                        <StatusBadge
-                          label='Default'
-                          variant='neutral'
-                          copyable={false}
-                        />
-                      )}
-                    </div>
-                    <p className='text-muted-foreground text-sm'>
-                      {option.description}
-                    </p>
-                  </div>
-                </div>
-              </Label>
-            )
-          })}
-        </RadioGroup>
-      </div>
-
-      <div className='space-y-2'>
-        <Label className='text-base'>{t('Select Language')}</Label>
-        <RadioGroup
-          value={locale}
-          onValueChange={(v) => setLocale(v as SyncLocale)}
-          className='grid gap-3 sm:grid-cols-3'
-        >
-          {SYNC_LOCALE_OPTIONS.map((option) => (
-            <div
-              key={option.value}
-              className='flex items-center space-x-2 rounded-lg border p-3'
-            >
-              <RadioGroupItem
-                value={option.value}
-                id={`locale-${option.value}`}
-              />
-              <Label
-                htmlFor={`locale-${option.value}`}
-                className='cursor-pointer font-normal'
-              >
-                {option.label}
-              </Label>
-            </div>
-          ))}
-        </RadioGroup>
-      </div>
-
-      <div className='bg-muted/50 rounded-lg border p-4'>
-        <p className='text-muted-foreground text-sm'>
-          {t(
-            'The sync will fetch missing models and vendors from the selected source. Existing records are updated only when you approve conflicts.'
-          )}
-        </p>
-      </div>
+    <Dialog open={props.open} onOpenChange={handleOpenChange}>
+      <DialogContent
+        className='flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[calc(100dvh-3rem)] sm:max-w-2xl sm:rounded-xl [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'
+        initialFocus={!isMobile}
+        finalFocus={() => changingView.current ? false : props.returnFocus?.() ?? false}
+      >
+        <DialogHeader className='shrink-0 border-b px-4 py-4 pr-16 sm:px-6 sm:pr-16'>
+          <DialogTitle>{t('Sync Upstream Models')}</DialogTitle>
+          <DialogDescription>{t('Synchronize models and vendors from an upstream source')}</DialogDescription>
+        </DialogHeader>
+        <section aria-label={t('Sync options')} className='flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6'>
+          {error && <Alert variant='destructive'><AlertDescription>{error}</AlertDescription></Alert>}
+          <fieldset className='min-w-0' disabled={isSyncing || !isAdmin}>
+            <legend className='mb-3 text-sm font-medium'>{t('Select Sync Source')}</legend>
+            <RadioGroup aria-label={t('Select Sync Source')} value={source} onValueChange={(value) => {
+              const selected = sourceOptions.find((option) => option.value === value)
+              if (selected && !selected.disabled) setSource(selected.value)
+            }} className='grid gap-3 sm:grid-cols-2'>
+              {sourceOptions.map((option) => (
+                <Label key={option.value} htmlFor={`sync-source-${option.value}`} className={cn('min-h-11 min-w-0 items-start gap-3 rounded-lg border p-4 font-normal', source === option.value && 'border-primary ring-primary ring-1', option.disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer')}>
+                  <RadioGroupItem value={option.value} id={`sync-source-${option.value}`} disabled={option.disabled || isSyncing || !isAdmin} />
+                  <span className='flex min-w-0 flex-col gap-1'>
+                    <span className='flex flex-wrap items-center gap-2'><span className='font-medium'>{option.label}</span>{option.value === 'official' && <StatusBadge label={t('Default')} variant='neutral' copyable={false} />}</span>
+                    <span className='text-muted-foreground text-sm'>{option.description}</span>
+                  </span>
+                </Label>
+              ))}
+            </RadioGroup>
+          </fieldset>
+          <fieldset className='min-w-0' disabled={isSyncing || !isAdmin}>
+            <legend className='mb-3 text-sm font-medium'>{t('Select Language')}</legend>
+            <RadioGroup aria-label={t('Select Language')} value={locale} onValueChange={(value) => setLocale(value as SyncLocale)} className='grid gap-3 sm:grid-cols-3'>
+              {localeOptions.map((option) => <Label key={option.value} htmlFor={`locale-${option.value}`} className={cn('min-h-11 cursor-pointer gap-3 rounded-lg border p-3 font-normal', locale === option.value && 'border-primary ring-primary ring-1')}><RadioGroupItem value={option.value} id={`locale-${option.value}`} disabled={isSyncing || !isAdmin} />{option.label}</Label>)}
+            </RadioGroup>
+          </fieldset>
+          <p className='text-muted-foreground rounded-lg border p-4 text-sm'>{t('The sync will fetch missing models and vendors from the selected source. Existing records are updated only when you approve conflicts.')}</p>
+          {isWriting && <p role='status' className='text-muted-foreground text-sm'>{t('Closing this dialog does not undo a sync already submitted.')}</p>}
+        </section>
+        <DialogFooter className='m-0 shrink-0 flex-row flex-wrap justify-end rounded-none px-4 py-3 sm:px-6'>
+          <Button variant='outline' className='min-h-11' onClick={() => handleOpenChange(false)}>{t('Cancel')}</Button>
+          <Button className='min-h-11' onClick={() => { void handleSync() }} disabled={isSyncing || !isAdmin}>{isSyncing ? <Spinner aria-hidden='true' className='size-4' /> : <HugeiconsIcon icon={Refresh01Icon} aria-hidden='true' className='size-4' />}{isSyncing ? t('Syncing...') : t('Sync Now')}</Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   )
 }

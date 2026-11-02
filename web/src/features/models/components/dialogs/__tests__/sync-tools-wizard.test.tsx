@@ -23,7 +23,7 @@ afterEach(() => { cleanup(); client.clear(); useAuthStore.setState(originalAuth)
 function SyncTools() {
   const { open, setOpen } = useModels()
   return <>
-    <button onClick={() => setOpen('sync-wizard')}>Open sync</button>
+    <button type='button' onClick={() => setOpen('sync-wizard')}>Open sync</button>
     <SyncWizardDialog open={open === 'sync-wizard'} onOpenChange={(next) => !next && setOpen(null)} />
     <UpstreamConflictDialog open={open === 'upstream-conflict'} onOpenChange={(next) => !next && setOpen(null)} />
   </>
@@ -70,7 +70,7 @@ it('closing while preview is pending prevents late conflicts from reopening a di
   let complete: ((value: { data: { success: boolean; data: { conflicts: typeof conflicts } } }) => void) | undefined
   const pending = new Promise<{ data: { success: boolean; data: { conflicts: typeof conflicts } } }>((resolve) => { complete = resolve })
   const get = vi.spyOn(api, 'get').mockReturnValue(pending)
-  const post = vi.spyOn(api, 'post')
+  const post = vi.spyOn(api, 'post').mockRejectedValue(new Error('Unexpected synthetic sync write'))
   const user = userEvent.setup()
   renderTools()
   await user.click(screen.getByRole('button', { name: 'Open sync' }))
@@ -97,4 +97,57 @@ it('switching identities while preview is pending prevents the old identity from
   await act(async () => { complete?.({ data: { success: true, data: { conflicts: [] } } }); await pending })
   expect(post).not.toHaveBeenCalled()
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+
+it('opening sync exposes a disabled configuration source and the options in a single scroll body', async () => {
+  const get = vi.spyOn(api, 'get').mockRejectedValue(new Error('Unexpected synthetic sync preview'))
+  const post = vi.spyOn(api, 'post').mockRejectedValue(new Error('Unexpected synthetic sync write'))
+  const user = userEvent.setup()
+  renderTools()
+  await user.click(screen.getByRole('button', { name: 'Open sync' }))
+  expect(screen.getByRole('radio', { name: /Configuration File/ })).toBeDisabled()
+  expect(screen.getByRole('radio', { name: 'Chinese' })).toBeChecked()
+  expect(screen.getByRole('radio', { name: 'English' })).toBeEnabled()
+  expect(screen.getByRole('radio', { name: 'Japanese' })).toBeEnabled()
+  const body = screen.getByRole('region', { name: 'Sync options' })
+  expect(body).toHaveClass('min-h-0', 'overflow-y-auto')
+  expect(body).not.toContainElement(screen.getByRole('heading', { name: 'Sync Upstream Models' }))
+  expect(body).not.toContainElement(screen.getByRole('button', { name: 'Sync Now' }))
+  expect(screen.getByRole('button', { name: 'Sync Now' })).toHaveClass('min-h-11')
+  expect(get).not.toHaveBeenCalled()
+  expect(post).not.toHaveBeenCalled()
+})
+
+it('a failed preview displays its error and preserves the selected language for a deliberate retry', async () => {
+  const get = vi.spyOn(api, 'get').mockResolvedValueOnce({ data: { success: false, message: 'Synthetic preview failed' } }).mockResolvedValue({ data: { success: true, data: { conflicts: [] } } })
+  const post = vi.spyOn(api, 'post').mockResolvedValue({ data: { success: true } })
+  const user = userEvent.setup()
+  renderTools()
+  await user.click(screen.getByRole('button', { name: 'Open sync' }))
+  await user.click(screen.getByRole('radio', { name: 'English' }))
+  await user.click(screen.getByRole('button', { name: 'Sync Now' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Synthetic preview failed')
+  expect(screen.getByRole('radio', { name: 'English' })).toBeChecked()
+  expect(post).not.toHaveBeenCalled()
+  await user.click(screen.getByRole('button', { name: 'Sync Now' }))
+  await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
+  expect(get).toHaveBeenCalledTimes(2)
+  expect(post.mock.calls[0]?.[1]).toEqual({ locale: 'en', source: 'official' })
+})
+
+it('a preview containing conflicts requires field selection and a second confirmation before any write', async () => {
+  vi.spyOn(api, 'get').mockResolvedValue({ data: { success: true, data: { conflicts: [{ model_name: 'synthetic-model', fields: [{ field: 'description', local: 'Local', upstream: 'Upstream' }] }] } } })
+  const post = vi.spyOn(api, 'post').mockResolvedValue({ data: { success: true } })
+  const user = userEvent.setup()
+  renderTools()
+  await user.click(screen.getByRole('button', { name: 'Open sync' }))
+  await user.click(screen.getByRole('button', { name: 'Sync Now' }))
+  await screen.findByRole('dialog', { name: 'Resolve Conflicts' })
+  expect(post).not.toHaveBeenCalled()
+  expect(screen.getByRole('button', { name: 'Apply Overwrite' })).toBeDisabled()
+  await user.click(screen.getByRole('checkbox', { name: 'Select row' }))
+  expect(post).not.toHaveBeenCalled()
+  await user.click(screen.getByRole('button', { name: 'Apply Overwrite' }))
+  await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
+  expect(post.mock.calls[0]?.[1]).toEqual({ locale: 'zh', source: 'official', overwrite: [{ model_name: 'synthetic-model', fields: ['description'] }] })
 })

@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { findModelAction } from '../model-action-focus'
+
 import { DescriptionDialog } from './dialogs/description-dialog'
 import { MissingModelsDialog } from './dialogs/missing-models-dialog'
 import { PrefillGroupManagement } from './dialogs/prefill-group-management'
@@ -31,6 +33,9 @@ export function ModelsDialogs() {
     returnFocus,
     setOpen,
     currentRow,
+    setCurrentRow,
+    missingReturnTarget,
+    setMissingReturnTarget,
     currentVendor,
     descriptionData,
     setDescriptionData,
@@ -41,9 +46,13 @@ export function ModelsDialogs() {
       {/* Model Create/Update Drawer */}
       <ModelMutateDrawer
         open={open === 'create-model' || open === 'update-model'}
-        onOpenChange={(v) => !v && setOpen(null)}
+        onOpenChange={(v) => {
+          if (v) return
+          setCurrentRow(null)
+          setOpen(missingReturnTarget ? 'missing-models' : null)
+        }}
         currentRow={currentRow}
-        returnFocus={returnFocus}
+        returnFocus={() => missingReturnTarget ? findModelAction(missingReturnTarget) : returnFocus()}
       />
 
       {/* Vendor Create/Update Dialog */}
@@ -57,17 +66,24 @@ export function ModelsDialogs() {
       {/* Missing Models Dialog */}
       <MissingModelsDialog
         open={open === 'missing-models'}
-        onOpenChange={(v) => !v && setOpen(null)}
+        onOpenChange={(v) => {
+          if (v) return
+          setMissingReturnTarget(null)
+          setOpen(null)
+        }}
+        returnFocus={returnFocus}
       />
 
       {/* Sync Wizard Dialog */}
       <SyncWizardDialog
+        returnFocus={returnFocus}
         open={open === 'sync-wizard'}
         onOpenChange={(v) => !v && setOpen(null)}
       />
 
       {/* Upstream Conflict Dialog */}
       <UpstreamConflictDialog
+        returnFocus={returnFocus}
         open={open === 'upstream-conflict'}
         onOpenChange={(v) => !v && setOpen(null)}
       />
