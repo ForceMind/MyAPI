@@ -40,6 +40,7 @@ import {
   formatPrice,
   stripTrailingZeros,
 } from '../lib/price'
+import { modelCatalogFocusKey } from '../catalog-focus'
 import type { PricingModel, TokenUnit } from '../types'
 import { ModelCatalogPrice } from './model-catalog-price'
 import { ModelCatalogIdentity } from './model-catalog-identity'
@@ -84,7 +85,7 @@ export function usePricingColumns(
       cell: ({ row }) => {
         const model = row.original
         return (
-          <button type='button' className='min-h-11 w-full text-left' data-pricing-model={model.model_name} aria-label={t('View model {{model}}', { model: model.model_name })} onClick={(event) => { event.stopPropagation(); onModelClick?.(model.model_name) }}>
+          <button type='button' className='min-h-11 w-full text-left' data-pricing-model={modelCatalogFocusKey(model.model_name)} aria-label={t('View model {{model}}', { model: model.model_name })} onClick={(event) => { event.stopPropagation(); onModelClick?.(model.model_name) }}>
             <ModelCatalogIdentity model={model} />
           </button>
         )

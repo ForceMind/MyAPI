@@ -37,7 +37,7 @@ import {
   ModelCardGrid,
   ModelDetailsDrawer,
 } from './components'
-import { findModelCatalogAction } from './catalog-focus'
+import { findModelCatalogAction, modelCatalogFocusKey } from './catalog-focus'
 import { EXCLUDED_GROUPS, VIEW_MODES } from './constants'
 import { useFilters } from './hooks/use-filters'
 import { usePricingData } from './hooks/use-pricing-data'
@@ -107,13 +107,13 @@ export function Pricing() {
   // Bridge name-only pricing identities into the existing one-shot history focus.
   // Register only on entry/request changes, so saved-data refreshes cannot steal focus.
   useEffect(() => {
-    if (historyKey && requestedModel) rememberFocus('data-pricing-model', requestedModel)
+    if (historyKey && requestedModel) rememberFocus('data-pricing-model', modelCatalogFocusKey(requestedModel))
   }, [historyKey, requestedModel, rememberFocus])
   const currentPage = Math.min(page, Math.max(1, Math.ceil(filteredModels.length / pageSize)))
   useReturnFocus({ attribute: 'data-pricing-model', settled: !isLoading, rows: focusRows, fallback: headingRef })
   const handleModelClick = useCallback((modelName: string) => {
     const active = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    openerRef.current = active?.getAttribute('data-pricing-model') === modelName
+    openerRef.current = active?.getAttribute('data-pricing-model') === modelCatalogFocusKey(modelName)
       ? active
       : findModelCatalogAction(modelName)
     setSelectedModelName(modelName)
@@ -306,7 +306,7 @@ export function Pricing() {
             key={selectedModel.model_name}
             returnSearch={{ ...catalogSearch, page: currentPage, pageSize, focusModel: selectedModel.model_name }}
             returnFocus={openerRef}
-            onOpenPage={() => rememberFocus('data-pricing-model', selectedModel.model_name)}
+            onOpenPage={() => rememberFocus('data-pricing-model', modelCatalogFocusKey(selectedModel.model_name))}
             open={Boolean(selectedModel)}
             onOpenChange={(open) => {
               if (!open) setSelectedModelName(null)

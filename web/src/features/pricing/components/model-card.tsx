@@ -25,6 +25,7 @@ import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { cn } from '@/lib/utils'
 
 import { parseTags } from '../lib/filters'
+import { modelCatalogFocusKey } from '../catalog-focus'
 import type { PricingModel, TokenUnit } from '../types'
 import { ModelCatalogPrice } from './model-catalog-price'
 import { ModelCatalogIdentity } from './model-catalog-identity'
@@ -73,7 +74,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           <button
             type='button'
             onClick={props.onClick}
-            data-pricing-model={props.model.model_name}
+            data-pricing-model={modelCatalogFocusKey(props.model.model_name)}
             aria-label={t('View model {{model}}', { model: props.model.model_name })}
             className='text-muted-foreground hover:text-foreground hover:bg-muted inline-flex min-h-11 items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors sm:px-2.5 sm:py-1.5'
           >
