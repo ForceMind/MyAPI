@@ -10,7 +10,8 @@ const adapter: AxiosAdapter = (config) => transport(config)
 const defaultAdapter = axios.defaults.adapter
 axios.defaults.adapter = adapter
 const { useAuthStore } = await import('@/stores/auth-store')
-const { createVendor, createPrefillGroup, updatePrefillGroup, deletePrefillGroup, createModel, syncUpstream, applyUpstreamOverwrite } = await import('../api')
+const { createVendor, createPrefillGroup, updatePrefillGroup, deletePrefillGroup, createModel, syncUpstream, applyUpstreamOverwrite, createDeployment, updateDeployment, updateDeploymentName, extendDeployment, deleteDeployment } = await import('../api')
+const { updateSystemOption } = await import('@/features/system-settings/api')
 axios.defaults.adapter = defaultAdapter
 
 const originalAuth = useAuthStore.getState()
@@ -28,6 +29,12 @@ function response(config: InternalAxiosRequestConfig, data: unknown): AxiosRespo
   return { config, data, status: 200, statusText: 'OK', headers: {} }
 }
 const cases = [
+  { name: 'create deployment', method: 'post', url: '/api/deployments/', body: { resource_private_name: 'synthetic-deployment', duration_hours: 1, gpus_per_container: 1, hardware_id: 1, location_ids: [1], container_config: { replica_count: 1 }, registry_config: { image_url: 'synthetic/image:fixed' } }, run: () => createDeployment({ resource_private_name: 'synthetic-deployment', duration_hours: 1, gpus_per_container: 1, hardware_id: 1, location_ids: [1], container_config: { replica_count: 1 }, registry_config: { image_url: 'synthetic/image:fixed' } }) },
+  { name: 'update deployment', method: 'put', url: '/api/deployments/17', body: { image_url: 'synthetic/image:fixed', env_variables: { ZERO: '0' } }, run: () => updateDeployment(17, { image_url: 'synthetic/image:fixed', env_variables: { ZERO: '0' } }) },
+  { name: 'rename deployment', method: 'put', url: '/api/deployments/17/name', body: { name: 'synthetic-name' }, run: () => updateDeploymentName(17, 'synthetic-name') },
+  { name: 'extend deployment', method: 'post', url: '/api/deployments/17/extend', body: { duration_hours: 1 }, run: () => extendDeployment(17, 1) },
+  { name: 'delete deployment', method: 'delete', url: '/api/deployments/17', body: undefined, run: () => deleteDeployment(17) },
+  { name: 'write model pricing option', method: 'put', url: '/api/option/', body: { key: 'ModelRatio', value: '{"synthetic-model":0}' }, run: () => updateSystemOption({ key: 'ModelRatio', value: '{"synthetic-model":0}' }) },
   { name: 'create configured model', method: 'post', url: '/api/models/', body: { model_name: 'synthetic-configured-model', description: '', status: 0, sync_official: 0, name_rule: 0 }, run: () => createModel({ model_name: 'synthetic-configured-model', description: '', status: 0, sync_official: 0, name_rule: 0 }) },
   { name: 'sync missing upstream models', method: 'post', url: '/api/models/sync_upstream', body: { locale: 'ja', source: 'official' }, run: () => syncUpstream({ locale: 'ja', source: 'official' }) },
   { name: 'apply selected upstream fields', method: 'post', url: '/api/models/sync_upstream', body: { locale: 'zh', source: 'official', overwrite: [{ model_name: 'synthetic-model', fields: ['description', 'status'] }] }, run: () => applyUpstreamOverwrite({ locale: 'zh', source: 'official', overwrite: [{ model_name: 'synthetic-model', fields: ['description', 'status'] }] }) },
