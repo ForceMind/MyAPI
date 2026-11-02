@@ -62,7 +62,7 @@ describe('model catalog workspace', () => {
 
 const populatedPricing: PricingData = {
   ...emptyPricing,
-  vendors: [{ id: 8, name: 'Synthetic provider' }],
+  vendors: [{ id: 8, name: 'Synthetic provider', icon: 'OpenAI' }],
   usable_group: { default: { desc: 'Synthetic group', ratio: 2 } },
   group_ratio: { default: 2 },
   data: Array.from({ length: 45 }, (_, index) => ({ id: index + 1, model_name: `synthetic-model-${String(index + 1).padStart(2, '0')}`, vendor_id: 8, quota_type: 0, model_ratio: 1, completion_ratio: 2, cache_ratio: 0, enable_groups: ['default'], supported_endpoint_types: ['openai'], tags: 'synthetic' })),

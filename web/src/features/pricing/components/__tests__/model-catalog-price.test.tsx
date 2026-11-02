@@ -8,7 +8,7 @@ import { ModelCatalogPrice } from '../model-catalog-price'
 
 const initial = useSystemConfigStore.getState()
 const model: PricingModel = { id: 1, model_name: 'synthetic', quota_type: 0, model_ratio: 1, completion_ratio: 2, cache_ratio: 0, enable_groups: ['default', 'free'], group_ratio: { default: 2, free: 0 } }
-beforeEach(() => { useSystemConfigStore.setState({ currency: { ...DEFAULT_CURRENCY_CONFIG } }) })
+beforeEach(() => { useSystemConfigStore.getState().setConfig({ currency: { ...DEFAULT_CURRENCY_CONFIG } }) })
 afterEach(() => { useSystemConfigStore.setState(initial) })
 
 describe('catalog price presentation', () => {
