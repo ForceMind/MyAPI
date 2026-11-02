@@ -17,15 +17,26 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Cancel01Icon, Loading03Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { Dialog } from '@/components/dialog'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { FieldGroup } from '@/components/ui/field'
 import {
   Form,
   FormControl,
@@ -46,6 +57,7 @@ type VendorMutateDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   currentVendor?: Vendor | null
+  returnFocus?: () => HTMLElement | null
 }
 
 const VENDOR_MUTATE_FORM_ID = 'vendor-mutate-form'
@@ -54,11 +66,13 @@ export function VendorMutateDialog({
   open,
   onOpenChange,
   currentVendor,
+  returnFocus,
 }: VendorMutateDialogProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const isEdit = Boolean(currentVendor?.id)
   const [isSaving, setIsSaving] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const form = useForm({
     resolver: zodResolver(vendorFormSchema),
@@ -72,6 +86,7 @@ export function VendorMutateDialog({
 
   // Load vendor data for editing
   useEffect(() => {
+    if (open) setSubmitError(null)
     if (open && isEdit && currentVendor) {
       form.reset({
         id: currentVendor.id,
@@ -92,6 +107,7 @@ export function VendorMutateDialog({
 
   const onSubmit = async (values: Record<string, unknown>) => {
     setIsSaving(true)
+    setSubmitError(null)
     try {
       let response
       if (isEdit) {
@@ -103,16 +119,22 @@ export function VendorMutateDialog({
 
       if (response.success) {
         toast.success(
-          isEdit ? 'Vendor updated successfully' : 'Vendor created successfully'
+          isEdit
+            ? t('Vendor updated successfully')
+            : t('Vendor created successfully')
         )
         queryClient.invalidateQueries({ queryKey: vendorsQueryKeys.lists() })
         queryClient.invalidateQueries({ queryKey: modelsQueryKeys.lists() })
         onOpenChange(false)
       } else {
-        toast.error(response.message || 'Operation failed')
+        const message = response.message || t('Operation failed')
+        setSubmitError(message)
+        toast.error(message)
       }
     } catch (error: unknown) {
-      toast.error((error as Error)?.message || 'Operation failed')
+      const message = (error as Error)?.message || t('Operation failed')
+      setSubmitError(message)
+      toast.error(message)
     } finally {
       setIsSaving(false)
     }
@@ -128,24 +150,127 @@ export function VendorMutateDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
-      title={isEdit ? t('Edit Vendor') : t('Create Vendor')}
-      description={
-        isEdit
-          ? t('Update vendor information for {{name}}', {
-              name: currentVendor?.name,
-            })
-          : t('Add a new vendor to the system')
-      }
-      contentHeight='auto'
-      bodyClassName='space-y-4'
-      footer={
-        <>
+      onOpenChange={(nextOpen) => {
+        if (!isSaving) onOpenChange(nextOpen)
+      }}
+    >
+      <DialogContent
+        finalFocus={returnFocus}
+        showCloseButton={false}
+        className='flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[calc(100dvh-3rem)] sm:max-w-lg sm:rounded-xl'
+      >
+        <DialogHeader className='shrink-0 border-b px-4 py-4 pr-16 text-left sm:px-6 sm:pr-16'>
+          <DialogTitle className='wrap-anywhere'>
+            {isEdit ? t('Edit Vendor') : t('Create Vendor')}
+          </DialogTitle>
+          <DialogDescription className='wrap-anywhere'>
+            {isEdit
+              ? t('Update vendor information for {{name}}', {
+                  name: currentVendor?.name,
+                })
+              : t('Add a new vendor to the system')}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogClose
+          disabled={isSaving}
+          render={
+            <Button
+              type='button'
+              variant='ghost'
+              size='icon'
+              className='absolute top-2 right-2 min-h-11 min-w-11'
+            />
+          }
+        >
+          <HugeiconsIcon icon={Cancel01Icon} aria-hidden='true' />
+          <span className='sr-only'>{t('Close')}</span>
+        </DialogClose>
+        <div className='min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-5 sm:px-6'>
+          <Form {...form}>
+            <form
+              id={VENDOR_MUTATE_FORM_ID}
+              onSubmit={form.handleSubmit(onSubmit)}
+              aria-busy={isSaving}
+              className='flex min-w-0 flex-col gap-5'
+            >
+              {submitError ? (
+                <Alert variant='destructive'>
+                  <AlertDescription className='wrap-anywhere'>
+                    {submitError}
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+              <FieldGroup>
+                <FormField
+                  control={form.control}
+                  name='name'
+                  render={({ field }) => (
+                    <FormItem className='min-w-0'>
+                      <FormLabel>{t('Vendor Name *')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder={t('OpenAI, Anthropic, etc.')}
+                          className='min-h-11'
+                          disabled={isSaving}
+                          aria-required='true'
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t('The unique name for this vendor')}
+                      </FormDescription>
+                      <FormMessage className='wrap-anywhere' />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name='description'
+                  render={({ field }) => (
+                    <FormItem className='min-w-0'>
+                      <FormLabel>{t('Description')}</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder={t('Describe this vendor...')}
+                          rows={3}
+                          className='min-h-28 max-h-none resize-none overflow-y-hidden'
+                          disabled={isSaving}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage className='wrap-anywhere' />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name='icon'
+                  render={({ field }) => (
+                    <FormItem className='min-w-0'>
+                      <FormLabel>{t('Icon')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder={t('OpenAI, Anthropic, Google, etc.')}
+                          className='min-h-11'
+                          disabled={isSaving}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage className='wrap-anywhere' />
+                    </FormItem>
+                  )}
+                />
+              </FieldGroup>
+            </form>
+          </Form>
+        </div>
+        <DialogFooter className='m-0 grid shrink-0 grid-cols-2 gap-2 rounded-none border-t px-4 py-3 sm:flex sm:px-6'>
           <Button
             type='button'
             variant='outline'
             onClick={() => onOpenChange(false)}
             disabled={isSaving}
+            className='min-h-11 min-w-0 whitespace-normal'
           >
             {t('Cancel')}
           </Button>
@@ -153,77 +278,19 @@ export function VendorMutateDialog({
             type='submit'
             form={VENDOR_MUTATE_FORM_ID}
             disabled={isSaving}
+            className='min-h-11 min-w-0 whitespace-normal'
           >
             {isSaving ? (
-              <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+              <HugeiconsIcon
+                icon={Loading03Icon}
+                className='size-4 animate-spin'
+                aria-hidden='true'
+              />
             ) : null}
             {submitLabel}
           </Button>
-        </>
-      }
-    >
-      <Form {...form}>
-        <form
-          id={VENDOR_MUTATE_FORM_ID}
-          onSubmit={form.handleSubmit(onSubmit)}
-          className='space-y-4'
-        >
-          <FormField
-            control={form.control}
-            name='name'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('Vendor Name *')}</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder={t('OpenAI, Anthropic, etc.')}
-                    {...field}
-                  />
-                </FormControl>
-                <FormDescription>
-                  {t('The unique name for this vendor')}
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name='description'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('Description')}</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder={t('Describe this vendor...')}
-                    rows={3}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name='icon'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('Icon')}</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder={t('OpenAI, Anthropic, Google, etc.')}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </form>
-      </Form>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   )
 }

@@ -7311,6 +7311,9 @@
     "The catalog returned no enabled models.": "目录未返回已启用的模型。",
     "Model metadata pagination": "模型元数据分页",
     "Model editor sections": "模型编辑分区",
-    "View description for {{model}}": "查看模型 {{model}} 的说明"
+    "View description for {{model}}": "查看模型 {{model}} 的说明",
+    "Vendor created successfully": "供应商创建成功",
+    "Vendor updated successfully": "供应商更新成功",
+    "Vendor name is required": "请输入供应商名称"
   }
 }

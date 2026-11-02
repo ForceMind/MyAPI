@@ -7311,6 +7311,9 @@
     "The catalog returned no enabled models.": "The catalog returned no enabled models.",
     "Model metadata pagination": "Model metadata pagination",
     "Model editor sections": "Model editor sections",
-    "View description for {{model}}": "View description for {{model}}"
+    "View description for {{model}}": "View description for {{model}}",
+    "Vendor created successfully": "Vendor created successfully",
+    "Vendor updated successfully": "Vendor updated successfully",
+    "Vendor name is required": "Vendor name is required"
   }
 }
