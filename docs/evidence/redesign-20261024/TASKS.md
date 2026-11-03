@@ -8,6 +8,8 @@
 
 模型3项红的最小修正只涉及新增测试：Root与代理核源码确认updateModels(items,true)为合并，未改产品合并逻辑。所读BaseUI ComboboxInput代码在popup未挂载的multiple模式按Escape会清空选择；原日志只证明最终剩preset，结合源码推断Escape清空，不声称本机/浏览器复现。用例保留手输Enter，明确收起列表后逐步断言完整chips，先精确保存saved+manual，再加预设精确保存saved+manual+preset；两撤权用例明确关闭Fetch后才查父层，原无旧结果/不可应用/完整旧ID/0写入断言保留。不mockModal、不延长超时、不改第三方键盘行为。订阅回焦从代码看与确认框仍open就条件卸载有关；最小修正在原订阅源保两个ConfirmDialog根挂载，以受控open关闭并守卫空载荷/禁Confirm，原金融handler和精确焦点断言不变，不改共享组件。上述修正均仍待下一轮Actions验证。
 
+第二轮 `e13bb4bc9f013fec34758b4fc140702afd096c28` / [CI41635893249](https://github.com/ForceMind/MyAPI/actions/runs/41635893249)前端125916872480原始日志已读：新门禁21/21通过，含原精确合并/撤权/末页回焦；认证180/摘要28/渠道权限37/设置790/资金300/模型175/公开35/账号85/Key388通过。原连接专项249通过/2失败，均是connections-editor桌面/手机旧测试期待GET全局/api/channel/models。按维护者明确移除全局来源的要求，同步为该请求为0并补当前渠道原生详情GET必须存在，原全部GET限定、取消、0写入、密钥/测试/余额/fetch_models禁止断言和原15秒预算不变。产品不恢复全局目录，不用旧行为制造绿；失败候选取消请求已发，仍未完整绿。下一组已先补wallet/user-edit/assigned-access/OAuth四视图八SVG及隔离WIP，不包含在本次beta.30验证提交；未验证，不冒充实现验收。
+
 本批候选范围：模型5文件移除getAllModels/前缀Fill，仅按当前已保存连接或现协议可表达的草稿明确Fetch，源字段/同actor权限变化、关闭/失败/迟到均不能应用旧目录；旧模型ID通过选中项fallback完整可见，手输/预设/映射保留但不作为支持证据。无Go/API协议改动，不读取真实Key预填，普通编辑变更需先保存/恢复，Advanced仅原协议准确支持字段可预览。新增Drawer6例、原Dialog加1例，原GET/POST401不重放合同继续跑。
 
 用户订阅仅源/新workspace测试/原recovery交互步骤3文件：记录默认、Grant keepMounted保草稿，20条本地分页，Unknown/未确认锁与原全部金融handler/载荷/独立确认保持；新3例保护切换/页大小不读写、末页精准删除回焦、未确认结果跨任务恢复，原state/layout断言不改。原SelectItem缺价显示同步已有finite/Unknown判断，合法0仍原toFixed，不改金额算法。部署详情仅源及原state测试2文件：位置/容器完整列表复用SummaryDisclosure，原状态分布与读取错误外露，新2例保键盘展开/完整长ID、明确Open与网络次数、确知0/未知区别。合计12个新增合成用例，未在本机执行，待实际Actions取证。
@@ -15,6 +17,8 @@
 17新文案键已通过临时add-missing-keys脚本追加七语言，en/zh、余五英回填，保旧值/顺序，脚本已自删；JSON解析及当前变更字面t键缺失扫描0仅轻量检查，i18n:sync只CI。五版本文件对齐beta.30，仅仓库模板不涉及生产。新增早期“channel model sources and compact management dialogs”门禁，原全部测试/构建/types/lint/后端/三库/relaykit/race保留，浏览器仍跳过。当前候选不能称可部署或真实最新模型支持已验证。
 
 当前迭代 beta.30：①渠道模型来源与旧结果隔离；②用户订阅弹窗记录默认/显式授予与有界本地分页；③部署详情位置/容器摘要，原状态分布与读取失败外露。已补4个既有视图/8张SVG，无新增路由或视图。Root独占部署详情及原deployment-tools-state回归，新增2合成case待Actions；代理独占渠道模型与用户订阅，Root统一翻译/版本/CI，新增早期门禁但原全部门禁不删。后续钱包订阅/历史/选购的信息任务拆分另小批继续，不顺手改金额算法或支付协议。完成本迭代不是全站浏览器验收或主Goal完成。
+
+后续只读清单（不是已实现或浏览器验收）：另一轮检查12个高密度surface，7项有具体收口空间、5项成熟保留。下一组优先user-edit（users-mutate-drawer资源权限矩阵/只读绑定）、自定义OAuth provider-form-dialog（端点/映射/高级表单分组）、assigned-access（模型可用性大卡/重复拒绝原因/协议说明），连同钱包subscription-plans-card任务入口按小批执行。后续单列credential-maintenance（轮换/迁移任务）、token-budget-dialog（预算/协议说明）、usage-policy（偏好/全局模式/生效条件）、group-ratio-visual-editor-3（入/出覆盖与可见性关系数组）。必须保持Root资格/准确对象、所有blocker/unknown/失败、资金边界/预算上限/原命令ID与精确scope载荷常驻可达，不改金融/认证状态机或计算。成熟保留：credential-rotation分阶段秘密区、CC Switch按应用字段、user-binding默认Bound Only、计费冲突确认表；channel-affinity rule-editor主条件与来源顺序保留，只在后续确有必要时整理Common Keys帮助文案，不为覆盖数量重做。确切viewID与源已由代理按catalog核对，后续执行先更新对应既有线稿；不新增路由，不因没有Disclosure机械判缺陷。
 
 当前干净dev基线bac76563 / CI41626054346完整绿已由上一轮核对，应用eeb5f0de / CI41621188497。fetch/pull ff-only已核对0/0、无分歧。从代码看，编辑器getAllModels生成全局候选，type1只按gpt-/text-前缀筛基础项，其余类型全收；Fill related/all会直接用该名单更新表单。已有渠道FetchModels/FetchUpstreamModels可按连接取模型，Codex现有service走/backend-api/codex/models，并非需新建协议。此轮不改provider/凭据刷新/计费/数据库。
 

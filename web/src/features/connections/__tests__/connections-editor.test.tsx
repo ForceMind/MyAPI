@@ -106,6 +106,9 @@ test.each([false, true])(
     )
     expect(
       fixture.requests.some((request) => request.path === '/api/channel/models')
+    ).toBe(false)
+    expect(
+      fixture.requests.some((request) => request.path === `/api/channel/${channel.id}`)
     ).toBe(true)
     expect(
       fixture.requests.some(
