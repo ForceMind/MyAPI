@@ -150,7 +150,10 @@ test.each(['/connections', '/connections/7'])('read-only refresh at %s reads sav
   await waitFor(() =>
     expect(screen.queryByRole('img', { name: /82% used/ })).not.toBeInTheDocument()
   )
-  expect(screen.getByText(/No reliable usage sample/)).toBeVisible()
+  const current = entry === '/connections'
+    ? within(screen.getByRole('list', { name: 'Current account windows' }))
+    : screen
+  expect(current.getByText(/No reliable usage sample/)).toBeVisible()
   expect(screen.queryByText(/100% left/)).not.toBeInTheDocument()
   expect(fixture.requests.slice(before)).toEqual([
     {
