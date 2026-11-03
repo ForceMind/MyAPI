@@ -607,6 +607,7 @@ jobs:
           src/features/channels/components/__tests__/channel-inventory-task.test.tsx
           src/features/channels/components/__tests__/channel-evidence-task.test.tsx
           src/features/channels/components/drawers/__tests__/sensitive-tools-drawer.test.tsx
+          src/features/channels/__tests__/channels-permissions.test.tsx
 
       - name: Verify remaining settings, analytics and public task contracts
         run: >-
