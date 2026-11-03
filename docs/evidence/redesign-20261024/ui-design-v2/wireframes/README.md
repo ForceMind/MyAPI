@@ -11,6 +11,9 @@
 
 ## 当前覆盖与证据
 
+- 信息层级实现已完整CI通过：应用e3db228e31b62fb0a187ace71d46571ff7baccf9 / [CI41594615317](https://github.com/ForceMind/MyAPI/actions/runs/41594615317) attempt1 success，10作业成功/1浏览器与真实API跳过，全部步骤及原始前后端日志已读。新交互28/28、全量382文件2948/2948和全部原专项/构建/同步/types/lint通过（24警告0错误），全部后端/独立relaykit/386/race/三库等通过；详细字段/权限/未知/不重放与跨窗口错误可见性在TASKS。
+- 已先更新本目录12视图/24 SVG（设计69e7dd2f / CI41588511701全绿），再实施摘要/展开；总326视图/652 SVG与原目录/路由保留。产品候选beta.28已收口，但浏览器渲染/真实卡片高度/滚动未验证，不能把文字线稿或语义合同当实图通过。仅剩现有4份交接并读取其自身完整CI，应用仍绑定e3db228e；后台采样策略/生产/镜像发布仍未动。下方“本批候选待验”等是历史。
+
 - 信息层级线稿提交69e7dd2f已推dev，产品候选尚待完整CI。实现沿上述12视图，不新增路由；首屏状态/额度/操作与全部未知/故障保留，长名单/时间/说明按需展开。跨窗口/身份的旧错误不能因同连接另有成功就从首屏消失，候选已保留恢复未确认摘要与完整原证据；不改变后台采样能力/分类。产品与CI明细仍在TASKS，浏览器未验证。
 
 - 2026-11-03追加已批准的信息层级收口：仅更新connections、connection-routing、connection-edit、upstream-accounts、subscription-shares、key-scope、analytics-flow、settings-content-faq、settings-content-announcements、pricing、rankings、模型范围弹层这12视图的24张SVG，展示默认摘要/明确点击后完整展开及状态边界。catalog新增对应information_hierarchy，author.py同步相同数据和渲染分支，其它线稿/路由/字段保留。已先写线稿，再实施产品；纯设计源不调用API，未浏览器渲染，产品与CI进度见TASKS最新节。连接卡片入口：[桌面](svg/connections-desktop.svg)、[手机](svg/connections-mobile.svg)。
