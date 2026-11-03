@@ -2046,9 +2046,41 @@
           "label": "批量操作",
           "target": "confirm-danger",
           "effect": "仅跳转到对应线稿，不发出产品请求"
+        },
+        {
+          "label": "进入额度证据",
+          "target": "channel-evidence-workspace",
+          "effect": "仅显式进入该任务；不联系供应商"
+        },
+        {
+          "label": "进入全部渠道事件",
+          "target": "channel-events-workspace",
+          "effect": "仅显式进入该任务；不联系供应商"
+        },
+        {
+          "label": "进入路由预览",
+          "target": "channel-routing-workspace",
+          "effect": "仅显式进入该任务；不联系供应商"
         }
       ],
-      "tabs": [],
+      "tabs": [
+        [
+          "channels",
+          "渠道库存"
+        ],
+        [
+          "channel-evidence-workspace",
+          "额度证据"
+        ],
+        [
+          "channel-events-workspace",
+          "全部渠道事件"
+        ],
+        [
+          "channel-routing-workspace",
+          "路由预览"
+        ]
+      ],
       "stats": [],
       "notes": [],
       "merge": "与连接卡片共用筛选、对象详情、编辑器和动作；保留管理员渠道表格所需的高级列。",
@@ -2060,7 +2092,30 @@
         "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
         "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
       ],
-      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。",
+      "information_hierarchy": {
+        "closed": [
+          "渠道库存 · 创建渠道 / 选择渠道",
+          "搜索名称、ID、Key · 状态 · 更多筛选〔保原模型/类型/分组组合〕",
+          "监控视图 / 路由视图 / 自定义列 · 原偏好不覆盖",
+          "名称与ID / 供应商 / 状态 / 额度或余额 / 上次测试 / 明确操作",
+          "显示设置〔Tag聚合、ID排序、列〕 / 全局维护〔明确全部渠道范围〕",
+          "额度证据 未读取 › · 全部渠道事件 未读取 › · 路由预览 未提交 ›"
+        ],
+        "open": [
+          "选中渠道：真实已选数与启停/设Tag/删除，退出选择",
+          "Tag聚合：按整个标签操作，不能伪装选中ID或跳普通详情",
+          "行更多：诊断 / 模型配置 / 凭据维护 / 危险操作分组",
+          "备注、禁用原因、模型与分组完整内容可点击查看"
+        ],
+        "notes": [
+          "库存为默认工作区，重证据不默认读取；当前故障/Unknown/操作错误保留。",
+          "切任务保筛选、分页、排序、列偏好、选择、滚动与返回焦点。",
+          "维护是全库；Tag是全标签；批选是数值ID，不混淆范围。",
+          "旧锚点与quotaChannelId保留；默认不测试模型/查供应商余额。"
+        ]
+      },
+      "channel_workspace": true
     },
     {
       "id": "connection-windows",
@@ -9022,17 +9077,22 @@
       "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。",
       "information_hierarchy": {
         "closed": [
-          "原全部编辑字段 / 错误 / 保存操作",
-          "发现模型：状态 / 观察时间 / 过期提示 / 显式刷新",
-          "发现模型 N ▾"
+          "四主区导航：基本连接 / 账户凭据 / 模型与分组 / 高级设置",
+          "当前任务字段完整显示，手机与桌面均可直达",
+          "高级配置：已配置组数 / 明确进入 · 不因普通priority/weight自动铺开",
+          "保存 / 取消与错误摘要保持可见"
         ],
         "open": [
-          "完整已发现模型名单；收起保留编辑草稿"
+          "高级子区：选路、参数/请求头/状态码覆盖、透传、供应商字段、上游自动化",
+          "发现模型N与完整已保存ID按需展开",
+          "OAuth/本地导入、多Key、Ollama等原入口与确认完整保留"
         ],
         "notes": [
-          "展开不触发上游发现；刷新保持明确操作和原权限。"
+          "错误自动展开并定位，不折叠必填字段、金额或关键确认。",
+          "字段、校验、草稿、凭据隔离、原API/写入顺序与不重放保持。"
         ]
-      }
+      },
+      "channel_workspace": true
     },
     {
       "id": "provider-test",
@@ -19415,6 +19475,223 @@
         "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
       ],
       "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。"
+    },
+    {
+      "id": "channel-evidence-workspace",
+      "title": "渠道工作区 · 额度证据",
+      "group": "02 核心对象",
+      "url": "/channels#channel-evidence",
+      "kind": "detail",
+      "sources": [
+        "web/src/features/channels/index.tsx",
+        "web/src/features/channels/components/channel-quota-changes-panel.tsx",
+        "web/src/features/channels/components/channel-quota-detail-chart.tsx"
+      ],
+      "sections": [],
+      "fields": [],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "返回库存",
+          "target": "channels",
+          "effect": "恢复完整表格上下文与焦点"
+        }
+      ],
+      "tabs": [
+        [
+          "channels",
+          "渠道库存"
+        ],
+        [
+          "channel-evidence-workspace",
+          "额度证据"
+        ],
+        [
+          "channel-events-workspace",
+          "全部渠道事件"
+        ],
+        [
+          "channel-routing-workspace",
+          "路由预览"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "同一路由的显式任务视图，不新建路由或调用模型。"
+      ],
+      "merge": "与连接卡片共用筛选、对象详情、编辑器和动作；保留管理员渠道表格所需的高级列。",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "2026-11-03 已授权渠道整页重整；实现与浏览器验证另记",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。",
+      "information_hierarchy": {
+        "closed": [
+          "返回库存 · 额度证据 · 明确全渠道/目标渠道范围",
+          "原时间范围 / 自定义日期 / 窗口与状态筛选 / 刷新保存证据",
+          "桌面：系列目录 | 选中系列的趋势与完整证据",
+          "手机：对象选择 → 一份选中证据正文",
+          "失败/Unknown/来源不完整/采样关闭保持外露"
+        ],
+        "open": [
+          "精确series的原current/previous/change/rate/status/source/单位/币种/plan/观察时间",
+          "原latest_interval/observed_window/ewma、rate_window、half-life、granularity、timezone",
+          "源limit2000/5000、source_complete/items_complete及图中断点不变"
+        ],
+        "notes": [
+          "进入才读取已保存数据，选中才读明细；离开停止页面轮询，后台采样不改。",
+          "quotaChannelId找不到时明确无目标证据，不自动替换成另一个渠道。",
+          "关闭后已知错误/不完整仍在入口摘要，未读取不显示0或健康。"
+        ]
+      },
+      "channel_workspace": true
+    },
+    {
+      "id": "channel-events-workspace",
+      "title": "渠道工作区 · 全部渠道事件",
+      "group": "02 核心对象",
+      "url": "/channels#channel-events",
+      "kind": "detail",
+      "sources": [
+        "web/src/features/channels/index.tsx",
+        "web/src/features/channels/components/channel-quota-events.tsx"
+      ],
+      "sections": [],
+      "fields": [],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "返回库存",
+          "target": "channels",
+          "effect": "恢复完整表格上下文与焦点"
+        }
+      ],
+      "tabs": [
+        [
+          "channels",
+          "渠道库存"
+        ],
+        [
+          "channel-evidence-workspace",
+          "额度证据"
+        ],
+        [
+          "channel-events-workspace",
+          "全部渠道事件"
+        ],
+        [
+          "channel-routing-workspace",
+          "路由预览"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "同一路由的显式任务视图，不新建路由或调用模型。"
+      ],
+      "merge": "与连接卡片共用筛选、对象详情、编辑器和动作；保留管理员渠道表格所需的高级列。",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "2026-11-03 已授权渠道整页重整；实现与浏览器验证另记",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。",
+      "information_hierarchy": {
+        "closed": [
+          "返回库存 · 全部渠道事件 · 来源上下文可保留",
+          "原状态筛选 / 刷新 / 分页10条 / 完整事件摘要",
+          "未读取/读取失败/数据不完整诚实显示"
+        ],
+        "open": [
+          "全部原事件状态与kind、时间、channel/series/ref、available/total/unit/currency/resetAt",
+          "delivery pending/claimed/retryable/delivered/quarantined及last_error_code完整可达"
+        ],
+        "notes": [
+          "当前API无channel_id筛选，不把当前页过滤冒充该渠道全部事件。",
+          "空事件不代表渠道健康；缺失总数不补0。",
+          "进入才读取；没有模型或真实供应商请求。"
+        ]
+      },
+      "channel_workspace": true
+    },
+    {
+      "id": "channel-routing-workspace",
+      "title": "渠道工作区 · 路由预览",
+      "group": "02 核心对象",
+      "url": "/channels#channel-routing",
+      "kind": "detail",
+      "sources": [
+        "web/src/features/channels/index.tsx",
+        "web/src/features/channels/components/channel-routing-preview.tsx"
+      ],
+      "sections": [],
+      "fields": [],
+      "columns": [],
+      "filters": [],
+      "actions": [
+        {
+          "label": "返回库存",
+          "target": "channels",
+          "effect": "恢复完整表格上下文与焦点"
+        }
+      ],
+      "tabs": [
+        [
+          "channels",
+          "渠道库存"
+        ],
+        [
+          "channel-evidence-workspace",
+          "额度证据"
+        ],
+        [
+          "channel-events-workspace",
+          "全部渠道事件"
+        ],
+        [
+          "channel-routing-workspace",
+          "路由预览"
+        ]
+      ],
+      "stats": [],
+      "notes": [
+        "同一路由的显式任务视图，不新建路由或调用模型。"
+      ],
+      "merge": "与连接卡片共用筛选、对象详情、编辑器和动作；保留管理员渠道表格所需的高级列。",
+      "access": "沿用现有身份、角色和服务端权限",
+      "status": "2026-11-03 已授权渠道整页重整；实现与浏览器验证另记",
+      "common_notes": [
+        "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
+        "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
+        "Full / Lite / Desktop 与用户 / 管理员 / Root 沿用既有能力和权限，不因合并入口而扩权。",
+        "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
+      ],
+      "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。",
+      "information_hierarchy": {
+        "closed": [
+          "返回库存 · 路由预览 · 原group/model/request_path草稿",
+          "明确提交预览 / 只读快照 / 提交错误",
+          "选路层级、当前观测及完整候选摘要"
+        ],
+        "open": [
+          "原tier/priority/fallback/weight/effective_weight/expected_share及0值",
+          "rejected原因/cooldown/account holds、epochs/cache_pending/deadline/cooldown设置",
+          "不是Key权限/预算/价格/登录/账户额度或真实调用成功证明"
+        ],
+        "notes": [
+          "切换任务保草稿和上次快照，不自动重新预览/模型测试/写入affinity。",
+          "状态和查询按id/role/SID隔离，旧结果不进入新会话。"
+        ]
+      },
+      "channel_workspace": true
     }
   ],
   "routes": [
@@ -19549,7 +19826,10 @@
       "source": "web/src/routes/_authenticated/channels/index.tsx",
       "kind": "page",
       "wireframes": [
-        "channels"
+        "channels",
+        "channel-evidence-workspace",
+        "channel-events-workspace",
+        "channel-routing-workspace"
       ],
       "note": "源码登记与设计提案对应，不是运行时验收证据。"
     },
@@ -20517,6 +20797,30 @@
         "connection-history"
       ],
       "note": "独立连接页签。"
+    },
+    {
+      "source": "web/src/features/channels/index.tsx",
+      "value": "channel-evidence",
+      "wireframes": [
+        "channel-evidence-workspace"
+      ],
+      "note": "同一路由显式渠道任务，保原锚点"
+    },
+    {
+      "source": "web/src/features/channels/index.tsx",
+      "value": "channel-events",
+      "wireframes": [
+        "channel-events-workspace"
+      ],
+      "note": "同一路由显式渠道任务，保原锚点"
+    },
+    {
+      "source": "web/src/features/channels/index.tsx",
+      "value": "channel-routing",
+      "wireframes": [
+        "channel-routing-workspace"
+      ],
+      "note": "同一路由显式渠道任务，保原锚点"
     }
   ],
   "overlay_inventory": [

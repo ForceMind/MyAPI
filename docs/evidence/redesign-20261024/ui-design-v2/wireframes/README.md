@@ -11,6 +11,8 @@
 
 ## 当前覆盖与证据
 
+- 2026-11-03渠道整页追加授权：库存默认监控、路由与自定义列、明确的选中/Tag/全库操作范围；额度证据、全部渠道事件、路由预览改为同一路由内显式任务。先更新channels/connection-edit两视图4SVG并新增3个任务视图6SVG，目录与旧渠道路由映射同步；当前329视图/658SVG、66路由、57模式、205页面源，138弹层清单不变。不是新增3条路由，不把窗口/身份/单位混为总额，故障与Unknown仍显式可见。浏览器未验证，产品实施/CI在TASKS最新节。入口：[渠道库存](svg/channels-desktop.svg)、[额度证据](svg/channel-evidence-workspace-desktop.svg)、[全部渠道事件](svg/channel-events-workspace-desktop.svg)、[路由预览](svg/channel-routing-workspace-desktop.svg)，每项同名mobile SVG为手机方案。
+
 - 信息层级实现已完整CI通过：应用e3db228e31b62fb0a187ace71d46571ff7baccf9 / [CI41594615317](https://github.com/ForceMind/MyAPI/actions/runs/41594615317) attempt1 success，10作业成功/1浏览器与真实API跳过，全部步骤及原始前后端日志已读。新交互28/28、全量382文件2948/2948和全部原专项/构建/同步/types/lint通过（24警告0错误），全部后端/独立relaykit/386/race/三库等通过；详细字段/权限/未知/不重放与跨窗口错误可见性在TASKS。
 - 已先更新本目录12视图/24 SVG（设计69e7dd2f / CI41588511701全绿），再实施摘要/展开；总326视图/652 SVG与原目录/路由保留。产品候选beta.28已收口，但浏览器渲染/真实卡片高度/滚动未验证，不能把文字线稿或语义合同当实图通过。仅剩现有4份交接并读取其自身完整CI，应用仍绑定e3db228e；后台采样策略/生产/镜像发布仍未动。下方“本批候选待验”等是历史。
 

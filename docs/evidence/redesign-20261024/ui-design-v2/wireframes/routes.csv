@@ -13,7 +13,7 @@ route,kind,source,wireframe_ids,note
 /(errors)/404,page,web/src/routes/(errors)/404.tsx,error-404,源码登记与设计提案对应，不是运行时验收证据。
 /(errors)/500,page,web/src/routes/(errors)/500.tsx,error-500,源码登记与设计提案对应，不是运行时验收证据。
 /(errors)/503,page,web/src/routes/(errors)/503.tsx,error-503,源码登记与设计提案对应，不是运行时验收证据。
-/_authenticated/channels/,page,web/src/routes/_authenticated/channels/index.tsx,channels,源码登记与设计提案对应，不是运行时验收证据。
+/_authenticated/channels/,page,web/src/routes/_authenticated/channels/index.tsx,channels;channel-evidence-workspace;channel-events-workspace;channel-routing-workspace,源码登记与设计提案对应，不是运行时验收证据。
 /_authenticated/chat/$chatId,page,web/src/routes/_authenticated/chat/$chatId.tsx,chat-preset,对象ID共用该对象类型布局，具体权限和数据不在设计图中模拟成功。
 /_authenticated/chat2link,page,web/src/routes/_authenticated/chat2link.tsx,chat-link,源码登记与设计提案对应，不是运行时验收证据。
 /_authenticated/connections/$connectionId/,page,web/src/routes/_authenticated/connections/$connectionId/index.tsx,connection-windows;connection-routing;connection-requests;connection-history,对象ID共用该对象类型布局，具体权限和数据不在设计图中模拟成功。

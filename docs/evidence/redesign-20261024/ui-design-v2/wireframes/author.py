@@ -989,6 +989,120 @@ for page in pages:
     if page['id'] in INFORMATION_HIERARCHY:
         page['information_hierarchy'] = INFORMATION_HIERARCHY[page['id']]
 
+CHANNEL_WORKSPACE_LAYOUTS = {
+    "channels": {
+        "closed": [
+            "渠道库存 · 创建渠道 / 选择渠道",
+            "搜索名称、ID、Key · 状态 · 更多筛选〔保原模型/类型/分组组合〕",
+            "监控视图 / 路由视图 / 自定义列 · 原偏好不覆盖",
+            "名称与ID / 供应商 / 状态 / 额度或余额 / 上次测试 / 明确操作",
+            "显示设置〔Tag聚合、ID排序、列〕 / 全局维护〔明确全部渠道范围〕",
+            "额度证据 未读取 › · 全部渠道事件 未读取 › · 路由预览 未提交 ›"
+        ],
+        "open": [
+            "选中渠道：真实已选数与启停/设Tag/删除，退出选择",
+            "Tag聚合：按整个标签操作，不能伪装选中ID或跳普通详情",
+            "行更多：诊断 / 模型配置 / 凭据维护 / 危险操作分组",
+            "备注、禁用原因、模型与分组完整内容可点击查看"
+        ],
+        "notes": [
+            "库存为默认工作区，重证据不默认读取；当前故障/Unknown/操作错误保留。",
+            "切任务保筛选、分页、排序、列偏好、选择、滚动与返回焦点。",
+            "维护是全库；Tag是全标签；批选是数值ID，不混淆范围。",
+            "旧锚点与quotaChannelId保留；默认不测试模型/查供应商余额。"
+        ]
+    },
+    "connection-edit": {
+        "closed": [
+            "四主区导航：基本连接 / 账户凭据 / 模型与分组 / 高级设置",
+            "当前任务字段完整显示，手机与桌面均可直达",
+            "高级配置：已配置组数 / 明确进入 · 不因普通priority/weight自动铺开",
+            "保存 / 取消与错误摘要保持可见"
+        ],
+        "open": [
+            "高级子区：选路、参数/请求头/状态码覆盖、透传、供应商字段、上游自动化",
+            "发现模型N与完整已保存ID按需展开",
+            "OAuth/本地导入、多Key、Ollama等原入口与确认完整保留"
+        ],
+        "notes": [
+            "错误自动展开并定位，不折叠必填字段、金额或关键确认。",
+            "字段、校验、草稿、凭据隔离、原API/写入顺序与不重放保持。"
+        ]
+    },
+    "channel-evidence-workspace": {
+        "closed": [
+            "返回库存 · 额度证据 · 明确全渠道/目标渠道范围",
+            "原时间范围 / 自定义日期 / 窗口与状态筛选 / 刷新保存证据",
+            "桌面：系列目录 | 选中系列的趋势与完整证据",
+            "手机：对象选择 → 一份选中证据正文",
+            "失败/Unknown/来源不完整/采样关闭保持外露"
+        ],
+        "open": [
+            "精确series的原current/previous/change/rate/status/source/单位/币种/plan/观察时间",
+            "原latest_interval/observed_window/ewma、rate_window、half-life、granularity、timezone",
+            "源limit2000/5000、source_complete/items_complete及图中断点不变"
+        ],
+        "notes": [
+            "进入才读取已保存数据，选中才读明细；离开停止页面轮询，后台采样不改。",
+            "quotaChannelId找不到时明确无目标证据，不自动替换成另一个渠道。",
+            "关闭后已知错误/不完整仍在入口摘要，未读取不显示0或健康。"
+        ]
+    },
+    "channel-events-workspace": {
+        "closed": [
+            "返回库存 · 全部渠道事件 · 来源上下文可保留",
+            "原状态筛选 / 刷新 / 分页10条 / 完整事件摘要",
+            "未读取/读取失败/数据不完整诚实显示"
+        ],
+        "open": [
+            "全部原事件状态与kind、时间、channel/series/ref、available/total/unit/currency/resetAt",
+            "delivery pending/claimed/retryable/delivered/quarantined及last_error_code完整可达"
+        ],
+        "notes": [
+            "当前API无channel_id筛选，不把当前页过滤冒充该渠道全部事件。",
+            "空事件不代表渠道健康；缺失总数不补0。",
+            "进入才读取；没有模型或真实供应商请求。"
+        ]
+    },
+    "channel-routing-workspace": {
+        "closed": [
+            "返回库存 · 路由预览 · 原group/model/request_path草稿",
+            "明确提交预览 / 只读快照 / 提交错误",
+            "选路层级、当前观测及完整候选摘要"
+        ],
+        "open": [
+            "原tier/priority/fallback/weight/effective_weight/expected_share及0值",
+            "rejected原因/cooldown/account holds、epochs/cache_pending/deadline/cooldown设置",
+            "不是Key权限/预算/价格/登录/账户额度或真实调用成功证明"
+        ],
+        "notes": [
+            "切换任务保草稿和上次快照，不自动重新预览/模型测试/写入affinity。",
+            "状态和查询按id/role/SID隔离，旧结果不进入新会话。"
+        ]
+    }
+}
+for page in pages:
+    if page['id'] in CHANNEL_WORKSPACE_LAYOUTS:
+        page['information_hierarchy'] = CHANNEL_WORKSPACE_LAYOUTS[page['id']]
+        page['channel_workspace'] = True
+
+channel_tasks = [('channel-evidence-workspace','额度证据','channel-evidence',['channel-quota-changes-panel.tsx','channel-quota-detail-chart.tsx']), ('channel-events-workspace','全部渠道事件','channel-events',['channel-quota-events.tsx']), ('channel-routing-workspace','路由预览','channel-routing',['channel-routing-preview.tsx'])]
+channel_tabs = [('channels','渠道库存')] + [(item[0],item[1]) for item in channel_tasks]
+for task_id, task_title, task_hash, sources in channel_tasks:
+    add(task_id, '渠道工作区 · '+task_title, '02 核心对象', '/channels#'+task_hash, 'detail', ['web/src/features/channels/index.tsx']+['web/src/features/channels/components/'+source for source in sources], tabs=channel_tabs, actions=[A('返回库存','channels','恢复完整表格上下文与焦点')], notes=['同一路由的显式任务视图，不新建路由或调用模型。'], status='2026-11-03 已授权渠道整页重整；实现与浏览器验证另记')
+    pages[-1]['information_hierarchy'] = CHANNEL_WORKSPACE_LAYOUTS[task_id]
+    pages[-1]['channel_workspace'] = True
+    pages[-1]['common_notes'] = list(COMMON_NOTES)
+    pages[-1]['variants'] = ['desktop', 'mobile']
+    tab_inventory.append(dict(source='web/src/features/channels/index.tsx',value=task_hash,wireframes=[task_id],note='同一路由显式渠道任务，保原锚点'))
+for page in pages:
+    if page['id']=='channels':
+        page['tabs']=channel_tabs
+        page['actions'] += [dict(label='进入'+title,target=task_id,effect='仅显式进入该任务；不联系供应商') for task_id,title,_,_ in channel_tasks]
+for entry in route_map:
+    if entry['source']=='web/src/routes/_authenticated/channels/index.tsx':
+        entry['wireframes'] += [item[0] for item in channel_tasks if item[0] not in entry['wireframes']]
+
 catalog=dict(title='MyAPI 全站线稿目录',source_sha=BASE,date='2026-10-28',direction='已确认方向3：流向图 / 顶部导航 / 对象整页',
              evidence='设计源文件；未运行浏览器、产品构建或本机测试。',pages=pages,routes=route_map,tabs=tab_inventory,overlay_inventory=overlay_inventory,
              unconfirmed_overlay_sources=unconfirmed,
@@ -1190,7 +1304,8 @@ class Drawing:
         self.y+=self.text(self.margin,self.y+18,p['title'],22 if self.mobile else 26,'600',width=self.cw)+10
         self.y+=self.text(self.margin,self.y+14,p['url'],11,color='#666666',width=self.cw)+12
         self.banner('已批准的信息层级方案 · 合成占位 · 实现待CI / 浏览器未验证 · 不连接API' if p.get('information_hierarchy') else '低保真设计提案 · 合成占位 · 待确认 · 不连接API / 不执行业务动作')
-        self.tabs();self.stats()
+        self.tabs()
+        if not p.get('channel_workspace'):self.stats()
         if p['id']=='request-bodies':
             self.buttons([p['actions'][3],p['actions'][4]])
             if self.mobile:
@@ -1201,10 +1316,10 @@ class Drawing:
             else:
                 self.fields(['A3 日期范围〔同一日历〕','模型','API Key','Request ID'])
                 self.buttons(p['actions'][:2])
-        elif p['filters']:self.fields(p['filters'])
+        elif p['filters'] and not p.get('channel_workspace'):self.fields(p['filters'])
         kind=p['kind']
         footer_actions=kind in ['form','overlay','auth','setup','calendar','chat']
-        if not footer_actions and p['id']!='request-bodies':self.buttons()
+        if not footer_actions and p['id']!='request-bodies' and not p.get('channel_workspace'):self.buttons()
         if p.get('information_hierarchy'):
             review=p['information_hierarchy']
             h=self.block('默认收起态 · 首屏',review['closed']);self.y+=h+18
