@@ -31,6 +31,7 @@ import {
   sideDrawerFormClassName,
   sideDrawerHeaderClassName,
 } from '@/components/drawer-layout'
+import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -136,11 +137,14 @@ export function UsersMutateDrawer({
   const groups = groupsData?.data || []
 
   // Permission catalog is owned by the backend; fetched once and reused.
-  const { data: permissionCatalog = EMPTY_PERMISSION_CATALOG } = useQuery({
+  const permissionCatalogQuery = useQuery({
     queryKey: ['admin-permission-catalog', task.identity],
     queryFn: getPermissionCatalog,
     staleTime: 5 * 60 * 1000,
   })
+  const permissionCatalog = permissionCatalogQuery.data ?? EMPTY_PERMISSION_CATALOG
+  const permissionCatalogReading = permissionCatalogQuery.isPending || permissionCatalogQuery.isFetching
+  const permissionCatalogConfirmed = !permissionCatalogReading && !permissionCatalogQuery.isError
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
@@ -552,17 +556,41 @@ export function UsersMutateDrawer({
                 </SideDrawerSection>
               )}
 
+              {(isUpdate || targetIsAdmin) && (
+                <p className='text-muted-foreground text-xs'>
+                  {t('Role')}: {detailLoaded ? selectedRole ?? t('Unknown') : t('Unknown')}
+                  {targetIsAdmin && <> · {t('Only Root can edit administrator permissions.')}</>}
+                </p>
+              )}
               {canEditAdminPermissions &&
-                targetIsAdmin &&
-                permissionCatalog.resources.length > 0 && (
+                targetIsAdmin && (
                   <SideDrawerSection>
                     <h3 className='text-sm font-medium'>
                       {t('Admin Permissions')}
                     </h3>
+                    {permissionCatalogReading && (
+                      <p role='status' className='text-muted-foreground text-sm'>
+                        {t('Permission catalog')}: {t('Unknown')} · {t('Loading...')}
+                      </p>
+                    )}
+                    {!permissionCatalogReading && permissionCatalogQuery.isError && (
+                      <div role='alert' className='text-destructive space-y-3 text-sm'>
+                        <p>{t('Unable to load the permission catalog.')} {t('Permission catalog')}: {t('Unknown')}</p>
+                        <Button type='button' variant='outline' onClick={() => { void permissionCatalogQuery.refetch() }}>{t('Retry')}</Button>
+                      </div>
+                    )}
+                    {permissionCatalogConfirmed && permissionCatalog.resources.length === 0 && (
+                      <p className='text-muted-foreground text-sm'>{t('No administrator permissions are listed in this catalog.')}</p>
+                    )}
+                    {permissionCatalogConfirmed && permissionCatalog.resources.length > 0 && (
+                    <>
                     <p className='text-muted-foreground text-xs'>
                       {t(
                         'Default administrator permissions can be overridden for this user.'
                       )}
+                    </p>
+                    <p className='text-muted-foreground text-xs'>
+                      {t('True grants permission, false denies it, and omitted values inherit the administrator default.')}
                     </p>
                     <FormField
                       control={form.control}
@@ -575,56 +603,59 @@ export function UsersMutateDrawer({
                         return (
                           <FormItem>
                             <div className='space-y-3'>
-                              {permissionCatalog.resources.map((resource) => (
-                                <div
-                                  key={resource.resource}
-                                  className='space-y-2 rounded-md border p-3'
-                                >
-                                  <div className='text-sm font-medium'>
-                                    {t(resource.label_key)}
+                              {permissionCatalog.resources.map((resource) => {
+                                const values = field.value?.[resource.resource]
+                                const granted = resource.actions.filter((option) => values?.[option.action] === true).length
+                                const denied = resource.actions.filter((option) => values?.[option.action] === false).length
+                                const inherited = resource.actions.length - granted - denied
+                                return (
+                                  <div key={resource.resource} className='min-w-0 rounded-md border p-3'>
+                                    <SummaryDisclosure summary={t('{{resource}} · True: {{granted}} · False: {{denied}} · Inherited: {{inherited}}', {
+                                      resource: t(resource.label_key), granted, denied, inherited, interpolation: { escapeValue: false },
+                                    })}>
+                                      <div className='space-y-2'>
+                                        {resource.actions.map((option) => {
+                                          const value = values?.[option.action]
+                                          let valueLabel = t('Inherited default: {{value}}', { value: selected[resource.resource]?.[option.action] === true ? t('Granted') : t('Denied') })
+                                          if (value === true) valueLabel = t('Granted (true)')
+                                          if (value === false) valueLabel = t('Denied (false)')
+                                          return (
+                                            <div key={option.action} className='min-w-0 space-y-1'>
+                                              <label className='flex min-h-11 min-w-0 items-start gap-3 py-1'>
+                                                <Checkbox
+                                                  checked={selected[resource.resource]?.[option.action] === true}
+                                                  onCheckedChange={(checked) => {
+                                                    field.onChange({
+                                                      ...selected,
+                                                      [resource.resource]: {
+                                                        ...selected[resource.resource],
+                                                        [option.action]: checked === true,
+                                                      },
+                                                    })
+                                                  }}
+                                                />
+                                                <span className='flex min-w-0 flex-col gap-1 break-words'>
+                                                  <span className='text-sm font-medium'>{t(option.label_key)}</span>
+                                                  <span className='text-muted-foreground text-xs'>{t(option.description_key)}</span>
+                                                </span>
+                                              </label>
+                                              <p className='text-muted-foreground pl-7 text-xs'>{valueLabel}</p>
+                                            </div>
+                                          )
+                                        })}
+                                      </div>
+                                    </SummaryDisclosure>
                                   </div>
-                                  <div className='space-y-2'>
-                                    {resource.actions.map((option) => (
-                                      <label
-                                        key={option.action}
-                                        className='flex items-start gap-3'
-                                      >
-                                        <Checkbox
-                                          checked={
-                                            selected[resource.resource]?.[
-                                              option.action
-                                            ] === true
-                                          }
-                                          onCheckedChange={(checked) => {
-                                            field.onChange({
-                                              ...selected,
-                                              [resource.resource]: {
-                                                ...selected[resource.resource],
-                                                [option.action]:
-                                                  checked === true,
-                                              },
-                                            })
-                                          }}
-                                        />
-                                        <span className='flex flex-col gap-1'>
-                                          <span className='text-sm font-medium'>
-                                            {t(option.label_key)}
-                                          </span>
-                                          <span className='text-muted-foreground text-xs'>
-                                            {t(option.description_key)}
-                                          </span>
-                                        </span>
-                                      </label>
-                                    ))}
-                                  </div>
-                                </div>
-                              ))}
+                                )
+                              })}
                             </div>
                             <FormMessage />
                           </FormItem>
                         )
                       }}
                     />
+                    </>
+                    )}
                     {currentUser && (
                       <p className='text-muted-foreground text-xs'>
                         {hasPermission(
@@ -655,6 +686,7 @@ export function UsersMutateDrawer({
                     )}
                   </p>
 
+                  <SummaryDisclosure summary={t('Binding values ({{count}})', { count: BINDING_FIELDS.length })}>
                   <div className='flex flex-col gap-3'>
                     {BINDING_FIELDS.map(({ key, label }) => (
                       <div key={key}>
@@ -671,6 +703,7 @@ export function UsersMutateDrawer({
                       </div>
                     ))}
                   </div>
+                  </SummaryDisclosure>
                 </SideDrawerSection>
               )}
               </fieldset>

@@ -17,7 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useLayoutEffect, useRef, useState } from 'react'
+import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { type Resolver, useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
@@ -28,8 +30,10 @@ import { isCurrentSettingsFrame, useSettingsReloadScope } from '../../../compone
 import { useResetForm } from '../../../hooks/use-reset-form'
 import { Dialog } from '@/components/dialog'
 import { JsonCodeEditor } from '@/components/json-code-editor'
+import { getJsonValidationState } from '@/components/json-code-editor/json-code-editor-utils'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   Form,
   FormControl,
@@ -84,6 +88,19 @@ type ProviderFormDialogProps = {
 
 const PROVIDER_FORM_ID = 'custom-oauth-provider-form'
 
+function ProviderConfigurationSection(props: { title: string; summary: string; hasError: boolean; children: ReactNode }) {
+  const [expanded, setExpanded] = useState(false)
+  useEffect(() => { if (props.hasError) setExpanded(true) }, [props.hasError])
+  return <Collapsible open={expanded || props.hasError} onOpenChange={(next) => { if (next || !props.hasError) setExpanded(next) }} className='min-w-0 rounded-lg border p-3'>
+    <CollapsibleTrigger render={<Button type='button' variant='ghost' />} aria-label={props.title} className='group h-auto min-h-11 w-full justify-between gap-3 whitespace-normal text-left'>
+      <span className='min-w-0 [overflow-wrap:anywhere]'>{props.title}</span>
+      <span className='text-muted-foreground text-xs [overflow-wrap:anywhere]'>{props.summary}</span>
+      <HugeiconsIcon icon={ArrowDown01Icon} aria-hidden='true' className='size-4 shrink-0 transition-transform group-aria-expanded:rotate-180' />
+    </CollapsibleTrigger>
+    <CollapsibleContent keepMounted className='min-w-0 pt-4'>{props.children}</CollapsibleContent>
+  </Collapsible>
+}
+
 export function ProviderFormDialog(props: ProviderFormDialogProps) {
   const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
   return <ProviderFormTask key={JSON.stringify([identity, props.provider?.id, props.open])} {...props} identity={identity} />
@@ -126,6 +143,11 @@ function ProviderFormTask(props: ProviderFormDialogProps & { identity: string })
       access_denied_message: '',
     },
   })
+  const endpointValues = useWatch({ control: form.control, name: ['well_known', 'authorization_endpoint', 'token_endpoint', 'user_info_endpoint', 'scopes'] })
+  const mappingValues = useWatch({ control: form.control, name: ['user_id_field', 'username_field', 'display_name_field', 'email_field'] })
+  const policyValues = useWatch({ control: form.control, name: ['access_policy', 'access_denied_message'] })
+  const fieldErrors = form.formState.errors
+  const policyValidation = getJsonValidationState(policyValues[0] ?? '')
   const watchedSlug = useWatch({ control: form.control, name: 'slug' })
   const callbackPath = watchedSlug?.trim() || '{slug}'
   const callbackUrl = buildOAuthCallbackUrl(
@@ -249,6 +271,13 @@ function ProviderFormTask(props: ProviderFormDialogProps & { identity: string })
               </div>
             </AlertDescription>
           </Alert>
+
+          <div className='space-y-1 text-sm'>
+            <p role='status'>{policyValues[0]?.trim() ? t('Login policy: custom rules configured') : t('Login policy: no custom rules configured')}</p>
+            {!policyValidation.isValid && <p role='alert' className='text-destructive'>{t('Login policy JSON is invalid. Review the original draft.')}</p>}
+            {form.formState.isDirty && <p className='text-muted-foreground'>{t('Unsaved changes')}</p>}
+            {Object.keys(fieldErrors).length > 0 && <p role='alert' className='text-destructive'>{t('Review {{count}} invalid fields. Their sections are open.', { count: Object.keys(fieldErrors).length })}</p>}
+          </div>
 
           {/* Basic Info */}
           <div className='space-y-4'>
@@ -417,10 +446,10 @@ function ProviderFormTask(props: ProviderFormDialogProps & { identity: string })
           <Separator />
 
           {/* Endpoints */}
+          <ProviderConfigurationSection title={t('Endpoints')} summary={t('Configured fields: {{count}}', { count: endpointValues.filter((value) => value?.trim()).length })} hasError={Boolean(fieldErrors.well_known || fieldErrors.authorization_endpoint || fieldErrors.token_endpoint || fieldErrors.user_info_endpoint || fieldErrors.scopes)}>
           <div className='space-y-4'>
             <div className='flex items-center justify-between'>
-              <h4 className='text-sm font-medium'>{t('Endpoints')}</h4>
-              <DiscoveryButton form={form} isCurrent={isCurrent} disabled={isPending} />
+                <DiscoveryButton form={form} isCurrent={isCurrent} disabled={isPending} />
             </div>
 
             <FormField
@@ -518,12 +547,13 @@ function ProviderFormTask(props: ProviderFormDialogProps & { identity: string })
               )}
             />
           </div>
+          </ProviderConfigurationSection>
 
           <Separator />
 
           {/* Field Mapping */}
+          <ProviderConfigurationSection title={t('Field Mapping')} summary={t('Configured fields: {{count}}', { count: mappingValues.filter((value) => value?.trim()).length })} hasError={Boolean(fieldErrors.user_id_field || fieldErrors.username_field || fieldErrors.display_name_field || fieldErrors.email_field)}>
           <div className='space-y-4'>
-            <h4 className='text-sm font-medium'>{t('Field Mapping')}</h4>
             <FormDescription>
               {t(
                 'Map fields from the user info response to local user attributes. Supports nested paths (e.g. ocs.data.id).'
@@ -588,17 +618,18 @@ function ProviderFormTask(props: ProviderFormDialogProps & { identity: string })
               />
             </div>
           </div>
+          </ProviderConfigurationSection>
 
           <Separator />
 
           {/* Advanced */}
+          <ProviderConfigurationSection title={t('Advanced')} summary={t('Configured fields: {{count}}', { count: policyValues.filter((value) => value?.trim()).length })} hasError={Boolean(fieldErrors.access_policy || fieldErrors.access_denied_message || !policyValidation.isValid)}>
           <div className='space-y-4'>
-            <h4 className='text-sm font-medium'>{t('Advanced')}</h4>
 
             <FormField
               control={form.control}
               name='access_policy'
-              render={({ field }) => (
+              render={({ field, fieldState }) => (
                 <FormItem>
                   <FormLabel>{t('Access Policy (JSON)')}</FormLabel>
                   <FormDescription>
@@ -606,7 +637,7 @@ function ProviderFormTask(props: ProviderFormDialogProps & { identity: string })
                       'Evaluate fields from the provider user info response. Conditions and nested groups use and/or logic.'
                     )}
                   </FormDescription>
-                  <FormControl>
+                  <FormControl aria-invalid={fieldState.error ? true : undefined}>
                     <JsonCodeEditor
                       value={field.value || ''}
                       onChange={field.onChange}
@@ -713,6 +744,7 @@ function ProviderFormTask(props: ProviderFormDialogProps & { identity: string })
               )}
             />
           </div>
+          </ProviderConfigurationSection>
         </SettingsForm>
       </Form>
     </Dialog>

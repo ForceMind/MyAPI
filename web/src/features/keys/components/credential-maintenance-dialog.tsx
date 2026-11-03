@@ -7,7 +7,7 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { useQuery } from '@tanstack/react-query'
-import { Alert02Icon, ArrowRight01Icon, CheckmarkCircle02Icon, Key01Icon, Refresh01Icon, Shield01Icon } from '@hugeicons/core-free-icons'
+import { Alert02Icon, ArrowDown01Icon, ArrowRight01Icon, CheckmarkCircle02Icon, Key01Icon, Refresh01Icon, Shield01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -16,6 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import {
   Dialog,
   DialogContent,
@@ -143,6 +144,7 @@ function CredentialMaintenanceSession(props: {
     null
   )
   const [previewing, setPreviewing] = useState(false)
+  const [migrationConfigurationOpen, setMigrationConfigurationOpen] = useState(false)
   const [previewError, setPreviewError] = useState(false)
   const [identityConfirmed, setIdentityConfirmed] = useState(false)
   const [allocationConfirmed, setAllocationConfirmed] = useState(false)
@@ -241,6 +243,8 @@ function CredentialMaintenanceSession(props: {
     !migrationBlocked &&
     (!data.migration.source || sourceWindows.length === 0)
   )
+
+  const migrationConfigurationForced = phase !== 'idle' || previewing || Boolean(preview) || previewError || commitError || persistenceBlocked || rotationActivity || Boolean(selectedCandidate && !input)
 
   const clearReview = () => {
     setPreview(null)
@@ -680,6 +684,12 @@ function CredentialMaintenanceSession(props: {
                   </Alert>
                 )}
                 {!migrationBlocked && !missingSourceWindows && (
+                  <Collapsible open={migrationConfigurationOpen || migrationConfigurationForced} onOpenChange={setMigrationConfigurationOpen}>
+                    <CollapsibleTrigger disabled={migrationConfigurationForced} render={<Button type='button' variant='outline' />} className='group h-auto min-h-11 max-w-full justify-start gap-2 whitespace-normal text-left'>
+                      {t('Migration configuration')}
+                      <HugeiconsIcon icon={ArrowDown01Icon} aria-hidden='true' className='size-4 shrink-0 transition-transform group-aria-expanded:rotate-180' />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent keepMounted className='min-w-0 pt-4'>
                   <FieldGroup>
                     <Field>
                       <FieldLabel id={`credential-target-${props.tokenId}`}>
@@ -851,6 +861,8 @@ function CredentialMaintenanceSession(props: {
                       </Button>
                     </div>
                   </FieldGroup>
+                    </CollapsibleContent>
+                  </Collapsible>
                 )}
 
                 {previewError && (

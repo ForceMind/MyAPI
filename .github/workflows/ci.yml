@@ -624,6 +624,23 @@ jobs:
           src/features/subscriptions/components/dialogs/__tests__/user-subscriptions-recovery.test.tsx
           src/features/models/components/dialogs/__tests__/deployment-tools-state.test.tsx
 
+      - name: Verify wallet, permission and OAuth task disclosures
+        run: >-
+          bun run test src/features/wallet/components/__tests__/subscription-plans-workspace.test.tsx
+          src/features/users/components/__tests__/user-permission-hierarchy.test.tsx
+          src/features/access-policy/__tests__/availability-hierarchy.test.tsx
+          src/features/access-policy/__tests__/owner-session.test.tsx
+          src/features/system-settings/auth/custom-oauth/components/__tests__/provider-form-task.test.tsx
+          src/features/subscriptions/components/dialogs/__tests__/subscription-task-layout.test.tsx
+
+      - name: Verify sensitive guidance and group relationship disclosures
+        run: >-
+          bun run test src/features/keys/components/__tests__/credential-maintenance-hierarchy.test.tsx
+          src/features/keys/components/__tests__/credential-maintenance-dialog.test.tsx
+          src/features/keys/components/__tests__/token-budget-dialog.test.tsx
+          src/features/users/components/__tests__/user-usage-policy.test.tsx
+          src/features/system-settings/models/__tests__/group-details-disclosure.test.tsx
+
       - name: Verify remaining settings, analytics and public task contracts
         run: >-
           bun run test src/features/system-settings src/features/system-info

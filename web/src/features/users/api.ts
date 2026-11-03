@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { t } from 'i18next'
+
 import type { PermissionCatalog } from '@/lib/admin-permissions'
 import { api } from '@/lib/api'
 import type { CustomOAuthBinding } from '@/lib/oauth'
@@ -169,6 +171,9 @@ export async function getGroups(): Promise<ApiResponse<string[]>> {
  */
 export async function getPermissionCatalog(): Promise<PermissionCatalog> {
   const res = await api.get('/api/authz/catalog')
+  if (res.data?.success !== true || !Array.isArray(res.data?.data?.resources) || !Array.isArray(res.data?.data?.roles)) {
+    throw new Error(res.data?.message || t('Failed to load permission catalog'))
+  }
   return {
     resources: res.data?.data?.resources ?? [],
     roles: res.data?.data?.roles ?? [],

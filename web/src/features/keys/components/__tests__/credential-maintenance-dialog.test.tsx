@@ -234,6 +234,7 @@ async function openCommitVerification(
   user: ReturnType<typeof userEvent.setup>
 ): Promise<void> {
   await screen.findByText('Desktop Key')
+  await user.click(screen.getByRole('button', { name: 'Migration configuration' }))
   await user.click(
     screen.getByRole('combobox', { name: 'Target Codex account' })
   )
@@ -460,6 +461,7 @@ test('a recovered committed receipt clears the lock before the next reopen', asy
   first.unmount()
   renderDialog()
 
+  await user.click(await screen.findByRole('button', { name: 'Migration configuration' }))
   const target = await screen.findByRole('combobox', {
     name: 'Target Codex account',
   })
@@ -491,6 +493,7 @@ test('a different Root identity cannot consume another actor pending operation',
   expect(readPendingCredentialMaintenanceOperation(1, 21)).toBe(
     pendingOperation
   )
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Migration configuration' }))
   expect(
     screen.getByRole('combobox', { name: 'Target Codex account' })
   ).toBeEnabled()

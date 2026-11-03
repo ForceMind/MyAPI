@@ -1,0 +1,116 @@
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+
+import { api } from '@/lib/api'
+
+import { GroupRatioVisualEditor } from '../group-ratio-visual-editor'
+
+const onChange = vi.fn()
+const groupRatio = '{"alpha":1.25,"beta":2,"gamma":3}'
+const overrides = JSON.stringify({ alpha: { target1: 0.1, target2: 0.2, target3: 0.3, target4: 0.4, target5: 0.5 }, user1: { alpha: 1.1 }, user2: { alpha: 1.2 }, user3: { alpha: 1.3 }, user4: { alpha: 1.4 }, user5: { alpha: 1.5 }, beta: { target1: 2.25 } })
+const visibility = JSON.stringify({ visible1: { '+:alpha': '' }, visible2: { '+:alpha': '' }, visible3: { '+:alpha': '' }, visible4: { '+:alpha': '' }, visible5: { '+:alpha': '' }, blocked: { '-:alpha': '' }, shortVisible: { '+:beta': '' } })
+beforeEach(() => {
+  onChange.mockReset()
+  vi.spyOn(api, 'get').mockRejectedValue(new Error('Unexpected synthetic group GET'))
+  vi.spyOn(api, 'put').mockRejectedValue(new Error('Unexpected synthetic group PUT'))
+  vi.spyOn(api, 'post').mockRejectedValue(new Error('Unexpected synthetic group POST'))
+})
+afterEach(() => { cleanup(); vi.restoreAllMocks() })
+function mount(groupGroupRatio = overrides) {
+  return render(<GroupRatioVisualEditor groupRatio={groupRatio} topupGroupRatio='{"alpha":0.75}' userUsableGroups='{"beta":"Selectable group description"}' groupGroupRatio={groupGroupRatio} autoGroups='["beta","alpha"]' maxTokenAutoGroupsField={<span>Existing automatic group limit</span>} groupSpecialUsableGroup={visibility} onChange={onChange} />)
+}
+function detailAction(group: string) {
+  const row = screen.getByDisplayValue(group).closest('tr')
+  if (!row) throw new Error(`Expected the exact ${group} pricing row`)
+  return within(row).getByRole('button', { name: 'Details' })
+}
+function section(dialog: HTMLElement, name: string) {
+  const node = within(dialog).getByRole('heading', { name }).closest('section')
+  if (!node) throw new Error(`Expected the ${name} details section`)
+  return within(node)
+}
+function expectNoRequest() {
+  expect(api.get).not.toHaveBeenCalled()
+  expect(api.put).not.toHaveBeenCalled()
+  expect(api.post).not.toHaveBeenCalled()
+  expect(onChange).not.toHaveBeenCalled()
+}
+
+it('keeps overview and hidden relations visible while keyboard disclosure reveals every original directional ratio in order without requests', async () => {
+  mount()
+  const user = userEvent.setup()
+  await user.click(detailAction('alpha'))
+  const dialog = await screen.findByRole('dialog', { name: 'Group details: alpha' })
+  const overview = section(dialog, 'Overview')
+  expect(overview.getByText('1.25')).toBeVisible()
+  expect(overview.getByText('0.75')).toBeVisible()
+  expect(overview.getByText('No')).toBeVisible()
+  expect(overview.getByText('Position 2')).toBeVisible()
+  expect(within(dialog).getByText('Hidden from blocked')).toBeVisible()
+  expect(within(dialog).getByText('Hidden')).toHaveClass('text-destructive')
+  expect(within(dialog).getByText('Visibility rules: 5 visible, 1 hidden')).toBeVisible()
+  const incoming = within(dialog).getByRole('button', { name: 'Incoming ratio overrides: 5' })
+  const outgoing = within(dialog).getByRole('button', { name: 'Outgoing ratio overrides: 5' })
+  const visible = within(dialog).getByRole('button', { name: 'Extra visible rules: 5' })
+  for (const trigger of [incoming, outgoing, visible]) expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  expect(within(dialog).getByText('Users in user5')).not.toBeVisible()
+  expect(within(dialog).getByText('When billed as target5')).not.toBeVisible()
+  expect(within(dialog).getByText('Extra visible to visible5')).not.toBeVisible()
+  incoming.focus()
+  await user.keyboard('{Enter}')
+  expect(incoming).toHaveAttribute('aria-expanded', 'true')
+  const incomingSection = section(dialog, 'Ratio overrides when billed as this group')
+  expect(incomingSection.getAllByRole('listitem').map((row) => row.textContent)).toEqual(['Users in user11.1', 'Users in user21.2', 'Users in user31.3', 'Users in user41.4', 'Users in user51.5'])
+  outgoing.focus()
+  await user.keyboard(' ')
+  expect(outgoing).toHaveAttribute('aria-expanded', 'true')
+  const outgoingSection = section(dialog, 'Ratio overrides for users of this group')
+  expect(outgoingSection.getAllByRole('listitem').map((row) => row.textContent)).toEqual(['When billed as target10.1', 'When billed as target20.2', 'When billed as target30.3', 'When billed as target40.4', 'When billed as target50.5'])
+  await user.click(visible)
+  expect(within(dialog).getByText('Extra visible to visible5')).toBeVisible()
+  await user.click(incoming)
+  expect(within(dialog).getByText('Users in user5')).not.toBeVisible()
+  expect(within(dialog).getByText('Hidden from blocked')).toBeVisible()
+  expect(dialog.querySelectorAll('[class~="overflow-y-auto"]')).toHaveLength(1)
+  expectNoRequest()
+})
+
+it('keeps invalid and nonfinite overrides, short and empty groups readable and restores the exact opener without inheriting disclosure state', async () => {
+  mount('{"alpha":{"target1":0.1,"target2":0.2,"target3":0.3,"target4":1e999,"target5":-0.5},"user1":{"alpha":1.1},"user2":{"alpha":1.2},"user3":{"alpha":1.3},"user4":{"alpha":"invalid synthetic ratio"},"beta":{"target1":2.25}}')
+  const user = userEvent.setup()
+  const alphaOpener = detailAction('alpha')
+  await user.click(alphaOpener)
+  let dialog = await screen.findByRole('dialog', { name: 'Group details: alpha' })
+  expect(within(dialog).queryByRole('button', { name: /Incoming ratio overrides:/ })).not.toBeInTheDocument()
+  expect(within(dialog).queryByRole('button', { name: /Outgoing ratio overrides:/ })).not.toBeInTheDocument()
+  expect(within(dialog).getByText('invalid synthetic ratio')).toBeVisible()
+  expect(within(dialog).getByText('Infinity')).toBeVisible()
+  expect(within(dialog).getByText('-0.5')).toBeVisible()
+  await user.click(within(dialog).getByRole('button', { name: 'Extra visible rules: 5' }))
+  expect(within(dialog).getByText('Extra visible to visible5')).toBeVisible()
+  await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+  await waitFor(() => expect(alphaOpener).toHaveFocus())
+  const betaOpener = detailAction('beta')
+  await user.click(betaOpener)
+  dialog = await screen.findByRole('dialog', { name: 'Group details: beta' })
+  expect(section(dialog, 'Overview').getByText('Yes')).toBeVisible()
+  expect(within(dialog).getByText('Selectable group description')).toBeVisible()
+  expect(section(dialog, 'Ratio overrides when billed as this group').getByText('None')).toBeVisible()
+  expect(within(dialog).getByText('When billed as target1')).toBeVisible()
+  expect(within(dialog).getByText('2.25')).toBeVisible()
+  expect(within(dialog).getByText('Extra visible to shortVisible')).toBeVisible()
+  expect(within(dialog).queryByRole('button', { name: /ratio overrides:|Extra visible rules:/ })).not.toBeInTheDocument()
+  await user.keyboard('{Escape}')
+  await waitFor(() => expect(betaOpener).toHaveFocus())
+  await user.click(alphaOpener)
+  dialog = await screen.findByRole('dialog', { name: 'Group details: alpha' })
+  expect(within(dialog).getByRole('button', { name: 'Extra visible rules: 5' })).toHaveAttribute('aria-expanded', 'false')
+  expect(within(dialog).getByText('Extra visible to visible5')).not.toBeVisible()
+  await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+  await waitFor(() => expect(alphaOpener).toHaveFocus())
+  await user.click(detailAction('gamma'))
+  dialog = await screen.findByRole('dialog', { name: 'Group details: gamma' })
+  for (const title of ['Ratio overrides when billed as this group', 'Ratio overrides for users of this group', 'Special visibility rules']) expect(section(dialog, title).getByText('None')).toBeVisible()
+  expectNoRequest()
+})

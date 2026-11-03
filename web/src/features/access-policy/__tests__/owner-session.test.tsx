@@ -94,6 +94,7 @@ test('a failed owner refresh removes stale availability rather than leaving it p
     )
     .mockRejectedValueOnce(new AccessPolicyError('forbidden'))
   render(<AccessPolicyDialog tokenId={7} onClose={vi.fn()} />, queryWrapper())
+  await user.click(await screen.findByRole('button', { name: 'Available models (1)' }))
   expect(await screen.findByText('public-old')).toBeVisible()
   await user.click(screen.getByRole('button', { name: 'Refresh' }))
   expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -122,6 +123,7 @@ test('changing the session for the same user cancels old reads and never display
   await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1))
   const signal = vi.mocked(api.get).mock.calls[0]?.[1]?.signal
   act(() => authenticate(1, 1, 'new-session'))
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Available models (1)' }))
   expect(await screen.findByText('new-session-model')).toBeVisible()
   expect(signal?.aborted).toBe(true)
   await act(async () =>
@@ -146,6 +148,7 @@ test('switching accounts replaces the owner query rather than reusing the previo
     )
     .mockResolvedValueOnce(envelope({ ...ownerAccess, models: [] }))
   render(<AccessPolicyDialog tokenId={7} onClose={vi.fn()} />, queryWrapper())
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Available models (1)' }))
   await screen.findByText('old-account-model')
   act(() => authenticate(1, 2, 'other-account'))
   expect(await screen.findByText('No public models to display.')).toBeVisible()
@@ -275,6 +278,7 @@ test('an admin whose own Key policy is forbidden still sees owner-safe availabil
     throw new AccessPolicyError('access_policy_forbidden')
   })
   render(<AccessPolicyDialog tokenId={7} onClose={vi.fn()} />, queryWrapper())
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Available models (1)' }))
   expect(await screen.findByText('own-key-public')).toBeVisible()
   expect(await screen.findByRole('alert')).toHaveTextContent(
     'You do not have permission to view or change this access policy.'

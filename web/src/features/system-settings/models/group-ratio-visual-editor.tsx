@@ -43,6 +43,7 @@ import {
   sideDrawerHeaderClassName,
 } from '@/components/drawer-layout'
 import { StatusBadge } from '@/components/status-badge'
+import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -1220,6 +1221,30 @@ function GroupDetailSheet(props: GroupDetailSheetProps) {
     props.groupSpecialUsableGroup,
   ])
 
+  const incomingList = (
+    <ul className='space-y-1 text-sm'>
+      {detail?.incomingOverrides.map((item) => (
+        <li key={item.userGroup} className='flex min-w-0 flex-wrap justify-between gap-2 rounded-md border px-3 py-1.5 [overflow-wrap:anywhere]'>
+          <span>{t('Users in {{group}}', { group: item.userGroup })}</span>
+          <span className='font-medium'>{item.ratio}</span>
+        </li>
+      ))}
+    </ul>
+  )
+  const outgoingList = (
+    <ul className='space-y-1 text-sm'>
+      {detail?.outgoingOverrides.map((item) => (
+        <li key={item.targetGroup} className='flex min-w-0 flex-wrap justify-between gap-2 rounded-md border px-3 py-1.5 [overflow-wrap:anywhere]'>
+          <span>{t('When billed as {{group}}', { group: item.targetGroup })}</span>
+          <span className='font-medium'>{item.ratio}</span>
+        </li>
+      ))}
+    </ul>
+  )
+  const visibleRules = detail?.visibilityRules.filter((rule) => rule.visible) ?? []
+  const summarizeVisibility = visibleRules.length > 3
+  const persistentRules = detail?.visibilityRules.filter((rule) => !summarizeVisibility || !rule.visible) ?? []
+
   return (
     <Sheet open={name !== null} onOpenChange={props.onOpenChange}>
       <SheetContent
@@ -1285,84 +1310,53 @@ function GroupDetailSheet(props: GroupDetailSheetProps) {
             </section>
 
             <section className='space-y-2'>
-              <h3 className='text-sm font-semibold'>
-                {t('Ratio overrides when billed as this group')}
-              </h3>
-              {detail.incomingOverrides.length === 0 ? (
-                <p className='text-muted-foreground text-sm'>{t('None')}</p>
-              ) : (
-                <ul className='space-y-1 text-sm'>
-                  {detail.incomingOverrides.map((item) => (
-                    <li
-                      key={item.userGroup}
-                      className='flex justify-between rounded-md border px-3 py-1.5'
-                    >
-                      <span>
-                        {t('Users in {{group}}', { group: item.userGroup })}
-                      </span>
-                      <span className='font-medium'>{item.ratio}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <h3 className='text-sm font-semibold'>{t('Ratio overrides when billed as this group')}</h3>
+              {detail.incomingOverrides.length === 0 && <p className='text-muted-foreground text-sm'>{t('None')}</p>}
+              {detail.incomingOverrides.length > 0 && (detail.incomingOverrides.length > 3 && detail.incomingOverrides.every((item) => typeof item.ratio === 'number' && Number.isFinite(item.ratio) && item.ratio >= 0) ? (
+                <SummaryDisclosure key={`${name}:incoming`} summary={t('Incoming ratio overrides: {{count}}', { count: detail.incomingOverrides.length })}>
+                  {incomingList}
+                </SummaryDisclosure>
+              ) : incomingList)}
             </section>
 
             <section className='space-y-2'>
-              <h3 className='text-sm font-semibold'>
-                {t('Ratio overrides for users of this group')}
-              </h3>
-              {detail.outgoingOverrides.length === 0 ? (
-                <p className='text-muted-foreground text-sm'>{t('None')}</p>
-              ) : (
-                <ul className='space-y-1 text-sm'>
-                  {detail.outgoingOverrides.map((item) => (
-                    <li
-                      key={item.targetGroup}
-                      className='flex justify-between rounded-md border px-3 py-1.5'
-                    >
-                      <span>
-                        {t('When billed as {{group}}', {
-                          group: item.targetGroup,
-                        })}
-                      </span>
-                      <span className='font-medium'>{item.ratio}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <h3 className='text-sm font-semibold'>{t('Ratio overrides for users of this group')}</h3>
+              {detail.outgoingOverrides.length === 0 && <p className='text-muted-foreground text-sm'>{t('None')}</p>}
+              {detail.outgoingOverrides.length > 0 && (detail.outgoingOverrides.length > 3 && detail.outgoingOverrides.every((item) => typeof item.ratio === 'number' && Number.isFinite(item.ratio) && item.ratio >= 0) ? (
+                <SummaryDisclosure key={`${name}:outgoing`} summary={t('Outgoing ratio overrides: {{count}}', { count: detail.outgoingOverrides.length })}>
+                  {outgoingList}
+                </SummaryDisclosure>
+              ) : outgoingList)}
             </section>
 
             <section className='space-y-2'>
-              <h3 className='text-sm font-semibold'>
-                {t('Special visibility rules')}
-              </h3>
+              <h3 className='text-sm font-semibold'>{t('Special visibility rules')}</h3>
               {detail.visibilityRules.length === 0 ? (
                 <p className='text-muted-foreground text-sm'>{t('None')}</p>
               ) : (
-                <ul className='space-y-1 text-sm'>
-                  {detail.visibilityRules.map((rule) => (
-                    <li
-                      key={`${rule.userGroup}-${rule.visible}`}
-                      className='flex items-center justify-between rounded-md border px-3 py-1.5'
-                    >
-                      <span>
-                        {rule.visible
-                          ? t('Extra visible to {{group}}', {
-                              group: rule.userGroup,
-                            })
-                          : t('Hidden from {{group}}', {
-                              group: rule.userGroup,
-                            })}
-                      </span>
-                      <StatusBadge
-                        variant={rule.visible ? 'info' : 'danger'}
-                        copyable={false}
-                      >
-                        {rule.visible ? t('Visible') : t('Hidden')}
-                      </StatusBadge>
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <p className='text-muted-foreground text-sm'>{t('Visibility rules: {{visible}} visible, {{hidden}} hidden', { visible: visibleRules.length, hidden: detail.visibilityRules.length - visibleRules.length })}</p>
+                  {persistentRules.length > 0 && <ul className='space-y-1 text-sm'>
+                    {persistentRules.map((rule) => (
+                      <li key={`${rule.userGroup}-${rule.visible}`} className='flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-1.5 [overflow-wrap:anywhere]'>
+                        <span>{rule.visible ? t('Extra visible to {{group}}', { group: rule.userGroup }) : t('Hidden from {{group}}', { group: rule.userGroup })}</span>
+                        <StatusBadge variant={rule.visible ? 'info' : 'danger'} copyable={false}>{rule.visible ? t('Visible') : t('Hidden')}</StatusBadge>
+                      </li>
+                    ))}
+                  </ul>}
+                  {summarizeVisibility && (
+                    <SummaryDisclosure key={`${name}:visibility`} summary={t('Extra visible rules: {{count}}', { count: visibleRules.length })}>
+                      <ul className='space-y-1 text-sm'>
+                        {visibleRules.map((rule) => (
+                          <li key={`${rule.userGroup}-${rule.visible}`} className='flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-1.5 [overflow-wrap:anywhere]'>
+                            <span>{t('Extra visible to {{group}}', { group: rule.userGroup })}</span>
+                            <StatusBadge variant='info' copyable={false}>{t('Visible')}</StatusBadge>
+                          </li>
+                        ))}
+                      </ul>
+                    </SummaryDisclosure>
+                  )}
+                </>
               )}
             </section>
           </div>

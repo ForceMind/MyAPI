@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -220,10 +221,7 @@ function TokenBudgetSession(props: {
                 'Chat reserves 1,050,000 total tokens for input and completion, including reasoning. This is a conservative bound, not measured usage or a tokenizer estimate. Even a small request can fail if the remaining budget cannot cover this bound.'
               )}
             </p>
-            <details className='text-xs'>
-              <summary className='cursor-pointer'>
-                {t('Supported request fields')}
-              </summary>
+            <SummaryDisclosure summary={t('Supported request fields')} contentClassName='text-xs'>
               <p className='mt-2 font-mono break-words'>
                 Responses: model, input, instructions, max_output_tokens,
                 stream, store, service_tier
@@ -247,17 +245,24 @@ function TokenBudgetSession(props: {
                   'Tools, images, external context, free or per-call pricing, and subscription channels are not supported by this strict mode.'
                 )}
               </p>
-            </details>
+            </SummaryDisclosure>
           </>
         )}
         <p className='text-muted-foreground text-xs'>
           {t('Existing quota limits remain active.')}
         </p>
-        <p className='text-muted-foreground text-xs'>
-          {t(
-            'Token counts are tracked while Token or USD budgets are enabled; USD costs only while fee budgets are enabled. Account thresholds do not track per-key usage. Earlier usage is not backfilled.'
-          )}
-        </p>
+        <SummaryDisclosure summary={t('Budget accounting details')}>
+          <p className='text-muted-foreground text-xs'>
+            {t(
+              'Token counts are tracked while Token or USD budgets are enabled; USD costs only while fee budgets are enabled. Account thresholds do not track per-key usage. Earlier usage is not backfilled.'
+            )}
+          </p>
+          <p className='text-muted-foreground text-xs'>
+            {t(
+              'USD cost is calculated from actual classified tokens and the frozen published official price. It is not a provider invoice.'
+            )}
+          </p>
+        </SummaryDisclosure>
         {query.isError && <p role='alert'>{t('Operation failed')}</p>}
         {!data && !query.isError && <p role='status'>{t('Loading...')}</p>}
         {data && (
@@ -333,11 +338,7 @@ function TokenBudgetSession(props: {
                 </dd>
               </div>
             </dl>
-            <p className='text-muted-foreground text-xs'>
-              {t(
-                'USD cost is calculated from actual classified tokens and the frozen published official price. It is not a provider invoice.'
-              )}
-            </p>
+
             {pending && (
               <section className='min-w-0 space-y-2 rounded-md border p-3'>
                 {automaticSettlement ? (

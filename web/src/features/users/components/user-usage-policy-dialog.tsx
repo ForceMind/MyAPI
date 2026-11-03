@@ -7,6 +7,7 @@ import {
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -181,11 +182,6 @@ function UserUsagePolicySession(props: {
             </div>
           </dl>
           <p role='status'>{conditionLabel}</p>
-          <p className='text-muted-foreground text-xs'>
-            {t(
-              'These are separate configuration snapshots, not a guarantee that a request is eligible. The server checks the user, Key, request path and limits at admission.'
-            )}
-          </p>
         </section>
         <p className='text-muted-foreground text-sm'>
           {t(
@@ -197,6 +193,13 @@ function UserUsagePolicySession(props: {
             'Changing this policy does not grant credit, clear usage or change already admitted requests.'
           )}
         </p>
+        <SummaryDisclosure summary={t('Policy details')}>
+          <p className='text-muted-foreground text-xs'>
+            {t(
+              'These are separate configuration snapshots, not a guarantee that a request is eligible. The server checks the user, Key, request path and limits at admission.'
+            )}
+          </p>
+        </SummaryDisclosure>
         {query.isError && <p role='alert'>{t('Operation failed')}</p>}
         {!query.data && !query.isError && (
           <p role='status'>{t('Loading...')}</p>

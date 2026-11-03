@@ -62,6 +62,7 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   plan: PlanRecord | null
+  returnFocus?: () => HTMLElement | null
   enableStripe?: boolean
   enableCreem?: boolean
   enableWaffoPancake?: boolean
@@ -266,7 +267,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
 
   return (
     <Dialog open={props.open} onOpenChange={(nextOpen) => (nextOpen || !paying) && props.onOpenChange(nextOpen)}>
-      <DialogContent showCloseButton={!paying} className='flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[90dvh] sm:max-w-lg sm:rounded-xl [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'>
+      <DialogContent finalFocus={props.returnFocus} showCloseButton={!paying} className='flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[90dvh] sm:max-w-lg sm:rounded-xl [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'>
         <DialogHeader className='shrink-0 border-b px-4 py-4 pr-16 sm:px-6 sm:pr-16'><DialogTitle className='flex items-center gap-2'><HugeiconsIcon icon={CrownIcon} aria-hidden='true' className='size-5' />{t('Purchase Subscription')}</DialogTitle></DialogHeader>
         <section role='region' tabIndex={0} aria-label={t('Subscription purchase details')} className='min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [overflow-wrap:anywhere] sm:px-6'>
       <div className='space-y-3 sm:space-y-4'>

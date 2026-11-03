@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -92,20 +93,14 @@ function AccessPolicySession(props: DialogProps & { scope: AccessSession }) {
         </DialogHeader>
         <div className='min-h-0 space-y-4 overflow-y-auto overscroll-contain'>
         <p className='text-muted-foreground text-xs break-words'>
-          {t(
-            'Assigned access supports OpenAI Chat and Responses, and Codex Responses. Other request paths are denied.'
-          )}
+          {t('Assigned access supports OpenAI Chat and Responses, and Codex Responses. Other request paths are denied.')}{' '}
+          {t('Availability is a current policy check, not a guarantee of future routing or quota.')}
         </p>
-        <p className='text-muted-foreground text-xs break-words'>
-          {t(
-            'Assigned access requires an unambiguous JSON model and a final request body no larger than 1 MiB.'
-          )}
-        </p>
-        <p className='text-muted-foreground text-xs break-words'>
-          {t(
-            'Availability is a current policy check, not a guarantee of future routing or quota.'
-          )}
-        </p>
+        <SummaryDisclosure summary={t('Request requirements')}>
+          <p className='text-muted-foreground text-xs break-words'>
+            {t('Assigned access requires an unambiguous JSON model and a final request body no larger than 1 MiB.')}
+          </p>
+        </SummaryDisclosure>
         {admin && (
           <p className='text-muted-foreground text-xs break-words'>
             {t('User ID')}: {ownerUserId}
