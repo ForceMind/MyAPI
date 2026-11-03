@@ -70,7 +70,7 @@ export function DataTableBulkActions<TData>({
   const canOperate = hasPermission(currentUser, 'channel', 'operate')
   const canWrite = hasPermission(currentUser, 'channel', 'write')
 
-  const selectedRows = table.getFilteredSelectedRowModel().rows
+  const selectedRows = table.getFilteredSelectedRowModel().flatRows
   const selectedIds = selectedRows.reduce<number[]>((ids, row) => {
     const id = (row.original as Channel).id
 
@@ -111,7 +111,7 @@ export function DataTableBulkActions<TData>({
 
   return (
     <>
-      <BulkActionsToolbar table={table} entityName='channel'>
+      <BulkActionsToolbar table={table} entityName='channel' selectedCount={selectedIds.length}>
         <span className='text-sm'>{t('Selected channel IDs ({{count}})', { count: selectedIds.length })}</span>
         <Tooltip>
           <TooltipTrigger

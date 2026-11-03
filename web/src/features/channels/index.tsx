@@ -24,7 +24,7 @@ import { useTranslation } from 'react-i18next'
 import { SectionPageLayout } from '@/components/layout'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { hasPermission } from '@/lib/admin-permissions'
 import { formatTimestampToDate } from '@/lib/format'
 import { ROLE } from '@/lib/roles'
@@ -176,16 +176,16 @@ function ChannelWorkspace(props: { identity: string }) {
       <SectionPageLayout.Content>
         <div className='min-w-0 space-y-4'>
           <nav aria-label={t('Channel workspace')} className='flex min-w-0 gap-1 overflow-x-auto border-b'>
-            {WORKSPACES.map((item) => <Button key={item.mode} nativeButton={false} render={<Link to='/channels' hash={item.anchor} search={(previous) => previous} hashScrollIntoView={false} resetScroll={false} />} variant='ghost' disabled={item.mode !== 'inventory' && !canRead} aria-current={active === item.mode ? 'location' : undefined} aria-label={t(item.title)} onClick={(event) => {
+            {WORKSPACES.map((item) => <Link key={item.mode} to='/channels' hash={item.anchor} search={(previous) => previous} hashScrollIntoView={false} resetScroll={false} activeOptions={{ includeHash: true }} disabled={item.mode !== 'inventory' && !canRead} aria-current={active === item.mode ? 'location' : undefined} aria-label={t(item.title)} onClick={(event) => {
               if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
               event.preventDefault()
               openTask(item.mode)
-            }} className={cn('h-auto min-h-11 shrink-0 rounded-none border-b-2 border-transparent px-3 py-2', active === item.mode && 'border-primary text-primary')}>
+            }} className={cn(buttonVariants({ variant: 'ghost' }), 'h-auto min-h-11 shrink-0 rounded-none border-b-2 border-transparent px-3 py-2', active === item.mode && 'border-primary text-primary')}>
               <span className='flex min-w-0 flex-col items-start gap-0.5'>
                 <span>{t(item.title)}</span>
                 <ReadSummary state={reads[item.mode]} routing={item.mode === 'routing'} compact />
               </span>
-            </Button>)}
+            </Link>)}
           </nav>
           {WORKSPACES.filter((item) => item.mode !== active && (reads[item.mode].unresolvedFailure || reads[item.mode].incomplete || reads[item.mode].failedObservations)).map((item) => <Alert key={item.mode} variant={reads[item.mode].unresolvedFailure ? 'destructive' : 'default'}>
             <AlertDescription className='flex flex-wrap items-center justify-between gap-2'>

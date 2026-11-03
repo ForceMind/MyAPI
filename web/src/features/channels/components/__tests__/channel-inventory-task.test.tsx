@@ -164,9 +164,11 @@ it('auto-disabled evidence stays visible and expands completely while menu and d
   const user = userEvent.setup()
   await mount()
   await screen.findByRole('link', { name: item.name })
-  expect(screen.getByText(/^Synthetic failure/)).toBeVisible()
+  const synopsis = screen.getAllByText(/^Synthetic failure/).filter((element) => !element.closest('[hidden]'))
+  expect(synopsis).toHaveLength(1)
+  expect(synopsis[0]).toBeVisible()
   await user.click(screen.getByRole('button', { name: 'Disabled channel details' }))
-  expect(screen.getByText(`Reason: ${reason}`)).toBeVisible()
+  expect(screen.getByText(reason, { exact: true })).toBeVisible()
   const before = inventoryReads().length
   await user.click(screen.getByRole('button', { name: 'Open menu' }))
   expect(await screen.findByRole('menuitem', { name: 'Advanced test' })).toBeVisible()
@@ -272,49 +274,51 @@ async function pendingPriorityChange() {
   await initialUser.selectOptions(screen.getByRole('combobox', { name: 'Inventory view' }), 'routing')
   const priority = await screen.findByRole('group', { name: 'Priority' })
   vi.useFakeTimers({ shouldClearNativeTimers: true })
-  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-  await user.click(within(priority).getByRole('button', { name: 'Increment' }))
+  const increment = within(priority).getByRole('button', { name: 'Increment' })
+  act(() => { increment.focus(); fireEvent.click(increment) })
   expect(api.put).not.toHaveBeenCalled()
-  return { ...fixture, user }
+  return fixture
 }
 
 it.each(['SID', 'role'] as const)('an old pending inline edit cannot PUT during %s-change cleanup', async (change) => {
   const fixture = await pendingPriorityChange()
-  await act(async () => {
+  act(() => {
     if (change === 'SID') {
       useAuthStore.setState((state) => ({ auth: { ...state.auth, session: { sid: 'synthetic-replacement', current: true, login_method: 'password', ip: '192.0.2.1', user_agent: 'Synthetic browser', created_at: 1, last_active_at: 1, expires_at: 4000000000 } } }))
     } else {
       useAuthStore.getState().auth.setUser({ id: 1, role: 10, username: 'synthetic-reader', permissions: { admin_permissions: { channel: { read: true, write: false, operate: false } } } })
     }
-    await Promise.resolve()
-    vi.runOnlyPendingTimers()
   })
   fixture.unmount()
-  await act(async () => { vi.runOnlyPendingTimers(); await Promise.resolve() })
+  act(() => { vi.runOnlyPendingTimers() })
+  await Promise.resolve()
   expect(api.put).not.toHaveBeenCalled()
   expect(api.post).not.toHaveBeenCalled()
 })
 it('same-actor write revocation prevents a pending inline cleanup PUT without changing the retained read scope', async () => {
   useAuthStore.getState().auth.setUser({ id: 1, role: 10, username: 'synthetic-editor', permissions: { admin_permissions: { channel: { read: true, write: true, operate: true } } } })
   const fixture = await pendingPriorityChange()
-  await act(async () => {
+  act(() => {
     useAuthStore.getState().auth.setUser({ id: 1, role: 10, username: 'synthetic-editor', permissions: { admin_permissions: { channel: { read: true, write: false, operate: true } } } })
   })
   fixture.unmount()
-  await act(async () => { vi.runOnlyPendingTimers(); await Promise.resolve() })
+  act(() => { vi.runOnlyPendingTimers() })
+  await Promise.resolve()
   expect(api.put).not.toHaveBeenCalled()
 })
 it.each(['blur', 'cleanup'] as const)('same-actor %s still commits exactly one original inline command', async (trigger) => {
   const put = vi.mocked(api.put).mockResolvedValue({ data: { success: true } })
   const fixture = await pendingPriorityChange()
   if (trigger === 'blur') {
-    await fixture.user.click(screen.getByPlaceholderText('Filter by name, ID, or key...'))
+    act(() => screen.getByPlaceholderText('Filter by name, ID, or key...').focus())
   } else {
     fixture.unmount()
   }
-  await act(async () => { vi.runOnlyPendingTimers(); await Promise.resolve() })
+  act(() => { vi.runOnlyPendingTimers() })
+  await Promise.resolve()
   expect(put).toHaveBeenCalledExactlyOnceWith('/api/channel/', { id: 23, priority: 1 }, expect.objectContaining({ skipAuthRefresh: true, skipErrorHandler: true, skipBusinessError: true }))
   if (trigger === 'blur') fixture.unmount()
-  await act(async () => { vi.runOnlyPendingTimers(); await Promise.resolve() })
+  act(() => { vi.runOnlyPendingTimers() })
+  await Promise.resolve()
   expect(put).toHaveBeenCalledTimes(1)
 })

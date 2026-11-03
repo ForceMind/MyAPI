@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils'
 type DataTableBulkActionsProps<TData> = {
   table: Table<TData>
   entityName: string
+  selectedCount?: number
   children: React.ReactNode
 }
 
@@ -50,11 +51,12 @@ type DataTableBulkActionsProps<TData> = {
 export function DataTableBulkActions<TData>({
   table,
   entityName,
+  selectedCount: explicitSelectedCount,
   children,
 }: DataTableBulkActionsProps<TData>): React.ReactNode | null {
   const { t } = useTranslation()
   const selectedRows = table.getFilteredSelectedRowModel().rows
-  const selectedCount = selectedRows.length
+  const selectedCount = explicitSelectedCount ?? selectedRows.length
   const toolbarRef = useRef<HTMLDivElement>(null)
   const buttonsRef = useRef<NodeListOf<HTMLButtonElement> | null>(null)
   const [announcement, setAnnouncement] = useState('')

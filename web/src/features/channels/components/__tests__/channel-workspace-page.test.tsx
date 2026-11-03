@@ -35,6 +35,7 @@ beforeEach(() => {
     const params = (config?.params ?? {}) as Record<string, unknown>
     requests.push({ path, params })
     if (path === '/api/status') return { data: { success: true, data: {} } }
+    if (path === '/api/user/2fa/status' || path === '/api/user/passkey') return { data: { success: true, data: { enabled: false } } }
     if (path === '/api/user/self') return { data: { success: true, data: useAuthStore.getState().auth.user } }
     if (path === '/api/channel/ops') return { data: { success: true, data: { retry_times: 3 } } }
     if (path === '/api/group/') return { data: { success: true, data: ['default'] } }

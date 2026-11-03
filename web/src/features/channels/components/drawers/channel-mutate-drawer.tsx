@@ -1941,13 +1941,10 @@ export function ChannelMutateDrawer({
     if (nextActiveSectionId === CHANNEL_EDITOR_SECTION_IDS.advanced) {
       advancedNavScrollPendingRef.current = false
       setExpandedEditorNavItemId(CHANNEL_EDITOR_SECTION_IDS.advanced)
-      if (!advancedSettingsOpen) {
-        handleAdvancedSettingsOpenChange(true)
-      }
     } else if (!advancedNavScrollPendingRef.current) {
       setExpandedEditorNavItemId(undefined)
     }
-  }, [advancedSettingsOpen, handleAdvancedSettingsOpenChange])
+  }, [])
 
   useEffect(() => {
     if (!open || isChannelDetailLoading) return
