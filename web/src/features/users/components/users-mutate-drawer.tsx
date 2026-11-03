@@ -226,7 +226,7 @@ export function UsersMutateDrawer({
       const payload = transformFormDataToPayload(
         data,
         currentRow?.id,
-        permissionCatalog
+        canEditAdminPermissions && permissionCatalogQuery.data?.resources.length ? permissionCatalogQuery.data : undefined
       )
       const result = isUpdate
         ? await updateUser(payload as typeof payload & { id: number })

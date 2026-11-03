@@ -145,6 +145,7 @@ test('opening the action menu and assigned access never reads the full Key', asy
   await user.click(
     await screen.findByRole('menuitem', { name: 'Assigned access' })
   )
+  await user.click(await screen.findByRole('button', { name: 'Available models (1)' }))
   expect(await screen.findByText('owner-public-model')).toBeVisible()
   expect(
     screen.queryByRole('button', { name: 'Save assignment' })
@@ -190,6 +191,7 @@ test.each(['succeeds', 'fails'] as const)(
       screen.getByRole('menuitem', { name: 'Assigned access' })
     ).toHaveFocus()
     await user.keyboard('{Enter}')
+    await user.click(await screen.findByRole('button', { name: 'Available models (1)' }))
     expect(await screen.findByText('owner-public-model')).toBeVisible()
   }
 )

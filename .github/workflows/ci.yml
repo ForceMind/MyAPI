@@ -631,6 +631,7 @@ jobs:
           src/features/users/components/__tests__/user-permission-hierarchy.test.tsx
           src/features/access-policy/__tests__/availability-hierarchy.test.tsx
           src/features/access-policy/__tests__/owner-session.test.tsx
+          src/features/keys/components/__tests__/api-keys-action-menu.test.tsx
           src/features/system-settings/auth/custom-oauth/components/__tests__/provider-form-task.test.tsx
           src/features/subscriptions/components/dialogs/__tests__/subscription-task-layout.test.tsx
 

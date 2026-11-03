@@ -166,3 +166,51 @@ it('keeps permission and metadata drafts through transport, business and malform
   expect(api.put).not.toHaveBeenCalled()
   expect(api.post).not.toHaveBeenCalled()
 })
+
+
+it('saves ordinary metadata without sending an empty permission matrix when the initial catalog read fails', async () => {
+  const originalGet = vi.mocked(api.get).getMockImplementation()
+  vi.mocked(api.get).mockImplementation(async (url, config) => {
+    if (url === '/api/authz/catalog') return { data: { success: false, message: 'Synthetic initial catalog failure' } }
+    if (!originalGet) throw new Error('Expected external user detail fixture')
+    return originalGet(url, config)
+  })
+  render(editor())
+  expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load the permission catalog. Permission catalog: Unknown')
+  expect(screen.getByRole('textbox', { name: 'Username' })).toHaveValue('synthetic-admin')
+  expect(screen.getByRole('textbox', { name: 'Display Name' })).toHaveValue('Synthetic administrator')
+  expect(screen.queryByRole('button', { name: /^Synthetic channels/ })).not.toBeInTheDocument()
+  fireEvent.change(screen.getByRole('textbox', { name: 'Display Name' }), { target: { value: 'Synthetic updated ordinary profile' } })
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Save changes' }))
+  await waitFor(() => expect(api.put).toHaveBeenCalledTimes(1))
+  expect(api.put).toHaveBeenCalledWith('/api/user/', {
+    id: 22, username: 'synthetic-admin', display_name: 'Synthetic updated ordinary profile', password: undefined,
+    group: 'default', account_tier_id: 'standard', remark: undefined,
+  }, { skipAuthRefresh: true })
+  expect(vi.mocked(api.put).mock.calls[0]?.[1]).not.toHaveProperty('admin_permissions')
+  expect(vi.mocked(api.put).mock.calls[0]?.[1]).not.toHaveProperty('quota')
+  expect(screen.getByText('Unable to load the permission catalog. Permission catalog: Unknown')).toBeVisible()
+  expect(api.post).not.toHaveBeenCalled()
+})
+
+
+it('keeps a non-Root user writer metadata save separate from administrator permissions even after a successful catalog read', async () => {
+  useAuthStore.getState().auth.setUser({ id: 1, role: ROLE.ADMIN, username: 'synthetic-user-writer', permissions: { admin_permissions: { users: { write: true } } } })
+  render(editor())
+  expect(await screen.findByDisplayValue('Synthetic administrator')).toBeVisible()
+  expect(api.get).toHaveBeenCalledWith('/api/authz/catalog')
+  expect(screen.getByText('Only Root can edit administrator permissions.', { exact: false })).toBeVisible()
+  expect(screen.queryByRole('button', { name: /^Synthetic channels/ })).not.toBeInTheDocument()
+  expect(screen.queryByRole('checkbox', { name: 'Synthetic read Read description' })).not.toBeInTheDocument()
+  fireEvent.change(screen.getByRole('textbox', { name: 'Display Name' }), { target: { value: 'Synthetic non-Root profile edit' } })
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Save changes' }))
+  await waitFor(() => expect(api.put).toHaveBeenCalledTimes(1))
+  expect(api.put).toHaveBeenCalledWith('/api/user/', {
+    id: 22, username: 'synthetic-admin', display_name: 'Synthetic non-Root profile edit', password: undefined,
+    group: 'default', account_tier_id: 'standard', remark: undefined,
+  }, { skipAuthRefresh: true })
+  expect(vi.mocked(api.put).mock.calls[0]?.[1]).not.toHaveProperty('admin_permissions')
+  expect(vi.mocked(api.put).mock.calls[0]?.[1]).not.toHaveProperty('role')
+  expect(vi.mocked(api.put).mock.calls[0]?.[1]).not.toHaveProperty('quota')
+  expect(api.post).not.toHaveBeenCalled()
+})
