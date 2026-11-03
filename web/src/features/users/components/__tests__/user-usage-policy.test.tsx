@@ -317,7 +317,11 @@ test('policy heading reserves space for the 44px touch close control when its te
 test('keeps an inactive preference draft and confirmation through details while an uncertain retry preserves the original operation and funding mode', async () => {
   const user = userEvent.setup()
   vi.mocked(getStatus).mockResolvedValue({ user_funding_mode: 'enabled', user_funding_capabilities: { mode: 'enabled', ready: true, epoch: 2 } })
-  vi.mocked(api.put).mockRejectedValueOnce(new Error('Synthetic unknown preference result')).mockResolvedValueOnce({ data: { success: true, data: { ...initial, no_balance: true, revision: 1 } } })
+  vi.mocked(api.put).mockRejectedValueOnce(new Error('Synthetic unknown preference result')).mockImplementationOnce(async () => {
+    const saved = { ...initial, no_balance: true, revision: 1 }
+    vi.mocked(api.get).mockResolvedValue({ data: { success: true, data: saved } })
+    return { data: { success: true, data: saved } }
+  })
   renderPolicy()
   await screen.findByText('Commercial funding enabled')
   await user.click(await screen.findByRole('checkbox', { name: 'Use Key limits without a user wallet' }))

@@ -12,7 +12,9 @@ beta.31首轮 `83af4ada8b548ca385f0aec3346ea7ea07cad629` / [CI41649572171](https
 
 beta.31第二轮 `102d3a82056752f216ed5b94e45a3b8b22cf2c24` / [CI41650856078](https://github.com/ForceMind/MyAPI/actions/runs/41650856078)前端125968293956原始日志已读：上述早期专项36例33通过/3失败，权限/OAuth及钱包回焦/SID已通过；仅钱包新测试两处Unlimited漏同一元素中的Total Quota前缀，以及BaseUI禁用Tab为aria-disabled而非native disabled。日志确知total0显示Total Quota: Unlimited，改精确完整文本；保禁购断言并实际fireEvent点击验证aria-disabled=true、aria-selected=false、当前页不变、无选购/Subscribe、GET/POST不增，不改控件/金融逻辑/超时。失败候选取消，未跑到的后续不记成功。独立的凭据/预算/分组专项只依早期source检查成功而运行，使前组失败也能读取其真实结果；原全部门禁和断言不减少，源码types失败仍快速失败。
 
-本次合并范围为原两个隔离UI组，未新增金融/鉴权/供应商目标。11个呈现/读取源与10个测试路径：权限3源/2新test/owner-session旧4处展开；钱包1源/1新test和PurchaseDialog仅可选returnFocus UI透传；OAuth1源/原test新增3例；凭据/预算/用量3源+原3test+独立真实HTTP凭据新test；分组详情1源/1newtest；另users/api.ts仅既有catalog getter验证success及两个数组，失败抛消息，成功返回shape/URL/config和所有写方法不变。原权限/金额/JSON/CAS/nonce/proof/phase handlers/API载荷与重试门禁不改。
+beta.31第三轮 `08fe3ce016da3cce5001c313008d20ef8dc1b375` / [CI41651611795](https://github.com/ForceMind/MyAPI/actions/runs/41651611795)前端125970952916原始日志已读：钱包/权限/OAuth36/36通过；凭据/预算/分组5文件49例46通过/3失败，分组2新case及预算原/新case通过。仅凭据2处同样误用native disabled，真实aria-disabled=true且强制展开；补精确ARIA与fireEvent点击后关键目标/错误/unknown仍可见、GET不增/原preview一次POST/unknown0POST和回执URL全保。策略新case中模拟PUT成功后GET仍回initial.no_balance=false，真实资金enabled、保存条件回到stored allowance；修正仅成功PUT同步后续GET为同一saved revision1/no_balance=true，不改条件文案/服务mode/原nonce或confirmed载荷。产品源未改，失败候选取消，未跑完整回归不记绿。
+
+本次合并范围为原两个隔离UI组，未新增金融/鉴权/供应商目标。11个呈现/读取源与10个测试路径：权限3源/2新test/owner-session旧4处展开；钱包1源/1新test和PurchaseDialog仅可选returnFocus UI透传；OAuth1源/原test新增3例；凭据/预算/用量3源+原3test+独立真实HTTP凭据新test；分组详情1源/1新test；另users/api.ts仅既有catalog getter验证success及两个数组，失败抛消息，成功返回shape/URL/config和所有写方法不变。原权限/金额/JSON/CAS/nonce/proof/phase handlers/API载荷与重试门禁不改。
 
 钱包保当前/记录/选购及分页、读取失败不伪真空，未知报价/次数不伪0；自审补已知total+未知used分列、Canceled/Expired与未知日期独立。权限raw true/false/继承明示，目录失败/缺data Unknown+Retry保草稿不显示伪0；原checkbox normalize及保存准入保持。OAuth先基本/凭据/回调，后端点/映射/高级分组，原字段keepMounted；独立只读审查发现坏JSON不属RHF错误可被新折叠隐藏，Root复用既有JSON校验，错误外露强制展开、无RHF错误的aria-invalid为undefined，不改schema/原JSON/保存准入；新增真实input坏JSON/修复保持展开与Secret不入摘要用例，错误焦点复用已有FormValidationFocus。
 

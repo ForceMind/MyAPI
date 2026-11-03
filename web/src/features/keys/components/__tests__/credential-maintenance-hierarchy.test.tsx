@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
@@ -66,7 +66,12 @@ it('preserves idle account and pool selection through collapse without requests 
   await actions.click(screen.getByRole('button', { name: 'Preview migration' }))
   expect(await screen.findByText('Migration preview failed')).toBeVisible()
   expect(trigger).toHaveAttribute('aria-expanded', 'true')
-  expect(trigger).toBeDisabled()
+  expect(trigger).toHaveAttribute('aria-disabled', 'true')
+  fireEvent.click(trigger)
+  expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  expect(screen.getByRole('combobox', { name: 'Target Codex account' })).toBeVisible()
+  expect(screen.getByText('Migration preview failed')).toBeVisible()
+  expect(api.get).toHaveBeenCalledTimes(reads)
   expect(api.post).toHaveBeenCalledExactlyOnceWith('/api/token/21/account-migration/preview', {
     target_channel_id: 8, target_shares: [{ source_pool_id: 11, target_pool_id: 12, share_bps: 2500 }],
   }, { signal: expect.any(AbortSignal), timeout: 15000, disableDuplicate: true, skipAuthRefresh: true, skipBusinessError: true, skipErrorHandler: true })
@@ -79,7 +84,14 @@ it('keeps an unknown migration and its exact receipt recovery outside collapsed 
   expect(await screen.findByText('Migration result is unknown')).toBeVisible()
   const configuration = await screen.findByRole('button', { name: 'Migration configuration' })
   expect(configuration).toHaveAttribute('aria-expanded', 'true')
-  expect(configuration).toBeDisabled()
+  expect(configuration).toHaveAttribute('aria-disabled', 'true')
+  const reads = vi.mocked(api.get).mock.calls.length
+  fireEvent.click(configuration)
+  expect(configuration).toHaveAttribute('aria-expanded', 'true')
+  expect(screen.getByRole('combobox', { name: 'Target Codex account' })).toBeVisible()
+  expect(screen.getByText('Migration result is unknown')).toBeVisible()
+  expect(api.get).toHaveBeenCalledTimes(reads)
+  expect(api.post).not.toHaveBeenCalled()
   expect(screen.getByText('Credential rotation cannot be committed yet.')).toBeVisible()
   await actions.click(screen.getByRole('button', { name: 'Check receipt again' }))
   await waitFor(() => expect(vi.mocked(api.get).mock.calls.filter(([url]) => url === `/api/token/21/maintenance/operations/${operationId}`)).toHaveLength(2))
