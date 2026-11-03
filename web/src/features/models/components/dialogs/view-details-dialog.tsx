@@ -42,6 +42,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Dialog } from '@/components/dialog'
+import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -118,6 +119,15 @@ export function ViewDetailsDialog({
       })
       .filter(Boolean) as string[]
   }, [details])
+
+  const containerStatusCounts = useMemo(() => {
+    const counts = new Map<string | undefined, number>()
+    for (const container of containers) {
+      const status = typeof container?.status === 'string' && container.status ? container.status : undefined
+      counts.set(status, (counts.get(status) ?? 0) + 1)
+    }
+    return [...counts.entries()]
+  }, [containers])
 
   const handleCopyId = async () => {
     if (deploymentId === null || deploymentId === undefined) {
@@ -245,10 +255,7 @@ export function ViewDetailsDialog({
             </div>
 
             {locations.length ? (
-              <div className='rounded-lg border p-3'>
-                <div className='text-muted-foreground text-xs'>
-                  {t('Locations')}
-                </div>
+              <SummaryDisclosure key={`locations:${identity}:${deploymentId}`} summary={t('Locations ({{count}})', { count: locations.length })}>
                 <div className='mt-1 flex flex-wrap gap-2 text-sm'>
                   {locations.map((x) => (
                     <span key={x} className='bg-muted rounded-md px-2 py-1'>
@@ -256,14 +263,17 @@ export function ViewDetailsDialog({
                     </span>
                   ))}
                 </div>
-              </div>
+              </SummaryDisclosure>
             ) : null}
 
+            {containersKnown && containers.length > 0 && <div className='space-y-1 text-sm'>
+              <div className='text-muted-foreground'>{t('Container statuses')}</div>
+              <ul className='flex flex-wrap gap-x-4 gap-y-1'>
+                {containerStatusCounts.map(([status, count]) => <li key={status ?? ''} className='min-w-0 [overflow-wrap:anywhere]'>{status ?? t('Unknown')}: {count}</li>)}
+              </ul>
+            </div>}
             {containers.length ? (
-              <div className='rounded-lg border p-3'>
-                <div className='text-muted-foreground mb-2 text-xs'>
-                  {t('Containers')}
-                </div>
+              <SummaryDisclosure key={`containers:${identity}:${deploymentId}`} summary={t('Containers ({{count}})', { count: containers.length })}>
                 <div className='space-y-2'>
                   {containers.map((c) => {
                     const id = c?.container_id
@@ -299,7 +309,7 @@ export function ViewDetailsDialog({
                     )
                   })}
                 </div>
-              </div>
+              </SummaryDisclosure>
             ) : null}
 
             <Collapsible className='rounded-lg border p-3'>

@@ -32,6 +32,9 @@ import {
   sideDrawerHeaderClassName,
   sideDrawerFooterClassName,
 } from '@/components/drawer-layout'
+import { LogPagination } from '@/components/log-pagination'
+import type { LogPageSize } from '@/lib/log-pagination'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { StatusBadge } from '@/components/status-badge'
 import { TableId } from '@/components/table-id'
 import { Button } from '@/components/ui/button'
@@ -127,6 +130,12 @@ function UserSubscriptionsTask(props: Props) {
   const opened = useRef<string | null>(null)
   const confirmationOpener = useRef<HTMLElement | null>(null)
   const closeButton = useRef<HTMLButtonElement>(null)
+  const recordsHeading = useRef<HTMLHeadingElement>(null)
+  const confirmationId = useRef<number | null>(null)
+  const [mode, setMode] = useState<'records' | 'grant'>('records')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState<LogPageSize>(20)
+  const [hasRead, setHasRead] = useState(false)
   const [readError, setReadError] = useState<string | null>(null)
   const [createError, setCreateError] = useState<string | null>(null)
   const [createUnconfirmed, setCreateUnconfirmed] = useState(false)
@@ -174,6 +183,8 @@ function UserSubscriptionsTask(props: Props) {
       if (!plansRes.success || !Array.isArray(plansRes.data) || !subsRes.success || !Array.isArray(subsRes.data) || subsRes.data.some((record) => record.subscription.user_id !== props.user?.id)) { setReadError(t('Loading failed')); return }
       setPlans(plansRes.data || [])
       setSubs(subsRes.data || [])
+      setHasRead(true)
+      setPage((previous) => Math.min(previous, Math.max(1, Math.ceil(subsRes.data.length / pageSize))))
       if (confirmCreation) { setCreateUnconfirmed(false); setCreateError(null) }
     } catch {
       if (!snapshot.isCurrent() || request !== readGeneration.current) return
@@ -182,7 +193,7 @@ function UserSubscriptionsTask(props: Props) {
     } finally {
       if (snapshot.isCurrent() && request === readGeneration.current) setLoading(false)
     }
-  }, [props.user?.id, t, task])
+  }, [props.user?.id, t, task, pageSize])
 
   useEffect(() => {
     if (!props.open) { opened.current = null; return }
@@ -191,6 +202,9 @@ function UserSubscriptionsTask(props: Props) {
       if (opened.current === key) return
       opened.current = key
       setSelectedPlanId('')
+      setMode('records')
+      setPage(1)
+      setHasRead(false)
       setCreating(false)
       setResetting(false)
       setActionBusy(false)
@@ -203,9 +217,16 @@ function UserSubscriptionsTask(props: Props) {
   }, [props.open, props.user?.id, loadData, task])
 
   const rememberConfirmation = (id: number) => {
+    confirmationId.current = id
     const row = [...document.querySelectorAll<HTMLElement>('[data-user-subscription-actions]')].find((element) => element.dataset.userSubscriptionActions === String(id))
     confirmationOpener.current = row?.querySelector<HTMLElement>('button[aria-haspopup]') ?? null
     setActionError(null)
+  }
+
+  const returnToRecord = () => {
+    if (confirmationOpener.current?.isConnected && !confirmationOpener.current.closest('[hidden]')) return confirmationOpener.current
+    const row = [...document.querySelectorAll<HTMLElement>('[data-user-subscription-actions]')].find((element) => element.dataset.userSubscriptionActions === String(confirmationId.current) && !element.closest('[hidden]'))
+    return row?.querySelector<HTMLElement>('button[aria-haspopup]') ?? recordsHeading.current ?? closeButton.current
   }
 
   const handleCreate = async () => {
@@ -318,7 +339,9 @@ function UserSubscriptionsTask(props: Props) {
 
   let emptyContent = t('No subscription records')
   if (loading) emptyContent = t('Loading...')
-  else if (readError) emptyContent = t('Unknown')
+  else if (readError || !hasRead) emptyContent = t('Unknown')
+  const recordsKnown = hasRead && !loading && !readError
+  const pageRows = subs.slice((page - 1) * pageSize, page * pageSize)
 
   return (
     <>
@@ -335,45 +358,16 @@ function UserSubscriptionsTask(props: Props) {
             {readError ? <div role='alert' className='text-destructive space-y-3 text-sm'><p>{readError}</p><Button variant='outline' onClick={() => void loadData(true)}>{t('Retry')}</Button></div> : null}
             {createUnconfirmed ? <div role='alert' className='text-destructive text-sm break-words'>{t('The subscription creation outcome is unconfirmed. Refresh and check the records before submitting again.')}</div> : null}
             {createError ? <div role='alert' className='text-destructive text-sm break-words'>{createError}</div> : null}
-            <div className='flex flex-wrap gap-2'>
-              <Select
-                items={plans.map((p) => ({
-                  value: String(p.plan.id),
-                  label: (
-                    <>
-                      {p.plan.title} ({typeof p.plan.price_amount === 'number' && Number.isFinite(p.plan.price_amount) ? `$${Number(p.plan.price_amount).toFixed(2)}` : t('Unknown')})
-                    </>
-                  ),
-                }))}
-                value={selectedPlanId}
-                onValueChange={(v) => v !== null && setSelectedPlanId(v)}
-                disabled={busy || loading || Boolean(readError) || createUnconfirmed}
-              >
-                <SelectTrigger className='flex-1'>
-                  <SelectValue placeholder={t('Select subscription plan')} />
-                </SelectTrigger>
-                <SelectContent alignItemWithTrigger={false}>
-                  <SelectGroup>
-                    {plans.map((p) => (
-                      <SelectItem key={p.plan.id} value={String(p.plan.id)}>
-                        {p.plan.title} ($
-                        {Number(p.plan.price_amount || 0).toFixed(2)})
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <Button
-                onClick={handleCreate}
-                disabled={busy || loading || Boolean(readError) || createUnconfirmed || !selectedPlanId || !plans.some((record) => String(record.plan.id) === selectedPlanId)}
-              >
-                <Plus className='mr-1 h-4 w-4' />
-                {t('Add subscription')}
-              </Button>
-            </div>
-
+            <p role='status' className='text-muted-foreground text-sm'>{recordsKnown ? t('Loaded subscription records: {{count}}', { count: subs.length }) : t('Unknown')}</p>
+            <Tabs value={mode} onValueChange={(value) => { if (!task.isPending() && (value === 'records' || value === 'grant')) setMode(value) }}>
+              <TabsList aria-label={t('Subscription task')} className='grid h-auto w-full grid-cols-2 group-data-horizontal/tabs:h-auto'>
+                <TabsTrigger value='records' disabled={busy} className='min-h-11 whitespace-normal'>{t('Subscription records')}</TabsTrigger>
+                <TabsTrigger value='grant' disabled={busy} className='min-h-11 whitespace-normal'>{t('Grant subscription')}</TabsTrigger>
+              </TabsList>
+              <TabsContent value='records' keepMounted className='min-w-0 space-y-4'>
+                <h3 ref={recordsHeading} tabIndex={-1} className='font-medium outline-none'>{t('Subscription records')}</h3>
             <StaticDataTable
-              data={loading ? [] : subs}
+              data={loading ? [] : pageRows}
               getRowKey={(record) => record.subscription.id}
               emptyClassName={loading ? 'py-8' : 'text-muted-foreground py-8'}
               emptyContent={emptyContent}
@@ -509,6 +503,47 @@ function UserSubscriptionsTask(props: Props) {
                 },
               ]}
             />
+                <LogPagination label={t('User subscription records')} page={page} pageSize={pageSize} total={recordsKnown ? subs.length : undefined} busy={loading || busy} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size) }} />
+              </TabsContent>
+              <TabsContent value='grant' keepMounted className='min-w-0 space-y-4'>
+            <div className='flex flex-wrap gap-2'>
+              <Select
+                items={plans.map((p) => ({
+                  value: String(p.plan.id),
+                  label: (
+                    <>
+                      {p.plan.title} ({typeof p.plan.price_amount === 'number' && Number.isFinite(p.plan.price_amount) ? `$${Number(p.plan.price_amount).toFixed(2)}` : t('Unknown')})
+                    </>
+                  ),
+                }))}
+                value={selectedPlanId}
+                onValueChange={(v) => v !== null && setSelectedPlanId(v)}
+                disabled={busy || loading || Boolean(readError) || createUnconfirmed}
+              >
+                <SelectTrigger className='flex-1'>
+                  <SelectValue placeholder={t('Select subscription plan')} />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectGroup>
+                    {plans.map((p) => (
+                      <SelectItem key={p.plan.id} value={String(p.plan.id)}>
+                        {p.plan.title} ({typeof p.plan.price_amount === 'number' && Number.isFinite(p.plan.price_amount) ? `$${Number(p.plan.price_amount).toFixed(2)}` : t('Unknown')})
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={handleCreate}
+                disabled={busy || loading || Boolean(readError) || createUnconfirmed || !selectedPlanId || !plans.some((record) => String(record.plan.id) === selectedPlanId)}
+              >
+                <Plus className='mr-1 h-4 w-4' />
+                {t('Add subscription')}
+              </Button>
+            </div>
+
+              </TabsContent>
+            </Tabs>
           </div>
           <SheetFooter className={sideDrawerFooterClassName()}>
             <Button variant='outline' disabled={loading || busy} onClick={() => void loadData(true)}>{t('Refresh')}</Button>
@@ -521,7 +556,7 @@ function UserSubscriptionsTask(props: Props) {
         <ConfirmDialog
           open
           onOpenChange={(v) => { if (!v && !task.isPending()) setConfirmAction(null) }}
-          returnFocus={() => confirmationOpener.current?.isConnected ? confirmationOpener.current : closeButton.current}
+          returnFocus={returnToRecord}
           title={
             confirmAction.type === 'invalidate'
               ? t('Confirm invalidate')
@@ -549,7 +584,7 @@ function UserSubscriptionsTask(props: Props) {
         <ConfirmDialog
           open
           onOpenChange={(v) => { if (!v && !task.isPending()) setResetAction(null) }}
-          returnFocus={() => confirmationOpener.current?.isConnected ? confirmationOpener.current : closeButton.current}
+          returnFocus={returnToRecord}
           title={t('Reset subscription quota')}
           desc={t('Reset active {{plan}} subscriptions for this user?', {
             plan: resetAction.planTitle,

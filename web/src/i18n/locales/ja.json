@@ -7566,6 +7566,23 @@
     "All channel events": "All channel events",
     "Page {{page}} · total unavailable": "Page {{page}} · total unavailable",
     "Channel editor section": "Channel editor section",
-    "Configured advanced sections ({{count}})": "Configured advanced sections ({{count}})"
+    "Configured advanced sections ({{count}})": "Configured advanced sections ({{count}})",
+    "Locations ({{count}})": "Locations ({{count}})",
+    "Containers ({{count}})": "Containers ({{count}})",
+    "Container statuses": "Container statuses",
+    "Subscription records": "Subscription records",
+    "Grant subscription": "Grant subscription",
+    "Subscription task": "Subscription task",
+    "Loaded subscription records: {{count}}": "Loaded subscription records: {{count}}",
+    "User subscription records": "User subscription records",
+    "Custom preset groups": "Custom preset groups",
+    "Fetch this connection explicitly to obtain model-list results. Saved, manually entered and preset IDs are configuration, not support evidence.": "Fetch this connection explicitly to obtain model-list results. Saved, manually entered and preset IDs are configuration, not support evidence.",
+    "Model support is unconfirmed for the current connection. Fetch explicitly or enter IDs manually.": "Model support is unconfirmed for the current connection. Fetch explicitly or enter IDs manually.",
+    "Presets are user-configured templates, not models discovered for this connection.": "Presets are user-configured templates, not models discovered for this connection.",
+    "Returned model IDs ({{count}}). Listing does not prove request support or available quota.": "Returned model IDs ({{count}}). Listing does not prove request support or available quota.",
+    "Save or restore the changed connection settings before fetching models. You can still enter model IDs manually.": "Save or restore the changed connection settings before fetching models. You can still enter model IDs manually.",
+    "The channel did not return a model list. Its model support is unconfirmed.": "The channel did not return a model list. Its model support is unconfirmed.",
+    "The model source changed. Fetch models again.": "The model source changed. Fetch models again.",
+    "Model-list results come from the current connection. They do not prove request support or available quota.": "Model-list results come from the current connection. They do not prove request support or available quota."
   }
 }

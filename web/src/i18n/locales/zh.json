@@ -7566,6 +7566,23 @@
     "All channel events": "全部渠道事件",
     "Page {{page}} · total unavailable": "第 {{page}} 页 · 总数未知",
     "Channel editor section": "渠道编辑分区",
-    "Configured advanced sections ({{count}})": "已配置高级分区（{{count}}）"
+    "Configured advanced sections ({{count}})": "已配置高级分区（{{count}}）",
+    "Locations ({{count}})": "位置（{{count}}）",
+    "Containers ({{count}})": "容器（{{count}}）",
+    "Container statuses": "容器状态",
+    "Subscription records": "订阅记录",
+    "Grant subscription": "授予订阅",
+    "Subscription task": "订阅任务",
+    "Loaded subscription records: {{count}}": "已加载订阅记录：{{count}} 条",
+    "User subscription records": "用户订阅记录分页",
+    "Custom preset groups": "自定义预设组",
+    "Fetch this connection explicitly to obtain model-list results. Saved, manually entered and preset IDs are configuration, not support evidence.": "请明确获取当前连接的模型列表。已保存、手工填写和预设的 ID 属于配置，不代表已确认支持。",
+    "Model support is unconfirmed for the current connection. Fetch explicitly or enter IDs manually.": "当前连接支持的模型尚未确认。请明确获取，或手工填写 ID。",
+    "Presets are user-configured templates, not models discovered for this connection.": "预设是用户配置的模板，不是当前连接发现的模型。",
+    "Returned model IDs ({{count}}). Listing does not prove request support or available quota.": "已返回 {{count}} 个模型 ID。列表不代表请求一定可用或有剩余额度。",
+    "Save or restore the changed connection settings before fetching models. You can still enter model IDs manually.": "请先保存或恢复已更改的连接配置，再获取模型。也可手工填写模型 ID。",
+    "The channel did not return a model list. Its model support is unconfirmed.": "该渠道未返回模型列表，支持的模型尚未确认。",
+    "The model source changed. Fetch models again.": "模型来源已更改，请重新获取。",
+    "Model-list results come from the current connection. They do not prove request support or available quota.": "模型列表来自当前连接，不代表请求可用或有剩余额度。"
   }
 }

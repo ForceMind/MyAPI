@@ -1,5 +1,21 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-03 后续页面/弹窗信息层级与渠道模型来源（进行中）
+
+维护者授权持续清查未完整替换、信息堆叠的页面/弹窗/组件，沿现有线稿精简合并，保全部功能/权限，不逐批停等；新增明确修复渠道模型填写混用全局旧目录。成功标准：模型候选来自当前连接明确获取的结果，已有配置/手填/映射/自定义预设保留，参数与身份变化隔离旧结果；其他surface依具体源码问题与现有线稿逐项收口。验证方法：全部定向/全量测试、构建/types/lint/i18n与原完整后端门禁只在Actions，browser/production/真实供应商不执行。
+
+本批候选已备齐，尚未运行/通过Actions：模型5文件移除getAllModels/前缀Fill，仅按当前已保存连接或现协议可表达的草稿明确Fetch，源字段/同actor权限变化、关闭/失败/迟到均不能应用旧目录；旧模型ID通过选中项fallback完整可见，手输/预设/映射保留但不作为支持证据。无Go/API协议改动，不读取真实Key预填，普通编辑变更需先保存/恢复，Advanced仅原协议准确支持字段可预览。新增Drawer6例、原Dialog加1例，原GET/POST401不重放合同继续跑。
+
+用户订阅仅源/新workspace测试/原recovery交互步骤3文件：记录默认、Grant keepMounted保草稿，20条本地分页，Unknown/未确认锁与原全部金融handler/载荷/独立确认保持；新3例保护切换/页大小不读写、末页精准删除回焦、未确认结果跨任务恢复，原state/layout断言不改。原SelectItem缺价显示同步已有finite/Unknown判断，合法0仍原toFixed，不改金额算法。部署详情仅源及原state测试2文件：位置/容器完整列表复用SummaryDisclosure，原状态分布与读取错误外露，新2例保键盘展开/完整长ID、明确Open与网络次数、确知0/未知区别。合计12个新增合成用例，未在本机执行，待实际Actions取证。
+
+17新文案键已通过临时add-missing-keys脚本追加七语言，en/zh、余五英回填，保旧值/顺序，脚本已自删；JSON解析及当前变更字面t键缺失扫描0仅轻量检查，i18n:sync只CI。五版本文件对齐beta.30，仅仓库模板不涉及生产。新增早期“channel model sources and compact management dialogs”门禁，原全部测试/构建/types/lint/后端/三库/relaykit/race保留，浏览器仍跳过。当前候选不能称可部署或真实最新模型支持已验证。
+
+当前迭代 beta.30：①渠道模型来源与旧结果隔离；②用户订阅弹窗记录默认/显式授予与有界本地分页；③部署详情位置/容器摘要，原状态分布与读取失败外露。已补4个既有视图/8张SVG，无新增路由或视图。Root独占部署详情及原deployment-tools-state回归，新增2合成case待Actions；代理独占渠道模型与用户订阅，Root统一翻译/版本/CI，新增早期门禁但原全部门禁不删。后续钱包订阅/历史/选购的信息任务拆分另小批继续，不顺手改金额算法或支付协议。完成本迭代不是全站浏览器验收或主Goal完成。
+
+当前干净dev基线bac76563 / CI41626054346完整绿已由上一轮核对，应用eeb5f0de / CI41621188497。fetch/pull ff-only已核对0/0、无分歧。从代码看，编辑器getAllModels生成全局候选，type1只按gpt-/text-前缀筛基础项，其余类型全收；Fill related/all会直接用该名单更新表单。已有渠道FetchModels/FetchUpstreamModels可按连接取模型，Codex现有service走/backend-api/codex/models，并非需新建协议。此轮不改provider/凭据刷新/计费/数据库。
+
+Root先补connection-edit与既有fetch-models弹窗四张桌面/手机SVG及catalog/author/目录说明；仍329视图、无新路由，XML有效但未渲染。复用两名Sol/high：一名独占渠道编辑/模型获取相关组件及合成回归，一名只读清点其他surface并提出具体候选；Root管线稿、翻译、CI、版本与同一交接。不得递归、不得本机工具链、不得替换他人改动。当前产品尚未修复/验证，不以设计或代理汇报称完成。
+
 ## 2026-11-03 渠道整页重整：源码与完整CI通过（beta.29）
 
 **2026-11-03 渠道整页源码收口，最新完整绿 eeb5f0de / beta.29。** 应用 `eeb5f0de0a5ebb8de934834fe0dea44b6bc8479e` / [CI41621188497](https://github.com/ForceMind/MyAPI/actions/runs/41621188497) attempt1 success，10作业成功/1浏览器与真实API作业跳过，全部作业/步骤与前后端原始日志已亲读。渠道/权限37、原连接251、日志410、全量385文件2980/2980通过；同步/构建/types/lint通过（24警告0错误）。根模块/独立relaykit/原生386/全部既有race/三库/Redis/ClickHouse/分发/Desktop通过，38618父项/55条/5包、0skip/fail，后端失败/race标记0。

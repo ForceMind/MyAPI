@@ -609,6 +609,14 @@ jobs:
           src/features/channels/components/drawers/__tests__/sensitive-tools-drawer.test.tsx
           src/features/channels/__tests__/channels-permissions.test.tsx
 
+      - name: Verify channel model sources and compact management dialogs
+        run: >-
+          bun run test src/features/channels/components/drawers/__tests__/channel-model-source.test.tsx
+          src/features/channels/components/dialogs/__tests__/discovery-tools-state.test.tsx
+          src/features/subscriptions/components/dialogs/__tests__/user-subscriptions-workspace.test.tsx
+          src/features/subscriptions/components/dialogs/__tests__/user-subscriptions-recovery.test.tsx
+          src/features/models/components/dialogs/__tests__/deployment-tools-state.test.tsx
+
       - name: Verify remaining settings, analytics and public task contracts
         run: >-
           bun run test src/features/system-settings src/features/system-info

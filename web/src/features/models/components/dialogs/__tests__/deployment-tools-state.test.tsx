@@ -80,3 +80,53 @@ it('keeps an edited deployment name when the same object receives a refreshed sa
   expect(screen.getByPlaceholderText('Enter a new name')).toHaveValue('unsaved-name')
   expect(api.put).not.toHaveBeenCalled()
 })
+
+
+it('summarizes deployment lists while retaining raw statuses and explicitly reachable complete locations and containers', async () => {
+  const longId = `synthetic-container-${'x'.repeat(180)}`
+  const opened = vi.spyOn(window, 'open').mockImplementation(() => null)
+  const get = vi.spyOn(api, 'get').mockImplementation(async (url) => {
+    if (url === '/api/deployments/17') return { data: { success: true, data: { id: 17, status: 'running', total_gpus: 0, locations: [{ name: 'Synthetic location A', iso2: 'AA' }, { name: 'Synthetic location B', iso2: 'BB' }] } } }
+    if (url === '/api/deployments/17/containers') return { data: { success: true, data: { containers: [{ container_id: longId, status: 'failed', public_url: 'https://synthetic.invalid/container' }, { container_id: 'synthetic-no-status' }] } } }
+    throw new Error(`Unexpected GET ${url}`)
+  })
+  render(fixture(<ViewDetailsDialog open onOpenChange={vi.fn()} deploymentId={17} />))
+  const locations = await screen.findByRole('button', { name: 'Locations (2)' })
+  const containers = screen.getByRole('button', { name: 'Containers (2)' })
+  expect(locations).toHaveAttribute('aria-expanded', 'false')
+  expect(containers).toHaveAttribute('aria-expanded', 'false')
+  expect(screen.getByText('failed: 1')).toBeVisible()
+  expect(screen.getByText('Unknown: 1')).toBeVisible()
+  expect(screen.getByText(longId)).not.toBeVisible()
+  expect(screen.queryByRole('button', { name: 'Open', exact: true })).not.toBeInTheDocument()
+  expect(opened).not.toHaveBeenCalled()
+  const user = userEvent.setup()
+  locations.focus()
+  await user.keyboard('{Enter}')
+  expect(screen.getByText('Synthetic location A (AA)')).toBeVisible()
+  expect(screen.getByText('Synthetic location B (BB)')).toBeVisible()
+  await user.click(containers)
+  expect(screen.getByText(longId)).toBeVisible()
+  expect(screen.getByText('synthetic-no-status')).toBeVisible()
+  expect(get).toHaveBeenCalledTimes(2)
+  expect(api.post).not.toHaveBeenCalled()
+  expect(api.put).not.toHaveBeenCalled()
+  expect(api.delete).not.toHaveBeenCalled()
+  expect(opened).not.toHaveBeenCalled()
+  await user.click(screen.getByRole('button', { name: 'Open', exact: true }))
+  expect(opened).toHaveBeenCalledExactlyOnceWith('https://synthetic.invalid/container', '_blank')
+})
+
+it('keeps a confirmed empty container list at zero without inventing a disclosure or losing the deployment status', async () => {
+  vi.spyOn(api, 'get').mockImplementation(async (url) => {
+    if (url === '/api/deployments/17') return { data: { success: true, data: { id: 17, status: 'pending', locations: [] } } }
+    if (url === '/api/deployments/17/containers') return { data: { success: true, data: { containers: [] } } }
+    throw new Error(`Unexpected GET ${url}`)
+  })
+  render(fixture(<ViewDetailsDialog open onOpenChange={vi.fn()} deploymentId={17} />))
+  expect(await screen.findByText('pending')).toBeVisible()
+  expect(screen.getByText('0')).toBeVisible()
+  expect(screen.queryByRole('button', { name: /^Containers \(/ })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /^Locations \(/ })).not.toBeInTheDocument()
+  expect(api.post).not.toHaveBeenCalled()
+})

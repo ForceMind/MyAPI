@@ -34,6 +34,8 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { hasPermission } from '@/lib/admin-permissions'
+import { useAuthStore } from '@/stores/auth-store'
 import {
   Tooltip,
   TooltipContent,
@@ -60,7 +62,8 @@ type FetchModelsDialogBaseProps = {
   onOpenChange: (open: boolean) => void
   redirectModels?: string[]
   redirectSourceModels?: string[]
-  customFetcher?: () => Promise<string[]>
+  customFetcher?: (signal?: AbortSignal) => Promise<string[]>
+  sourceScope?: object
   channelName?: string | null
   returnFocus?: () => HTMLElement | null
 }
@@ -84,6 +87,7 @@ export function FetchModelsDialog({
   redirectModels = [],
   redirectSourceModels = [],
   customFetcher,
+  sourceScope,
   existingModelsOverride,
   channelName,
   returnFocus,
@@ -94,6 +98,12 @@ export function FetchModelsDialog({
   const queryClient = useQueryClient()
   const task = useChannelTask(open, activeChannel?.id)
   const readGeneration = useRef(0)
+  const readController = useRef<AbortController | null>(null)
+  const wasOpen = useRef(false)
+  const sourceToken = sourceScope ?? customFetcher ?? activeChannel?.id
+  const currentSource = useRef(sourceToken)
+  currentSource.current = sourceToken
+  const [hasCurrentResult, setHasCurrentResult] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [isFetching, setIsFetching] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -140,58 +150,78 @@ export function FetchModelsDialog({
   }, [fetchedModelSet, redirectSourceKeysSet, searchKeyword, selectedModels])
 
   useEffect(() => {
+    const opening = open && !wasOpen.current
+    wasOpen.current = open
+    readGeneration.current += 1
+    readController.current?.abort()
+    setHasCurrentResult(false)
     setFetchedModels([])
     setSelectedModels([])
     setSearchKeyword('')
-    setActionError(null)
+    setActionError(open && !opening ? t('The model source changed. Fetch models again.') : null)
     setIsSaving(false)
     setIsFetching(false)
-    if (open && (activeChannel || customFetcher)) {
-      handleFetchModels()
+    if (opening && (activeChannel || customFetcher)) {
+      void handleFetchModels()
     }
+    return () => {
+      readGeneration.current += 1
+      readController.current?.abort()
+    }
+    // A changed source invalidates results; only an explicit opening starts discovery.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, activeChannel?.id, customFetcher, task.identity])
+  }, [open, activeChannel?.id, sourceToken, task.identity])
 
   const handleFetchModels = async () => {
     if (!activeChannel && !customFetcher) return
     const snapshot = task.capture()
+    if (!snapshot.isCurrent()) return
     const request = ++readGeneration.current
+    readController.current?.abort()
+    const controller = new AbortController()
+    readController.current = controller
+    const source = sourceToken
+    const isCurrent = () => snapshot.isCurrent() && !controller.signal.aborted && request === readGeneration.current && source === currentSource.current
+    setHasCurrentResult(false)
+    setFetchedModels([])
+    setSelectedModels([])
     setIsFetching(true)
     setActionError(null)
     try {
+      let list: unknown
       if (customFetcher) {
-        const list = await customFetcher()
-        if (!snapshot.isCurrent() || request !== readGeneration.current) return
-        setFetchedModels(list)
-        setSelectedModels(existingModels)
-        toast.success(t('Fetched {{count}} models', { count: list.length }))
-      } else if (activeChannel) {
-        const response = await fetchUpstreamModels(activeChannel.id)
-        if (!snapshot.isCurrent() || request !== readGeneration.current) return
-        if (response.success) {
-          const list = Array.isArray(response.data) ? response.data : []
-          setFetchedModels(list)
-          setSelectedModels(existingModels)
-          toast.success(t('Fetched {{count}} models', { count: list.length }))
-        } else {
-          setActionError(response.message || t('Failed to fetch models'))
-          toast.error(response.message || t('Failed to fetch models'))
-          setFetchedModels([])
+        list = await customFetcher(controller.signal)
+      } else {
+        if (!activeChannel || !hasPermission(useAuthStore.getState().auth.user, 'channel', 'operate')) {
+          throw new Error(t("You don't have necessary permission"))
         }
+        const response = await fetchUpstreamModels(activeChannel.id)
+        if (!isCurrent()) return
+        if (!hasPermission(useAuthStore.getState().auth.user, 'channel', 'operate')) {
+          throw new Error(t("You don't have necessary permission"))
+        }
+        if (!response.success) throw new Error(response.message || t('Failed to fetch models'))
+        list = response.data
       }
+      if (!isCurrent()) return
+      if (!Array.isArray(list) || !list.every((model) => typeof model === 'string')) {
+        throw new Error(t('The channel did not return a model list. Its model support is unconfirmed.'))
+      }
+      setFetchedModels(list)
+      setSelectedModels(existingModels)
+      setHasCurrentResult(true)
+      toast.success(t('Fetched {{count}} models', { count: list.length }))
     } catch (error: unknown) {
-      if (!snapshot.isCurrent() || request !== readGeneration.current) return
+      if (!isCurrent()) return
       setActionError(error instanceof Error ? error.message : t('Failed to fetch models'))
-      toast.error(
-        error instanceof Error ? error.message : t('Failed to fetch models')
-      )
-      setFetchedModels([])
+      toast.error(error instanceof Error ? error.message : t('Failed to fetch models'))
     } finally {
-      if (snapshot.isCurrent() && request === readGeneration.current) setIsFetching(false)
+      if (isCurrent()) setIsFetching(false)
     }
   }
 
   const handleSave = async () => {
+    if (!hasCurrentResult || sourceToken !== currentSource.current) return
     const operation = task.begin()
     if (!operation) return
     setActionError(null)
@@ -206,13 +236,16 @@ export function FetchModelsDialog({
 
       // Otherwise, directly save to API (standalone mode)
       if (!activeChannel) return
+      if (!hasPermission(useAuthStore.getState().auth.user, 'channel', 'write') || !hasPermission(useAuthStore.getState().auth.user, 'channel', 'operate')) {
+        throw new Error(t("You don't have necessary permission"))
+      }
       setIsSaving(true)
       const modelsString = selectedModels.join(',')
       const response = await updateChannel(activeChannel.id, {
         models: modelsString,
       })
+      if (!operation.isCurrent() || !hasPermission(useAuthStore.getState().auth.user, 'channel', 'write') || !hasPermission(useAuthStore.getState().auth.user, 'channel', 'operate')) return
       if (response.success) queryClient.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
-      if (!operation.isCurrent()) return
       if (response.success) {
         toast.success(t('Models updated successfully'))
         onOpenChange(false)
@@ -235,6 +268,8 @@ export function FetchModelsDialog({
   const handleClose = () => {
     if (task.isPending()) return
     readGeneration.current += 1
+    readController.current?.abort()
+    setHasCurrentResult(false)
     setFetchedModels([])
     setSelectedModels([])
     setSearchKeyword('')
@@ -378,6 +413,7 @@ export function FetchModelsDialog({
   const showFooterActions =
     !!(activeChannel || customFetcher) &&
     !isFetching &&
+    hasCurrentResult &&
     (fetchedModels.length > 0 || removedModels.length > 0)
 
   let dialogDescription: ReactNode = t('Fetch available models from upstream')
@@ -415,7 +451,7 @@ export function FetchModelsDialog({
         <HugeiconsIcon icon={Loading03Icon} aria-hidden='true' className='text-muted-foreground h-8 w-8 animate-spin' />
       </div>
     )
-  } else if (actionError && fetchedModels.length === 0 && selectedModels.length > 0) {
+  } else if (hasCurrentResult && actionError && fetchedModels.length === 0 && selectedModels.length > 0) {
     dialogBody = (
       <div className='space-y-4'>
         <p className='text-muted-foreground text-sm'>{t('{{n}} model(s) selected', { n: selectedModels.length })}</p>
@@ -428,6 +464,7 @@ export function FetchModelsDialog({
       <div className='text-muted-foreground py-8 text-center'>
         <p>{t('No models fetched yet.')}</p>
         <Button
+          type='button'
           className='mt-4'
           onClick={handleFetchModels}
           disabled={isFetching}
@@ -544,6 +581,7 @@ export function FetchModelsDialog({
         ) : null
       }
     >
+      <p className='text-muted-foreground text-sm'>{t('Model-list results come from the current connection. They do not prove request support or available quota.')}</p>
       {actionError ? <div role='alert' className='text-destructive text-sm break-words'>{actionError}</div> : null}
       <fieldset disabled={isSaving} className='contents'>{dialogBody}</fieldset>
     </Dialog>

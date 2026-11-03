@@ -985,11 +985,13 @@ INFORMATION_HIERARCHY = {
         ]
     }
 }
+INFORMATION_HIERARCHY.update({'user-subscriptions': {'closed': ['准确用户名称 / ID · 读取失败与结果未确认常驻', '默认订阅记录 · 当前 / 历史数量 · 有界分页', '明确进入授予套餐 · 不混入记录列表首屏'], 'open': ['记录保原计划、来源、起止、用量、状态及取消/恢复/重置入口', '授予套餐保选择草稿与原Add确认，切换不产生写入', '所有原失败与结果未确认锁跨分区保留'], 'notes': ['不合并不同套餐额度，不改变金额/Unknown/Unlimited语义。', '保权限、原请求参数、确认和返回焦点；展示切换不自动授权或重试。']}, 'surface-features-models-components-dialogs-view-details-dialog': {'closed': ['部署ID / 原状态 / 硬件 / GPU数常驻', '容器数量：确知数量或Unknown；读取失败常驻', '位置 N ▾ · 容器 N ▾；原始状态分布保留可见'], 'open': ['键盘或点击展开全部位置与完整容器ID', '每个容器的原status与明确Open按钮保留', 'Raw JSON沿原展开方式，不复制多份原始数据'], 'notes': ['展开不刷新、不打开地址、不部署；Open仍逐条明确点击。', '不定义新供应商健康规则；失败/缺失不补0。']}})
 for page in pages:
     if page['id'] in INFORMATION_HIERARCHY:
         page['information_hierarchy'] = INFORMATION_HIERARCHY[page['id']]
 
 CHANNEL_WORKSPACE_LAYOUTS = {
+    'surface-features-channels-components-dialogs-fetch-models-dialog': {'closed': ['当前渠道名称 / 类型 / 地址〔不展示凭据〕', '获取当前渠道模型 · 不自动填全局名单', '已保存 N 项 / 本次返回 N 项 / 获取来源与失败'], 'open': ['新增候选 / 已保存 / 上游缺失分区；搜索与逐项选择', '已保存旧ID、映射源与手输保留，不默认删除', '获取结果先预览选择，再明确应用到草稿或原保存确认'], 'notes': ['不按前缀猜支持，不把全局/静态目录称作当前渠道返回。', '类型/地址/凭据/身份改变使旧获取结果失效；失败不回填旧名单。', '无查询能力时明确未知，保留手工配置与原权限；不因展示自动请求供应商。']},
     "channels": {
         "closed": [
             "渠道库存 · 创建渠道 / 选择渠道",
@@ -1202,9 +1204,18 @@ class Drawing:
         self.y+=8
     def channel_workspace_view(self):
         p=self.page
+        if p['id']=='surface-features-channels-components-dialogs-fetch-models-dialog':
+            self.workspace_controls(['当前渠道 / 连接来源〔不展示密钥〕','重新获取〔明确动作〕'],1 if self.mobile else 2)
+            self.workspace_controls(['新增候选 N','已保存 N','上游缺失 N'],1 if self.mobile else 3)
+            self.fields(['搜索当前返回的模型 ID'],'当前渠道结果；不读取全局推荐名单')
+            h=self.block('模型列表〔合成占位〕',['□ 当前渠道返回的模型 A','□ 当前渠道返回的模型 B','已保存但本次未返回的模型：保留，人工复核','全选仅作用于当前分区；不自动替换配置']);self.y+=h+18
+            h=self.block('底部动作',['取消：不改草稿或渠道','应用所选：保留原确认、权限和保存目标']);self.y+=h+18
+            return
         if p['id']=='connection-edit':
             self.workspace_controls(['基本连接','账户凭据','模型与分组','高级设置'],2 if self.mobile else 4)
             self.fields(['连接名称〔完整〕','供应商类型〔原选项〕','地址 / 接入方式','当前所需凭据字段'],'当前主分区 · 其余原字段按选中分区显示')
+            self.workspace_controls(['模型与分组：已保存 N 项 ▾','获取当前渠道模型〔明确点击〕'],1 if self.mobile else 2)
+            h=self.block('模型来源与草稿',['只从当前渠道本次获取结果选择，不按前缀/全局目录填充','当前已保存ID、手工输入、映射与自定义预设保留；应用前可复核','变更类型/地址/凭据后旧结果失效，失败和无列表能力明确提示']);self.y+=h+18
             h=self.block('高级配置入口〔默认收起；错误自动展开〕',['已配置 N 组  ›  选路 / 参数 / 请求头 / 状态码 / 透传','手机与桌面都能直达同一分区；不因优先级/权重非0铺开全部内容','原保存、风险确认、取消、字段校验与返回焦点保留']);self.y+=h+18
             return
         labels=['渠道库','额度证据','全部事件','路由预览']

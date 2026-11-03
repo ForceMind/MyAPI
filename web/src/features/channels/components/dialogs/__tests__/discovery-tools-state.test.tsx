@@ -26,6 +26,9 @@ it('keeps the new fetch task selection when an older source finishes after the c
   const view = render(fixture(<FetchModelsDialog open onOpenChange={vi.fn()} customFetcher={first} onModelsSelected={selected} existingModelsOverride={[]} />))
   await waitFor(() => expect(first).toHaveBeenCalledTimes(1))
   view.rerender(fixture(<FetchModelsDialog open onOpenChange={vi.fn()} customFetcher={second} onModelsSelected={selected} existingModelsOverride={[]} />))
+  expect(second).not.toHaveBeenCalled()
+  expect(await screen.findByRole('alert')).toHaveTextContent('The model source changed. Fetch models again.')
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Fetch Models' }))
   const checkbox = await screen.findByRole('checkbox', { name: 'synthetic-new-source' })
   await userEvent.setup().click(checkbox)
   expect(checkbox).toBeChecked()
@@ -64,4 +67,22 @@ it('admits one upstream update callback while its original asynchronous update i
   } finally {
     await act(async () => { complete?.(); await pending })
   }
+})
+
+
+it('clears the old selectable directory before a failed retry and never offers stale results for application', async () => {
+  const fetcher = vi.fn().mockResolvedValueOnce(['synthetic-first']).mockRejectedValueOnce(new Error('Synthetic retry failed'))
+  const selected = vi.fn()
+  const firstScope = {}
+  const view = render(fixture(<FetchModelsDialog open onOpenChange={vi.fn()} sourceScope={firstScope} customFetcher={fetcher} onModelsSelected={selected} existingModelsOverride={['synthetic-saved']} />))
+  expect(await screen.findByRole('checkbox', { name: 'synthetic-first' })).toBeVisible()
+  view.rerender(fixture(<FetchModelsDialog open onOpenChange={vi.fn()} sourceScope={{}} customFetcher={fetcher} onModelsSelected={selected} existingModelsOverride={['synthetic-saved']} />))
+  expect(fetcher).toHaveBeenCalledTimes(1)
+  expect(screen.queryByRole('button', { name: 'Save Models' })).not.toBeInTheDocument()
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Fetch Models' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Synthetic retry failed')
+  expect(screen.queryByRole('checkbox', { name: 'synthetic-first' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Save Models' })).not.toBeInTheDocument()
+  expect(selected).not.toHaveBeenCalled()
+  expect(fetcher).toHaveBeenCalledTimes(2)
 })

@@ -131,7 +131,7 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import {
   fetchModels,
-  getAllModels,
+  fetchUpstreamModels,
   getChannel,
   getChannelKey,
   getGroups,
@@ -153,6 +153,7 @@ import {
 } from '../../constants'
 import { useChannelMutateForm } from '../../hooks/use-channel-mutate-form'
 import { useChannelTask } from '../../hooks/use-channel-task'
+import { channelModelSource, sameChannelModelSource, canPreviewBasicChannelModels, canPreviewSavedAdvancedModels, type ChannelModelSource } from '../../lib/channel-model-source'
 import {
   CHANNEL_FORM_DEFAULT_VALUES,
   CHANNEL_TYPE_ADVANCED_CUSTOM,
@@ -719,12 +720,6 @@ export function ChannelMutateDrawer({
     queryFn: getGroups,
   })
 
-  // Fetch all available models
-  const { data: allModelsData } = useQuery({
-    queryKey: ['channel_models', task.identity],
-    queryFn: getAllModels,
-  })
-
   // Fetch prefill model groups
   const { data: prefillGroupsData } = useQuery({
     queryKey: ['prefill_groups', 'model', task.identity],
@@ -773,6 +768,8 @@ export function ChannelMutateDrawer({
   const currentBaseUrl = form.watch('base_url')
   const currentKey = form.watch('key')
   const currentOther = form.watch('other')
+  const currentOrganization = form.watch('openai_organization')
+  const currentLegacySetting = form.watch('setting')
   const currentModels = form.watch('models')
   const currentName = form.watch('name')
   const currentModelMapping = form.watch('model_mapping')
@@ -816,9 +813,26 @@ export function ChannelMutateDrawer({
   const currentUpstreamModelUpdateIgnoredModels = form.watch(
     'upstream_model_update_ignored_models'
   )
-  const shouldPreviewUnsavedModels =
-    !isEditing ||
-    (currentType === CHANNEL_TYPE_ADVANCED_CUSTOM && canEditSensitive)
+  const modelSource = useMemo(() => channelModelSource(form.getValues()), [
+    form, currentType, currentBaseUrl, currentKey, currentOrganization, currentOther,
+    currentLegacySetting, currentSettings, currentAdvancedCustom, currentHeaderOverride,
+    currentProxy, currentHttpProtocol, currentHttp2ConnectionShards, awsKeyType, vertexKeyType,
+    multiKeyMode, multiKeyType, keyMode,
+  ])
+  const [modelCatalog, setModelCatalog] = useState<{
+    source: ChannelModelSource
+    identity: string
+    phase: 'loading' | 'ready' | 'error'
+    permission: 'operate' | 'sensitive_write'
+    models: string[]
+    error?: string
+  } | null>(null)
+  const canEditModels = hasPermission(currentUser, 'channel', isEditing ? 'write' : 'sensitive_write')
+  const canFetchSavedModels = hasPermission(currentUser, 'channel', 'operate')
+  const modelSourceScope = useMemo(() => ({ source: modelSource, canEditModels, canFetchSavedModels, canEditSensitive }), [modelSource, canEditModels, canFetchSavedModels, canEditSensitive])
+  useEffect(() => { setModelCatalog(null) }, [modelSourceScope])
+  const currentModelCatalog = modelCatalog?.identity === task.identity && canEditModels && hasPermission(currentUser, 'channel', modelCatalog.permission) && sameChannelModelSource(modelCatalog.source, modelSource) ? modelCatalog : null
+  const fetchedModelIds = useMemo(() => currentModelCatalog?.phase === 'ready' ? currentModelCatalog.models : [], [currentModelCatalog])
   const {
     unlocked: doubaoApiEditUnlocked,
     handleClick: handleApiConfigSecretClick,
@@ -930,24 +944,6 @@ export function ChannelMutateDrawer({
     hiddenAdvancedCustomRouteTypeCount > 0
       ? advancedCustomStats.routeTypeLabels.join(', ')
       : undefined
-
-  // Get all models list
-  const allModelsList = useMemo(
-    () => allModelsData?.data?.map((model) => model.id).filter(Boolean) || [],
-    [allModelsData]
-  )
-
-  // Get basic models for the current channel type
-  const basicModels = useMemo(() => {
-    if (!allModelsList.length) return []
-    // Filter models based on common patterns for specific types
-    if (currentType === 1) {
-      return allModelsList.filter(
-        (model) => model.startsWith('gpt-') || model.startsWith('text-')
-      )
-    }
-    return allModelsList
-  }, [allModelsList, currentType])
 
   // Get prefill groups
   const prefillGroups = useMemo(
@@ -1200,12 +1196,12 @@ export function ChannelMutateDrawer({
 
   // Transform models to multi-select options
   const modelOptions = useMemo(() => {
-    const allModels = new Set([...allModelsList, ...currentModelsArray])
+    const allModels = new Set(fetchedModelIds)
     return [...allModels].map((model) => ({
       value: model,
       label: model,
     }))
-  }, [allModelsList, currentModelsArray])
+  }, [fetchedModelIds])
 
   const modelMappingGuardrail = useMemo<ModelMappingGuardrail>(() => {
     if (!currentModelMapping?.trim()) {
@@ -1555,53 +1551,55 @@ export function ChannelMutateDrawer({
     setFetchModelsDialogOpen(true)
   }, [isEditing, canEditSensitive, form, t])
 
-  const formPreviewFetcher = useCallback(async (): Promise<string[]> => {
-    if (!canEditSensitive) {
-      throw new Error(t("You don't have necessary permission"))
+  const formPreviewFetcher = useCallback(async (signal?: AbortSignal): Promise<string[]> => {
+    const snapshot = task.capture()
+    const source = channelModelSource(form.getValues())
+    const saved = channelData?.data ? channelModelSource(transformChannelToFormDefaults(channelData.data)) : null
+    const useSavedConnection = isEditing && channelId !== null && saved && sameChannelModelSource(source, saved)
+    const permission = useSavedConnection ? 'operate' : 'sensitive_write'
+    const isBound = () => snapshot.isCurrent() && !signal?.aborted && sameChannelModelSource(source, channelModelSource(form.getValues()))
+    const isAllowed = () => {
+      const user = useAuthStore.getState().auth.user
+      return hasPermission(user, 'channel', permission) && hasPermission(user, 'channel', isEditing ? 'write' : 'sensitive_write')
     }
-    const type = form.getValues('type')
-    const editingAdvancedCustom =
-      isEditing && type === CHANNEL_TYPE_ADVANCED_CUSTOM
-    if (editingAdvancedCustom && channelId === null) {
-      throw new Error(t('No channel selected'))
+    if (!isBound()) throw new Error(t('The model source changed. Fetch models again.'))
+    setModelCatalog({ source, identity: task.identity, permission, phase: 'loading', models: [] })
+    try {
+      if (!isAllowed()) throw new Error(t("You don't have necessary permission"))
+      if (!MODEL_FETCHABLE_TYPES.has(source.type)) throw new Error(t('This channel type does not support fetching models'))
+      let response
+      if (useSavedConnection && channelId !== null) {
+        response = await fetchUpstreamModels(channelId)
+      } else {
+        const advanced = source.type === CHANNEL_TYPE_ADVANCED_CUSTOM
+        const savedAdvanced = isEditing && advanced && saved?.type === CHANNEL_TYPE_ADVANCED_CUSTOM && canPreviewSavedAdvancedModels(source, saved)
+        if ((isEditing && !savedAdvanced) || (!isEditing && !canPreviewBasicChannelModels(source, advanced))) {
+          throw new Error(t('Save or restore the changed connection settings before fetching models. You can still enter model IDs manually.'))
+        }
+        if (!isEditing && !advanced && !source.key?.trim()) throw new Error(t('Please enter API key first'))
+        response = await fetchModels({
+          type: source.type,
+          key: isEditing ? undefined : source.key,
+          channel_id: savedAdvanced ? channelId || undefined : undefined,
+          base_url: source.base_url || '',
+          advanced_custom: source.advanced_custom,
+          header_override: source.header_override,
+          proxy: source.proxy,
+        })
+      }
+      if (!isBound()) throw new Error(t('The model source changed. Fetch models again.'))
+      if (!isAllowed()) throw new Error(t("You don't have necessary permission"))
+      if (!response.success || !Array.isArray(response.data) || !response.data.every((model) => typeof model === 'string')) {
+        throw new Error(response.message || t('The channel did not return a model list. Its model support is unconfirmed.'))
+      }
+      const models = [...new Set(response.data)]
+      setModelCatalog({ source, identity: task.identity, permission, phase: 'ready', models })
+      return models
+    } catch (error) {
+      if (isBound()) setModelCatalog({ source, identity: task.identity, permission, phase: 'error', models: [], error: error instanceof Error ? error.message : t('Failed to fetch models') })
+      throw error
     }
-    const response = await fetchModels({
-      type,
-      key: isEditing ? undefined : form.getValues('key'),
-      channel_id: editingAdvancedCustom ? channelId || undefined : undefined,
-      base_url: form.getValues('base_url') || '',
-      advanced_custom: form.getValues('advanced_custom'),
-      header_override: form.getValues('header_override'),
-      proxy: form.getValues('proxy'),
-    })
-    if (response.success && response.data) {
-      return response.data
-    }
-    throw new Error(response.message || t('No models fetched from upstream'))
-  }, [canEditSensitive, channelId, form, isEditing, t])
-
-  // Handle model operations
-  const handleFillRelatedModels = useCallback(() => {
-    if (!basicModels.length) {
-      toast.info(t('No related models available for this channel type'))
-      return
-    }
-    updateModels(basicModels)
-    toast.success(
-      t('Filled {{count}} related model(s)', { count: basicModels.length })
-    )
-  }, [basicModels, updateModels, t])
-
-  const handleFillAllModels = useCallback(() => {
-    if (!allModelsList.length) {
-      toast.info(t('No models available'))
-      return
-    }
-    updateModels(allModelsList)
-    toast.success(
-      t('Filled {{count}} model(s)', { count: allModelsList.length })
-    )
-  }, [allModelsList, updateModels, t])
+  }, [task, form, channelData?.data, isEditing, channelId, t])
 
   const handleClearModels = useCallback(() => {
     form.setValue('models', '')
@@ -1985,6 +1983,8 @@ export function ChannelMutateDrawer({
         setExpandedEditorNavItemId(undefined)
         setAdvancedSettingsOpen(false)
         setClipboardConnectionInfo(null)
+        setModelCatalog(null)
+        setFetchModelsDialogOpen(false)
       }
     },
     [onOpenChange, form, task, channelMutation.isPending]
@@ -3613,6 +3613,12 @@ export function ChannelMutateDrawer({
                                       copyChipOnClick
                                     />
                                   </FormControl>
+                                  <p role='status' className='text-muted-foreground text-xs'>
+                                    {currentModelCatalog?.phase === 'ready'
+                                      ? t('Returned model IDs ({{count}}). Listing does not prove request support or available quota.', { count: fetchedModelIds.length })
+                                      : t('Model support is unconfirmed for the current connection. Fetch explicitly or enter IDs manually.')}
+                                  </p>
+                                  {currentModelCatalog?.phase === 'error' && <p role='alert' className='text-destructive text-sm'>{currentModelCatalog.error}</p>}
                                   {modelMappingGuardrail.exposedTargetModels
                                     .length > 0 && (
                                     <Alert className='border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-50'>
@@ -3661,37 +3667,11 @@ export function ChannelMutateDrawer({
                                 </p>
                                 <p className='text-muted-foreground text-xs'>
                                   {t(
-                                    'Use presets or upstream discovery to populate the model list faster.'
+                                    'Fetch this connection explicitly to obtain model-list results. Saved, manually entered and preset IDs are configuration, not support evidence.'
                                   )}
                                 </p>
                               </div>
                               <div className='flex flex-wrap gap-2'>
-                                <Button
-                                  type='button'
-                                  variant='outline'
-                                  size='sm'
-                                  onClick={handleFillRelatedModels}
-                                  disabled={!basicModels.length}
-                                >
-                                  <FileText
-                                    className='mr-2 h-4 w-4'
-                                    aria-hidden='true'
-                                  />
-                                  {t('Fill Related Models')}
-                                </Button>
-                                <Button
-                                  type='button'
-                                  variant='outline'
-                                  size='sm'
-                                  onClick={handleFillAllModels}
-                                  disabled={!allModelsList.length}
-                                >
-                                  <Plus
-                                    className='mr-2 h-4 w-4'
-                                    aria-hidden='true'
-                                  />
-                                  {t('Fill All Models')}
-                                </Button>
                                 {MODEL_FETCHABLE_TYPES.has(currentType) && (
                                   <>
                                     <Button
@@ -3746,8 +3726,9 @@ export function ChannelMutateDrawer({
                               {prefillGroups.length > 0 && (
                                 <div className='flex flex-wrap items-center gap-2'>
                                   <span className='text-muted-foreground text-xs'>
-                                    {t('Preset groups')}:
+                                    {t('Custom preset groups')}:
                                   </span>
+                                  <span className='text-muted-foreground basis-full text-xs'>{t('Presets are user-configured templates, not models discovered for this connection.')}</span>
                                   {prefillGroups.map((group) => (
                                     <Button
                                       key={group.id}
@@ -3850,9 +3831,7 @@ export function ChannelMutateDrawer({
                                       onChange={field.onChange}
                                       disabled={isSubmitting}
                                       sourceModelOptions={currentModelsArray}
-                                      targetModelOptions={modelOptions.map(
-                                        (option) => option.value
-                                      )}
+                                      targetModelOptions={[...new Set([...fetchedModelIds, ...redirectModelList])]}
                                     />
                                   </FormControl>
                                   {modelMappingGuardrail.invalidJson && (
@@ -5190,19 +5169,22 @@ export function ChannelMutateDrawer({
 
       {/* Fetch Models Dialog */}
       <FetchModelsDialog
-        open={fetchModelsDialogOpen}
-        onOpenChange={setFetchModelsDialogOpen}
+        open={open && fetchModelsDialogOpen}
+        onOpenChange={(nextOpen) => {
+          setFetchModelsDialogOpen(nextOpen)
+          if (!nextOpen && modelCatalog?.phase === 'loading') setModelCatalog(null)
+        }}
         onModelsSelected={(models) => {
+          if (!task.capture().isCurrent() || !modelCatalog || modelCatalog.phase !== 'ready' || modelCatalog.identity !== task.identity || !hasPermission(useAuthStore.getState().auth.user, 'channel', modelCatalog.permission) || !hasPermission(useAuthStore.getState().auth.user, 'channel', isEditing ? 'write' : 'sensitive_write') || !sameChannelModelSource(modelCatalog.source, channelModelSource(form.getValues()))) {
+            throw new Error(t('The model source changed. Fetch models again.'))
+          }
           form.setValue('models', formatModelsArray(models))
         }}
         redirectModels={redirectModelList}
         redirectSourceModels={redirectModelKeyList}
-        customFetcher={
-          shouldPreviewUnsavedModels ? formPreviewFetcher : undefined
-        }
-        channelName={
-          shouldPreviewUnsavedModels ? currentName?.trim() : undefined
-        }
+        customFetcher={formPreviewFetcher}
+        sourceScope={modelSourceScope}
+        channelName={currentName?.trim()}
         existingModelsOverride={currentModelsArray}
       />
 
