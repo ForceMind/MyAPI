@@ -19,6 +19,11 @@ For commercial licensing, please contact support@quantumnous.com
 // Static translation keys that don't get picked up by the t('...') regex.
 // These cover dynamic labels (e.g. constants, configs) that are passed into t at runtime.
 export const STATIC_I18N_KEYS = [
+  // Channel task destinations passed to t() at render time.
+  'Channel inventory',
+  'Quota evidence',
+  'All channel events',
+  'Routing Preview',
   'Input limits must be a JSON object with non-empty model names and integer values from 1 to 2147483647.',
   // Personal console destinations passed to t() at render time.
   'Upstream accounts',

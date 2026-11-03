@@ -105,10 +105,12 @@ function ChannelsSessionProvider({ children, identity }: { children: React.React
     const { auth } = useAuthStore.getState()
     if (identity !== `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`) return null
     const action = opener.current
-    if (action?.node?.isConnected) return action.node
-    if (!action?.id) return null
+    if (action?.node?.isConnected && !action.node.closest('[hidden]')) return action.node
+    if (!action?.id) return document.querySelector<HTMLElement>('[data-channel-workspace-return]')
     const container = [...document.querySelectorAll<HTMLElement>('[data-channel-actions]')].find((element) => element.dataset.channelActions === action.id)
-    return container?.querySelector<HTMLElement>(action.edit ? '[data-channel-edit]' : 'button[aria-haspopup]') ?? null
+    const candidate = container?.querySelector<HTMLElement>(action.edit ? '[data-channel-edit]' : 'button[aria-haspopup]')
+    if (candidate && !candidate.closest('[hidden]')) return candidate
+    return document.querySelector<HTMLElement>('[data-channel-workspace-return]')
   }, [identity])
   const [currentRow, setCurrentRow] = useState<Channel | null>(null)
   const [currentTag, setCurrentTag] = useState<string | null>(null)

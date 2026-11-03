@@ -7,7 +7,8 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { CanceledError } from 'axios'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
@@ -31,6 +32,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { getChannelQuotaEvents } from '../api'
 import { quotaWindowLabel } from '../lib/quota-history'
 import type { ChannelQuotaAlertDeliveryEvent } from '../types'
+import type { ChannelTaskProps, ChannelTaskReadState } from '../channel-task-state'
 
 function QuotaEvent(props: { event: ChannelQuotaAlertDeliveryEvent }) {
   const { t } = useTranslation()
@@ -86,8 +88,8 @@ function QuotaEvent(props: { event: ChannelQuotaAlertDeliveryEvent }) {
           </p>
           <p>
             {t('Observed remaining: {{remaining}} / {{total}} {{unit}}', {
-              remaining: evidence.available,
-              total: evidence.total,
+              remaining: typeof evidence.available === 'number' && Number.isFinite(evidence.available) ? evidence.available : t('Unknown'),
+              total: typeof evidence.total === 'number' && Number.isFinite(evidence.total) ? evidence.total : t('Unknown'),
               unit: evidence.currency || evidence.unit,
             })}
           </p>
@@ -116,11 +118,17 @@ function QuotaEvent(props: { event: ChannelQuotaAlertDeliveryEvent }) {
   )
 }
 
-export function ChannelQuotaEvents() {
+export function ChannelQuotaEvents(props: ChannelTaskProps = {}) {
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
+  const [open, setOpen] = useState(false)
+  return <ChannelQuotaEventsTask key={identity} {...props} identity={identity} open={open} onOpenChange={setOpen} />
+}
+
+function ChannelQuotaEventsTask(props: ChannelTaskProps & { identity: string; open: boolean; onOpenChange: (open: boolean) => void }) {
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
   const session = useAuthStore((state) => state.auth.session?.sid)
-  const [open, setOpen] = useState(false)
+  const open = props.active ?? props.open
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('')
   const canRead = hasPermission(
@@ -136,13 +144,18 @@ export function ChannelQuotaEvents() {
       canRead,
       page,
       status,
+      props.identity,
     ],
     queryFn: async ({ signal }) => {
+      const before = useAuthStore.getState().auth
+      if (signal.aborted || props.identity !== `${before.user?.id ?? null}:${before.user?.role ?? 0}:${before.session?.sid ?? null}`) throw new CanceledError('Quota events identity changed')
       const response = await getChannelQuotaEvents(
         { p: page, page_size: 10, status: status || undefined },
         signal
       )
-      if (!response.success || !response.data) {
+      const current = useAuthStore.getState().auth
+      if (signal.aborted || props.identity !== `${current.user?.id ?? null}:${current.user?.role ?? 0}:${current.session?.sid ?? null}`) throw new CanceledError('Quota events identity changed')
+      if (!response.success || !response.data || !Array.isArray(response.data.items)) {
         throw new Error('quota events unavailable')
       }
       return response.data
@@ -150,21 +163,33 @@ export function ChannelQuotaEvents() {
     enabled: canRead && open,
     retry: false,
   })
+  const hasRead = query.data !== undefined
+  const readAt = Math.max(query.dataUpdatedAt, query.errorUpdatedAt)
+  let phase: ChannelTaskReadState['phase'] = 'unread'
+  if (query.isError) phase = 'error'
+  else if (query.isFetching) phase = 'loading'
+  else if (hasRead) phase = 'ready'
+  useEffect(() => {
+    const auth = useAuthStore.getState().auth
+    if (props.identity !== `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`) return
+    props.onReadStateChange?.({ phase, readAt: readAt > 0 ? readAt / 1000 : undefined })
+  }, [props.identity, props.onReadStateChange, phase, readAt])
   if (!canRead) return null
-  const pages = Math.max(1, Math.ceil((query.data?.total ?? 0) / 10))
+  const total = query.isError ? undefined : query.data?.total
+  const pages = typeof total === 'number' && Number.isSafeInteger(total) && total >= 0 ? Math.max(1, Math.ceil(total / 10)) : undefined
   return (
     <Card className='mb-4 min-w-0'>
       <CardHeader>
         <div className='flex flex-wrap items-center justify-between gap-2'>
           <CardTitle>{t('Quota events')}</CardTitle>
-          <Button
+          {props.active === undefined && <Button
             variant='outline'
-            onClick={() => setOpen(!open)}
+            onClick={() => props.onOpenChange(!open)}
             aria-expanded={open}
             aria-controls='quota-events-panel'
           >
             {open ? t('Hide events') : t('Show events')}
-          </Button>
+          </Button>}
         </div>
         <CardDescription>
           {t(
@@ -174,6 +199,7 @@ export function ChannelQuotaEvents() {
       </CardHeader>
       {open ? (
         <CardContent id='quota-events-panel' className='min-w-0 space-y-3'>
+          {props.active !== undefined && <p className='text-sm font-medium'>{t('All channel events')}</p>}
           <p className='text-muted-foreground text-xs'>
             {t(
               'Events are recorded only while provider quota alerts are enabled. Recovery follows the configured preference; no event does not prove healthy quota.'
@@ -234,11 +260,11 @@ export function ChannelQuotaEvents() {
               {t('Previous')}
             </Button>
             <span className='text-muted-foreground text-xs'>
-              {t('Page {{page}} of {{total}}', { page, total: pages })}
+              {pages === undefined ? t('Page {{page}} · total unavailable', { page }) : t('Page {{page}} of {{total}}', { page, total: pages })}
             </span>
             <Button
               variant='outline'
-              disabled={page >= pages || query.isFetching}
+              disabled={query.isFetching || query.isError || !query.data || (pages === undefined ? query.data.items.length < 10 : page >= pages)}
               onClick={() => setPage(page + 1)}
             >
               {t('Next')}

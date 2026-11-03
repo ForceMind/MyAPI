@@ -214,11 +214,12 @@ export async function getChannelOps(): Promise<ChannelOpsResponse> {
  * Preview the read-only runtime routing tiers for one explicit group and model.
  */
 export async function getChannelRoutingPreview(
-  params: ChannelRoutingPreviewParams
+  params: ChannelRoutingPreviewParams,
+  requestConfig: ApiRequestConfig = {}
 ): Promise<ChannelRoutingPreviewResponse> {
   const res = await api.get(
     '/api/channel/routing-preview',
-    channelActionConfig({ params })
+    channelActionConfig({ ...requestConfig, params })
   )
   return res.data
 }
@@ -379,10 +380,11 @@ export async function getChannelQuotaHistory(
     rate_window?: string | number
     ewma_half_life?: string | number
     limit?: number
-  } = {}
+  } = {},
+  requestConfig: ApiRequestConfig = {}
 ): Promise<ChannelQuotaHistoryResponse> {
   const res = await api.get(`/api/channel/${id}/quota/history`, {
-    ...channelActionConfig(),
+    ...channelActionConfig(requestConfig),
     params,
   })
   return res.data

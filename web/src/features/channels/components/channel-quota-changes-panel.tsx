@@ -7,6 +7,7 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { useQuery } from '@tanstack/react-query'
+import { CanceledError } from 'axios'
 import { getRouteApi, Link } from '@tanstack/react-router'
 import {
   Activity,
@@ -16,7 +17,7 @@ import {
   Minus,
   RefreshCw,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -43,6 +44,7 @@ import {
   quotaHistoryRangeOptions,
 } from '../lib/quota-history'
 import type { ChannelQuotaChangeItem, ChannelQuotaHistoryRange } from '../types'
+import type { ChannelTaskProps, ChannelTaskReadState } from '../channel-task-state'
 import { ChannelQuotaDetailChart } from './channel-quota-detail-chart'
 import { QuotaCustomRangeControls } from './quota-history-trend'
 
@@ -62,6 +64,7 @@ function getHttpStatus(error: unknown): number | undefined {
 const rangeOptions = quotaHistoryRangeOptions
 
 function detailSeriesKey(item: ChannelQuotaChangeItem): string {
+  if (item.series_id) return `${item.channel_id}:${item.series_id}`
   return [
     item.channel_id,
     item.metric_type,
@@ -71,6 +74,8 @@ function detailSeriesKey(item: ChannelQuotaChangeItem): string {
     item.unit,
     item.currency,
     item.window_seconds,
+    item.series_id,
+    item.account_label,
   ]
     .map((value) => value ?? '')
     .join(':')
@@ -188,13 +193,13 @@ function ChangeRow({
             className='text-muted-foreground size-4 shrink-0'
             aria-hidden='true'
           />
-          <span className='truncate font-medium'>
+          <span className='whitespace-normal break-all font-medium'>
             {item.account_label || item.name}
           </span>
         </div>
         <div className='text-muted-foreground mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-xs'>
           {item.account_label && item.name !== item.account_label ? (
-            <span className='truncate'>{item.name}</span>
+            <span className='break-all'>{item.name}</span>
           ) : null}
           {item.window_type ? (
             <Badge variant='secondary'>
@@ -220,7 +225,7 @@ function ChangeRow({
         <div className='min-w-0'>
           <div
             className={cn(
-              'truncate font-semibold',
+              'whitespace-normal break-all font-semibold',
               direction === 'decrease' && 'text-destructive',
               direction === 'increase' && 'text-success'
             )}
@@ -256,7 +261,12 @@ function ChangeRow({
   )
 }
 
-export function ChannelQuotaChangesPanel() {
+export function ChannelQuotaChangesPanel(props: ChannelTaskProps = {}) {
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
+  return <ChannelQuotaChangesTask key={identity} {...props} identity={identity} />
+}
+
+function ChannelQuotaChangesTask(props: ChannelTaskProps & { identity: string }) {
   const { t } = useTranslation()
   // Avoid carrying a previous administrator's cached account movements into
   // a different login session when the route remains mounted during logout.
@@ -265,41 +275,51 @@ export function ChannelQuotaChangesPanel() {
   const time = useQuotaHistoryTime()
   const { range, setRange } = time
   const { quotaChannelId } = route.useSearch()
-  useEffect(() => {
-    if (quotaChannelId != null) {
-      document
-        .getElementById('channel-evidence')
-        ?.scrollIntoView({ block: 'start' })
-    }
-  }, [quotaChannelId])
+  const active = props.active ?? true
+  const managed = props.active !== undefined
   const [windowFilter, setWindowFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const [detailKey, setDetailKey] = useState('')
+  const [selection, setSelection] = useState({ channelId: quotaChannelId, key: '' })
+  const detailKey = selection.channelId === quotaChannelId ? selection.key : ''
+  const setDetailKey = (key: string) => setSelection({ channelId: quotaChannelId, key })
+  const [detailRead, setDetailRead] = useState<{ key: string; state: ChannelTaskReadState }>()
   const [refreshEpoch, setRefreshEpoch] = useState(0)
   const query = useQuery({
-    queryKey: ['channel-quota-changes', userId, sessionId, time.params],
-    queryFn: () =>
-      getChannelQuotaChanges({
-        ...time.params,
-        limit: 2000,
-        sort: 'abs_change_per_minute',
-      }),
+    queryKey: ['channel-quota-changes', userId, sessionId, time.params, props.identity, managed ? quotaChannelId ?? null : null],
+    queryFn: async ({ signal }) => {
+      const auth = useAuthStore.getState().auth
+      if (signal.aborted || props.identity !== `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`) throw new CanceledError('Quota task identity changed')
+      const response = await getChannelQuotaChanges({ ...time.params, limit: 2000, sort: 'abs_change_per_minute', ...(managed && quotaChannelId != null ? { channel_ids: String(quotaChannelId) } : {}) }, { signal })
+      const current = useAuthStore.getState().auth
+      if (signal.aborted || props.identity !== `${current.user?.id ?? null}:${current.user?.role ?? 0}:${current.session?.sid ?? null}`) throw new CanceledError('Quota task identity changed')
+      return response
+    },
+    enabled: active,
     retry: false,
     staleTime: 60 * 1000,
-    refetchInterval: 60 * 1000,
+    refetchInterval: active ? 60 * 1000 : false,
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === userId &&
-      previousQuery?.queryKey[2] === sessionId
+      previousQuery?.queryKey[2] === sessionId && previousQuery?.queryKey[4] === props.identity && previousQuery?.queryKey[5] === (managed ? quotaChannelId ?? null : null)
         ? previous
         : undefined,
   })
   const samplingStatusQuery = useQuery({
-    queryKey: ['channel-quota-sampling-status', userId, sessionId],
-    queryFn: () => getChannelQuotaSamplingStatus(),
+    queryKey: ['channel-quota-sampling-status', userId, sessionId, props.identity],
+    queryFn: async ({ signal }) => {
+      const before = useAuthStore.getState().auth
+      if (signal.aborted || props.identity !== `${before.user?.id ?? null}:${before.user?.role ?? 0}:${before.session?.sid ?? null}`) throw new CanceledError('Quota task identity changed')
+      const response = await getChannelQuotaSamplingStatus({ signal })
+      const auth = useAuthStore.getState().auth
+      if (signal.aborted || props.identity !== `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`) throw new CanceledError('Quota task identity changed')
+      return response
+    },
+    enabled: active,
     retry: false,
     staleTime: 5 * 60 * 1000,
   })
   const refreshAll = () => {
+    if (!active) return
     // The detail query carries refreshEpoch in its key, so a visible graph is
     // refreshed alongside the change list rather than displaying stale data.
     setRefreshEpoch((value) => value + 1)
@@ -339,13 +359,37 @@ export function ChannelQuotaChangesPanel() {
   // Keep a current upstream error selectable. The detailed endpoint preserves
   // the error as a chart gap and shows it as the latest raw status, which is
   // more useful than hiding the account behind the last successful value.
-  const detailItems = filteredItems
-  const detailItem =
-    detailItems.find((item) => detailSeriesKey(item) === detailKey) ??
-    (detailKey === '' && quotaChannelId != null
-      ? detailItems.find((item) => item.channel_id === quotaChannelId)
-      : undefined) ??
-    detailItems[0]
+  const detailItems = managed && quotaChannelId != null ? filteredItems.filter((item) => item.channel_id === quotaChannelId) : filteredItems
+  const selectedItem = detailItems.find((item) => detailSeriesKey(item) === detailKey)
+  const targetItems = quotaChannelId == null ? [] : detailItems.filter((item) => item.channel_id === quotaChannelId)
+  const targetMissing = quotaChannelId != null && !items.some((item) => item.channel_id === quotaChannelId)
+  let detailItem = selectedItem
+  if (!detailItem && !managed && detailKey === '') {
+    if (quotaChannelId != null) detailItem = targetItems[0]
+    else detailItem = detailItems[0]
+  }
+  const selectedSeriesKey = detailItem ? detailSeriesKey(detailItem) : ''
+  const selectedDetailState = detailRead?.key === selectedSeriesKey ? detailRead.state : undefined
+  const publishDetailState = useCallback((state: ChannelTaskReadState) => setDetailRead({ key: selectedSeriesKey, state }), [selectedSeriesKey])
+  const hasRead = query.data?.success === true && Array.isArray(query.data.data?.items)
+  const readFailed = query.isError || (query.data !== undefined && !hasRead) || samplingStatusQuery.isError || samplingStatusQuery.data?.success === false || selectedDetailState?.phase === 'error'
+  const incomplete = query.data?.data?.source_complete === false || query.data?.data?.items_complete === false || selectedDetailState?.incomplete === true
+  const listErrorCount = query.data?.data?.data_quality?.error_count
+  const loadedFailures = items.some((item) => item.status === 'error' || (typeof item.data_quality?.error_count === 'number' && Number.isFinite(item.data_quality.error_count) && item.data_quality.error_count > 0)) || (typeof listErrorCount === 'number' && Number.isFinite(listErrorCount) && listErrorCount > 0)
+  const failedObservations = hasRead ? loadedFailures || selectedDetailState?.failedObservations === true : selectedDetailState?.failedObservations
+  const samplingEnabled = !samplingStatusQuery.isError && samplingStatusQuery.data?.success === true && typeof samplingStatusQuery.data.data?.enabled === 'boolean' ? samplingStatusQuery.data.data.enabled : undefined
+  const readAt = Math.max(query.dataUpdatedAt, query.errorUpdatedAt, samplingStatusQuery.dataUpdatedAt, samplingStatusQuery.errorUpdatedAt, (selectedDetailState?.readAt ?? 0) * 1000)
+  let phase: ChannelTaskReadState['phase'] = 'unread'
+  if (readFailed) phase = 'error'
+  else if (query.isFetching || samplingStatusQuery.isFetching || selectedDetailState?.phase === 'loading') phase = 'loading'
+  else if (hasRead && (!detailItem || selectedDetailState?.phase === 'ready')) phase = 'ready'
+  useEffect(() => {
+    const auth = useAuthStore.getState().auth
+    if (props.identity !== `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`) return
+    props.onReadStateChange?.({ phase, readAt: readAt > 0 ? readAt / 1000 : undefined, incomplete, failedObservations, samplingEnabled })
+  }, [props.identity, props.onReadStateChange, phase, readAt, incomplete, failedObservations, samplingEnabled])
+  let rowItems = filteredItems
+  if (managed) rowItems = detailItem ? [detailItem] : []
   const httpStatus = getHttpStatus(query.error)
   let errorTitle = t('Unable to load account quota changes')
   let errorDescription =
@@ -389,7 +433,7 @@ export function ChannelQuotaChangesPanel() {
             variant='ghost'
             size='icon-xs'
             onClick={refreshAll}
-            disabled={query.isFetching || samplingStatusQuery.isFetching}
+            disabled={!active || query.isFetching || samplingStatusQuery.isFetching}
             aria-label={t('Refresh')}
           >
             <RefreshCw
@@ -410,7 +454,7 @@ export function ChannelQuotaChangesPanel() {
               id='quota-change-range'
               value={range}
               onChange={(event) => setRange(event.target.value as Range)}
-              className='h-8 min-w-0 rounded-lg border bg-transparent px-2 text-sm sm:w-28'
+              className='min-h-11 min-w-0 rounded-lg border bg-transparent px-2 text-sm sm:w-28'
             >
               {rangeOptions.map((option) => (
                 <option key={option} value={option}>
@@ -420,7 +464,7 @@ export function ChannelQuotaChangesPanel() {
             </select>
           </div>
           {detailItems.length > 0 ? (
-            <div className='grid min-w-0 gap-1 sm:max-w-[28rem]'>
+            <div className={cn('grid min-w-0 gap-1 sm:max-w-[28rem]', managed && 'xl:hidden')}>
               <Label
                 htmlFor='quota-detail-series'
                 className='text-muted-foreground text-xs'
@@ -431,8 +475,9 @@ export function ChannelQuotaChangesPanel() {
                 id='quota-detail-series'
                 value={detailItem ? detailSeriesKey(detailItem) : ''}
                 onChange={(event) => setDetailKey(event.target.value)}
-                className='h-8 min-w-0 rounded-lg border bg-transparent px-2 text-sm'
+                className='min-h-11 min-w-0 rounded-lg border bg-transparent px-2 text-sm'
               >
+                {managed && <option value=''>{t('Choose an account window')}</option>}
                 {detailItems.map((item) => {
                   const key = detailSeriesKey(item)
                   return (
@@ -456,7 +501,7 @@ export function ChannelQuotaChangesPanel() {
               id='quota-change-window-filter'
               value={windowFilter}
               onChange={(event) => setWindowFilter(event.target.value)}
-              className='h-8 min-w-0 rounded-lg border bg-transparent px-2 text-sm sm:min-w-36'
+              className='min-h-11 min-w-0 rounded-lg border bg-transparent px-2 text-sm sm:min-w-36'
             >
               <option value='all'>{t('All windows')}</option>
               {windows.map((option) => (
@@ -479,7 +524,7 @@ export function ChannelQuotaChangesPanel() {
               onChange={(event) =>
                 setStatusFilter(event.target.value as StatusFilter)
               }
-              className='h-8 min-w-0 rounded-lg border bg-transparent px-2 text-sm sm:min-w-32'
+              className='min-h-11 min-w-0 rounded-lg border bg-transparent px-2 text-sm sm:min-w-32'
             >
               <option value='all'>{t('All statuses')}</option>
               <option value='success'>{t('Success')}</option>
@@ -497,6 +542,10 @@ export function ChannelQuotaChangesPanel() {
         ) : null}
       </CardHeader>
       <CardContent className='min-w-0 space-y-3 pt-0'>
+        {managed && hasRead && targetMissing && <p role='status'>{t('No saved evidence for the requested channel in this range.')}</p>}
+        {managed && hasRead && failedObservations && <Alert variant='destructive'><AlertTitle>{t('Saved quota evidence includes failed observations.')}</AlertTitle><AlertDescription>{t('Status filters do not change the original observations.')}</AlertDescription></Alert>}
+        {samplingStatusQuery.isError || samplingStatusQuery.data?.success === false ? <Alert variant='destructive'><AlertTitle>{t('Unable to read quota sampling status')}</AlertTitle><AlertDescription>{samplingStatusQuery.error instanceof Error ? samplingStatusQuery.error.message : samplingStatusQuery.data?.message || t('Please try again later.')}</AlertDescription></Alert> : null}
+        {!hasRead && !readFailed && !query.isFetching && <p role='status'>{t('Saved quota evidence has not been read.')}</p>}
         {query.data?.data?.source_complete === false ||
         query.data?.data?.items_complete === false ? (
           <Alert>
@@ -519,7 +568,7 @@ export function ChannelQuotaChangesPanel() {
             <Skeleton className='h-14 w-full' />
           </div>
         ) : null}
-        {query.isError || query.data?.success === false ? (
+        {query.isError || (query.data !== undefined && !hasRead) ? (
           <Alert variant='destructive'>
             <CircleAlert />
             <AlertTitle>{errorTitle}</AlertTitle>
@@ -540,7 +589,7 @@ export function ChannelQuotaChangesPanel() {
         ) : null}
         {!query.isLoading &&
         !query.isError &&
-        query.data?.success !== false &&
+        hasRead &&
         filteredItems.length === 0 ? (
           <div className='text-muted-foreground space-y-2 rounded-lg border border-dashed p-5 text-center text-sm'>
             <div>
@@ -571,10 +620,17 @@ export function ChannelQuotaChangesPanel() {
         ) : null}
         {!query.isLoading &&
         !query.isError &&
-        query.data?.success !== false &&
+        hasRead &&
         filteredItems.length > 0 ? (
-          <>
-            <div className='grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3'>
+          <div className={cn('min-w-0 gap-4', managed && 'grid xl:grid-cols-[minmax(14rem,0.85fr)_minmax(0,2fr)]')}>
+            {managed && <aside tabIndex={0} aria-label={t('Account window directory')} className='hidden max-h-[75dvh] min-w-0 space-y-2 overflow-y-auto overscroll-contain xl:block'>
+              {detailItems.map((item) => <Button key={detailSeriesKey(item)} type='button' variant={detailSeriesKey(item) === detailKey ? 'secondary' : 'outline'} aria-pressed={detailSeriesKey(item) === detailKey} className='h-auto min-h-11 w-full justify-start whitespace-normal text-left' onClick={() => setDetailKey(detailSeriesKey(item))}>
+                <span className='min-w-0 break-all'>{item.account_label || item.name} · {quotaWindowLabel(item.window_type, t)}<span className='text-muted-foreground block text-xs'>{quotaStatusLabel(item.status, t)} · {item.observed_at ? formatTimestampToDate(item.observed_at) : t('No timestamp')}</span><span className='text-muted-foreground block text-xs'>{[item.source, item.plan_type, item.currency || item.unit].filter(Boolean).join(' · ')}</span></span>
+              </Button>)}
+            </aside>}
+            <div className='min-w-0 space-y-3'>
+            {managed && !detailItem && !targetMissing && <p role='status' className='rounded-lg border p-4 text-sm'>{t('Choose an account window to inspect its saved evidence.')}</p>}
+            {(!managed || detailItem) && <div className='grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3'>
               <div className='bg-muted/20 rounded-lg border p-3'>
                 <div className='text-muted-foreground text-xs'>
                   {t('Peak consumption per minute')}
@@ -607,10 +663,13 @@ export function ChannelQuotaChangesPanel() {
                   {formatNumber(filteredItems.length)}
                 </div>
               </div>
-            </div>
+            </div>}
             {detailItem ? (
               <ChannelQuotaDetailChart
+                key={selectedSeriesKey}
                 item={detailItem}
+                onReadStateChange={publishDetailState}
+                enabled={active}
                 range={range}
                 onRangeChange={setRange}
                 refreshEpoch={refreshEpoch}
@@ -619,11 +678,12 @@ export function ChannelQuotaChangesPanel() {
               />
             ) : null}
             <div className='space-y-2'>
-              {filteredItems.map((item) => (
+              {rowItems.map((item) => (
                 <ChangeRow key={detailSeriesKey(item)} item={item} t={t} />
               ))}
             </div>
-          </>
+            </div>
+          </div>
         ) : null}
       </CardContent>
     </Card>

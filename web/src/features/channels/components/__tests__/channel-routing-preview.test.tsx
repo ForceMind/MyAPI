@@ -106,7 +106,7 @@ describe('channel routing preview', () => {
       group: 'default',
       model: 'gpt-test',
       request_path: '/v1/responses',
-    })
+    }, { signal: expect.any(AbortSignal) })
     expect(await screen.findByText('Primary channel')).toBeInTheDocument()
     expect(screen.getByText('Zero channel')).toBeInTheDocument()
     expect(

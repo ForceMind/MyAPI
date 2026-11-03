@@ -25,6 +25,8 @@ import { DataTableRowActionMenu } from '@/components/data-table/core/row-action-
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuGroup,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
 } from '@/components/ui/dropdown-menu'
@@ -33,6 +35,9 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+
+import { hasPermission } from '@/lib/admin-permissions'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { handleEnableTagChannels, handleDisableTagChannels } from '../lib'
 import type { Channel } from '../types'
@@ -47,6 +52,9 @@ export function DataTableTagRowActions({ row }: DataTableTagRowActionsProps) {
   const tag = row.original.tag
   const { setOpen, setCurrentTag } = useChannels()
   const queryClient = useQueryClient()
+  const user = useAuthStore((state) => state.auth.user)
+  const canWrite = hasPermission(user, 'channel', 'write')
+  const canOperate = hasPermission(user, 'channel', 'operate')
 
   if (!tag) return null
 
@@ -69,7 +77,7 @@ export function DataTableTagRowActions({ row }: DataTableTagRowActionsProps) {
   }
 
   return (
-    <div className='-ml-1.5 flex items-center gap-1'>
+    <div className='-ml-1.5 flex flex-wrap items-center gap-1 [&_[data-myapi-button]]:min-h-11 [&_[data-myapi-button]]:min-w-11'>
       <Tooltip>
         <TooltipTrigger
           render={
@@ -77,6 +85,7 @@ export function DataTableTagRowActions({ row }: DataTableTagRowActionsProps) {
               variant='ghost'
               size='icon-sm'
               onClick={handleEditTag}
+              disabled={!canWrite}
               aria-label={t('Edit Tag')}
             />
           }
@@ -86,9 +95,11 @@ export function DataTableTagRowActions({ row }: DataTableTagRowActionsProps) {
         <TooltipContent>{t('Edit Tag')}</TooltipContent>
       </Tooltip>
 
-      <DataTableRowActionMenu ariaLabel={t('Open menu')}>
+      <DataTableRowActionMenu ariaLabel={t('Open menu')} contentClassName='w-72 [&_[role=menuitem]]:min-h-11'>
+        <DropdownMenuGroup>
+        <DropdownMenuLabel>{t('All channels with this tag')}</DropdownMenuLabel>
         {/* Batch Edit */}
-        <DropdownMenuItem onClick={handleBatchEdit}>
+        <DropdownMenuItem onClick={handleBatchEdit} disabled={!canWrite}>
           {t('Batch Edit')}
           <DropdownMenuShortcut>
             <Pencil size={16} />
@@ -98,7 +109,7 @@ export function DataTableTagRowActions({ row }: DataTableTagRowActionsProps) {
         <DropdownMenuSeparator />
 
         {/* Enable All */}
-        <DropdownMenuItem onClick={handleEnableAll}>
+        <DropdownMenuItem onClick={handleEnableAll} disabled={!canOperate}>
           {t('Enable All')}
           <DropdownMenuShortcut>
             <Power size={16} />
@@ -106,12 +117,13 @@ export function DataTableTagRowActions({ row }: DataTableTagRowActionsProps) {
         </DropdownMenuItem>
 
         {/* Disable All */}
-        <DropdownMenuItem onClick={handleDisableAll}>
+        <DropdownMenuItem onClick={handleDisableAll} disabled={!canOperate}>
           {t('Disable All')}
           <DropdownMenuShortcut>
             <PowerOff size={16} />
           </DropdownMenuShortcut>
         </DropdownMenuItem>
+        </DropdownMenuGroup>
       </DataTableRowActionMenu>
     </div>
   )

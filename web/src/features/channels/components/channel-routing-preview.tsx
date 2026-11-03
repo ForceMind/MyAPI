@@ -7,8 +7,9 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { useQuery } from '@tanstack/react-query'
+import { CanceledError } from 'axios'
 import { Route } from 'lucide-react'
-import { useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -23,6 +24,7 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { toIntlLocale } from '@/i18n/languages'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { getChannelRoutingPreview } from '../api'
 import { channelsQueryKeys, getChannelTypeLabel } from '../lib'
@@ -31,6 +33,7 @@ import {
   resolveChannelRoutingPreviewErrorCode,
 } from '../lib/channel-routing'
 import type { ChannelRoutingPreviewParams } from '../types'
+import type { ChannelTaskProps, ChannelTaskReadState } from '../channel-task-state'
 
 function AccountHoldExpiry(props: { timestamp?: number }) {
   const { t, i18n } = useTranslation()
@@ -67,25 +70,48 @@ function AccountHoldExpiry(props: { timestamp?: number }) {
   )
 }
 
-export function ChannelRoutingPreview() {
+export function ChannelRoutingPreview(props: ChannelTaskProps = {}) {
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
+  return <ChannelRoutingTask key={identity} {...props} identity={identity} />
+}
+
+function ChannelRoutingTask(props: ChannelTaskProps & { identity: string }) {
   const { t, i18n } = useTranslation()
+  const active = props.active ?? true
+  const managed = props.active !== undefined
+  const [requestVersion, setRequestVersion] = useState(0)
+  const dispatchedVersion = useRef(0)
   const [group, setGroup] = useState('default')
   const [model, setModel] = useState('')
   const [requestPath, setRequestPath] = useState('')
   const [submittedParams, setSubmittedParams] =
     useState<ChannelRoutingPreviewParams | null>(null)
 
+  const readPreview = useCallback(async (params: ChannelRoutingPreviewParams | null, signal: AbortSignal) => {
+    if (!params) throw new Error('routing preview parameters are unavailable')
+    const auth = useAuthStore.getState().auth
+    if (signal.aborted || props.identity !== `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`) throw new CanceledError('Routing preview identity changed')
+    const result = await getChannelRoutingPreview(params, { signal })
+    const current = useAuthStore.getState().auth
+    if (signal.aborted || props.identity !== `${current.user?.id ?? null}:${current.user?.role ?? 0}:${current.session?.sid ?? null}`) throw new CanceledError('Routing preview identity changed')
+    return result
+  }, [props.identity])
   const previewQuery = useQuery({
-    queryKey: channelsQueryKeys.routingPreview(submittedParams ?? {}),
-    queryFn: () => {
-      if (!submittedParams) {
-        throw new Error('routing preview parameters are unavailable')
-      }
-      return getChannelRoutingPreview(submittedParams)
-    },
-    enabled: submittedParams !== null,
+    queryKey: [...channelsQueryKeys.routingPreview(submittedParams ?? {}), props.identity],
+    queryFn: ({ signal }) => readPreview(submittedParams, signal),
+    // Managed tasks read only in response to Submit, never because a retained
+    // observer becomes active again or a list cache is invalidated.
+    enabled: !managed && submittedParams !== null,
+    staleTime: managed ? Infinity : 0,
+    refetchOnWindowFocus: managed ? false : undefined,
+    refetchOnReconnect: managed ? false : undefined,
     retry: false,
   })
+  useEffect(() => {
+    if (requestVersion === dispatchedVersion.current) return
+    dispatchedVersion.current = requestVersion
+    if (active && submittedParams) void previewQuery.refetch()
+  }, [requestVersion, active, submittedParams, previewQuery.refetch])
 
   const percentFormatter = useMemo(
     () =>
@@ -97,6 +123,7 @@ export function ChannelRoutingPreview() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!active || previewQuery.isFetching) return
     const normalizedGroup = group.trim()
     const normalizedModel = model.trim()
     if (!normalizedGroup || !normalizedModel) {
@@ -106,6 +133,11 @@ export function ChannelRoutingPreview() {
       group: normalizedGroup,
       model: normalizedModel,
       request_path: requestPath.trim() || undefined,
+    }
+    if (managed) {
+      setSubmittedParams(params)
+      setRequestVersion((version) => version + 1)
+      return
     }
     if (
       submittedParams?.group === params.group &&
@@ -121,7 +153,7 @@ export function ChannelRoutingPreview() {
   const errorCode = resolveChannelRoutingPreviewErrorCode(
     previewQuery.error,
     previewQuery.data
-  )
+  ) ?? (previewQuery.data?.success === true && !previewQuery.data.data ? 'routing_preview_request_failed' : undefined)
   const businessError =
     previewQuery.data !== undefined && !previewQuery.data.success
   const previewData =
@@ -135,6 +167,18 @@ export function ChannelRoutingPreview() {
     tiers.some((tier) =>
       tier.channels.some((channel) => (channel.cooldown_until ?? 0) > 0)
     )
+
+  const hasRead = previewQuery.data?.success === true && previewQuery.data.data != null
+  const readAt = Math.max(previewQuery.dataUpdatedAt, previewQuery.errorUpdatedAt)
+  let phase: ChannelTaskReadState['phase'] = 'unread'
+  if (previewQuery.isError || businessError || errorCode) phase = 'error'
+  else if (previewQuery.isFetching) phase = 'loading'
+  else if (hasRead) phase = 'ready'
+  useEffect(() => {
+    const auth = useAuthStore.getState().auth
+    if (props.identity !== `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`) return
+    props.onReadStateChange?.({ phase, readAt: readAt > 0 ? readAt / 1000 : undefined })
+  }, [props.identity, props.onReadStateChange, phase, readAt])
 
   let errorMessage = t('Unable to load routing preview.')
   if (errorCode === 'routing_preview_invalid_params') {
@@ -237,7 +281,7 @@ export function ChannelRoutingPreview() {
           <Button
             type='submit'
             className='self-end'
-            disabled={!group.trim() || !model.trim() || previewQuery.isFetching}
+            disabled={!active || !group.trim() || !model.trim() || previewQuery.isFetching}
           >
             {previewQuery.isFetching ? t('Loading...') : t('Preview routing')}
           </Button>

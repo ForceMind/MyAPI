@@ -163,6 +163,7 @@ test('a direct return focuses its row once and a later refresh preserves the use
   await renderTable('/channels/?focusConnectionId=23')
   const name = await screen.findByRole('link', { name: 'needle-channel' })
   await waitFor(() => expect(name).toHaveFocus())
+  await userEvent.click(screen.getByRole('button', { name: 'More filters (0)' }))
   const input = screen.getByPlaceholderText('Filter by model...')
   input.focus()
   await act(async () => client.invalidateQueries({ queryKey: ['channels'] }))

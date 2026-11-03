@@ -1191,6 +1191,72 @@ class Drawing:
                 self.text(x+10,self.y+text_h+33,'选择 / 输入 …',13,color='#666666',width=cw-20)
             self.y+=h+12
         self.y+=4
+    def workspace_controls(self,labels,columns=None):
+        cols=columns or (2 if self.mobile else len(labels));gap=8;cw=(self.cw-gap*(cols-1))/cols
+        for start in range(0,len(labels),cols):
+            row=labels[start:start+cols]
+            h=max(44,18+max(len(wrap(label,cw-16,12)) for label in row)*19)
+            for j,label in enumerate(row):
+                x=self.margin+j*(cw+gap);self.rect(x,self.y,cw,h,'#fafafa','#888888');self.text(x+8,self.y+25,label,12,width=cw-16)
+            self.y+=h+8
+        self.y+=8
+    def channel_workspace_view(self):
+        p=self.page
+        if p['id']=='connection-edit':
+            self.workspace_controls(['基本连接','账户凭据','模型与分组','高级设置'],2 if self.mobile else 4)
+            self.fields(['连接名称〔完整〕','供应商类型〔原选项〕','地址 / 接入方式','当前所需凭据字段'],'当前主分区 · 其余原字段按选中分区显示')
+            h=self.block('高级配置入口〔默认收起；错误自动展开〕',['已配置 N 组  ›  选路 / 参数 / 请求头 / 状态码 / 透传','手机与桌面都能直达同一分区；不因优先级/权重非0铺开全部内容','原保存、风险确认、取消、字段校验与返回焦点保留']);self.y+=h+18
+            return
+        labels=['渠道库','额度证据','全部事件','路由预览']
+        self.workspace_controls(labels,4)
+        if p['id']=='channels':
+            self.workspace_controls(['创建渠道','选择渠道','显示设置 ▾','全库维护 ▾'])
+            self.workspace_controls(['搜索名称 / ID / Key …','状态：全部 ▾','更多筛选 N ▾','监控 / 选路 / 自定义 ▾'],1 if self.mobile else 4)
+            if self.mobile:
+                for idx in range(2):
+                    y=self.y;h=160;self.rect(self.margin,y,self.cw,h,'#ffffff','#888888')
+                    self.text(self.margin+12,y+24,f'合成渠道 {idx+1}  #'+str(7+idx),14,'600',width=self.cw-24)
+                    self.text(self.margin+12,y+49,'供应商 · 状态：未知',12,width=self.cw-24)
+                    self.text(self.margin+12,y+75,'余额 / 用量 未知 · 上次保存测试 —',12,width=self.cw-24)
+                    self.text(self.margin+12,y+100,'完整字段 / 备注 / 原因  ▾',12,width=self.cw-24)
+                    self.rect(self.margin+12,y+112,self.cw-24,36,'#eeeeee','#aaaaaa');self.text(self.margin+24,y+136,'查看 / 编辑 / 测试 / 更多〔原权限〕',12,width=self.cw-48)
+                    self.y+=h+12
+            else:
+                cols=['渠道名称 / ID','供应商','状态','余额 / 用量','上次保存测试','操作']; widths=[.24,.13,.12,.18,.17,.16]
+                x=self.margin
+                for label,ratio in zip(cols,widths):
+                    w=self.cw*ratio;self.rect(x,self.y,w,44,'#ededed','#aaaaaa',rx=0);self.text(x+10,self.y+27,label,12,'600',width=w-18);x+=w
+                self.y+=44
+                for idx in range(3):
+                    row=[f'合成渠道 {idx+1}  #'+str(7+idx),'原供应商','未知','— / 未知','未测试 / 已存时间','编辑 测试 更多'];x=self.margin
+                    for value,ratio in zip(row,widths):
+                        w=self.cw*ratio;self.rect(x,self.y,w,62,'#ffffff','#bbbbbb',rx=0);self.text(x+10,self.y+30,value,12,width=w-18);x+=w
+                    self.y+=62
+                self.y+=16
+            self.workspace_controls(['首 / 上一页','第 N 页 · 总数未知','20 / 50 / 100 条','下一页 / 末页'])
+            h=self.block('显式信息视图与操作范围',['选路视图：优先级 / 权重 / 分组 / 模型 / Tag与原行内编辑','自定义列：保留原所有列和个人列宽，不覆盖旧偏好','选中数值ID / 整个Tag / 全部渠道分别确认，不混同范围']);self.y+=h+18
+            return
+        self.workspace_controls(['返回渠道库','当前范围：明确对象 / 全部渠道'],1 if self.mobile else 2)
+        if p['id']=='channel-evidence-workspace':
+            self.workspace_controls(['原时间范围 / 日期','窗口 / 状态筛选','刷新保存证据'],1 if self.mobile else 3)
+            if self.mobile:
+                self.workspace_controls(['请选择账户窗口 ▾〔当前不自动替换对象〕'],1)
+                h=self.block('证据主正文 · 默认尚未选择',['选中后读取这一series的图 / 数字表 / 完整状态','错误、Unknown、来源不完整在筛选外保持可见']);self.y+=h+18
+            else:
+                gap=16;left=270;right=self.cw-left-gap;y=self.y
+                h1=self.block('账户窗口目录',['明确账号 / 窗口 / 观察状态','合成窗口A · 未知','合成窗口B · 读取失败仍可选'],x=self.margin,w=left,y=y)
+                h2=self.block('请选择账户窗口 · 未自动读明细',['选择后才读取精确series历史，原来源/单位/币种/计划不混加','图表与原指标/方法/时间参数完整保留','目标渠道没有证据：明确提示，不展示另一个渠道'],x=self.margin+left+gap,w=right,y=y)
+                self.y+=max(h1,h2)+18
+                self.rect(self.margin+left+gap,self.y,right,150,'#fafafa','#aaaaaa',dash=True);self.text(self.margin+left+gap+18,self.y+75,'选中后的图表 / 数值表占位 · 无合成消耗曲线',13,width=right-36);self.y+=168
+        elif p['id']=='channel-events-workspace':
+            self.workspace_controls(['范围：全部渠道〔API不支持单渠道筛选〕','原状态筛选 ▾','刷新已存事件'],1 if self.mobile else 3)
+            for idx in range(3):
+                h=self.block(f'合成事件 {idx+1} · 原状态 / 投递状态',['渠道与窗口 / 发生时间 / kind','当前原证据：available / total / unit / resetAt','查看完整series/ref/投递错误  ▾']);self.y+=h+10
+            self.workspace_controls(['上一页','第 N 页 · 总数未知','下一页'],1 if self.mobile else 3)
+        else:
+            self.fields(['明确分组〔必填〕','明确模型〔必填〕','请求路径〔可选〕'],'路由预览 · 切任务保草稿')
+            self.workspace_controls(['提交预览〔必填完整后可用〕'],1)
+            h=self.block('上次只读快照 / 未提交空态',['优先级与fallback层级 → 完整候选及0权重','拒绝原因 / cooldown / account hold / 缓存与epoch','只读本地配置，不是Key权限、预算或供应商调用成功证明']);self.y+=h+18
     def stats(self):
         values=self.page['stats']
         if not values:return
@@ -1304,7 +1370,7 @@ class Drawing:
         self.y+=self.text(self.margin,self.y+18,p['title'],22 if self.mobile else 26,'600',width=self.cw)+10
         self.y+=self.text(self.margin,self.y+14,p['url'],11,color='#666666',width=self.cw)+12
         self.banner('已批准的信息层级方案 · 合成占位 · 实现待CI / 浏览器未验证 · 不连接API' if p.get('information_hierarchy') else '低保真设计提案 · 合成占位 · 待确认 · 不连接API / 不执行业务动作')
-        self.tabs()
+        if not p.get('channel_workspace'):self.tabs()
         if not p.get('channel_workspace'):self.stats()
         if p['id']=='request-bodies':
             self.buttons([p['actions'][3],p['actions'][4]])
@@ -1320,7 +1386,10 @@ class Drawing:
         kind=p['kind']
         footer_actions=kind in ['form','overlay','auth','setup','calendar','chat']
         if not footer_actions and p['id']!='request-bodies' and not p.get('channel_workspace'):self.buttons()
-        if p.get('information_hierarchy'):
+        if p.get('channel_workspace'):
+            self.channel_workspace_view()
+            h=self.block('状态与返回边界',p['information_hierarchy']['notes']);self.y+=h+18
+        elif p.get('information_hierarchy'):
             review=p['information_hierarchy']
             h=self.block('默认收起态 · 首屏',review['closed']);self.y+=h+18
             h=self.block('明确点击后的展开态 · 同一页面',review['open']);self.y+=h+18

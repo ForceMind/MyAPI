@@ -118,7 +118,8 @@ test('keeps method and chart style local while query parameters refetch independ
       granularity: 'auto',
       rate_window: 3600,
       ewma_half_life: 1800,
-    })
+    }),
+    { signal: expect.any(AbortSignal) }
   )
 
   fireEvent.change(screen.getByLabelText('Consumption rate'), {
@@ -137,7 +138,8 @@ test('keeps method and chart style local while query parameters refetch independ
   await waitFor(() => expect(getChannelQuotaHistory).toHaveBeenCalledTimes(2))
   expect(getChannelQuotaHistory).toHaveBeenLastCalledWith(
     12,
-    expect.objectContaining({ rate_window: 21600 })
+    expect.objectContaining({ rate_window: 21600 }),
+    { signal: expect.any(AbortSignal) }
   )
 
   fireEvent.change(screen.getByLabelText('EWMA half-life'), {
@@ -146,7 +148,8 @@ test('keeps method and chart style local while query parameters refetch independ
   await waitFor(() => expect(getChannelQuotaHistory).toHaveBeenCalledTimes(3))
   expect(getChannelQuotaHistory).toHaveBeenLastCalledWith(
     12,
-    expect.objectContaining({ ewma_half_life: 3600 })
+    expect.objectContaining({ ewma_half_life: 3600 }),
+    { signal: expect.any(AbortSignal) }
   )
 
   fireEvent.change(screen.getByLabelText('Chart granularity'), {
@@ -159,6 +162,7 @@ test('keeps method and chart style local while query parameters refetch independ
       granularity: 'minute',
       rate_window: 21600,
       ewma_half_life: 3600,
-    })
+    }),
+    { signal: expect.any(AbortSignal) }
   )
 })

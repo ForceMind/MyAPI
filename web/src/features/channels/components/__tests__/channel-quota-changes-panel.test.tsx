@@ -125,7 +125,8 @@ describe('channel quota changes panel', () => {
     })
     await waitFor(() =>
       expect(getChannelQuotaChanges).toHaveBeenLastCalledWith(
-        expect.objectContaining({ range: '7d' })
+        expect.objectContaining({ range: '7d' }),
+        { signal: expect.any(AbortSignal) }
       )
     )
     await waitFor(() =>
@@ -137,7 +138,8 @@ describe('channel quota changes panel', () => {
           ewma_half_life: 1800,
           source: 'codex_wham_usage_primary',
           window_type: 'weekly',
-        })
+        }),
+        { signal: expect.any(AbortSignal) }
       )
     )
     expect(screen.getByLabelText('Metric')).toHaveValue('rate_per_minute')

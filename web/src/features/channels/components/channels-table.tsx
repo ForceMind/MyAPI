@@ -25,13 +25,16 @@ import type {
   Row,
 } from '@tanstack/react-table'
 import { Eye, EyeOff } from 'lucide-react'
-import { useState, useMemo, useEffect, type MouseEvent } from 'react'
+import { useState, useMemo, useEffect, useRef, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
   DISABLED_ROW_DESKTOP,
   DISABLED_ROW_MOBILE,
   DataTablePage,
+  DataTableToolbar,
+  DataTableViewModeToggle,
+  useDataTableViewMode,
   DataTableRow,
   useDebouncedColumnFilter,
   useDataTable,
@@ -54,14 +57,9 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { useMediaQuery } from '@/hooks'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
-import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
 
 import { getChannels, searchChannels, getGroups } from '../api'
@@ -75,19 +73,18 @@ import {
   aggregateChannelsByTag,
   getChannelTableRowId,
   isTagAggregateRow,
-  getChannelTypeIcon,
   getChannelTypeLabel,
 } from '../lib'
 import { getChannelSortParams } from '../lib/channel-routing'
 import type { Channel } from '../types'
+import type { ChannelTaskProps, ChannelTaskReadState } from '../channel-task-state'
+import { CHANNEL_INVENTORY_PROFILE_KEY, channelInventoryStorage, channelInventoryVisibility, type ChannelInventoryProfile } from '../lib/channel-inventory-profile'
 import { ChannelCard } from './channel-card'
 import { useChannelsColumns } from './channels-columns'
 import { useChannels } from './channels-provider'
 import { DataTableBulkActions } from './data-table-bulk-actions'
 
 const route = getRouteApi('/_authenticated/channels/')
-const CHANNELS_COLUMN_VISIBILITY_STORAGE_KEY = 'channels:column-visibility'
-const CHANNELS_COLUMN_SIZING_STORAGE_KEY = 'channels:column-sizing'
 const CHANNELS_VIEW_MODE_STORAGE_KEY = 'channels:view-mode'
 const CHANNELS_STATUS_FILTER_STORAGE_KEY = 'channel-status-filter'
 
@@ -97,7 +94,7 @@ function isDisabledChannelRow(channel: Channel) {
   )
 }
 
-export function ChannelsTable() {
+export function ChannelsTable(props: ChannelTaskProps = {}) {
   const { t } = useTranslation()
   const {
     enableTagMode,
@@ -114,6 +111,21 @@ export function ChannelsTable() {
   const actor = useAuthStore((state) => [state.auth.user?.id, state.auth.session?.sid, state.auth.user?.role, hasPermission(state.auth.user, 'channel', 'read')].join(':'))
   const canRead = Boolean(currentUser && currentUser.role >= ROLE.ADMIN && hasPermission(currentUser, 'channel', 'read'))
   const rememberFocus = useRememberReturnFocus()
+
+  const active = props.active ?? true
+  const [profile, setProfile] = useState<ChannelInventoryProfile>(() => {
+    try {
+      const saved = localStorage.getItem(CHANNEL_INVENTORY_PROFILE_KEY)
+      return saved === 'routing' || saved === 'custom' ? saved : 'monitoring'
+    } catch {
+      return 'monitoring'
+    }
+  })
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [viewMode, setViewMode] = useDataTableViewMode({ storageKey: CHANNELS_VIEW_MODE_STORAGE_KEY, defaultMode: 'card' })
+  const profileStorage = channelInventoryStorage(profile)
+  const profileVisibility = useMemo(() => channelInventoryVisibility(profile), [profile])
+  const lastReadReport = useRef('')
 
   // Table state
   const [sorting, setSorting] = useState<SortingState>([])
@@ -194,6 +206,10 @@ export function ChannelsTable() {
     onColumnFiltersChange,
   })
 
+  const modelFilterActive = Boolean(modelFilter.trim())
+  const typeFilterActive = typeFilter.length > 0 && !typeFilter.includes('all')
+  const groupFilterActive = groupFilter.length > 0 && !groupFilter.includes('all')
+
   // Determine whether to use search or regular list API
   const shouldSearch = Boolean(globalFilter?.trim() || modelFilter.trim())
 
@@ -225,7 +241,7 @@ export function ChannelsTable() {
   const { data: groupsData } = useQuery({
     queryKey: ['groups', actor],
     queryFn: getGroups,
-    enabled: canRead,
+    enabled: canRead && active,
   })
 
   const groupOptions = useMemo(
@@ -239,7 +255,7 @@ export function ChannelsTable() {
 
   // Fetch channels data
   // eslint-disable-next-line @tanstack/query/exhaustive-deps
-  const { data, isError, isLoading, isFetching, refetch } = useQuery({
+  const { data, isError, isLoading, isFetching, refetch, dataUpdatedAt, errorUpdatedAt } = useQuery({
     queryKey: [...channelsQueryKeys.list({
       keyword: globalFilter,
       model: modelFilter,
@@ -261,7 +277,7 @@ export function ChannelsTable() {
       p: pagination.pageIndex + 1,
       page_size: pagination.pageSize,
     }), actor],
-    enabled: canRead,
+    enabled: canRead && active,
     queryFn: async () => {
       const result = shouldSearch
         ? await searchChannels({
@@ -313,6 +329,20 @@ export function ChannelsTable() {
     },
   })
 
+  useEffect(() => {
+    let phase: ChannelTaskReadState['phase'] = 'unread'
+    if (!canRead || isError) phase = 'error'
+    else if (isFetching) phase = 'loading'
+    else if (data) phase = 'ready'
+    if (!active && phase === 'unread') return
+    const updatedAt = phase === 'error' ? errorUpdatedAt : dataUpdatedAt
+    const readAt = updatedAt > 0 ? updatedAt / 1000 : undefined
+    const report = JSON.stringify([actor, phase, readAt])
+    if (lastReadReport.current === report) return
+    lastReadReport.current = report
+    props.onReadStateChange?.({ phase, readAt })
+  }, [active, actor, canRead, isError, isFetching, data, dataUpdatedAt, errorUpdatedAt, props.onReadStateChange])
+
   // Apply tag aggregation if tag mode is enabled
   const channels = useMemo(() => {
     const rawChannels = isError || !canRead ? [] : data?.data?.items || []
@@ -346,6 +376,7 @@ export function ChannelsTable() {
   const columns = useChannelsColumns({
     enableSelection: batchMode,
     tagMode: enableTagMode,
+    profile,
   })
 
   // React Table instance
@@ -354,14 +385,11 @@ export function ChannelsTable() {
     columns,
     totalCount,
     sorting: effectiveSorting,
-    initialColumnVisibility: {
-      models: false,
-      tag: false,
-    },
-    columnVisibilityStorageKey: CHANNELS_COLUMN_VISIBILITY_STORAGE_KEY,
+    initialColumnVisibility: profileVisibility,
+    columnVisibilityStorageKey: profileStorage.visibility,
     columnSizingStorageKey: isMobile
       ? false
-      : CHANNELS_COLUMN_SIZING_STORAGE_KEY,
+      : profileStorage.sizing,
     columnFilters,
     pagination,
     globalFilter,
@@ -429,12 +457,10 @@ export function ChannelsTable() {
         count: totalTypes,
       },
       ...typeIds.map((item) => {
-        const iconName = getChannelTypeIcon(item.type)
         return {
           label: getChannelTypeLabel(item.type),
           value: String(item.type),
           count: item.count,
-          iconNode: getLobeIcon(`${iconName}.Color`, 16),
         }
       }),
     ]
@@ -452,7 +478,7 @@ export function ChannelsTable() {
   useReturnFocus({
     attribute: 'data-connection-link',
     requestedId: search.focusConnectionId,
-    settled: !isLoading && !isFetching,
+    settled: active && !isLoading && !isFetching,
     rows: data,
   })
   // A pointer anywhere on a channel row opens its connection page, except on
@@ -517,14 +543,15 @@ export function ChannelsTable() {
         )}
         skeletonKeyPrefix='channel-skeleton'
         enableCardView
-        viewModeStorageKey={CHANNELS_VIEW_MODE_STORAGE_KEY}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
         renderCard={(row, { isSelected }) => (
-          <ChannelCard row={row} isSelected={isSelected} />
+          <ChannelCard row={row} isSelected={isSelected} profile={profile} />
         )}
         cardGridClassName='grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-3'
         applyHeaderSize
         fixedHeight={false}
-        pagination={!isError ? (
+        pagination={active && !isError ? (
           <LogPagination
             label={t('Connections')}
             page={pagination.pageIndex + 1}
@@ -535,64 +562,76 @@ export function ChannelsTable() {
             onPageSizeChange={(pageSize) => onPaginationChange({ pageIndex: 0, pageSize })}
           />
         ) : null}
-        toolbarProps={{
-          searchPlaceholder: t('Filter by name, ID, or key...'),
-          searchDebounceMs: 500,
-          onReset: () => {
-            resetModelFilterInput()
-          },
-          additionalSearch: (
-            <Input
-              aria-label={t('Model')}
-              placeholder={t('Filter by model...')}
-              value={modelFilterInput}
-              onChange={onModelFilterInputChange}
-              onCompositionStart={onModelFilterCompositionStart}
-              onCompositionEnd={onModelFilterCompositionEnd}
-              className='w-full sm:w-[150px] lg:w-[180px]'
+        toolbar={
+          <div className='space-y-3 [&_[data-myapi-button]]:min-h-11 [&_select]:min-h-11'>
+            <div className='flex flex-wrap items-center justify-between gap-3'>
+              <label className='flex min-w-0 items-center gap-2 text-sm'>
+                {t('Inventory view')}
+                <NativeSelect aria-label={t('Inventory view')} value={profile} onChange={(event) => {
+                  const value = event.target.value
+                  if (value !== 'monitoring' && value !== 'routing' && value !== 'custom') return
+                  setProfile(value)
+                  try { localStorage.setItem(CHANNEL_INVENTORY_PROFILE_KEY, value) } catch { /* Keep in-memory controls available. */ }
+                }}>
+                  <NativeSelectOption value='monitoring'>{t('Monitoring view')}</NativeSelectOption>
+                  <NativeSelectOption value='routing'>{t('Routing view')}</NativeSelectOption>
+                  <NativeSelectOption value='custom'>{t('Custom columns')}</NativeSelectOption>
+                </NativeSelect>
+              </label>
+              <DataTableViewModeToggle value={viewMode} onChange={setViewMode} />
+            </div>
+            <DataTableToolbar
+              table={table}
+              searchPlaceholder={t('Filter by name, ID, or key...')}
+              searchDebounceMs={500}
+              onReset={resetModelFilterInput}
+              hideViewOptions={profile !== 'custom'}
+              filters={[{ columnId: 'status', title: t('Status'), options: [...CHANNEL_STATUS_OPTIONS], singleSelect: true }]}
+              preActions={<>
+                <Button type='button' variant='outline' aria-expanded={filtersOpen} onClick={() => setFiltersOpen((value) => !value)}>
+                  {t('More filters ({{count}})', { count: Number(modelFilterActive) + Number(typeFilterActive) + Number(groupFilterActive) })}
+                </Button>
+                <Button type='button' variant='ghost' aria-label={sensitiveVisible ? t('Mask channel identifiers') : t('Show channel identifiers')} aria-pressed={!sensitiveVisible} onClick={() => setSensitiveVisible(!sensitiveVisible)}>
+                  {sensitiveVisible ? <Eye aria-hidden='true' /> : <EyeOff aria-hidden='true' />}
+                  {sensitiveVisible ? t('Mask identifiers') : t('Show identifiers')}
+                </Button>
+              </>}
             />
-          ),
-          filters: [
-            {
-              columnId: 'status',
-              title: t('Status'),
-              options: [...CHANNEL_STATUS_OPTIONS],
-              singleSelect: true,
-            },
-            {
-              columnId: 'type',
-              title: t('Type'),
-              options: typeFilterOptions,
-              singleSelect: true,
-            },
-            {
-              columnId: 'group',
-              title: t('Group'),
-              options: groupFilterOptions,
-              singleSelect: true,
-            },
-          ],
-          preActions: (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant='ghost'
-                    size='icon'
-                    onClick={() => setSensitiveVisible(!sensitiveVisible)}
-                    aria-label={sensitiveVisible ? t('Hide') : t('Show')}
-                    className='text-muted-foreground hover:text-foreground size-8'
-                  />
-                }
-              >
-                {sensitiveVisible ? <Eye /> : <EyeOff />}
-              </TooltipTrigger>
-              <TooltipContent>
-                {sensitiveVisible ? t('Hide') : t('Show')}
-              </TooltipContent>
-            </Tooltip>
-          ),
-        }}
+            <div hidden={!filtersOpen} className='rounded-lg border p-3'>
+              <div className='grid gap-3 sm:grid-cols-3'>
+                <label className='space-y-1 text-sm'>
+                  {t('Model')}
+                  <Input aria-label={t('Model')} placeholder={t('Filter by model...')} value={modelFilterInput} onChange={onModelFilterInputChange} onCompositionStart={onModelFilterCompositionStart} onCompositionEnd={onModelFilterCompositionEnd} />
+                </label>
+                <label className='space-y-1 text-sm'>
+                  {t('Type')}
+                  <NativeSelect aria-label={t('Type')} value={typeFilter.includes('all') ? 'all' : typeFilter[0] ?? 'all'} onChange={(event) => table.getColumn('type')?.setFilterValue(event.target.value === 'all' ? undefined : [event.target.value])}>
+                    {typeFilter[0] && !typeFilterOptions.some((option) => option.value === typeFilter[0]) && <NativeSelectOption value={typeFilter[0]}>{typeFilter[0]}</NativeSelectOption>}
+                    {typeFilterOptions.map((option) => <NativeSelectOption key={option.value} value={option.value}>{t(option.label)}</NativeSelectOption>)}
+                  </NativeSelect>
+                </label>
+                <label className='space-y-1 text-sm'>
+                  {t('Group')}
+                  <NativeSelect aria-label={t('Group')} value={groupFilter.includes('all') ? 'all' : groupFilter[0] ?? 'all'} onChange={(event) => table.getColumn('group')?.setFilterValue(event.target.value === 'all' ? undefined : [event.target.value])}>
+                    {groupFilter[0] && !groupFilterOptions.some((option) => option.value === groupFilter[0]) && <NativeSelectOption value={groupFilter[0]}>{sensitiveVisible ? groupFilter[0] : '••••'}</NativeSelectOption>}
+                    {groupFilterOptions.map((option) => <NativeSelectOption key={option.value} value={option.value}>{option.label}</NativeSelectOption>)}
+                  </NativeSelect>
+                </label>
+              </div>
+            </div>
+            {(modelFilterActive || typeFilterActive || groupFilterActive) && (
+              <p className='text-muted-foreground text-sm wrap-anywhere'>{t('Active inventory filters')}: {[
+                modelFilterActive ? `${t('Model')}: ${sensitiveVisible ? modelFilter : '••••'}` : '',
+                typeFilterActive ? `${t('Type')}: ${t(getChannelTypeLabel(Number(typeFilter[0])))}` : '',
+                groupFilterActive ? `${t('Group')}: ${sensitiveVisible ? groupFilter[0] : '••••'}` : '',
+              ].filter(Boolean).join(' · ')}</p>
+            )}
+            {(typeFilter.length > 1 || groupFilter.length > 1 || statusFilter.length > 1) && (
+              <p className='text-muted-foreground text-sm'>{t('Legacy multi-value filters keep their original URL values. All takes precedence; otherwise the first value is used.')}</p>
+            )}
+            {profile === 'custom' && <p className='text-muted-foreground text-xs'>{t('Custom columns retain your previous channel column and width preferences.')}</p>}
+          </div>
+        }
         renderRow={(row, helpers) => (
           <DataTableRow
             key={row.id}
@@ -617,7 +656,7 @@ export function ChannelsTable() {
           }
           return DISABLED_ROW_DESKTOP
         }}
-        bulkActions={batchMode ? <DataTableBulkActions table={table} /> : null}
+        bulkActions={active && batchMode ? <DataTableBulkActions table={table} /> : null}
       />
     </ConnectionListContext>
   )

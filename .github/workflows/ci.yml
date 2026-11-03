@@ -601,6 +601,13 @@ jobs:
           src/features/pricing/components/__tests__/model-catalog-card.test.tsx
           src/features/rankings/__tests__/public-rankings-state.test.tsx
 
+      - name: Verify channel inventory and explicit evidence workspace contracts
+        run: >-
+          bun run test src/features/channels/components/__tests__/channel-workspace-page.test.tsx
+          src/features/channels/components/__tests__/channel-inventory-task.test.tsx
+          src/features/channels/components/__tests__/channel-evidence-task.test.tsx
+          src/features/channels/components/drawers/__tests__/sensitive-tools-drawer.test.tsx
+
       - name: Verify remaining settings, analytics and public task contracts
         run: >-
           bun run test src/features/system-settings src/features/system-info

@@ -35,8 +35,10 @@ import { toast } from 'sonner'
 import { ConnectionListContext } from '@/features/connections/connection-list-context'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
-import { BadgeListCell } from '@/components/data-table'
+import { hasPermission } from '@/lib/admin-permissions'
+import { useAuthStore } from '@/stores/auth-store'
 import { GroupBadge } from '@/components/group-badge'
+import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { useRememberReturnFocus } from '@/components/object-page/return-focus'
 import { ProviderBadge } from '@/components/provider-badge'
 import { StatusBadge, type StatusBadgeProps } from '@/components/status-badge'
@@ -81,6 +83,7 @@ import {
 } from '../lib'
 import { isChannelSortDisabledInTagMode } from '../lib/channel-routing'
 import { parseUpstreamUpdateMeta } from '../lib/upstream-update-utils'
+import type { ChannelInventoryProfile } from '../lib/channel-inventory-profile'
 import type { Channel } from '../types'
 import { ChannelRowActionsLayoutContext } from './channel-row-actions-context'
 import { useChannels } from './channels-provider'
@@ -195,6 +198,8 @@ function PriorityCell({ channel }: { channel: Channel }) {
 
 function TagPriorityCell({ channel }: { channel: TagRow }) {
   const { t } = useTranslation()
+  const user = useAuthStore((state) => state.auth.user)
+  const canWrite = hasPermission(user, 'channel', 'write')
   const queryClient = useQueryClient()
   const priority = channel.priority
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -204,7 +209,9 @@ function TagPriorityCell({ channel }: { channel: TagRow }) {
 
   return (
     <>
+      <div role='group' aria-label={t('Priority')} className='[&>div]:max-w-full [&>div>div]:h-auto [&>div>div]:min-h-11 [&>div>div]:max-w-full [&>div>div]:flex-wrap [&_button]:min-h-11 [&_button]:min-w-11 [&_input]:min-h-11'>
       <NumericSpinnerInput
+        disabled={!canWrite}
         value={priority ?? 0}
         onChange={(value) => {
           setPendingValue(value)
@@ -212,6 +219,7 @@ function TagPriorityCell({ channel }: { channel: TagRow }) {
         }}
         min={-999}
       />
+      </div>
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
@@ -222,6 +230,7 @@ function TagPriorityCell({ channel }: { channel: TagRow }) {
         )}
         confirmText={t('Update')}
         handleConfirm={() => {
+          if (!canWrite) return
           if (pendingValue !== null) {
             handleUpdateTagField(tag, 'priority', pendingValue, queryClient)
           }
@@ -243,24 +252,42 @@ function ChannelFieldCell({
   field: 'priority' | 'weight'
   min: number
 }) {
+  const { t } = useTranslation()
+  const user = useAuthStore((state) => state.auth.user)
+  const actorId = user?.id
+  const actorRole = user?.role
+  const actorSid = useAuthStore((state) => state.auth.session?.sid ?? null)
+  const canWrite = hasPermission(user, 'channel', 'write')
   const queryClient = useQueryClient()
   const fieldUpdateScheduler = useMemo(
     () =>
       createChannelFieldUpdateScheduler((nextValue) => {
+        const current = useAuthStore.getState().auth
+        if (
+          current.user?.id !== actorId ||
+          current.user?.role !== actorRole ||
+          (current.session?.sid ?? null) !== actorSid ||
+          !hasPermission(current.user, 'channel', 'write')
+        ) {
+          return
+        }
         void handleUpdateChannelField(channelId, field, nextValue, queryClient)
       }),
-    [channelId, field, queryClient]
+    [channelId, field, queryClient, actorId, actorRole, actorSid]
   )
 
   useEffect(() => () => fieldUpdateScheduler.flush(), [fieldUpdateScheduler])
 
   return (
+    <div role='group' aria-label={field === 'priority' ? t('Priority') : t('Weight')} className='[&>div]:max-w-full [&>div>div]:h-auto [&>div>div]:min-h-11 [&>div>div]:max-w-full [&>div>div]:flex-wrap [&_button]:min-h-11 [&_button]:min-w-11 [&_input]:min-h-11'>
     <NumericSpinnerInput
+      disabled={!canWrite}
       value={value ?? 0}
       onChange={fieldUpdateScheduler.schedule}
       onCommit={fieldUpdateScheduler.flush}
       min={min}
     />
+    </div>
   )
 }
 
@@ -284,6 +311,8 @@ function WeightCell({ channel }: { channel: Channel }) {
 
 function TagWeightCell({ channel }: { channel: TagRow }) {
   const { t } = useTranslation()
+  const user = useAuthStore((state) => state.auth.user)
+  const canWrite = hasPermission(user, 'channel', 'write')
   const queryClient = useQueryClient()
   const weight = channel.weight
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -293,7 +322,9 @@ function TagWeightCell({ channel }: { channel: TagRow }) {
 
   return (
     <>
+      <div role='group' aria-label={t('Weight')} className='[&>div]:max-w-full [&>div>div]:h-auto [&>div>div]:min-h-11 [&>div>div]:max-w-full [&>div>div]:flex-wrap [&_button]:min-h-11 [&_button]:min-w-11 [&_input]:min-h-11'>
       <NumericSpinnerInput
+        disabled={!canWrite}
         value={weight ?? 0}
         onChange={(value) => {
           setPendingValue(value)
@@ -301,6 +332,7 @@ function TagWeightCell({ channel }: { channel: TagRow }) {
         }}
         min={0}
       />
+      </div>
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
@@ -311,6 +343,7 @@ function TagWeightCell({ channel }: { channel: TagRow }) {
         )}
         confirmText={t('Update')}
         handleConfirm={() => {
+          if (!canWrite) return
           if (pendingValue !== null) {
             handleUpdateTagField(tag, 'weight', pendingValue, queryClient)
           }
@@ -616,12 +649,14 @@ export function useChannelsColumns(
   options: {
     enableSelection?: boolean
     tagMode?: boolean
+    profile?: ChannelInventoryProfile
   } = {}
 ): ColumnDef<Channel>[] {
   const { t, i18n } = useTranslation()
   const { sensitiveVisible } = useChannels()
   const enableSelection = options.enableSelection ?? true
   const tagMode = options.tagMode ?? false
+  const profile = options.profile ?? 'custom'
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   // The column definitions only depend on the translation function, the active
   // locale, and sensitive-data visibility. Memoizing keeps the array (and every
@@ -674,6 +709,7 @@ export function useChannelsColumns(
         header: t('ID'),
         meta: { mobileHidden: true },
         cell: ({ row }) => {
+          if (isTagAggregateRow(row.original)) return <span className='text-muted-foreground'>-</span>
           const id = row.getValue('id') as number
           return <TableId value={sensitiveVisible ? id : SENSITIVE_MASK} />
         },
@@ -702,7 +738,7 @@ export function useChannelsColumns(
                   className='h-6 w-6 p-0'
                   onClick={row.getToggleExpandedHandler()}
                   aria-expanded={row.getIsExpanded()}
-                  aria-label={row.getIsExpanded() ? t('Collapse tag {{tag}}', { tag }) : t('Expand tag {{tag}}', { tag })}
+                  aria-label={row.getIsExpanded() ? t('Collapse tag {{tag}}', { tag: sensitiveVisible ? tag : SENSITIVE_MASK }) : t('Expand tag {{tag}}', { tag: sensitiveVisible ? tag : SENSITIVE_MASK })}
                 >
                   {row.getIsExpanded() ? (
                     <ChevronDown className='h-4 w-4' />
@@ -711,9 +747,9 @@ export function useChannelsColumns(
                   )}
                 </Button>
                 <div className='flex items-center gap-1.5'>
-                  <span className='font-semibold'>Tag：{tag}</span>
+                  <span className='font-semibold'>{t('Tag')}: {sensitiveVisible ? tag : SENSITIVE_MASK}</span>
                   <StatusBadge
-                    label={`${childrenCount} channels`}
+                    label={t('Channels ({{count}})', { count: childrenCount })}
                     variant='blue'
                     size='sm'
                     copyable={false}
@@ -771,21 +807,11 @@ export function useChannelsColumns(
                   )}
                   <UpstreamUpdateTags channel={channel} />
                 </div>
+                {profile !== 'custom' && <span className='text-muted-foreground font-mono text-xs'>#{sensitiveVisible ? channel.id : SENSITIVE_MASK}</span>}
                 {channel.remark && (
-                  <TooltipProvider delay={200}>
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <span className='text-muted-foreground text-xs' />
-                        }
-                      >
-                        {truncateText(channel.remark, 40)}
-                      </TooltipTrigger>
-                      <TooltipContent side='bottom' className='max-w-xs'>
-                        {channel.remark}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <SummaryDisclosure summary={t('Channel notes')}>
+                    <p className='text-muted-foreground text-xs wrap-anywhere'>{channel.remark}</p>
+                  </SummaryDisclosure>
                 )}
               </div>
             </div>
@@ -926,7 +952,7 @@ export function useChannelsColumns(
           }
           return value.includes(String(row.getValue(id)))
         },
-        size: 220,
+        size: profile === 'custom' ? 220 : 160,
         enableSorting: false,
       },
 
@@ -948,7 +974,7 @@ export function useChannelsColumns(
             if (hasEnabled) {
               return (
                 <StatusBadge
-                  label={`Active (${childrenCount})`}
+                  label={t('Enabled channels present ({{count}} returned)', { count: childrenCount })}
                   variant='success'
                   size='sm'
                   copyable={false}
@@ -958,7 +984,7 @@ export function useChannelsColumns(
             } else {
               return (
                 <StatusBadge
-                  label={`Inactive (${childrenCount})`}
+                  label={t('Disabled aggregate ({{count}} returned)', { count: childrenCount })}
                   variant='neutral'
                   size='sm'
                   copyable={false}
@@ -1005,43 +1031,29 @@ export function useChannelsColumns(
 
             if (statusReason || statusTime) {
               return (
-                <TooltipProvider delay={100}>
-                  <Tooltip>
-                    <TooltipTrigger render={<span />}>
-                      <StatusBadge
-                        label={label}
-                        variant={config.variant}
-                        size='sm'
-                        copyable={false}
-                      />
-                    </TooltipTrigger>
-                    <TooltipContent side='top' className='max-w-xs'>
-                      <div className='space-y-1 text-xs'>
-                        {statusReason && (
-                          <div>
-                            {t('Reason:')} {statusReason}
-                          </div>
-                        )}
-                        {statusTime && (
-                          <div>
-                            {t('Time:')} {statusTime}
-                          </div>
-                        )}
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <div className='flex min-w-0 flex-wrap items-center gap-2'>
+                  <StatusBadge label={label} variant={config.variant} size='sm' copyable={false} />
+                  <DataTableRowActions row={row} placement='status' />
+                  {statusReason && <p className='w-full text-xs text-warning wrap-anywhere'>{truncateText(statusReason, 80)}</p>}
+                  <SummaryDisclosure summary={t('Disabled channel details')}>
+                    {statusReason && <p className='text-xs wrap-anywhere'>{t('Reason:')} {statusReason}</p>}
+                    {statusTime && <p className='text-xs'>{t('Time:')} {statusTime}</p>}
+                  </SummaryDisclosure>
+                </div>
               )
             }
           }
 
           return (
+            <div className='flex min-w-0 flex-wrap items-center gap-2'>
             <StatusBadge
               label={label}
               variant={config.variant}
               size='sm'
               copyable={false}
             />
+              <DataTableRowActions row={row} placement='status' />
+            </div>
           )
         },
         filterFn: (row, id, value) => {
@@ -1069,19 +1081,22 @@ export function useChannelsColumns(
         cell: ({ row }) => {
           const models = row.getValue('models') as string
           const modelArray = parseModelsList(models)
-          return (
-            <BadgeListCell
-              items={modelArray.map((model) => (
-                <StatusBadge
-                  key={model}
-                  label={model}
-                  autoColor={model}
-                  size='sm'
-                  className='font-mono'
-                />
-              ))}
-            />
-          )
+          return modelArray.length > 0 ? (
+            <SummaryDisclosure summary={t('Models ({{count}})', { count: modelArray.length })}>
+              <ul className='space-y-1 font-mono text-xs wrap-anywhere'>
+                {modelArray.map((model) => <li key={model}>
+                  <StatusBadge label={model} autoColor={model} role='button' tabIndex={0} className='h-auto min-h-11 max-w-full font-mono whitespace-normal' onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      event.currentTarget.click()
+                    }
+                  }}>
+                    <span className='whitespace-normal wrap-anywhere'>{model}</span>
+                  </StatusBadge>
+                </li>)}
+              </ul>
+            </SummaryDisclosure>
+          ) : <span className='text-muted-foreground'>-</span>
         },
         size: 200,
         enableSorting: false,
@@ -1095,18 +1110,17 @@ export function useChannelsColumns(
         cell: ({ row }) => {
           const group = row.getValue('group') as string
           const groupArray = parseGroupsList(group)
-          return (
-            <BadgeListCell
-              items={groupArray.map((g) => (
-                <GroupBadge
-                  key={g}
-                  group={g}
-                  label={sensitiveVisible ? undefined : SENSITIVE_MASK}
-                  size='sm'
-                />
-              ))}
-            />
-          )
+          return groupArray.length > 0 ? (
+            <SummaryDisclosure summary={t('Groups ({{count}})', { count: groupArray.length })}>
+              <ul className='space-y-1 text-xs wrap-anywhere'>
+                {groupArray.map((group) => <li key={group}>
+                  <GroupBadge group={group} label={sensitiveVisible ? undefined : SENSITIVE_MASK} size='sm' className='h-auto max-w-full whitespace-normal'>
+                    <span className='whitespace-normal wrap-anywhere'>{sensitiveVisible ? group : SENSITIVE_MASK}</span>
+                  </GroupBadge>
+                </li>)}
+              </ul>
+            </SummaryDisclosure>
+          ) : <span className='text-muted-foreground'>-</span>
         },
         filterFn: (row, id, value) => {
           if (!value || value.length === 0 || value.includes('all')) {
@@ -1150,7 +1164,7 @@ export function useChannelsColumns(
         header: t('Priority'),
         meta: { mobileHidden: true },
         cell: ({ row }) => <PriorityCell channel={row.original} />,
-        size: 100,
+        size: profile === 'custom' ? 100 : 160,
         enableSorting: !isChannelSortDisabledInTagMode('priority', tagMode),
       },
 
@@ -1160,7 +1174,7 @@ export function useChannelsColumns(
         header: t('Weight'),
         meta: { mobileHidden: true },
         cell: ({ row }) => <WeightCell channel={row.original} />,
-        size: 90,
+        size: profile === 'custom' ? 90 : 160,
         enableSorting: !isChannelSortDisabledInTagMode('weight', tagMode),
       },
 
@@ -1175,13 +1189,14 @@ export function useChannelsColumns(
       // Response Time column
       {
         accessorKey: 'response_time',
-        header: t('Response'),
+        header: profile === 'monitoring' ? t('Last saved test') : t('Response'),
         meta: { mobileHidden: true },
         cell: ({ row }) => {
           const responseTime = row.getValue('response_time') as number
           const config = getResponseTimeConfig(responseTime)
 
           return (
+            <div className='space-y-1'>
             <StatusBadge
               label={formatResponseTime(responseTime, t)}
               variant={config.variant}
@@ -1189,6 +1204,8 @@ export function useChannelsColumns(
               copyable={false}
               className='-ml-1.5'
             />
+              {profile === 'monitoring' && !isTagAggregateRow(row.original) && <p className='text-muted-foreground text-xs'>{row.original.test_time ? formatTimestampToDate(row.original.test_time) : t('Not tested')}</p>}
+            </div>
           )
         },
         size: 110,
@@ -1253,13 +1270,14 @@ export function useChannelsColumns(
             )
           }
 
-          return <DataTableRowActions row={row} />
+          return <DataTableRowActions row={row} placement='actions' />
         },
         enableSorting: false,
         enableHiding: false,
+        size: profile === 'custom' ? 150 : 220,
         meta: { pinned: 'right' as const },
       },
     ],
-    [enableSelection, tagMode, t, locale, sensitiveVisible]
+    [enableSelection, tagMode, profile, t, locale, sensitiveVisible]
   )
 }

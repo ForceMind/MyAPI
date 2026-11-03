@@ -45,6 +45,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuGroup,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
@@ -78,9 +80,10 @@ import { useChannels } from './channels-provider'
 
 interface DataTableRowActionsProps {
   row: Row<Channel>
+  placement?: 'all' | 'actions' | 'status'
 }
 
-export function DataTableRowActions({ row }: DataTableRowActionsProps) {
+export function DataTableRowActions({ row, placement = 'all' }: DataTableRowActionsProps) {
   const { t } = useTranslation()
   const layout = useContext(ChannelRowActionsLayoutContext)
   const connectionReturn = useContext(ConnectionListContext)
@@ -174,18 +177,48 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
     statusIcon = <PowerOff className='size-4' />
   }
 
+  const statusControl = (
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant='ghost'
+              size='icon-sm'
+              type='button'
+              onClick={handleToggleStatus}
+              disabled={isTogglingStatus || !canOperate}
+              aria-label={isEnabled ? t('Disable') : t('Enable')}
+              className={
+                isEnabled
+                  ? 'min-h-11 min-w-11 text-destructive hover:text-destructive'
+                  : 'min-h-11 min-w-11 text-success hover:text-success'
+              }
+            />
+          }
+        >
+          {statusIcon}
+        </TooltipTrigger>
+        <TooltipContent>
+          {isEnabled ? t('Disable') : t('Enable')}
+        </TooltipContent>
+      </Tooltip>
+
+  )
+  if (placement === 'status') return statusControl
+
   return (
-    <div className='flex min-w-0 flex-wrap items-center gap-1' data-row-actions='' data-channel-actions={String(channel.id)} onClick={(event) => event.stopPropagation()}>
-      <Link to='/connections/$connectionId' params={{ connectionId: String(channel.id) }} search={{ connectionReturn }} state={{ inspectorBack: true }} onClick={() => rememberFocus('data-connection-link', channel.id)} className='text-primary rounded-md px-2 py-1 text-sm underline-offset-4 hover:underline focus-visible:underline'>
+    <div className='flex min-w-0 flex-wrap items-center gap-1 [&_[data-myapi-button]]:min-h-11 [&_[data-myapi-button]]:min-w-11' data-row-actions='' data-channel-actions={String(channel.id)} onClick={(event) => event.stopPropagation()}>
+      <Link to='/connections/$connectionId' params={{ connectionId: String(channel.id) }} search={{ connectionReturn }} state={{ inspectorBack: true }} onClick={() => rememberFocus('data-connection-link', channel.id)} className='text-primary inline-flex min-h-11 items-center rounded-md px-2 py-1 text-sm underline-offset-4 hover:underline focus-visible:underline'>
         {t('View')}
       </Link>
-      {layout !== 'card' && (
+      {(layout !== 'card' || placement === 'actions') && (
         <Tooltip>
           <TooltipTrigger
             render={
               <Button
                 variant='ghost'
                 size='icon-sm'
+                className='h-auto min-h-11 w-auto min-w-11 px-2'
                 onClick={(e) => {
                   e.stopPropagation()
                   handleEdit()
@@ -196,7 +229,8 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
               />
             }
           >
-            <Pencil className='size-4' />
+            <Pencil className='size-4' aria-hidden='true' />
+            <span>{t('Edit')}</span>
           </TooltipTrigger>
           <TooltipContent>{t('Edit')}</TooltipContent>
         </Tooltip>
@@ -208,6 +242,8 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
             <Button
               variant='ghost'
               size='icon-sm'
+              className='h-auto min-h-11 w-auto min-w-11 px-2'
+              type='button'
               onClick={handleDirectTest}
               disabled={isTesting || !canOperate}
               aria-label={t('Test Connection')}
@@ -217,35 +253,14 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           {isTesting ? (
             <Loader2 className='size-4 animate-spin' />
           ) : (
-            <Gauge className='size-4' />
+            <Gauge className='size-4' aria-hidden='true' />
           )}
+          <span>{t('Test')}</span>
         </TooltipTrigger>
         <TooltipContent>{t('Test Connection')}</TooltipContent>
       </Tooltip>
 
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              variant='ghost'
-              size='icon-sm'
-              onClick={handleToggleStatus}
-              disabled={isTogglingStatus || !canOperate}
-              aria-label={isEnabled ? t('Disable') : t('Enable')}
-              className={
-                isEnabled
-                  ? 'text-destructive hover:text-destructive'
-                  : 'text-success hover:text-success'
-              }
-            />
-          }
-        >
-          {statusIcon}
-        </TooltipTrigger>
-        <TooltipContent>
-          {isEnabled ? t('Disable') : t('Enable')}
-        </TooltipContent>
-      </Tooltip>
+      {placement === 'all' && statusControl}
 
       <DropdownMenu>
         <DropdownMenuTrigger
@@ -259,8 +274,8 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           <MoreHorizontal className='h-4 w-4' />
           <span className='sr-only'>{t('Open menu')}</span>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align='end' className='w-48'>
-          {layout === 'card' && (
+        <DropdownMenuContent align='end' className='w-64 [&_[role=menuitem]]:min-h-11'>
+          {layout === 'card' && placement === 'all' && (
             <DropdownMenuItem onClick={handleEdit} disabled={!canWrite}>
               {t('Edit')}
               <DropdownMenuShortcut>
@@ -269,6 +284,8 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
             </DropdownMenuItem>
           )}
 
+          <DropdownMenuGroup>
+          <DropdownMenuLabel>{t('Diagnostics')}</DropdownMenuLabel>
           {/* Test Connection */}
           <DropdownMenuItem onClick={handleTest} disabled={!canOperate}>
             {t('Advanced test')}
@@ -278,15 +295,19 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           </DropdownMenuItem>
 
           {/* Query Balance */}
-          <DropdownMenuItem onClick={handleQueryBalance}>
+          <DropdownMenuItem onClick={handleQueryBalance} disabled={channel.type !== 57 && !canOperate}>
             {t('Query Balance')}
             <DropdownMenuShortcut>
               <DollarSign size={16} />
             </DropdownMenuShortcut>
           </DropdownMenuItem>
 
+          <DropdownMenuSeparator />
+          </DropdownMenuGroup>
+          <DropdownMenuGroup>
+          <DropdownMenuLabel>{t('Model configuration')}</DropdownMenuLabel>
           {/* Fetch Models */}
-          <DropdownMenuItem onClick={handleFetchModels}>
+          <DropdownMenuItem onClick={handleFetchModels} disabled={!canOperate}>
             {t('Fetch Models')}
             <DropdownMenuShortcut>
               <Download size={16} />
@@ -322,7 +343,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
 
           {/* Ollama Models (only for Ollama channels) */}
           {channel.type === 4 && (
-            <DropdownMenuItem onClick={handleManageOllamaModels}>
+            <DropdownMenuItem onClick={handleManageOllamaModels} disabled={!canOperate && !canEditSensitive}>
               {t('Manage Ollama Models')}
               <DropdownMenuShortcut>
                 <Boxes size={16} />
@@ -332,6 +353,9 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
 
           <DropdownMenuSeparator />
 
+          </DropdownMenuGroup>
+          <DropdownMenuGroup>
+          <DropdownMenuLabel>{t('Credential maintenance')}</DropdownMenuLabel>
           {/* Copy Channel */}
           <DropdownMenuItem
             disabled={!canEditSensitive}
@@ -350,7 +374,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
 
           {/* Manage Keys (only for multi-key channels) */}
           {isMultiKey && (
-            <DropdownMenuItem onClick={handleManageKeys}>
+            <DropdownMenuItem onClick={handleManageKeys} disabled={!canOperate}>
               {t('Manage Keys')}
               <DropdownMenuShortcut>
                 <Key size={16} />
@@ -360,6 +384,9 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
 
           <DropdownMenuSeparator />
 
+          </DropdownMenuGroup>
+          <DropdownMenuGroup>
+          <DropdownMenuLabel>{t('Dangerous operations')}</DropdownMenuLabel>
           {/* Delete */}
           <DropdownMenuItem
             disabled={!canEditSensitive}
@@ -375,6 +402,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
               <Trash2 size={16} />
             </DropdownMenuShortcut>
           </DropdownMenuItem>
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
 

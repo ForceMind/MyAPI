@@ -27,7 +27,7 @@ export function ConnectionViewSwitcher(props: {
       {props.view === 'table' ? (
         <span aria-current='page' className={activeClass}>{t('Table view')}</span>
       ) : (
-        <Link to='/channels' search={tableSearch} data-myapi-button='' className={linkClass}>{t('Table view')}</Link>
+        <Link to='/channels' hash='channel-inventory' search={tableSearch} data-myapi-button='' className={linkClass}>{t('Table view')}</Link>
       )}
     </nav>
   )

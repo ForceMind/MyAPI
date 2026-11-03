@@ -67,6 +67,9 @@ export function DataTableBulkActions<TData>({
     ADMIN_PERMISSION_ACTIONS.SENSITIVE_WRITE
   )
 
+  const canOperate = hasPermission(currentUser, 'channel', 'operate')
+  const canWrite = hasPermission(currentUser, 'channel', 'write')
+
   const selectedRows = table.getFilteredSelectedRowModel().rows
   const selectedIds = selectedRows.reduce<number[]>((ids, row) => {
     const id = (row.original as Channel).id
@@ -109,6 +112,7 @@ export function DataTableBulkActions<TData>({
   return (
     <>
       <BulkActionsToolbar table={table} entityName='channel'>
+        <span className='text-sm'>{t('Selected channel IDs ({{count}})', { count: selectedIds.length })}</span>
         <Tooltip>
           <TooltipTrigger
             render={
@@ -116,14 +120,15 @@ export function DataTableBulkActions<TData>({
                 variant='outline'
                 size='icon'
                 onClick={handleEnableAll}
-                className='size-8'
+                disabled={!canOperate}
+                className='min-h-11 min-w-11'
                 aria-label={t('Enable selected channels')}
                 title={t('Enable selected channels')}
               />
             }
           >
             <Power />
-            <span className='sr-only'>{t('Enable selected channels')}</span>
+            <span className='max-sm:sr-only'>{t('Enable selected channels')}</span>
           </TooltipTrigger>
           <TooltipContent>
             <p>{t('Enable selected channels')}</p>
@@ -137,14 +142,15 @@ export function DataTableBulkActions<TData>({
                 variant='outline'
                 size='icon'
                 onClick={handleDisableAll}
-                className='size-8'
+                disabled={!canOperate}
+                className='min-h-11 min-w-11'
                 aria-label={t('Disable selected channels')}
                 title={t('Disable selected channels')}
               />
             }
           >
             <PowerOff />
-            <span className='sr-only'>{t('Disable selected channels')}</span>
+            <span className='max-sm:sr-only'>{t('Disable selected channels')}</span>
           </TooltipTrigger>
           <TooltipContent>
             <p>{t('Disable selected channels')}</p>
@@ -158,14 +164,15 @@ export function DataTableBulkActions<TData>({
                 variant='outline'
                 size='icon'
                 onClick={() => setShowTagDialog(true)}
-                className='size-8'
+                disabled={!canWrite}
+                className='min-h-11 min-w-11'
                 aria-label={t('Set tag for selected channels')}
                 title={t('Set tag for selected channels')}
               />
             }
           >
             <Tag />
-            <span className='sr-only'>
+            <span className='max-sm:sr-only'>
               {t('Set tag for selected channels')}
             </span>
           </TooltipTrigger>
@@ -186,7 +193,7 @@ export function DataTableBulkActions<TData>({
                 }}
                 aria-disabled={!canEditSensitive}
                 className={cn(
-                  'size-8',
+                  'min-h-11 min-w-11',
                   !canEditSensitive && 'cursor-not-allowed opacity-50'
                 )}
                 aria-label={t('Delete selected channels')}
@@ -199,7 +206,7 @@ export function DataTableBulkActions<TData>({
             }
           >
             <Trash2 />
-            <span className='sr-only'>{t('Delete selected channels')}</span>
+            <span className='max-sm:sr-only'>{t('Delete selected channels')}</span>
           </TooltipTrigger>
           <TooltipContent>
             <p>
@@ -236,7 +243,7 @@ export function DataTableBulkActions<TData>({
             >
               {t('Cancel')}
             </Button>
-            <Button onClick={handleSetTag}>{t('Set Tag')}</Button>
+            <Button onClick={handleSetTag} disabled={!canWrite}>{t('Set Tag')}</Button>
           </>
         }
       >

@@ -107,6 +107,7 @@ export function ConnectionPage() {
         if (connectionReturn?.view === 'table') {
           void navigate({
             to: '/channels',
+            hash: 'channel-inventory',
             search: {
               ...connectionsToTableSearch(connectionReturn),
               focusConnectionId: connectionId,

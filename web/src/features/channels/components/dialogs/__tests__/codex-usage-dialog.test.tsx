@@ -172,7 +172,8 @@ describe('Codex usage history uses the unified detailed chart', () => {
         expect.objectContaining({
           source: primary.source,
           window_type: primary.window_type,
-        })
+        }),
+        { signal: expect.any(AbortSignal) }
       )
     )
   })
@@ -210,7 +211,8 @@ describe('Codex usage history uses the unified detailed chart', () => {
         unit: 'percent',
         window_seconds: 18000,
         plan_type: 'team',
-      })
+      }),
+      { signal: expect.any(AbortSignal) }
     )
     fireEvent.change(screen.getByLabelText('Metric'), {
       target: { value: 'rate_per_minute' },
@@ -264,7 +266,8 @@ describe('Codex usage history uses the unified detailed chart', () => {
         expect.objectContaining({
           source: secondary.source,
           window_type: 'weekly',
-        })
+        }),
+        { signal: expect.any(AbortSignal) }
       )
     )
     fireEvent.change(screen.getByLabelText('Chart granularity'), {
@@ -273,7 +276,8 @@ describe('Codex usage history uses the unified detailed chart', () => {
     await waitFor(() =>
       expect(getChannelQuotaHistory).toHaveBeenLastCalledWith(
         12,
-        expect.objectContaining({ granularity: 'minute' })
+        expect.objectContaining({ granularity: 'minute' }),
+        { signal: expect.any(AbortSignal) }
       )
     )
     fireEvent.change(screen.getByLabelText('Time range'), {
@@ -293,7 +297,8 @@ describe('Codex usage history uses the unified detailed chart', () => {
           range: 'custom',
           start: new Date('2026-09-01T08:00').toISOString(),
           end: new Date('2026-09-01T10:00').toISOString(),
-        })
+        }),
+        { signal: expect.any(AbortSignal) }
       )
     )
     await waitFor(() => expect(screen.getByLabelText('Refresh')).toBeEnabled())

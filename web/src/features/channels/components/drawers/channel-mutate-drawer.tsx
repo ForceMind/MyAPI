@@ -82,6 +82,7 @@ import {
 } from '@/components/ui/form'
 import { IconBadge, type IconBadgeTone } from '@/components/ui/icon-badge'
 import { Input } from '@/components/ui/input'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
   Select,
   SelectContent,
@@ -354,33 +355,6 @@ function hasConfiguredOverrideValue(value: unknown): boolean {
   return true
 }
 
-function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
-  return Boolean(
-    hasConfiguredOverrideValue(values.param_override) ||
-    hasConfiguredOverrideValue(values.header_override) ||
-    values.advanced_custom?.trim() ||
-    hasConfiguredOverrideValue(values.status_code_mapping) ||
-    values.tag?.trim() ||
-    values.remark?.trim() ||
-    values.priority ||
-    values.weight ||
-    values.proxy?.trim() ||
-    values.input_token_limits?.trim() ||
-    values.system_prompt?.trim() ||
-    values.force_format ||
-    values.thinking_to_content ||
-    values.pass_through_body_enabled ||
-    values.system_prompt_override ||
-    (values.http_protocol && values.http_protocol !== 'auto') ||
-    (values.http2_connection_shards != null &&
-      values.http2_connection_shards > 1) ||
-    values.claude_beta_query ||
-    values.upstream_model_update_check_enabled ||
-    values.upstream_model_update_auto_sync_enabled ||
-    values.upstream_model_update_ignored_models?.trim()
-  )
-}
-
 function parseSettingsRecord(
   settings: string | undefined
 ): Record<string, unknown> {
@@ -517,7 +491,24 @@ function ChannelEditorNav(props: {
   expandedItemId?: string
   onNavigate: (targetId: string) => void
 }) {
+  const { t } = useTranslation()
   return (
+    <>
+      <nav className='min-w-0 lg:hidden' aria-label={props.navigationLabel}>
+        <NativeSelect
+          aria-label={t('Channel editor section')}
+          className='w-full [&_select]:min-h-11'
+          value={props.activeItemId ?? props.items[0]?.id ?? ''}
+          onChange={(event) => props.onNavigate(event.target.value)}
+        >
+          {props.items.map((item) => (
+            <optgroup key={item.id} label={item.title}>
+              <NativeSelectOption value={item.id}>{item.title} · {item.statusLabel}</NativeSelectOption>
+              {item.children?.map((child) => <NativeSelectOption key={child.id} value={child.id}>{item.title} · {child.title}</NativeSelectOption>)}
+            </optgroup>
+          ))}
+        </NativeSelect>
+      </nav>
     <aside className='hidden self-start lg:sticky lg:top-4 lg:z-20 lg:block'>
       <div className='flex max-h-[calc(100dvh-12rem)] flex-col gap-3 overflow-y-auto overscroll-contain pr-1'>
         <div className='border-border/60 bg-muted/20 rounded-lg border p-3'>
@@ -630,6 +621,7 @@ function ChannelEditorNav(props: {
         </nav>
       </div>
     </aside>
+    </>
   )
 }
 
@@ -1060,7 +1052,6 @@ export function ChannelMutateDrawer({
   const advancedStatus: ChannelEditorSectionStatus = advancedHaveErrors
     ? 'error'
     : 'idle'
-  const advancedSummary = advancedHaveErrors ? t('Error') : undefined
   const routingStrategyConfigured = Boolean(
     currentPriority ||
     currentWeight ||
@@ -1155,6 +1146,9 @@ export function ChannelMutateDrawer({
       configured: upstreamModelDetectionConfigured,
     })
   }
+  const advancedSummary = advancedHaveErrors
+    ? t('Error')
+    : t('Configured advanced sections ({{count}})', { count: advancedNavChildren.filter((item) => item.configured).length })
   const editorNavItems: ChannelEditorNavItem[] = [
     {
       id: CHANNEL_EDITOR_SECTION_IDS.identity,
@@ -1323,7 +1317,7 @@ export function ChannelMutateDrawer({
       const defaults = transformChannelToFormDefaults(channelData.data)
       form.reset(defaults)
       setAdvancedSettingsOpen(
-        readAdvancedSettingsPreference() || hasAdvancedSettingsValues(defaults)
+        readAdvancedSettingsPreference()
       )
       // Store initial values for comparison
       initialModelsRef.current = parseModelsString(
@@ -1974,12 +1968,12 @@ export function ChannelMutateDrawer({
 
   const onInvalid: SubmitErrorHandler<ChannelFormValues> = useCallback(
     (errors) => {
-      if (hasAdvancedSettingsErrors(errors)) {
-        handleAdvancedSettingsOpenChange(true)
+      if (hasAdvancedSettingsErrors(errors) || errors.advanced_custom) {
+        handleEditorNavNavigate(CHANNEL_EDITOR_SECTION_IDS.advanced)
       }
       toast.error(t('Please fix the highlighted fields before saving'))
     },
-    [handleAdvancedSettingsOpenChange, t]
+    [handleEditorNavNavigate, t]
   )
 
   // Handle drawer close
