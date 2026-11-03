@@ -155,7 +155,7 @@ it('keeps malformed raw policy visible and invalid without revealing its client 
   await user.click(advanced)
   expect(advanced).toHaveAttribute('aria-expanded', 'true')
   fireEvent.input(policy, { target: { value: '{ "opaque": 0 }' } })
-  await waitFor(() => expect(policy).toHaveAttribute('aria-invalid', 'false'))
+  await waitFor(() => expect(policy).not.toHaveAttribute('aria-invalid'))
   expect(advanced).toHaveAttribute('aria-expanded', 'true')
   await user.click(advanced)
   expect(policy).not.toBeVisible()

@@ -8,6 +8,8 @@
 
 当前beta.31合并候选为钱包三任务、用户权限/绑定、分配访问模型、OAuth分组，以及凭据idle迁移、预算/策略说明、分组关系8处，先更新8视图/16SVG，仍329视图/658SVG/66路由；不是8个新增路由或视觉验收。产品源/21新增合成用例及必要目录错误透出/购买回焦依赖集中在TASKS；候选尚未Actions通过不能当可部署版本。40新键en/zh、另五英回填；版本仅仓库五模板beta.31，不是发布。所有构建测试只Actions，本机仅源码/JSON/XML/Git轻量检查，无本机依赖/工具链/浏览器/Docker/产物下载；生产/实际.env/真实供应商/模型/发布/main均未动。浏览器未验证；后台无查询能力的采样策略仍在本轮UI范围外。下文候选/最近绿均为历史取证，以本节及真实CI为准。
 
+beta.31首轮 `83af4ada8b548ca385f0aec3346ea7ea07cad629` / [CI41649572171](https://github.com/ForceMind/MyAPI/actions/runs/41649572171)前端125963839564原始日志已亲读：早期types/lint通过（24警告0错误），认证180/摘要28/渠道37/模型来源23通过；钱包/权限/OAuth6文件36例27通过/9失败。后面的凭据/预算/分组专项尚未运行，取消失效候选，不声称完整绿。钱包5项首差异均是实际成功字幕前有“· ”而新测试少此前缀（真实DOM已有25/0/4对应数）；只同步7处精确完整字幕，不改owner/读取或后续断言。权限3项实为已展开且可达的checkbox名称由两个span黏连，实际Synthetic readRead description；只补标签间文本空格，原精确name、false/继承/载荷断言保持。OAuth1项是新测试错期待合法JSON的aria-invalid=false，真实JsonCodeEditor合法时移除属性；改精确absence断言，非法true/原文/强制展开/0请求不变，不改共享编辑器或校验准入。仍需下一轮验证更深断言。
+
 本次合并范围为原两个隔离UI组，未新增金融/鉴权/供应商目标。11个呈现/读取源与10个测试路径：权限3源/2新test/owner-session旧4处展开；钱包1源/1新test和PurchaseDialog仅可选returnFocus UI透传；OAuth1源/原test新增3例；凭据/预算/用量3源+原3test+独立真实HTTP凭据新test；分组详情1源/1新test；另users/api.ts仅既有catalog getter验证success及两个数组，失败抛消息，成功返回shape/URL/config和所有写方法不变。原权限/金额/JSON/CAS/nonce/proof/phase handlers/API载荷与重试门禁不改。
 
 钱包保当前/记录/选购及分页、读取失败不伪真空，未知报价/次数不伪0；自审补已知total+未知used分列、Canceled/Expired与未知日期独立。权限raw true/false/继承明示，目录失败/缺data Unknown+Retry保草稿不显示伪0；原checkbox normalize及保存准入保持。OAuth先基本/凭据/回调，后端点/映射/高级分组，原字段keepMounted；独立只读审查发现坏JSON不属RHF错误可被新折叠隐藏，Root复用既有JSON校验，错误外露强制展开、无RHF错误的aria-invalid为undefined，不改schema/原JSON/保存准入；新增真实input坏JSON/修复保持展开与Secret不入摘要用例，错误焦点复用已有FormValidationFocus。

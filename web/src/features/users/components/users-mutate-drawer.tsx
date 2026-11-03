@@ -635,7 +635,7 @@ export function UsersMutateDrawer({
                                                   }}
                                                 />
                                                 <span className='flex min-w-0 flex-col gap-1 break-words'>
-                                                  <span className='text-sm font-medium'>{t(option.label_key)}</span>
+                                                  <span className='text-sm font-medium'>{t(option.label_key)}</span>{' '}
                                                   <span className='text-muted-foreground text-xs'>{t(option.description_key)}</span>
                                                 </span>
                                               </label>

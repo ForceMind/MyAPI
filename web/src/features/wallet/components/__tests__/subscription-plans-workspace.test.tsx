@@ -50,7 +50,7 @@ function planCard(title: string) {
 it('keeps current, locally paged records and plans as explicit tasks without extra reads or writes', async () => {
   plans = plans.map((entry, index) => index === 0 ? { plan: { ...entry.plan, max_purchase_per_user: 25 } } : entry)
   mount()
-  await screen.findByText('Loaded subscription records: 25')
+  await screen.findByText('· Loaded subscription records: 25')
   const user = userEvent.setup()
   expect(screen.getByRole('tab', { name: 'Current subscriptions' })).toHaveAttribute('aria-selected', 'true')
   expect(screen.queryByRole('heading', { name: 'Synthetic plan 31' })).not.toBeInTheDocument()
@@ -112,7 +112,7 @@ it('keeps independent read failures visible and distinguishes unknown quotes and
 
 it('preserves a failed explicit preference command and permits history while purchases are disabled', async () => {
   mount(false)
-  await screen.findByText('Loaded subscription records: 25')
+  await screen.findByText('· Loaded subscription records: 25')
   expect(api.get).toHaveBeenCalledExactlyOnceWith('/api/subscription/self', {})
   const user = userEvent.setup()
   expect(screen.getByRole('tab', { name: 'Browse plans' })).toBeDisabled()
@@ -132,7 +132,7 @@ it('preserves a failed explicit preference command and permits history while pur
 it('opens the original precise purchase confirmation without payment and returns focus while its original close refresh is pending', async () => {
   plans = [plan(31)]
   mount()
-  await screen.findByText('Loaded subscription records: 25')
+  await screen.findByText('· Loaded subscription records: 25')
   const user = userEvent.setup()
   await user.click(screen.getByRole('tab', { name: 'Browse plans' }))
   await user.click(planCard('Synthetic plan 31').getByRole('button', { name: 'Subscribe Now' }))
@@ -166,10 +166,10 @@ it('rejects an old SID read without restoring old private records or sending wri
   mount()
   await waitFor(() => expect(selfReads).toBe(1))
   await act(async () => { setSession('wallet-session-two') })
-  await screen.findByText('Loaded subscription records: 0')
+  await screen.findByText('· Loaded subscription records: 0')
   await act(async () => { if (!oldRead) throw new Error('Expected the old SID request'); oldRead({ data: selfData() }) })
-  expect(screen.getByText('Loaded subscription records: 0')).toBeVisible()
-  expect(screen.queryByText('Loaded subscription records: 25')).not.toBeInTheDocument()
+  expect(screen.getByText('· Loaded subscription records: 0')).toBeVisible()
+  expect(screen.queryByText('· Loaded subscription records: 25')).not.toBeInTheDocument()
   expect(screen.getByRole('combobox', { name: 'Billing preference' })).toHaveTextContent('Wallet Only')
   expect(api.put).not.toHaveBeenCalled()
   expect(api.post).not.toHaveBeenCalled()
@@ -189,7 +189,7 @@ it('preserves each known quota and terminal state independently from unknown usa
     throw new Error(`Unexpected synthetic wallet GET ${url}`)
   })
   mount()
-  await screen.findByText('Loaded subscription records: 4')
+  await screen.findByText('· Loaded subscription records: 4')
   const user = userEvent.setup()
   await user.click(screen.getByRole('tab', { name: 'Subscription records' }))
   const rows = screen.getByRole('tabpanel', { name: 'Subscription records' })
