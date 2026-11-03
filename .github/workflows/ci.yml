@@ -589,6 +589,7 @@ jobs:
           git -c core.fileMode=false diff --exit-code -- src/i18n/locales/en.json src/i18n/locales/zh.json src/i18n/locales/zh-TW.json src/i18n/locales/fr.json src/i18n/locales/ja.json src/i18n/locales/ru.json src/i18n/locales/vi.json
 
       - name: Verify frontend source types and lint before regressions
+        id: frontend-source-checks
         run: |
           myapi_source_checks_status=0
           bun run typecheck || myapi_source_checks_status=1
@@ -634,6 +635,7 @@ jobs:
           src/features/subscriptions/components/dialogs/__tests__/subscription-task-layout.test.tsx
 
       - name: Verify sensitive guidance and group relationship disclosures
+        if: ${{ !cancelled() && steps.frontend-source-checks.outcome == 'success' }}
         run: >-
           bun run test src/features/keys/components/__tests__/credential-maintenance-hierarchy.test.tsx
           src/features/keys/components/__tests__/credential-maintenance-dialog.test.tsx

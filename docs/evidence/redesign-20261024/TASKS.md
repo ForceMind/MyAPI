@@ -10,7 +10,9 @@
 
 beta.31首轮 `83af4ada8b548ca385f0aec3346ea7ea07cad629` / [CI41649572171](https://github.com/ForceMind/MyAPI/actions/runs/41649572171)前端125963839564原始日志已亲读：早期types/lint通过（24警告0错误），认证180/摘要28/渠道37/模型来源23通过；钱包/权限/OAuth6文件36例27通过/9失败。后面的凭据/预算/分组专项尚未运行，取消失效候选，不声称完整绿。钱包5项首差异均是实际成功字幕前有“· ”而新测试少此前缀（真实DOM已有25/0/4对应数）；只同步7处精确完整字幕，不改owner/读取或后续断言。权限3项实为已展开且可达的checkbox名称由两个span黏连，实际Synthetic readRead description；只补标签间文本空格，原精确name、false/继承/载荷断言保持。OAuth1项是新测试错期待合法JSON的aria-invalid=false，真实JsonCodeEditor合法时移除属性；改精确absence断言，非法true/原文/强制展开/0请求不变，不改共享编辑器或校验准入。仍需下一轮验证更深断言。
 
-本次合并范围为原两个隔离UI组，未新增金融/鉴权/供应商目标。11个呈现/读取源与10个测试路径：权限3源/2新test/owner-session旧4处展开；钱包1源/1新test和PurchaseDialog仅可选returnFocus UI透传；OAuth1源/原test新增3例；凭据/预算/用量3源+原3test+独立真实HTTP凭据新test；分组详情1源/1新test；另users/api.ts仅既有catalog getter验证success及两个数组，失败抛消息，成功返回shape/URL/config和所有写方法不变。原权限/金额/JSON/CAS/nonce/proof/phase handlers/API载荷与重试门禁不改。
+beta.31第二轮 `102d3a82056752f216ed5b94e45a3b8b22cf2c24` / [CI41650856078](https://github.com/ForceMind/MyAPI/actions/runs/41650856078)前端125968293956原始日志已读：上述早期专项36例33通过/3失败，权限/OAuth及钱包回焦/SID已通过；仅钱包新测试两处Unlimited漏同一元素中的Total Quota前缀，以及BaseUI禁用Tab为aria-disabled而非native disabled。日志确知total0显示Total Quota: Unlimited，改精确完整文本；保禁购断言并实际fireEvent点击验证aria-disabled=true、aria-selected=false、当前页不变、无选购/Subscribe、GET/POST不增，不改控件/金融逻辑/超时。失败候选取消，未跑到的后续不记成功。独立的凭据/预算/分组专项只依早期source检查成功而运行，使前组失败也能读取其真实结果；原全部门禁和断言不减少，源码types失败仍快速失败。
+
+本次合并范围为原两个隔离UI组，未新增金融/鉴权/供应商目标。11个呈现/读取源与10个测试路径：权限3源/2新test/owner-session旧4处展开；钱包1源/1新test和PurchaseDialog仅可选returnFocus UI透传；OAuth1源/原test新增3例；凭据/预算/用量3源+原3test+独立真实HTTP凭据新test；分组详情1源/1newtest；另users/api.ts仅既有catalog getter验证success及两个数组，失败抛消息，成功返回shape/URL/config和所有写方法不变。原权限/金额/JSON/CAS/nonce/proof/phase handlers/API载荷与重试门禁不改。
 
 钱包保当前/记录/选购及分页、读取失败不伪真空，未知报价/次数不伪0；自审补已知total+未知used分列、Canceled/Expired与未知日期独立。权限raw true/false/继承明示，目录失败/缺data Unknown+Retry保草稿不显示伪0；原checkbox normalize及保存准入保持。OAuth先基本/凭据/回调，后端点/映射/高级分组，原字段keepMounted；独立只读审查发现坏JSON不属RHF错误可被新折叠隐藏，Root复用既有JSON校验，错误外露强制展开、无RHF错误的aria-invalid为undefined，不改schema/原JSON/保存准入；新增真实input坏JSON/修复保持展开与Secret不入摘要用例，错误焦点复用已有FormValidationFocus。
 

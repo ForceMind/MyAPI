@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
@@ -54,7 +54,7 @@ it('keeps current, locally paged records and plans as explicit tasks without ext
   const user = userEvent.setup()
   expect(screen.getByRole('tab', { name: 'Current subscriptions' })).toHaveAttribute('aria-selected', 'true')
   expect(screen.queryByRole('heading', { name: 'Synthetic plan 31' })).not.toBeInTheDocument()
-  expect(within(screen.getByRole('tabpanel', { name: 'Current subscriptions' })).getByText('Unlimited')).toBeVisible()
+  expect(within(screen.getByRole('tabpanel', { name: 'Current subscriptions' })).getByText('Total Quota: Unlimited')).toBeVisible()
   const reads = vi.mocked(api.get).mock.calls.length
   await user.click(screen.getByRole('tab', { name: 'Subscription records' }))
   const rows = screen.getByRole('tabpanel', { name: 'Subscription records' })
@@ -115,7 +115,16 @@ it('preserves a failed explicit preference command and permits history while pur
   await screen.findByText('· Loaded subscription records: 25')
   expect(api.get).toHaveBeenCalledExactlyOnceWith('/api/subscription/self', {})
   const user = userEvent.setup()
-  expect(screen.getByRole('tab', { name: 'Browse plans' })).toBeDisabled()
+  const browseTab = screen.getByRole('tab', { name: 'Browse plans' })
+  expect(browseTab).toHaveAttribute('aria-disabled', 'true')
+  const reads = vi.mocked(api.get).mock.calls.length
+  fireEvent.click(browseTab)
+  expect(browseTab).toHaveAttribute('aria-selected', 'false')
+  expect(screen.getByRole('tab', { name: 'Current subscriptions' })).toHaveAttribute('aria-selected', 'true')
+  expect(screen.queryByRole('tabpanel', { name: 'Browse plans' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Subscribe Now' })).not.toBeInTheDocument()
+  expect(api.get).toHaveBeenCalledTimes(reads)
+  expect(api.post).not.toHaveBeenCalled()
   await user.click(screen.getByRole('tab', { name: 'Subscription records' }))
   expect(screen.getByText('Subscription purchases are unavailable. Existing records remain readable.')).toBeVisible()
   vi.mocked(api.put).mockResolvedValue({ data: { success: false, message: 'Synthetic preference rejected' } })
@@ -203,7 +212,7 @@ it('preserves each known quota and terminal state independently from unknown usa
   expect(cancelled).toHaveTextContent(`Total Quota: ${formatQuota(500000)} · Used Unknown · Remaining Unknown`)
   expect(within(cancelled).queryByRole('progressbar')).not.toBeInTheDocument()
   expect(cancelled).not.toHaveTextContent('0%')
-  expect(within(unlimited).getByText('Unlimited')).toBeVisible()
+  expect(within(unlimited).getByText('Total Quota: Unlimited')).toBeVisible()
   expect(unlimited).not.toHaveTextContent('Used 0')
   expect(within(expired).getByText('Expired')).toBeVisible()
   expect(expired).toHaveTextContent('Expired at Unknown')
