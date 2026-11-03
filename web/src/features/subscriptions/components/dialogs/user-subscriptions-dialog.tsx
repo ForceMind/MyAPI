@@ -552,18 +552,17 @@ function UserSubscriptionsTask(props: Props) {
         </SheetContent>
       </Sheet>
 
-      {confirmAction && (
         <ConfirmDialog
-          open
+          open={confirmAction !== null}
           onOpenChange={(v) => { if (!v && !task.isPending()) setConfirmAction(null) }}
           returnFocus={returnToRecord}
           title={
-            confirmAction.type === 'invalidate'
+            confirmAction?.type === 'invalidate'
               ? t('Confirm invalidate')
               : t('Confirm delete')
           }
           desc={
-            confirmAction.type === 'invalidate'
+            confirmAction?.type === 'invalidate'
               ? t(
                   'After invalidating, this subscription will be immediately deactivated. Historical records are not affected. Continue?'
                 )
@@ -573,25 +572,25 @@ function UserSubscriptionsTask(props: Props) {
           }
           handleConfirm={handleConfirmAction}
           isLoading={actionBusy}
-          destructive={confirmAction.type === 'delete'}
+          disabled={!confirmAction}
+          destructive={confirmAction?.type === 'delete'}
         >
-          <p className='text-muted-foreground text-sm break-words'>{props.user?.username} · {t('User ID')}: {props.user?.id} · {t('ID')}: {confirmAction.subId}</p>
+          {confirmAction && <p className='text-muted-foreground text-sm break-words'>{props.user?.username} · {t('User ID')}: {props.user?.id} · {t('ID')}: {confirmAction.subId}</p>}
           {actionError ? <div role='alert' className='text-destructive text-sm break-words'>{actionError}</div> : null}
         </ConfirmDialog>
-      )}
 
-      {resetAction && (
         <ConfirmDialog
-          open
+          open={resetAction !== null}
           onOpenChange={(v) => { if (!v && !task.isPending()) setResetAction(null) }}
           returnFocus={returnToRecord}
           title={t('Reset subscription quota')}
           desc={t('Reset active {{plan}} subscriptions for this user?', {
-            plan: resetAction.planTitle,
+            plan: resetAction?.planTitle ?? t('Unknown'),
           })}
           confirmText={t('Reset quota')}
           handleConfirm={handleResetConfirm}
           isLoading={resetting}
+          disabled={!resetAction}
         >
           <p className='text-muted-foreground text-sm break-words'>{props.user?.username} · {t('User ID')}: {props.user?.id}</p>
           {actionError ? <div role='alert' className='text-destructive text-sm break-words'>{actionError}</div> : null}
@@ -604,7 +603,6 @@ function UserSubscriptionsTask(props: Props) {
             />
           </label>
         </ConfirmDialog>
-      )}
     </>
   )
 }
