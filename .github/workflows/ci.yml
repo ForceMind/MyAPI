@@ -588,6 +588,13 @@ jobs:
           bun run i18n:sync
           git -c core.fileMode=false diff --exit-code -- src/i18n/locales/en.json src/i18n/locales/zh.json src/i18n/locales/zh-TW.json src/i18n/locales/fr.json src/i18n/locales/ja.json src/i18n/locales/ru.json src/i18n/locales/vi.json
 
+      - name: Verify frontend source types and lint before regressions
+        run: |
+          myapi_source_checks_status=0
+          bun run typecheck || myapi_source_checks_status=1
+          bun run lint || myapi_source_checks_status=1
+          exit "$myapi_source_checks_status"
+
       - name: Verify profile and authentication task contracts
         run: bun run test src/features/profile src/features/auth src/components/__tests__/password-input-accessibility.test.tsx
 

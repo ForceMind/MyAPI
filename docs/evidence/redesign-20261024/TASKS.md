@@ -14,6 +14,8 @@
 
 Root静态再审补同渠道ID边界：旧modelCatalog/sourceScope只比auth与连接表单值，同实例A→B若URL/type/掩码key相同可错用A已完成目录。目录显式存channelId，视图与Apply核对ID，scope包括ID/open/identity；外部关闭或换对象会清Fetch状态，防重开编辑器自动探测。新增2真实组件case保护同配置不同保存凭据A/B、精确原模型载荷、明确Fetch才取B、A/B迟到拒绝及关闭后不自动获取。原snapshot/signal不改，无新API/Go/文案。本项是静态风险与防回归候选，未称旧CI已运行复现；新回归须下一轮Actions取证。下一组隔离WIP仍未提交，不混入本次beta.30源码验证。
 
+第四轮 `20e35f1a6c9d6808537dcdfbec651f5a22e0d9ea` / [CI41640774155](https://github.com/ForceMind/MyAPI/actions/runs/41640774155)前端125933423132原始日志/注释已读：types通过，全部定向回归含渠道ID新case与原连接合同已走过；lint24警告/1错误，仅新SwitchingEditor夹具props.onReady作为method调用被要求props依赖。改为局部onReady引用并精确依赖，不改产品/测试断言。已取消失效候选取日志，前端全量未结束，不记作通过。增加早期源码types/lint检查，同时保留构建后原检查、全部回归/后端门禁与断言，失败候选尽早暴露语法/类型问题，不加超时、不本机运行。
+
 本批候选范围：模型5文件移除getAllModels/前缀Fill，仅按当前已保存连接或现协议可表达的草稿明确Fetch，源字段/同actor权限变化、关闭/失败/迟到均不能应用旧目录；旧模型ID通过选中项fallback完整可见，手输/预设/映射保留但不作为支持证据。无Go/API协议改动，不读取真实Key预填，普通编辑变更需先保存/恢复，Advanced仅原协议准确支持字段可预览。新增Drawer6例、原Dialog加1例，原GET/POST401不重放合同继续跑。
 
 用户订阅仅源/新workspace测试/原recovery交互步骤3文件：记录默认、Grant keepMounted保草稿，20条本地分页，Unknown/未确认锁与原全部金融handler/载荷/独立确认保持；新3例保护切换/页大小不读写、末页精准删除回焦、未确认结果跨任务恢复，原state/layout断言不改。原SelectItem缺价显示同步已有finite/Unknown判断，合法0仍原toFixed，不改金额算法。部署详情仅源及原state测试2文件：位置/容器完整列表复用SummaryDisclosure，原状态分布与读取错误外露，新2例保键盘展开/完整长ID、明确Open与网络次数、确知0/未知区别。合计12个新增合成用例，未在本机执行，待实际Actions取证。

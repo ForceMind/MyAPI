@@ -193,7 +193,8 @@ it('checks live write permission again when an already-rendered apply action is 
 type EditorTask = { channelId: number; open: boolean }
 function SwitchingEditor(props: { onReady: (change: (next: EditorTask) => void) => void }) {
   const [view, setView] = useState<EditorTask>({ channelId: 23, open: true })
-  useEffect(() => { props.onReady(setView) }, [props.onReady])
+  const onReady = props.onReady
+  useEffect(() => { onReady(setView) }, [onReady])
   return <ChannelMutateDrawer open={view.open} onOpenChange={(open) => setView((current) => ({ ...current, open }))} currentRow={{ id: view.channelId }} />
 }
 async function renderSwitchingEditor() {
