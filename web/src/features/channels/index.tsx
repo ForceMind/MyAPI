@@ -176,7 +176,7 @@ function ChannelWorkspace(props: { identity: string }) {
       <SectionPageLayout.Content>
         <div className='min-w-0 space-y-4'>
           <nav aria-label={t('Channel workspace')} className='flex min-w-0 gap-1 overflow-x-auto border-b'>
-            {WORKSPACES.filter((item) => canRead || item.mode === 'inventory').map((item) => <Link key={item.mode} to='/channels' hash={item.anchor} search={(previous) => previous} hashScrollIntoView={false} resetScroll={false} activeOptions={{ includeHash: true }} disabled={item.mode !== 'inventory' && !canRead} aria-current={active === item.mode ? 'location' : undefined} aria-label={t(item.title)} onClick={(event) => {
+            {WORKSPACES.filter((item) => canRead || item.mode === 'inventory').map((item) => <Link key={item.mode} to='/channels' hash={item.anchor} search={search} hashScrollIntoView={false} resetScroll={false} activeOptions={{ includeHash: true }} disabled={item.mode !== 'inventory' && !canRead} aria-current={active === item.mode ? 'location' : undefined} aria-label={t(item.title)} onClick={(event) => {
               if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
               event.preventDefault()
               openTask(item.mode)

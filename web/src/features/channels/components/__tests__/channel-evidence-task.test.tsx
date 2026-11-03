@@ -185,7 +185,7 @@ it('does not display another known account-window identity under the selected se
   const report = await renderTask('quota', vi.fn(), true)
   await userEvent.setup().selectOptions(await screen.findByLabelText('Detailed series'), screen.getByRole('option', { name: /Synthetic quota account/ }))
   const title = await screen.findByText('Unable to load quota history')
-  const error = title.closest('[role=alert]')
+  const error = title.closest<HTMLElement>('[role=alert]')
   if (!error) throw new Error('Expected the original history error boundary')
   await userEvent.setup().click(within(error).getByText('Details'))
   expect(screen.getByText('This history belongs to a different account window. Refresh the directory before continuing.')).toBeVisible()

@@ -2,6 +2,8 @@
 
 ## 2026-11-03 渠道整页重整：候选 beta.29，等待完整 CI
 
+第三轮 `afa96e44727b74ce62680ba3c1cc7687cc88872e` / [CI41617940108](https://github.com/ForceMind/MyAPI/actions/runs/41617940108)前端125856324989原始日志已读：渠道含原权限37/37、原连接251/251、所有既有专项与全量385文件2980/2980通过，翻译同步与构建通过。仍有两个类型错误：新证据fixture closest返回Element不能传within，以及父Link search reducer被推断为全路由联合；改HTMLElement精确泛型、Link使用已验证当前route search对象，完整URL断言不变。五处Hook依赖lint错误改为引用稳定的reportReadState/refetchPreview局部变量，不关闭lint规则或增不稳定对象依赖。24警告保留，错误待新CI确认；本轮不能称完整绿。后端仍在运行，后续推送取消旧运行，不能拿未完成结果当成功。
+
 第二轮 `4ced80e84021218494746252b9272c6b040d8f0c` / [CI41616929886](https://github.com/ForceMind/MyAPI/actions/runs/41616929886)前端125852594585已读原始日志：新增门禁35/35通过，原连接专项249通过/2失败，均为旧权限fixture未挂Router而useLocation报null，未执行到原权限断言。修正为真实路由/父子组件+仅外部HTTP模拟，不再mock页面壳/provider/table/API业务封装，保原禁止挂载/查询和root挂载断言，并补active时撤read即卸载0写入。产品在无read时移除重型任务入口及section，旧权限边界不放宽。早期门禁加入此原权限文件，其原连接门禁继续保留。其他认证180/摘要28/设置790/资金297/模型173/公开35/账号85/Key388均通过；候选仍未完整绿。
 
 首轮候选 `eb06d09895c2a909ccd6c242f8eb176ef7e28b48` / [CI41615395924](https://github.com/ForceMind/MyAPI/actions/runs/41615395924) 前端125847472833已读原始日志：认证180、摘要28通过；新增渠道专项35例22通过/13失败。11个证据任务用例全通过，父导航4例因BaseUI将链接赋button角色失败；修复为原生Link与hash-aware active，不更改link断言。库存两例分别匹配重复摘要/完整正文及标签选择，5个延迟写用例虚拟时钟超时；编辑2例高级区意外展开，按首个差异继续修正。父fixture补真实挂载会读取的2FA/Passkey能力GET，未mock内部状态机。未增加超时或放宽安全断言。官网静态41615395919、静态打包41615395980成功；主CI其余当时8成功、1跳过、后端与durable仍运行，失败候选取消请求已发出，不称完整绿。 修正根因：滚动观察器不再隐式打开高级区，显式导航/偏好/错误自动定位继续保留；Tag批量取flatRows内真实数字ID，私有调用向共享批量壳传可选selectedCount，其余调用者默认不变。hidden摘要/全文匹配分开且完整正文仍须可见；虚拟时钟后的交互改focus/fireEvent/同步act，保真实scheduler、0PUT与精确一次PUT载荷断言，不延长超时。旧CI最终cancelled，不能作为完整后端通过证明。

@@ -276,6 +276,7 @@ function ChannelQuotaChangesTask(props: ChannelTaskProps & { identity: string })
   const { range, setRange } = time
   const { quotaChannelId } = route.useSearch()
   const active = props.active ?? true
+  const reportReadState = props.onReadStateChange
   const managed = props.active !== undefined
   const [windowFilter, setWindowFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -386,8 +387,8 @@ function ChannelQuotaChangesTask(props: ChannelTaskProps & { identity: string })
   useEffect(() => {
     const auth = useAuthStore.getState().auth
     if (props.identity !== `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`) return
-    props.onReadStateChange?.({ phase, readAt: readAt > 0 ? readAt / 1000 : undefined, incomplete, failedObservations, samplingEnabled })
-  }, [props.identity, props.onReadStateChange, phase, readAt, incomplete, failedObservations, samplingEnabled])
+    reportReadState?.({ phase, readAt: readAt > 0 ? readAt / 1000 : undefined, incomplete, failedObservations, samplingEnabled })
+  }, [props.identity, reportReadState, phase, readAt, incomplete, failedObservations, samplingEnabled])
   let rowItems = filteredItems
   if (managed) rowItems = detailItem ? [detailItem] : []
   const httpStatus = getHttpStatus(query.error)

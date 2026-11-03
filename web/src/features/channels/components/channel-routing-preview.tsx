@@ -78,6 +78,7 @@ export function ChannelRoutingPreview(props: ChannelTaskProps = {}) {
 function ChannelRoutingTask(props: ChannelTaskProps & { identity: string }) {
   const { t, i18n } = useTranslation()
   const active = props.active ?? true
+  const reportReadState = props.onReadStateChange
   const managed = props.active !== undefined
   const [requestVersion, setRequestVersion] = useState(0)
   const dispatchedVersion = useRef(0)
@@ -107,11 +108,12 @@ function ChannelRoutingTask(props: ChannelTaskProps & { identity: string }) {
     refetchOnReconnect: managed ? false : undefined,
     retry: false,
   })
+  const refetchPreview = previewQuery.refetch
   useEffect(() => {
     if (requestVersion === dispatchedVersion.current) return
     dispatchedVersion.current = requestVersion
-    if (active && submittedParams) void previewQuery.refetch()
-  }, [requestVersion, active, submittedParams, previewQuery.refetch])
+    if (active && submittedParams) void refetchPreview()
+  }, [requestVersion, active, submittedParams, refetchPreview])
 
   const percentFormatter = useMemo(
     () =>
@@ -177,8 +179,8 @@ function ChannelRoutingTask(props: ChannelTaskProps & { identity: string }) {
   useEffect(() => {
     const auth = useAuthStore.getState().auth
     if (props.identity !== `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`) return
-    props.onReadStateChange?.({ phase, readAt: readAt > 0 ? readAt / 1000 : undefined })
-  }, [props.identity, props.onReadStateChange, phase, readAt])
+    reportReadState?.({ phase, readAt: readAt > 0 ? readAt / 1000 : undefined })
+  }, [props.identity, reportReadState, phase, readAt])
 
   let errorMessage = t('Unable to load routing preview.')
   if (errorCode === 'routing_preview_invalid_params') {

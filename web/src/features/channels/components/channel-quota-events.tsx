@@ -125,6 +125,7 @@ export function ChannelQuotaEvents(props: ChannelTaskProps = {}) {
 }
 
 function ChannelQuotaEventsTask(props: ChannelTaskProps & { identity: string; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const reportReadState = props.onReadStateChange
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
   const session = useAuthStore((state) => state.auth.session?.sid)
@@ -172,8 +173,8 @@ function ChannelQuotaEventsTask(props: ChannelTaskProps & { identity: string; op
   useEffect(() => {
     const auth = useAuthStore.getState().auth
     if (props.identity !== `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`) return
-    props.onReadStateChange?.({ phase, readAt: readAt > 0 ? readAt / 1000 : undefined })
-  }, [props.identity, props.onReadStateChange, phase, readAt])
+    reportReadState?.({ phase, readAt: readAt > 0 ? readAt / 1000 : undefined })
+  }, [props.identity, reportReadState, phase, readAt])
   if (!canRead) return null
   const total = query.isError ? undefined : query.data?.total
   const pages = typeof total === 'number' && Number.isSafeInteger(total) && total >= 0 ? Math.max(1, Math.ceil(total / 10)) : undefined

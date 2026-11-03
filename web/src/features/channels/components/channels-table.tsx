@@ -113,6 +113,7 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
   const rememberFocus = useRememberReturnFocus()
 
   const active = props.active ?? true
+  const reportReadState = props.onReadStateChange
   const [profile, setProfile] = useState<ChannelInventoryProfile>(() => {
     try {
       const saved = localStorage.getItem(CHANNEL_INVENTORY_PROFILE_KEY)
@@ -340,8 +341,8 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
     const report = JSON.stringify([actor, phase, readAt])
     if (lastReadReport.current === report) return
     lastReadReport.current = report
-    props.onReadStateChange?.({ phase, readAt })
-  }, [active, actor, canRead, isError, isFetching, data, dataUpdatedAt, errorUpdatedAt, props.onReadStateChange])
+    reportReadState?.({ phase, readAt })
+  }, [active, actor, canRead, isError, isFetching, data, dataUpdatedAt, errorUpdatedAt, reportReadState])
 
   // Apply tag aggregation if tag mode is enabled
   const channels = useMemo(() => {
