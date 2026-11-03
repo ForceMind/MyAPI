@@ -591,6 +591,16 @@ jobs:
       - name: Verify profile and authentication task contracts
         run: bun run test src/features/profile src/features/auth src/components/__tests__/password-input-accessibility.test.tsx
 
+      - name: Verify compact summaries and explicit expansion contracts
+        run: >-
+          bun run test src/components/__tests__/summary-disclosure.test.tsx
+          src/features/connections/__tests__/connection-card-hierarchy.test.tsx
+          src/features/connections/__tests__/summary-hierarchy-task.test.tsx
+          src/features/dashboard/components/flow/__tests__/analysis-controls-task.test.tsx
+          src/features/system-settings/content/__tests__/content-preview-disclosure.test.tsx
+          src/features/pricing/components/__tests__/model-catalog-card.test.tsx
+          src/features/rankings/__tests__/public-rankings-state.test.tsx
+
       - name: Verify remaining settings, analytics and public task contracts
         run: >-
           bun run test src/features/system-settings src/features/system-info

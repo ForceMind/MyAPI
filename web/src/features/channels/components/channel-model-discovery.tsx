@@ -11,6 +11,7 @@ import axios from 'axios'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { Button } from '@/components/ui/button'
 import { toIntlLocale } from '@/i18n/languages'
 import { useAuthStore } from '@/stores/auth-store'
@@ -178,14 +179,16 @@ export function ChannelModelDiscovery(props: {
             {t('Refresh model discovery')}
           </Button>
           {!!evidence?.models.length && (
-            <ul
-              aria-label={t('Discovered upstream models')}
-              className='max-h-40 space-y-1 overflow-auto font-mono text-xs break-all'
-            >
-              {evidence.models.map((model) => (
-                <li key={model}>{model}</li>
-              ))}
-            </ul>
+            <SummaryDisclosure summary={t('Discovered models ({{count}})', { count: evidence.models.length })}>
+              <ul
+                aria-label={t('Discovered upstream models')}
+                className='space-y-1 font-mono text-xs break-all'
+              >
+                {evidence.models.map((model) => (
+                  <li key={model}>{model}</li>
+                ))}
+              </ul>
+            </SummaryDisclosure>
           )}
         </>
       )}

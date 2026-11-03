@@ -150,7 +150,7 @@ export function Connections() {
   if (list.isPending) {
     content = (
       <div
-        className='grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2'
+        className='grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-2'
         aria-busy='true'
       >
         <span className='sr-only' role='status'>
@@ -204,7 +204,7 @@ export function Connections() {
     content = (
       <ul
         data-testid='connection-grid'
-        className='grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2'
+        className='grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-2'
       >
         {items.map((connection) => (
           <li key={connection.id} className='flex min-w-0'>

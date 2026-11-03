@@ -9,6 +9,7 @@ version.
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
+import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { StatusBadge, type StatusVariant } from '@/components/status-badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { CHANNEL_STATUS } from '@/features/channels/constants'
@@ -162,7 +163,13 @@ export function ConnectionRouting(props: {
           <div className='col-span-2 min-w-0'>
             <dt className='text-caption text-muted-foreground'>{t('Group')}</dt>
             <dd className='text-data wrap-anywhere'>
-              {groups.join(', ') || t('Unknown')}
+              {groups.length > 0 ? (
+                <SummaryDisclosure summary={t('Groups ({{count}})', { count: groups.length })}>
+                  <ul className='space-y-1'>
+                    {groups.map((group) => <li key={group}>{group}</li>)}
+                  </ul>
+                </SummaryDisclosure>
+              ) : t('Unknown')}
             </dd>
           </div>
         </dl>
@@ -182,16 +189,18 @@ export function ConnectionRouting(props: {
       <div className='bg-card p-card flex min-w-0 flex-col gap-4 rounded-xl border'>
         <h2 className='text-body font-semibold'>{t('Models')}</h2>
         {models.length ? (
-          <ul className='flex min-w-0 flex-wrap gap-2'>
-            {models.map((model) => (
-              <li
-                key={model}
-                className='bg-muted text-data max-w-full rounded-md px-2 py-1 font-mono wrap-anywhere'
-              >
-                {model}
-              </li>
-            ))}
-          </ul>
+          <SummaryDisclosure summary={t('Models ({{count}})', { count: models.length })}>
+            <ul className='flex min-w-0 flex-wrap gap-2'>
+              {models.map((model) => (
+                <li
+                  key={model}
+                  className='bg-muted text-data max-w-full rounded-md px-2 py-1 font-mono wrap-anywhere'
+                >
+                  {model}
+                </li>
+              ))}
+            </ul>
+          </SummaryDisclosure>
         ) : (
           <p className='text-body text-muted-foreground'>{t('Unknown')}</p>
         )}

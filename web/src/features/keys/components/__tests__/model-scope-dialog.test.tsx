@@ -72,6 +72,13 @@ function renderDialog(onClose = vi.fn()) {
   return onClose
 }
 
+async function expandSavedModels() {
+  const toggle = await screen.findByRole('button', { name: /^Saved model IDs \(/ })
+  if (toggle.getAttribute('aria-expanded') === 'false') {
+    await userEvent.click(toggle)
+  }
+}
+
 beforeEach(() => {
   client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -124,6 +131,7 @@ test('a failed catalog keeps unavailable and long saved model IDs visible', asyn
   })
   const put = vi.spyOn(api, 'put')
   const onClose = renderDialog()
+  await expandSavedModels()
   expect(await screen.findByText(longModel)).toBeVisible()
   expect(screen.getByText('Empty model ID')).toBeVisible()
   expect(screen.getAllByText('Preserved model ID')).toHaveLength(2)
@@ -157,10 +165,16 @@ test('a failed scope read can be retried while an empty catalog preserves saved 
   expect(await screen.findByText('Could not load model scope')).toBeVisible()
   await user.click(screen.getByRole('button', { name: 'Retry' }))
 
+  await expandSavedModels()
   expect(await screen.findByText('retired-model')).toBeVisible()
   expect(
     screen.getByText('No additional catalog models are available')
   ).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Remove retired-model' }))
+  expect(screen.getByText('No models selected')).toBeVisible()
+  expect(
+    screen.queryByRole('button', { name: 'Saved model IDs (0)' })
+  ).not.toBeInTheDocument()
   expect(scopeReads).toBe(2)
 })
 
@@ -207,6 +221,7 @@ test('reopening reads a fresh scope before exposing a cached draft', async () =>
   })
 
   renderDialog()
+  await expandSavedModels()
   expect(await screen.findByText('cached-model')).toBeVisible()
   cleanup()
 
@@ -219,6 +234,7 @@ test('reopening reads a fresh scope before exposing a cached draft', async () =>
   await act(async () => {
     resolveReopen(scopeEnvelope(true, ['server-current'], revisionB))
   })
+  await expandSavedModels()
   expect(await screen.findByText('server-current')).toBeVisible()
   await user.click(
     screen.getByRole('radio', { name: /No additional model limit/ })
@@ -444,6 +460,7 @@ test('a conflict reloads and displays the current server scope without retrying 
   expect(
     await screen.findByText('The model scope changed in another operation')
   ).toBeVisible()
+  await expandSavedModels()
   expect(screen.getByText('server-current')).toBeVisible()
   expect(put).toHaveBeenCalledOnce()
 })
@@ -466,6 +483,7 @@ test('changing the signed-in identity never shows the previous session model sco
     throw new Error(`Unexpected GET ${url}`)
   })
   renderDialog()
+  await expandSavedModels()
   expect(await screen.findByText('first-user-private')).toBeVisible()
   act(() => {
     useAuthStore.setState((state) => ({
@@ -484,5 +502,6 @@ test('changing the signed-in identity never shows the previous session model sco
   await act(async () => {
     resolveSecond(scopeEnvelope(true, ['second-user-model'], revisionB))
   })
+  await expandSavedModels()
   expect(await screen.findByText('second-user-model')).toBeVisible()
 })

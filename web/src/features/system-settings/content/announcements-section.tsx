@@ -26,6 +26,7 @@ import * as z from 'zod'
 
 import { StaticDataTable } from '@/components/data-table/static/static-data-table'
 import { StaticRowActions } from '@/components/data-table/static/static-row-actions'
+import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { DateTimePicker } from '@/components/datetime-picker'
 import { Dialog } from '@/components/dialog'
 import { StatusBadge } from '@/components/status-badge'
@@ -385,7 +386,18 @@ export function AnnouncementsSection({
               id: 'content',
               header: t('Content'),
               cellClassName: 'max-w-xs whitespace-normal break-all',
-              cell: (announcement) => announcement.content,
+              cell: (announcement) => {
+                const content = [...announcement.content]
+                const isLong = content.length > 120
+                if (!isLong && !announcement.extra) return announcement.content
+                return <div className='space-y-1'>
+                  <p>{isLong ? `${content.slice(0, 120).join('')}…` : announcement.content}</p>
+                  <SummaryDisclosure summary={t('View full text')}>
+                    {isLong && <p className='whitespace-pre-wrap'>{announcement.content}</p>}
+                    {announcement.extra && <div className='mt-3 space-y-1'><p className='font-medium'>{t('Extra')}</p><p className='whitespace-pre-wrap'>{announcement.extra}</p></div>}
+                  </SummaryDisclosure>
+                </div>
+              },
             },
             {
               id: 'publish-date',
@@ -424,7 +436,7 @@ export function AnnouncementsSection({
               id: 'extra',
               header: t('Extra'),
               cellClassName: 'text-muted-foreground max-w-xs whitespace-normal break-all',
-              cell: (announcement) => announcement.extra || '-',
+              cell: (announcement) => announcement.extra ? t('Additional notes: {{count}}', { count: 1 }) : '-',
             },
             {
               id: 'actions',

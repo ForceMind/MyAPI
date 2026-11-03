@@ -16,7 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+
+import { Button } from '@/components/ui/button'
 
 import { getLobeIcon } from '@/lib/lobe-icon'
 
@@ -30,7 +33,7 @@ type ModelLeaderboardProps = {
   /** Density variant. `compact` is used inside per-category sections; the
    * default fits the larger overall "Top Models" section. */
   variant?: 'default' | 'compact'
-  /** Optional cap (rows beyond this are dropped). */
+  /** Optional first-segment size; remaining returned rows stay reachable. */
   limit?: number
 }
 
@@ -44,7 +47,10 @@ type ModelLeaderboardProps = {
  * `/pricing/{modelName}` and vendor jumps to `/pricing?vendor={vendor}`.
  */
 export function ModelLeaderboard(props: ModelLeaderboardProps) {
-  const limited = props.limit ? props.rows.slice(0, props.limit) : props.rows
+  const { t } = useTranslation()
+  const [showAll, setShowAll] = useState(false)
+  const initialCount = props.limit && props.limit > 0 ? props.limit : 12
+  const limited = showAll ? props.rows : props.rows.slice(0, initialCount)
   const half = Math.ceil(limited.length / 2)
   const left = limited.slice(0, half)
   const right = limited.slice(half)
@@ -55,9 +61,15 @@ export function ModelLeaderboard(props: ModelLeaderboardProps) {
   }
 
   return (
-    <div className='grid grid-cols-1 gap-x-8 md:grid-cols-2'>
-      <ModelList rows={left} variant={variant} />
-      {right.length > 0 && <ModelList rows={right} variant={variant} />}
+    <div className='space-y-3'>
+      <div className='flex flex-wrap items-center justify-between gap-2'>
+        <p className='text-muted-foreground text-xs'>{t('Returned models: {{count}}', { count: props.rows.length })}</p>
+        {props.rows.length > initialCount && <Button type='button' variant='outline' className='min-h-11' aria-expanded={showAll} onClick={() => setShowAll((previous) => !previous)}>{showAll ? t('Show fewer models') : t('Show all models')}</Button>}
+      </div>
+      <div className='grid grid-cols-1 gap-x-8 md:grid-cols-2'>
+        <ModelList rows={left} variant={variant} />
+        {right.length > 0 && <ModelList rows={right} variant={variant} />}
+      </div>
     </div>
   )
 }

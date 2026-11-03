@@ -12,6 +12,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -96,7 +97,7 @@ export function KeySharesPanel(props: { apiKey: ApiKey }) {
           return (
             <section
               key={`${pool.pool_id}:${pool.snapshot_id}`}
-              className='flex min-w-0 flex-col gap-3 rounded-lg border p-3'
+              className='flex min-w-0 flex-col gap-2 rounded-lg border p-3'
               aria-label={`${pool.channel_name} ${slot}`}
             >
               <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
@@ -108,29 +109,14 @@ export function KeySharesPanel(props: { apiKey: ApiKey }) {
                   {paused ? t('Requests paused') : t('Approximate')}
                 </Badge>
               </div>
-              <dl className='grid min-w-0 grid-cols-1 gap-3 min-[360px]:grid-cols-2'>
-                <div>
-                  <dt className='text-caption text-muted-foreground'>
-                    {t('This Key share')}
-                  </dt>
-                  <dd className='text-section tabular-nums wrap-anywhere'>
-                    {pool.share_bps / 100}%
-                  </dd>
-                </div>
-                <div>
-                  <dt className='text-caption text-muted-foreground'>
-                    {t('Estimated usage of share')}
-                  </dt>
-                  <dd className='text-section tabular-nums wrap-anywhere'>
-                    {used === null
-                      ? t('Unknown')
-                      : `${Number(used.toFixed(2))}%`}
-                  </dd>
-                </div>
-              </dl>
-              <p className='text-caption text-muted-foreground wrap-anywhere'>
-                {t('Observed at')}: {formatTimestampToDate(pool.observed_at)}
+              <p className='text-caption tabular-nums'>
+                {t('This Key share')}: {pool.share_bps / 100}%
               </p>
+              {used === null && (
+                <p className='text-caption text-muted-foreground'>
+                  {t('Estimated usage of share')}: {t('Unknown')}
+                </p>
+              )}
               {(pool.pending_attempts > 0 || pool.unsampled_attempts > 0) && (
                 <p className='text-caption text-muted-foreground'>
                   {t('Usage is still awaiting attribution.')}
@@ -141,6 +127,31 @@ export function KeySharesPanel(props: { apiKey: ApiKey }) {
                   {t('Window unavailable or stale; later requests are paused.')}
                 </p>
               )}
+              <SummaryDisclosure summary={t('Observation details')}>
+                <dl className='grid min-w-0 grid-cols-1 gap-3 min-[360px]:grid-cols-2'>
+                  <div>
+                    <dt className='text-caption text-muted-foreground'>
+                      {t('This Key share')}
+                    </dt>
+                    <dd className='text-section tabular-nums wrap-anywhere'>
+                      {pool.share_bps / 100}%
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className='text-caption text-muted-foreground'>
+                      {t('Estimated usage of share')}
+                    </dt>
+                    <dd className='text-section tabular-nums wrap-anywhere'>
+                      {used === null
+                        ? t('Unknown')
+                        : `${Number(used.toFixed(2))}%`}
+                    </dd>
+                  </div>
+                </dl>
+                <p className='text-caption text-muted-foreground wrap-anywhere'>
+                  {t('Observed at')}: {formatTimestampToDate(pool.observed_at)}
+                </p>
+              </SummaryDisclosure>
             </section>
           )
         })}

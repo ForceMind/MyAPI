@@ -26,6 +26,7 @@ import * as z from 'zod'
 
 import { StaticDataTable } from '@/components/data-table/static/static-data-table'
 import { StaticRowActions } from '@/components/data-table/static/static-row-actions'
+import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { Dialog } from '@/components/dialog'
 import {
   AlertDialog,
@@ -307,7 +308,16 @@ export function FAQSection({ enabled, data }: FAQSectionProps) {
               id: 'answer',
               header: t('Answer'),
               cellClassName: 'text-muted-foreground max-w-md whitespace-normal break-all',
-              cell: (faq) => faq.answer,
+              cell: (faq) => {
+                const answer = [...faq.answer]
+                if (answer.length <= 120) return faq.answer
+                return <div className='space-y-1'>
+                  <p>{answer.slice(0, 120).join('')}…</p>
+                  <SummaryDisclosure summary={t('View full text')}>
+                    <p className='whitespace-pre-wrap'>{faq.answer}</p>
+                  </SummaryDisclosure>
+                </div>
+              },
             },
             {
               id: 'actions',

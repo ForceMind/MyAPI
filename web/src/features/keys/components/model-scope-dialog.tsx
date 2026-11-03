@@ -15,6 +15,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -452,57 +453,63 @@ function ModelScopeSession(props: ModelScopeSessionProps) {
                         'Saved model IDs remain visible even when they are no longer in the current catalog.'
                       )}
                 </FieldDescription>
-                <div className='flex min-w-0 flex-col gap-2'>
-                  {draft.models.length === 0 && (
-                    <p className='text-muted-foreground rounded-lg border p-3 text-sm'>
-                      {t('No models selected')}
-                    </p>
-                  )}
-                  {selectedModels.map((item, index) => {
-                    const modelLabel = item.model || t('Empty model ID')
-                    return (
-                      <div
-                        key={item.key}
-                        className='bg-card grid min-w-0 grid-cols-1 gap-2 rounded-lg border p-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center'
-                      >
-                        <span className='w-full min-w-0 font-mono text-sm break-all'>
-                          {modelLabel}
-                        </span>
-                        <div className='grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:shrink-0 sm:justify-start'>
-                          <Badge
-                            variant='outline'
-                            className='h-auto w-fit max-w-full text-left whitespace-normal'
+                {draft.models.length === 0 && (
+                  <p className='text-muted-foreground rounded-lg border p-3 text-sm'>
+                    {t('No models selected')}
+                  </p>
+                )}
+                {draft.models.length > 0 && (
+                  <SummaryDisclosure
+                    summary={t('Saved model IDs ({{count}})', { count: draft.models.length })}
+                  >
+                    <div className='flex min-w-0 flex-col gap-2'>
+                      {selectedModels.map((item, index) => {
+                        const modelLabel = item.model || t('Empty model ID')
+                        return (
+                          <div
+                            key={item.key}
+                            className='bg-card grid min-w-0 grid-cols-1 gap-2 rounded-lg border p-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center'
                           >
-                            {catalogSet.has(item.model)
-                              ? t('Current catalog')
-                              : t('Preserved model ID')}
-                          </Badge>
-                          {draft.mode === 'restricted' && (
-                            <Button
-                              type='button'
-                              variant='ghost'
-                              size='icon-sm'
-                              aria-label={t('Remove {{model}}', {
-                                model: modelLabel,
-                              })}
-                              onClick={() => {
-                                setDraft({
-                                  ...draft,
-                                  models: draft.models.filter(
-                                    (_item, itemIndex) => itemIndex !== index
-                                  ),
-                                })
-                                if (!needsReadback) setSaveError(null)
-                              }}
-                            >
-                              <HugeiconsIcon icon={Cancel01Icon} aria-hidden='true' />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
+                            <span className='w-full min-w-0 font-mono text-sm break-all'>
+                              {modelLabel}
+                            </span>
+                            <div className='grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:shrink-0 sm:justify-start'>
+                              <Badge
+                                variant='outline'
+                                className='h-auto w-fit max-w-full text-left whitespace-normal'
+                              >
+                                {catalogSet.has(item.model)
+                                  ? t('Current catalog')
+                                  : t('Preserved model ID')}
+                              </Badge>
+                              {draft.mode === 'restricted' && (
+                                <Button
+                                  type='button'
+                                  variant='ghost'
+                                  size='icon-sm'
+                                  aria-label={t('Remove {{model}}', {
+                                    model: modelLabel,
+                                  })}
+                                  onClick={() => {
+                                    setDraft({
+                                      ...draft,
+                                      models: draft.models.filter(
+                                        (_item, itemIndex) => itemIndex !== index
+                                      ),
+                                    })
+                                    if (!needsReadback) setSaveError(null)
+                                  }}
+                                >
+                                  <HugeiconsIcon icon={Cancel01Icon} aria-hidden='true' />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </SummaryDisclosure>
+                )}
                 {draft.mode === 'restricted' && (
                   <div className='mt-2 flex min-w-0 flex-col gap-2'>
                     <Input

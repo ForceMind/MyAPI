@@ -86,3 +86,23 @@ it('lets readers expand beyond the original twelve vendors and reach existing su
   expect(within(last).getByText('14')).toBeVisible()
   await waitFor(() => expect(screen.getByRole('button', { name: 'Show fewer vendors' })).toHaveAttribute('aria-expanded', 'true'))
 })
+
+
+it('shows the first model ranking segment and the returned count, then reveals every remaining row without changing rank order or reading again', async () => {
+  const rows: ModelRanking[] = Array.from({ length: 15 }, (_, index) => ({ rank: index + 1, model_name: `Synthetic ranking model ${index + 1}`, vendor: 'Synthetic vendor', category: 'all', total_tokens: 0, share: 0, growth_pct: 0 }))
+  const get = vi.spyOn(api, 'get').mockRejectedValue(new Error('Unexpected synthetic model ranking request'))
+  await renderRankings(<ModelLeaderboard rows={rows} />)
+  expect(screen.getByText('Returned models: 15')).toBeVisible()
+  expect(screen.getAllByRole('link', { name: /^Synthetic ranking model / })).toHaveLength(12)
+  expect(screen.queryByRole('link', { name: 'Synthetic ranking model 15' })).not.toBeInTheDocument()
+  const user = userEvent.setup()
+  const trigger = screen.getByRole('button', { name: 'Show all models' })
+  trigger.focus()
+  await user.keyboard('{Enter}')
+  expect(screen.getAllByRole('link', { name: /^Synthetic ranking model / }).map((link) => link.textContent)).toEqual(rows.map((row) => row.model_name))
+  expect(screen.getByRole('button', { name: 'Show fewer models' })).toHaveFocus()
+  await user.keyboard('{Enter}')
+  expect(screen.queryByRole('link', { name: 'Synthetic ranking model 15' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Show all models' })).toHaveFocus()
+  expect(get).not.toHaveBeenCalled()
+})

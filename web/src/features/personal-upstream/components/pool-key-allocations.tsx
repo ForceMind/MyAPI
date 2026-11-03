@@ -9,6 +9,7 @@ version.
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
+import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -115,6 +116,16 @@ export function PoolKeyAllocations(props: {
   const percent = new Intl.NumberFormat(toIntlLocale(i18n.language), {
     maximumFractionDigits: 2,
   })
+  const overShareKeys = props.usage.allocations.filter((item) => {
+    const withinShare =
+      item.share_bps > 0 && item.estimated_used_micro !== null
+        ? (item.estimated_used_micro / (item.share_bps * 10000)) * 100
+        : null
+    return withinShare !== null && withinShare > 100
+  }).length
+  const awaitingAttributionKeys = props.usage.allocations.filter((item) =>
+    item.pending_attempts > 0 || item.unsampled_attempts > 0 || item.uncertain_attempts > 0
+  ).length
   return (
     <Card className='pc-card min-w-0' data-testid='pool-key-allocations'>
       <CardHeader>
@@ -126,20 +137,6 @@ export function PoolKeyAllocations(props: {
         {props.usage.allocations.length === 0 ? (
           <p>{t('No Key allocations in this window.')}</p>
         ) : null}
-        <ul className='min-w-0'>
-          {props.usage.allocations.map((allocation) => (
-            <AllocationRow
-              key={allocation.token_id}
-              allocation={allocation}
-              context={
-                props.connectionContext ?? props.returnContext ?? {
-                  connection: { connection: props.usage.channel_id },
-                  pool: props.usage.pool_id,
-                }
-              }
-            />
-          ))}
-        </ul>
         <dl className='grid grid-cols-[minmax(0,1fr)_auto] gap-3 text-sm [&_dd]:text-right'>
           <dt>{t('Total allocated')}</dt>
           <dd>{percent.format(props.usage.allocated_bps / 100)}%</dd>
@@ -169,6 +166,59 @@ export function PoolKeyAllocations(props: {
           >
             {t('Manage Key shares')}
           </Button>
+        )}
+        {(props.usage.allocations.some((item) =>
+          item.token_state !== 'enabled' || item.estimated_used_micro === null || item.share_bps === 0
+        ) || overShareKeys > 0 || awaitingAttributionKeys > 0) && (
+          <div
+            className='text-caption flex flex-wrap gap-x-3 gap-y-1'
+            role='group'
+            aria-label={t('Allocation status')}
+          >
+            {[
+              { state: 'paused', label: t('Paused') },
+              { state: 'expired', label: t('Expired') },
+              { state: 'exhausted', label: t('Exhausted') },
+              { state: 'deleted', label: t('Deleted') },
+              { state: 'missing', label: t('Key no longer exists') },
+              { state: 'unknown', label: t('Unknown') },
+            ].map(({ state, label }) => {
+              const count = props.usage.allocations.filter((item) => item.token_state === state).length
+              return count > 0 ? (
+                <span key={state}>{label}: {count}</span>
+              ) : null
+            })}
+            {props.usage.allocations.some((item) => item.estimated_used_micro === null) && (
+              <span>{t('Unknown usage: {{count}} Key(s)', { count: props.usage.allocations.filter((item) => item.estimated_used_micro === null).length })}</span>
+            )}
+            {props.usage.allocations.some((item) => item.share_bps === 0) && (
+              <span>{t('Share stopped; prior usage is retained.')} {props.usage.allocations.filter((item) => item.share_bps === 0).length}</span>
+            )}
+            {overShareKeys > 0 && (
+              <span className='text-warning'>{t('Over-share Key allocations: {{count}}', { count: overShareKeys })}</span>
+            )}
+            {awaitingAttributionKeys > 0 && (
+              <span>{t('Key allocations awaiting attribution: {{count}}', { count: awaitingAttributionKeys })}</span>
+            )}
+          </div>
+        )}
+        {props.usage.allocations.length > 0 && (
+          <SummaryDisclosure summary={t('Key allocations ({{count}})', { count: props.usage.allocations.length })}>
+            <ul className='min-w-0'>
+              {props.usage.allocations.map((allocation) => (
+                <AllocationRow
+                  key={allocation.token_id}
+                  allocation={allocation}
+                  context={
+                    props.connectionContext ?? props.returnContext ?? {
+                      connection: { connection: props.usage.channel_id },
+                      pool: props.usage.pool_id,
+                    }
+                  }
+                />
+              ))}
+            </ul>
+          </SummaryDisclosure>
         )}
       </CardContent>
     </Card>

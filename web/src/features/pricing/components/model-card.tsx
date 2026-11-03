@@ -22,6 +22,7 @@ import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { cn } from '@/lib/utils'
 
 import { parseTags } from '../lib/filters'
@@ -49,6 +50,9 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   const tags = parseTags(props.model.tags)
   const groups = props.model.enable_groups || []
   const endpoints = props.model.supported_endpoint_types || []
+  const description = props.model.description || t('No description available.')
+  const descriptionCharacters = [...description]
+  const hasLongDescription = descriptionCharacters.length > 160
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -94,9 +98,14 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
       </div>
 
       {/* Description */}
-      <p className='text-muted-foreground mt-2 flex-1 text-[13px] leading-relaxed sm:mt-4 sm:min-h-[2.5rem]'>
-        {props.model.description || t('No description available.')}
-      </p>
+      <div className='text-muted-foreground mt-2 flex-1 text-[13px] leading-relaxed sm:mt-4 sm:min-h-[2.5rem]'>
+        {hasLongDescription ? <>
+          <p>{descriptionCharacters.slice(0, 120).join('')}…</p>
+          <SummaryDisclosure summary={t('Expand description')}>
+            <p className='whitespace-pre-wrap'>{description}</p>
+          </SummaryDisclosure>
+        </> : <p>{description}</p>}
+      </div>
 
       <div className='mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-3'>
         <ModelBillingModeBadge model={props.model} />

@@ -94,6 +94,7 @@ test('shows all Key allocations and the initial cycle baseline separately from a
   vi.mocked(getPoolUsage).mockResolvedValue(poolUsageFixture())
   observe()
   await screen.findByRole('heading', { name: 'All Key allocations' })
+  await userEvent.click(screen.getByRole('button', { name: 'Key allocations (3)' }))
   expect(screen.getByTestId('pool-estimated-total')).toHaveTextContent(
     '15 percentage points'
   )
@@ -135,6 +136,7 @@ test('retains zero-share and deleted Key usage without division by zero', async 
   }
   vi.mocked(getPoolUsage).mockResolvedValue(usage)
   observe(usage)
+  await userEvent.click(await screen.findByRole('button', { name: 'Key allocations (3)' }))
   const row = await screen.findByTestId('pool-key-23')
   expect(within(row).getByRole('link', { name: 'Key #23' })).toBeVisible()
   expect(
@@ -228,6 +230,7 @@ test('a previous session response cannot populate the new session window', async
   await waitFor(() => expect(getPoolUsage).toHaveBeenCalledTimes(1))
   act(() => authenticate(ROLE.SUPER_ADMIN, 'session-b'))
   await screen.findByText('Current session Key')
+  await userEvent.click(screen.getByRole('button', { name: 'Key allocations (3)' }))
   const obsolete = poolUsageFixture()
   obsolete.allocations[0].token_name = 'Obsolete session Key'
   await act(async () => {

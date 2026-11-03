@@ -127,6 +127,7 @@ test('the connection card keeps each saved series with its own status and observ
       },
     ],
   })
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Window details (3), historical records (1)' }))
   const summary = await screen.findByRole('list', { name: 'Saved account windows' })
   expect(summary).toHaveTextContent('Historical saved sample error')
   expect(summary).toHaveTextContent('Snapshot available')

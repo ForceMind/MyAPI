@@ -182,6 +182,7 @@ const context: ConnectionKeyContext = {
 
 test('same-name Keys use allocation IDs and preserve the exact connection context', async () => {
   const fixture = mount(context)
+  await userEvent.click(await screen.findByRole('button', { name: 'Key allocations (3)' }))
   const link = await screen.findByRole('link', { name: 'Key #22' })
   expect(
     JSON.parse(
@@ -257,6 +258,7 @@ test('fresh role revocation prevents pool reads despite a cached root role', asy
 
 test('local role changes immediately remove allocations and their editor', async () => {
   mount(context)
+  await userEvent.click(await screen.findByRole('button', { name: 'Key allocations (3)' }))
   await screen.findByRole('link', { name: 'Key #22' })
   act(() =>
     useAuthStore
@@ -276,6 +278,7 @@ test('failed pool reads expose retry and recover without a generic Key name sear
   await screen.findByRole('alert')
   fixture.recover()
   await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Key allocations (3)' }))
   await screen.findByRole('link', { name: 'Key #22' })
   expect(
     fixture.requests.every((path) => !path.includes('/token/search'))
@@ -284,6 +287,7 @@ test('failed pool reads expose retry and recover without a generic Key name sear
 
 test('closed windows retain historical allocations while deleted Keys cannot be edited', async () => {
   mount(context, { closed: true, deleted: true })
+  await userEvent.click(await screen.findByRole('button', { name: 'Key allocations (3)' }))
   await screen.findByRole('link', { name: 'Key #22' })
   expect(
     screen.getByText(/Closed share window; historical allocations/)
@@ -303,6 +307,7 @@ test('no saved allocations does not claim the connection is unavailable', async 
 
 test('leaving the workspace cancels an outstanding pool read', async () => {
   const fixture = mount(context)
+  await userEvent.click(await screen.findByRole('button', { name: 'Key allocations (3)' }))
   await screen.findByRole('link', { name: 'Key #22' })
   let signal: AbortSignal | undefined
   api.defaults.adapter = async (config) => {

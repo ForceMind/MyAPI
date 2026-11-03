@@ -7478,6 +7478,26 @@
     "Delete model \"{{name}}\"? This cannot be undone.": "删除模型“{{name}}”吗？此操作无法撤销。",
     "Added {{count}} models from \"{{name}}\"": "已从“{{name}}”添加 {{count}} 个模型",
     "Higher values form earlier fallback tiers. Retries move to lower priority tiers.": "数值越大，越优先使用；重试时依次转向较低优先级。",
-    "Within one priority tier, positive weights split traffic proportionally. If all weights are zero, traffic is split evenly; zero receives no traffic when any positive weight exists.": "同一优先级内，正权重按比例分配流量。全部权重为零时平均分配；存在正权重时，零权重不接收流量。"
+    "Within one priority tier, positive weights split traffic proportionally. If all weights are zero, traffic is split evenly; zero receives no traffic when any positive weight exists.": "同一优先级内，正权重按比例分配流量。全部权重为零时平均分配；存在正权重时，零权重不接收流量。",
+    "View full text": "查看全文",
+    "Additional notes: {{count}}": "附加说明：{{count}} 条",
+    "Returned models: {{count}}": "当前返回模型：{{count}} 项",
+    "Show fewer models": "收起模型列表",
+    "Show all models": "显示全部模型",
+    "Saved model IDs ({{count}})": "已保存模型 ID（{{count}}）",
+    "Observation details": "观察明细",
+    "Expand description": "展开说明",
+    "Discovered models ({{count}})": "已发现模型（{{count}}）",
+    "Current account windows": "当前账号窗口",
+    "Groups ({{count}})": "分组（{{count}}）",
+    "Models ({{count}})": "模型（{{count}}）",
+    "Window details ({{count}}), historical records ({{history}})": "窗口明细（{{count}}）· 历史记录（{{history}}）",
+    "Window details ({{count}})": "窗口明细（{{count}}）",
+    "Allocation status": "分配状态",
+    "Unknown usage: {{count}} Key(s)": "用量未知：{{count}} 个 Key",
+    "Over-share Key allocations: {{count}}": "超出分额的 Key 分配：{{count}}",
+    "Key allocations awaiting attribution: {{count}}": "待归因的 Key 分配：{{count}}",
+    "Key allocations ({{count}})": "Key 分配（{{count}}）",
+    "Saved sample error; recovery unconfirmed": "已保存采样错误，恢复未确认"
   }
 }

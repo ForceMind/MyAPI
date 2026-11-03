@@ -223,7 +223,7 @@ export function ModelsSection(props: ModelsSectionProps) {
           </div>
         ) : (
           <div className='px-5 pt-1 pb-4'>
-            <ModelLeaderboard rows={props.rows} />
+            <ModelLeaderboard key={props.period} rows={props.rows} />
           </div>
         )}
       </div>

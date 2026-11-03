@@ -269,7 +269,7 @@ export function MarketShareSection(props: MarketShareSectionProps) {
             )}
           </div>
         )}
-        {props.rows.length > MAX_VENDORS_IN_LIST && <div className='px-5 pb-4'><Button type='button' variant='outline' aria-expanded={showAll} onClick={() => setShowAll((previous) => !previous)}>{showAll ? t('Show fewer vendors') : t('Show all vendors')}</Button></div>}
+        {props.rows.length > MAX_VENDORS_IN_LIST && <div className='px-5 pb-4'><Button type='button' variant='outline' className='min-h-11' aria-expanded={showAll} onClick={() => setShowAll((previous) => !previous)}>{showAll ? t('Show fewer vendors') : t('Show all vendors')}</Button></div>}
       </div>
     </section>
   )

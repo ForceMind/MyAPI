@@ -12,6 +12,24 @@ import {
   nativeWindowState,
 } from '@/features/personal-upstream/window-state'
 
+/** A later connection observation does not prove this older identity recovered. */
+export function isHistoricalConnectionWindow(
+  item: ChannelQuotaChangeItem,
+  windows: ChannelQuotaChangeItem[],
+  nowSeconds: number
+): boolean {
+  return item.status === 'error' && item.source !== 'codex_relay_usage_limit' &&
+    Number.isSafeInteger(item.observed_at) && (item.observed_at ?? 0) > 0 &&
+    (item.observed_at ?? 0) <= nowSeconds && windows.some((other) =>
+      other.channel_id === item.channel_id &&
+      nativeWindowState(other, nowSeconds) === 'available' &&
+      other.source?.startsWith('codex_wham_usage_') &&
+      Number.isSafeInteger(other.observed_at) &&
+      (other.observed_at ?? 0) > (item.observed_at ?? 0) &&
+      (other.observed_at ?? 0) <= nowSeconds
+    )
+}
+
 /** Classify saved evidence without merging series or claiming an error resolved. */
 export function describeConnectionWindow(
   item: ChannelQuotaChangeItem,
@@ -29,19 +47,7 @@ export function describeConnectionWindow(
     }
   }
   if (item.status === 'error') {
-    const historical =
-      Number.isSafeInteger(item.observed_at) &&
-      (item.observed_at ?? 0) > 0 &&
-      (item.observed_at ?? 0) <= nowSeconds &&
-      windows.some(
-        (other) =>
-          other.channel_id === item.channel_id &&
-          nativeWindowState(other, nowSeconds) === 'available' &&
-          other.source?.startsWith('codex_wham_usage_') &&
-          Number.isSafeInteger(other.observed_at) &&
-          (other.observed_at ?? 0) > (item.observed_at ?? 0) &&
-          (other.observed_at ?? 0) <= nowSeconds
-      )
+    const historical = isHistoricalConnectionWindow(item, windows, nowSeconds)
     if (historical) {
       return {
         label: t('Historical saved sample error'),

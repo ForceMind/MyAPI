@@ -42,6 +42,7 @@ describe('analysis control tasks', () => {
         onClearNodes={vi.fn()}
       />
     )
+    await user.click(screen.getByRole('button', { name: 'Filter by node' }))
     const label = screen.getByText(`Models: ${longName}`)
     expect(label).toBeVisible()
     expect(label).not.toHaveClass('truncate')
@@ -50,6 +51,28 @@ describe('analysis control tasks', () => {
     expect(button).toHaveAttribute('aria-description', `Models: ${longName}`)
     await user.click(button)
     expect(remove).toHaveBeenCalledExactlyOnceWith({ kind: 'model', id: longName })
+  })
+
+  it('keeps selected node names inside the count popover and opening or closing it never changes filters', async () => {
+    const toggle = vi.fn()
+    const remove = vi.fn()
+    const clear = vi.fn()
+    render(<FlowNodeFilterControl stages={['model']} stageLabels={stageLabels} metricLabel='Requests' formatMetricValue={String} options={[]} selectedNodes={[{ kind: 'model', id: longName }, { kind: 'model', id: 'second-synthetic-model' }]} onToggleNode={toggle} onRemoveNode={remove} onClearNodes={clear} />)
+    const user = userEvent.setup()
+    const trigger = screen.getByRole('button', { name: 'Filter by node' })
+    expect(trigger).toHaveTextContent('2')
+    expect(screen.queryByText(`Models: ${longName}`)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Clear' })).toBeVisible()
+    trigger.focus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByText(`Models: ${longName}`)).toBeVisible()
+    expect(screen.getAllByRole('button', { name: 'Remove node filter' })).toHaveLength(2)
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByText(`Models: ${longName}`)).not.toBeInTheDocument())
+    expect(trigger).toHaveFocus()
+    expect(toggle).not.toHaveBeenCalled()
+    expect(remove).not.toHaveBeenCalled()
+    expect(clear).not.toHaveBeenCalled()
   })
 
   it.each(['transport', 'missing'])('keeps %s statistics unknown, reports graph failure, and explicitly retries', async (failure) => {

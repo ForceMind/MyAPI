@@ -219,7 +219,7 @@ test('the grid shows one card per connection with its kind, state and the saved 
   })
   // The ring always writes its number; the remaining share is beside it.
   expect(ring).toHaveTextContent('82%')
-  expect(within(card('Subscription A')).getByText(/18% left/)).toBeVisible()
+  expect(within(within(card('Subscription A')).getByRole('list', { name: 'Current account windows' })).getByText(/18% left/)).toBeVisible()
   expect(within(card('Subscription A')).getByText('Subscription')).toBeVisible()
   expect(within(card('Subscription A')).getByText('Available')).toBeVisible()
   // A metered connection draws no ring and says why.
@@ -248,10 +248,11 @@ test('an unreadable window sample shows its state instead of a number', async ()
   })
   await screen.findByTestId('connection-grid')
   expect(
-    await within(card('Subscription A')).findByText(/Usage sample failed/)
+    await within(await within(card('Subscription A')).findByRole('list', { name: 'Current account windows' })).findByText(/Usage sample failed/)
   ).toBeVisible()
   expect(within(card('Subscription A')).queryByRole('img')).toBeNull()
   expect(within(card('Subscription A')).queryByText(/55%/)).toBeNull()
+  await userEvent.setup().click(within(card('Subscription A')).getByRole('button', { name: 'Window details (1)' }))
   expect(
     within(card('Subscription A')).getByText(
       'This saved observation failed. Its timestamp applies only to this series.'
@@ -278,6 +279,9 @@ test('a card keeps its full configuration, long model names and unknown values v
   expect(target.getByText('#7 · ChatGPT Subscription (Codex)')).toBeVisible()
   expect(target.getByText('Priority').parentElement).toHaveTextContent('Unknown')
   expect(target.getByText('Weight').parentElement).toHaveTextContent('0')
+  const user = userEvent.setup()
+  await user.click(target.getByRole('button', { name: 'Groups (2)' }))
+  await user.click(target.getByRole('button', { name: 'Models (2)' }))
   expect(target.getByText('default, premium')).toBeVisible()
   expect(target.getByText(`alpha, ${longModel}`)).toBeVisible()
   expect(target.getByText('Last test').parentElement).toHaveTextContent('Not tested')

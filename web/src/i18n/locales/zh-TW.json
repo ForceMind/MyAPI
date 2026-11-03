@@ -7478,6 +7478,26 @@
     "Delete model \"{{name}}\"? This cannot be undone.": "Delete model \"{{name}}\"? This cannot be undone.",
     "Added {{count}} models from \"{{name}}\"": "Added {{count}} models from \"{{name}}\"",
     "Higher values form earlier fallback tiers. Retries move to lower priority tiers.": "Higher values form earlier fallback tiers. Retries move to lower priority tiers.",
-    "Within one priority tier, positive weights split traffic proportionally. If all weights are zero, traffic is split evenly; zero receives no traffic when any positive weight exists.": "Within one priority tier, positive weights split traffic proportionally. If all weights are zero, traffic is split evenly; zero receives no traffic when any positive weight exists."
+    "Within one priority tier, positive weights split traffic proportionally. If all weights are zero, traffic is split evenly; zero receives no traffic when any positive weight exists.": "Within one priority tier, positive weights split traffic proportionally. If all weights are zero, traffic is split evenly; zero receives no traffic when any positive weight exists.",
+    "View full text": "View full text",
+    "Additional notes: {{count}}": "Additional notes: {{count}}",
+    "Returned models: {{count}}": "Returned models: {{count}}",
+    "Show fewer models": "Show fewer models",
+    "Show all models": "Show all models",
+    "Saved model IDs ({{count}})": "Saved model IDs ({{count}})",
+    "Observation details": "Observation details",
+    "Expand description": "Expand description",
+    "Discovered models ({{count}})": "Discovered models ({{count}})",
+    "Current account windows": "Current account windows",
+    "Groups ({{count}})": "Groups ({{count}})",
+    "Models ({{count}})": "Models ({{count}})",
+    "Window details ({{count}}), historical records ({{history}})": "Window details ({{count}}), historical records ({{history}})",
+    "Window details ({{count}})": "Window details ({{count}})",
+    "Allocation status": "Allocation status",
+    "Unknown usage: {{count}} Key(s)": "Unknown usage: {{count}} Key(s)",
+    "Over-share Key allocations: {{count}}": "Over-share Key allocations: {{count}}",
+    "Key allocations awaiting attribution: {{count}}": "Key allocations awaiting attribution: {{count}}",
+    "Key allocations ({{count}})": "Key allocations ({{count}})",
+    "Saved sample error; recovery unconfirmed": "Saved sample error; recovery unconfirmed"
   }
 }

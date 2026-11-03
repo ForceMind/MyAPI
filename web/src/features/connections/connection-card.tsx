@@ -16,6 +16,7 @@ import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { QuotaRing } from '@/components/quota-ring'
+import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Spinner } from '@/components/ui/spinner'
@@ -27,6 +28,7 @@ import { tightestWindowByConnection } from '@/features/dashboard/lib/overview-fl
 import { nativeWindowUsage } from '@/features/personal-upstream/window-state'
 import { formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { windowName } from './connection-format'
 import {
@@ -42,7 +44,7 @@ import {
   type ConnectionSummary,
 } from './connection-state'
 import type { ConnectionTestResult } from './use-connection-test'
-import { describeConnectionWindow } from './window-state'
+import { describeConnectionWindow, isHistoricalConnectionWindow } from './window-state'
 
 /** Every saved series keeps its own state and observation time. */
 function WindowsLine(props: {
@@ -52,6 +54,7 @@ function WindowsLine(props: {
   windowsKnown: boolean
   windowsLoading: boolean
   now: number
+  compact?: boolean
 }) {
   const { t } = useTranslation()
   const kind = connectionKind(props.connection, props.windows.length > 0)
@@ -71,15 +74,18 @@ function WindowsLine(props: {
     return <span>{t('No saved window sample')}</span>
   }
   return (
-    <ul aria-label={t('Saved account windows')} className='flex min-w-0 flex-col gap-2'>
+    <ul aria-label={props.compact ? t('Current account windows') : t('Saved account windows')} className={cn('flex min-w-0', props.compact ? 'flex-wrap gap-x-3 gap-y-1' : 'flex-col gap-2')}>
       {props.windows.map((item) => {
         const used = nativeWindowUsage(item)
         const state = describeConnectionWindow(item, props.windows, props.now, t)
+        const stateLabel = props.compact && isHistoricalConnectionWindow(item, props.windows, props.now)
+          ? t('Saved sample error; recovery unconfirmed')
+          : state.label
         const summary =
           used === null
             ? t('{{window}}: {{state}}', {
                 window: windowName(item, t),
-                state: state.label,
+                state: stateLabel,
               })
             : t('{{window}} · {{value}}% left', {
                 window: windowName(item, t),
@@ -95,14 +101,14 @@ function WindowsLine(props: {
         return (
           <li
             key={item.series_id ?? `${item.channel_id}:${item.source}:${item.account_label ?? ''}:${item.window_type}:${item.window_seconds ?? ''}:${item.observed_at ?? ''}`}
-            className='min-w-0 wrap-anywhere'
+            className={cn('min-w-0 wrap-anywhere', props.compact && state.variant === 'danger' && 'text-destructive', props.compact && state.variant === 'warning' && 'text-warning')}
           >
             <span>
-              {[summary, used === null ? null : state.label, time]
+              {[summary, used === null ? null : stateLabel, props.compact ? null : time]
                 .filter(Boolean)
                 .join(' · ')}
             </span>
-            {item.status === 'error' && (
+            {item.status === 'error' && !props.compact && (
               <p className='mt-1'>{state.description}</p>
             )}
           </li>
@@ -115,9 +121,8 @@ function WindowsLine(props: {
 /**
  * One connection in the upstream grid (design v2 upstream): its ring or
  * kind icon, name, kind, priority and models, the saved windows, its state
- * and last test, and the enable switch and View/Test/Edit actions. The name is the
- * card's link (stretched over the card); the switch and Test sit above it,
- * so using them never opens the page.
+ * and last test, and the enable switch and View/Test/Edit actions. Explicit
+ * links open details; local disclosures and operations never navigate the card.
  */
 export function ConnectionCard(props: {
   connection: ConnectionSummary
@@ -139,6 +144,7 @@ export function ConnectionCard(props: {
   onEdit?: () => void
 }) {
   const { t } = useTranslation()
+  const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
   const connection = props.connection
   const name = connection.name || t('Connection #{{id}}', { id: connection.id })
   const kind = connectionKind(connection, props.windows.length > 0)
@@ -148,6 +154,7 @@ export function ConnectionCard(props: {
   const inUse = enabled && (props.recentRequests ?? 0) > 0
   const models = connectionValues(connection.models)
   const groups = connectionValues(connection.group)
+  const historicalCount = props.windows.filter((item) => isHistoricalConnectionWindow(item, props.windows, props.now)).length
   const subtitle = [
     `#${connection.id}`,
     t(getChannelTypeLabel(connection.type)),
@@ -161,13 +168,14 @@ export function ConnectionCard(props: {
       data-connection-card={connection.id}
       aria-labelledby={`connection-card-${connection.id}`}
       className={cn(
-        'bg-card hover:border-input relative flex w-full min-w-0 flex-col gap-4 rounded-xl border p-4 transition-colors sm:p-5',
+        'bg-card hover:border-input relative flex w-full min-w-0 flex-col gap-3 rounded-xl border p-4 transition-colors',
         'has-[[data-connection-link]:focus-visible]:outline-primary has-[[data-connection-link]:focus-visible]:outline-2 has-[[data-connection-link]:focus-visible]:outline-offset-2',
         inUse && 'border-primary ring-primary ring-1 ring-inset'
       )}
     >
       <div className='flex min-w-0 items-center gap-3'>
         {used !== null && window ? (
+          <div className='flex shrink-0 flex-col items-center gap-0.5'>
           <QuotaRing
             used={used}
             label={t('{{window}}: {{used}}% used, {{left}}% left', {
@@ -176,6 +184,8 @@ export function ConnectionCard(props: {
               left: Math.round(100 - used),
             })}
           />
+          <span className='text-caption text-muted-foreground'>{t('Used')}</span>
+          </div>
         ) : (
           <span
             aria-hidden='true'
@@ -190,7 +200,7 @@ export function ConnectionCard(props: {
             className='text-body min-w-0 wrap-anywhere font-semibold'
             title={name}
           >
-            {/* The stretched link makes the whole card open the page. */}
+            {/* Keep the detail link separate from local disclosure controls. */}
             <Link
               to='/connections/$connectionId'
               params={{ connectionId: String(connection.id) }}
@@ -198,7 +208,7 @@ export function ConnectionCard(props: {
               state={{ inspectorBack: true }}
               data-connection-link={connection.id}
               onClick={props.onOpen}
-              className='outline-none after:absolute after:inset-0 after:rounded-xl after:content-[""]'
+              className='outline-none underline-offset-4 hover:underline focus-visible:underline'
             >
               {name}
             </Link>
@@ -217,55 +227,8 @@ export function ConnectionCard(props: {
           recentRequests={props.recentRequests}
         />
         <ConnectionKindBadge kind={kind} />
-      </div>
-      <dl className='grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 text-caption'>
-        <div>
-          <dt className='text-muted-foreground'>{t('Priority')}</dt>
-          <dd className='tabular-nums'>{connection.priority ?? t('Unknown')}</dd>
-        </div>
-        <div>
-          <dt className='text-muted-foreground'>{t('Weight')}</dt>
-          <dd className='tabular-nums'>{connection.weight ?? t('Unknown')}</dd>
-        </div>
-        <div className='col-span-2 min-w-0'>
-          <dt className='text-muted-foreground'>{t('Group')}</dt>
-          <dd className='wrap-anywhere'>{groups.join(', ') || t('Unknown')}</dd>
-        </div>
-        <div className='col-span-2 min-w-0'>
-          <dt className='text-muted-foreground'>{t('Models')}</dt>
-          <dd className='wrap-anywhere'>{models.join(', ') || t('Unknown')}</dd>
-        </div>
-        <div className='col-span-2 min-w-0'>
-          <dt className='text-muted-foreground'>{t('Saved account windows')}</dt>
-          <dd className='mt-1 text-muted-foreground'>
-            <WindowsLine
-              connection={connection}
-              windows={props.windows}
-              windowsKnown={props.windowsKnown}
-              windowsLoading={props.windowsLoading}
-              now={props.now}
-            />
-          </dd>
-        </div>
-        <div className='col-span-2 min-w-0'>
-          <dt className='text-muted-foreground'>{t('Last test')}</dt>
-          <dd className='wrap-anywhere'>
-            <LastTest item={connection} />
-          </dd>
-        </div>
-      </dl>
-      {props.testResult?.connectionId === connection.id && (
-        <div className='relative z-10'>
-          <ConnectionTestOutcome
-            result={props.testResult}
-            connectionId={connection.id}
-          />
-        </div>
-      )}
-      <div className='relative z-10 mt-auto flex min-w-0 flex-col gap-3'>
-        <Separator />
         {props.canOperate && (
-          <div className='flex min-h-11 items-center gap-2 pointer-fine:min-h-9'>
+          <div className='ml-auto flex min-h-11 items-center gap-2 pointer-fine:min-h-9'>
             {/* The hit area reaches 44px on touch screens. */}
             <Switch
               size='lg'
@@ -285,6 +248,70 @@ export function ConnectionCard(props: {
             </span>
           </div>
         )}
+      </div>
+      <dl className='flex min-w-0 flex-wrap items-start gap-x-4 gap-y-1 text-caption'>
+        <div className='flex flex-wrap gap-x-1'>
+          <dt className='text-muted-foreground'>{t('Priority')}</dt>
+          <dd className='tabular-nums'>{connection.priority ?? t('Unknown')}</dd>
+        </div>
+        <div className='flex flex-wrap gap-x-1'>
+          <dt className='text-muted-foreground'>{t('Weight')}</dt>
+          <dd className='tabular-nums'>{connection.weight ?? t('Unknown')}</dd>
+        </div>
+        <div className='min-w-0 max-w-full has-[[data-slot=collapsible][data-open]]:basis-full'>
+          <dt className='sr-only'>{t('Group')}</dt>
+          <dd>
+            {groups.length > 0 ? <SummaryDisclosure key={`${identity}:${connection.id}:groups`} summary={t('Groups ({{count}})', { count: groups.length })}>
+              <p>{groups.join(', ')}</p>
+            </SummaryDisclosure> : <p>{t('Group')}: {t('Unknown')}</p>}
+          </dd>
+        </div>
+        <div className='min-w-0 max-w-full has-[[data-slot=collapsible][data-open]]:basis-full'>
+          <dt className='sr-only'>{t('Models')}</dt>
+          <dd>
+            {models.length > 0 ? <SummaryDisclosure key={`${identity}:${connection.id}:models`} summary={t('Models ({{count}})', { count: models.length })}>
+              <p>{models.join(', ')}</p>
+            </SummaryDisclosure> : <p>{t('Models')}: {t('Unknown')}</p>}
+          </dd>
+        </div>
+        <div className='min-w-0 basis-full'>
+          <dt className='sr-only'>{t('Saved account windows')}</dt>
+          <dd className='mt-1 text-muted-foreground'>
+            <WindowsLine
+              connection={connection}
+              windows={props.windows}
+              windowsKnown={props.windowsKnown}
+              windowsLoading={props.windowsLoading}
+              now={props.now}
+              compact
+            />
+            {props.windowsKnown && props.windows.length > 0 && <SummaryDisclosure
+              key={`${identity}:${connection.id}:windows`}
+              summary={historicalCount > 0
+                ? t('Window details ({{count}}), historical records ({{history}})', { count: props.windows.length, history: historicalCount })
+                : t('Window details ({{count}})', { count: props.windows.length })}
+            >
+              <WindowsLine connection={connection} windows={props.windows} windowsKnown={props.windowsKnown} windowsLoading={props.windowsLoading} now={props.now} />
+            </SummaryDisclosure>}
+          </dd>
+        </div>
+        <div className='flex min-w-0 basis-full flex-wrap gap-x-2'>
+          <dt className='text-muted-foreground'>{t('Last test')}</dt>
+          <dd className='wrap-anywhere'>
+            <LastTest item={connection} />
+          </dd>
+        </div>
+      </dl>
+      {props.testResult?.connectionId === connection.id && (
+        <div className='relative z-10'>
+          <ConnectionTestOutcome
+            result={props.testResult}
+            connectionId={connection.id}
+          />
+        </div>
+      )}
+      <div className='relative z-10 mt-auto flex min-w-0 flex-col gap-3'>
+        <Separator />
         <div className='flex min-w-0 flex-wrap items-center gap-2'>
           <Link
             to='/connections/$connectionId'

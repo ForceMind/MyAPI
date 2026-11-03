@@ -112,8 +112,13 @@ test('routing keeps zero priority and weight plus all models in responsive confi
   const section = await screen.findByRole('region', {
     name: 'Routing configuration',
   })
+  const user = userEvent.setup()
+  await user.click(within(section).getByRole('button', { name: 'Groups (1)' }))
+  await user.click(within(section).getByRole('button', { name: 'Models (2)' }))
   expect(
-    within(section).getAllByRole('definition').map((entry) => entry.textContent)
+    within(section).getAllByRole('definition').map((entry) =>
+      within(entry).queryByRole('list')?.textContent ?? entry.textContent
+    )
   ).toEqual(['0', '0', 'default'])
   expect(within(section).getByText('alpha')).toBeVisible()
   expect(within(section).getByText('beta')).toBeVisible()

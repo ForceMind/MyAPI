@@ -246,6 +246,7 @@ test('a saved share without a baseline keeps its unknown estimate beside its con
   })
   await renderKeysPage(client, '/keys/21?tab=scope')
   const pool = await screen.findByRole('region', { name: /Synthetic window/ })
+  await userEvent.click(within(pool).getByRole('button', { name: 'Observation details' }))
   expect(within(pool).getByText('20%')).toBeVisible()
   expect(within(pool).getByText('Unknown')).toBeVisible()
   expect(within(pool).queryByText('0%')).not.toBeInTheDocument()
