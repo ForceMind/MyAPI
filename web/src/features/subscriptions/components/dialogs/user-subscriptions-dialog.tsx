@@ -181,10 +181,11 @@ function UserSubscriptionsTask(props: Props) {
       ])
       if (!snapshot.isCurrent() || request !== readGeneration.current) return
       if (!plansRes.success || !Array.isArray(plansRes.data) || !subsRes.success || !Array.isArray(subsRes.data) || subsRes.data.some((record) => record.subscription.user_id !== props.user?.id)) { setReadError(t('Loading failed')); return }
+      const loadedSubscriptions = subsRes.data
       setPlans(plansRes.data || [])
-      setSubs(subsRes.data || [])
+      setSubs(loadedSubscriptions)
       setHasRead(true)
-      setPage((previous) => Math.min(previous, Math.max(1, Math.ceil(subsRes.data.length / pageSize))))
+      setPage((previous) => Math.min(previous, Math.max(1, Math.ceil(loadedSubscriptions.length / pageSize))))
       if (confirmCreation) { setCreateUnconfirmed(false); setCreateError(null) }
     } catch {
       if (!snapshot.isCurrent() || request !== readGeneration.current) return

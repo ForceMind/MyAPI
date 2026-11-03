@@ -10,6 +10,10 @@
 
 第二轮 `e13bb4bc9f013fec34758b4fc140702afd096c28` / [CI41635893249](https://github.com/ForceMind/MyAPI/actions/runs/41635893249)前端125916872480原始日志已读：新门禁21/21通过，含原精确合并/撤权/末页回焦；认证180/摘要28/渠道权限37/设置790/资金300/模型175/公开35/账号85/Key388通过。原连接专项249通过/2失败，均是connections-editor桌面/手机旧测试期待GET全局/api/channel/models。按维护者明确移除全局来源的要求，同步为该请求为0并补当前渠道原生详情GET必须存在，原全部GET限定、取消、0写入、密钥/测试/余额/fetch_models禁止断言和原15秒预算不变。产品不恢复全局目录，不用旧行为制造绿；失败候选取消请求已发，仍未完整绿。下一组已先补wallet/user-edit/assigned-access/OAuth四视图八SVG及隔离WIP，不包含在本次beta.30验证提交；未验证，不冒充实现验收。
 
+第三轮 `b13cb48de0a87e9fa14ba098f4b6ad2147f5fe30` / [CI41638043905](https://github.com/ForceMind/MyAPI/actions/runs/41638043905)前端125924131733已读归档原始日志：定向门禁已走完，types4错、lint18错/25警告，前端全量尚未结束时取消失效候选以尽快取得错误，不记作全量通过。4个类型问题：Plus未用、deployment新测试ByRoleOptions两处无exact属性、订阅成功数组在setPage闭包内丢类型收窄；修正为删未用导入、保默认精确role name查询、捕获已验证数组const，不改断言或数据。lint为新模型来源useMemo读取getValues却把17个watch值列成未使用依赖，以及订阅新fixture一个多行if缺大括号；改显式raw字段对象与准确依赖、fixture加括号，不关规则、不删监听或延长超时。
+
+Root静态再审补同渠道ID边界：旧modelCatalog/sourceScope只比auth与连接表单值，同实例A→B若URL/type/掩码key相同可错用A已完成目录。目录显式存channelId，视图与Apply核对ID，scope包括ID/open/identity；外部关闭或换对象会清Fetch状态，防重开编辑器自动探测。新增2真实组件case保护同配置不同保存凭据A/B、精确原模型载荷、明确Fetch才取B、A/B迟到拒绝及关闭后不自动获取。原snapshot/signal不改，无新API/Go/文案。本项是静态风险与防回归候选，未称旧CI已运行复现；新回归须下一轮Actions取证。下一组隔离WIP仍未提交，不混入本次beta.30源码验证。
+
 本批候选范围：模型5文件移除getAllModels/前缀Fill，仅按当前已保存连接或现协议可表达的草稿明确Fetch，源字段/同actor权限变化、关闭/失败/迟到均不能应用旧目录；旧模型ID通过选中项fallback完整可见，手输/预设/映射保留但不作为支持证据。无Go/API协议改动，不读取真实Key预填，普通编辑变更需先保存/恢复，Advanced仅原协议准确支持字段可预览。新增Drawer6例、原Dialog加1例，原GET/POST401不重放合同继续跑。
 
 用户订阅仅源/新workspace测试/原recovery交互步骤3文件：记录默认、Grant keepMounted保草稿，20条本地分页，Unknown/未确认锁与原全部金融handler/载荷/独立确认保持；新3例保护切换/页大小不读写、末页精准删除回焦、未确认结果跨任务恢复，原state/layout断言不改。原SelectItem缺价显示同步已有finite/Unknown判断，合法0仍原toFixed，不改金额算法。部署详情仅源及原state测试2文件：位置/容器完整列表复用SummaryDisclosure，原状态分布与读取错误外露，新2例保键盘展开/完整长ID、明确Open与网络次数、确知0/未知区别。合计12个新增合成用例，未在本机执行，待实际Actions取证。

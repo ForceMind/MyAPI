@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { renderListRoute } from '@/components/data-table/layout/__tests__/list-route-fixture'
@@ -17,6 +17,7 @@ const originalAuth = useAuthStore.getState()
 const originalScroll = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView')
 const savedModels = 'synthetic-saved-model,synthetic-legacy/complete-id'
 const channel = channelSchema.parse({ id: 23, type: 1, name: 'synthetic-source-channel', key: '', base_url: 'https://synthetic.invalid', status: 1, models: savedModels, group: 'default', created_time: 1, test_time: 0, response_time: 0, balance_updated_time: 0 })
+const secondChannel = channelSchema.parse({ ...channel, id: 24, name: 'synthetic-second-channel', models: 'synthetic-second-saved' })
 const user = { id: 1, role: ROLE.ADMIN, username: 'synthetic-admin', permissions: { admin_permissions: { channel: { read: true, operate: true, write: true, sensitive_write: true } } } }
 let client: QueryClient
 
@@ -28,6 +29,9 @@ beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
   vi.spyOn(api, 'get').mockImplementation(async (url) => {
     if (url === '/api/channel/23') return { data: { success: true, data: channel } }
+    if (url === '/api/channel/24') return { data: { success: true, data: secondChannel } }
+    if (url === '/api/channel/fetch_models/24') return { data: { success: true, data: ['synthetic-second-only'] } }
+    if (url === '/api/channel/model-discovery/24') return { data: { success: true, data: null } }
     if (url === '/api/channel/fetch_models/23') return { data: { success: true, data: ['synthetic-current-only'] } }
     if (url === '/api/channel/models') return { data: { success: true, data: [{ id: 'synthetic-unrelated-global' }] } }
     if (url === '/api/group/') return { data: { success: true, data: ['default'] } }
@@ -183,4 +187,120 @@ it('checks live write permission again when an already-rendered apply action is 
   expect(screen.getByRole('button', { name: 'synthetic-legacy/complete-id' })).toBeInTheDocument()
   expect(api.put).not.toHaveBeenCalled()
   expect(api.post).not.toHaveBeenCalled()
+})
+
+
+type EditorTask = { channelId: number; open: boolean }
+function SwitchingEditor(props: { onReady: (change: (next: EditorTask) => void) => void }) {
+  const [view, setView] = useState<EditorTask>({ channelId: 23, open: true })
+  useEffect(() => { props.onReady(setView) }, [props.onReady])
+  return <ChannelMutateDrawer open={view.open} onOpenChange={(open) => setView((current) => ({ ...current, open }))} currentRow={{ id: view.channelId }} />
+}
+async function renderSwitchingEditor() {
+  let change: ((next: EditorTask) => void) | undefined
+  await renderListRoute({ client, path: '/channels/', element: <ChannelsProvider><SwitchingEditor onReady={(next) => { change = next }} /></ChannelsProvider> })
+  await screen.findByRole('button', { name: 'synthetic-legacy/complete-id' })
+  return (next: EditorTask) => {
+    if (!change) throw new Error('Expected mounted editor prop fixture')
+    change(next)
+  }
+}
+
+it('binds a completed directory to its saved channel ID even when another channel has identical type, base URL and hidden key inputs', async () => {
+  const change = await renderSwitchingEditor()
+  const actions = userEvent.setup()
+  await actions.click(screen.getByRole('button', { name: 'Fetch from Upstream' }))
+  const firstDialog = await screen.findByRole('dialog', { name: 'Fetch Models' })
+  expect(await within(firstDialog).findByRole('checkbox', { name: 'synthetic-current-only' })).toBeVisible()
+  await actions.click(within(firstDialog).getByRole('button', { name: 'Close' }))
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Fetch Models' })).not.toBeInTheDocument())
+  const firstForm = screen.getByDisplayValue(channel.name).closest('form')
+  if (!firstForm) throw new Error('Expected first channel form')
+  fireEvent.submit(firstForm)
+  await waitFor(() => expect(api.put).toHaveBeenCalledTimes(1))
+  expect(vi.mocked(api.put).mock.calls[0]?.[1]).toMatchObject({ id: 23, models: savedModels })
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Fetch from Upstream' })).toBeEnabled())
+  await actions.click(screen.getByRole('combobox', { name: 'Select models or add custom ones' }))
+  expect(await screen.findByRole('option', { name: 'synthetic-current-only' })).toBeVisible()
+  await actions.click(screen.getByText('Presets are user-configured templates, not models discovered for this connection.'))
+  await act(async () => { change({ channelId: 24, open: true }) })
+  await screen.findByDisplayValue(secondChannel.name)
+  expect(screen.getByRole('button', { name: 'synthetic-second-saved' })).toBeVisible()
+  expect(screen.queryByRole('dialog', { name: 'Fetch Models' })).not.toBeInTheDocument()
+  await actions.click(screen.getByRole('combobox', { name: 'Select models or add custom ones' }))
+  expect(screen.queryByRole('option', { name: 'synthetic-current-only' })).not.toBeInTheDocument()
+  expect(vi.mocked(api.get).mock.calls.filter(([url]) => url.startsWith('/api/channel/fetch_models/'))).toHaveLength(1)
+  await actions.click(screen.getByText('Presets are user-configured templates, not models discovered for this connection.'))
+  const secondForm = screen.getByDisplayValue(secondChannel.name).closest('form')
+  if (!secondForm) throw new Error('Expected second channel form')
+  fireEvent.submit(secondForm)
+  await waitFor(() => expect(api.put).toHaveBeenCalledTimes(2))
+  expect(vi.mocked(api.put).mock.calls[1]?.[1]).toMatchObject({ id: 24, models: 'synthetic-second-saved' })
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Fetch from Upstream' })).toBeEnabled())
+  await actions.click(screen.getByRole('button', { name: 'Fetch from Upstream' }))
+  const secondDialog = await screen.findByRole('dialog', { name: 'Fetch Models' })
+  await actions.click(await within(secondDialog).findByRole('checkbox', { name: 'synthetic-second-only' }))
+  expect(within(secondDialog).queryByRole('checkbox', { name: 'synthetic-current-only' })).not.toBeInTheDocument()
+  expect(api.get).toHaveBeenCalledWith('/api/channel/fetch_models/24', { skipAuthRefresh: true, skipBusinessError: true, skipErrorHandler: true })
+  await actions.click(within(secondDialog).getByRole('button', { name: 'Save Models' }))
+  fireEvent.submit(secondForm)
+  await waitFor(() => expect(api.put).toHaveBeenCalledTimes(3))
+  expect(vi.mocked(api.put).mock.calls[2]?.[1]).toMatchObject({ id: 24, models: 'synthetic-second-saved,synthetic-second-only' })
+  expect(vi.mocked(api.get).mock.calls.filter(([url]) => url.startsWith('/api/channel/fetch_models/'))).toHaveLength(2)
+  expect(api.post).not.toHaveBeenCalled()
+  expect(api.delete).not.toHaveBeenCalled()
+})
+
+it('rejects late channel directories across object changes and external close without reopening or automatically probing on the next open', async () => {
+  type Listing = { data: { success: boolean; data: string[] } }
+  let finishFirst: ((value: Listing) => void) | undefined
+  let finishSecond: ((value: Listing) => void) | undefined
+  const firstRead = new Promise<Listing>((resolve) => { finishFirst = resolve })
+  const secondRead = new Promise<Listing>((resolve) => { finishSecond = resolve })
+  let secondReads = 0
+  const originalGet = vi.mocked(api.get).getMockImplementation()
+  vi.mocked(api.get).mockImplementation((url, config) => {
+    if (url === '/api/channel/fetch_models/23') return firstRead
+    if (url === '/api/channel/fetch_models/24') {
+      secondReads += 1
+      if (secondReads === 1) return secondRead
+    }
+    if (!originalGet) throw new Error('Expected external model-list fixture')
+    return originalGet(url, config)
+  })
+  const change = await renderSwitchingEditor()
+  const actions = userEvent.setup()
+  await actions.click(screen.getByRole('button', { name: 'Fetch from Upstream' }))
+  await waitFor(() => expect(vi.mocked(api.get).mock.calls.filter(([url]) => url === '/api/channel/fetch_models/23')).toHaveLength(1))
+  await act(async () => { change({ channelId: 24, open: true }) })
+  await screen.findByRole('button', { name: 'synthetic-second-saved' })
+  expect(screen.queryByRole('dialog', { name: 'Fetch Models' })).not.toBeInTheDocument()
+  expect(secondReads).toBe(0)
+  await actions.click(screen.getByRole('button', { name: 'Fetch from Upstream' }))
+  await waitFor(() => expect(secondReads).toBe(1))
+  await act(async () => { change({ channelId: 24, open: false }) })
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Fetch Models' })).not.toBeInTheDocument())
+  await act(async () => { change({ channelId: 24, open: true }) })
+  await screen.findByRole('button', { name: 'synthetic-second-saved' })
+  expect(screen.queryByRole('dialog', { name: 'Fetch Models' })).not.toBeInTheDocument()
+  expect(secondReads).toBe(1)
+  await act(async () => {
+    finishFirst?.({ data: { success: true, data: ['synthetic-late-first'] } })
+    finishSecond?.({ data: { success: true, data: ['synthetic-late-second'] } })
+    await Promise.all([firstRead, secondRead])
+  })
+  expect(screen.queryByRole('dialog', { name: 'Fetch Models' })).not.toBeInTheDocument()
+  await actions.click(screen.getByRole('combobox', { name: 'Select models or add custom ones' }))
+  expect(screen.queryByRole('option', { name: 'synthetic-late-first' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('option', { name: 'synthetic-late-second' })).not.toBeInTheDocument()
+  await actions.click(screen.getByText('Presets are user-configured templates, not models discovered for this connection.'))
+  await actions.click(screen.getByRole('button', { name: 'Fetch from Upstream' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Fetch Models' })
+  expect(await within(dialog).findByRole('checkbox', { name: 'synthetic-second-only' })).toBeVisible()
+  expect(secondReads).toBe(2)
+  expect(screen.queryByRole('checkbox', { name: 'synthetic-late-first' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('checkbox', { name: 'synthetic-late-second' })).not.toBeInTheDocument()
+  expect(api.put).not.toHaveBeenCalled()
+  expect(api.post).not.toHaveBeenCalled()
+  expect(api.delete).not.toHaveBeenCalled()
 })

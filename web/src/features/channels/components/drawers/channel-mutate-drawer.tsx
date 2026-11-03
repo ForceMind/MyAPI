@@ -35,7 +35,6 @@ import {
   Copy,
   FileText,
   Eraser,
-  Plus,
   Eye,
   RefreshCw,
   Code,
@@ -813,13 +812,32 @@ export function ChannelMutateDrawer({
   const currentUpstreamModelUpdateIgnoredModels = form.watch(
     'upstream_model_update_ignored_models'
   )
-  const modelSource = useMemo(() => channelModelSource(form.getValues()), [
-    form, currentType, currentBaseUrl, currentKey, currentOrganization, currentOther,
+  const modelSource = useMemo<ChannelModelSource>(() => ({
+    type: currentType,
+    base_url: currentBaseUrl,
+    key: currentKey,
+    openai_organization: currentOrganization,
+    other: currentOther,
+    setting: currentLegacySetting,
+    settings: currentSettings,
+    advanced_custom: currentAdvancedCustom,
+    header_override: currentHeaderOverride,
+    proxy: currentProxy,
+    http_protocol: currentHttpProtocol,
+    http2_connection_shards: currentHttp2ConnectionShards,
+    aws_key_type: awsKeyType,
+    vertex_key_type: vertexKeyType,
+    multi_key_mode: multiKeyMode,
+    multi_key_type: multiKeyType,
+    key_mode: keyMode,
+  }), [
+    currentType, currentBaseUrl, currentKey, currentOrganization, currentOther,
     currentLegacySetting, currentSettings, currentAdvancedCustom, currentHeaderOverride,
     currentProxy, currentHttpProtocol, currentHttp2ConnectionShards, awsKeyType, vertexKeyType,
     multiKeyMode, multiKeyType, keyMode,
   ])
   const [modelCatalog, setModelCatalog] = useState<{
+    channelId: number | null
     source: ChannelModelSource
     identity: string
     phase: 'loading' | 'ready' | 'error'
@@ -829,9 +847,10 @@ export function ChannelMutateDrawer({
   } | null>(null)
   const canEditModels = hasPermission(currentUser, 'channel', isEditing ? 'write' : 'sensitive_write')
   const canFetchSavedModels = hasPermission(currentUser, 'channel', 'operate')
-  const modelSourceScope = useMemo(() => ({ source: modelSource, canEditModels, canFetchSavedModels, canEditSensitive }), [modelSource, canEditModels, canFetchSavedModels, canEditSensitive])
+  const modelSourceScope = useMemo(() => ({ source: modelSource, channelId, open, identity: task.identity, canEditModels, canFetchSavedModels, canEditSensitive }), [modelSource, channelId, open, task.identity, canEditModels, canFetchSavedModels, canEditSensitive])
   useEffect(() => { setModelCatalog(null) }, [modelSourceScope])
-  const currentModelCatalog = modelCatalog?.identity === task.identity && canEditModels && hasPermission(currentUser, 'channel', modelCatalog.permission) && sameChannelModelSource(modelCatalog.source, modelSource) ? modelCatalog : null
+  useEffect(() => { setFetchModelsDialogOpen(false) }, [open, channelId, task.identity])
+  const currentModelCatalog = open && modelCatalog?.channelId === channelId && modelCatalog?.identity === task.identity && canEditModels && hasPermission(currentUser, 'channel', modelCatalog.permission) && sameChannelModelSource(modelCatalog.source, modelSource) ? modelCatalog : null
   const fetchedModelIds = useMemo(() => currentModelCatalog?.phase === 'ready' ? currentModelCatalog.models : [], [currentModelCatalog])
   const {
     unlocked: doubaoApiEditUnlocked,
@@ -1563,7 +1582,7 @@ export function ChannelMutateDrawer({
       return hasPermission(user, 'channel', permission) && hasPermission(user, 'channel', isEditing ? 'write' : 'sensitive_write')
     }
     if (!isBound()) throw new Error(t('The model source changed. Fetch models again.'))
-    setModelCatalog({ source, identity: task.identity, permission, phase: 'loading', models: [] })
+    setModelCatalog({ channelId, source, identity: task.identity, permission, phase: 'loading', models: [] })
     try {
       if (!isAllowed()) throw new Error(t("You don't have necessary permission"))
       if (!MODEL_FETCHABLE_TYPES.has(source.type)) throw new Error(t('This channel type does not support fetching models'))
@@ -1593,10 +1612,10 @@ export function ChannelMutateDrawer({
         throw new Error(response.message || t('The channel did not return a model list. Its model support is unconfirmed.'))
       }
       const models = [...new Set(response.data)]
-      setModelCatalog({ source, identity: task.identity, permission, phase: 'ready', models })
+      setModelCatalog({ channelId, source, identity: task.identity, permission, phase: 'ready', models })
       return models
     } catch (error) {
-      if (isBound()) setModelCatalog({ source, identity: task.identity, permission, phase: 'error', models: [], error: error instanceof Error ? error.message : t('Failed to fetch models') })
+      if (isBound()) setModelCatalog({ channelId, source, identity: task.identity, permission, phase: 'error', models: [], error: error instanceof Error ? error.message : t('Failed to fetch models') })
       throw error
     }
   }, [task, form, channelData?.data, isEditing, channelId, t])
@@ -5175,7 +5194,7 @@ export function ChannelMutateDrawer({
           if (!nextOpen && modelCatalog?.phase === 'loading') setModelCatalog(null)
         }}
         onModelsSelected={(models) => {
-          if (!task.capture().isCurrent() || !modelCatalog || modelCatalog.phase !== 'ready' || modelCatalog.identity !== task.identity || !hasPermission(useAuthStore.getState().auth.user, 'channel', modelCatalog.permission) || !hasPermission(useAuthStore.getState().auth.user, 'channel', isEditing ? 'write' : 'sensitive_write') || !sameChannelModelSource(modelCatalog.source, channelModelSource(form.getValues()))) {
+          if (!open || !task.capture().isCurrent() || !modelCatalog || modelCatalog.phase !== 'ready' || modelCatalog.channelId !== channelId || modelCatalog.identity !== task.identity || !hasPermission(useAuthStore.getState().auth.user, 'channel', modelCatalog.permission) || !hasPermission(useAuthStore.getState().auth.user, 'channel', isEditing ? 'write' : 'sensitive_write') || !sameChannelModelSource(modelCatalog.source, channelModelSource(form.getValues()))) {
             throw new Error(t('The model source changed. Fetch models again.'))
           }
           form.setValue('models', formatModelsArray(models))

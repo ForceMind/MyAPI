@@ -98,7 +98,7 @@ it('summarizes deployment lists while retaining raw statuses and explicitly reac
   expect(screen.getByText('failed: 1')).toBeVisible()
   expect(screen.getByText('Unknown: 1')).toBeVisible()
   expect(screen.getByText(longId)).not.toBeVisible()
-  expect(screen.queryByRole('button', { name: 'Open', exact: true })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Open' })).not.toBeInTheDocument()
   expect(opened).not.toHaveBeenCalled()
   const user = userEvent.setup()
   locations.focus()
@@ -113,7 +113,7 @@ it('summarizes deployment lists while retaining raw statuses and explicitly reac
   expect(api.put).not.toHaveBeenCalled()
   expect(api.delete).not.toHaveBeenCalled()
   expect(opened).not.toHaveBeenCalled()
-  await user.click(screen.getByRole('button', { name: 'Open', exact: true }))
+  await user.click(screen.getByRole('button', { name: 'Open' }))
   expect(opened).toHaveBeenCalledExactlyOnceWith('https://synthetic.invalid/container', '_blank')
 })
 

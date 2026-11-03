@@ -42,12 +42,14 @@ it('defaults to locally paged records and keeps the grant selection and record p
   const originalGet = vi.mocked(api.get).getMockImplementation()
   if (!originalGet) throw new Error('Expected the synthetic subscription transport')
   vi.mocked(api.get).mockImplementation((url, ...args) => {
-    if (url === '/api/subscription/admin/plans') return Promise.resolve({ data: { success: true, data: [
+    if (url === '/api/subscription/admin/plans') {
+      return Promise.resolve({ data: { success: true, data: [
       { plan: { id: 7, title: 'Synthetic plan' } },
       { plan: { id: 8, title: 'Known free plan', price_amount: 0 } },
       { plan: { id: 9, title: 'Invalid price plan', price_amount: Number.NaN } },
       { plan: { id: 10, title: 'Null price plan', price_amount: null } },
-    ] } })
+      ] } })
+    }
     return originalGet(url, ...args)
   })
   mount()
