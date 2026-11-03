@@ -824,6 +824,171 @@ for entry in route_map:
     for target in entry['wireframes']:
         if target not in known: raise ValueError('Unmapped route: '+target)
 
+INFORMATION_HIERARCHY = {
+    "connections": {
+        "closed": [
+            "合成连接 A #7 · 使用中 · 启用开关",
+            "7天剩余42% · 5小时剩余82%〔合成；未知不补零〕",
+            "模型 8 ▾ · 分组 1 ▾ · 优先级 9 · 权重 25",
+            "上次测试：已保存结果与时间摘要",
+            "历史记录 1 ▾ · 查看 / 测试 / 编辑"
+        ],
+        "open": [
+            "模型8：完整模型ID逐项列出，可复制，不跳详情",
+            "分组1：显示全部已保存分组",
+            "窗口明细：每系列保留来源/时间/状态",
+            "历史记录：完整原说明与身份不确定性；不标已解决"
+        ],
+        "notes": [
+            "卡片自然高度，同排不因一个展开而等高拉伸。",
+            "当前故障/额度未知始终可见；未接入能力不能凭历史失败推断。",
+            "模型/历史展开只读已加载数据，不测试、不刷新、不读取密钥。"
+        ]
+    },
+    "connection-routing": {
+        "closed": [
+            "优先级 / 权重 / 路由预览入口",
+            "分组 N ▾ · 模型 N ▾"
+        ],
+        "open": [
+            "展开完整分组与模型ID；Unknown仍为Unknown",
+            "原路由预览和权限完整保留"
+        ],
+        "notes": [
+            "只改变列表呈现，不改变映射或选路规则。"
+        ]
+    },
+    "connection-edit": {
+        "closed": [
+            "原全部编辑字段 / 错误 / 保存操作",
+            "发现模型：状态 / 观察时间 / 过期提示 / 显式刷新",
+            "发现模型 N ▾"
+        ],
+        "open": [
+            "完整已发现模型名单；收起保留编辑草稿"
+        ],
+        "notes": [
+            "展开不触发上游发现；刷新保持明确操作和原权限。"
+        ]
+    },
+    "upstream-accounts": {
+        "closed": [
+            "账号与窗口 / 当前可用性 / 真实故障",
+            "Key分配 N ▾ · 总分配 / 未分配 / 管理入口"
+        ],
+        "open": [
+            "逐Key完整分配、使用证据与原返回链接"
+        ],
+        "notes": [
+            "不跨账号/窗口相加；未知与暂停不收进折叠区。"
+        ]
+    },
+    "subscription-shares": {
+        "closed": [
+            "当前窗口 / 份额摘要 / 管理操作",
+            "Key分配 N ▾ · 总分配 / 未分配"
+        ],
+        "open": [
+            "全部分配行与准确Key/窗口/返回上下文"
+        ],
+        "notes": [
+            "不改份额算法、确认或写入时机。"
+        ]
+    },
+    "key-scope": {
+        "closed": [
+            "原模型模式 / Key份额与当前状态",
+            "每窗口：名称、份额、暂停/Unknown/待归因状态",
+            "观察明细 ▾"
+        ],
+        "open": [
+            "该窗口完整估算、观测时间、来源与证据"
+        ],
+        "notes": [
+            "窗口独立；估算不变成真实预留；故障保持外露。"
+        ]
+    },
+    "analytics-flow": {
+        "closed": [
+            "原时间范围、图表 / 失败与Unknown状态",
+            "已选节点 N ▾ · 清除"
+        ],
+        "open": [
+            "完整已选节点长名与逐项移除",
+            "原完整候选选择列表"
+        ],
+        "notes": [
+            "仅去掉重复常驻标签；展开收起不改变筛选/时间/统计范围。"
+        ]
+    },
+    "settings-content-faq": {
+        "closed": [
+            "问题标题 / 回答短摘要 / 选择与编辑操作",
+            "查看全文 ▾ · 原本地草稿 / 页面保存状态"
+        ],
+        "open": [
+            "该条完整原回答；不截断丢失内容"
+        ],
+        "notes": [
+            "只折只读预览；必填编辑字段/坏JSON/dirty/保存操作不折叠。"
+        ]
+    },
+    "settings-content-announcements": {
+        "closed": [
+            "公告摘要 / 类型 / 日期 / 选择与编辑操作",
+            "查看全文 ▾ · 附加说明数量"
+        ],
+        "open": [
+            "本条全部正文与附加说明"
+        ],
+        "notes": [
+            "保留id=0、排序、多选、即时Enable和页面最终Save。"
+        ]
+    },
+    "pricing": {
+        "closed": [
+            "完整模型名 / 供应商 / 价格及单位 / 计费类型",
+            "一句说明摘要 · 展开说明 ▾",
+            "原Details / 复制与已有分组折叠"
+        ],
+        "open": [
+            "完整原description；无说明保持原空态"
+        ],
+        "notes": [
+            "不隐藏价格/状态；不新请求/新路由；不限制卡片高度裁切。"
+        ]
+    },
+    "rankings": {
+        "closed": [
+            "原排名期间 / 原排名与指标 / 当前返回N项",
+            "首段榜单 · 显示全部"
+        ],
+        "open": [
+            "其余所有已返回条目，保原顺序和排名",
+            "收起返回同一入口"
+        ],
+        "notes": [
+            "返回N项不是全站总数；第6名起灰色、Unknown/失败不改。"
+        ]
+    },
+    "surface-features-keys-components-model-scope-dialog": {
+        "closed": [
+            "模型模式 / 已保存 N ▾ / 原风险说明",
+            "目录搜索及原完整保存/取消"
+        ],
+        "open": [
+            "全部可编辑已保存模型ID，包括旧ID/空ID",
+            "原逐项移除动作与受限模式规则"
+        ],
+        "notes": [
+            "折叠不清空/去重/修改draft.models；不隐藏模式或保存影响。"
+        ]
+    }
+}
+for page in pages:
+    if page['id'] in INFORMATION_HIERARCHY:
+        page['information_hierarchy'] = INFORMATION_HIERARCHY[page['id']]
+
 catalog=dict(title='MyAPI 全站线稿目录',source_sha=BASE,date='2026-10-28',direction='已确认方向3：流向图 / 顶部导航 / 对象整页',
              evidence='设计源文件；未运行浏览器、产品构建或本机测试。',pages=pages,routes=route_map,tabs=tab_inventory,overlay_inventory=overlay_inventory,
              unconfirmed_overlay_sources=unconfirmed,
@@ -1024,7 +1189,7 @@ class Drawing:
         self.y=78
         self.y+=self.text(self.margin,self.y+18,p['title'],22 if self.mobile else 26,'600',width=self.cw)+10
         self.y+=self.text(self.margin,self.y+14,p['url'],11,color='#666666',width=self.cw)+12
-        self.banner('低保真设计提案 · 合成占位 · 待确认 · 不连接API / 不执行业务动作')
+        self.banner('已批准的信息层级方案 · 合成占位 · 实现待CI / 浏览器未验证 · 不连接API' if p.get('information_hierarchy') else '低保真设计提案 · 合成占位 · 待确认 · 不连接API / 不执行业务动作')
         self.tabs();self.stats()
         if p['id']=='request-bodies':
             self.buttons([p['actions'][3],p['actions'][4]])
@@ -1040,7 +1205,12 @@ class Drawing:
         kind=p['kind']
         footer_actions=kind in ['form','overlay','auth','setup','calendar','chat']
         if not footer_actions and p['id']!='request-bodies':self.buttons()
-        if kind=='flow':
+        if p.get('information_hierarchy'):
+            review=p['information_hierarchy']
+            h=self.block('默认收起态 · 首屏',review['closed']);self.y+=h+18
+            h=self.block('明确点击后的展开态 · 同一页面',review['open']);self.y+=h+18
+            h=self.block('交互与恢复边界',review['notes']);self.y+=h+18
+        elif kind=='flow':
             values=p['sections'];cols=1 if self.mobile else 3;gap=24;cw=(self.cw-gap*(cols-1))/cols
             for start in range(0,len(values),cols):
                 hs=[]

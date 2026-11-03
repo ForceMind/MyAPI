@@ -11,6 +11,8 @@
 
 ## 当前覆盖与证据
 
+- 2026-11-03追加已批准的信息层级收口：仅更新connections、connection-routing、connection-edit、upstream-accounts、subscription-shares、key-scope、analytics-flow、settings-content-faq、settings-content-announcements、pricing、rankings、模型范围弹层这12视图的24张SVG，展示默认摘要/明确点击后完整展开及状态边界。catalog新增对应information_hierarchy，author.py同步相同数据和渲染分支，其它线稿/路由/字段保留。已先写线稿，再实施产品；纯设计源不调用API，未浏览器渲染，产品与CI进度见TASKS最新节。连接卡片入口：[桌面](svg/connections-desktop.svg)、[手机](svg/connections-mobile.svg)。
+
 - 2026-11-03 UI1–18源码与非浏览器CI收口：应用fffb2ef0ae3b46c9721896d5c47641e31c2be959 / [完整CI41539150203](https://github.com/ForceMind/MyAPI/actions/runs/41539150203) attempt1 success，10作业成功/1浏览器与真实API跳过，全部步骤及前后端原始日志已读。认证180、剩余设置/分析/公共786、用户/资金297、模型173、公开33、账号85、Key388、原连接209、日志410、全量378文件2929/2929及同步/构建/types/lint通过（21警告0错误），全部既有后端/独立relaykit/386/race/三库等通过；详细范围与过程在TASKS最新节。
 - 沿用本目录326视图/652SVG与成熟页面，201页面source、54模式、138弹层均已有归属，不新建布局/别名页面或重画设计方向；新抽出的scope/error模块不是新页面。Desktop原生菜单/第三方iframe按真实来源保留。本次没有浏览器渲染或截图验收，中英/亮暗/320等实际尺寸仍未验证，不能从绿色源码CI推导裁切、滚动或全站视觉通过。官网两浏览器作业整项skip，原断言保留，今后也须显式授权。
 - 本次收尾仅4份既有交接，应用源码仍绑定fffb2ef0；文档提交自身CI仍须回读。候选beta.27没有发布或部署，生产/真实模型/本机依赖安装构建测试与产物下载均未执行。下方“UI14最新”“UI15–18待验”等是历史取证，不覆盖本条。
