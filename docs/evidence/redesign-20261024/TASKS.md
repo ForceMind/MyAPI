@@ -1,6 +1,14 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
-## 2026-11-03 后续UI：模型来源已完整绿，剩余8处beta.31待验证
+## 2026-11-03 后续UI：本轮源码与完整CI收口（beta.31）
+
+**2026-11-03 本轮UI源码与完整CI收口，最新应用0c51b733 / beta.31。** 应用 `0c51b733a1e10db49329ac2117624a39c0d6e707` / [CI41655135543](https://github.com/ForceMind/MyAPI/actions/runs/41655135543) attempt1 success，10作业成功/1浏览器与真实API作业跳过；全部作业/步骤及前后端原始日志已亲读。模型来源/弹窗23、钱包/权限/OAuth42、凭据/预算/分组49、设置795、资金315、模型175、公开35、账号85、Key391、连接251、日志410，全量392文件3017/3017通过；同步/构建/早期及构建后types/lint通过（24警告0错误）。根模块/独立relaykit/原生386/全部既有race/三库/Redis/ClickHouse/分发/Desktop通过，38618父项/55条/5包0skip/fail，后端失败/race标记0。
+
+模型来源已先在b5cf0c6a / CI41642659748完整绿：去掉全局目录/前缀Fill，按当前渠道明确获取，目录绑定ID/参数/会话/权限，保手输、旧ID、预设原合并和映射；普通编辑改连接需先保存/恢复，不暗用旧连接或读Key。真实供应商当前返回哪些最新模型没有请求验证，不承诺真实缓存命中。本轮用户订阅/部署详情和后续8处钱包、权限/绑定、分配访问、OAuth、凭据/预算/用量说明、分组关系均沿既有线稿收口；12个既有视图24SVG更新，仍329视图/658SVG/66路由，不把视图数当新增路由或视觉验收。具体源/测试、所有红绿与必要修正在TASKS最新节。
+
+自审和交叉只读审查补护包括：换渠道同地址掩码不混目录、外部关闭不自动获取、同actor撤权禁旧结果；确认关闭生命周期和准确对象回焦；未知额度/价格/日期不伪0，已知字段不因另一字段未知丢失；坏JSON可见且原文/保存准入不变；未知目录或非Root资料保存不发空权限矩阵，原Root资格/normalize/元数据准入保持。原转发/计费计算/数据库/后端API未改，全部关键断言与nonce/proof/phase/retry边界保留。新增文案共57键en/zh、其余五语言英文回填，不称七语言母语验收。成熟的轮换阶段/CC Switch/默认Bound Only/冲突确认表等保留，未为凑覆盖重做。
+
+浏览器/真实尺寸与滚动尚未验证，全部浏览器依赖/Chromium/真实API作业跳过；官网静态41649572014与静态打包41649572292全部步骤成功，绑定83af4ada，相关官网源码/工作流/package至本应用无差异，未重标记构件。无本机依赖安装/构建测试/工具链/浏览器/Docker/产物下载；本轮未操作生产、实际.env/实例、真实模型或供应商，未发布NPM/GHCR/tag或合main，没有新服务器镜像。后续仅4份最终交接提交，应用源码仍绑定0c51b733；接手读取交接提交自己的完整CI，不能拿文档SHA当镜像。当前UI源码/非浏览器验收清单已收口；浏览器、P2、发布部署与后台无查询能力的采样策略不自动执行。下文“候选待验/最近b5”等为历史取证，不覆盖本节。
 
 **2026-11-03 渠道模型来源已完整验证，剩余8处UI合并beta.31候选待验。** 最近已验证应用 `b5cf0c6a56b1d799e6c93851fa538691b8d4696f` / [CI41642659748](https://github.com/ForceMind/MyAPI/actions/runs/41642659748) attempt1 success，10作业成功/1浏览器与真实API作业跳过；全部作业步骤及前后端原始日志已亲读。新增模型/弹窗专项23、原连接251、资金300、后台模型175、日志410、全量387文件2994/2994通过；同步/构建/早期及构建后types/lint通过（24警告0错误）。两模块/独立relaykit/386/全部既有race/三库/Redis/ClickHouse/分发/Desktop通过，38618父项/55条/5包0skip/fail、失败/race标记0。
 
@@ -18,7 +26,7 @@ beta.31第四轮 `e96e9941fbe354b59b2dcbf8c4e128005c9e3b30` / [CI41652586077](ht
 
 Root追加自审的必要权限载荷边界：user-form转换器原约定目录缺省就省略admin_permissions，但Drawer过去总传data??EMPTY，占位对象truthy可生成空矩阵；现在只在原Root编辑资格且query.data确有resources时传真实已读目录，初次失败/合法空目录或非Root传undefined，已有成功非空缓存可保原草稿。未新增提交门禁、未改normalize/后端/Role规则。新增2精确HTTPcase保护目录失败和非Root普通资料更新不含admin_permissions/role/quota，其他元数据与0POST保持；此为从代码发现的错误payload风险，不声称生产已发生。合成本批新增现23例，仍待下一Actions验证。
 
-本次合并范围为原两个隔离UI组，未新增金融/鉴权/供应商目标。11个呈现/读取源与10个测试路径：权限3源/2新test/owner-session旧4处展开；钱包1源/1新test和PurchaseDialog仅可选returnFocus UI透传；OAuth1源/原test新增3例；凭据/预算/用量3源+原3test+独立真实HTTP凭据新test；分组详情1源/1新test；另users/api.ts仅既有catalog getter验证success及两个数组，失败抛消息，成功返回shape/URL/config和所有写方法不变。原权限/金额/JSON/CAS/nonce/proof/phase handlers/API载荷与重试门禁不改。
+本次最终合并范围为原两个隔离UI组，未新增金融/鉴权/供应商目标。11个呈现/读取源与11个测试路径（含后补旧Key菜单合同）：权限3源/2新test/owner-session旧4处展开；钱包1源/1新test和PurchaseDialog仅可选returnFocus UI透传；OAuth1源/原test新增3例；凭据/预算/用量3源+原3test+独立真实HTTP凭据新test；分组详情1源/1新test；另users/api.ts仅既有catalog getter验证success及两个数组，失败抛消息，成功返回shape/URL/config和所有写方法不变。原权限/金额/JSON/CAS/nonce/proof/phase handlers/API载荷与重试门禁不改。
 
 钱包保当前/记录/选购及分页、读取失败不伪真空，未知报价/次数不伪0；自审补已知total+未知used分列、Canceled/Expired与未知日期独立。权限raw true/false/继承明示，目录失败/缺data Unknown+Retry保草稿不显示伪0；原checkbox normalize及保存准入保持。OAuth先基本/凭据/回调，后端点/映射/高级分组，原字段keepMounted；独立只读审查发现坏JSON不属RHF错误可被新折叠隐藏，Root复用既有JSON校验，错误外露强制展开、无RHF错误的aria-invalid为undefined，不改schema/原JSON/保存准入；新增真实input坏JSON/修复保持展开与Secret不入摘要用例，错误焦点复用已有FormValidationFocus。
 
