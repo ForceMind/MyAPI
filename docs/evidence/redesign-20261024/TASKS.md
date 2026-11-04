@@ -7,6 +7,8 @@
 - 从代码看：HTTPS只读/准备/执行与私有Unix批准分离，同一管理Key显式Root运维scope、SQLite fresh只读校验，原Key不扩权；2FA/Passkey proof绑定plan ID+digest。固定GitHub仓库/workflow/dev/source/tree/VERSION/ZIP digest、manifest/tar与完全相等imageID，门禁失败前不修改旧容器。
 - 审查必要修正：旧容器always重启会双写，禁用旧restart且新容器保原策略；匿名卷/动态端口preStop拒绝；运行时网络元数据不误当配置；OS flock防并发启动；协议缺失/null身份拒绝、不补0。源变更意图先fsync，任何未知结果冻结，不回滚DB/重启旧镜像；WAL/SHM备份与同data_dir新写保持。
 - 首源码 `91fed69f13796f9367a828aa12a235372ec27489` / CI41886621709：已读完整作业/步骤，8成功/2失败/1浏览器跳过。Node服务26/26、MCP11/11通过；后端新增Ops证明/DTO/缺配置通过，原资源范围用例误用扩展后的“全部scope”夹具触发400，已固定原5scope、保原隔离断言；前端type通过、lint缺props effect依赖1错误已最小修正。该源码不是合格升级目标；新增运行时同源码完整CI成功门禁，不能用其Docker smoke绿绕过主CI红。
+- 第二轮 `2a0570aa` / CI41888886679：前端type/lint已通过，资料/认证213通过1失败，新增默认scope测试误依赖Base UI自动DOM ID，已改为准确勾选数量+四个可访问名称，ops默认未勾断言不变。审查补下载后完整CI资格重验；启动后观测改为SQLite只读事务，忙/诊断失败明确null/unknown、不把正常新账务写入误判冻结；停稳备份强一致断言保留。
+- 额外真实验收入口 `.github/workflows/operations-smoke.yml`，只手动dev触发、固定55531d1e旧Full与动态精确合格目标制品，真实TLS/SQLite/Docker/GitHub身份与SIGKILL/故障注入；只上传安全报告，测试不在本机运行。91的Docker41886760519成功仅为包基线，其主CI红，新增门禁禁止作为正向目标，必须用后续全绿源码新制品。
 - 验证门禁：既有完整CI、Go真实路由/绑定proof/越权/无配置、Node鉴权/WAL/ZIP/持久锁/故障与MCP；额外Actions真实Docker Full SQLite升级、TLS、daemon kill/restart、源配置/开关与新增账务连续性。候选beta.33，不把源码或单测当生产验收，不发布镜像/tag或改main。
 
 

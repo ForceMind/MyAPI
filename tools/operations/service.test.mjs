@@ -20,6 +20,7 @@ async function fixture(t, options = {}) {
   await writeFile(path.join(data, 'my-api.db'), 'synthetic database', { mode: 0o600 })
   const instance = { id: 'primary', container: 'my-api', data_dir: data, sqlite_file: path.join(data, 'my-api.db'), health_url: 'http://127.0.0.1:3000/' }
   const config = { state_dir: state, backups_dir: backups, instances: [instance], docker_socket: '/var/run/docker.sock' }
+  let qualificationValid = true
   let revoked = false, owner = 1, keyId = 7, now = 1000, changed = false, sourceVersion = '0.2.0-beta.34'
   const calls = [], validations = []
   const source = { Id: oldId, Image: oldImage, State: { Running: true }, Config: { Env: ['MYAPI_EDITION=full', 'FEATURE_FLAG=preserve', 'SQLITE_PATH=/data/my-api.db'], WorkingDir: '/data', Image: oldImage, Labels: { 'io.myapi.edition': 'full' } }, HostConfig: { Binds: [data + ':/data'], PortBindings: { '3000/tcp': [{ HostIp: '127.0.0.1', HostPort: '3000' }] }, AutoRemove: false, Memory: 67108864, RestartPolicy: { Name: 'always', MaximumRetryCount: 0 } }, Mounts: [{ Source: data, Destination: '/data', Type: 'bind', RW: true }], NetworkSettings: { Networks: { bridge: { IPAMConfig: null, Aliases: null } } } }
@@ -37,7 +38,7 @@ async function fixture(t, options = {}) {
   const summary = { db: { bytes: 18, sha256: 'f'.repeat(64) }, '-wal': null, '-shm': null }
   const service = await createOperationsService(config, {
     bridgeToken, docker,
-    github: { async verify() { calls.push(['github.verify']); return { zip_sha256: 'f'.repeat(64), zip_bytes: 42 } }, async download() { calls.push(['github.download']); if (options.downloadGate) await options.downloadGate } },
+    github: { async verify() { calls.push(['github.verify']); if (!qualificationValid) throw new OperationsError('GITHUB_QUALIFICATION_FAILED'); return { zip_sha256: 'f'.repeat(64), zip_bytes: 42 } }, async download() { calls.push(['github.download']); options.onDownload?.(); if (options.downloadGate) await options.downloadGate } },
     async validateManagementKey(instance, request) {
       validations.push(structuredClone(request))
       if (revoked || request.secret !== undefined && request.secret !== secret || request.key_id !== undefined && request.key_id !== keyId || request.owner_id !== undefined && request.owner_id !== owner || options.prepareOnly && request.scope === 'operations.execute') throw new OperationsError('UNAUTHORIZED', 401)
@@ -47,7 +48,7 @@ async function fixture(t, options = {}) {
     async verifyBundle() { calls.push(['verifyBundle']); if (options.imageMismatch) throw new OperationsError('IMAGE_ID_MISMATCH'); return { exact_image: true } },
     async readVersion() { return sourceVersion },
     async verifyHealth() { calls.push(['health']); if (options.healthFailure) throw new Error('secret upstream URL'); return { health: true, version: true, static_assets: true } },
-    async backup(request) { calls.push(['backup', structuredClone(request)]); return request.action === 'summary' ? structuredClone(summary) : { before: summary, after: summary, copied: summary } },
+    async backup(request) { calls.push(['backup', structuredClone(request)]); if (request.action === 'live_summary') { if (options.liveSummaryError) throw new Error('private sampling failure'); return options.liveSummary || { state: 'observed', counts: { users: 1, tokens: 1, logs: 1 } } } return request.action === 'summary' ? structuredClone(summary) : { before: summary, after: summary, copied: summary } },
     async capacity() {}, async dataBytes() { return 18 },
     clock: () => now,
   })
@@ -62,7 +63,7 @@ async function fixture(t, options = {}) {
   async function approve(plan) { return request(`/v1/plans/${plan.id}/approve`, { bridge: true, method: 'POST', body: { digest: plan.digest } }) }
   async function execute(plan) { return request(`/v1/plans/${plan.id}/execute`, { method: 'POST', body: { digest: plan.digest } }) }
   t.after(async () => { await service.close(); await Promise.all(servers.map(server => new Promise(resolve => { server.closeAllConnections(); server.close(resolve) }))); await rm(root, { recursive: true, force: true }) })
-  return { root, config, service, source, calls, validations, request, prepare, approve, execute, revoke: () => { revoked = true }, change: () => { changed = true }, setOwner: value => { owner = value }, setKey: value => { keyId = value }, setTime: value => { now = value }, setVersion: value => { sourceVersion = value } }
+  return { root, config, service, source, calls, validations, request, prepare, approve, execute, revoke: () => { revoked = true }, change: () => { changed = true }, setOwner: value => { owner = value }, setKey: value => { keyId = value }, setTime: value => { now = value }, setVersion: value => { sourceVersion = value }, failQualification: () => { qualificationValid = false } }
 }
 
 test('public channel cannot approve; bridge cannot prepare or execute, and requires a distinct token', async t => {
@@ -275,5 +276,38 @@ test('journal same-second successful A to B to C chain recovers C; forks and cyc
     const restarted = new JournalStore(f.config.state_dir); await restarted.init()
     if (mode === 'chain') { assert.equal(restarted.current.get('primary').target_container_id, 'c'.repeat(64)); assert.equal(restarted.frozen.has('primary'), false) }
     else { assert.equal(restarted.current.has('primary'), false); assert.equal(restarted.frozen.has('primary'), true) }
+  }
+})
+
+test('qualification revoked during slow download is rechecked before disabling restart or stopping', async t => {
+  let release, downloaded
+  const downloadGate = new Promise(resolve => { release = resolve })
+  const entered = new Promise(resolve => { downloaded = resolve })
+  t.after(() => release())
+  const f = await fixture(t, { downloadGate, onDownload: downloaded })
+  const plan = await f.prepare(); await f.approve(plan); await f.execute(plan)
+  await entered; f.failQualification(); release(); await f.service.engine.drain()
+  const result = f.service.engine.get(plan.id)
+  assert.equal(result.state, 'failed_before_start'); assert.equal(result.code, 'GITHUB_QUALIFICATION_FAILED')
+  assert.equal(result.source_mutation_attempted, false)
+  assert.equal(f.calls.some(([action]) => ['disableRestart', 'stop', 'create', 'start'].includes(action)), false)
+  assert.equal(f.source.State.Running, true); assert.equal(f.source.HostConfig.RestartPolicy.Name, 'always')
+})
+
+test('live database sampling is diagnostic: observed succeeds, unknown stays explicit, corruption freezes', async t => {
+  for (const mode of ['observed', 'unknown', 'unavailable', 'corrupt']) {
+    const options = mode === 'unavailable' ? { liveSummaryError: true } : { liveSummary: mode === 'observed' ? { state: 'observed', counts: { users: 1, tokens: 2, logs: 3 } } : { state: mode, code: mode === 'corrupt' ? 'SQLITE_QUICK_CHECK_FAILED' : 'SQLITE_OBSERVATION_UNAVAILABLE' } }
+    const f = await fixture(t, options); const plan = await f.prepare(); await f.approve(plan); await f.execute(plan); await f.service.engine.drain()
+    const result = f.service.engine.get(plan.id)
+    assert.equal(result.state, mode === 'corrupt' ? 'recovery_required' : 'succeeded')
+    assert.equal(result.checks.database_readable, mode === 'observed' ? true : mode === 'corrupt' ? false : null)
+    assert.equal(result.database_after_start.state, mode === 'unavailable' ? 'unknown' : mode)
+    assert.equal(f.service.engine.store.frozen.has('primary'), mode === 'corrupt')
+    if (mode === 'corrupt') assert.equal(result.code, 'DATABASE_CORRUPT')
+    const summaries = f.calls.filter(([action, request]) => action === 'backup' && request.action === 'summary')
+    assert.equal(summaries.length, 1) // Strong byte summary remains only before startup.
+    assert.equal(f.calls.filter(([action]) => action === 'start').length, 1)
+    const visible = (await f.request(`/v1/plans/${plan.id}`)).body.data
+    assert.equal(Object.hasOwn(visible, 'database_after_start'), false)
   }
 })

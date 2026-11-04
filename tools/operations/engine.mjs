@@ -138,6 +138,10 @@ export class OperationsEngine {
       const stage = await this.store.stage(plan.id)
       await this.github.download(plan.artifact, verified, stage)
       Object.assign(plan.checks, await this.verifyBundle(stage, plan.artifact, this.docker))
+      // A producer can lose qualification while its archive is downloading or
+      // loading. Recheck the complete trusted metadata before any source change.
+      const currentQualification = await this.github.verify(plan.artifact)
+      check(digest(currentQualification) === digest(plan.verified_artifact), 'GITHUB_ARTIFACT_CHANGED')
       // Revalidate live privileges and the complete config after slow download.
       check(this.clock() < plan.expires_at && this.clock() < plan.approval_expires_at, 'APPROVAL_EXPIRED', 409)
       await this.validateManagementKey(instance, { key_id: plan.key_id, owner_id: plan.owner_id, scope: 'operations.execute' })
@@ -176,7 +180,13 @@ export class OperationsEngine {
       check(actual.State?.Running === true && actual.Image === plan.target_image_id && sameRuntimeConfig(source.info, actual) && samePublishedPorts(source.info, actual), 'TARGET_CONFIG_MISMATCH', 503)
       plan.checks.runtime_config = true
       Object.assign(plan.checks, await this.verifyHealth(instance, plan.version))
-      plan.database_after_start = await this.backup({ action: 'summary', data_dir: instance.data_dir, sqlite_file: instance.sqlite_file })
+      let observation
+      try { observation = await this.backup({ action: 'live_summary', data_dir: instance.data_dir, sqlite_file: instance.sqlite_file }) }
+      catch (error) { observation = { state: 'unknown', code: safeCode(error) } }
+      if (!['observed', 'unknown', 'corrupt'].includes(observation?.state)) observation = { state: 'unknown', code: 'DATABASE_OBSERVATION_INVALID' }
+      plan.database_after_start = observation
+      plan.checks.database_readable = observation.state === 'observed' ? true : observation.state === 'corrupt' ? false : null
+      check(observation.state !== 'corrupt', 'DATABASE_CORRUPT', 503)
       plan.checks.original_data_mount = true // Original registered mount retained; not an accounting claim.
       await transition('succeeded'); this.store.current.set(plan.instance_id, structuredClone(plan))
       await this.store.unlock(plan.instance_id)

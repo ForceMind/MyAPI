@@ -306,9 +306,10 @@ it('offers Root operations permissions without adding them to the existing defau
   expect(screen.getByRole('checkbox', { name: 'Read upgrade plans' })).not.toBeChecked()
   expect(screen.getByRole('checkbox', { name: 'Prepare upgrades' })).not.toBeChecked()
   expect(screen.getByRole('checkbox', { name: 'Execute approved upgrades' })).not.toBeChecked()
-  expect(screen.getAllByRole('checkbox').filter((checkbox) => checkbox.getAttribute('aria-checked') === 'true').map((checkbox) => checkbox.id)).toEqual([
-    'management-channels.read', 'management-tokens.read', 'management-logs.read', 'management-system.read',
-  ])
+  expect(screen.getAllByRole('checkbox').filter((checkbox) => checkbox.getAttribute('aria-checked') === 'true')).toHaveLength(4)
+  for (const name of ['Read channels', 'Read API tokens', 'Read request logs', 'Read system status']) {
+    expect(screen.getByRole('checkbox', { name })).toBeChecked()
+  }
 })
 
 it('does not offer operations scopes to Admin when creating a management key', async () => {

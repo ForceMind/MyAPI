@@ -601,7 +601,7 @@ jobs:
           exit "$myapi_source_checks_status"
 
       - name: Verify profile and authentication task contracts
-        run: bun run test src/features/profile src/features/auth src/components/__tests__/password-input-accessibility.test.tsx
+        run: bun run test src/features/profile src/features/auth src/components/__tests__/password-input-accessibility.test.tsx src/features/system-info/__tests__/operations-api.test.ts src/features/system-info/__tests__/operations-upgrade-panel.test.tsx
 
       - name: Verify compact summaries and explicit expansion contracts
         run: >-

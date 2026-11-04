@@ -1,0 +1,156 @@
+name: Operations Docker and SQLite qualification
+
+on:
+  workflow_dispatch:
+    inputs:
+      bundle_run_id:
+        description: Successful dev docker-smoke producer run ID
+        type: string
+        required: true
+      producer_attempt:
+        description: Exact producer run attempt
+        type: string
+        required: true
+      artifact_id:
+        description: Exact full, non-personal image bundle artifact ID
+        type: string
+        required: true
+      source_sha:
+        description: Exact target source SHA (independent of this test commit)
+        type: string
+        required: true
+      tree_sha:
+        description: Exact target Git tree SHA
+        type: string
+        required: true
+      manifest_sha256:
+        description: Exact externally recorded manifest SHA-256
+        type: string
+        required: true
+      image_id:
+        description: Exact expected sha256 Docker application image ID
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: operations-qualification-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'ForceMind/MyAPI' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Check out exact dev test commit
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+
+      - name: Validate fixed artifact inputs and test checkout
+        env:
+          INPUT_RUN: ${{ inputs.bundle_run_id }}
+          INPUT_ATTEMPT: ${{ inputs.producer_attempt }}
+          INPUT_ARTIFACT: ${{ inputs.artifact_id }}
+          INPUT_SOURCE: ${{ inputs.source_sha }}
+          INPUT_TREE: ${{ inputs.tree_sha }}
+          INPUT_MANIFEST: ${{ inputs.manifest_sha256 }}
+          INPUT_IMAGE: ${{ inputs.image_id }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = ForceMind/MyAPI
+          test "$GITHUB_REF" = refs/heads/dev
+          test "$(git -c core.fileMode=false rev-parse HEAD)" = "$GITHUB_SHA"
+          node --input-type=module <<'JS'
+          import { writeFile } from 'node:fs/promises'
+          import path from 'node:path'
+          import { artifactInput } from './tools/operations/safety.mjs'
+          const e = process.env
+          const input = { run_id: e.INPUT_RUN, producer_attempt: e.INPUT_ATTEMPT, artifact_id: e.INPUT_ARTIFACT, source_sha: e.INPUT_SOURCE, tree_sha: e.INPUT_TREE, manifest_sha256: e.INPUT_MANIFEST, image_id: e.INPUT_IMAGE }
+          artifactInput({ ...input, version: '0.2.0-beta.33' })
+          await writeFile(path.join(e.RUNNER_TEMP, 'operations-artifact-input.json'), JSON.stringify(input), { flag: 'wx', mode: 0o600 })
+          JS
+
+      - name: Check out fixed beta32 baseline source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: ForceMind/MyAPI
+          ref: 55531d1e4f21a426d209b1b2d76e451e10bcccaf
+          path: old-source
+          persist-credentials: false
+
+      - name: Verify fixed baseline identity
+        run: |
+          set -euo pipefail
+          test "$(git -c core.fileMode=false -C old-source rev-parse HEAD)" = 55531d1e4f21a426d209b1b2d76e451e10bcccaf
+          test "$(cat old-source/VERSION)" = 0.2.0-beta.32
+
+      - name: Set up isolated baseline builder
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        with:
+          driver: docker-container
+          driver-opts: |
+            memory=4g
+            memory-swap=4g
+            cpu-period=100000
+            cpu-quota=200000
+
+      - name: Build only the fixed old Full baseline
+        timeout-minutes: 25
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: ./old-source
+          load: true
+          push: false
+          platforms: linux/amd64
+          tags: myapi:operations-baseline-55531d1e
+          build-args: |
+            MYAPI_EDITION=full
+            MYAPI_BUILD_ID=55531d1e4f21a426d209b1b2d76e451e10bcccaf
+            MYAPI_BUILD_PARALLELISM=2
+          cache-from: type=gha,scope=operations-baseline
+          cache-to: type=gha,mode=min,scope=operations-baseline
+
+      - name: Qualify real artifact, TLS, Docker, SQLite and crash boundaries
+        id: qualification
+        timeout-minutes: 40
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node_path=$(command -v node)
+          sudo --preserve-env=GITHUB_ACTIONS,GITHUB_REPOSITORY,GITHUB_REF,GITHUB_RUN_ID,GITHUB_SHA,RUNNER_TEMP,GITHUB_TOKEN \
+            "$node_path" tools/operations/docker-qualification.mjs \
+            --artifact "$RUNNER_TEMP/operations-artifact-input.json"
+
+      - name: Remove only this run's owned fixture containers after interruption
+        if: always() && steps.qualification.outcome != 'skipped'
+        run: |
+          set -euo pipefail
+          case "$GITHUB_RUN_ID" in ''|*[!0-9]*) exit 1 ;; esac
+          container_ids=$(docker container ls --all --quiet --no-trunc --filter "label=io.myapi.operations.fixture=$GITHUB_RUN_ID")
+          for container_id in $container_ids; do
+            actual_owner=$(docker inspect --format '{{index .Config.Labels "io.myapi.operations.fixture"}}' "$container_id")
+            test "$actual_owner" = "$GITHUB_RUN_ID"
+            docker kill --signal CONT "$container_id" >/dev/null 2>&1 || true
+            docker rm --force --volumes "$container_id" >/dev/null
+          done
+
+      - name: Upload only the safe qualification report
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-operations-qualification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/myapi-operations-report.json
+          if-no-files-found: error
+          retention-days: 7

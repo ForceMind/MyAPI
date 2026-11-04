@@ -6,11 +6,12 @@ set -eu
 command -v node >/dev/null && command -v python3 >/dev/null || { echo 'Install Node 22 and Python 3 separately' >&2; exit 1; }
 node -e 'if(Number(process.versions.node.split(".")[0])<22)process.exit(1)'
 source_root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
-[ ! -e /opt/myapi-operations ] || { echo '/opt/myapi-operations already exists; inspect before installing' >&2; exit 1; }
-[ ! -e /etc/myapi-operations/config.json ] || { echo 'configuration already exists; preserve it' >&2; exit 1; }
+for destination in /opt/myapi-operations /etc/myapi-operations /var/lib/myapi-operations /etc/systemd/system/myapi-operations.service; do
+  [ ! -e "$destination" ] && [ ! -L "$destination" ] || { echo 'Installation target already exists; inspect and preserve it before installing' >&2; exit 1; }
+done
 install -d -m 0700 /opt/myapi-operations/tools/operations /opt/myapi-operations/tools/runtime /etc/myapi-operations /var/lib/myapi-operations/state /var/lib/myapi-operations/backups
 for source in "$source_root"/tools/operations/*.mjs "$source_root"/tools/operations/*.py; do
-  case "$source" in *.test.mjs) continue ;; esac
+  case "$source" in *.test.mjs|*/docker-qualification.mjs|*/qualification-fixture.py) continue ;; esac
   install -m 0600 "$source" /opt/myapi-operations/tools/operations/
 done
 install -m 0600 "$source_root/tools/runtime/smoke-image-bundle.mjs" /opt/myapi-operations/tools/runtime/

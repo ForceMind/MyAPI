@@ -83,3 +83,47 @@ test('OS daemon lock has one owner and reuses stable inode after orderly release
   assert.equal(current.ino, initial.ino); assert.equal(current.dev, initial.dev)
   await second.release()
 })
+
+test('live summary reads committed WAL consistently while a writer holds an uncommitted transaction', async t => {
+  const root = await directory(t), database = path.join(root, 'my-api.db')
+  const script = `import sqlite3,sys\ndb=sqlite3.connect(sys.argv[1])\ndb.execute('PRAGMA journal_mode=WAL')\ndb.execute('PRAGMA wal_autocheckpoint=0')\nfor table in ('users','tokens','logs'):\n db.execute('CREATE TABLE '+table+' (id INTEGER PRIMARY KEY)')\n db.execute('INSERT INTO '+table+' VALUES (1)')\ndb.commit()\nprint('ready',flush=True)\nfor line in sys.stdin:\n action=line.strip()\n if action=='begin':\n  db.execute('BEGIN IMMEDIATE')\n  for table in ('users','tokens','logs'):db.execute('INSERT INTO '+table+' VALUES (2)')\n elif action=='commit':db.commit()\n else:raise Exception('unknown fixture command')\n print('done',flush=True)\n`
+  const child = spawn('/usr/bin/python3', ['-I', '-c', script, database], { stdio: ['pipe', 'pipe', 'pipe'] })
+  child.stderr.resume(); t.after(() => child.kill('SIGKILL'))
+  let output = ''; const waiting = []
+  child.stdout.on('data', chunk => { output += chunk; while (output.includes('\n')) { const end = output.indexOf('\n'); const value = output.slice(0, end); output = output.slice(end + 1); waiting.shift()?.(value) } })
+  const next = () => new Promise((resolve, reject) => { const timer = setTimeout(() => reject(new Error('WAL fixture timeout')), 10000); waiting.push(value => { clearTimeout(timer); resolve(value) }) })
+  const send = async action => { const response = next(); child.stdin.write(action + '\n'); assert.equal(await response, 'done') }
+  assert.equal(await next(), 'ready')
+  assert.ok((await stat(database + '-wal')).size > 0)
+  await send('begin')
+  const request = { action: 'live_summary', data_dir: root, sqlite_file: database }
+  assert.deepEqual(await python('backup_data.py', request), { state: 'observed', counts: { users: 1, tokens: 1, logs: 1 } })
+  await send('commit')
+  assert.deepEqual(await python('backup_data.py', request), { state: 'observed', counts: { users: 2, tokens: 2, logs: 2 } })
+})
+
+test('live summary distinguishes unavailable sampling from confirmed SQLite corruption without fabricating zero counts', async t => {
+  const root = await directory(t), database = path.join(root, 'my-api.db')
+  await run('/usr/bin/python3', ['-I', '-c', "import sqlite3,sys;db=sqlite3.connect(sys.argv[1]);db.execute('CREATE TABLE users(id INTEGER PRIMARY KEY)');db.commit();db.close()", database])
+  // Missing diagnostic tables makes the observation unavailable, rather than
+  // inventing empty token/log counts or marking a structurally valid DB corrupt.
+  const missing = await python('backup_data.py', { action: 'live_summary', data_dir: root, sqlite_file: database })
+  assert.equal(missing.state, 'unknown'); assert.equal(Object.hasOwn(missing, 'counts'), false)
+  await writeFile(database, 'not a SQLite database')
+  const corrupt = await python('backup_data.py', { action: 'live_summary', data_dir: root, sqlite_file: database })
+  assert.equal(corrupt.state, 'corrupt'); assert.equal(Object.hasOwn(corrupt, 'counts'), false)
+})
+
+test('live summary reports an exclusive SQLite reader lock as unknown, not corruption', async t => {
+  const root = await directory(t), database = path.join(root, 'my-api.db')
+  const script = `import sqlite3,sys\ndb=sqlite3.connect(sys.argv[1])\nfor table in ('users','tokens','logs'):db.execute('CREATE TABLE '+table+'(id INTEGER PRIMARY KEY)')\ndb.commit()\ndb.execute('BEGIN EXCLUSIVE')\nprint('locked',flush=True)\nsys.stdin.read()\ndb.rollback()\ndb.close()\n`
+  const child = spawn('/usr/bin/python3', ['-I', '-c', script, database], { stdio: ['pipe', 'pipe', 'pipe'] })
+  child.stderr.resume(); t.after(() => child.kill('SIGKILL'))
+  const ready = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('exclusive lock fixture timeout')), 10000)
+    child.stdout.once('data', chunk => { clearTimeout(timer); resolve(String(chunk).trim()) })
+  })
+  assert.equal(ready, 'locked')
+  const result = await python('backup_data.py', { action: 'live_summary', data_dir: root, sqlite_file: database })
+  assert.deepEqual(result, { state: 'unknown', code: 'SQLITE_OBSERVATION_UNAVAILABLE' })
+})
