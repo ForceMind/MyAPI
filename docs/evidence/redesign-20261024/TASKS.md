@@ -9,6 +9,9 @@
 - 首源码 `91fed69f13796f9367a828aa12a235372ec27489` / CI41886621709：已读完整作业/步骤，8成功/2失败/1浏览器跳过。Node服务26/26、MCP11/11通过；后端新增Ops证明/DTO/缺配置通过，原资源范围用例误用扩展后的“全部scope”夹具触发400，已固定原5scope、保原隔离断言；前端type通过、lint缺props effect依赖1错误已最小修正。该源码不是合格升级目标；新增运行时同源码完整CI成功门禁，不能用其Docker smoke绿绕过主CI红。
 - 第二轮 `2a0570aa` / CI41888886679：前端type/lint已通过，资料/认证213通过1失败，新增默认scope测试误依赖Base UI自动DOM ID，已改为准确勾选数量+四个可访问名称，ops默认未勾断言不变。审查补下载后完整CI资格重验；启动后观测改为SQLite只读事务，忙/诊断失败明确null/unknown、不把正常新账务写入误判冻结；停稳备份强一致断言保留。
 - 额外真实验收入口 `.github/workflows/operations-smoke.yml`，只手动dev触发、固定55531d1e旧Full与动态精确合格目标制品，真实TLS/SQLite/Docker/GitHub身份与SIGKILL/故障注入；只上传安全报告，测试不在本机运行。91的Docker41886760519成功仅为包基线，其主CI红，新增门禁禁止作为正向目标，必须用后续全绿源码新制品。
+- 已验证应用/服务基线 `0489f1c21659253d65361d9b205553c0904bf7a0` / [完整CI41892349765](https://github.com/ForceMind/MyAPI/actions/runs/41892349765) attempt1 success，10成功/1浏览器跳过，全部作业/步骤与前后端原始日志已亲读；前端397文件3084/3084，运维面板17/API16、认证资料+运维早期247，type/lint/build/i18n通过(24既有warnings/0error)；Node服务31/31、MCP11/11、Go绑定proof/DTO/权限/未知与全部既有后端/独立relaykit/386/race/三库通过，后端FAIL/race标记0。
+- [Full SQLite41895639097](https://github.com/ForceMind/MyAPI/actions/runs/41895639097) success，source同0489、tree5c9a5170340d1531a541e4b09ed36101ed9d23b2，20/20通用HTTP/API/同镜像恢复检查，browser=not_run；artifact13356191175 ZIP64aa729f4831cbdb16e599a03ab36866337747185984a5fd7c6d7d0b42d59da0、manifest984b9c92319726ca3db364b3b35e8d3f046850754a61812cfb50abee14ed96a7、app sha256:9150578c6fef5d462af9012b47dbca691b4590cdee0351f1660e0f854c45620a。此包只作当前真实Ops升级测试目标，不能重标后续测试提交SHA；通用20项不代替尚待的独立Ops真实验收。
+- 后续小修仅独立服务/测试编排：源restart禁用请求结果未知时标null，不输出虚假的false；最后网络读取后再查批准TTL；构建器只移除本轮setup生成者，关闭自动dockerbuild记录上传，保Runner容量与仅safe报告边界。新提交须回读自身CI，真实Ops结果继续单列。
 - 验证门禁：既有完整CI、Go真实路由/绑定proof/越权/无配置、Node鉴权/WAL/ZIP/持久锁/故障与MCP；额外Actions真实Docker Full SQLite升级、TLS、daemon kill/restart、源配置/开关与新增账务连续性。候选beta.33，不把源码或单测当生产验收，不发布镜像/tag或改main。
 
 

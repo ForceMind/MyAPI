@@ -219,7 +219,7 @@ test('old always policy is disabled durably before stop; candidate keeps origina
 test('unknown restart-policy update outcome freezes instance without stop, retry or old-policy restoration', async t => {
   const f = await fixture(t, { disableUnknown: true }); const plan = await f.prepare(); await f.approve(plan); await f.execute(plan); await f.service.engine.drain()
   const result = f.service.engine.get(plan.id)
-  assert.equal(result.state, 'recovery_required'); assert.equal(result.source_mutation_attempted, true); assert.equal(result.source_restart_disabled, false)
+  assert.equal(result.state, 'recovery_required'); assert.equal(result.source_mutation_attempted, true); assert.equal(result.source_restart_disabled, null)
   assert.equal(f.calls.filter(([action]) => action === 'disableRestart').length, 1)
   assert.equal(f.calls.some(([action]) => ['stop', 'start', 'create'].includes(action)), false)
   assert.deepEqual(f.source.HostConfig.RestartPolicy, { Name: 'no', MaximumRetryCount: 0 })

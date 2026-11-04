@@ -148,9 +148,13 @@ export class OperationsEngine {
       const source = await validateContainer(await this.docker.inspectContainer(plan.source_container_id), instance, this.docker)
       check(source.info.Id === plan.source_container_id && source.digest === plan.source_config_digest, 'SOURCE_CONFIG_CHANGED', 409)
       check(await this.readVersion(instance) === plan.source_version, 'SOURCE_VERSION_CHANGED', 409)
+      // All remote reads above can consume time. Check the permit again at
+      // the final decision boundary, before journaling any source mutation.
+      check(this.clock() < plan.expires_at && this.clock() < plan.approval_expires_at, 'APPROVAL_EXPIRED', 409)
       // A retained old container must never revive against the upgraded DB on
       // a Docker/host restart. Record the irreversible boundary before update.
       plan.source_mutation_attempted = true
+      plan.source_restart_disabled = null
       await transition('stopping')
       const expectedOld = structuredClone(source.info)
       expectedOld.HostConfig.RestartPolicy = { Name: 'no', MaximumRetryCount: 0 }
