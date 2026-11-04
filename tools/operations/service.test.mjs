@@ -354,3 +354,36 @@ test('new image volume, environment key or exposed port is rejected before any s
     assert.equal(f.source.State.Running, true); assert.equal(f.source.HostConfig.RestartPolicy.Name, 'always')
   }
 })
+
+test('OOM killer default expressions missing, null and false are semantically identical; true is never weakened', async t => {
+  const { containerDigest, sameRuntimeConfig } = await import('./docker.mjs')
+  const f = await fixture(t)
+  const expressions = ['missing', null, false, true]
+  for (const before of expressions) {
+    for (const after of expressions) {
+      const source = structuredClone(f.source), target = structuredClone(f.source)
+      if (before !== 'missing') source.HostConfig.OomKillDisable = before
+      if (after !== 'missing') target.HostConfig.OomKillDisable = after
+      const equal = (before === true) === (after === true)
+      assert.equal(sameRuntimeConfig(source, target), equal)
+      assert.equal(containerDigest(source) === containerDigest(target), equal)
+    }
+  }
+  const source = structuredClone(f.source), target = structuredClone(f.source)
+  source.HostConfig.OomKillDisable = null; target.HostConfig.OomKillDisable = false
+  target.HostConfig.Memory += 1
+  assert.equal(sameRuntimeConfig(source, target), false)
+  assert.notEqual(containerDigest(source), containerDigest(target))
+})
+
+test('Docker null-to-false OOM default normalization permits candidate while true-to-default drift remains rejected', async t => {
+  for (const sourceValue of [null, false, true]) {
+    const f = await fixture(t, { candidateDrift: candidate => { candidate.HostConfig.OomKillDisable = false } })
+    f.source.HostConfig.OomKillDisable = sourceValue
+    const plan = await f.prepare(); await f.approve(plan); await f.execute(plan); await f.service.engine.drain()
+    const result = f.service.engine.get(plan.id)
+    assert.equal(result.state, sourceValue === true ? 'recovery_required' : 'succeeded')
+    assert.equal(result.target_start_attempted, sourceValue !== true)
+    if (sourceValue === true) assert.equal(result.code, 'CANDIDATE_CONFIG_MISMATCH')
+  }
+})

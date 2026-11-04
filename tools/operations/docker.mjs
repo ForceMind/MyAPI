@@ -50,7 +50,16 @@ export function configuredNetworks(info) {
   return networks
 }
 export function configuredMounts(info) { return structuredClone(info.Mounts || []).sort((a, b) => a.Destination.localeCompare(b.Destination)) }
-export function containerDigest(info) { return digest({ id: info.Id, image: info.Image, Config: info.Config, HostConfig: info.HostConfig, Mounts: configuredMounts(info), networks: configuredNetworks(info) }) }
+export function configuredHostConfig(info) {
+  const result = structuredClone(info.HostConfig)
+  // Docker enables the OOM killer by default (--oom-kill-disable=false).
+  // A missing/null pointer and explicit false therefore express the same
+  // setting; true and every other HostConfig field retain exact comparison.
+  // https://docs.docker.com/engine/containers/resource_constraints/
+  if (result.OomKillDisable === undefined || result.OomKillDisable === null) result.OomKillDisable = false
+  return result
+}
+export function containerDigest(info) { return digest({ id: info.Id, image: info.Image, Config: info.Config, HostConfig: configuredHostConfig(info), Mounts: configuredMounts(info), networks: configuredNetworks(info) }) }
 export async function validateContainer(info, instance, docker) {
   check(info && /^[a-f0-9]{64}$/.test(info.Id) && /^sha256:[a-f0-9]{64}$/.test(info.Image) && info.State?.Running === true, 'SOURCE_NOT_RUNNING', 409)
   check(info.HostConfig && info.Config && !info.HostConfig.AutoRemove && !info.HostConfig.VolumesFrom?.length && !info.HostConfig.Privileged &&
@@ -124,7 +133,7 @@ export function sameRuntimeConfig(source, target, desiredLabels) {
   if (desiredLabels !== undefined) a.Labels = structuredClone(desiredLabels)
   delete a.Image; delete b.Image
   // Only the exact image and explicitly computed merged Labels may change.
-  return digest(a) === digest(b) && digest(source.HostConfig) === digest(target.HostConfig) && digest(configuredMounts(source)) === digest(configuredMounts(target))
+  return digest(a) === digest(b) && digest(configuredHostConfig(source)) === digest(configuredHostConfig(target)) && digest(configuredMounts(source)) === digest(configuredMounts(target))
 }
 
 export function samePublishedPorts(source, target) {

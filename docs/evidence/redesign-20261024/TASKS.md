@@ -14,6 +14,7 @@
 - 后续小修仅独立服务/测试编排：源restart禁用请求结果未知时标null，不输出虚假的false；最后网络读取后再查批准TTL；构建器只移除本轮setup生成者，关闭自动dockerbuild记录上传，保Runner容量与仅safe报告边界。新提交须回读自身CI，真实Ops结果继续单列。
 - GitHub实际拒绝新workflow_dispatch（03d02d79后调用404，工作流未在默认分支）。按官方默认分支限制，改为仅本仓库dev的受控qualification-target.json更新触发新验收，不改main。目标内容为0489/41895639097的既定身份，revision只控制CI重跑，不改变制品；未来默认分支具备工作流后可用手动入口。该触发机制不是生产部署授权。
 - 首真实Ops41898016352 / test8ac59728：实际TLS/555旧Full/SQLite初始化与真实GitHub身份已运行，首次在TARGET_CANDIDATE_CONFIG_MISMATCH停，候选未启动；清理只本轮拥有容器，报告保留。猜测Docker继承目标默认Labels导致原配置比对失败；改为明确desired Labels=已验证image defaults+原用户labels（原值优先），其他完整比较不放宽，并加仅字段名诊断，尚待新真实证据。新Env/Volumes/ExposedPorts不支持变更preStop拒绝。fixture/revision2继续绑定同一0489镜像，不重标identity。
+- 第二真实Ops41899971275 / test4ff6c52a：安全差异证据config_fields=[]、Mounts无变化，唯一HostConfig.OomKillDisable不同；Labels问题已消除但候选仍未启动。按Docker官方默认OOM启用语义，只规范该字段missing/null/false为未禁用、true严格保留，其他字段不改；补4×4矩阵与true漂移拒绝，新增仅该布尔字段类型诊断，revision3待新真实验收。不是放行任意HostConfig差异。
 - 验证门禁：既有完整CI、Go真实路由/绑定proof/越权/无配置、Node鉴权/WAL/ZIP/持久锁/故障与MCP；额外Actions真实Docker Full SQLite升级、TLS、daemon kill/restart、源配置/开关与新增账务连续性。候选beta.33，不把源码或单测当生产验收，不发布镜像/tag或改main。
 
 

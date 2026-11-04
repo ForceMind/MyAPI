@@ -12,7 +12,7 @@ import https from 'node:https'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { setTimeout } from 'node:timers/promises'
-import { DockerClient, candidateConfig, configuredMounts, containerDigest, sameRuntimeConfig, samePublishedPorts } from './docker.mjs'
+import { DockerClient, candidateConfig, configuredHostConfig, configuredMounts, containerDigest, sameRuntimeConfig, samePublishedPorts } from './docker.mjs'
 import { artifactInput, digest } from './safety.mjs'
 import { createOperationsService } from './service.mjs'
 import { claimDaemon } from './daemon.mjs'
@@ -188,11 +188,18 @@ async function candidateDifference(fixture, result) {
     const targetImage = await docker.inspectImage(result.target_image_id)
     const desired = candidateConfig(journal.source_snapshot, result.target_image_id, targetImage)
     const expectedConfig = { ...journal.source_snapshot.Config, Image: result.target_image_id, Labels: desired.Labels }
+    const oomKind = host => {
+      if (!Object.hasOwn(host, 'OomKillDisable')) return 'missing'
+      demand(host.OomKillDisable === null || typeof host.OomKillDisable === 'boolean', 'DIAGNOSTIC_BOOLEAN_UNSUPPORTED')
+      return host.OomKillDisable === null ? 'null' : host.OomKillDisable ? 'true' : 'false'
+    }
+    const expectedHost = configuredHostConfig(journal.source_snapshot), actualHost = configuredHostConfig(actual)
     const different = (expected, value, field) => digest({ present: Object.hasOwn(expected || {}, field), value: expected?.[field] }) !== digest({ present: Object.hasOwn(value || {}, field), value: value?.[field] })
     const unknown = (expected, value, fields) => [...new Set([...Object.keys(expected || {}), ...Object.keys(value || {})])].some(field => !fields.includes(field) && different(expected, value, field))
     differences = { available: true, phase: result.target_start_attempted ? 'after_start' : 'before_start',
       config_fields: configFields.filter(field => different(expectedConfig, actual.Config, field)),
-      host_config_fields: hostFields.filter(field => different(journal.source_snapshot.HostConfig, actual.HostConfig, field)),
+      host_config_fields: hostFields.filter(field => different(expectedHost, actualHost, field)),
+      oom_kill_disable: { expected_kind: oomKind(journal.source_snapshot.HostConfig), actual_kind: oomKind(actual.HostConfig) },
       mounts_changed: digest(configuredMounts(journal.source_snapshot)) !== digest(configuredMounts(actual)),
       published_ports_changed: result.target_start_attempted ? !samePublishedPorts(journal.source_snapshot, actual) : null,
       unknown_config_fields_changed: unknown(expectedConfig, actual.Config, configFields), unknown_host_config_fields_changed: unknown(journal.source_snapshot.HostConfig, actual.HostConfig, hostFields) }
