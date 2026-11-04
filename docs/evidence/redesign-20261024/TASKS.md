@@ -7,6 +7,7 @@
 - 远程工具复用现有完整路由鉴权链，目录包含渠道、Key元数据、保存的用量与实例状态，以及明确确认的单渠道启停。未加入容器升级、任意Shell、删除、账务、诊断或上游测试。数据按接口白名单投影，缓存缺失/null/0/正数和大整数保留；写入结果未知不自动重放。
 - 新面板沿个人资料安全区接入，不替换既有 Access Token。一次性凭据仅在当前身份局部状态显示，不进入持久存储；创建和撤销有对象确认、忙态、未知结果及会话切换隔离。七locale各补48键按脚本生成，en/zh实现，另外五种语言英文回填；不是七语言母语验收。
 - 后端/工具首提交 `cd14e6d8b963a9a807ede0e7e2a9051a229a79ae` / [CI41867247766](https://github.com/ForceMind/MyAPI/actions/runs/41867247766) 为首轮证据，不能拿它代替后续面板或修正源码的CI。首轮已读全部作业/步骤：9成功、1后端失败、1浏览器作业跳过；三库管理Key测试全PASS，工具8/8、原前端3017/3017，后端仅实例大整数断言失败。独立只读审查发现实例Info在投影前经any解码丢大整数、stdio按累计缓冲区误限两条合法帧；最小修正保留原精度断言并新增分帧回归；后续UI审查补中文名Unicode长度、创建响应未知时GET恢复与旧空列表隔离、长ID默认折叠。最终以包含这些修正的源码完整Actions为准。
+- 第二轮候选 `d89f0fb00471b6dfd07953561e038b4faedae680` / [CI41870152764](https://github.com/ForceMind/MyAPI/actions/runs/41870152764)：前端早期type/lint与同步通过，认证/资料专项209通过、2失败，均为两处Close按钮使新增测试定位歧义。仅把查找限定到弹窗内可见文本按钮，密钥清除、未知状态和POST单次断言不变；后续以新提交完整CI为准，不把失败运行记为通过。
 - 验证要求：真实SetApiRouter鉴权/对象隔离/确认/权限撤销/脱敏、三库重复迁移与凭据生命周期、Node stdio与受限HTTP工具、既有完整CI；本机仅代码/Git/JSON/XML/gofmt轻量工作。浏览器和生产尚不在本批验收内。
 - 入口与第二批最小方案：[REMOTE_MANAGEMENT](../../REMOTE_MANAGEMENT.md)；增量[桌面线稿](ui-design-v2/wireframes/svg/management-keys-desktop.svg)/[手机线稿](ui-design-v2/wireframes/svg/management-keys-mobile.svg)。沿用旧profile-security，非新路由，不重做既有UI。
 
