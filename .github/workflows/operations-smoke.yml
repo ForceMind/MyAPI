@@ -165,6 +165,44 @@ jobs:
             docker rm --force --volumes "$container_id" >/dev/null
           done
 
+      - name: Read only the whitelisted qualification evidence into the job log
+        if: always()
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict'
+          import { readFile } from 'node:fs/promises'
+          import path from 'node:path'
+          const report = JSON.parse(await readFile(path.join(process.env.RUNNER_TEMP, 'myapi-operations-report.json'), 'utf8'))
+          const expected = [
+            'positive_exact_image_and_configuration', 'old_retained_with_restart_disabled', 'backup_db_wal_shm_summaries',
+            'real_status_version_and_static_assets', 'seeded_accounting_preserved', 'committed_17_units_survive_daemon_restart',
+            'current_chain_pointer_after_restart', 'directory_socket_bridge_survives_restart', 'success_replay_rejected_without_second_candidate',
+            'wrong_exact_identity_fails_before_source_mutation', 'anonymous_rejected_before_source_mutation',
+            'publish_all_rejected_before_source_mutation', 'dynamic_rejected_before_source_mutation',
+            'second_daemon_cannot_mutate_live_journal', 'sigkill_releases_os_lock_and_marks_interrupted',
+            'interrupted_instance_frozen_and_queryable', 'crash_preserves_original_data_and_configuration',
+            'real_start_sqlite_commit_sigstop_fault_injected', 'health_failure_preserves_committed_17_units',
+            'recovery_required_never_restarts_old_or_restores_database', 'failure_replay_has_no_second_candidate_or_charge',
+          ]
+          assert.match(report.source_sha, /^[a-f0-9]{40}$/)
+          assert.match(report.test_sha, /^[a-f0-9]{40}$/)
+          assert.match(report.baseline_sha, /^[a-f0-9]{40}$/)
+          assert.match(report.target_image_id, /^sha256:[a-f0-9]{64}$/)
+          assert.equal(report.browser, 'not_run')
+          assert.equal(report.production_touched, false)
+          assert.equal(report.model_requests, 0)
+          const checks = Object.fromEntries(expected.filter(name => Object.hasOwn(report.checks, name)).map(name => {
+            assert.equal(typeof report.checks[name], 'boolean')
+            return [name, report.checks[name]]
+          }))
+          console.log('OPERATIONS_SAFE_REPORT ' + JSON.stringify({ source_sha: report.source_sha, test_sha: report.test_sha, baseline_sha: report.baseline_sha, target_image_id: report.target_image_id, checks, browser: report.browser, production_touched: false, model_requests: 0, passed: report.passed === true }))
+          if (report.passed === true) {
+            assert.deepEqual(Object.keys(checks).sort(), expected.sort())
+            assert.ok(Object.values(checks).every(value => value === true))
+          }
+          JS
+
       - name: Upload only the safe qualification report
         if: always()
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0

@@ -2,6 +2,9 @@
 
 ## 2026-11-05 第二批：独立受限运维与升级批准（候选，待对应 Actions 验收）
 
+- 真实Ops [41900763817](https://github.com/ForceMind/MyAPI/actions/runs/41900763817) / test bc669df65b56f2b83058ea57893b6cf35c812f1e attempt1 success，全部步骤及安全日志已读。真实GitHub资格与制品身份、TLS、旧555→目标0489切换、配置/开关、DB/WAL/SHM备份、新增17 units与daemon重启/桥接、错误身份及匿名卷/动态端口拒绝、竞争daemon与SIGKILL冻结、启动后故障保17账务、不重放均已严格断言。故障明确为合成注入，未触生产/model/browser。
+- 安全报告artifact13357454715，SHA256 0f18b61b50e0e954f53e5f3f7550ef72f14251000159050c4a84eacb2a404b4e；本机未下载。后续revision4仅按固定21项白名单在Actions日志打印安全报告，便于直接读回；目标image仍0489，服务实现绑定bc669df6，后续文档/日志提交不是镜像SHA，自身完整CI仍须回读。
+
 - 已明确授权：Docker + Full + SQLite 独立服务、升级计划/面板确认，提交dev并读取完整CI；全部构建/测试仅Actions，无本机依赖/构建/测试/Docker/浏览器/产物下载，生产与真实模型请求禁止。
 - 方案和实现合同集中在[REMOTE_MANAGEMENT](../../REMOTE_MANAGEMENT.md)，配置/离线安装在[deploy/operations](../../../deploy/operations/README.md)。根应用三库行为不改；运维功能只支持登记SQLite实例，默认未配置。
 - 从代码看：HTTPS只读/准备/执行与私有Unix批准分离，同一管理Key显式Root运维scope、SQLite fresh只读校验，原Key不扩权；2FA/Passkey proof绑定plan ID+digest。固定GitHub仓库/workflow/dev/source/tree/VERSION/ZIP digest、manifest/tar与完全相等imageID，门禁失败前不修改旧容器。

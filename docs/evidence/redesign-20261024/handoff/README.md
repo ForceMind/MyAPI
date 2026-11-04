@@ -2,6 +2,8 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**2026-11-05 独立运维真实验收已通过，等待最后文档/日志提交完整CI。** 服务bc669df6 / [真实Ops41900763817](https://github.com/ForceMind/MyAPI/actions/runs/41900763817) attempt1 success已读全部步骤：真实TLS、GitHub制品身份、Docker Full SQLite切换、配置/开关、WAL备份、新增17 units、daemon重启/桥接、错误身份拒绝、SIGKILL冻结、启动后故障保账务和不重放均有严格断言。应用/通用镜像仍绑定0489f1c2、完整CI41892349765与Full包41895639097；服务测试提交不是镜像SHA。精确证据见[TASKS](../TASKS.md)最新节。后续仅安全报告日志与交接，自身完整CI通过才结束本批。没有生产安装/升级、真实模型/供应商请求、浏览器、本机依赖/构建测试/Docker/产物下载、GHCR/NPM/tag/main操作。首次服务器安装更新另行确认。
+
 **2026-11-05 第二批独立运维候选 beta.33。** 基线0489f1c2 / CI41892349765完整success已亲读，10作业成功/1浏览器跳过；前端3084/3084、Node运维31/MCP11、全部既有后端/三库/独立relaykit/386/race通过。Full SQLite41895639097已成功，绑定同0489与精确镜像，只作为独立Ops真实测试目标；后续服务/测试小修不把此包重标为新SHA。独立Docker/TLS/SIGKILL/新增账务验收仍需手动operations-smoke.yml实际跑，未完成前不称运维交付验证完成，更不称已部署。完整权限/审查修正/制品身份与CI过程集中在[TASKS](../TASKS.md)最新节；操作与安装合同见[REMOTE_MANAGEMENT](../../../REMOTE_MANAGEMENT.md)。全部本机安装/构建/测试/浏览器/Docker/产物下载与生产/真实模型调用仍禁止；当前仅实现与Actions验收授权，首次服务器安装/更新另行确认。
 
 
