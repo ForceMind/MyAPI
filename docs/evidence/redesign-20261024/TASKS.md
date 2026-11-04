@@ -6,6 +6,7 @@
 - 方案和实现合同集中在[REMOTE_MANAGEMENT](../../REMOTE_MANAGEMENT.md)，配置/离线安装在[deploy/operations](../../../deploy/operations/README.md)。根应用三库行为不改；运维功能只支持登记SQLite实例，默认未配置。
 - 从代码看：HTTPS只读/准备/执行与私有Unix批准分离，同一管理Key显式Root运维scope、SQLite fresh只读校验，原Key不扩权；2FA/Passkey proof绑定plan ID+digest。固定GitHub仓库/workflow/dev/source/tree/VERSION/ZIP digest、manifest/tar与完全相等imageID，门禁失败前不修改旧容器。
 - 审查必要修正：旧容器always重启会双写，禁用旧restart且新容器保原策略；匿名卷/动态端口preStop拒绝；运行时网络元数据不误当配置；OS flock防并发启动；协议缺失/null身份拒绝、不补0。源变更意图先fsync，任何未知结果冻结，不回滚DB/重启旧镜像；WAL/SHM备份与同data_dir新写保持。
+- 首源码 `91fed69f13796f9367a828aa12a235372ec27489` / CI41886621709：已读完整作业/步骤，8成功/2失败/1浏览器跳过。Node服务26/26、MCP11/11通过；后端新增Ops证明/DTO/缺配置通过，原资源范围用例误用扩展后的“全部scope”夹具触发400，已固定原5scope、保原隔离断言；前端type通过、lint缺props effect依赖1错误已最小修正。该源码不是合格升级目标；新增运行时同源码完整CI成功门禁，不能用其Docker smoke绿绕过主CI红。
 - 验证门禁：既有完整CI、Go真实路由/绑定proof/越权/无配置、Node鉴权/WAL/ZIP/持久锁/故障与MCP；额外Actions真实Docker Full SQLite升级、TLS、daemon kill/restart、源配置/开关与新增账务连续性。候选beta.33，不把源码或单测当生产验收，不发布镜像/tag或改main。
 
 

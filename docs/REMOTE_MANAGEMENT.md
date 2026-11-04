@@ -69,7 +69,7 @@ MYAPI_MANAGEMENT_KEY_FILE=/absolute/protected/path/myapi-management.key
 
 管理 Key 显式增加 `operations.read`、`operations.prepare`、`operations.execute` 三项 Root 专用权限，默认不选；旧 Key 不自动增加权限。运维 scope 不能与渠道/Key ID 限制混用。MCP 配置额外的 `MYAPI_OPERATIONS_URL=https://your-independent-operations.example`，同一把 Key 由独立服务通过登记 SQLite 只读验证，即使 MyAPI 停机仍可读取计划；MCP 不提供批准工具。实例、源配置、DB、健康端点、制品和登记摘要绑定到计划，修改后拒绝执行。
 
-当前限制 Linux/amd64、Docker API 1.45、Full、同一 `/data` RW bind 内的 SQLite，只接受 `0.2.0-beta.N` 严格升序。精确目标 VERSION 还从 GitHub 对应源码 blob 校验；任意高填版本不能掩盖降级。镜像身份不符在任何旧容器修改前停止，不能以 config/layer 等价替代。匿名卷、动态宿主端口、静态 IP 等无法原样保留的形态先拒绝。具体完整前置条件、容量限额和安装权限见 [安装说明](../deploy/operations/README.md)。
+当前限制 Linux/amd64、Docker API 1.45、Full、同一 `/data` RW bind 内的 SQLite，只接受 `0.2.0-beta.N` 严格升序。同一源码最新完整 CI 还必须成功，不能以 Docker smoke 通过替代计费、权限或前端检查。精确目标 VERSION 还从 GitHub 对应源码 blob 校验；任意高填版本不能掩盖降级。镜像身份不符在任何旧容器修改前停止，不能以 config/layer 等价替代。匿名卷、动态宿主端口、静态 IP 等无法原样保留的形态先拒绝。具体完整前置条件、容量限额和安装权限见 [安装说明](../deploy/operations/README.md)。
 
 源容器保持旧重启策略会在 Docker 重启后复活，因而批准页明确提示：执行器通过全部身份门禁后，先持久记录源变更意图，禁用**旧容器**自动重启，再停机备份。新容器保留原重启策略、Env、挂载和固定端口。禁用请求一旦发出，任何失败或未知结果都冻结实例，不能自动恢复旧策略或旧镜像。OS `flock` 使用稳定 inode 并在初始化 journal 前独占，进程崩溃后内核释放进程锁，持久实例执行锁与 interrupted/recovery_required 仍保留，不重放。
 

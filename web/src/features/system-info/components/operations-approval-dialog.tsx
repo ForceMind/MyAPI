@@ -123,24 +123,26 @@ function OperationsProofDialog(props: { plan: OperationsPlan; signal: AbortSigna
   const [feedback, setFeedback] = useState('')
   const pending = useRef(false)
   const active = useRef(true)
+  const verificationSignal = props.signal
+  const isCurrentReview = props.isCurrent
   useEffect(() => {
     active.current = true
     async function loadMethods() {
       try {
-        const result = await operationsVerificationMethods(props.signal)
-        if (!active.current || !props.isCurrent()) return
+        const result = await operationsVerificationMethods(verificationSignal)
+        if (!active.current || !isCurrentReview()) return
         setMethods(result)
         const method = result.hasPasskey && result.passkeySupported ? 'passkey' : null
         setState((previous) => ({ ...previous, loading: false, method: method ?? (result.has2FA ? '2fa' : null) }))
       } catch {
-        if (!active.current || !props.isCurrent()) return
+        if (!active.current || !isCurrentReview()) return
         setFeedback(t('Account verification methods could not be loaded. No approval was submitted.'))
         setState((previous) => ({ ...previous, loading: false }))
       }
     }
     void loadMethods()
     return () => { active.current = false }
-  }, [props.signal, props.isCurrent, t])
+  }, [verificationSignal, isCurrentReview, t])
 
   async function verify(method: VerificationMethod, code?: string) {
     if (pending.current || !props.isCurrent()) return

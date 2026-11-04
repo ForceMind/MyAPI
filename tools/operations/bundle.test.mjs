@@ -59,11 +59,12 @@ test('GitHub metadata binds fixed workflow/repository/dev/attempt/tree/artifact 
   const directory = await mkdtemp(path.join(os.tmpdir(), 'myapi-github-')); t.after(() => rm(directory, { recursive: true, force: true }))
   const tokenFile = path.join(directory, 'github.token'); await writeFile(tokenFile, 'github-read-only-fixture-token', { mode: 0o600 })
   const artifact = { run_id: '123', producer_attempt: '2', artifact_id: '456', source_sha: 'a'.repeat(40), tree_sha: 'b'.repeat(40), version: '0.2.0-beta.35' }
-  let branch = 'dev', storageToken, redirect = 'https://productionresultssa1.blob.core.windows.net/archive?sig=fixture'
+  let branch = 'dev', qualification = 'success', storageToken, redirect = 'https://productionresultssa1.blob.core.windows.net/archive?sig=fixture'
   const bytes = Buffer.from('not a zip; digest mismatch prevents extraction')
   const responses = () => ({
     '/actions/runs/123/attempts/2': { id: 123, run_attempt: 2, status: 'completed', conclusion: 'success', head_branch: branch, head_sha: artifact.source_sha, path: '.github/workflows/docker-smoke.yml', event: 'workflow_dispatch', workflow_id: 99, repository: { id: 8, full_name: 'ForceMind/MyAPI' }, head_repository: { full_name: 'ForceMind/MyAPI' } },
     '/actions/workflows/99': { path: '.github/workflows/docker-smoke.yml', state: 'active' },
+    [`/actions/workflows/ci.yml/runs?head_sha=${artifact.source_sha}&branch=dev&per_page=100`]: { workflow_runs: [{ id: 120, run_attempt: 1, status: 'completed', conclusion: qualification, head_branch: 'dev', head_sha: artifact.source_sha, path: '.github/workflows/ci.yml', event: 'push', repository: { id: 8, full_name: 'ForceMind/MyAPI' }, head_repository: { full_name: 'ForceMind/MyAPI' } }] },
     ['/git/commits/' + artifact.source_sha]: { sha: artifact.source_sha, tree: { sha: artifact.tree_sha } },
     ['/git/trees/' + artifact.tree_sha]: { sha: artifact.tree_sha, truncated: false, tree: [{ path: 'VERSION', type: 'blob', mode: '100644', sha: 'c'.repeat(40) }] },
     ['/git/blobs/' + 'c'.repeat(40)]: { sha: 'c'.repeat(40), encoding: 'base64', size: artifact.version.length + 1, content: Buffer.from(artifact.version + '\n').toString('base64') },
@@ -80,6 +81,8 @@ test('GitHub metadata binds fixed workflow/repository/dev/attempt/tree/artifact 
     return new Response(bytes, { status: 200 })
   } })
   const verified = await client.verify(artifact); assert.equal(verified.zip_sha256, 'f'.repeat(64))
+  assert.equal(verified.full_ci_run_id, '120')
+  qualification = 'failure'; await assert.rejects(client.verify(artifact), { code: 'GITHUB_QUALIFICATION_FAILED' }); qualification = 'success'
   branch = 'main'; await assert.rejects(client.verify(artifact), { code: 'GITHUB_RUN_MISMATCH' }); branch = 'dev'
   redirect = 'https://evil.example/archive'; await assert.rejects(client.download(artifact, verified, directory), { code: 'GITHUB_REDIRECT_REJECTED' })
   redirect = 'https://productionresultssa1.blob.core.windows.net/archive?sig=fixture'

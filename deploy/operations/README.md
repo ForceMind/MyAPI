@@ -12,7 +12,7 @@ HTTPS 默认仅监听 `127.0.0.1:9443`，即使回环也必须配置独立 TLS�
 
 systemd 模板的 `ReadOnlyPaths` 必须按已登记目录调整；服务只读原数据并复制到 backups。root 0700 的 socket 目录和 0600 socket 必须通过明确授权的安装布局让 MyAPI 后端可访问。例如 Docker 中 root 进程应只读挂载专用 socket 目录（如 `/run/myapi-operations:/run/myapi-operations:ro`），该目录不得包含 TLS 私钥或 GitHub token；不能单独 bind socket 文件，因为 daemon 重启会 unlink/recreate socket，单文件挂载会留在旧 inode，导致桥接持续断连。bridge token 应另行只读挂载独立文件或专用凭据目录；不要扩大为 Docker socket 或 host 根目录挂载。后端使用 `MYAPI_OPERATIONS_SOCKET`、`MYAPI_OPERATIONS_BRIDGE_TOKEN_FILE`、`MYAPI_OPERATIONS_INSTANCE_ID`，默认为关闭。浏览器登录及二次验证由 MyAPI 后端执行，proof 不传入运维服务。
 
-计划有效期 30 分钟，审批最长 5 分钟，绑定原 owner/key、源配置和精确制品。执行先验证固定 ForceMind/MyAPI 的 dev/docker-smoke 成功 run、attempt、source/tree、GitHub artifact ZIP digest、manifest/tar 及加载后的精确 image ID，再次验证权限/有效期/源配置/版本后才停旧容器。通过全部门禁后先持久记录 source_mutation_attempted，再将旧容器的 RestartPolicy 固定改为 no 并回读，避免宿主或 Docker 重启时旧二进制复活写入新数据库；候选仍保留原来的重启策略。禁用请求一旦发起即进入需要人工恢复的风险边界，失败不自动恢复旧策略。备份包含 DB/WAL/SHM，保留 UID/GID/mode；新容器继续挂载原数据目录，不恢复旧快照。只允许 GET 状态、根 HTML 与最多 16 个同源静态 JS/CSS；不登录、不发送模型请求。
+计划有效期 30 分钟，审批最长 5 分钟，绑定原 owner/key、源配置和精确制品。执行先验证同一源码最新完整 ci.yml 已成功，再验证固定 ForceMind/MyAPI 的 dev/docker-smoke 成功 run、attempt、source/tree、GitHub artifact ZIP digest、manifest/tar 及加载后的精确 image ID，再次验证权限/有效期/源配置/版本后才停旧容器。通过全部门禁后先持久记录 source_mutation_attempted，再将旧容器的 RestartPolicy 固定改为 no 并回读，避免宿主或 Docker 重启时旧二进制复活写入新数据库；候选仍保留原来的重启策略。禁用请求一旦发起即进入需要人工恢复的风险边界，失败不自动恢复旧策略。备份包含 DB/WAL/SHM，保留 UID/GID/mode；新容器继续挂载原数据目录，不恢复旧快照。只允许 GET 状态、根 HTML 与最多 16 个同源静态 JS/CSS；不登录、不发送模型请求。
 
 固定容量保护：state/stage 合计最多 32 GiB、backups 最多 32 GiB、单次备份最多 16 GiB，至少保留 2 GiB 可用空间。下载 ZIP 与 tar 各最多 8 GiB，全局一次只执行一个下载/备份流程；其他并发执行在停旧容器前安全失败。历史 stage/备份不自动删除，容量不足由维护者检查并另行授权清理。
 

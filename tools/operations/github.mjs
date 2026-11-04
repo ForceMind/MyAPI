@@ -17,7 +17,7 @@ export function officialArtifactURL(value) {
 export class GitHubClient {
   constructor(tokenFile, { fetcher = fetch } = {}) { this.tokenFile = tokenFile; this.fetcher = fetcher }
   async request(route, { redirect = false } = {}) {
-    check(/^\/(?:actions|git)\/[A-Za-z0-9_./?-]+$/.test(route), 'INVALID_GITHUB_ROUTE')
+    check(/^\/(?:actions|git)\/[A-Za-z0-9_./?=&%-]+$/.test(route), 'INVALID_GITHUB_ROUTE')
     const token = (await protectedRead(this.tokenFile, { uid: process.getuid() })).toString().trim()
     check(token.length >= 16 && token.length <= 512 && !/[\s\0]/.test(token), 'INVALID_GITHUB_TOKEN')
     const response = await this.fetcher(api + route, { method: 'GET', redirect: 'manual', signal: AbortSignal.timeout(30_000),
@@ -38,6 +38,14 @@ export class GitHubClient {
       ['push', 'workflow_dispatch'].includes(run.event) && run.repository?.full_name === 'ForceMind/MyAPI' && run.head_repository?.full_name === 'ForceMind/MyAPI', 'GITHUB_RUN_MISMATCH')
     const workflow = await this.request(`/actions/workflows/${run.workflow_id}`)
     check(workflow.path === '.github/workflows/docker-smoke.yml' && workflow.state === 'active', 'GITHUB_WORKFLOW_MISMATCH')
+    const qualification = await this.request(`/actions/workflows/ci.yml/runs?head_sha=${artifact.source_sha}&branch=dev&per_page=100`)
+    check(Array.isArray(qualification.workflow_runs), 'GITHUB_QUALIFICATION_FAILED')
+    const candidates = qualification.workflow_runs.filter(item => item.head_sha === artifact.source_sha && item.head_branch === 'dev' &&
+      item.path === '.github/workflows/ci.yml' && ['push', 'workflow_dispatch'].includes(item.event) &&
+      item.repository?.id === run.repository.id && item.repository?.full_name === 'ForceMind/MyAPI' && item.head_repository?.full_name === 'ForceMind/MyAPI' &&
+      Number.isSafeInteger(item.id) && item.id > 0).sort((a, b) => b.id - a.id)
+    const fullCI = candidates[0]
+    check(fullCI?.status === 'completed' && fullCI.conclusion === 'success' && Number.isSafeInteger(fullCI.run_attempt) && fullCI.run_attempt > 0, 'GITHUB_QUALIFICATION_FAILED')
     const commit = await this.request(`/git/commits/${artifact.source_sha}`)
     check(commit.sha === artifact.source_sha && commit.tree?.sha === artifact.tree_sha, 'GITHUB_SOURCE_MISMATCH')
     const tree = await this.request(`/git/trees/${artifact.tree_sha}`)
@@ -52,7 +60,7 @@ export class GitHubClient {
       item.workflow_run?.head_branch === 'dev' && item.workflow_run?.repository_id === run.repository.id && item.workflow_run?.head_repository_id === run.repository.id &&
       item.name === `myapi-smoke-images-${artifact.run_id}-${artifact.producer_attempt}-${artifact.source_sha}-full` &&
       Number.isSafeInteger(item.size_in_bytes) && item.size_in_bytes > 0 && item.size_in_bytes <= limit && /^sha256:[a-f0-9]{64}$/.test(item.digest), 'GITHUB_ARTIFACT_MISMATCH')
-    return { zip_sha256: item.digest.slice(7), zip_bytes: item.size_in_bytes }
+    return { zip_sha256: item.digest.slice(7), zip_bytes: item.size_in_bytes, full_ci_run_id: String(fullCI.id), full_ci_attempt: String(fullCI.run_attempt) }
   }
   async download(artifact, verified, directory) {
     const location = await this.request(`/actions/artifacts/${artifact.artifact_id}/zip`, { redirect: true })

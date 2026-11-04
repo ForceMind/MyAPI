@@ -173,7 +173,9 @@ func TestManagementKeyHTTPAuthenticationAndLifecycle(t *testing.T) {
 
 func TestManagementKeyHTTPTargetsAndCredentialProjection(t *testing.T) {
 	fixture := newManagementHTTPFixture(t)
-	_, secret := fixture.create(t, fixture.session, service.ManagementKeyScopes, []int{1}, []int{1})
+	// These are the original resource-scoped dashboard permissions. Host
+	// operations deliberately cannot be combined with channel/token ID scopes.
+	_, secret := fixture.create(t, fixture.session, []string{"channels.read", "channels.operate", "tokens.read", "logs.read", "system.read"}, []int{1}, []int{1})
 	for _, path := range []string{"/api/channel/", "/api/channel/ops", "/api/channel/quota/status", "/api/token/", "/api/log/", "/api/log/stat", "/api/log/overview", "/api/channel/2", "/api/token/2", "/api/channel/2/quota/history"} {
 		assert.Equal(t, 403, fixture.request("GET", path, secret, "", "", "").Code, path)
 	}
