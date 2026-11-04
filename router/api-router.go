@@ -30,10 +30,12 @@ func SetApiRouter(router *gin.Engine) {
 		}
 		c.Next()
 	})
+	apiRouter.Use(middleware.ManagementCredentialBoundary())
 	apiRouter.Use(middleware.RouteTag("api"))
 	apiRouter.Use(gzip.Gzip(gzip.DefaultCompression))
 	apiRouter.Use(middleware.BodyStorageCleanup()) // 清理请求体存储
 	apiRouter.Use(middleware.GlobalAPIRateLimit())
+	registerManagementKeyRoutes(apiRouter)
 	anonymousRequestBodyLimit := middleware.AnonymousRequestBodyLimit()
 	{
 		apiRouter.GET("/setup", controller.GetSetup)

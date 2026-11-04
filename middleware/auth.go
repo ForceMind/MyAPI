@@ -29,6 +29,7 @@ const (
 	dashboardCredentialUnmatched dashboardCredentialKind = iota
 	dashboardCredentialInternal
 	dashboardCredentialPAT
+	dashboardCredentialManagement
 )
 
 func validUserInfo(username string, role int) bool {
@@ -61,6 +62,16 @@ func authHelper(c *gin.Context, minRole int) {
 		return
 	}
 	setDashboardAuthContext(c, user, identity, useAccessToken)
+	if !enforceManagementRequest(c, user) {
+		return
+	}
+	var managementWriter *managementResponseWriter
+	if _, ok := c.Get(managementKeyContext); ok {
+		if _, started := c.Get("management_response_started"); !started {
+			managementWriter = beginManagementResponse(c)
+			c.Set("management_response_started", true)
+		}
+	}
 
 	// 管理/root 写操作审计兜底：内聚在鉴权链路里，保证任何经过 AdminAuth/RootAuth
 	// 的写接口都会自动留痕（无需在路由上单独挂审计中间件，避免漏挂）。
@@ -73,6 +84,7 @@ func authHelper(c *gin.Context, minRole int) {
 	c.Next()
 
 	finishAdminAudit(c, auditWriter)
+	finishManagementResponse(c, managementWriter)
 }
 
 func TryUserAuth() func(c *gin.Context) {
@@ -80,6 +92,10 @@ func TryUserAuth() func(c *gin.Context) {
 		user, identity, credentialKind, err := classifyDashboardCredential(c)
 		if err != nil {
 			writeDashboardAuthError(c, err)
+			return
+		}
+		if credentialKind == dashboardCredentialManagement {
+			managementForbidden(c, "MANAGEMENT_ROUTE_FORBIDDEN")
 			return
 		}
 		if credentialKind != dashboardCredentialUnmatched {
@@ -139,18 +155,22 @@ func GetSessionAuthIdentity(c *gin.Context) (service.AuthIdentity, bool) {
 func authenticateDashboardRequest(c *gin.Context) (*model.UserBase, service.AuthIdentity, bool, error) {
 	user, identity, credentialKind, err := classifyDashboardCredential(c)
 	if err != nil {
-		return nil, service.AuthIdentity{}, credentialKind == dashboardCredentialPAT, err
+		return nil, service.AuthIdentity{}, credentialKind == dashboardCredentialPAT || credentialKind == dashboardCredentialManagement, err
 	}
 	if credentialKind == dashboardCredentialUnmatched {
 		return nil, service.AuthIdentity{}, false, service.ErrAuthTokenInvalid
 	}
-	return user, identity, credentialKind == dashboardCredentialPAT, nil
+	return user, identity, credentialKind == dashboardCredentialPAT || credentialKind == dashboardCredentialManagement, nil
 }
 
 func classifyDashboardCredential(c *gin.Context) (*model.UserBase, service.AuthIdentity, dashboardCredentialKind, error) {
 	raw, ok := authorizationToken(c.GetHeader("Authorization"))
 	if !ok {
 		return nil, service.AuthIdentity{}, dashboardCredentialUnmatched, nil
+	}
+	if strings.HasPrefix(raw, model.ManagementKeyPrefix) {
+		user, identity, err := classifyManagementCredential(c, raw)
+		return user, identity, dashboardCredentialManagement, err
 	}
 	identity, internal, err := service.ParseDashboardAccessToken(raw)
 	if internal {
@@ -243,6 +263,10 @@ func RequirePermission(permission authz.Permission) func(c *gin.Context) {
 // Used for endpoints that need to be accessible from both the dashboard and API clients.
 func TokenOrUserAuth() func(c *gin.Context) {
 	return func(c *gin.Context) {
+		if raw, ok := authorizationToken(c.GetHeader("Authorization")); ok && strings.HasPrefix(raw, model.ManagementKeyPrefix) {
+			writeDashboardAuthError(c, service.ErrAuthTokenInvalid)
+			return
+		}
 		raw, ok := authorizationToken(c.GetHeader("Authorization"))
 		if ok {
 			identity, internal, err := service.ParseDashboardAccessToken(raw)
@@ -273,6 +297,10 @@ func TokenOrUserAuth() func(c *gin.Context) {
 // 仍然检查用户是否被封禁。
 func TokenAuthReadOnly() func(c *gin.Context) {
 	return func(c *gin.Context) {
+		if raw, ok := authorizationToken(c.GetHeader("Authorization")); ok && strings.HasPrefix(raw, model.ManagementKeyPrefix) {
+			writeDashboardAuthError(c, service.ErrAuthTokenInvalid)
+			return
+		}
 		key := c.Request.Header.Get("Authorization")
 		if key == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
@@ -289,6 +317,10 @@ func TokenAuthReadOnly() func(c *gin.Context) {
 		parts := strings.Split(key, "-")
 		key = parts[0]
 
+		if strings.HasPrefix(key, model.ManagementKeyPrefix) {
+			writeDashboardAuthError(c, service.ErrAuthTokenInvalid)
+			return
+		}
 		token, err := model.GetTokenByKey(key, false)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, model.ErrQuotaCacheIdentityMismatch) {
@@ -347,6 +379,10 @@ func TokenAuthReadOnly() func(c *gin.Context) {
 
 func TokenAuth() func(c *gin.Context) {
 	return func(c *gin.Context) {
+		if raw, ok := authorizationToken(c.GetHeader("Authorization")); ok && strings.HasPrefix(raw, model.ManagementKeyPrefix) {
+			writeDashboardAuthError(c, service.ErrAuthTokenInvalid)
+			return
+		}
 		// 先检测是否为ws
 		if c.Request.Header.Get("Sec-WebSocket-Protocol") != "" {
 			// Sec-WebSocket-Protocol: realtime, openai-insecure-api-key.sk-xxx, openai-beta.realtime-v1
@@ -401,6 +437,10 @@ func TokenAuth() func(c *gin.Context) {
 			key = strings.TrimPrefix(key, "sk-")
 			parts = strings.Split(key, "-")
 			key = parts[0]
+		}
+		if strings.HasPrefix(key, model.ManagementKeyPrefix) {
+			writeDashboardAuthError(c, service.ErrAuthTokenInvalid)
+			return
 		}
 		token, err := model.ValidateUserToken(key)
 		if token != nil {

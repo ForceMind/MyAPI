@@ -70,15 +70,22 @@ func auditContentEN(action string, params map[string]interface{}) string {
 
 // auditOperatorInfo 从上下文构建操作者身份信息（管理员 id/用户名/角色）。
 func auditOperatorInfo(c *gin.Context) map[string]interface{} {
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		"admin_id":       c.GetInt("id"),
 		"admin_username": c.GetString("username"),
 		"admin_role":     c.GetInt("role"),
 		"auth_method":    auditAuthMethod(c),
 	}
+	if id := c.GetInt("management_key_id"); id > 0 {
+		result["management_key_id"] = id
+	}
+	return result
 }
 
 func auditAuthMethod(c *gin.Context) string {
+	if c.GetInt("management_key_id") > 0 {
+		return "management_key"
+	}
 	if c.GetBool("use_access_token") {
 		return "access_token"
 	}

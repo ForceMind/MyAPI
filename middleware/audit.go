@@ -164,6 +164,9 @@ func finishAdminAudit(c *gin.Context, writer *auditResponseWriter) {
 		"admin_role":     operatorRole,
 		"auth_method":    auditAuthMethod(c),
 	}
+	if id := c.GetInt("management_key_id"); id > 0 {
+		adminInfo["management_key_id"] = id
+	}
 	auditInfo := map[string]interface{}{
 		"method":  method,
 		"route":   route,
@@ -181,6 +184,9 @@ func finishAdminAudit(c *gin.Context, writer *auditResponseWriter) {
 }
 
 func auditAuthMethod(c *gin.Context) string {
+	if c.GetInt("management_key_id") > 0 {
+		return "management_key"
+	}
 	if c.GetBool("use_access_token") {
 		return "access_token"
 	}
