@@ -100,18 +100,30 @@ export async function validateContainer(info, instance, docker) {
   return { info: structuredClone(info), digest: containerDigest(info) }
 }
 
-export function candidateConfig(info, imageId) {
-  const result = { ...structuredClone(info.Config), Image: imageId, HostConfig: structuredClone(info.HostConfig) }
+export function candidateConfig(info, imageId, targetImage) {
+  check(targetImage?.Id === imageId && targetImage.Os === 'linux' && targetImage.Architecture === 'amd64' && !targetImage.Variant && targetImage.Config, 'IMAGE_ID_MISMATCH')
+  const defaults = targetImage.Config
+  // Docker merges these defaults even with an explicit container Config. Only
+  // Labels have a deliberate merged expectation; new persistent resources,
+  // environment keys or exposed ports are unsupported before the source stops.
+  check(Object.keys(defaults.Volumes || {}).every(destination => Object.hasOwn(info.Config.Volumes || {}, destination)), 'TARGET_IMAGE_VOLUMES_UNSUPPORTED')
+  const environmentKeys = new Set((info.Config.Env || []).map(value => value.split('=')[0]))
+  check((defaults.Env || []).every(value => typeof value === 'string' && value.includes('=') && environmentKeys.has(value.split('=')[0])), 'TARGET_IMAGE_ENV_UNSUPPORTED')
+  check(Object.keys(defaults.ExposedPorts || {}).every(port => Object.hasOwn(info.Config.ExposedPorts || {}, port)), 'TARGET_IMAGE_PORTS_UNSUPPORTED')
+  const labels = { ...structuredClone(defaults.Labels || {}), ...structuredClone(info.Config.Labels || {}) }
+  check(Object.values(labels).every(value => typeof value === 'string'), 'TARGET_IMAGE_LABELS_UNSUPPORTED')
+  const result = { ...structuredClone(info.Config), Image: imageId, Labels: labels, HostConfig: structuredClone(info.HostConfig) }
   // Docker's inspect NetworkSettings contains runtime IDs. Only writable endpoint
   // configuration is copied; endpoint IDs/IP leases belong to the old container.
   const endpoints = configuredNetworks(info)
   if (Object.keys(endpoints).length) result.NetworkingConfig = { EndpointsConfig: endpoints }
   return result
 }
-export function sameRuntimeConfig(source, target) {
+export function sameRuntimeConfig(source, target, desiredLabels) {
   const a = structuredClone(source.Config), b = structuredClone(target.Config)
+  if (desiredLabels !== undefined) a.Labels = structuredClone(desiredLabels)
   delete a.Image; delete b.Image
-  // Image is the only configured field allowed to change.
+  // Only the exact image and explicitly computed merged Labels may change.
   return digest(a) === digest(b) && digest(source.HostConfig) === digest(target.HostConfig) && digest(configuredMounts(source)) === digest(configuredMounts(target))
 }
 

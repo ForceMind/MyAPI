@@ -12,7 +12,7 @@ import https from 'node:https'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { setTimeout } from 'node:timers/promises'
-import { DockerClient, containerDigest, sameRuntimeConfig, samePublishedPorts } from './docker.mjs'
+import { DockerClient, candidateConfig, configuredMounts, containerDigest, sameRuntimeConfig, samePublishedPorts } from './docker.mjs'
 import { artifactInput, digest } from './safety.mjs'
 import { createOperationsService } from './service.mjs'
 import { claimDaemon } from './daemon.mjs'
@@ -175,9 +175,37 @@ async function approve(fixture, plan) {
 }
 async function execute(fixture, plan) { return transport(fixture, `/v1/plans/${plan.id}/execute`, { method: 'POST', body: { digest: plan.digest } }) }
 async function readPlan(fixture, plan) { return success(await transport(fixture, `/v1/plans/${plan.id}`), 'PLAN_READ_FAILED') }
-async function terminal(fixture, plan, timeout = 300_000) {
-  return until(async () => { const result = await readPlan(fixture, plan); return ['succeeded', 'failed_before_start', 'recovery_required', 'interrupted'].includes(result.state) ? result : null }, 'TERMINAL_STATE_TIMEOUT', timeout, 250)
+async function candidateDifference(fixture, result) {
+  // Names come only from these fixed Engine API field allowlists, never from
+  // Env, labels, user-defined keys, paths, headers or raw inspect output.
+  const configFields = ['Hostname', 'Domainname', 'User', 'AttachStdin', 'AttachStdout', 'AttachStderr', 'ExposedPorts', 'Tty', 'OpenStdin', 'StdinOnce', 'Env', 'Cmd', 'Healthcheck', 'ArgsEscaped', 'Image', 'Volumes', 'WorkingDir', 'Entrypoint', 'NetworkDisabled', 'MacAddress', 'OnBuild', 'Labels', 'StopSignal', 'StopTimeout', 'Shell']
+  const hostFields = ['Binds', 'ContainerIDFile', 'LogConfig', 'NetworkMode', 'PortBindings', 'RestartPolicy', 'AutoRemove', 'VolumeDriver', 'VolumesFrom', 'ConsoleSize', 'Annotations', 'CapAdd', 'CapDrop', 'CgroupnsMode', 'Dns', 'DnsOptions', 'DnsSearch', 'ExtraHosts', 'GroupAdd', 'IpcMode', 'Cgroup', 'Links', 'OomScoreAdj', 'PidMode', 'Privileged', 'PublishAllPorts', 'ReadonlyRootfs', 'SecurityOpt', 'StorageOpt', 'Tmpfs', 'UTSMode', 'UsernsMode', 'ShmSize', 'Sysctls', 'Runtime', 'Isolation', 'CpuShares', 'Memory', 'NanoCpus', 'CgroupParent', 'BlkioWeight', 'BlkioWeightDevice', 'BlkioDeviceReadBps', 'BlkioDeviceWriteBps', 'BlkioDeviceReadIOps', 'BlkioDeviceWriteIOps', 'CpuPeriod', 'CpuQuota', 'CpuRealtimePeriod', 'CpuRealtimeRuntime', 'CpusetCpus', 'CpusetMems', 'Devices', 'DeviceCgroupRules', 'DeviceRequests', 'MemoryReservation', 'MemorySwap', 'MemorySwappiness', 'OomKillDisable', 'PidsLimit', 'Ulimits', 'CpuCount', 'CpuPercent', 'IOMaximumIOps', 'IOMaximumBandwidth', 'MaskedPaths', 'ReadonlyPaths', 'Init', 'Mounts']
+  let differences = { available: false }
+  try {
+    const journal = JSON.parse(await readFile(path.join(fixture.config.state_dir, result.id + '.json')))
+    demand(journal.id === result.id && journal.instance_id === 'primary', 'DIAGNOSTIC_JOURNAL_MISMATCH')
+    const actual = await ownedContainer(result.target_container_id)
+    const targetImage = await docker.inspectImage(result.target_image_id)
+    const desired = candidateConfig(journal.source_snapshot, result.target_image_id, targetImage)
+    const expectedConfig = { ...journal.source_snapshot.Config, Image: result.target_image_id, Labels: desired.Labels }
+    const different = (expected, value, field) => digest({ present: Object.hasOwn(expected || {}, field), value: expected?.[field] }) !== digest({ present: Object.hasOwn(value || {}, field), value: value?.[field] })
+    const unknown = (expected, value, fields) => [...new Set([...Object.keys(expected || {}), ...Object.keys(value || {})])].some(field => !fields.includes(field) && different(expected, value, field))
+    differences = { available: true, phase: result.target_start_attempted ? 'after_start' : 'before_start',
+      config_fields: configFields.filter(field => different(expectedConfig, actual.Config, field)),
+      host_config_fields: hostFields.filter(field => different(journal.source_snapshot.HostConfig, actual.HostConfig, field)),
+      mounts_changed: digest(configuredMounts(journal.source_snapshot)) !== digest(configuredMounts(actual)),
+      published_ports_changed: result.target_start_attempted ? !samePublishedPorts(journal.source_snapshot, actual) : null,
+      unknown_config_fields_changed: unknown(expectedConfig, actual.Config, configFields), unknown_host_config_fields_changed: unknown(journal.source_snapshot.HostConfig, actual.HostConfig, hostFields) }
+  } catch {}
+  report.candidate_difference = differences
+  process.stdout.write('OPERATIONS_CANDIDATE_DIFFERENCE ' + JSON.stringify(differences) + '\n')
 }
+async function terminal(fixture, plan, timeout = 300_000) {
+  const result = await until(async () => { const value = await readPlan(fixture, plan); return ['succeeded', 'failed_before_start', 'recovery_required', 'interrupted'].includes(value.state) ? value : null }, 'TERMINAL_STATE_TIMEOUT', timeout, 250)
+  if (['CANDIDATE_CONFIG_MISMATCH', 'TARGET_CONFIG_MISMATCH'].includes(result.code)) await candidateDifference(fixture, result)
+  return result
+}
+
 function assertCharged(before, after) {
   assert.deepEqual(after.user, { quota: before.user.quota - 17, used_quota: before.user.used_quota + 17, request_count: before.user.request_count + 1 })
   assert.deepEqual(after.token, { remain_quota: before.token.remain_quota - 17, used_quota: before.token.used_quota + 17, quota_version: before.token.quota_version + 1 })
@@ -202,7 +230,8 @@ async function positiveCase() {
   const result = await terminal(fixture, plan); demand(result.state === 'succeeded', /^[A-Z0-9_]+$/.test(result.code || '') ? 'TARGET_' + result.code : 'TARGET_NOT_SUCCEEDED'); assert.equal(result.digest, digestBefore)
   const current = await ownedContainer(result.target_container_id)
   assert.equal(current.Image, artifact.image_id); assert.equal(current.State.Running, true)
-  assert.equal(sameRuntimeConfig(fixture.source, current), true); assert.equal(samePublishedPorts(fixture.source, current), true)
+  const desired = candidateConfig(fixture.source, artifact.image_id, await docker.inspectImage(artifact.image_id))
+  assert.equal(sameRuntimeConfig(fixture.source, current, desired.Labels), true); assert.equal(samePublishedPorts(fixture.source, current), true)
   assert.equal(current.HostConfig.RestartPolicy.Name, 'always')
   assert.equal(current.Mounts.find(mount => mount.Destination === '/data')?.Source, fixture.dataDir)
   await assertRetainedOld(fixture, false, 'no')

@@ -26,13 +26,14 @@ async function fixture(t, options = {}) {
   const source = { Id: oldId, Image: oldImage, State: { Running: true }, Config: { Env: ['MYAPI_EDITION=full', 'FEATURE_FLAG=preserve', 'SQLITE_PATH=/data/my-api.db'], WorkingDir: '/data', Image: oldImage, Labels: { 'io.myapi.edition': 'full' } }, HostConfig: { Binds: [data + ':/data'], PortBindings: { '3000/tcp': [{ HostIp: '127.0.0.1', HostPort: '3000' }] }, AutoRemove: false, Memory: 67108864, RestartPolicy: { Name: 'always', MaximumRetryCount: 0 } }, Mounts: [{ Source: data, Destination: '/data', Type: 'bind', RW: true }], NetworkSettings: { Networks: { bridge: { IPAMConfig: null, Aliases: null } } } }
   const publishedPorts = { '3000/tcp': [{ HostIp: '127.0.0.1', HostPort: '3000' }] }
   source.NetworkSettings.Ports = structuredClone(publishedPorts)
+  const targetDefaults = { Labels: { 'io.myapi.edition': 'full', 'io.myapi.smoke.source': artifact.source_sha, ...(options.targetLabels || {}) }, ...(options.targetDefaults || {}) }
   let candidate
   const docker = {
     async inspectContainer(id) { calls.push(['inspect', id]); if (id === newId) return structuredClone(candidate); const result = structuredClone(source); if (changed) result.Config.Env.push('CHANGED=1'); return result },
-    async inspectImage(id) { return { Id: id, Os: 'linux', Architecture: 'amd64', Config: { Labels: { 'io.myapi.edition': 'full' } } } },
+    async inspectImage(id) { return { Id: id, Os: 'linux', Architecture: 'amd64', Config: id === oldImage ? { Labels: { 'io.myapi.edition': 'full' } } : structuredClone(targetDefaults) } },
     async disableRestart(id) { calls.push(['disableRestart', id]); source.HostConfig.RestartPolicy = { Name: 'no', MaximumRetryCount: 0 }; if (options.disableUnknown) throw new Error('private update response lost') },
     async stop(id) { calls.push(['stop', id]); source.State.Running = false; source.NetworkSettings.Ports = {}; source.NetworkSettings.Networks.bridge.IPAddress = ''; source.NetworkSettings.Networks.bridge.EndpointID = '' },
-    async create(name, value) { calls.push(['create', name, structuredClone(value)]); candidate = { ...structuredClone(source), Id: newId, Image: value.Image, Config: Object.fromEntries(Object.entries(value).filter(([k]) => !['HostConfig', 'NetworkingConfig'].includes(k))), HostConfig: value.HostConfig }; return { Id: newId } },
+    async create(name, value) { calls.push(['create', name, structuredClone(value)]); candidate = { ...structuredClone(source), Id: newId, Image: value.Image, Config: Object.fromEntries(Object.entries(value).filter(([k]) => !['HostConfig', 'NetworkingConfig'].includes(k))), HostConfig: value.HostConfig }; candidate.Config.Labels = { ...targetDefaults.Labels, ...candidate.Config.Labels }; if (options.candidateDrift) options.candidateDrift(candidate); return { Id: newId } },
     async start(id) { calls.push(['start', id]); candidate.State.Running = true; candidate.NetworkSettings.Ports = structuredClone(publishedPorts); if (options.startFailure) throw new Error('private Docker error /secret/path') },
   }
   const summary = { db: { bytes: 18, sha256: 'f'.repeat(64) }, '-wal': null, '-shm': null }
@@ -309,5 +310,47 @@ test('live database sampling is diagnostic: observed succeeds, unknown stays exp
     assert.equal(f.calls.filter(([action]) => action === 'start').length, 1)
     const visible = (await f.request(`/v1/plans/${plan.id}`)).body.data
     assert.equal(Object.hasOwn(visible, 'database_after_start'), false)
+  }
+})
+
+test('explicit target image label defaults merge with original user labels before Docker create', async t => {
+  const f = await fixture(t, { targetLabels: { 'org.example.owner': 'target-default', 'org.example.target-only': 'new-default' } })
+  f.source.Config.Labels['org.example.owner'] = 'original-owner'
+  f.source.Config.Labels['org.example.original-only'] = 'retained'
+  const plan = await f.prepare(); await f.approve(plan); await f.execute(plan); await f.service.engine.drain()
+  assert.equal(f.service.engine.get(plan.id).state, 'succeeded')
+  const desired = f.calls.find(([action]) => action === 'create')[2]
+  assert.deepEqual(desired.Labels, { 'io.myapi.edition': 'full', 'io.myapi.smoke.source': artifact.source_sha, 'org.example.target-only': 'new-default', 'org.example.owner': 'original-owner', 'org.example.original-only': 'retained' })
+  assert.deepEqual(desired.Env, f.source.Config.Env)
+})
+
+test('merged image labels permit no other label, environment, resource or mount drift', async t => {
+  const mutations = [
+    candidate => { candidate.Config.Labels['org.example.unexpected'] = 'not-approved' },
+    candidate => { candidate.Config.Labels['io.myapi.edition'] = 'changed' },
+    candidate => { candidate.Config.Env.push('UNEXPECTED=value') },
+    candidate => { candidate.HostConfig.Memory += 1 },
+    candidate => { candidate.HostConfig.PortBindings['3000/tcp'][0].HostPort = '3001' },
+    candidate => { candidate.Mounts[0].RW = false },
+  ]
+  for (const candidateDrift of mutations) {
+    const f = await fixture(t, { candidateDrift }); const plan = await f.prepare(); await f.approve(plan); await f.execute(plan); await f.service.engine.drain()
+    const result = f.service.engine.get(plan.id)
+    assert.equal(result.state, 'recovery_required'); assert.equal(result.code, 'CANDIDATE_CONFIG_MISMATCH')
+    assert.equal(result.target_start_attempted, false); assert.equal(f.calls.some(([action]) => action === 'start'), false)
+  }
+})
+
+test('new image volume, environment key or exposed port is rejected before any source mutation', async t => {
+  for (const [targetDefaults, code] of [
+    [{ Volumes: { '/new-unregistered-volume': {} } }, 'TARGET_IMAGE_VOLUMES_UNSUPPORTED'],
+    [{ Env: ['NEW_IMAGE_DEFAULT=value'] }, 'TARGET_IMAGE_ENV_UNSUPPORTED'],
+    [{ ExposedPorts: { '9999/tcp': {} } }, 'TARGET_IMAGE_PORTS_UNSUPPORTED'],
+  ]) {
+    const f = await fixture(t, { targetDefaults }); const plan = await f.prepare(); await f.approve(plan); await f.execute(plan); await f.service.engine.drain()
+    const result = f.service.engine.get(plan.id)
+    assert.equal(result.state, 'failed_before_start'); assert.equal(result.code, code); assert.equal(result.source_mutation_attempted, false)
+    assert.equal(f.calls.some(([action]) => ['disableRestart', 'stop', 'create', 'start'].includes(action)), false)
+    assert.equal(f.source.State.Running, true); assert.equal(f.source.HostConfig.RestartPolicy.Name, 'always')
   }
 })

@@ -148,6 +148,8 @@ export class OperationsEngine {
       const source = await validateContainer(await this.docker.inspectContainer(plan.source_container_id), instance, this.docker)
       check(source.info.Id === plan.source_container_id && source.digest === plan.source_config_digest, 'SOURCE_CONFIG_CHANGED', 409)
       check(await this.readVersion(instance) === plan.source_version, 'SOURCE_VERSION_CHANGED', 409)
+      const targetImage = await this.docker.inspectImage(plan.target_image_id)
+      const desiredCandidate = candidateConfig(source.info, plan.target_image_id, targetImage)
       // All remote reads above can consume time. Check the permit again at
       // the final decision boundary, before journaling any source mutation.
       check(this.clock() < plan.expires_at && this.clock() < plan.approval_expires_at, 'APPROVAL_EXPIRED', 409)
@@ -172,16 +174,16 @@ export class OperationsEngine {
       check(digest(backup.before) === digest(backup.after) && digest(backup.before) === digest(backup.copied) && digest(plan.database_before) === digest(backup.before), 'BACKUP_CHANGED', 503)
       plan.database_after_backup = backup.after; plan.backup_created = true; plan.checks.consistent_backup = true
       await transition('creating')
-      const candidate = await this.docker.create(`myapi-operations-${instance.id}-${plan.id.slice(0, 16)}`, candidateConfig(source.info, plan.target_image_id))
+      const candidate = await this.docker.create(`myapi-operations-${instance.id}-${plan.id.slice(0, 16)}`, desiredCandidate)
       check(candidate && /^[a-f0-9]{64}$/.test(candidate.Id), 'CANDIDATE_CREATE_FAILED', 503)
       plan.target_container_id = candidate.Id
       const created = await this.docker.inspectContainer(candidate.Id)
-      check(created.Image === plan.target_image_id && sameRuntimeConfig(source.info, created), 'CANDIDATE_CONFIG_MISMATCH', 503)
+      check(created.Image === plan.target_image_id && sameRuntimeConfig(source.info, created, desiredCandidate.Labels), 'CANDIDATE_CONFIG_MISMATCH', 503)
       plan.target_start_attempted = true; await transition('starting')
       await this.docker.start(candidate.Id)
       await transition('verifying')
       const actual = await this.docker.inspectContainer(candidate.Id)
-      check(actual.State?.Running === true && actual.Image === plan.target_image_id && sameRuntimeConfig(source.info, actual) && samePublishedPorts(source.info, actual), 'TARGET_CONFIG_MISMATCH', 503)
+      check(actual.State?.Running === true && actual.Image === plan.target_image_id && sameRuntimeConfig(source.info, actual, desiredCandidate.Labels) && samePublishedPorts(source.info, actual), 'TARGET_CONFIG_MISMATCH', 503)
       plan.checks.runtime_config = true
       Object.assign(plan.checks, await this.verifyHealth(instance, plan.version))
       let observation

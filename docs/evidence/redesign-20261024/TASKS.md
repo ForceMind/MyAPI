@@ -13,6 +13,7 @@
 - [Full SQLite41895639097](https://github.com/ForceMind/MyAPI/actions/runs/41895639097) success，source同0489、tree5c9a5170340d1531a541e4b09ed36101ed9d23b2，20/20通用HTTP/API/同镜像恢复检查，browser=not_run；artifact13356191175 ZIP64aa729f4831cbdb16e599a03ab36866337747185984a5fd7c6d7d0b42d59da0、manifest984b9c92319726ca3db364b3b35e8d3f046850754a61812cfb50abee14ed96a7、app sha256:9150578c6fef5d462af9012b47dbca691b4590cdee0351f1660e0f854c45620a。此包只作当前真实Ops升级测试目标，不能重标后续测试提交SHA；通用20项不代替尚待的独立Ops真实验收。
 - 后续小修仅独立服务/测试编排：源restart禁用请求结果未知时标null，不输出虚假的false；最后网络读取后再查批准TTL；构建器只移除本轮setup生成者，关闭自动dockerbuild记录上传，保Runner容量与仅safe报告边界。新提交须回读自身CI，真实Ops结果继续单列。
 - GitHub实际拒绝新workflow_dispatch（03d02d79后调用404，工作流未在默认分支）。按官方默认分支限制，改为仅本仓库dev的受控qualification-target.json更新触发新验收，不改main。目标内容为0489/41895639097的既定身份，revision只控制CI重跑，不改变制品；未来默认分支具备工作流后可用手动入口。该触发机制不是生产部署授权。
+- 首真实Ops41898016352 / test8ac59728：实际TLS/555旧Full/SQLite初始化与真实GitHub身份已运行，首次在TARGET_CANDIDATE_CONFIG_MISMATCH停，候选未启动；清理只本轮拥有容器，报告保留。猜测Docker继承目标默认Labels导致原配置比对失败；改为明确desired Labels=已验证image defaults+原用户labels（原值优先），其他完整比较不放宽，并加仅字段名诊断，尚待新真实证据。新Env/Volumes/ExposedPorts不支持变更preStop拒绝。fixture/revision2继续绑定同一0489镜像，不重标identity。
 - 验证门禁：既有完整CI、Go真实路由/绑定proof/越权/无配置、Node鉴权/WAL/ZIP/持久锁/故障与MCP；额外Actions真实Docker Full SQLite升级、TLS、daemon kill/restart、源配置/开关与新增账务连续性。候选beta.33，不把源码或单测当生产验收，不发布镜像/tag或改main。
 
 
