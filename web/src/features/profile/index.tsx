@@ -42,6 +42,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { CheckinCalendarCard } from './components/checkin-calendar-card'
 import { LanguagePreferencesCard } from './components/language-preferences-card'
 import { LoginSessionsCard } from './components/login-sessions-card'
+import { ManagementKeysCard } from './components/management-keys-card'
 import { MySubscriptionCard } from './components/my-subscription-card'
 import { PasskeyCard } from './components/passkey-card'
 import { ProfileHeader } from './components/profile-header'
@@ -151,6 +152,7 @@ export function Profile() {
                     key={`sessions:${securityScopeKey}`}
                     securityScopeKey={securityScopeKey}
                   />
+                  <ManagementKeysCard />
                 </div>
 
                 <div className='flex min-w-0 flex-col gap-5'>

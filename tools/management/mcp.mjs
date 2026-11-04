@@ -54,15 +54,17 @@ export async function serve(input, output, handler) {
   let buffered = ''
   for await (const chunk of input) {
     buffered += chunk
-    if (Buffer.byteLength(buffered) > 65536) throw new Error('MESSAGE_TOO_LARGE')
     let newline
     while ((newline = buffered.indexOf('\n')) >= 0) {
-      const line = buffered.slice(0, newline).trim()
+      const frame = buffered.slice(0, newline)
+      if (Buffer.byteLength(frame) > 65536) throw new Error('MESSAGE_TOO_LARGE')
+      const line = frame.trim()
       buffered = buffered.slice(newline + 1)
       let reply
       try { reply = await handler(JSON.parse(line)) } catch { reply = { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } } }
       if (reply) output.write(`${JSON.stringify(reply)}\n`)
     }
+    if (Buffer.byteLength(buffered) > 65536) throw new Error('MESSAGE_TOO_LARGE')
   }
 }
 

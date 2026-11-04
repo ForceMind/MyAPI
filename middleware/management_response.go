@@ -120,6 +120,12 @@ func managementResponseSchema(operation string) managementProjection {
 		usage[field] = managementProjection{"$number": nil}
 	}
 	usage["token_usage_evidence"] = managementProjection{"schema": {"$number": nil}, "input_tokens": {"$number": nil}, "output_tokens": {"$number": nil}, "cache_read_tokens": {"$number": nil}}
+	for _, field := range strings.Fields("input_tokens_total cache_write_tokens") {
+		usage[field] = managementProjection{"$number": nil}
+	}
+	for _, field := range strings.Fields("usage_accuracy usage_outcome usage_semantic") {
+		usage[field] = nil
+	}
 	log["usage"] = usage
 	page := managementScalars("total page page_size")
 	switch operation {

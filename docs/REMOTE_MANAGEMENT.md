@@ -41,6 +41,8 @@ MYAPI_MANAGEMENT_KEY_FILE=/absolute/protected/path/myapi-management.key
 
 参数以 `tools/list` 的 JSON Schema 为准，额外参数、任意 URL、任意方法和路径均拒绝。日志分页最多 100 条，额度历史可选已有时间范围与有界点数。所有读取使用保存的数据，不主动请求供应商；旧观测不能当作刚刚验证的供应商状态。缺失、`null`、明确 `0` 和正数保持区别。
 
+单请求排查使用 `logs.list` 的 `request_id` / `upstream_request_id`；`logs.stats` 仅开放其各项汇总共同支持的筛选，不能按单请求或结果状态统计。缓存兼容计数需结合 `usage.token_usage_evidence` 与 `usage_accuracy/outcome/semantic` 判断，不把缺少用量证据时的历史兼容零值解释为上游已确认零命中。
+
 输出按接口字段白名单投影，不返回渠道凭据、覆盖配置、请求头、正文、完整 Key 或原始错误消息。现有二次验证、凭据轮换、账务、删除和敏感配置接口没有加入管理 Key 操作目录，仍走面板原有确认与权限流程。
 
 `channels.set_status` 仅接受 `id`、`status`（1 启用、2 手动停用）与 `confirmation`。调用前必须得到用户对准确对象和动作的批准；确认值为 `channel.status:<id>:<status>`，映射到 `X-MyAPI-Confirm`。这表示目标绑定，不等价于 Passkey/2FA，也不授予新的敏感权限。

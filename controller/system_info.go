@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -20,7 +21,18 @@ func ListSystemInstances(c *gin.Context) {
 	now := common.GetTimestamp()
 	responses := make([]model.SystemInstanceResponse, 0, len(instances))
 	for _, instance := range instances {
-		responses = append(responses, instance.ToResponse(now))
+		response := instance.ToResponse(now)
+		if c.GetInt("management_key_id") > 0 {
+			// Keep observed resource counters exact until the management output
+			// whitelist runs; decoding to any here would first round large integers.
+			var info json.RawMessage
+			if common.UnmarshalJsonStr(instance.Info, &info) == nil {
+				response.Info = info
+			} else {
+				response.Info = nil
+			}
+		}
+		responses = append(responses, response)
 	}
 
 	c.JSON(http.StatusOK, gin.H{

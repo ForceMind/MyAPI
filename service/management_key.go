@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/model"
@@ -74,7 +75,7 @@ func CreateManagementKey(owner *model.UserBase, input CreateManagementKeyInput) 
 	var empty model.ManagementKeyMetadata
 	input.Name = strings.TrimSpace(input.Name)
 	now := time.Now().Unix()
-	if input.Name == "" || len(input.Name) > 128 || len(input.Scopes) == 0 || len(input.Scopes) > len(ManagementKeyScopes) || len(input.ChannelIDs) > 1000 || len(input.TokenIDs) > 1000 {
+	if input.Name == "" || utf8.RuneCountInString(input.Name) > 128 || len(input.Scopes) == 0 || len(input.Scopes) > len(ManagementKeyScopes) || len(input.ChannelIDs) > 1000 || len(input.TokenIDs) > 1000 {
 		return empty, "", ErrManagementKeyInput
 	}
 	if input.ExpiresAt == 0 {

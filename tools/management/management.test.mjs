@@ -52,6 +52,8 @@ test('safe fixed routes, exact arguments, missing/null/0 and credential redactio
   assert.equal(Object.hasOwn(result.data, 'cache_missing'), false)
   for (const args of [{ id: '../key' }, { id: 0 }, { id: -1 }, { id: 1.2 }, { id: 2147483648 }, { id: 1, url: '/api/channel/test/1' }]) await assert.rejects(client.call('myapi_channels_get', args))
   await assert.rejects(client.call('myapi_request_anything', {}))
+  await assert.rejects(client.call('myapi_logs_list', { result: 'success' }))
+  await assert.rejects(client.call('myapi_logs_stats', { request_id: 'one-request' }))
   assert.equal(calls.length, 1, 'rejected calls must not reach HTTP')
 })
 
@@ -166,4 +168,17 @@ test('real stdio process uses only the saved-data API and exits without exposing
   assert.ok(requests.every(item => item.authorization === `Bearer ${secret}`))
   assert.doesNotMatch(stdout + stderr, new RegExp(secret))
   assert.ok(operations.every(item => !/test|fetch_models|update_balance|\/v1\//.test(item.path)))
+})
+
+test('stdio size bound applies to each frame independently of chunk grouping', async () => {
+  const handler = createProtocol({})
+  const messages = [
+    { jsonrpc: '2.0', id: 1, method: 'ping' },
+    { jsonrpc: '2.0', id: 2, method: 'ping', params: { note: 'x'.repeat(30000) } },
+  ]
+  let text = ''
+  const output = new Writable({ write(chunk, encoding, callback) { text += chunk; callback() } })
+  await serve(Readable.from([' '.repeat(40000), messages.map(item => JSON.stringify(item)).join('\n') + '\n']), output, handler)
+  assert.deepEqual(text.trim().split('\n').map(line => JSON.parse(line).id), [1, 2])
+  await assert.rejects(serve(Readable.from([' '.repeat(65537) + '\n']), output, handler), /MESSAGE_TOO_LARGE/)
 })

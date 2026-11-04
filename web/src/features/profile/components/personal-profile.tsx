@@ -22,6 +22,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import type { UserProfile } from '../types'
 import { LanguagePreferencesCard } from './language-preferences-card'
 import { LoginSessionsCard } from './login-sessions-card'
+import { ManagementKeysCard } from './management-keys-card'
 import { PasskeyCard } from './passkey-card'
 import { ProfileSecurityCard } from './profile-security-card'
 import { ProfileSettingsCard } from './profile-settings-card'
@@ -260,6 +261,7 @@ export function PersonalProfile(props: PersonalProfileProps) {
                     />
                   </div>
                   <LoginSessionsCard securityScopeKey={securityScopeKey} />
+                  <ManagementKeysCard />
                 </div>
               )}
             </>

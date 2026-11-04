@@ -10,8 +10,11 @@ const logFilters = {
   request_id: text, upstream_request_id: text, model_name: text,
   username: text, token_name: text, group: text, channel: id,
   type: { type: 'integer', minimum: 0, maximum: 20 },
-  result: { type: 'string', enum: ['all', 'success', 'failed'], maxLength: 16 },
+  result: { type: 'string', enum: ['failed'], maxLength: 16 },
 }
+// The legacy quota totals endpoint does not apply request/result filters to
+// every returned total. Do not advertise those filters as if it did.
+const statisticFilters = Object.fromEntries(Object.entries(logFilters).filter(([name]) => !['request_id', 'upstream_request_id', 'result'].includes(name)))
 
 function operation(name, scope, description, path, properties = {}, required = [], write = false) {
   return {
@@ -40,7 +43,7 @@ export const operations = [
   operation('tokens.list', 'tokens.read', 'List this owner\'s API Key metadata, without key values. Scoped keys may require tokens.get instead.', '/api/token/', list),
   operation('tokens.get', 'tokens.read', 'Read one allowed API Key owned by the management Key creator, without its secret.', '/api/token/:id', { id }, ['id']),
   operation('logs.list', 'logs.read', 'Read paginated saved usage records without request/response bodies or credentials.', '/api/log/', { ...list, ...logFilters }),
-  operation('logs.stats', 'logs.read', 'Read saved usage totals. This does not send model requests.', '/api/log/stat', logFilters),
+  operation('logs.stats', 'logs.read', 'Read saved usage totals using the shared supported filters. For one request use logs.list. This does not send model requests.', '/api/log/stat', statisticFilters),
   operation('logs.overview', 'logs.read', 'Read the recent saved request overview, without full-content logs.', '/api/log/overview'),
   operation('system.instances', 'system.read', 'Read registered application instances. Requires the creator\'s current Root permission.', '/api/system-info/instances'),
   operation('system.self', 'system.read', 'Read the current management Key owner\'s public account state.', '/api/user/self'),

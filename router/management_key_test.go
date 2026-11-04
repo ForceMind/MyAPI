@@ -306,3 +306,39 @@ func TestManagementKeyHTTPLogUsageAndSystemProjection(t *testing.T) {
 		assert.NotContains(t, response.Body.String(), value)
 	}
 }
+
+func TestManagementKeyHTTPUnicodeNameBoundaries(t *testing.T) {
+	fixture := newManagementHTTPFixture(t)
+	for _, test := range []struct {
+		name           string
+		length, status int
+	}{
+		{"43 Chinese characters", 43, http.StatusOK},
+		{"128 Chinese characters", 128, http.StatusOK},
+		{"129 Chinese characters", 129, http.StatusBadRequest},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			name := strings.Repeat("管", test.length)
+			body, err := common.Marshal(service.CreateManagementKeyInput{Name: "  " + name + "  ", Scopes: []string{"system.read"}})
+			require.NoError(t, err)
+			response := fixture.request("POST", "/api/management/keys", fixture.session, string(body), "http://myapi.local", "")
+			require.Equal(t, test.status, response.Code, response.Body.String())
+			if test.status == http.StatusBadRequest {
+				assert.Contains(t, response.Body.String(), "MANAGEMENT_INVALID_INPUT")
+				return
+			}
+			var envelope struct {
+				Success bool `json:"success"`
+				Data    struct {
+					Key model.ManagementKeyMetadata `json:"key"`
+				} `json:"data"`
+			}
+			require.NoError(t, common.Unmarshal(response.Body.Bytes(), &envelope))
+			require.True(t, envelope.Success, response.Body.String())
+			assert.Equal(t, name, envelope.Data.Key.Name)
+			var saved model.ManagementKey
+			require.NoError(t, model.DB.First(&saved, envelope.Data.Key.ID).Error)
+			assert.Equal(t, name, saved.Name)
+		})
+	}
+}
