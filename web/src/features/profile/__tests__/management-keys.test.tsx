@@ -298,3 +298,44 @@ it('keeps long object scopes compact until explicitly expanded, without losing a
   await user.click(tokens)
   expect(screen.getByText('61, 62, 63, 64')).toBeVisible()
 })
+
+it('offers Root operations permissions without adding them to the existing default selection', async () => {
+  signIn()
+  const { user } = renderKeys(async (config) => response(config, { success: true, data: [] }))
+  await openCreate(user)
+  expect(screen.getByRole('checkbox', { name: 'Read upgrade plans' })).not.toBeChecked()
+  expect(screen.getByRole('checkbox', { name: 'Prepare upgrades' })).not.toBeChecked()
+  expect(screen.getByRole('checkbox', { name: 'Execute approved upgrades' })).not.toBeChecked()
+  expect(screen.getAllByRole('checkbox').filter((checkbox) => checkbox.getAttribute('aria-checked') === 'true').map((checkbox) => checkbox.id)).toEqual([
+    'management-channels.read', 'management-tokens.read', 'management-logs.read', 'management-system.read',
+  ])
+})
+
+it('does not offer operations scopes to Admin when creating a management key', async () => {
+  signIn(ROLE.ADMIN)
+  const { user } = renderKeys(async (config) => response(config, { success: true, data: [] }))
+  await openCreate(user)
+  expect(screen.queryByRole('checkbox', { name: 'Read upgrade plans' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('checkbox', { name: 'Prepare upgrades' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('checkbox', { name: 'Execute approved upgrades' })).not.toBeInTheDocument()
+})
+
+it('rejects operations scopes combined with resource limits without silently erasing either choice', async () => {
+  signIn()
+  const writes: InternalAxiosRequestConfig[] = []
+  const { user } = renderKeys(async (config) => {
+    if (config.method === 'post') writes.push(config)
+    return response(config, { success: true, data: [] })
+  })
+  await openCreate(user)
+  await user.type(screen.getByLabelText('Management key name'), 'upgrade operator')
+  await user.click(screen.getByRole('checkbox', { name: 'Prepare upgrades' }))
+  await user.click(screen.getByText('Advanced resource limits'))
+  await user.type(screen.getByLabelText('Channel IDs'), '17')
+  await user.click(screen.getByRole('button', { name: 'Review management key' }))
+  expect(await screen.findByText('Operations permissions cannot be combined with resource ID limits.')).toBeInTheDocument()
+  expect(screen.getByLabelText('Channel IDs')).toHaveValue('17')
+  expect(screen.getByRole('checkbox', { name: 'Prepare upgrades' })).toBeChecked()
+  expect(screen.queryByRole('button', { name: 'Confirm creation' })).not.toBeInTheDocument()
+  expect(writes).toHaveLength(0)
+})

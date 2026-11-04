@@ -36,6 +36,7 @@ import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { getBuildRevision } from '@/lib/build-metadata'
 import { linkButtonClassName } from '@/lib/link-button'
 
+import { OperationsUpgradePanel } from './components/operations-upgrade-panel'
 import { SystemInstancesPanel } from './components/system-instances-panel'
 import { SystemTasksPanel } from './components/system-tasks-panel'
 import {
@@ -183,6 +184,7 @@ export function SystemInfo() {
             </CardContent>
           </Card>
 
+          <OperationsUpgradePanel />
           <SystemInstancesPanel />
           <SystemTasksPanel />
         </div>

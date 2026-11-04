@@ -79,6 +79,9 @@ func UniversalVerify(c *gin.Context) {
 }
 
 func isAllowedSecurityProofScope(scope string) bool {
+	if service.IsOperationsApprovalScope(scope) {
+		return true
+	}
 	switch scope {
 	case securityProofScopeChannelKeyRead, securityProofScopeCodexLocalImport, securityProofScopePasskeyRegister, securityProofScopePasskeyDelete, tokenAccountMigrationProofScope, tokenCredentialRotationProofScope:
 		return true

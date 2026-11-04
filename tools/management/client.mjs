@@ -3,11 +3,16 @@ import { operations, validateArguments } from './catalog.mjs'
 
 const maxResponseBytes = 1024 * 1024
 
-export function loadConfiguration(env = process.env) {
-  const origin = new URL(env.MYAPI_MANAGEMENT_URL || '')
+function managementOrigin(raw) {
+  const origin = new URL(raw)
   const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname)
   if (origin.username || origin.password || origin.search || origin.hash || origin.pathname !== '/' ||
       (origin.protocol !== 'https:' && !(origin.protocol === 'http:' && loopback))) throw new Error('INVALID_ORIGIN')
+  return origin.origin
+}
+
+export function loadConfiguration(env = process.env) {
+  const origin = managementOrigin(env.MYAPI_MANAGEMENT_URL || '')
   if (env.MYAPI_MANAGEMENT_KEY && env.MYAPI_MANAGEMENT_KEY_FILE) throw new Error('AMBIGUOUS_CREDENTIAL')
   let key = env.MYAPI_MANAGEMENT_KEY
   if (env.MYAPI_MANAGEMENT_KEY_FILE) {
@@ -16,7 +21,7 @@ export function loadConfiguration(env = process.env) {
     key = readFileSync(env.MYAPI_MANAGEMENT_KEY_FILE, 'utf8').trim()
   }
   if (typeof key !== 'string' || !/^myapi_mgmt_[A-Za-z0-9_-]{20,200}$/.test(key)) throw new Error('INVALID_CREDENTIAL')
-  return { origin: origin.origin, key }
+  return { origin, key, ...(env.MYAPI_OPERATIONS_URL ? { operationsOrigin: managementOrigin(env.MYAPI_OPERATIONS_URL) } : {}) }
 }
 
 // Defence in depth: the server supplies endpoint-specific safe projections.
@@ -37,15 +42,18 @@ export function redact(value, secret) {
 }
 
 export function createClient(config, fetcher = fetch) {
-  async function request(path, options = {}, write = false) {
+  async function request(path, options = {}, write = false, origin = config.origin, timeout = 30000) {
     let response
     try {
-      response = await fetcher(`${config.origin}${path}`, {
+      response = await fetcher(`${origin}${path}`, {
         ...options,
         headers: { Authorization: `Bearer ${config.key}`, Accept: 'application/json', ...options.headers },
-        redirect: 'manual', signal: AbortSignal.timeout(30000),
+        redirect: 'manual', signal: AbortSignal.timeout(timeout),
       })
-      if (response.status >= 300 && response.status < 400) throw new Error('REDIRECT_REJECTED')
+      if (response.status >= 300 && response.status < 400) {
+        await response.body?.cancel()
+        throw new Error('REDIRECT_REJECTED')
+      }
       if (!response.ok) {
         await response.body?.cancel()
         return { success: false, code: `HTTP_${response.status}`, ...(write && response.status >= 500 ? { outcome: 'unknown', replay: false } : {}) }
@@ -74,12 +82,29 @@ export function createClient(config, fetcher = fetch) {
     }
   }
   return {
-    capabilities: () => request('/api/management/capabilities'),
+    async capabilities() {
+      const results = await Promise.all([
+        request('/api/management/capabilities', {}, false, config.origin, 3000),
+        ...(config.operationsOrigin ? [request('/v1/capabilities', {}, false, config.operationsOrigin, 5000)] : []),
+      ])
+      const valid = results.filter(item => item.success && Array.isArray(item.data?.operations))
+      if (!valid.length) return { success: false, code: 'MANAGEMENT_ACCESS_UNAVAILABLE' }
+      return { success: true, data: { operations: [...new Set(valid.flatMap(item => item.data.operations))] } }
+    },
     async call(name, args = {}) {
       const operation = operations.find(item => item.name === name)
       if (!operation) throw new Error('UNKNOWN_TOOL')
       validateArguments(operation, args)
+      if (operation.operationsService && !config.operationsOrigin) return { success: false, code: 'OPERATIONS_NOT_CONFIGURED' }
       let path = operation.path.replace(':id', String(args.id))
+      if (operation.operationsService) {
+        const origin = config.operationsOrigin
+        if (!operation.write) return request(path, {}, false, origin)
+        const body = operation.operation === 'operations.prepare'
+          ? { instance_id: args.instance_id, artifact: args.artifact }
+          : { digest: args.digest }
+        return request(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, true, origin)
+      }
       const query = new URLSearchParams()
       for (const [field, value] of Object.entries(args)) if (!['id', 'status', 'confirmation'].includes(field)) query.set(field, String(value))
       if (query.size) path += `?${query}`

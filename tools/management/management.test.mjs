@@ -167,7 +167,8 @@ test('real stdio process uses only the saved-data API and exits without exposing
   assert.deepEqual(requests.map(item => item.path), ['/api/management/capabilities', '/api/channel/3'])
   assert.ok(requests.every(item => item.authorization === `Bearer ${secret}`))
   assert.doesNotMatch(stdout + stderr, new RegExp(secret))
-  assert.ok(operations.every(item => !/test|fetch_models|update_balance|\/v1\//.test(item.path)))
+  assert.ok(operations.filter(item => !item.operationsService).every(item => !/test|fetch_models|update_balance|\/v1\//.test(item.path)))
+  assert.deepEqual(new Set(operations.filter(item => item.operationsService).map(item => item.path)), new Set(['/v1/instances', '/v1/plans', '/v1/plans/:id', '/v1/plans/:id/execute']))
 })
 
 test('stdio size bound applies to each frame independently of chunk grouping', async () => {
@@ -181,4 +182,42 @@ test('stdio size bound applies to each frame independently of chunk grouping', a
   await serve(Readable.from([' '.repeat(40000), messages.map(item => JSON.stringify(item)).join('\n') + '\n']), output, handler)
   assert.deepEqual(text.trim().split('\n').map(line => JSON.parse(line).id), [1, 2])
   await assert.rejects(serve(Readable.from([' '.repeat(65537) + '\n']), output, handler), /MESSAGE_TOO_LARGE/)
+})
+
+test('independent operations remain discoverable and readable while MyAPI is unavailable, with no approval tool', async () => {
+  const calls = []
+  const client = createClient({ origin: 'https://myapi.example', operationsOrigin: 'https://ops.example', key: secret }, async (url, options) => {
+    calls.push({ url, options })
+    if (url.startsWith('https://myapi.example/')) throw new Error('application stopped')
+    if (url.endsWith('/capabilities')) return response({ success: true, data: { operations: ['operations.plan', 'operations.execute'] } })
+    return response({ success: true, data: { id: 'a'.repeat(64), state: 'interrupted', backup_created: true, target_start_attempted: true } })
+  })
+  const handler = await ready(client)
+  const listed = await handler({ jsonrpc: '2.0', id: 2, method: 'tools/list' })
+  assert.deepEqual(listed.result.tools.map(item => item.name), ['myapi_operations_plan', 'myapi_operations_execute'])
+  assert.ok(!operations.some(item => item.operation.includes('approve')))
+  const result = await client.call('myapi_operations_plan', { id: 'a'.repeat(64) })
+  assert.equal(result.data.state, 'interrupted')
+  assert.equal(calls.at(-1).url, 'https://ops.example/v1/plans/' + 'a'.repeat(64))
+  assert.equal(calls.at(-1).options.headers.Authorization, 'Bearer ' + secret)
+})
+
+test('upgrade tools require exact frozen identity and send at most one independent execute request', async () => {
+  const calls = []
+  const client = createClient({ origin: 'https://myapi.example', operationsOrigin: 'https://ops.example', key: secret }, async (url, options) => {
+    calls.push({ url, options })
+    throw new Error('connection lost after acceptance')
+  })
+  const id = 'a'.repeat(64), digest = 'b'.repeat(64)
+  await assert.rejects(client.call('myapi_operations_execute', { id, digest, confirmation: `operations.execute:${id}:${'c'.repeat(64)}` }))
+  await assert.rejects(client.call('myapi_operations_execute', { id: '../approve', digest, confirmation: 'approve' }))
+  await assert.rejects(client.call('myapi_operations_prepare', { instance_id: 'primary', artifact: { run_id: '1', url: 'https://attacker.example' } }))
+  assert.equal(calls.length, 0)
+  const result = await client.call('myapi_operations_execute', { id, digest, confirmation: `operations.execute:${id}:${digest}` })
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].url, `https://ops.example/v1/plans/${id}/execute`)
+  assert.deepEqual(JSON.parse(calls[0].options.body), { digest })
+  assert.deepEqual(result, { success: false, code: 'REQUEST_UNCONFIRMED', outcome: 'unknown', replay: false })
+  const noOperations = createClient({ origin: 'https://myapi.example', key: secret }, async () => { throw new Error('must not call') })
+  assert.deepEqual(await noOperations.call('myapi_operations_plan', { id }), { success: false, code: 'OPERATIONS_NOT_CONFIGURED' })
 })

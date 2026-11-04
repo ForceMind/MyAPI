@@ -78,7 +78,7 @@ jobs:
         run: go vet ./...
 
       - name: Verify scoped management keys and API boundaries
-        run: go test -race -p 1 ./model ./service ./middleware ./router -run '^TestManagement' -count=1 -timeout=180s -v
+        run: go test -race -p 1 ./model ./service ./middleware ./controller ./router -run '^Test(Management|Operations)' -count=1 -timeout=180s -v
 
       - name: Verify approximate subscription share boundaries
         run: go test -p 1 ./model ./service ./middleware ./controller ./relay/channel -run '^TestSubscriptionShare' -count=1 -timeout=180s
@@ -1126,6 +1126,9 @@ jobs:
 
       - name: Verify management MCP tools without upstream traffic
         run: node --test tools/management/management.test.mjs
+
+      - name: Verify independent operations boundaries without Docker or providers
+        run: node --test tools/operations/*.test.mjs
 
   credential-maintenance:
     name: Isolated credential maintenance browser and real API

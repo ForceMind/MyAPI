@@ -16,7 +16,7 @@ import (
 
 var ErrManagementKeyInput = errors.New("invalid management key input")
 
-var ManagementKeyScopes = []string{"channels.read", "channels.operate", "tokens.read", "logs.read", "system.read"}
+var ManagementKeyScopes = []string{"channels.read", "channels.operate", "tokens.read", "logs.read", "system.read", "operations.read", "operations.prepare", "operations.execute"}
 
 type CreateManagementKeyInput struct {
 	Name       string   `json:"name"`
@@ -33,6 +33,8 @@ func ManagementScopeAvailable(user *model.UserBase, scope string) bool {
 		return false
 	}
 	switch scope {
+	case "operations.read", "operations.prepare", "operations.execute":
+		return user.Role == common.RoleRootUser
 	case "tokens.read", "logs.read", "system.read":
 		return true
 	case "channels.read", "channels.operate":
@@ -86,6 +88,9 @@ func CreateManagementKey(owner *model.UserBase, input CreateManagementKeyInput) 
 	}
 	seen := map[string]bool{}
 	for _, scope := range input.Scopes {
+		if strings.HasPrefix(scope, "operations.") && (len(input.ChannelIDs) != 0 || len(input.TokenIDs) != 0) {
+			return empty, "", ErrManagementKeyInput
+		}
 		if seen[scope] || !ManagementScopeAvailable(owner, scope) {
 			return empty, "", ErrManagementKeyInput
 		}

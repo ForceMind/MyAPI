@@ -18,6 +18,9 @@ export function managementKeyScopeLabel(scope: ManagementKeyScope, t: TFunction)
     'tokens.read': t('Read API tokens'),
     'logs.read': t('Read request logs'),
     'system.read': t('Read system status'),
+    'operations.read': t('Read upgrade plans'),
+    'operations.prepare': t('Prepare upgrades'),
+    'operations.execute': t('Execute approved upgrades'),
   }
   return labels[scope]
 }
@@ -35,6 +38,10 @@ export const managementKeyFormSchema = z.object({
   days: z.string().regex(/^\d+$/).refine((value) => Number(value) >= 1 && Number(value) <= 90),
   channelIDs: z.string().refine((value) => parseManagementResourceIDs(value) !== null),
   tokenIDs: z.string().refine((value) => parseManagementResourceIDs(value) !== null),
+}).superRefine((value, context) => {
+  if (value.scopes.some((scope) => scope.startsWith('operations.')) && (value.channelIDs.trim() || value.tokenIDs.trim())) {
+    context.addIssue({ code: 'custom', path: ['scopes'], message: 'Operations permissions cannot be combined with resource ID limits.' })
+  }
 })
 
 export type ManagementKeyForm = z.infer<typeof managementKeyFormSchema>

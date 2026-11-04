@@ -17,6 +17,9 @@ export const managementKeyScopes = [
   'tokens.read',
   'logs.read',
   'system.read',
+  'operations.read',
+  'operations.prepare',
+  'operations.execute',
 ] as const
 
 export type ManagementKeyScope = (typeof managementKeyScopes)[number]

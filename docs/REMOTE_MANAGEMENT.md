@@ -53,7 +53,9 @@ MYAPI_MANAGEMENT_KEY_FILE=/absolute/protected/path/myapi-management.key
 
 项目 CI 新增管理 Key 定向竞态检查、SQLite/MySQL/PostgreSQL 凭据生命周期与重复迁移检查，以及 Node stdio/HTTP 合成工具测试。既有完整 CI 和权限/敏感操作断言继续执行；无本机依赖安装或测试，无浏览器与真实供应商请求。本文件描述实现合同；实际通过状态以对应源码提交的完整 Actions 结果为准。
 
-## 第二批：服务器升级能力方案（尚未实施）
+## 第二批：独立升级服务（实现合同，Actions 验收单列）
+
+系统状态页增量线稿：[桌面](evidence/redesign-20261024/ui-design-v2/wireframes/svg/operations-upgrade-desktop.svg)、[手机](evidence/redesign-20261024/ui-design-v2/wireframes/svg/operations-upgrade-mobile.svg)。沿用已有 SystemInfo、摘要展开和确认组件，不增加路由；浏览器未验证。
 
 交付目标是让相同会话准备、确认并执行特定 MyAPI 实例的更新，应用不可用时仍可查询升级结果。需要在服务器首次安装独立受限运维服务；不把 Docker socket 或任意 Shell 暴露给 MyAPI Web 进程，不在首批 Key 中暗加主机权限。
 
@@ -63,6 +65,14 @@ MYAPI_MANAGEMENT_KEY_FILE=/absolute/protected/path/myapi-management.key
 4. 只读验收：核对实际镜像身份、健康、版本、配置与账务连续性，只访问状态和静态资源；不开诊断、不跑浏览器、不发模型请求。客户端断开后按操作 ID 查询，不能重复触发升级。
 5. 失败处理：明确区分未启动、已启动、已提交新账务与结果未知。启动后不自动恢复旧数据库；有新增账务时保留新数据，兼容性未证明就停止，交维护者决定恢复方式。
 
-拟涉及新增独立运维服务目录、`deploy/` 安装与受限服务配置、现有升级合同的局部复用，以及面板计划批准入口。正式实施前再列出确切路径和安装权限。第一迭代仅支持当前 Docker + Full + SQLite，其他安装和数据库形态单列后续，不能假称全部支持。
+维护者已批准第二批源码与 Actions 实施，仍未授权生产安装。服务源在 `tools/operations/`，离线安装与 systemd 模板在 `deploy/operations/`；安装脚本不自动启动、启用服务或下载文件。MyAPI 后端仅通过配置的私有 Unix socket 转发计划查询/批准；不连接 Docker socket。面板入口位于系统状态页，Root 登录会话先核对精确计划，再用绑定 `operations.upgrade.approve:<plan-id>:<digest>` 的原 2FA/Passkey 验证机制批准。一般验证凭证不能批准另一个计划。
+
+管理 Key 显式增加 `operations.read`、`operations.prepare`、`operations.execute` 三项 Root 专用权限，默认不选；旧 Key 不自动增加权限。运维 scope 不能与渠道/Key ID 限制混用。MCP 配置额外的 `MYAPI_OPERATIONS_URL=https://your-independent-operations.example`，同一把 Key 由独立服务通过登记 SQLite 只读验证，即使 MyAPI 停机仍可读取计划；MCP 不提供批准工具。实例、源配置、DB、健康端点、制品和登记摘要绑定到计划，修改后拒绝执行。
+
+当前限制 Linux/amd64、Docker API 1.45、Full、同一 `/data` RW bind 内的 SQLite，只接受 `0.2.0-beta.N` 严格升序。精确目标 VERSION 还从 GitHub 对应源码 blob 校验；任意高填版本不能掩盖降级。镜像身份不符在任何旧容器修改前停止，不能以 config/layer 等价替代。匿名卷、动态宿主端口、静态 IP 等无法原样保留的形态先拒绝。具体完整前置条件、容量限额和安装权限见 [安装说明](../deploy/operations/README.md)。
+
+源容器保持旧重启策略会在 Docker 重启后复活，因而批准页明确提示：执行器通过全部身份门禁后，先持久记录源变更意图，禁用**旧容器**自动重启，再停机备份。新容器保留原重启策略、Env、挂载和固定端口。禁用请求一旦发出，任何失败或未知结果都冻结实例，不能自动恢复旧策略或旧镜像。OS `flock` 使用稳定 inode 并在初始化 journal 前独占，进程崩溃后内核释放进程锁，持久实例执行锁与 interrupted/recovery_required 仍保留，不重放。
+
+当前仅支持这一安装形态，其他数据库和部署方式不自动扩展。源码/静态审查不等于真实 Docker、TLS、进程崩溃或账务连续性验收；这些证据由本批 Actions 单独运行并记录。
 
 成功标准：一次批准只更新指定实例和制品，配置/开关/新增账务保留，身份不符及未知结果均停止，重放不会再次执行。验证方法：全部在 GitHub Actions 临时 Docker/SQLite 环境进行升级、断连、进程重启、失败和新增账务保护演练；不跑浏览器、不接生产。实际首次安装与生产更新需维护者分别明确批准。

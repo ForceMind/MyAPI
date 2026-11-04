@@ -1,5 +1,14 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-05 第二批：独立受限运维与升级批准（候选，待对应 Actions 验收）
+
+- 已明确授权：Docker + Full + SQLite 独立服务、升级计划/面板确认，提交dev并读取完整CI；全部构建/测试仅Actions，无本机依赖/构建/测试/Docker/浏览器/产物下载，生产与真实模型请求禁止。
+- 方案和实现合同集中在[REMOTE_MANAGEMENT](../../REMOTE_MANAGEMENT.md)，配置/离线安装在[deploy/operations](../../../deploy/operations/README.md)。根应用三库行为不改；运维功能只支持登记SQLite实例，默认未配置。
+- 从代码看：HTTPS只读/准备/执行与私有Unix批准分离，同一管理Key显式Root运维scope、SQLite fresh只读校验，原Key不扩权；2FA/Passkey proof绑定plan ID+digest。固定GitHub仓库/workflow/dev/source/tree/VERSION/ZIP digest、manifest/tar与完全相等imageID，门禁失败前不修改旧容器。
+- 审查必要修正：旧容器always重启会双写，禁用旧restart且新容器保原策略；匿名卷/动态端口preStop拒绝；运行时网络元数据不误当配置；OS flock防并发启动；协议缺失/null身份拒绝、不补0。源变更意图先fsync，任何未知结果冻结，不回滚DB/重启旧镜像；WAL/SHM备份与同data_dir新写保持。
+- 验证门禁：既有完整CI、Go真实路由/绑定proof/越权/无配置、Node鉴权/WAL/ZIP/持久锁/故障与MCP；额外Actions真实Docker Full SQLite升级、TLS、daemon kill/restart、源配置/开关与新增账务连续性。候选beta.33，不把源码或单测当生产验收，不发布镜像/tag或改main。
+
+
 ## 2026-11-05 第一批：管理 Key 与远程工具（验证记录见对应源码 Actions）
 
 - 维护者已批准独立管理 Key、复用现有 API 的远程工具及面板入口；全部构建测试仅 GitHub Actions，浏览器/生产/真实模型请求禁止。第二批升级仅给方案。

@@ -1,0 +1,23 @@
+{
+  "listen": {
+    "host": "127.0.0.1",
+    "port": 9443,
+    "tls_cert_file": "/etc/myapi-operations/tls.crt",
+    "tls_key_file": "/etc/myapi-operations/tls.key"
+  },
+  "unix_socket": "/run/myapi-operations/bridge.sock",
+  "bridge_token_file": "/etc/myapi-operations/bridge.token",
+  "github_token_file": "/etc/myapi-operations/github.token",
+  "docker_socket": "/var/run/docker.sock",
+  "state_dir": "/var/lib/myapi-operations/state",
+  "backups_dir": "/var/lib/myapi-operations/backups",
+  "instances": [
+    {
+      "id": "primary",
+      "container": "my-api",
+      "data_dir": "/srv/my-api/data",
+      "sqlite_file": "/srv/my-api/data/my-api.db",
+      "health_url": "http://127.0.0.1:3000/"
+    }
+  ]
+}

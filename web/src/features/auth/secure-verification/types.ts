@@ -25,6 +25,7 @@ export type SecurityProofScope =
   | 'channel.codex.local_import'
   | 'passkey.register'
   | 'passkey.delete'
+  | `operations.upgrade.approve:${string}:${string}`
 
 export interface SecurityProof {
   proof_token: string

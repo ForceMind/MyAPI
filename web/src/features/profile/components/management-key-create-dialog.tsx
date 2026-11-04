@@ -41,6 +41,7 @@ export function ManagementKeyCreateDialog(props: ManagementKeyCreateDialogProps)
   const [feedback, setFeedback] = useState('')
   const [unknown, setUnknown] = useState(false)
   const currentUser = useAuthStore((state) => state.auth.user)
+  const isRoot = currentUser?.role === ROLE.SUPER_ADMIN
   const channelPermissions = currentUser?.permissions?.admin_permissions?.channel
   const channelRead = currentUser?.role === ROLE.SUPER_ADMIN || channelPermissions?.read === true
   const channelOperate = currentUser?.role === ROLE.SUPER_ADMIN || channelPermissions?.operate === true
@@ -55,6 +56,7 @@ export function ManagementKeyCreateDialog(props: ManagementKeyCreateDialogProps)
 
   async function create() {
     if (!review || busy || unknown || secret || managementKeySessionKey() !== props.scopeKey) return
+    if (!isRoot && review.scopes.some((scope) => scope.startsWith('operations.'))) return
     setBusy(true)
     setFeedback('')
     try {
@@ -137,12 +139,13 @@ export function ManagementKeyCreateDialog(props: ManagementKeyCreateDialogProps)
             <FieldSet>
               <FieldLegend>{t('Management permissions')}</FieldLegend>
               <Controller control={form.control} name='scopes' render={({ field }) => <FieldGroup className='gap-3'>
-                {managementKeyScopes.map((scope) => <Field key={scope} orientation='horizontal'>
+                {managementKeyScopes.filter((scope) => isRoot || !scope.startsWith('operations.')).map((scope) => <Field key={scope} orientation='horizontal'>
                   <Checkbox id={`management-${scope}`} checked={field.value.includes(scope)} disabled={(scope === 'channels.read' && !channelRead) || (scope === 'channels.operate' && !channelOperate)} aria-invalid={!!errors.scopes} onCheckedChange={(checked) => field.onChange(checked ? [...field.value, scope] : field.value.filter((value) => value !== scope))} />
                   <FieldLabel htmlFor={`management-${scope}`}>{managementKeyScopeLabel(scope, t)}</FieldLabel>
                 </Field>)}
               </FieldGroup>} />
-              {errors.scopes && <FieldDescription role='alert'>{t('Select at least one management permission.')}</FieldDescription>}
+              {isRoot && <FieldDescription>{t('Operations permissions are optional, Root-only, and require an unrestricted resource ID list. Upgrade execution still requires approval in System status.')}</FieldDescription>}
+              {errors.scopes && <FieldDescription role='alert'>{errors.scopes.type === 'custom' ? t('Operations permissions cannot be combined with resource ID limits.') : t('Select at least one management permission.')}</FieldDescription>}
             </FieldSet>
             <Field data-invalid={!!errors.days}>
               <FieldLabel htmlFor='management-days'>{t('Validity in days')}</FieldLabel>

@@ -1,0 +1,32 @@
+[Unit]
+Description=MyAPI restricted operations service
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+UMask=0077
+WorkingDirectory=/opt/myapi-operations
+ExecStart=/usr/bin/node /opt/myapi-operations/tools/operations/daemon.mjs /etc/myapi-operations/config.json
+Restart=no
+RuntimeDirectory=myapi-operations
+RuntimeDirectoryMode=0700
+StateDirectory=myapi-operations
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/myapi-operations /run/myapi-operations
+# The registered data directory must be readable and remains mounted at its
+# original host path. The service never restores it or exposes it over HTTP.
+ReadOnlyPaths=/srv/my-api/data
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target
