@@ -1,6 +1,10 @@
 name: Operations Docker and SQLite qualification
 
 on:
+  push:
+    branches: [dev]
+    paths:
+      - 'tools/operations/qualification-target.json'
   workflow_dispatch:
     inputs:
       bundle_run_id:
@@ -42,7 +46,7 @@ concurrency:
 
 jobs:
   qualify:
-    if: github.event_name == 'workflow_dispatch' && github.repository == 'ForceMind/MyAPI' && github.ref == 'refs/heads/dev'
+    if: (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && github.repository == 'ForceMind/MyAPI' && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     env:
@@ -68,17 +72,20 @@ jobs:
           INPUT_TREE: ${{ inputs.tree_sha }}
           INPUT_MANIFEST: ${{ inputs.manifest_sha256 }}
           INPUT_IMAGE: ${{ inputs.image_id }}
+          INPUT_EVENT: ${{ github.event_name }}
         run: |
           set -euo pipefail
           test "$GITHUB_REPOSITORY" = ForceMind/MyAPI
           test "$GITHUB_REF" = refs/heads/dev
           test "$(git -c core.fileMode=false rev-parse HEAD)" = "$GITHUB_SHA"
           node --input-type=module <<'JS'
-          import { writeFile } from 'node:fs/promises'
+          import { readFile, writeFile } from 'node:fs/promises'
           import path from 'node:path'
           import { artifactInput } from './tools/operations/safety.mjs'
           const e = process.env
-          const input = { run_id: e.INPUT_RUN, producer_attempt: e.INPUT_ATTEMPT, artifact_id: e.INPUT_ARTIFACT, source_sha: e.INPUT_SOURCE, tree_sha: e.INPUT_TREE, manifest_sha256: e.INPUT_MANIFEST, image_id: e.INPUT_IMAGE }
+          const input = e.INPUT_EVENT === 'push'
+            ? JSON.parse(await readFile('tools/operations/qualification-target.json', 'utf8')).artifact
+            : { run_id: e.INPUT_RUN, producer_attempt: e.INPUT_ATTEMPT, artifact_id: e.INPUT_ARTIFACT, source_sha: e.INPUT_SOURCE, tree_sha: e.INPUT_TREE, manifest_sha256: e.INPUT_MANIFEST, image_id: e.INPUT_IMAGE }
           artifactInput({ ...input, version: '0.2.0-beta.33' })
           await writeFile(path.join(e.RUNNER_TEMP, 'operations-artifact-input.json'), JSON.stringify(input), { flag: 'wx', mode: 0o600 })
           JS

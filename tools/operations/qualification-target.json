@@ -1,0 +1,12 @@
+{
+  "revision": 1,
+  "artifact": {
+    "run_id": "41895639097",
+    "producer_attempt": "1",
+    "artifact_id": "13356191175",
+    "source_sha": "0489f1c21659253d65361d9b205553c0904bf7a0",
+    "tree_sha": "5c9a5170340d1531a541e4b09ed36101ed9d23b2",
+    "manifest_sha256": "984b9c92319726ca3db364b3b35e8d3f046850754a61812cfb50abee14ed96a7",
+    "image_id": "sha256:9150578c6fef5d462af9012b47dbca691b4590cdee0351f1660e0f854c45620a"
+  }
+}
