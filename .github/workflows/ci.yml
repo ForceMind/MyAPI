@@ -618,6 +618,7 @@ jobs:
             src/features/channels/components/__tests__/channel-routing-field-editor.test.tsx \
             src/features/connections/__tests__/connection-routing-edit.test.tsx \
             src/features/channels/components/__tests__/channel-inventory-task.test.tsx \
+            src/features/channels/components/__tests__/channels-table-open.test.tsx \
             src/features/channels/components/__tests__/channel-workspace-page.test.tsx || myapi_client_contract_status=1
           exit "$myapi_client_contract_status"
 

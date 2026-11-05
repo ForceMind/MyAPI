@@ -103,7 +103,7 @@ test('a click elsewhere on the row opens the connection page, but not on its con
   const row = name.closest('tr') as HTMLTableRowElement
   // The row's own controls (menu, switches) act in place.
   await user.click(screen.getByRole('button', { name: 'Open menu' }))
-  expect(router.state.location.pathname).toBe('/channels/')
+  expect(router.state.location.pathname).toBe('/channels')
   await user.keyboard('{Escape}')
   const plainCell = [...row.querySelectorAll('td')].find(
     (cell) => !cell.querySelector('button,a,input,[role="switch"]')
