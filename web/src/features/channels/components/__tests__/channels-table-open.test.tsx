@@ -103,7 +103,7 @@ test('a click elsewhere on the row opens the connection page, but not on its con
   const row = name.closest('tr') as HTMLTableRowElement
   // The row's own controls (menu, switches) act in place.
   await user.click(screen.getByRole('button', { name: 'Open menu' }))
-  expect(router.state.location.pathname).toBe('/channels')
+  expect(router.state.location.pathname).toBe('/channels/')
   await user.keyboard('{Escape}')
   const plainCell = [...row.querySelectorAll('td')].find(
     (cell) => !cell.querySelector('button,a,input,[role="switch"]')
@@ -221,7 +221,7 @@ test.each([390, 1440])('the table URL stays a real scrollable table at %ipx desp
   expect(within(views).getByRole('link', { name: 'Card view' })).toHaveAttribute('href', expect.stringContaining('/connections'))
   await act(async () => client.invalidateQueries({ queryKey: ['channels'] }))
   expect(screen.getByRole('table')).toBeVisible()
-  expect(router.state.location.pathname).toBe('/channels/')
+  expect(router.state.location.pathname).toBe('/channels')
   expect(router.state.location.search).toMatchObject({ filter: 'needle', model: 'public-model', pageSize: 50, focusConnectionId: 23 })
   expect(localStorage.getItem('channels:view-mode')).toBe('card')
   expect(vi.mocked(api.get).mock.calls.some(([url]) => /quota|test|update_balance|codex\/usage/.test(String(url)))).toBe(false)
