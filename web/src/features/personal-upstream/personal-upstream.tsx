@@ -74,17 +74,18 @@ function PersonalUpstreamSession(props: PersonalUpstreamProps) {
   }
   const accounts = [...accountMap.values()]
   const firstAccountId = accounts[0]?.channel_id
+  const onViewChange = props.onViewChange
   useEffect(() => {
     if (view.channelId !== undefined || firstAccountId === undefined) return
     // Anchor the displayed object in the source history entry before leaving it.
     const next = { ...view, channelId: firstAccountId, keyId: undefined }
-    if (props.onViewChange) {
-      props.onViewChange(next, { preserveFocus: true })
+    if (onViewChange) {
+      onViewChange(next, { preserveFocus: true })
     } else {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocalView(next)
     }
-  }, [view, firstAccountId, props.onViewChange])
+  }, [view, firstAccountId, onViewChange])
   const selectedAccountId = view.channelId ?? firstAccountId
   const selectedAccount = accounts.find((item) => item.channel_id === selectedAccountId)
   const windows = filteredItems.filter((item) => item.channel_id === selectedAccount?.channel_id)

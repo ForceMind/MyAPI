@@ -252,7 +252,7 @@ it('dynamic group presentation preserves a configured zero ratio alongside a non
   expect(groups).not.toHaveTextContent('1x')
 })
 
-it.each([[], ['saved-group']])('API rate limits with configured groups %j expose unknown values without generating limits or inventing a default group', async (groups) => {
+it.each([{ groups: [] }, { groups: ['saved-group'] }])('API rate limits with configured groups $groups expose unknown values without generating limits or inventing a default group', async ({ groups }) => {
   pricingRequest = async () => ({ data: {
     ...populatedPricing,
     data: [{ ...populatedPricing.data[0], enable_groups: groups }],

@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, HeartPulse, Timer } from 'lucide-react'
+import { HeartPulse, Timer } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -338,26 +338,7 @@ export function ModelDetailsPerformance(props: { model: PricingModel }) {
         <SectionHeader
           icon={HeartPulse}
           title={t('Availability (last 24h)')}
-          description={
-            incidentCount > 0
-              ? t(
-                  'Request success rate; {{incidents}} incident buckets in the last 24 hours',
-                  {
-                    incidents: incidentCount,
-                  }
-                )
-              : t('Request success rate sampled over the last 24 hours')
-          }
-          accent={
-            incidentCount > 0 ? (
-              <span className='inline-flex items-center gap-1 text-amber-600 dark:text-amber-400'>
-                <AlertTriangle className='size-3.5' />
-                {t('{{count}} incidents', {
-                  count: incidentCount,
-                })}
-              </span>
-            ) : null
-          }
+          description={t('Request success rate sampled over the last 24 hours')}
         />
         <UptimeTrendChart series={uptimeSeries} />
       </section>

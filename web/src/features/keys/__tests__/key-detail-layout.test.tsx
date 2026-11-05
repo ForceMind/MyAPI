@@ -285,8 +285,8 @@ test('Delivery keeps one credential copy action while the other tabs keep their 
   const user = userEvent.setup()
   await renderKeysPage(client, '/keys/21?tab=delivery')
   const delivery = await screen.findByRole('region', { name: 'Connection details' })
-  expect(screen.queryByRole('button', { name: 'Copy Key', exact: true })).not.toBeInTheDocument()
-  const copy = within(delivery).getByRole('button', { name: 'Copy API key', exact: true })
+  expect(screen.queryByRole('button', { name: 'Copy Key' })).not.toBeInTheDocument()
+  const copy = within(delivery).getByRole('button', { name: 'Copy API key' })
   expect(copy).toBeVisible()
   expect(mocks.post).not.toHaveBeenCalled()
   const clipboard = vi.spyOn(navigator.clipboard, 'writeText')
@@ -294,7 +294,7 @@ test('Delivery keeps one credential copy action while the other tabs keep their 
   await waitFor(() => expect(clipboard).toHaveBeenCalledWith('sk-inert-existing-key'))
   expect(mocks.post).toHaveBeenCalledExactlyOnceWith('/api/token/21/key', undefined, expect.objectContaining({ skipAuthRefresh: true }))
   await user.click(screen.getByRole('tab', { name: 'Requests' }))
-  expect(await screen.findByRole('button', { name: 'Copy Key', exact: true })).toBeVisible()
+  expect(await screen.findByRole('button', { name: 'Copy Key' })).toBeVisible()
 })
 
 test('a long credential at 320px stays shrinkable, completely selected and copyable only after an explicit reveal', async () => {
@@ -315,7 +315,7 @@ test('a long credential at 320px stays shrinkable, completely selected and copya
   expect((input as HTMLInputElement).selectionStart).toBe(0)
   expect((input as HTMLInputElement).selectionEnd).toBe(fullKey.length)
   const clipboard = vi.spyOn(navigator.clipboard, 'writeText')
-  await user.click(screen.getByRole('button', { name: 'Copy API key', exact: true }))
+  await user.click(screen.getByRole('button', { name: 'Copy API key' }))
   expect(clipboard).toHaveBeenCalledWith(fullKey)
   expect(mocks.post).toHaveBeenCalledOnce()
 })
