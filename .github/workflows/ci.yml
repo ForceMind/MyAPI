@@ -1127,6 +1127,9 @@ jobs:
       - name: Verify management MCP tools without upstream traffic
         run: node --test tools/management/management.test.mjs
 
+      - name: Verify independently extractable operations kit
+        run: node --test tools/runtime/operations-kit.test.mjs
+
       - name: Verify independent operations boundaries without Docker or providers
         run: node --test tools/operations/*.test.mjs
 

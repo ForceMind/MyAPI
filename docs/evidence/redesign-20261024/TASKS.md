@@ -1,5 +1,13 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-05 beta.33 打包与服务器最小方案交接（本轮不动生产）
+
+- 维护者授权Actions打包验证，并交接现有服务器任务先提出镜像更新、独立运维服务安装与安全接入最小方案，确认前不执行。保配置/开关/新增账务，无browser/真实模型请求/本机产物下载。
+- 源码基线5173eefbf28267800fea698c9f25447cc053693e / 完整CI41901918734与真实Ops41901918686均已success；本轮仅补必要离线kit打包和验证，不重做服务或页面，不改VERSION、main、GHCR/NPM/tag或生产配置。
+- 镜像包仍沿docker-smoke api_only=true/run_browser=false/personal=false；新增独立运维kit，同生产者source/tree/run/attempt绑定，固定白名单文件与manifest/tar摘要、独立解包/模块检查，排除真实凭据/实例/数据库/journal/测试内容。
+- 已向服务器任务「查看状态并更新部署版本」发只读预检边界；其beta.31镜像表示差异的历史追加授权不通用于beta.33，须在新方案说明严格loaded ID门禁与现存镜像存储模式兼容性。最终制品与验证证据完成后补交接。
+
+
 ## 2026-11-05 第二批：独立受限运维与升级批准（候选，待对应 Actions 验收）
 
 - 真实Ops [41900763817](https://github.com/ForceMind/MyAPI/actions/runs/41900763817) / test bc669df65b56f2b83058ea57893b6cf35c812f1e attempt1 success，全部步骤及安全日志已读。真实GitHub资格与制品身份、TLS、旧555→目标0489切换、配置/开关、DB/WAL/SHM备份、新增17 units与daemon重启/桥接、错误身份及匿名卷/动态端口拒绝、竞争daemon与SIGKILL冻结、启动后故障保17账务、不重放均已严格断言。故障明确为合成注入，未触生产/model/browser。

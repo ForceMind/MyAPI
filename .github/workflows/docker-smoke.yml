@@ -75,6 +75,26 @@ jobs:
           echo "attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
           echo "prefix=myapi-smoke-images-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$GITHUB_SHA" >> "$GITHUB_OUTPUT"
 
+      - name: Package the offline operations service and safe-access kit
+        env:
+          KIT_TREE_SHA: ${{ steps.identity.outputs.tree }}
+        run: node tools/runtime/operations-kit.mjs pack "$RUNNER_TEMP/operations-kit"
+
+      - name: Verify the independently extracted operations kit
+        run: node tools/runtime/operations-kit.mjs verify "$RUNNER_TEMP/operations-kit"
+
+      - name: Preserve verified operations kit without credentials or instance data
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: myapi-operations-kit-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/operations-kit/*.tar.gz
+            ${{ runner.temp }}/operations-kit/kit-identity.json
+            ${{ runner.temp }}/operations-kit/kit-verification.json
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
         with:
