@@ -1,5 +1,17 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-05 beta.34 Actions 打包验证与服务器方案交接（不动生产）
+
+- 维护者授权在Actions打包验证beta.34并交接服务器任务先给更新镜像最小方案，确认前不执行。本机不安装依赖、构建测试或下载产物；不跑浏览器、不发真实模型请求、不发布GHCR/NPM/tag或合main。本批不安装/启动独立运维服务，不配置安全接入。
+- 新镜像真实构建源码/head为 `08e44520a0958711c96321bf8804d062880783e1`、tree `90a0d51d54b3d602ab062a3edbeb39d33f22bfbc`，版本0.2.0-beta.34、Full、linux/amd64。同源码[完整CI41975976001](https://github.com/ForceMind/MyAPI/actions/runs/41975976001) attempt1 success（10成功/1浏览器与真实API跳过）已回读，前端3130/3130、后端/独立relaykit/三库/全部既有race通过。产品变更收口于a3ad44ac，但镜像实际绑定08e44520，不得重标。
+- [Docker smoke41980838279](https://github.com/ForceMind/MyAPI/actions/runs/41980838279) attempt1 success，api_only=true/run_browser=false/personal=false。构建、独立加载2作业成功，LAN安装跳过，全部步骤和原始日志已读。Full+fresh SQLite报告20/20全true：鉴权、合成上游精确用量及权限、7个前端静态资产HTTP、原容器重启、暂停SQLite/WAL后在另一个同镜像容器恢复均通过；browser=not_run，隔离容器清理成功。不是生产兼容性、真实供应商、跨版本回滚或浏览器验收。
+- 目标app image ID必须精确为 `sha256:03474e78120630f20aaf9ba3ec5522858633d02be3bfc0bf471a115c6f6dba5a`；manifest.json SHA256为 `d74fdeb02c45e59b8593b1499b3d80aac1deeaa6e11e7c40159249f60699dec8`。
+- [镜像包artifact13394106401](https://github.com/ForceMind/MyAPI/actions/runs/41980838279/artifacts/13394106401)：`myapi-smoke-images-41980838279-1-08e44520a0958711c96321bf8804d062880783e1-full`，315056347 bytes，ZIP SHA256 `0f25e0ef9baa695ec98a170796052200d17f8f57aafe7eeab1a9feb90b6af23e`，有效至2026-11-12 06:33:25 UTC。
+- [验证报告artifact13393727830](https://github.com/ForceMind/MyAPI/actions/runs/41980838279/artifacts/13393727830)：ZIP SHA256 `2da227e580376736b86029a9c930a58b6f0075dc5866978477444039ab83a0a2`，有效至2026-11-12 06:34:46 UTC。含source/manifest/qualification；tar内部摘要须从已校验manifest读取，本机未下载产物，不编造未读字段。GitHub artifact元数据、ZIP摘要与过期时间已读。
+- 工作流原有运维kit同时产出并在runner独立解包28/28通过、servicesStarted=false/productionTouched=false；[kit artifact13394235519](https://github.com/ForceMind/MyAPI/actions/runs/41980838279/artifacts/13394235519)不构成本次安装/启动授权。
+- 已向现有服务器任务「查看状态并更新部署版本」发送精确制品身份、证据与本轮边界，请其仅做必要只读预检并提交更新方案，等维护者确认。明确禁止在方案阶段下载/加载镜像、写文件/备份、改配置/容器/重启策略、安装kit、改Docker或开启诊断。上次beta.33因config ID与containerd/OCI loaded ID不完全相等退出2，未部署；这次仍严格相等，不沿用beta.31等价授权。未证明兼容就停，不通过重标tag、换产物或弱化门禁继续。
+- 未来经确认的方案必须保留全部现有配置、开关与当时最新SQLite/WAL/日志，排空后一致备份；切换后新增账务不得被旧快照覆盖，故障保全、不重放请求。仅健康/版本/静态HTTP及数据连续性验收，不主动模型请求。收尾只更新本任务记录和handoff/README；镜像继续绑定08e44520/41980838279，读取收尾文档提交自己的完整CI，不把后续文档SHA当新镜像。
+
 ## 2026-11-05 连接能力、用量状态与 Key 客户端配置（beta.34，源码完整 CI 已通过）
 
 - 收口应用源码 `a3ad44acaf843e40f84493730c23ab2e0d0c6268` / [完整CI41972253884](https://github.com/ForceMind/MyAPI/actions/runs/41972253884) attempt1 success：10作业成功、1浏览器与真实API作业跳过；全部作业/步骤及10个执行作业的原始日志已亲读。Key交付定向56/56、保存证据定向38/38、原Key420/420、连接268/268、日志410/410、前端全量399文件3130/3130通过；同步/构建/构建前后types/lint通过（24警告0错误）。根模块/独立relaykit vet/build、原生/386、两模块全量、全部既有race、三库/Redis/ClickHouse/分发/Desktop通过；新增余额能力3父项/含子项8条全PASS，38618父项/5包0skip/fail，原始失败与race标记0。

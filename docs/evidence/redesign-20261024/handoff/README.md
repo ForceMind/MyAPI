@@ -2,6 +2,10 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**2026-11-05 beta.34 已在 Actions 打包验收并交接服务器先给方案，尚未授权生产更新。** 镜像真实构建源码 `08e44520a0958711c96321bf8804d062880783e1` / 完整CI41975976001 success；[Docker smoke41980838279](https://github.com/ForceMind/MyAPI/actions/runs/41980838279) attempt1 success，Full+SQLite、linux/amd64、api_only=true/run_browser=false/personal=false，2作业成功/1LAN安装跳过，报告20/20全true，全部步骤及原始日志已读。鉴权、合成用量/权限、7静态资产HTTP、原容器重启及同镜像SQLite/WAL恢复通过；browser=not_run，不代表生产兼容性或真实供应商验收。镜像包[13394106401](https://github.com/ForceMind/MyAPI/actions/runs/41980838279/artifacts/13394106401)与报告[13393727830](https://github.com/ForceMind/MyAPI/actions/runs/41980838279/artifacts/13393727830)有效至11月12日，完整SHA/ZIP摘要/精确时间见[TASKS最新节](../TASKS.md)。
+
+已向现有服务器任务「查看状态并更新部署版本」发送完整身份和本轮仅预检/方案边界：维护者确认前不下载/加载镜像、不写备份/配置、不改或启停容器/服务，不装运维kit、不改Docker、不重标tag或放宽身份门禁。该任务上次beta.33因containerd/OCI loaded ID与config ID不同停止，未部署；不可沿用beta.31等价授权或把Actions成功当生产兼容。目标app ID须精确为 `sha256:03474e78120630f20aaf9ba3ec5522858633d02be3bfc0bf471a115c6f6dba5a`；未来获准切换须保全部配置/开关和当时最新账务，故障保全不回灌旧快照、不重放。工作流附带kit不等于本次安装授权。本机无依赖/构建测试/Docker/产物下载，无浏览器/真实模型/生产/发布/main操作；收尾只两份文档，镜像始终绑定08e44520/41980838279，接手读取收尾提交自身CI。
+
 **2026-11-05 连接能力与 Key 客户端配置已通过完整源码 CI，候选 beta.34。** 应用 `a3ad44acaf843e40f84493730c23ab2e0d0c6268` / [CI41972253884](https://github.com/ForceMind/MyAPI/actions/runs/41972253884) attempt1 success，10作业成功/1浏览器与真实API作业跳过，全部步骤及执行作业原始日志已读。前端399文件3130/3130，Key交付56、保存证据38、原Key420/连接268/日志410均通过；同步/构建/types/lint通过（24警告0错误）；根模块/独立relaykit、原生/386、全部既有race与三库/Redis/ClickHouse/分发/Desktop通过。红绿、范围及必要修正集中在[TASKS最新节](../TASKS.md)。
 
 连接卡片/表格/详情复用保存状态，余额查询与原生窗口分开：有效自定义配置缺BalanceRoute为unsupported/quota_not_configured，坏配置和真实失败不改成功、不改历史。保存证据核验完整性，超过2000系列或元数据不足明确“不完整”，保已读故障，未知不补零；表格必须明确点击读取，进入/切actor或ID/返回不自动读重证据，卡片原只读保存刷新保留。Key交付串起地址/候选/复制/原CC导入，按显式限制筛选且保手输ID；空/null限制保守拒绝，目录失败保真实错误/重试和已打开草稿，展示与实际导出地址一致，凭据仅明确操作读取。原字段/权限/确认/返回上下文与不重放断言保留，未改转发、计费或数据库结构。
