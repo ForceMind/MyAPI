@@ -50,11 +50,32 @@ test('consumer uses exact original producer identity across failed-job reruns an
   assert.match(producer, /full-manifest: \$\{\{ steps.publish.outputs.full_manifest_sha256 \}\}/)
   assert.match(producer, /lan-manifest: \$\{\{ steps.publish.outputs.lan_manifest_sha256 \}\}/)
   assert.equal((producer.match(/retention-days: \$\{\{ inputs.api_only && 7 \|\| 30 \}\}/g) || []).length, 2)
-  assert.equal((producer.match(/if-no-files-found: error/g) || []).length, 2)
+  const imageUploads = producer.split(/\n      - name: /).filter(step => /^Preserve (?:full|lan) immutable bundle\n/.test(step))
+  assert.equal(imageUploads.length, 2)
+  for (const upload of imageUploads) {
+    assert.match(upload, /if-no-files-found: error/)
+    assert.match(upload, /retention-days: \$\{\{ inputs.api_only && 7 \|\| 30 \}\}/)
+  }
   for (const edition of ['full', 'lan']) {
     assert.match(producer, new RegExp(`smoke-bundle-${edition}/manifest\\.json`))
     assert.match(producer, new RegExp(`smoke-bundle-${edition}/images\\.tar`))
   }
+})
+
+test('offline operations kit is a separate exact-source artifact and missing files cannot be accepted', () => {
+  const steps = producer.split(/\n      - name: /)
+  const kit = steps.filter(step => /^Preserve verified operations kit without credentials or instance data\n/.test(step))
+  assert.equal(kit.length, 1)
+  assert.match(kit[0], /name: myapi-operations-kit-\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}-\$\{\{ github.sha \}\}/)
+  assert.match(kit[0], /if-no-files-found: error/)
+  assert.match(kit[0], /operations-kit\/\*\.tar\.gz/)
+  assert.match(kit[0], /operations-kit\/kit-identity\.json/)
+  assert.match(kit[0], /operations-kit\/kit-verification\.json/)
+  assert.doesNotMatch(kit[0], /continue-on-error:|include-hidden-files:|overwrite:|merge-multiple:/)
+  const pack = steps.find(step => /^Package the offline operations service and safe-access kit\n/.test(step))
+  assert.match(pack, /KIT_TREE_SHA: \$\{\{ steps.identity.outputs.tree \}\}/)
+  assert.match(pack, /node tools\/runtime\/operations-kit\.mjs pack/)
+  assert.match(producer, /node tools\/runtime\/operations-kit\.mjs verify/)
 })
 
 test('continue-on-error cannot turn any required build export or upload failure into producer success', t => {
