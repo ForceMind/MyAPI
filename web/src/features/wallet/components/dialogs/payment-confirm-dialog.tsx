@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { useTranslation } from 'react-i18next'
 
@@ -40,11 +41,14 @@ interface PaymentConfirmDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onConfirm: () => void
+  onOpenHistory?: () => void
   topupAmount: number
   paymentAmount: number
+  quoteKnown?: boolean
   paymentMethod: PaymentMethod | undefined
   calculating: boolean
   processing: boolean
+  outcomeUnknown?: boolean
   discountRate?: number
   usdExchangeRate?: number
 }
@@ -53,16 +57,19 @@ export function PaymentConfirmDialog({
   open,
   onOpenChange,
   onConfirm,
+  onOpenHistory,
   topupAmount,
   paymentAmount,
+  quoteKnown = true,
   paymentMethod,
   calculating,
   processing,
+  outcomeUnknown = false,
   discountRate = DEFAULT_DISCOUNT_RATE,
   usdExchangeRate = 1,
 }: PaymentConfirmDialogProps) {
   const { t } = useTranslation()
-  const hasDiscount = discountRate > 0 && discountRate < 1 && paymentAmount > 0
+  const hasDiscount = quoteKnown && discountRate > 0 && discountRate < 1 && paymentAmount > 0
   const originalAmount = hasDiscount ? paymentAmount / discountRate : 0
   const discountAmount = hasDiscount ? originalAmount - paymentAmount : 0
 
@@ -101,7 +108,7 @@ export function PaymentConfirmDialog({
             ) : (
               <div className='flex items-baseline gap-2'>
                 <span className='text-2xl font-semibold'>
-                  {formatCurrency(paymentAmount)}
+                  {quoteKnown ? formatCurrency(paymentAmount) : t('Unknown')}
                 </span>
                 {hasDiscount && (
                   <span className='text-muted-foreground text-sm line-through'>
@@ -139,13 +146,16 @@ export function PaymentConfirmDialog({
               </div>
             </div>
           </div>
+          {outcomeUnknown && <p role='alert' className='text-warning text-sm'>{t('Payment outcome is unconfirmed. New payments are locked; review billing history.')}</p>}
+          {outcomeUnknown && onOpenHistory && <Button variant='outline' className='min-h-11' onClick={onOpenHistory}>{t('Billing History')}</Button>}
+          <p className='text-muted-foreground text-xs'>{t('Closing a window does not cancel a submitted payment. Check billing history if the outcome is unknown.')}</p>
         </section>
 
         <AlertDialogFooter className='m-0 grid shrink-0 grid-cols-2 gap-2 border-t px-4 py-4 sm:flex sm:px-6'>
           <AlertDialogCancel disabled={processing}>
             {t('Cancel')}
           </AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm} disabled={processing}>
+          <AlertDialogAction onClick={onConfirm} disabled={processing || outcomeUnknown || calculating || !quoteKnown}>
             {processing && <Spinner aria-hidden='true' data-icon='inline-start' />}
             {t('Confirm Payment')}
           </AlertDialogAction>

@@ -17,6 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { AccessPolicyDialog } from '@/features/access-policy/components/access-policy-dialog'
+import { useStatus } from '@/hooks/use-status'
+
+import type { ApiKey } from '../types'
+import { keyClientAddresses } from '../lib/client-configuration'
 
 import { ApiKeysDeleteDialog } from './api-keys-delete-dialog'
 import { ApiKeysMutateDrawer } from './api-keys-mutate-drawer'
@@ -25,6 +29,11 @@ import { CCSwitchDialog } from './dialogs/cc-switch-dialog'
 import { ModelScopeDialog } from './model-scope-dialog'
 import { SubscriptionShareDialog } from './subscription-share-dialog'
 import { TokenBudgetDialog } from './token-budget-dialog'
+
+function KeyClientImportDialog(props: { apiKey: ApiKey; tokenKey: string; onOpenChange: (open: boolean) => void }) {
+  const { status } = useStatus()
+  return <CCSwitchDialog open apiKey={props.apiKey} tokenKey={props.tokenKey} onOpenChange={props.onOpenChange} address={keyClientAddresses(status?.server_address, window.location.origin)} />
+}
 
 export function ApiKeysDialogs() {
   const { open, setOpen, currentRow, resolvedKey, setResolvedKey } = useApiKeys()
@@ -58,9 +67,8 @@ export function ApiKeysDialogs() {
         currentRow={open === 'update' ? currentRow || undefined : undefined}
       />
       <ApiKeysDeleteDialog />
-      {open === 'cc-switch' && currentRow && <CCSwitchDialog
+      {open === 'cc-switch' && currentRow && <KeyClientImportDialog
         key={currentRow.id}
-        open
         onOpenChange={(isOpen) => {
           if (!isOpen) {
             setResolvedKey('')

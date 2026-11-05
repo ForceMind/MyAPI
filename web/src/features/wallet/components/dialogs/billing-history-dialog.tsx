@@ -18,8 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { ArrowLeft01Icon, ArrowRight01Icon, Copy01Icon, Search01Icon, Tick02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useState } from 'react'
+import { useState, useRef, useLayoutEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useAuthStore } from '@/stores/auth-store'
+import { useWalletSession } from '../../hooks/use-wallet-session'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -66,11 +68,20 @@ const BILLING_HISTORY_SKELETON_IDS = Array.from(
   (_, index) => `billing-history-skeleton-${index + 1}`
 )
 
-export function BillingHistoryDialog({
+export function BillingHistoryDialog(props: BillingHistoryDialogProps) {
+  const isCurrent = useWalletSession()
+  const identity = useAuthStore((state) => [state.auth.user?.id, state.auth.user?.role, state.auth.session?.sid ?? null].join(':'))
+  if (!isCurrent()) return null
+  return <BillingHistoryTask key={identity} {...props} />
+}
+
+function BillingHistoryTask({
   open,
   onOpenChange,
 }: BillingHistoryDialogProps) {
   const { t } = useTranslation()
+  const isCurrent = useWalletSession()
+  const opening = useRef<object>({})
   const {
     records,
     total,
@@ -81,23 +92,31 @@ export function BillingHistoryDialog({
     error,
     refresh,
     completing,
+    completionUnknown,
+    completionFailure,
     isAdmin,
     handlePageChange,
     handlePageSizeChange,
     handleSearch,
     handleCompleteOrder,
-  } = useBillingHistory()
+  } = useBillingHistory({ enabled: open })
 
   const [confirmTradeNo, setConfirmTradeNo] = useState<string | null>(null)
   const [completionError, setCompletionError] = useState('')
+  useLayoutEffect(() => {
+    opening.current = {}
+    if (!open) { setConfirmTradeNo(null); setCompletionError('') }
+  }, [open])
   const { copyToClipboard, copiedText } = useCopyToClipboard({ notify: false })
 
   const totalPages = total === undefined ? undefined : Math.ceil(total / pageSize)
 
   const handleConfirmComplete = async () => {
-    if (confirmTradeNo) {
+    if (confirmTradeNo && isCurrent()) {
+      const operation = opening.current
       setCompletionError('')
       const success = await handleCompleteOrder(confirmTradeNo)
+      if (!isCurrent() || operation !== opening.current) return
       if (success) {
         setConfirmTradeNo(null)
       } else {
@@ -110,6 +129,7 @@ export function BillingHistoryDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className='flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-[min(85dvh,800px)] sm:max-h-[calc(100dvh-3rem)] sm:max-w-4xl sm:rounded-xl [&_[data-slot=button]]:min-h-11 [&_[data-slot=button]]:min-w-11 [&_[data-slot=input]]:min-h-11 [&_[data-slot=select-trigger]]:min-h-11 [&_[data-slot=dialog-close]]:min-h-11 [&_[data-slot=dialog-close]]:min-w-11'>
+          {completionUnknown && <p role='alert' className='text-warning px-4 pt-4 text-sm'>{t('Payment request outcome is unknown. Check billing history before trying again.')}</p>}
           <DialogHeader className='shrink-0 border-b px-4 py-4 pr-16 sm:px-6 sm:pr-16'><DialogTitle>{t('Billing History')}</DialogTitle><DialogDescription>{t('View your topup transaction records and payment history')}</DialogDescription></DialogHeader>
           <section role='region' tabIndex={0} aria-label={t('Billing history results')} className='min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 [overflow-wrap:anywhere] sm:px-6'>
         <div className='min-h-0 space-y-3'>
@@ -323,7 +343,7 @@ export function BillingHistoryDialog({
               )}
               <code className='mt-3 block font-mono text-xs break-words [overflow-wrap:anywhere]'>{confirmTradeNo}</code>
             </AlertDialogDescription>
-            {completionError && <p role='alert' className='text-destructive mt-3 text-sm'>{completionError}</p>}
+            {completionError && <p role='alert' className='text-destructive mt-3 text-sm'>{completionFailure || completionError}</p>}
           </section>
           <AlertDialogFooter className='m-0 shrink-0 border-t px-4 py-4 sm:px-6'>
             <AlertDialogCancel disabled={completing}>

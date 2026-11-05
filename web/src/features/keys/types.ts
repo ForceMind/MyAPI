@@ -69,6 +69,11 @@ export const apiKeySchema = z.object({
 
 export type ApiKey = z.infer<typeof apiKeySchema>
 
+export const apiKeyCreationIdentitySchema = z.object({
+  id: z.number().int().positive().max(2147483647),
+})
+export type ApiKeyCreationIdentity = z.infer<typeof apiKeyCreationIdentitySchema>
+
 // ============================================================================
 // API Request/Response Types
 // ============================================================================

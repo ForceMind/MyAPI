@@ -30,16 +30,20 @@ interface CreemConfirmDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onConfirm: () => void
+  onOpenHistory?: () => void
   product: CreemProduct | null
   processing: boolean
+  outcomeUnknown?: boolean
 }
 
 export function CreemConfirmDialog({
   open,
   onOpenChange,
   onConfirm,
+  onOpenHistory,
   product,
   processing,
+  outcomeUnknown = false,
 }: CreemConfirmDialogProps) {
   const { t } = useTranslation()
 
@@ -66,13 +70,15 @@ export function CreemConfirmDialog({
           >
             {t('Cancel')}
           </Button>
-          <Button className='min-h-11' onClick={onConfirm} disabled={processing}>
+          <Button className='min-h-11' onClick={onConfirm} disabled={processing || outcomeUnknown}>
             {processing && <Spinner aria-hidden='true' data-icon='inline-start' />}
             {t('Confirm Payment')}
           </Button>
         </>
       }
     >
+      {outcomeUnknown && <p role='alert' className='text-warning text-sm'>{t('Payment outcome is unconfirmed. New payments are locked; review billing history.')}</p>}
+      {outcomeUnknown && onOpenHistory && <Button variant='outline' className='min-h-11' onClick={onOpenHistory}>{t('Billing History')}</Button>}
       <div role='region' tabIndex={0} aria-label={t('Payment details')} className='space-y-3 py-3 sm:space-y-4 sm:py-4'>
         <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
           <span className='text-muted-foreground'>{t('Product')}</span>

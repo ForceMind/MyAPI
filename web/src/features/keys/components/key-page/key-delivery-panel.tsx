@@ -23,7 +23,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import type { ApiKey } from '../../types'
 import { useKeyClientModels } from '../../hooks/use-key-client-models'
 import { useKeyMaintenanceSession } from '../../hooks/use-key-maintenance-session'
-import { keyClientAddresses, keyClientModels } from '../../lib/client-configuration'
+import { keyClientAddresses, keyClientModelAllowed, keyClientModels } from '../../lib/client-configuration'
 import { ApiKeyCell } from '../api-keys-cells'
 import { useApiKeys } from '../api-keys-provider'
 import { CredentialMaintenanceDialog } from '../credential-maintenance-dialog'
@@ -47,7 +47,8 @@ export function KeyDeliveryPanel(props: { apiKey: ApiKey; onViewScope: () => voi
   const [importPending, setImportPending] = useState(false)
   const directory = useKeyClientModels(isCurrentSession())
   const candidates = directory.isError ? [] : keyClientModels(directory.data ?? [], props.apiKey)
-  const selectedModel = candidates.includes(model) ? model : ''
+  const modelAllowed = keyClientModelAllowed(model, props.apiKey)
+  const selectedModel = modelAllowed ? model : ''
   const address = keyClientAddresses(status?.server_address, window.location.origin)
   const baseUrl = address.openAI
   const limitedModelCount = new Set((props.apiKey.model_limits ?? '').split(',').filter(Boolean)).size
@@ -123,11 +124,14 @@ export function KeyDeliveryPanel(props: { apiKey: ApiKey; onViewScope: () => voi
             id={modelId}
             className='min-h-11'
             options={candidates.map((candidate) => ({ value: candidate, label: candidate }))}
-            value={selectedModel}
+            value={model}
             onValueChange={setModel}
             placeholder={t('Select a model')}
             emptyText={t('No candidate models for this Key')}
+            allowCustomValue
+            aria-invalid={model && !modelAllowed ? true : undefined}
           />
+          {model && !modelAllowed && <p role='alert' className='text-destructive text-caption'>{t('One or more model IDs are outside this Key’s restrictions.')}</p>}
           {directory.isFetching && <p role='status' className='text-caption text-muted-foreground'>{t('Loading...')}</p>}
           {directory.isError && (
             <Alert variant='destructive'>
@@ -142,6 +146,7 @@ export function KeyDeliveryPanel(props: { apiKey: ApiKey; onViewScope: () => voi
           <p className='text-caption text-muted-foreground'>
             {t('Candidates follow this Key’s restrictions. Protocol support and upstream availability have not been tested.')}
           </p>
+          <p className='text-caption text-muted-foreground'>{t('You can enter a model ID manually. Its protocol and availability remain unverified.')}</p>
           <div className='flex min-w-0 flex-wrap gap-2 pointer-coarse:[&_button]:min-h-11'>
             {selectedModel && <CopyButton value={selectedModel} variant='outline' size='sm' tooltip={t('Copy model name')} aria-label={t('Copy model name')}>{t('Copy model name')}</CopyButton>}
             <Button variant='outline' disabled={!selectedModel || importPending} aria-busy={importPending} onClick={() => void openImport()}>{t('Import to CC Switch')}</Button>

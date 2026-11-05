@@ -27,6 +27,7 @@ import { useFullContentLogDetail } from '../hooks/use-full-content-log-detail'
 import { formatLogBytes } from '../lib/format'
 import type { FullContentLogDetail } from '../types'
 import { SavedContentRenderer } from './saved-content-renderer'
+import { SavedContentReadMore } from './saved-content-read-more'
 
 type PanelProps = {
   /** Request ID of the call record; legacy records may have none. */
@@ -39,7 +40,7 @@ type PanelProps = {
 export function RequestBodyPanel(props: PanelProps) {
   return (
     <SavedContent {...props}>
-      {(detail) => <SavedContentRenderer key={detail.request_id} detail={detail} />}
+      {(detail, expanded) => <SavedContentRenderer key={detail.request_id} detail={detail} expanded={expanded} />}
     </SavedContent>
   )
 }
@@ -48,7 +49,7 @@ export function RequestBodyPanel(props: PanelProps) {
 export function RequestStreamPanel(props: PanelProps) {
   return (
     <SavedContent {...props}>
-      {(detail) => <SavedContentRenderer key={detail.request_id} detail={detail} view='stream' />}
+      {(detail, expanded) => <SavedContentRenderer key={detail.request_id} detail={detail} expanded={expanded} view='stream' />}
     </SavedContent>
   )
 }
@@ -57,14 +58,14 @@ export function RequestStreamPanel(props: PanelProps) {
 export function RequestOriginalPanel(props: PanelProps) {
   return (
     <SavedContent {...props}>
-      {(detail) => <SavedContentRenderer key={detail.request_id} detail={detail} view='original' />}
+      {(detail, expanded) => <SavedContentRenderer key={detail.request_id} detail={detail} expanded={expanded} view='original' />}
     </SavedContent>
   )
 }
 
 function SavedContent(
   props: PanelProps & {
-    children: (detail: FullContentLogDetail) => ReactNode
+    children: (detail: FullContentLogDetail, expanded: boolean) => ReactNode
   }
 ) {
   const { t } = useTranslation()
@@ -193,7 +194,8 @@ function SavedContent(
           </dd>
         </div>
       </dl>
-      {props.children(detail)}
+      <SavedContentReadMore content={content} />
+      {props.children(detail, content.expanded)}
     </div>
   )
 }

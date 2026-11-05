@@ -29,12 +29,14 @@ interface CreemProductsSectionProps {
   products: CreemProduct[]
   onProductSelect: (product: CreemProduct) => void
   loading?: boolean
+  disabled?: boolean
 }
 
 export function CreemProductsSection({
   products,
   onProductSelect,
   loading,
+  disabled = false,
 }: CreemProductsSectionProps) {
   const { t } = useTranslation()
 
@@ -58,8 +60,15 @@ export function CreemProductsSection({
         <Card
           key={product.productId}
           data-card-hover='false'
-          className='cursor-pointer'
-          onClick={() => onProductSelect(product)}
+          role='button'
+          aria-label={product.name}
+          aria-disabled={disabled}
+          tabIndex={disabled ? -1 : 0}
+          className={disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}
+          onClick={() => { if (!disabled) onProductSelect(product) }}
+          onKeyDown={(event) => {
+            if (!disabled && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onProductSelect(product) }
+          }}
         >
           <CardContent className='p-3 text-center sm:p-4'>
             <div className='mb-2 text-lg font-medium'>{product.name}</div>

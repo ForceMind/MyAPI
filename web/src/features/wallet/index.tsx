@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
@@ -25,7 +25,8 @@ import { Button } from '@/components/ui/button'
 import { useStatus } from '@/hooks/use-status'
 import { useFundingPresentation } from '@/hooks/use-funding-presentation'
 import { useSystemConfig } from '@/hooks/use-system-config'
-import { getSelf } from '@/lib/api'
+import { getWalletAccount } from './api'
+import { useAuthStore } from '@/stores/auth-store'
 import {
   areUserFundingCapabilitiesReady,
   resolveUserFundingCapabilities,
@@ -40,6 +41,8 @@ import { RechargeFormCard } from './components/recharge-form-card'
 import { SubscriptionPlansCard } from './components/subscription-plans-card'
 import { WalletStatsCard } from './components/wallet-stats-card'
 import { DEFAULT_DISCOUNT_RATE, PAYMENT_TYPES } from './constants'
+import { useWalletSession, walletRequestConfig, walletWriteErrorMessage, hasUnconfirmedWalletPayment } from './hooks/use-wallet-session'
+import { readWalletAccount, type WalletAccountSnapshot } from './lib/wallet-account'
 import {
   useTopupInfo,
   usePayment,
@@ -55,7 +58,6 @@ import {
   dispatchSelectedPayment,
 } from './lib'
 import type {
-  UserWalletData,
   PaymentMethod,
   PresetAmount,
   CreemProduct,
@@ -67,8 +69,19 @@ interface WalletProps {
 }
 
 export function Wallet(props: WalletProps) {
+  const actor = useAuthStore((state) => state.auth.user)
+  const sid = useAuthStore((state) => state.auth.session?.sid ?? null)
+  if (!actor) return null
+  return <WalletSession key={`${actor.id}:${actor.role}:${sid}`} {...props} />
+}
+
+function WalletSession(props: WalletProps) {
   const { t } = useTranslation()
-  const [user, setUser] = useState<UserWalletData | null>(null)
+  const isCurrent = useWalletSession()
+  const actorId = useAuthStore((state) => state.auth.user?.id)
+  const userRead = useRef(0)
+  const [userError, setUserError] = useState<string | null>(null)
+  const [user, setUser] = useState<WalletAccountSnapshot | null>(null)
   const [userLoading, setUserLoading] = useState(true)
   const [topupAmount, setTopupAmount] = useState(0)
   const [selectedPreset, setSelectedPreset] = useState<number | null>(null)
@@ -86,27 +99,34 @@ export function Wallet(props: WalletProps) {
   const [selectedCreemProduct, setSelectedCreemProduct] =
     useState<CreemProduct | null>(null)
   const [showSubscriptionPanel, setShowSubscriptionPanel] = useState(true)
+  const paymentOpening = useRef<object>({})
+  const creemOpening = useRef<object>({})
+  const transferOpening = useRef<object>({})
+  useLayoutEffect(() => { paymentOpening.current = {} }, [confirmDialogOpen])
+  useLayoutEffect(() => { creemOpening.current = {} }, [creemDialogOpen, selectedCreemProduct?.productId])
 
   const { status } = useStatus()
   const fundingPresentation = useFundingPresentation()
   const { currency } = useSystemConfig()
-  const { topupInfo, presetAmounts, loading: topupLoading } = useTopupInfo()
+  const { topupInfo, presetAmounts, loading: topupLoading, error: topupError, refetch: retryTopupInfo } = useTopupInfo()
   const fundingCapabilities = resolveUserFundingCapabilities(topupInfo)
   const fundingCapabilitiesReady = areUserFundingCapabilitiesReady(
     topupInfo,
     topupLoading
   )
+  const actorVerified = user !== null && user.id === actorId
   const commerceReady = fundingCapabilitiesReady && fundingPresentation.commercialEnabled && fundingCapabilities.epoch === fundingPresentation.capabilities.epoch
   const showTopUpActions =
     commerceReady &&
-    (fundingCapabilities.can_top_up || fundingCapabilities.can_redeem)
-  const canTopUp = commerceReady && fundingCapabilities.can_top_up
-  const canRedeem = commerceReady && fundingCapabilities.can_redeem
+    (actorVerified && (fundingCapabilities.can_top_up || fundingCapabilities.can_redeem))
+  const canTopUp = commerceReady && actorVerified && fundingCapabilities.can_top_up
+  const canRedeem = commerceReady && actorVerified && fundingCapabilities.can_redeem
   const canTransferAffiliateRewards =
     commerceReady &&
-    fundingCapabilities.can_transfer_affiliate_rewards
+    fundingCapabilities.can_transfer_affiliate_rewards && user?.aff_quota !== undefined
+  useLayoutEffect(() => { transferOpening.current = {} }, [transferDialogOpen, canTransferAffiliateRewards])
   const canPurchaseSubscription =
-    commerceReady && fundingCapabilities.can_purchase_subscription
+    commerceReady && actorVerified && fundingCapabilities.can_purchase_subscription
   let fundingStatusMessage = ''
   if (!fundingCapabilitiesReady || (!commerceReady && fundingCapabilities.mode === 'enabled')) {
     fundingStatusMessage = t(
@@ -130,6 +150,10 @@ export function Wallet(props: WalletProps) {
   }, [currency?.quotaDisplayType, currency?.usdExchangeRate])
   const {
     amount: paymentAmount,
+    quoteKnown,
+    isQuoteCurrent,
+    quoteError,
+    outcomeUnknown: paymentUnknown,
     calculating,
     processing,
     calculatePaymentAmount,
@@ -140,28 +164,44 @@ export function Wallet(props: WalletProps) {
     loading: affiliateLoading,
     transferQuota,
     transferring,
+    outcomeUnknown: transferUnknown,
+    error: affiliateError,
+    refetch: retryAffiliate,
   } = useAffiliate()
-  const { redeeming, redeemCode } = useRedemption()
-  const { processing: creemProcessing, processCreemPayment } = useCreemPayment()
-  const { processing: waffoProcessing, processWaffoPayment } = useWaffoPayment()
-  const { processing: pancakeProcessing, processWaffoPancakePayment } =
+  const { redeeming, redeemCode, outcomeUnknown: redemptionUnknown } = useRedemption()
+  const { processing: creemProcessing, outcomeUnknown: creemUnknown, processCreemPayment } = useCreemPayment()
+  const { processing: waffoProcessing, outcomeUnknown: waffoUnknown, processWaffoPayment } = useWaffoPayment()
+  const { processing: pancakeProcessing, outcomeUnknown: pancakeUnknown, processWaffoPancakePayment } =
     useWaffoPancakePayment()
 
-  // Fetch and refresh user data
+  // Each field may be unknown, but the response must belong to this actor.
   const fetchUser = useCallback(async () => {
+    if (!isCurrent()) return
+    const generation = ++userRead.current
+    setUserLoading(true)
+    setUser(null)
+    setUserError(null)
     try {
-      setUserLoading(true)
-      const response = await getSelf()
-      if (response.success && response.data) {
-        setUser(response.data as UserWalletData)
+      const response = await getWalletAccount(walletRequestConfig(() => isCurrent() && generation === userRead.current))
+      if (!isCurrent() || generation !== userRead.current) return
+      if (!response.success) {
+        setUser(null)
+        setTransferDialogOpen(false)
+        setUserError(response.message || t('Wallet account could not be read. Please retry.'))
+        return
       }
+      const snapshot = readWalletAccount(response.data, actorId)
+      if (!snapshot) throw new Error('Wallet snapshot unavailable')
+      setUser(snapshot)
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to fetch user data:', error)
+      if (!isCurrent() || generation !== userRead.current) return
+      setUser(null)
+      setTransferDialogOpen(false)
+      setUserError(walletWriteErrorMessage(error, t('Wallet account could not be read. Please retry.')))
     } finally {
-      setUserLoading(false)
+      if (isCurrent() && generation === userRead.current) setUserLoading(false)
     }
-  }, [])
+  }, [actorId, isCurrent, t])
 
   useEffect(() => {
     fetchUser()
@@ -197,6 +237,8 @@ export function Wallet(props: WalletProps) {
 
   // Handle preset selection
   const handleSelectPreset = (preset: PresetAmount) => {
+    if (!isCurrent() || hasUnconfirmedWalletPayment('wallet-payment')) return
+    setConfirmDialogOpen(false)
     setTopupAmount(preset.value)
     setSelectedPreset(preset.value)
     calculatePaymentAmount(preset.value, getCurrentPaymentType())
@@ -204,6 +246,8 @@ export function Wallet(props: WalletProps) {
 
   // Handle topup amount change
   const handleTopupAmountChange = (amount: number) => {
+    if (!isCurrent() || hasUnconfirmedWalletPayment('wallet-payment')) return
+    setConfirmDialogOpen(false)
     setTopupAmount(amount)
     setSelectedPreset(null)
     calculatePaymentAmount(amount, getCurrentPaymentType())
@@ -211,7 +255,9 @@ export function Wallet(props: WalletProps) {
 
   // Handle payment method selection
   const handlePaymentMethodSelect = async (method: PaymentMethod) => {
+    if (!isCurrent() || hasUnconfirmedWalletPayment('wallet-payment')) return
     if (!canTopUp) return
+    setConfirmDialogOpen(false)
     setSelectedPaymentMethod(method)
     setSelectedWaffoMethodIndex(null)
     setPaymentLoading(method.type)
@@ -224,28 +270,33 @@ export function Wallet(props: WalletProps) {
       }
 
       // Calculate payment amount and show confirmation dialog
-      await calculatePaymentAmount(topupAmount, method.type)
+      const quote = await calculatePaymentAmount(topupAmount, method.type)
+      if (!isCurrent() || quote === undefined) return
       setConfirmDialogOpen(true)
     } finally {
-      setPaymentLoading(null)
+      if (isCurrent()) setPaymentLoading(null)
     }
   }
 
   // Handle payment confirmation
   const handlePaymentConfirm = async () => {
-    if (!canTopUp || !selectedPaymentMethod) return
+    if (!isCurrent()) return
+    if (!canTopUp || !selectedPaymentMethod || !quoteKnown || paymentUnknown || creemUnknown || waffoUnknown || pancakeUnknown || calculating || !isQuoteCurrent(topupAmount, selectedPaymentMethod.type)) return
 
+    const operation = paymentOpening.current
+    const owns = () => isCurrent() && paymentOpening.current === operation
     const success = await dispatchSelectedPayment(
       selectedPaymentMethod,
       topupAmount,
       selectedWaffoMethodIndex,
       {
-        regular: processPayment,
-        waffo: processWaffoPayment,
-        waffoPancake: processWaffoPancakePayment,
+        regular: (amount, type) => processPayment(amount, type, owns),
+        waffo: (amount, index) => processWaffoPayment(amount, index, owns),
+        waffoPancake: (amount) => processWaffoPancakePayment(amount, owns),
       }
     )
 
+    if (!owns()) return
     if (success) {
       setConfirmDialogOpen(false)
       await fetchUser()
@@ -254,19 +305,26 @@ export function Wallet(props: WalletProps) {
 
   // Handle redemption
   const handleRedeem = async () => {
+    if (!isCurrent()) return
     if (!canRedeem || !redemptionCode) return
 
-    const success = await redeemCode(redemptionCode)
+    const submittedCode = redemptionCode
+    const success = await redeemCode(submittedCode)
+    if (!isCurrent()) return
     if (success) {
-      setRedemptionCode('')
+      setRedemptionCode((current) => current === submittedCode ? '' : current)
       await fetchUser()
     }
   }
 
   // Handle transfer
   const handleTransfer = async (amount: number) => {
+    if (!isCurrent()) return false
     if (!canTransferAffiliateRewards) return false
-    const success = await transferQuota(amount)
+    const operation = transferOpening.current
+    const owns = () => isCurrent() && transferOpening.current === operation
+    const success = await transferQuota(amount, owns)
+    if (!owns()) return false
     if (success) {
       await fetchUser()
     }
@@ -275,6 +333,7 @@ export function Wallet(props: WalletProps) {
 
   // Handle Creem product selection
   const handleCreemProductSelect = (product: CreemProduct) => {
+    if (!isCurrent() || hasUnconfirmedWalletPayment('wallet-payment')) return
     if (!canTopUp) return
     setSelectedCreemProduct(product)
     setCreemDialogOpen(true)
@@ -282,9 +341,13 @@ export function Wallet(props: WalletProps) {
 
   // Handle Creem payment confirmation
   const handleCreemConfirm = async () => {
-    if (!canTopUp || !selectedCreemProduct) return
+    if (!isCurrent()) return
+    if (!canTopUp || !selectedCreemProduct || paymentUnknown || creemUnknown || waffoUnknown || pancakeUnknown) return
 
-    const success = await processCreemPayment(selectedCreemProduct.productId)
+    const operation = creemOpening.current
+    const owns = () => isCurrent() && creemOpening.current === operation
+    const success = await processCreemPayment(selectedCreemProduct.productId, owns)
+    if (!owns()) return
     if (success) {
       setCreemDialogOpen(false)
       setSelectedCreemProduct(null)
@@ -296,7 +359,8 @@ export function Wallet(props: WalletProps) {
     method: WaffoPayMethod,
     index: number
   ) => {
-    if (!canTopUp) return
+    if (!isCurrent() || !canTopUp || hasUnconfirmedWalletPayment('wallet-payment')) return
+    setConfirmDialogOpen(false)
     const loadingKey = `waffo-${index}`
     setSelectedPaymentMethod({
       name: method.name,
@@ -307,10 +371,11 @@ export function Wallet(props: WalletProps) {
     setPaymentLoading(loadingKey)
 
     try {
-      await calculatePaymentAmount(topupAmount, PAYMENT_TYPES.WAFFO)
+      const quote = await calculatePaymentAmount(topupAmount, PAYMENT_TYPES.WAFFO)
+      if (!isCurrent() || quote === undefined) return
       setConfirmDialogOpen(true)
     } finally {
-      setPaymentLoading(null)
+      if (isCurrent()) setPaymentLoading(null)
     }
   }
 
@@ -350,13 +415,17 @@ export function Wallet(props: WalletProps) {
         ) : null}
         <SectionPageLayout.Content>
           <div className='flex w-full min-w-0 flex-col gap-4 sm:gap-5'>
+            {userError && <Alert variant='destructive'><AlertDescription>{userError}<Button className='mt-2 min-h-11' variant='outline' disabled={userLoading} onClick={() => void fetchUser()}>{t('Retry')}</Button></AlertDescription></Alert>}
+            {topupError && <Alert variant='destructive'><AlertDescription>{topupError}<Button className='mt-2 min-h-11' variant='outline' disabled={topupLoading} onClick={() => void retryTopupInfo()}>{t('Retry')}</Button></AlertDescription></Alert>}
             <WalletStatsCard
               user={user}
               loading={userLoading}
               showBalance={commerceReady}
             />
 
-            {!showTopUpActions ? (
+            {(paymentUnknown || creemUnknown || waffoUnknown || pancakeUnknown) && <Alert><AlertDescription>{t('Payment outcome is unconfirmed. New payments are locked; review billing history.')}<Button className='mt-2 min-h-11' variant='outline' onClick={() => setBillingDialogOpen(true)}>{t('Billing History')}</Button></AlertDescription></Alert>}
+            {quoteError && <Alert variant='destructive'><AlertDescription>{quoteError}</AlertDescription></Alert>}
+            {!showTopUpActions && fundingStatusMessage ? (
               <Alert>
                 <AlertDescription>{fundingStatusMessage}</AlertDescription>
               </Alert>
@@ -378,8 +447,9 @@ export function Wallet(props: WalletProps) {
                     onSelectPreset={handleSelectPreset}
                     topupAmount={topupAmount}
                     onTopupAmountChange={handleTopupAmountChange}
-                    paymentAmount={paymentAmount}
+                    paymentAmount={quoteKnown ? paymentAmount : undefined}
                     calculating={calculating}
+                    paymentLocked={paymentUnknown || creemUnknown || waffoUnknown || pancakeUnknown}
                     onPaymentMethodSelect={handlePaymentMethodSelect}
                     paymentLoading={paymentLoading}
                     redemptionCode={redemptionCode}
@@ -414,6 +484,8 @@ export function Wallet(props: WalletProps) {
               />
             </div>
 
+            {(transferUnknown || redemptionUnknown) && <Alert><AlertDescription>{t('Funding request outcome is unknown. Check current records and balances before retrying.')}<Button className='mt-2 min-h-11' variant='outline' disabled={userLoading} onClick={() => void fetchUser()}>{t('Refresh')}</Button></AlertDescription></Alert>}
+            {affiliateError && <Alert variant='destructive'><AlertDescription>{affiliateError}<Button className='mt-2 min-h-11' variant='outline' disabled={affiliateLoading} onClick={() => void retryAffiliate()}>{t('Retry')}</Button></AlertDescription></Alert>}
             <AffiliateRewardsCard
               historyOnly={!commerceReady}
               user={user}
@@ -434,8 +506,11 @@ export function Wallet(props: WalletProps) {
           open={confirmDialogOpen}
           onOpenChange={setConfirmDialogOpen}
           onConfirm={handlePaymentConfirm}
+          onOpenHistory={() => { setConfirmDialogOpen(false); setBillingDialogOpen(true) }}
           topupAmount={topupAmount}
           paymentAmount={paymentAmount}
+          quoteKnown={quoteKnown}
+          outcomeUnknown={paymentUnknown || creemUnknown || waffoUnknown || pancakeUnknown}
           paymentMethod={selectedPaymentMethod}
           calculating={calculating}
           processing={processing || waffoProcessing || pancakeProcessing}
@@ -464,7 +539,9 @@ export function Wallet(props: WalletProps) {
           open={creemDialogOpen}
           onOpenChange={setCreemDialogOpen}
           onConfirm={handleCreemConfirm}
+          onOpenHistory={() => { setCreemDialogOpen(false); setBillingDialogOpen(true) }}
           product={selectedCreemProduct}
+          outcomeUnknown={paymentUnknown || creemUnknown || waffoUnknown || pancakeUnknown}
           processing={creemProcessing}
         />
       ) : null}

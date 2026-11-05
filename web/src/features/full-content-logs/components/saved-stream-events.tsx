@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 import { parseSavedSse } from '../lib/saved-sse'
+import { CONTENT_EXPANDED_LIMIT } from '../lib/content-preview'
 import type { FullContentLogDetail } from '../types'
 import { ContentPanel } from './content-panel'
 
@@ -21,7 +22,7 @@ const EVENT_BATCH_SIZE = 50
 const EVENT_TYPE_FIELDS = { event: 'event', payload: 'data.type', default: '' } as const
 
 /** A local inspection of saved events, without a provider call or state change. */
-export function SavedStreamEvents(props: { detail: FullContentLogDetail }) {
+export function SavedStreamEvents(props: { detail: FullContentLogDetail; expanded?: boolean }) {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [visibleCount, setVisibleCount] = useState(EVENT_BATCH_SIZE)
@@ -34,8 +35,9 @@ export function SavedStreamEvents(props: { detail: FullContentLogDetail }) {
       encoding: props.detail.response_encoding,
       contentType: props.detail.response_content_type || header,
       truncated: props.detail.response_body_truncated,
+      previewLimitBytes: props.expanded ? CONTENT_EXPANDED_LIMIT : undefined,
     })
-  }, [props.detail])
+  }, [props.detail, props.expanded])
   const matches = useMemo(() => {
     const query = search.trim().toLowerCase()
     if (!query) return stream.events
@@ -70,7 +72,7 @@ export function SavedStreamEvents(props: { detail: FullContentLogDetail }) {
           <p>{t('No completion marker was observed in this preview; missing evidence does not establish success or failure.')}</p>
         )}
         {stream.previewLimited && (
-          <p>{t('Event parsing and search are limited to the first 1 MB of saved content.')}</p>
+          <p>{props.expanded ? t('Event parsing and search are limited to the loaded saved content.') : t('Event parsing and search are limited to the first 1 MB of saved content.')}</p>
         )}
         {stream.sourceTruncated && (
           <p>{t('The saved response returned by the server is truncated.')}</p>

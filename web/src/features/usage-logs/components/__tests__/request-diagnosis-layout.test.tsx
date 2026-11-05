@@ -129,6 +129,14 @@ test('request groups retain protocol, upstream, dispatch, usage and price eviden
   expect(screen.queryByText(/identity-connection/)).not.toBeInTheDocument()
 })
 
+test('saved stream metadata without a status stays unknown instead of fabricating an error', () => {
+  renderEvidence(record({ stream_status: { end_reason: 'saved-but-unclassified' } }))
+  const routing = screen.getByRole('region', { name: 'Routing and dispatch evidence' })
+  expect(within(routing).getByText('Unknown')).toBeVisible()
+  expect(within(routing).queryByText('Error', { exact: true })).not.toBeInTheDocument()
+  expect(within(routing).getByText('saved-but-unclassified')).toBeVisible()
+})
+
 test('low-frequency saved content and parameter overrides remain reachable in one collapsed section', async () => {
   const user = userEvent.setup()
   renderEvidence(record(richEvidence))

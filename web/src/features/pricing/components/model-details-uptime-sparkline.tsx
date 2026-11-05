@@ -49,6 +49,7 @@ import { aggregateUptime, type UptimeDayPoint } from '../lib/mock-stats'
 type SparklineSize = 'sm' | 'md'
 
 type UptimeSparklineProps = {
+  ariaLabel?: string
   series: UptimeDayPoint[]
   size?: SparklineSize
   showOverall?: boolean
@@ -65,6 +66,7 @@ function heightFor(uptime: number): string {
 }
 
 export function UptimeSparkline(props: UptimeSparklineProps) {
+  const { t } = useTranslation()
   const size = props.size ?? 'md'
   const showOverall = props.showOverall ?? true
 
@@ -88,7 +90,7 @@ export function UptimeSparkline(props: UptimeSparklineProps) {
       <div
         className={cn('flex items-end', containerHeight, gap)}
         role='img'
-        aria-label={`30 day uptime ${overall.toFixed(2)}%`}
+        aria-label={props.ariaLabel ?? t('Uptime {{value}}%', { value: overall.toFixed(2) })}
       >
         {props.series.map((day) => (
           <Tooltip key={day.date}>

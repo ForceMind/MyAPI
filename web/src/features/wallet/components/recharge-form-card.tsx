@@ -65,8 +65,9 @@ interface RechargeFormCardProps {
   onSelectPreset: (preset: PresetAmount) => void
   topupAmount: number
   onTopupAmountChange: (amount: number) => void
-  paymentAmount: number
+  paymentAmount: number | undefined
   calculating: boolean
+  paymentLocked?: boolean
   onPaymentMethodSelect: (method: PaymentMethod) => void
   paymentLoading: string | null
   redemptionCode: string
@@ -97,6 +98,7 @@ export function RechargeFormCard({
   onTopupAmountChange,
   paymentAmount,
   calculating,
+  paymentLocked = false,
   onPaymentMethodSelect,
   paymentLoading,
   redemptionCode,
@@ -261,6 +263,7 @@ export function RechargeFormCard({
                                 'border-primary bg-accent text-accent-foreground'
                             )}
                             onClick={() => onSelectPreset(preset)}
+                            disabled={paymentLocked}
                           >
                             <div className='flex w-full items-center justify-between gap-2'>
                               <div className='text-base font-semibold tabular-nums sm:text-lg'>
@@ -299,6 +302,7 @@ export function RechargeFormCard({
                   <div className='grid grid-cols-[minmax(0,1fr)_minmax(110px,0.55fr)] gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center'>
                     <Input
                       id='topup-amount'
+                      disabled={paymentLocked}
                       type='number'
                       value={localAmount}
                       onChange={(e) => handleAmountChange(e.target.value)}
@@ -316,7 +320,7 @@ export function RechargeFormCard({
                         <Skeleton className='h-5 w-16' />
                       ) : (
                         <span className='text-sm font-semibold tabular-nums'>
-                          {formatCurrency(paymentAmount)}
+                          {paymentAmount === undefined ? t('Unknown') : formatCurrency(paymentAmount)}
                         </span>
                       )}
                     </div>
@@ -349,7 +353,7 @@ export function RechargeFormCard({
                             key={method.type}
                             variant='outline'
                             onClick={() => onPaymentMethodSelect(method)}
-                            disabled={disabled || !!paymentLoading}
+                            disabled={paymentLocked || disabled || !!paymentLoading}
                             title={disabledReason}
                             aria-label={
                               disabledReason
@@ -447,7 +451,7 @@ export function RechargeFormCard({
                               key={methodKey}
                               variant='outline'
                               onClick={() => onWaffoMethodSelect(method, index)}
-                              disabled={belowMin || !!paymentLoading}
+                              disabled={paymentLocked || belowMin || !!paymentLoading}
                               title={disabledReason}
                               aria-label={
                                 disabledReason
@@ -509,6 +513,7 @@ export function RechargeFormCard({
               <CreemProductsSection
                 products={creemProducts}
                 onProductSelect={onCreemProductSelect}
+                disabled={paymentLocked}
               />
             </div>
           )}

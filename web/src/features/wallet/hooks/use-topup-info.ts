@@ -16,9 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import i18next from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 
 import { getTopupInfo } from '../api'
+import { useWalletSession, walletRequestConfig, walletWriteErrorMessage } from './use-wallet-session'
 import {
   generatePresetAmounts,
   mergePresetAmounts,
@@ -164,19 +166,25 @@ function parseDiscountMap(data: unknown): Record<number, number> {
 }
 
 export function useTopupInfo() {
+  const isCurrent = useWalletSession()
   const [topupInfo, setTopupInfo] = useState<TopupInfo | null>(null)
   const [presetAmounts, setPresetAmounts] = useState<PresetAmount[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchTopupInfo = useCallback(async () => {
+    if (!isCurrent()) return
     try {
       setLoading(true)
+      setError(null)
 
-      const response = await getTopupInfo()
+      const response = await getTopupInfo(walletRequestConfig(isCurrent))
 
+      if (!isCurrent()) return
       if (!response.success || !response.data) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to fetch topup info:', response.message)
+        setTopupInfo(null)
+        setPresetAmounts([])
+        setError(response.message || i18next.t('Funding configuration could not be read. Please retry.'))
         return
       }
 
@@ -208,12 +216,14 @@ export function useTopupInfo() {
         setPresetAmounts(defaultPresets)
       }
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to fetch topup info:', err)
+      if (!isCurrent()) return
+      setTopupInfo(null)
+      setPresetAmounts([])
+      setError(walletWriteErrorMessage(err, i18next.t('Funding configuration could not be read. Please retry.')))
     } finally {
-      setLoading(false)
+      if (isCurrent()) setLoading(false)
     }
-  }, [])
+  }, [isCurrent])
 
   useEffect(() => {
     let cancelled = false
@@ -231,6 +241,7 @@ export function useTopupInfo() {
     topupInfo,
     presetAmounts,
     loading,
+    error,
     refetch: fetchTopupInfo,
   }
 }

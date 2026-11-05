@@ -124,6 +124,7 @@ function toUptimeSeries(groups: PerformanceGroup[]): UptimeDayPoint[] {
     }
   }
   return [...byTs.entries()]
+    .filter(([, value]) => value.rates.length > 0)
     .sort(([a], [b]) => a - b)
     .map(([ts, value]) => {
       const uptime =
@@ -141,7 +142,7 @@ function toUptimeSeries(groups: PerformanceGroup[]): UptimeDayPoint[] {
 }
 
 function toGroupUptimeSeries(group: PerformanceGroup): UptimeDayPoint[] {
-  return group.series.map((point) => {
+  return group.series.filter((point) => Number.isFinite(point.success_rate)).map((point) => {
     const successRate = toUptimePct(point.success_rate)
     return {
       date: new Date(point.ts * 1000).toISOString(),
@@ -245,8 +246,7 @@ export function ModelDetailsPerformance(props: { model: PricingModel }) {
     successRates.length > 0
       ? successRates.reduce((sum, value) => sum + value, 0) /
         successRates.length
-      : 0
-  const incidentCount = uptimeSeries.reduce((s, p) => s + p.incidents, 0)
+      : Number.NaN
 
   return (
     <div className='flex flex-col gap-4'>
@@ -264,15 +264,8 @@ export function ModelDetailsPerformance(props: { model: PricingModel }) {
         />
         <StatCard
           icon={HeartPulse}
-          label={t('Success rate')}
+          label={t('Average group success rate')}
           value={formatUptimePct(successRate)}
-          hint={
-            incidentCount > 0
-              ? t('{{count}} incidents in the last 24 hours', {
-                  count: incidentCount,
-                })
-              : t('No incidents in the last 24 hours')
-          }
           valueClassName={getSuccessRateTextClass(successRate)}
         />
       </div>
@@ -323,12 +316,10 @@ export function ModelDetailsPerformance(props: { model: PricingModel }) {
               header: t('Success rate'),
               className: cn(tableStyles.compactHeaderCell, 'min-w-[180px]'),
               cellClassName: tableStyles.compactCell,
-              cell: (perf) => (
-                <UptimeSparkline
-                  size='sm'
-                  series={uptimeByGroup[perf.group] ?? []}
-                />
-              ),
+              cell: (perf) => <div className='flex min-w-0 flex-col gap-1'>
+                <span>{formatUptimePct(perf.success_rate)}</span>
+                <UptimeSparkline size='sm' showOverall={false} ariaLabel={t('Success-rate trend')} series={uptimeByGroup[perf.group] ?? []} />
+              </div>,
             },
           ]}
         />

@@ -13,10 +13,13 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router'
-import { render, screen, within } from '@testing-library/react'
-import { afterEach, expect, test, vi } from 'vitest'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import { api } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth-store'
+
+import { operationsSignIn } from './operations-fixtures'
 
 import { SystemInfo } from '..'
 
@@ -65,9 +68,12 @@ const tasks = [
   },
 ]
 const clients: QueryClient[] = []
+const originalAuth = useAuthStore.getState()
+beforeEach(() => operationsSignIn())
 
 afterEach(() => {
   for (const client of clients.splice(0)) client.clear()
+  useAuthStore.setState(originalAuth)
   vi.restoreAllMocks()
 })
 
@@ -82,6 +88,7 @@ async function renderStatus(instancesRead: 'ok' | 'failed') {
     if (url === '/api/system-task/list') {
       return { data: { success: true, message: '', data: tasks } }
     }
+    if (url === '/api/operations/plans' || url === '/api/operations/instances') return { data: { success: true, data: [] } }
     throw new Error(`Unexpected GET ${url}`)
   })
   const client = new QueryClient({
@@ -147,4 +154,47 @@ test('an unreadable instance list shows its figures as Unknown, never 0', async 
   expect(figure('Online instances').queryByText('0')).not.toBeInTheDocument()
   // The task figures are read separately and still count.
   expect(await figure('Failed tasks').findByText('1')).toBeInTheDocument()
+})
+
+
+test('losing Root access removes runtime records and does not request instances or tasks under the ordinary account', async () => {
+  const get = await renderStatus('ok')
+  await screen.findByText('node-stale')
+  const before = get.mock.calls.length
+  act(() => operationsSignIn(1, 'ordinary-session', 2))
+  expect(screen.queryByText('node-stale')).not.toBeInTheDocument()
+  expect(screen.queryByText('Log cleanup')).not.toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: /System status/ })).not.toBeInTheDocument()
+  expect(await screen.findByText('Unauthorized Access')).toBeVisible()
+  expect(get.mock.calls).toHaveLength(before)
+})
+
+test.each(['actor', 'SID'] as const)('changing the Root %s waits for its own runtime snapshot without reusing former records', async (change) => {
+  const get = await renderStatus('ok')
+  await screen.findByText('node-stale')
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => { release = resolve })
+  const original = get.getMockImplementation()
+  if (!original) throw new Error('Expected runtime API fixture')
+  get.mockImplementation(async (url, config) => {
+    if (url === '/api/system-info/instances') {
+      await gate
+      return { data: { success: true, data: [{ ...instances[0], node_name: 'next-root-node' }] } }
+    }
+    if (url === '/api/system-task/list') {
+      await gate
+      return { data: { success: true, data: [{ ...tasks[0], task_id: 'next-root-task', type: 'next-root-task-type' }] } }
+    }
+    return original(url, config)
+  })
+  act(() => operationsSignIn(100, 'next-root-session', change === 'actor' ? 2 : 1))
+  expect(screen.queryByText('node-stale')).not.toBeInTheDocument()
+  expect(screen.queryByText('Log cleanup')).not.toBeInTheDocument()
+  expect(figure('Online instances').queryByText('2')).not.toBeInTheDocument()
+  await act(async () => release())
+  expect(await screen.findByText('next-root-node')).toBeVisible()
+  expect(await screen.findByRole('row', { name: /next-root-task-type/ })).toBeVisible()
+  await waitFor(() => expect(get.mock.calls.filter(([url]) => url === '/api/system-info/instances')).toHaveLength(2))
+  expect(get.mock.calls.filter(([url]) => url === '/api/system-task/list')).toHaveLength(2)
+  expect(screen.queryByText('node-stale')).not.toBeInTheDocument()
 })

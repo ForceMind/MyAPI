@@ -19,7 +19,7 @@ import { FullContentLogDetailsDialog } from '../full-content-log-details-dialog'
 vi.mock('@tanstack/react-query', () => ({
   useQuery: vi.fn(),
   useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
-  useQueryClient: vi.fn(() => ({ invalidateQueries: vi.fn() })),
+  useQueryClient: vi.fn(() => ({ invalidateQueries: vi.fn(), cancelQueries: vi.fn().mockResolvedValue(undefined) })),
 }))
 
 vi.mock('react-i18next', () => ({

@@ -32,5 +32,5 @@ function UpstreamAccountsPage() {
   const fallback = useRef<HTMLHeadingElement>(null)
   const [ready, setReady] = useState(false)
   useReturnFocus({ attribute: 'data-upstream-account', requestedId: search.focusChannelId, settled: ready, rows: search, fallback })
-  return <PersonalUpstream view={search} onViewChange={(next) => void navigate({ search: { ...next, focusChannelId: undefined }, replace: true })} onOpenConnection={(id) => remember('data-upstream-account', id)} onInventoryReady={setReady} inventoryHeadingRef={fallback} />
+  return <PersonalUpstream view={search} onViewChange={(next, options) => void navigate({ search: { ...next, focusChannelId: options?.preserveFocus ? search.focusChannelId : undefined }, replace: true })} onOpenConnection={(id) => remember('data-upstream-account', id)} onInventoryReady={setReady} inventoryHeadingRef={fallback} />
 }

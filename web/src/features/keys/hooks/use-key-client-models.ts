@@ -12,8 +12,13 @@ export function useKeyClientModels(enabled: boolean) {
   const sid = useAuthStore((state) => state.auth.session?.sid ?? null)
   return useQuery({
     queryKey: ['user-models-key-client', userId, role, sid],
-    queryFn: async () => {
-      const response = await getUserModels()
+    queryFn: async ({ signal }) => {
+      const isCurrentScope = () => {
+        const current = useAuthStore.getState().auth
+        return !signal.aborted && (current.user?.id ?? null) === userId &&
+          (current.user?.role ?? null) === role && (current.session?.sid ?? null) === sid
+      }
+      const response = await getUserModels({ signal, disableDuplicate: true, skipErrorHandler: true, skipBusinessError: true, isCurrentScope })
       if (!response.success || !Array.isArray(response.data) ||
         !response.data.every((model) => typeof model === 'string')) {
         throw new Error(response.message || t('Unable to load available models'))

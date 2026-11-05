@@ -7,16 +7,18 @@ the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
 export const CONTENT_PREVIEW_LIMIT = 1024 * 1024
+export const CONTENT_EXPANDED_LIMIT = 16 * CONTENT_PREVIEW_LIMIT
 
 /**
- * Read at most a one-MiB UTF-8 prefix without encoding the entire input.
+ * Read a bounded UTF-8 prefix without encoding the entire input (one MiB by default).
  * Valid surrogate pairs stay together. Lone surrogates cost three bytes,
  * matching the UTF-8 replacement used by TextEncoder.
  */
-export function previewContent(body: string): { preview: string; limited: boolean } {
+export function previewContent(body: string, limitBytes = CONTENT_PREVIEW_LIMIT): { preview: string; limited: boolean } {
+  const limit = Number.isSafeInteger(limitBytes) && limitBytes > 0 ? Math.min(limitBytes, CONTENT_EXPANDED_LIMIT) : CONTENT_PREVIEW_LIMIT
   let index = 0
   let bytes = 0
-  while (index < body.length && bytes < CONTENT_PREVIEW_LIMIT) {
+  while (index < body.length && bytes < limit) {
     const code = body.charCodeAt(index)
     let width = 1
     let byteCount = 1
@@ -29,7 +31,7 @@ export function previewContent(body: string): { preview: string; limited: boolea
         byteCount = 4
       }
     }
-    if (bytes + byteCount > CONTENT_PREVIEW_LIMIT) break
+    if (bytes + byteCount > limit) break
     bytes += byteCount
     index += width
   }

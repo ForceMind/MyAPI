@@ -32,7 +32,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import type { Row } from '@tanstack/react-table'
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -57,7 +57,7 @@ import { updateApiKeyStatus } from '../api'
 import { API_KEY_STATUS, ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
 import { useKeyMaintenanceSession } from '../hooks/use-key-maintenance-session'
 import { apiKeySchema, type ApiKey } from '../types'
-import { savedKeyClientAddresses } from '../lib/client-configuration'
+import { keyClientAddresses } from '../lib/client-configuration'
 import { useApiKeys } from './api-keys-provider'
 
 type DataTableRowActionsProps<TData> =
@@ -69,6 +69,7 @@ type DataTableRowActionsProps<TData> =
       menuOnly?: boolean
       /** The detail header already exposes edit, status and copy actions. */
       primaryActionsVisible?: boolean
+      hideClientImport?: boolean
     }
   | {
       apiKey: ApiKey
@@ -76,6 +77,7 @@ type DataTableRowActionsProps<TData> =
       onCredentialMaintenance?: () => void
       menuOnly?: boolean
       primaryActionsVisible?: boolean
+      hideClientImport?: boolean
     }
 
 export function DataTableRowActions<TData = ApiKey>(
@@ -96,6 +98,8 @@ export function DataTableRowActions<TData = ApiKey>(
   } = useApiKeys()
   const isEnabled = apiKey.status === API_KEY_STATUS.ENABLED
   const { chatPresets, serverAddress } = useChatPresets()
+  const clientAddress = useRef(keyClientAddresses(serverAddress, window.location.origin))
+  clientAddress.current = keyClientAddresses(serverAddress, window.location.origin)
   const [isTogglingStatus, setIsTogglingStatus] = useState(false)
   const resolvedRealKey = resolvedKeys[apiKey.id]
   const isRealKeyLoading = Boolean(loadingKeys[apiKey.id])
@@ -108,7 +112,7 @@ export function DataTableRowActions<TData = ApiKey>(
     const realKey = resolvedRealKey || (await resolveRealKey(apiKey.id))
     if (!realKey || !isCurrentSession()) return
     const value = connectionInfo
-      ? encodeChannelConnectionInfo(realKey, savedKeyClientAddresses().root)
+      ? encodeChannelConnectionInfo(realKey, clientAddress.current.root)
       : realKey
     const copied = await copyToClipboard(value)
     if (!isCurrentSession()) return
@@ -299,8 +303,8 @@ export function DataTableRowActions<TData = ApiKey>(
           <HugeiconsIcon icon={Link01Icon} />
         </DropdownMenuShortcut>
       </DropdownMenuItem>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem
+      {(!props.hideClientImport || hasChatPresets) && <DropdownMenuSeparator />}
+      {!props.hideClientImport && <DropdownMenuItem
         onClick={async () => {
           if (!isCurrentSession()) return
           const realKey = await resolveRealKey(apiKey.id)
@@ -314,7 +318,7 @@ export function DataTableRowActions<TData = ApiKey>(
         <DropdownMenuShortcut>
           <HugeiconsIcon icon={ArrowDataTransferHorizontalIcon} />
         </DropdownMenuShortcut>
-      </DropdownMenuItem>
+      </DropdownMenuItem>}
       {hasChatPresets && (
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>{t('Chat')}</DropdownMenuSubTrigger>

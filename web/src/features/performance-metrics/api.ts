@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import i18next from 'i18next'
+
 import { api } from '@/lib/api'
 
 import type { PerformanceMetricsData, PerfSummaryAllData } from './types'
@@ -39,5 +41,13 @@ export async function getPerfMetrics(
       hours,
     },
   })
+  const groups = res.data?.data?.groups
+  if (!res.data?.success || !Array.isArray(groups) || groups.some((group) =>
+    !group || typeof group.group !== 'string' || !Array.isArray(group.series) ||
+    group.series.some((point) => !point || typeof point.ts !== 'number' ||
+      !Number.isFinite(point.ts) || !Number.isFinite(new Date(point.ts * 1000).getTime()))
+  )) {
+    throw new Error(res.data?.message || i18next.t('Failed to load performance data'))
+  }
   return res.data
 }

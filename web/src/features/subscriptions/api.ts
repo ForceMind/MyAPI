@@ -141,30 +141,34 @@ export async function resetPlanSubscriptions(
 // ============================================================================
 
 export async function paySubscriptionStripe(
-  data: SubscriptionPayRequest
+  data: SubscriptionPayRequest,
+  config?: ApiRequestConfig
 ): Promise<SubscriptionPayResponse> {
-  const res = await api.post('/api/subscription/stripe/pay', data, { skipAuthRefresh: true })
+  const res = await api.post('/api/subscription/stripe/pay', data, { ...config, skipAuthRefresh: true })
   return res.data
 }
 
 export async function paySubscriptionCreem(
-  data: SubscriptionPayRequest
+  data: SubscriptionPayRequest,
+  config?: ApiRequestConfig
 ): Promise<SubscriptionPayResponse> {
-  const res = await api.post('/api/subscription/creem/pay', data, { skipAuthRefresh: true })
+  const res = await api.post('/api/subscription/creem/pay', data, { ...config, skipAuthRefresh: true })
   return res.data
 }
 
 export async function paySubscriptionWaffoPancake(
-  data: SubscriptionPayRequest
+  data: SubscriptionPayRequest,
+  config?: ApiRequestConfig
 ): Promise<SubscriptionPayResponse> {
-  const res = await api.post('/api/subscription/waffo-pancake/pay', data, { skipAuthRefresh: true })
+  const res = await api.post('/api/subscription/waffo-pancake/pay', data, { ...config, skipAuthRefresh: true })
   return res.data
 }
 
 export async function paySubscriptionBalance(
-  data: SubscriptionPayRequest
+  data: SubscriptionPayRequest,
+  config?: ApiRequestConfig
 ): Promise<SubscriptionPayResponse> {
-  const res = await api.post('/api/subscription/balance/pay', data, { skipAuthRefresh: true })
+  const res = await api.post('/api/subscription/balance/pay', data, { ...config, skipAuthRefresh: true })
   return res.data
 }
 
@@ -199,9 +203,10 @@ export async function listWaffoPancakeSubscriptionProductOptions(): Promise<
 }
 
 export async function paySubscriptionEpay(
-  data: SubscriptionPayRequest & { payment_method: string }
+  data: SubscriptionPayRequest & { payment_method: string },
+  config?: ApiRequestConfig
 ): Promise<SubscriptionPayResponse & { url?: string }> {
-  const res = await api.post('/api/subscription/epay/pay', data, { skipAuthRefresh: true })
+  const res = await api.post('/api/subscription/epay/pay', data, { ...config, skipAuthRefresh: true })
   return {
     ...res.data,
     url: res.data.url || (res as unknown as { url?: string }).url,
@@ -226,17 +231,18 @@ export async function getSelfSubscriptionFull(
   return res.data
 }
 
-export async function getPublicPlans(): Promise<ApiResponse<PlanRecord[]>> {
-  const res = await api.get('/api/subscription/plans')
+export async function getPublicPlans(config?: ApiRequestConfig): Promise<ApiResponse<PlanRecord[]>> {
+  const res = config ? await api.get('/api/subscription/plans', config) : await api.get('/api/subscription/plans')
   return res.data
 }
 
 export async function updateBillingPreference(
-  preference: string
+  preference: string,
+  config?: ApiRequestConfig
 ): Promise<ApiResponse<{ billing_preference?: string }>> {
   const res = await api.put('/api/subscription/self/preference', {
     billing_preference: preference,
-  }, { skipAuthRefresh: true })
+  }, { ...config, skipAuthRefresh: true })
   return res.data
 }
 

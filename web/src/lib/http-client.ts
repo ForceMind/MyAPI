@@ -36,6 +36,8 @@ declare module 'axios' {
     skipAuthRefresh?: boolean
     authRetry?: boolean
     acceptAuthRotation?: boolean
+    /** Opt-in UI lifetime/actor guard. Unscoped callers keep existing behavior. */
+    isCurrentScope?: () => boolean
   }
 }
 
@@ -53,7 +55,7 @@ const inFlightGet = new Map<string, Promise<unknown>>()
 const originalGet = api.get.bind(api)
 
 api.get = ((url: string, config: ApiRequestConfig = {}) => {
-  if (config.disableDuplicate) return originalGet(url, config)
+  if (config.disableDuplicate || config.isCurrentScope) return originalGet(url, config)
 
   const params = config.params ? JSON.stringify(config.params) : '{}'
   const sessionSID = useAuthStore.getState().auth.session?.sid || 'anonymous'
@@ -79,6 +81,9 @@ function redirectToSignIn(): void {
 
 api.interceptors.response.use(
   (response) => {
+    if (response.config.isCurrentScope && !response.config.isCurrentScope()) {
+      throw new axios.CanceledError('Request scope changed', response.config)
+    }
     if (response.config.acceptAuthRotation && response.data?.success === true) {
       applyAuthRotation(response.data.data)
     }
@@ -102,13 +107,26 @@ api.interceptors.response.use(
     if (axios.isCancel(error)) throw error
 
     const config = error?.config as ApiRequestConfig | undefined
+    if (config?.isCurrentScope && !config.isCurrentScope()) {
+      throw new axios.CanceledError('Request scope changed', error.config)
+    }
     const skipErrorHandler = config?.skipErrorHandler
     const status = error?.response?.status
 
     if (status === 401) {
       if (config && !config.skipAuthRefresh && !config.authRetry) {
         config.authRetry = true
+        const scopePath = typeof window === 'undefined' ? undefined : window.location.pathname
         const outcome = await refreshAuthentication()
+        if (config.isCurrentScope && !config.isCurrentScope()) {
+          const current = useAuthStore.getState().auth
+          const expiredHere = (outcome.kind === 'anonymous' || outcome.kind === 'out_of_sync') &&
+            !current.user && !current.session && !current.accessToken &&
+            (typeof window === 'undefined' || window.location.pathname === scopePath)
+          // A failed refresh legitimately clears this session. Preserve its login recovery,
+          // while never redirecting a newer actor or a different page for an old task.
+          if (!expiredHere) throw new axios.CanceledError('Request scope changed', error.config)
+        }
         if (outcome.kind === 'authenticated') {
           const token = useAuthStore.getState().auth.accessToken
           if (token) {
@@ -146,12 +164,15 @@ api.interceptors.response.use(
 
 api.interceptors.request.use(
   (config) => {
+    if (config.isCurrentScope && !config.isCurrentScope()) {
+      throw new axios.CanceledError('Request scope changed', config)
+    }
     const accessToken = useAuthStore.getState().auth.accessToken
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`
     }
     return config
   },
-  undefined,
+  (error) => { throw error },
   { synchronous: true }
 )

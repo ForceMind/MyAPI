@@ -48,6 +48,7 @@ import { API_KEY_STATUSES } from './constants'
 import { useKeyDetail } from './hooks/use-key-detail'
 import { useKeyRecentRequests } from './hooks/use-key-recent-requests'
 import type { KeyPageTab } from './lib/keys-search'
+import { keyExpiry } from './lib/key-expiry'
 import type { ApiKey } from './types'
 
 const route = getRouteApi('/_authenticated/keys/$keyId/')
@@ -178,6 +179,7 @@ function KeyPageContent(props: {
         apiKey ? (
           <KeyActions
             apiKey={apiKey}
+            hideCopy={props.tab === 'delivery'}
             onRefetch={() => detail.refetch()}
             menu={
               // The shared menu button is 36px and the page actions clear its
@@ -187,6 +189,7 @@ function KeyPageContent(props: {
                   apiKey={apiKey}
                   menuOnly
                   primaryActionsVisible
+                  hideClientImport={props.tab === 'delivery'}
                 />
               </span>
             }
@@ -339,6 +342,10 @@ function KeyMeta(props: { apiKey: ApiKey }) {
   const { t } = useTranslation()
   const key = props.apiKey
   const status = API_KEY_STATUSES[key.status]
+  const expiry = keyExpiry(key.expired_time)
+  let expiryLabel = t('Unknown')
+  if (expiry.kind === 'never') expiryLabel = t('Never')
+  if (expiry.kind === 'dated') expiryLabel = formatTimestampToDate(expiry.timestamp)
   return (
     <>
       <StatusBadge
@@ -353,9 +360,7 @@ function KeyMeta(props: { apiKey: ApiKey }) {
       </span>
       <span>
         {t('Expires')}:{' '}
-        {key.expired_time === -1
-          ? t('Never')
-          : formatTimestampToDate(key.expired_time)}
+        {expiryLabel}
       </span>
       <span>
         {t('Last used')}:{' '}

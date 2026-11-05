@@ -11,6 +11,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, test } from 'vitest'
 
 import type { FullContentLogDetail } from '../../types'
+import { CONTENT_PREVIEW_LIMIT } from '../../lib/content-preview'
 import { SavedStreamEvents } from '../saved-stream-events'
 
 const DETAIL: FullContentLogDetail = {
@@ -22,6 +23,19 @@ const DETAIL: FullContentLogDetail = {
 }
 
 describe('saved SSE event preview', () => {
+  test('an explicit expanded read makes later loaded events searchable without resetting the current event search', async () => {
+    const detail = { ...DETAIL, response_body: `:${'x'.repeat(CONTENT_PREVIEW_LIMIT)}\n\ndata: {"text":"later-loaded-event"}\n\n` }
+    const view = render(<SavedStreamEvents detail={detail} />)
+    const user = userEvent.setup()
+    await user.type(screen.getByRole('searchbox', { name: 'Search saved event preview' }), 'later-loaded-event')
+    expect(screen.getByText('No matching saved events')).toBeVisible()
+    view.rerender(<SavedStreamEvents detail={detail} expanded />)
+    expect(screen.getByRole('searchbox', { name: 'Search saved event preview' })).toHaveValue('later-loaded-event')
+    const list = screen.getByRole('list', { name: 'Saved SSE event preview' })
+    await user.click(within(list).getByText('#1'))
+    expect(within(list).getByRole('region', { name: 'Saved event data' }).querySelector('pre')?.textContent).toBe('{"text":"later-loaded-event"}')
+  })
+
   test('missing content type preserves observed SSE fields and completion/error sources independently', () => {
     render(<SavedStreamEvents detail={{
       ...DETAIL,

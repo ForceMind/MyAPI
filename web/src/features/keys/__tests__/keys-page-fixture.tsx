@@ -84,6 +84,7 @@ export type KeysFixture = {
   keys: ApiKey[]
   logs: ReturnType<typeof requestLog>[]
   status: Record<string, unknown>
+  total?: number
 }
 
 /** Answers the Keys page reads from in-memory fixtures; writes are spies. */
@@ -111,7 +112,7 @@ export function mockKeysApi(
           success: true,
           data: {
             items: fixture.keys,
-            total: fixture.keys.length,
+            total: fixture.total ?? fixture.keys.length,
             page: 1,
             page_size: 20,
           },

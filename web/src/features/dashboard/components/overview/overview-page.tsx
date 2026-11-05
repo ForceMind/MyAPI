@@ -23,6 +23,7 @@ import { hasPermission } from '@/lib/admin-permissions'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 import { linkButtonClassName } from '@/lib/link-button'
 import { useAuthStore } from '@/stores/auth-store'
+import { gatewayClientAddresses } from '@/lib/gateway-address'
 
 import { useDashboardContentVisibility } from '../../hooks/use-status-data'
 import {
@@ -147,13 +148,11 @@ function OverviewSession() {
     const facts = getRequestFacts(row)
     return facts.completed && !facts.usageKnown
   }).length
-  const serverAddress =
-    typeof status?.server_address === 'string'
-      ? status.server_address.trim().replace(/\/+$/, '')
-      : ''
-  const address: GatewayAddress = serverAddress
-    ? { baseUrl: `${serverAddress}/v1`, source: 'server' }
-    : { baseUrl: `${window.location.origin}/v1`, source: 'current' }
+  const clientAddress = gatewayClientAddresses(status?.server_address, window.location.origin)
+  const address: GatewayAddress = {
+    baseUrl: clientAddress.openAI,
+    source: clientAddress.source === 'setting' ? 'server' : 'current',
+  }
   const version =
     typeof status?.version === 'string' && status.version
       ? status.version

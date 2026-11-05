@@ -113,7 +113,7 @@ it('keeps independent read failures visible and distinguishes unknown quotes and
 it('preserves a failed explicit preference command and permits history while purchases are disabled', async () => {
   mount(false)
   await screen.findByText('· Loaded subscription records: 25')
-  expect(api.get).toHaveBeenCalledExactlyOnceWith('/api/subscription/self', {})
+  expect(api.get).toHaveBeenCalledExactlyOnceWith('/api/subscription/self', { skipErrorHandler: true, skipBusinessError: true, disableDuplicate: true, isCurrentScope: expect.any(Function) })
   const user = userEvent.setup()
   const browseTab = screen.getByRole('tab', { name: 'Browse plans' })
   expect(browseTab).toHaveAttribute('aria-disabled', 'true')
@@ -132,7 +132,7 @@ it('preserves a failed explicit preference command and permits history while pur
   await user.click(screen.getByRole('option', { name: 'Wallet Only' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Synthetic preference rejected')
   expect(screen.getByRole('combobox', { name: 'Billing preference' })).toHaveTextContent('Subscription First')
-  expect(api.put).toHaveBeenCalledExactlyOnceWith('/api/subscription/self/preference', { billing_preference: 'wallet_only' }, { skipAuthRefresh: true })
+  expect(api.put).toHaveBeenCalledExactlyOnceWith('/api/subscription/self/preference', { billing_preference: 'wallet_only' }, { skipErrorHandler: true, skipBusinessError: true, disableDuplicate: true, isCurrentScope: expect.any(Function), skipAuthRefresh: true })
   await user.click(screen.getByRole('tab', { name: 'Current subscriptions' }))
   expect(api.put).toHaveBeenCalledTimes(1)
   expect(api.post).not.toHaveBeenCalled()

@@ -7,7 +7,7 @@ published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
 import { QueryClient } from '@tanstack/react-query'
-import { act, cleanup, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Toaster } from 'sonner'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -39,15 +39,18 @@ const item = apiKeySchema.parse({
 const originalAuth = useAuthStore.getState()
 const originalConfig = useSystemConfigStore.getState()
 let client: QueryClient
+let expiry: number | null
 let outcome: 'success' | 'empty' | 'network' | 'envelope'
 let reportedTotal: number | undefined
 let pendingRead: Promise<void> | undefined
 
 beforeEach(() => {
   localStorage.clear()
+  vi.spyOn(api, 'put').mockRejectedValue(new Error('Unexpected expiry write'))
   vi.spyOn(api, 'post').mockResolvedValue({ data: { success: true, data: { key: 'synthetic-only' } } })
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
   outcome = 'success'
+  expiry = -1
   reportedTotal = 100
   pendingRead = undefined
   client = new QueryClient({
@@ -81,7 +84,7 @@ beforeEach(() => {
         data: {
           success: true,
           data: {
-            items: outcome === 'empty' ? [] : [item],
+            items: outcome === 'empty' ? [] : [{ ...item, expired_time: expiry }],
             ...(reportedTotal === undefined ? {} : { total: outcome === 'empty' ? 0 : reportedTotal }),
           },
         },
@@ -239,6 +242,8 @@ test('mobile cards retain model restrictions, credential masking, selection and 
   expect(card).toHaveTextContent('Models')
   expect(card).toHaveTextContent('API Key')
   expect(card).toHaveTextContent('Last used')
+  expect(screen.getByText('Expires')).toBeVisible()
+  expect(screen.getAllByText('Expires')).toHaveLength(1)
   expect(screen.getByRole('checkbox', { name: 'Select row' })).toBeEnabled()
   await userEvent.setup().click(screen.getByText('More details'))
   expect(screen.getByText('IP Restriction')).toBeVisible()
@@ -318,4 +323,57 @@ test('a periodic list timestamp refresh preserves an explicitly opened credentia
   await act(async () => { if (typeof tick === 'function') tick() })
   expect(screen.getByText('Full API Key')).toBeVisible()
   expect(api.post).toHaveBeenCalledTimes(1)
+})
+
+
+test.each([-1, 0, 1700000000])('default desktop expiry %s stays visible without credential reads or writes', async (value) => {
+  expiry = value
+  await renderTable()
+  const row = (await screen.findByText('needle-key')).closest('tr')
+  if (!row) throw new Error('Expected Key table row')
+  expect(screen.getByRole('columnheader', { name: /Expires/ })).toBeVisible()
+  if (value === -1) expect(within(row).getByText('Never')).toBeVisible()
+  else if (value === 0) expect(within(row).getByText('Unknown')).toBeVisible()
+  else {
+    const timestamp = row.querySelector(`time[datetime="${new Date(value * 1000).toISOString()}"]`)
+    expect(timestamp).toBeVisible()
+    expect(timestamp).toHaveClass('text-destructive')
+  }
+  expect(api.post).not.toHaveBeenCalled()
+  expect(api.put).not.toHaveBeenCalled()
+})
+
+test('an explicitly hidden expiry column remains the user’s custom preference', async () => {
+  localStorage.setItem('api-keys:column-visibility', JSON.stringify({ expired_time: false, group: true }))
+  await renderTable()
+  await screen.findByText('needle-key')
+  expect(screen.queryByRole('columnheader', { name: /Expires/ })).not.toBeInTheDocument()
+  expect(screen.getByRole('columnheader', { name: /Group/ })).toBeVisible()
+  expect(JSON.parse(localStorage.getItem('api-keys:column-visibility') ?? '{}')).toMatchObject({ expired_time: false, group: true })
+})
+
+test('a malformed null expiry does not masquerade as a never-expiring Key', async () => {
+  expiry = null
+  await renderTable()
+  expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load API keys')
+  expect(screen.queryByText('Never')).not.toBeInTheDocument()
+  expect(api.post).not.toHaveBeenCalled()
+})
+
+test.each([-1, 0, 1700000000])('mobile expiry %s stays on the first screen exactly once without opening More details', async (value) => {
+  expiry = value
+  const matchMedia = window.matchMedia
+  vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({ ...matchMedia(query), matches: query === CONSOLE_MOBILE_QUERY }))
+  await renderTable()
+  await screen.findByText('needle-key')
+  expect(screen.getByText('Expires')).toBeVisible()
+  expect(screen.getAllByText('Expires')).toHaveLength(1)
+  const details = screen.getByText('More details').closest('details')
+  if (!details) throw new Error('Expected supplementary Key fields')
+  expect(details).not.toHaveAttribute('open')
+  expect(within(details).queryByText('Expires')).not.toBeInTheDocument()
+  if (value === -1) expect(screen.getByText('Never')).toBeVisible()
+  if (value === 0) expect(screen.getByText('Unknown')).toBeVisible()
+  expect(api.post).not.toHaveBeenCalled()
+  expect(api.put).not.toHaveBeenCalled()
 })

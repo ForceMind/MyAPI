@@ -33,7 +33,7 @@ import { nativeWindowState } from './window-state'
 
 type PersonalUpstreamProps = {
   view?: UpstreamViewState
-  onViewChange?: (view: UpstreamViewState) => void
+  onViewChange?: (view: UpstreamViewState, options?: { preserveFocus?: boolean }) => void
   onOpenConnection?: (channelId: number) => void
   onInventoryReady?: (ready: boolean) => void
   inventoryHeadingRef?: RefObject<HTMLHeadingElement | null>
@@ -73,28 +73,41 @@ function PersonalUpstreamSession(props: PersonalUpstreamProps) {
     if (!accountMap.has(item.channel_id)) accountMap.set(item.channel_id, item)
   }
   const accounts = [...accountMap.values()]
-  const selectedAccount = accounts.find((item) => item.channel_id === view.channelId) ?? accounts[0]
+  const firstAccountId = accounts[0]?.channel_id
+  useEffect(() => {
+    if (view.channelId !== undefined || firstAccountId === undefined) return
+    // Anchor the displayed object in the source history entry before leaving it.
+    const next = { ...view, channelId: firstAccountId, keyId: undefined }
+    if (props.onViewChange) {
+      props.onViewChange(next, { preserveFocus: true })
+    } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLocalView(next)
+    }
+  }, [view, firstAccountId, props.onViewChange])
+  const selectedAccountId = view.channelId ?? firstAccountId
+  const selectedAccount = accounts.find((item) => item.channel_id === selectedAccountId)
   const windows = filteredItems.filter((item) => item.channel_id === selectedAccount?.channel_id)
   const returnedConnections = new Set(items.map((item) => item.channel_id)).size
   const current = items.filter((item) => nativeWindowState(item, now) === 'available').length
   const periods = [...new Map(items.map((item) => [upstreamWindowPeriod(item), item])).entries()]
-  const upstreamReturn = selectedAccount ? { ...view, channelId: selectedAccount.channel_id } : view
+  const upstreamReturn = selectedAccountId ? { ...view, channelId: selectedAccountId } : view
 
   let inventory: ReactNode
-  if (accounts.length > 0 && selectedAccount) {
+  if (accounts.length > 0) {
     inventory = (
             <div className='grid min-w-0 gap-5 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]'>
               <aside className='bg-card min-w-0 self-start rounded-xl border p-3' aria-label={t('Select upstream account')}>
                 <p className='text-caption text-muted-foreground px-2 py-2'>{t('Observed subscription accounts')}</p>
                 <div className='flex min-w-0 gap-1 overflow-x-auto lg:flex-col lg:overflow-visible'>
-                  {accounts.map((account) => <Button key={account.channel_id} data-upstream-account={account.channel_id} variant={selectedAccount.channel_id === account.channel_id ? 'secondary' : 'ghost'} aria-pressed={selectedAccount.channel_id === account.channel_id} onClick={() => { if (account.channel_id !== view.channelId) updateView({ ...view, channelId: account.channel_id, keyId: account.channel_id === selectedAccount.channel_id ? view.keyId : undefined }) }} className='h-auto min-h-11 max-w-64 shrink-0 justify-start py-2 text-left wrap-anywhere whitespace-normal lg:w-full lg:max-w-none lg:min-w-0'>{account.account_label || account.name}</Button>)}
+                  {accounts.map((account) => <Button key={account.channel_id} data-upstream-account={account.channel_id} variant={selectedAccount?.channel_id === account.channel_id ? 'secondary' : 'ghost'} aria-pressed={selectedAccount?.channel_id === account.channel_id} onClick={() => { if (account.channel_id !== view.channelId) updateView({ ...view, channelId: account.channel_id, keyId: account.channel_id === view.channelId ? view.keyId : undefined }) }} className='h-auto min-h-11 max-w-64 shrink-0 justify-start py-2 text-left wrap-anywhere whitespace-normal lg:w-full lg:max-w-none lg:min-w-0'>{account.account_label || account.name}</Button>)}
                 </div>
               </aside>
-              <div className='flex min-w-0 flex-col gap-4'>
+              {selectedAccount ? <div className='flex min-w-0 flex-col gap-4'>
                 <h2 className='text-section min-w-0 wrap-anywhere'>{selectedAccount.account_label || selectedAccount.name}</h2>
                 <div className='grid min-w-0 gap-4 xl:grid-cols-2'>{windows.map((item) => <WindowCard key={quotaSeriesKey(item)} item={item} windows={items} now={now} showHistory={showChannels} />)}</div>
-                <WindowShareObservation connectionContext={props.view ? { connection: { connection: selectedAccount.channel_id, upstreamReturn } } : undefined} key={selectedAccount.channel_id} channelId={selectedAccount.channel_id} selectedKeyId={view.keyId === undefined ? '' : String(view.keyId)} onKeyChange={(keyId) => updateView({ ...view, channelId: selectedAccount.channel_id, keyId: keyId ? Number(keyId) : undefined })} canReadPoolUsage={data.canRead && data.selfQuery.data?.role === ROLE.SUPER_ADMIN} />
-              </div>
+                <WindowShareObservation connectionContext={props.view ? { connection: { connection: selectedAccount.channel_id, upstreamReturn } } : undefined} key={selectedAccount.channel_id} channelId={selectedAccount.channel_id} selectedKeyId={view.channelId !== selectedAccount.channel_id || view.keyId === undefined ? '' : String(view.keyId)} onKeyChange={(keyId) => updateView({ ...view, channelId: selectedAccount.channel_id, keyId: keyId ? Number(keyId) : undefined })} canReadPoolUsage={data.canRead && data.selfQuery.data?.role === ROLE.SUPER_ADMIN} />
+              </div> : <Empty className='border'><EmptyHeader><EmptyTitle>{t('The selected account has no observations in this view. Choose an account explicitly.')}</EmptyTitle><EmptyDescription>{t('The saved account and Key selection are retained until you choose another account.')}</EmptyDescription></EmptyHeader></Empty>}
             </div>
     )
   } else if (known && items.length > 0) {
@@ -112,8 +125,8 @@ function PersonalUpstreamSession(props: PersonalUpstreamProps) {
       <SectionPageLayout.Actions>
         {data.canRead && <Button variant='outline' disabled={data.accountsQuery.isFetching} onClick={() => { refreshClock((version) => version + 1); void data.accountsQuery.refetch() }}>{t('Refresh account windows')}</Button>}
         {data.canRead && showChannels && (
-          <Button variant='outline' nativeButton={false} render={selectedAccount ? (
-            <Link to='/connections/$connectionId' params={{ connectionId: String(selectedAccount.channel_id) }} search={props.view ? { connectionReturn: { upstreamReturn } } : undefined} state={props.view ? { inspectorBack: true } : undefined} onClick={() => props.onOpenConnection?.(selectedAccount.channel_id)} />
+          <Button variant='outline' nativeButton={false} render={selectedAccountId ? (
+            <Link to='/connections/$connectionId' params={{ connectionId: String(selectedAccountId) }} search={props.view ? { connectionReturn: { upstreamReturn } } : undefined} state={props.view ? { inspectorBack: true } : undefined} onClick={() => props.onOpenConnection?.(selectedAccountId)} />
           ) : <Link to='/connections' />}>
             {t('Manage account connection')}
           </Button>

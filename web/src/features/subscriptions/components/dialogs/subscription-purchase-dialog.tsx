@@ -18,8 +18,11 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { Calendar03Icon, CrownIcon, PackageIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { useWalletSession, walletRequestConfig, walletWriteIsUnknown, walletWriteErrorMessage, walletPaymentScope, hasUnconfirmedWalletPayment, retainUnconfirmedWalletPayment } from '@/features/wallet/hooks/use-wallet-session'
+import { useAuthStore } from '@/stores/auth-store'
 import { toast } from 'sonner'
 
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -72,17 +75,36 @@ interface Props {
   purchaseCount?: number
   userQuota?: number
   onPurchaseSuccess?: () => void | Promise<void>
+  onOpenHistory?: () => void
 }
 
 export function SubscriptionPurchaseDialog(props: Props) {
+  const isOwner = useWalletSession()
+  const identity = useAuthStore((state) => [state.auth.user?.id, state.auth.user?.role, state.auth.session?.sid ?? null].join(':'))
+  if (!isOwner()) return null
+  return <SubscriptionPurchaseTask key={`${identity}:${props.plan?.plan.id}`} {...props} />
+}
+
+function SubscriptionPurchaseTask(props: Props) {
+  const isCurrentSession = useWalletSession()
   const { t } = useTranslation()
   const { currency } = useSystemConfig()
+  const active = useRef({ open: props.open, planId: props.plan?.plan.id })
+  useLayoutEffect(() => { active.current = { open: props.open, planId: props.plan?.plan.id } }, [props.open, props.plan?.plan.id])
+  const flight = useRef<object | null>(null)
+  const paymentOwner = useRef(walletPaymentScope())
+  const paymentKey = `subscription-plan:${props.plan?.plan.id}`
+  const unknownRef = useRef(hasUnconfirmedWalletPayment(paymentKey, paymentOwner.current))
+  const [outcomeUnknown, setOutcomeUnknown] = useState(unknownRef.current)
+  useLayoutEffect(() => () => {
+    if (flight.current) retainUnconfirmedWalletPayment(paymentKey, paymentOwner.current)
+  }, [paymentKey])
   const [paying, setPaying] = useState(false)
   const [selectedEpayMethod, setSelectedEpayMethod] = useState('')
-  const paymentErrorMessage = (error: unknown) =>
-    isUserFundingUnavailableError(error)
-      ? t(USER_FUNDING_UNAVAILABLE_MESSAGE_KEY)
-      : t('Payment request failed')
+  const paymentErrorMessage = (error: unknown) => {
+    if (walletWriteIsUnknown(error)) return walletWriteErrorMessage(error, t('Payment request outcome is unknown. Check billing history before trying again.'))
+    return walletWriteErrorMessage(error, isUserFundingUnavailableError(error) ? t(USER_FUNDING_UNAVAILABLE_MESSAGE_KEY) : t('Payment request failed'))
+  }
 
   useEffect(() => {
     if (props.open && props.epayMethods && props.epayMethods.length > 0) {
@@ -94,6 +116,20 @@ export function SubscriptionPurchaseDialog(props: Props) {
 
   const plan = props.plan?.plan
   if (!plan) return null
+
+  const isCurrent = (operation: typeof active.current) => isCurrentSession() && active.current === operation && operation.open && operation.planId === plan.id
+
+  const finishPayment = (operation: typeof active.current) => {
+    if (flight.current !== operation) return
+    flight.current = null
+    if (!isCurrentSession()) return
+    setPaying(false)
+    if (!isCurrent(operation)) {
+      unknownRef.current = true
+      retainUnconfirmedWalletPayment(paymentKey, paymentOwner.current)
+      setOutcomeUnknown(true)
+    }
+  }
 
   const hasStripe = props.enableStripe && !!plan.stripe_price_id
   const hasCreem = props.enableCreem && !!plan.creem_product_id
@@ -117,6 +153,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
     0,
     Math.ceil(Number(plan.price_amount || 0) * quotaPerUnit)
   )
+  const balanceKnown = typeof props.userQuota === 'number' && Number.isFinite(props.userQuota)
   const userQuota = Math.max(0, Number(props.userQuota || 0))
   const allowBalancePay = plan.allow_balance_pay !== false
   const insufficientBalance = userQuota < balanceCost
@@ -125,9 +162,15 @@ export function SubscriptionPurchaseDialog(props: Props) {
     (props.purchaseCount || 0) >= (props.purchaseLimit || 0)
 
   const handlePayStripe = async () => {
+    const operation = active.current
+    if (!isCurrent(operation) || flight.current) return
+    if (unknownRef.current || hasUnconfirmedWalletPayment(paymentKey, paymentOwner.current)) { setOutcomeUnknown(true); return }
+    flight.current = operation
+    setOutcomeUnknown(false)
     setPaying(true)
     try {
-      const res = await paySubscriptionStripe({ plan_id: plan.id })
+      const res = await paySubscriptionStripe({ plan_id: plan.id }, walletRequestConfig(() => isCurrent(operation)))
+      if (!isCurrent(operation)) return
       if (res.message === 'success' && res.data?.pay_link) {
         window.open(res.data.pay_link, '_blank')
         toast.success(t('Payment page opened'))
@@ -140,16 +183,26 @@ export function SubscriptionPurchaseDialog(props: Props) {
         )
       }
     } catch (error) {
+      if (!isCurrent(operation)) return
+      const unknown = walletWriteIsUnknown(error)
+      if (unknown) { unknownRef.current = true; retainUnconfirmedWalletPayment(paymentKey, paymentOwner.current) }
+      setOutcomeUnknown(unknown)
       toast.error(paymentErrorMessage(error))
     } finally {
-      setPaying(false)
+      finishPayment(operation)
     }
   }
 
   const handlePayCreem = async () => {
+    const operation = active.current
+    if (!isCurrent(operation) || flight.current) return
+    if (unknownRef.current || hasUnconfirmedWalletPayment(paymentKey, paymentOwner.current)) { setOutcomeUnknown(true); return }
+    flight.current = operation
+    setOutcomeUnknown(false)
     setPaying(true)
     try {
-      const res = await paySubscriptionCreem({ plan_id: plan.id })
+      const res = await paySubscriptionCreem({ plan_id: plan.id }, walletRequestConfig(() => isCurrent(operation)))
+      if (!isCurrent(operation)) return
       if (res.message === 'success' && res.data?.checkout_url) {
         window.open(res.data.checkout_url, '_blank')
         toast.success(t('Payment page opened'))
@@ -162,18 +215,28 @@ export function SubscriptionPurchaseDialog(props: Props) {
         )
       }
     } catch (error) {
+      if (!isCurrent(operation)) return
+      const unknown = walletWriteIsUnknown(error)
+      if (unknown) { unknownRef.current = true; retainUnconfirmedWalletPayment(paymentKey, paymentOwner.current) }
+      setOutcomeUnknown(unknown)
       toast.error(paymentErrorMessage(error))
     } finally {
-      setPaying(false)
+      finishPayment(operation)
     }
   }
 
   // In-tab redirect (not window.open) — user-gesture context is lost
   // across the await, so a popup would be blocked. Same as the wallet hook.
   const handlePayWaffoPancake = async () => {
+    const operation = active.current
+    if (!isCurrent(operation) || flight.current) return
+    if (unknownRef.current || hasUnconfirmedWalletPayment(paymentKey, paymentOwner.current)) { setOutcomeUnknown(true); return }
+    flight.current = operation
+    setOutcomeUnknown(false)
     setPaying(true)
     try {
-      const res = await paySubscriptionWaffoPancake({ plan_id: plan.id })
+      const res = await paySubscriptionWaffoPancake({ plan_id: plan.id }, walletRequestConfig(() => isCurrent(operation)))
+      if (!isCurrent(operation)) return
       if (res.message === 'success' && res.data?.checkout_url) {
         toast.success(t('Redirecting to payment page...'))
         window.location.href = res.data.checkout_url
@@ -185,9 +248,13 @@ export function SubscriptionPurchaseDialog(props: Props) {
         )
       }
     } catch (error) {
+      if (!isCurrent(operation)) return
+      const unknown = walletWriteIsUnknown(error)
+      if (unknown) { unknownRef.current = true; retainUnconfirmedWalletPayment(paymentKey, paymentOwner.current) }
+      setOutcomeUnknown(unknown)
       toast.error(paymentErrorMessage(error))
     } finally {
-      setPaying(false)
+      finishPayment(operation)
     }
   }
 
@@ -196,16 +263,22 @@ export function SubscriptionPurchaseDialog(props: Props) {
     /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
 
   const handlePayEpay = async () => {
+    const operation = active.current
+    if (!isCurrent(operation) || flight.current) return
+    if (unknownRef.current || hasUnconfirmedWalletPayment(paymentKey, paymentOwner.current)) { setOutcomeUnknown(true); return }
     if (!selectedEpayMethod) {
       toast.error(t('Please select a payment method'))
       return
     }
+    flight.current = operation
+    setOutcomeUnknown(false)
     setPaying(true)
     try {
       const res = await paySubscriptionEpay({
         plan_id: plan.id,
         payment_method: selectedEpayMethod,
-      })
+      }, walletRequestConfig(() => isCurrent(operation)))
+      if (!isCurrent(operation)) return
       if (res.message === 'success' && res.url) {
         const form = document.createElement('form')
         form.action = res.url
@@ -233,20 +306,31 @@ export function SubscriptionPurchaseDialog(props: Props) {
         )
       }
     } catch (error) {
+      if (!isCurrent(operation)) return
+      const unknown = walletWriteIsUnknown(error)
+      if (unknown) { unknownRef.current = true; retainUnconfirmedWalletPayment(paymentKey, paymentOwner.current) }
+      setOutcomeUnknown(unknown)
       toast.error(paymentErrorMessage(error))
     } finally {
-      setPaying(false)
+      finishPayment(operation)
     }
   }
 
   const handlePayBalance = async () => {
+    const operation = active.current
+    if (!isCurrent(operation) || flight.current) return
+    if (unknownRef.current || hasUnconfirmedWalletPayment(paymentKey, paymentOwner.current)) { setOutcomeUnknown(true); return }
+    if (!balanceKnown) return
     if (!allowBalancePay) {
       toast.error(t('This plan does not allow balance redemption'))
       return
     }
+    flight.current = operation
+    setOutcomeUnknown(false)
     setPaying(true)
     try {
-      const res = await paySubscriptionBalance({ plan_id: plan.id })
+      const res = await paySubscriptionBalance({ plan_id: plan.id }, walletRequestConfig(() => isCurrent(operation)))
+      if (!isCurrent(operation)) return
       if (res.success) {
         toast.success(t('Subscription purchased successfully'))
         void props.onPurchaseSuccess?.()
@@ -259,9 +343,13 @@ export function SubscriptionPurchaseDialog(props: Props) {
         )
       }
     } catch (error) {
+      if (!isCurrent(operation)) return
+      const unknown = walletWriteIsUnknown(error)
+      if (unknown) { unknownRef.current = true; retainUnconfirmedWalletPayment(paymentKey, paymentOwner.current) }
+      setOutcomeUnknown(unknown)
       toast.error(paymentErrorMessage(error))
     } finally {
-      setPaying(false)
+      finishPayment(operation)
     }
   }
 
@@ -330,6 +418,8 @@ export function SubscriptionPurchaseDialog(props: Props) {
           </Alert>
         )}
 
+        <p className='text-muted-foreground text-xs'>{t('Closing a window does not cancel a submitted payment. Check billing history if the outcome is unknown.')}</p>
+        {outcomeUnknown && <Alert><AlertDescription>{t('Payment outcome is unconfirmed. New payments are locked; review billing history.')}{props.onOpenHistory ? <Button variant='link' className='min-h-11' onClick={props.onOpenHistory}>{t('Billing History')}</Button> : <Link to='/wallet' search={{ show_history: true }} preload={false} onClick={() => props.onOpenChange(false)} className='text-primary mt-2 inline-flex min-h-11 items-center underline'>{t('Billing History')}</Link>}</AlertDescription></Alert>}
         <div className='flex flex-col gap-2 rounded-md border p-3'>
           <div role='group' aria-label={t('Required')} className='flex items-center justify-between gap-2 text-xs'>
             <span className='text-muted-foreground'>{t('Required')}</span>
@@ -337,7 +427,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
           </div>
           <div className='flex items-center justify-between gap-2 text-xs'>
             <span className='text-muted-foreground'>{t('Available')}</span>
-            <span>{formatQuota(userQuota)}</span>
+            <span>{balanceKnown ? formatQuota(userQuota) : t('Unknown')}</span>
           </div>
           {!allowBalancePay ? (
             <Alert variant='destructive'>
@@ -346,7 +436,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
               </AlertDescription>
             </Alert>
           ) : (
-            insufficientBalance && (
+            balanceKnown && insufficientBalance && (
               <Alert variant='destructive'>
                 <AlertDescription>{t('Insufficient balance')}</AlertDescription>
               </Alert>
@@ -364,7 +454,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
             variant='outline'
             onClick={handlePayBalance}
             disabled={
-              paying || limitReached || !allowBalancePay || insufficientBalance
+              paying || outcomeUnknown || limitReached || !allowBalancePay || !balanceKnown || insufficientBalance
             }
           >
             {t('Pay with Balance')}
@@ -383,7 +473,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
                     variant='outline'
                     className='flex-1'
                     onClick={handlePayStripe}
-                    disabled={paying || limitReached}
+                    disabled={paying || outcomeUnknown || limitReached}
                   >
                     Stripe
                   </Button>
@@ -393,7 +483,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
                     variant='outline'
                     className='flex-1'
                     onClick={handlePayCreem}
-                    disabled={paying || limitReached}
+                    disabled={paying || outcomeUnknown || limitReached}
                   >
                     Creem
                   </Button>
@@ -403,7 +493,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
                     variant='outline'
                     className='flex-1'
                     onClick={handlePayWaffoPancake}
-                    disabled={paying || limitReached}
+                    disabled={paying || outcomeUnknown || limitReached}
                   >
                     Waffo Pancake
                   </Button>
@@ -436,7 +526,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
                 </Select>
                 <Button
                   onClick={handlePayEpay}
-                  disabled={paying || !selectedEpayMethod || limitReached}
+                  disabled={paying || outcomeUnknown || !selectedEpayMethod || limitReached}
                 >
                   {t('Pay')}
                 </Button>

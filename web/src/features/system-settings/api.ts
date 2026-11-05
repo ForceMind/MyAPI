@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { api } from '@/lib/api'
+import { api, type ApiRequestConfig } from '@/lib/api'
 
 import type {
   ConfirmPaymentComplianceResponse,
@@ -114,9 +114,10 @@ export async function getSystemTask(taskId: string) {
   return res.data
 }
 
-export async function listSystemTasks(limit = 20) {
+export async function listSystemTasks(limit = 20, config?: ApiRequestConfig) {
   const res = await api.get<SystemTaskListResponse>('/api/system-task/list', {
-    params: { limit },
+    ...config,
+    params: { ...config?.params, limit },
   })
   return res.data
 }

@@ -20,6 +20,8 @@ import { api, type ApiRequestConfig } from '@/lib/api'
 
 import {
   apiKeySchema,
+  apiKeyCreationIdentitySchema,
+  type ApiKeyCreationIdentity,
   type ApiKey,
   type ApiResponse,
   type GetApiKeysParams,
@@ -90,11 +92,17 @@ export async function getTokenAutoGroups(): Promise<
 export async function createApiKey(
   data: ApiKeyFormData,
   config?: ApiRequestConfig
-): Promise<ApiResponse<ApiKey>> {
+): Promise<ApiResponse<ApiKeyCreationIdentity>> {
   const res = config
     ? await api.post('/api/token/', data, config)
     : await api.post('/api/token/', data)
-  return res.data
+  const response = res.data as ApiResponse<unknown>
+  const identity = apiKeyCreationIdentitySchema.safeParse(response.data)
+  return {
+    success: response.success,
+    message: response.message,
+    data: response.success && identity.success ? identity.data : undefined,
+  }
 }
 
 // Update an existing API key

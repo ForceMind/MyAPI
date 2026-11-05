@@ -60,7 +60,7 @@ import {
   isDynamicPricingModel,
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
-import { getAvailableGroups, isTokenBasedModel } from '../lib/model-helpers'
+import { getAvailableGroups, getConfiguredGroupRatio, hasRequestPrice, isTokenBasedModel } from '../lib/model-helpers'
 import { formatFixedPrice, formatGroupPrice } from '../lib/price'
 import type {
   ModelCapability,
@@ -695,14 +695,14 @@ function PriceSection(props: {
             {t('Per request')}
           </span>
           <span className='text-foreground font-mono text-sm font-semibold tabular-nums'>
-            {formatFixedPrice(
+            {hasRequestPrice(props.model) ? formatFixedPrice(
               props.model,
               baseGroupKey,
               props.showRechargePrice,
               props.priceRate,
               props.usdExchangeRate,
               baseGroupRatioMap
-            )}
+            ) : t('Unknown')}
           </span>
         </div>
       </section>
@@ -933,7 +933,7 @@ function GroupPricingSection(props: {
     })
     const formattedPricesByGroup = new Map(
       availableGroups.map((group) => {
-        const ratio = props.groupRatio[group] || 1
+        const ratio = getConfiguredGroupRatio(props.groupRatio, group)
         return [
           group,
           getDynamicFormattedPricesByTier(dynamicTiers, {
@@ -953,13 +953,13 @@ function GroupPricingSection(props: {
         <AutoGroupChain model={props.model} autoGroups={props.autoGroups} />
         <div className='space-y-3'>
           {availableGroups.map((group) => {
-            const ratio = props.groupRatio[group] || 1
+            const ratio = getConfiguredGroupRatio(props.groupRatio, group)
             const formattedPricesByTier =
               formattedPricesByGroup.get(group) ??
               new Map<DynamicPricingTier, Map<string, string>>()
 
             return (
-              <div key={group} className='overflow-hidden rounded-lg border'>
+              <div key={group} role='group' aria-label={t('Pricing for group {{group}}', { group })} className='overflow-hidden rounded-lg border'>
                 <div className='bg-muted/20 flex items-center justify-between gap-3 border-b px-3 py-2'>
                   <GroupBadge group={group} size='sm' />
                   <span className='text-muted-foreground font-mono text-xs'>
@@ -1017,14 +1017,14 @@ function GroupPricingSection(props: {
       props.groupRatio
     )
   const renderFixedGroupPrice = (group: string) =>
-    formatFixedPrice(
+    hasRequestPrice(props.model) ? formatFixedPrice(
       props.model,
       group,
       showRechargePrice,
       props.priceRate,
       props.usdExchangeRate,
       props.groupRatio
-    )
+    ) : t('Unknown')
 
   return (
     <section>
@@ -1049,7 +1049,7 @@ function GroupPricingSection(props: {
             header: t('Ratio'),
             className: thClass,
             cellClassName: 'text-muted-foreground py-2.5 font-mono',
-            cell: (group) => `${props.groupRatio[group] || 1}x`,
+            cell: (group) => `${getConfiguredGroupRatio(props.groupRatio, group)}x`,
           },
           ...(isTokenBased
             ? [

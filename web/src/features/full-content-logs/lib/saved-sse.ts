@@ -36,10 +36,11 @@ export function parseSavedSse(input: {
   encoding?: string
   contentType?: string
   truncated?: boolean
+  previewLimitBytes?: number
 }) {
   const mime = input.contentType?.split(';', 1)[0].trim().toLowerCase()
   const headerDeclaresSse = mime === 'text/event-stream'
-  const bounded = previewContent(input.body)
+  const bounded = previewContent(input.body, input.previewLimitBytes)
   const previewLimited = bounded.limited
   const events: SavedSseEvent[] = []
   let hasSseFields = false

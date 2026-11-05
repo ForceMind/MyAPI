@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -41,6 +41,86 @@ function renderPerformance() {
 afterEach(() => clients.splice(0).forEach((client) => client.clear()))
 
 describe('model performance request states', () => {
+  it.each([
+    { success: false, message: 'Synthetic metrics rejected' },
+    { success: true },
+    { success: true, data: { model_name: model.model_name } },
+    { success: true, data: { model_name: model.model_name, groups: [null] } },
+    { success: true, data: { model_name: model.model_name, groups: [{ group: 'actual', series: null }] } },
+    { success: true, data: { model_name: model.model_name, groups: [{ group: 'actual', series: [null] }] } },
+    { success: true, data: { model_name: model.model_name, groups: [{ group: 'actual', series: [{ ts: 'unknown' }] }] } },
+    { success: true, data: { model_name: model.model_name, groups: [{ group: 'actual', series: [{ ts: Number.MAX_VALUE }] }] } },
+  ])('a rejected or malformed metrics response is a visible retryable failure: %j', async (response) => {
+    vi.spyOn(api, 'get').mockResolvedValue({ data: response })
+    renderPerformance()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Failed to load performance data')
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible()
+    expect(screen.queryByText('Performance data is not yet available for this model.')).not.toBeInTheDocument()
+  })
+
+  it('a partial success-rate series does not claim that the unobserved intervals had no incidents', async () => {
+    vi.spyOn(api, 'get').mockResolvedValue({ data: {
+      success: true,
+      data: { model_name: model.model_name, groups: [{
+        group: 'actual-group', avg_ttft_ms: 15, avg_latency_ms: 20, avg_tps: 10, success_rate: 100,
+        series: [
+          { ts: 1700000000, avg_ttft_ms: 15, avg_latency_ms: 20, avg_tps: 10, success_rate: 100 },
+          { ts: 1700003600, avg_ttft_ms: 15, avg_latency_ms: 20, avg_tps: 10, success_rate: null },
+        ],
+      }] },
+    } })
+    renderPerformance()
+    await screen.findByText('Per-group performance')
+    expect(screen.queryByText('No incidents in the last 24 hours')).not.toBeInTheDocument()
+    expect(screen.queryByText('0.00%')).not.toBeInTheDocument()
+    const knownRates = screen.getAllByText('100.00%')
+    expect(knownRates).toHaveLength(2)
+    for (const rate of knownRates) expect(rate).toBeVisible()
+    expect(api.get).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    { successRate: null, expected: '—' },
+    { successRate: 0, expected: '0.00%' },
+  ])('missing success rate is unknown while explicit zero is preserved: $successRate', async ({ successRate, expected }) => {
+    vi.spyOn(api, 'get').mockResolvedValue({ data: {
+      success: true,
+      data: { model_name: model.model_name, groups: [{
+        group: 'actual-group', avg_ttft_ms: 15, avg_latency_ms: 20, avg_tps: 10, success_rate: successRate,
+        series: [{ ts: 1700000000, avg_ttft_ms: 15, avg_latency_ms: 20, avg_tps: 10, success_rate: successRate }],
+      }] },
+    } })
+    renderPerformance()
+    await screen.findByText('Per-group performance')
+    const label = screen.getByText('Average group success rate')
+    const summary = label?.parentElement
+    if (!summary) throw new Error('Expected the success-rate summary')
+    expect(within(summary).getByText(expected)).toBeVisible()
+    if (successRate === null) {
+      expect(screen.queryByText('No incidents in the last 24 hours')).not.toBeInTheDocument()
+      expect(screen.queryByText('0.00%')).not.toBeInTheDocument()
+    }
+    expect(api.get).toHaveBeenCalledOnce()
+  })
+
+  it('the group row preserves its reported success rate instead of substituting an unweighted trend average', async () => {
+    vi.spyOn(api, 'get').mockResolvedValue({ data: {
+      success: true,
+      data: { model_name: model.model_name, groups: [{
+        group: 'actual-group', avg_ttft_ms: 15, avg_latency_ms: 20, avg_tps: 10, success_rate: 99.01,
+        series: [
+          { ts: 1700000000, avg_ttft_ms: 15, avg_latency_ms: 20, avg_tps: 10, success_rate: 100 },
+          { ts: 1700003600, avg_ttft_ms: 15, avg_latency_ms: 20, avg_tps: 10, success_rate: 0 },
+        ],
+      }] },
+    } })
+    renderPerformance()
+    await screen.findByText('Per-group performance')
+    expect(screen.getAllByText('99.01%')).toHaveLength(2)
+    expect(screen.queryByText('50.0%')).not.toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Success-rate trend' })).toBeVisible()
+  })
+
   it('shows loading until the request confirms that no metrics are available', async () => {
     let resolveMetrics!: (value: { data: typeof emptyMetrics }) => void
     vi.spyOn(api, 'get').mockReturnValue(

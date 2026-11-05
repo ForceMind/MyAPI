@@ -1,4 +1,5 @@
 import type { ApiKey } from '../types'
+import { gatewayClientAddresses } from '@/lib/gateway-address'
 
 export type KeyClientScope = Pick<ApiKey, 'model_limits_enabled' | 'model_limits'> &
   Partial<Pick<ApiKey, 'access_profile'>>
@@ -6,15 +7,7 @@ export type KeyClientScope = Pick<ApiKey, 'model_limits_enabled' | 'model_limits
 export type KeyClientAddresses = ReturnType<typeof keyClientAddresses>
 
 /** Client import contracts use the installation root or one /v1 suffix. */
-export function keyClientAddresses(serverAddress: unknown, origin: string) {
-  const configured = typeof serverAddress === 'string' ? serverAddress.trim() : ''
-  const root = (configured || origin).replace(/\/+$/, '').replace(/\/v1$/, '')
-  return {
-    root,
-    openAI: `${root}/v1`,
-    source: configured ? ('setting' as const) : ('current' as const),
-  }
-}
+export const keyClientAddresses = gatewayClientAddresses
 
 /** Catalog candidates are configuration hints, never evidence of a live request. */
 export function keyClientModels(catalog: string[], scope?: KeyClientScope): string[] {

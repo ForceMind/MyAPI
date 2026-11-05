@@ -17,7 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import i18next from 'i18next'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useLayoutEffect } from 'react'
+
+import { useWalletSession, walletWriteIsUnknown, walletWriteErrorMessage, walletRequestConfig, walletPaymentScope, hasUnconfirmedWalletPayment, retainUnconfirmedWalletPayment } from './use-wallet-session'
 import { toast } from 'sonner'
 
 import {
@@ -71,17 +73,35 @@ function getErrorMessage(message: string | undefined, data: unknown): string {
  * user-gesture context is lost across the await, so popups get blocked.
  */
 export function useWaffoPancakePayment() {
+  const isCurrent = useWalletSession()
+  const paymentFlight = useRef(false)
+  const paymentOwner = useRef(walletPaymentScope())
+  const unknownRef = useRef(hasUnconfirmedWalletPayment('wallet-payment', paymentOwner.current))
+  const [outcomeUnknown, setOutcomeUnknown] = useState(unknownRef.current)
+  useLayoutEffect(() => () => {
+    if (paymentFlight.current) retainUnconfirmedWalletPayment('wallet-payment', paymentOwner.current)
+  }, [])
   const [processing, setProcessing] = useState(false)
 
   const processWaffoPancakePayment = useCallback(
-    async (topupAmount: number) => {
+    async (topupAmount: number, taskCurrent?: () => boolean) => {
+      const owns = () => isCurrent() && (taskCurrent?.() ?? true)
+      if (!owns() || paymentFlight.current) return false
+      if (unknownRef.current || hasUnconfirmedWalletPayment('wallet-payment', paymentOwner.current)) {
+        unknownRef.current = true
+        setOutcomeUnknown(true)
+        return false
+      }
+      paymentFlight.current = true
+      setOutcomeUnknown(false)
       setProcessing(true)
 
       try {
         const response = await requestWaffoPancakePayment({
           amount: Math.floor(topupAmount),
-        })
+        }, walletRequestConfig(owns))
 
+        if (!owns()) return false
         if (isApiSuccess(response)) {
           const checkoutUrl = getCheckoutUrl(response.data)
 
@@ -103,18 +123,33 @@ export function useWaffoPancakePayment() {
         )
         return false
       } catch (error) {
-        toast.error(
-          isUserFundingUnavailableError(error)
-            ? i18next.t(USER_FUNDING_UNAVAILABLE_MESSAGE_KEY)
-            : i18next.t('Payment request failed')
-        )
+        if (!owns()) return false
+        const unknown = walletWriteIsUnknown(error)
+        if (unknown) {
+          unknownRef.current = true
+          retainUnconfirmedWalletPayment('wallet-payment', paymentOwner.current)
+        }
+        setOutcomeUnknown(unknown)
+        let message = i18next.t('Payment request failed')
+        if (isUserFundingUnavailableError(error)) message = i18next.t(USER_FUNDING_UNAVAILABLE_MESSAGE_KEY)
+        if (unknown) message = i18next.t('Payment request outcome is unknown. Check billing history before trying again.')
+        toast.error(walletWriteErrorMessage(error, message))
         return false
       } finally {
-        setProcessing(false)
+        paymentFlight.current = false
+        const unconfirmed = !owns()
+        if (unconfirmed) {
+          unknownRef.current = true
+          retainUnconfirmedWalletPayment('wallet-payment', paymentOwner.current)
+        }
+        if (isCurrent()) {
+          setProcessing(false)
+          if (unconfirmed) setOutcomeUnknown(true)
+        }
       }
     },
-    []
+    [isCurrent]
   )
 
-  return { processing, processWaffoPancakePayment }
+  return { processing, outcomeUnknown, processWaffoPancakePayment }
 }

@@ -70,6 +70,7 @@ import { formatQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { PaymentMethod, TopupInfo } from '../types'
+import { walletRequestConfig } from '../hooks/use-wallet-session'
 
 interface SubscriptionPlansCardProps {
   topupInfo: TopupInfo | null
@@ -173,7 +174,7 @@ function SubscriptionPlansSession({ topupInfo, onAvailabilityChange, userQuota, 
     setPlansReading(true)
     setPlansKnown(false)
     try {
-      const res = await getPublicPlans()
+      const res = await getPublicPlans(walletRequestConfig(isCurrent))
       if (!isCurrent() || generation !== plansRead.current) return
       if (!res.success || !Array.isArray(res.data)) throw new Error(res.message || t('Unable to load subscription plans'))
       setPlans(res.data)
@@ -193,7 +194,7 @@ function SubscriptionPlansSession({ topupInfo, onAvailabilityChange, userQuota, 
     setSelfKnown(false)
     setSelfError('')
     try {
-      const res = await getSelfSubscriptionFull()
+      const res = await getSelfSubscriptionFull(walletRequestConfig(isCurrent))
       if (!isCurrent() || generation !== selfRead.current) return
       const owner = useAuthStore.getState().auth.user?.id
       if (!res.success || !res.data || !Array.isArray(res.data.subscriptions) || !Array.isArray(res.data.all_subscriptions) || res.data.all_subscriptions.some((record) => owner != null && record.subscription.user_id !== owner) || res.data.subscriptions.some((record) => owner != null && record.subscription.user_id !== owner)) throw new Error(res.message || t('Unable to load subscriptions'))
@@ -238,7 +239,7 @@ function SubscriptionPlansSession({ topupInfo, onAvailabilityChange, userQuota, 
     const previous = billingPreference
     setBillingPreference(pref)
     try {
-      const res = await updateBillingPreference(pref)
+      const res = await updateBillingPreference(pref, walletRequestConfig(isCurrent))
       if (!isCurrent()) return
       if (res.success) {
         toast.success(t('Updated successfully'))

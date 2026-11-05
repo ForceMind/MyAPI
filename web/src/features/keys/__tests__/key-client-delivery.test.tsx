@@ -60,6 +60,90 @@ test('delivery offers Key-scoped candidates without selecting a model or reading
   expect(mocks.put).not.toHaveBeenCalled()
 })
 
+test.each([false, true])('delivery preserves allowed manual IDs with an empty or failed directory (failed=%s)', async (failed) => {
+  const mocks = mockKeysApi({
+    keys: [{ ...KEY_21, model_limits_enabled: true, model_limits: 'stored/legacy-model' }], logs: [], status: {},
+    extraGet: (path) => path === '/api/user/models'
+      ? { data: failed ? { success: false, message: 'Synthetic directory unavailable' } : { success: true, data: [] } } : undefined,
+  })
+  const user = userEvent.setup()
+  await renderKeysPage(client, '/keys/21?tab=delivery')
+  const region = await screen.findByRole('region', { name: 'Connection details' })
+  if (failed) expect(await within(region).findByRole('alert')).toHaveTextContent('Synthetic directory unavailable')
+  const input = within(region).getByRole('combobox', { name: 'Candidate model' })
+  await user.click(input)
+  await user.type(input, 'stored/legacy-model')
+  await user.keyboard('{Enter}{Tab}')
+  expect(input).toHaveValue('stored/legacy-model')
+  expect(within(region).getByRole('button', { name: 'Import to CC Switch' })).toBeEnabled()
+  expect(mocks.post).not.toHaveBeenCalled()
+  await user.click(screen.getByRole('button', { name: 'Open menu' }))
+  expect(screen.queryByRole('menuitem', { name: 'CC Switch' })).not.toBeInTheDocument()
+  expect(screen.getByRole('menuitem', { name: 'Copy Connection Info' })).toBeVisible()
+  await user.keyboard('{Escape}')
+  await user.click(within(region).getByRole('button', { name: 'Import to CC Switch' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Import to CC Switch' })
+  expect(within(dialog).getByRole('combobox', { name: 'Primary Model *' })).toHaveValue('stored/legacy-model')
+  expect(mocks.post).toHaveBeenCalledExactlyOnceWith('/api/token/21/key', undefined, expect.objectContaining({ skipAuthRefresh: true }))
+  expect(mocks.put).not.toHaveBeenCalled()
+  expect(window.open).not.toHaveBeenCalled()
+})
+
+test('a manually entered model outside this Key scope stays visible but cannot read or export its credential', async () => {
+  const mocks = mockKeysApi({
+    keys: [{ ...KEY_21, model_limits_enabled: true, model_limits: 'allowed-model' }], logs: [], status: {},
+    extraGet: (path) => path === '/api/user/models' ? { data: { success: true, data: [] } } : undefined,
+  })
+  const user = userEvent.setup()
+  await renderKeysPage(client, '/keys/21?tab=delivery')
+  const region = await screen.findByRole('region', { name: 'Connection details' })
+  const input = within(region).getByRole('combobox', { name: 'Candidate model' })
+  await user.click(input)
+  await user.type(input, 'forbidden-model')
+  await user.keyboard('{Enter}{Tab}')
+  expect(input).toHaveValue('forbidden-model')
+  expect(input).toHaveAttribute('aria-invalid', 'true')
+  expect(within(region).getByRole('alert')).toHaveTextContent('One or more model IDs are outside this Key’s restrictions.')
+  expect(within(region).getByRole('button', { name: 'Import to CC Switch' })).toBeDisabled()
+  expect(mocks.post).not.toHaveBeenCalled()
+  expect(mocks.put).not.toHaveBeenCalled()
+  expect(window.open).not.toHaveBeenCalled()
+})
+
+test('advanced connection copy and CC import use current status when the browser status cache cannot be updated', async () => {
+  localStorage.setItem('status', JSON.stringify({ server_address: 'https://old.gateway.invalid' }))
+  const write = Storage.prototype.setItem
+  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, name, value) {
+    if (name === 'status') throw new Error('Synthetic status storage unavailable')
+    write.call(this, name, value)
+  })
+  const mocks = mockKeysApi({
+    keys: [KEY_21], logs: [], status: { server_address: 'https://current.gateway.invalid/tenant/v1///' },
+    extraGet: (path) => path === '/api/user/models' ? { data: { success: true, data: [] } } : undefined,
+  })
+  const user = userEvent.setup()
+  await renderKeysPage(client, '/keys/21')
+  await screen.findByRole('heading', { level: 1, name: KEY_21.name })
+  await waitFor(() => expect(client.getQueryData(['status'])).toMatchObject({ server_address: 'https://current.gateway.invalid/tenant/v1///' }))
+  const clipboard = vi.spyOn(navigator.clipboard, 'writeText')
+  expect(mocks.post).not.toHaveBeenCalled()
+  await user.click(screen.getByRole('button', { name: 'Open menu' }))
+  await user.click(screen.getByRole('menuitem', { name: 'Copy Connection Info' }))
+  await waitFor(() => expect(clipboard).toHaveBeenCalledOnce())
+  const copied = clipboard.mock.calls[0]?.[0]
+  if (typeof copied !== 'string') throw new Error('Expected explicit connection information')
+  expect(JSON.parse(copied)).toMatchObject({ _type: 'newapi_channel_conn', url: 'https://current.gateway.invalid/tenant' })
+  await user.click(screen.getByRole('button', { name: 'Open menu' }))
+  await user.click(screen.getByRole('menuitem', { name: 'CC Switch' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Import to CC Switch' })
+  expect(within(dialog).getByText('https://current.gateway.invalid/tenant')).toBeVisible()
+  expect(within(dialog).getByText('From the server address setting')).toBeVisible()
+  expect(within(dialog).queryByText('https://old.gateway.invalid')).not.toBeInTheDocument()
+  expect(mocks.post).toHaveBeenCalledOnce()
+  expect(mocks.put).not.toHaveBeenCalled()
+  expect(window.open).not.toHaveBeenCalled()
+})
+
 test('delivery opens the original scope tab while preserving list return context', async () => {
   const mocks = mockKeysApi({ keys: [KEY_21], logs: [], status: {} })
   const user = userEvent.setup()

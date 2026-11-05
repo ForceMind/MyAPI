@@ -109,7 +109,7 @@ function RoutingFieldControl(props: Props & { actorId: number | undefined; actor
     setReadError('')
     setPhase('reading')
     try {
-      const response = await getChannel(props.channelId, { disableDuplicate: true, skipErrorHandler: true })
+      const response = await getChannel(props.channelId, { disableDuplicate: true, skipErrorHandler: true, isCurrentScope: isCurrent })
       if (!isCurrent() || !mounted.current) return
       const saved = response.data?.[props.field]
       if (!response.success || response.data?.id !== props.channelId || typeof saved !== 'number' || !Number.isFinite(saved)) {

@@ -19,6 +19,11 @@ For commercial licensing, please contact support@quantumnous.com
 import { EXCLUDED_GROUPS, FILTER_ALL, QUOTA_TYPE_VALUES } from '../constants'
 import type { PricingModel } from '../types'
 
+/** Missing public price metadata does not establish an explicitly free request. */
+export function hasRequestPrice(model: PricingModel): boolean {
+  return typeof model.model_price === 'number' && Number.isFinite(model.model_price)
+}
+
 // ----------------------------------------------------------------------------
 // Model Helper Utilities
 // ----------------------------------------------------------------------------

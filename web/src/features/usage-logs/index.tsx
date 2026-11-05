@@ -40,6 +40,7 @@ import {
   useUsageLogsContext,
 } from './components/usage-logs-provider'
 import { UsageLogsTable } from './components/usage-logs-table'
+import { requestReturnActorKey, useCaptureRequestReturn } from './lib/request-return-state'
 import {
   isUsageLogsSectionId,
   USAGE_LOGS_DEFAULT_SECTION,
@@ -240,14 +241,15 @@ function UsageLogsContent() {
 }
 
 export function UsageLogs() {
-  const actorKey = useAuthStore(
-    (state) =>
-      `${state.auth.user?.id ?? ''}:${state.auth.user?.role ?? ''}:${state.auth.session?.sid ?? ''}`
-  )
+  const actorKey = useAuthStore((state) => requestReturnActorKey(state.auth))
   const funding = useFundingPresentation()
   const rememberFocus = useRememberReturnFocus()
+  const returnState = useCaptureRequestReturn(actorKey)
   return (
-    <UsageLogsProvider key={actorKey} showCosts={funding.commercialEnabled} onRequestOpen={(logId) => rememberFocus('data-usage-request-link', logId)}>
+    <UsageLogsProvider key={actorKey} initialViewScope={returnState.initialViewScope} showCosts={funding.commercialEnabled} onRequestOpen={(logId, scope) => {
+      returnState.capture(logId, scope)
+      rememberFocus('data-usage-request-link', logId)
+    }}>
       <UsageLogsContent />
     </UsageLogsProvider>
   )

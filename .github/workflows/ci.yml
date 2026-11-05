@@ -66,7 +66,7 @@ jobs:
 
       - name: Verify connection relationship Go formatting
         run: |
-          files=(controller/subscription_share.go controller/subscription_share_connections_test.go model/subscription_share_connections.go model/subscription_share_connections_test.go model/subscription_share_database_test.go router/api-router.go)
+          files=(controller/token.go controller/token_creation_identity_test.go controller/subscription_share.go controller/subscription_share_connections_test.go model/subscription_share_connections.go model/subscription_share_connections_test.go model/subscription_share_database_test.go router/api-router.go)
           unformatted="$(gofmt -l "${files[@]}")"
           if [ -n "$unformatted" ]; then
             printf '%s\n' "$unformatted"
@@ -85,6 +85,9 @@ jobs:
 
       - name: Verify scoped management keys and API boundaries
         run: go test -race -p 1 ./model ./service ./middleware ./controller ./router -run '^Test(Management|Operations)' -count=1 -timeout=180s -v
+
+      - name: Verify exact created Key identity without credential disclosure
+        run: go test -race -p 1 ./controller -run '^TestAddToken(ReturnsOnlyTheExactCreatedIdentity|RejectedCreationDoesNotReturnAnIdentity)$' -count=1 -timeout=180s -v
 
       - name: Verify approximate subscription share boundaries
         run: go test -p 1 ./model ./service ./middleware ./controller ./relay/channel -run '^TestSubscriptionShare' -count=1 -timeout=180s
@@ -605,6 +608,20 @@ jobs:
           bun run typecheck || myapi_source_checks_status=1
           bun run lint || myapi_source_checks_status=1
           exit "$myapi_source_checks_status"
+
+      - name: Verify scoped reads and complete UI task handoffs
+        run: >-
+          bun run test src/lib/__tests__/http-client-scope.test.ts
+          src/features/keys/__tests__/api-create-identity.test.ts
+          src/features/keys/__tests__/key-creation-handoff.test.tsx
+          src/features/keys/lib/__tests__/key-expiry.test.ts
+          src/features/full-content-logs/__tests__/api-read-limit.test.ts
+          src/features/usage-logs/lib/__tests__/request-return-state.test.ts
+          src/features/wallet/hooks/__tests__
+          src/features/wallet/lib/__tests__
+          src/features/wallet/components/__tests__/wallet-session-workspace.test.tsx
+          src/features/subscriptions/components/dialogs/__tests__/subscription-payment-session.test.tsx
+          src/features/rankings/__tests__/models-section-totals.test.tsx
 
       - name: Verify Key delivery and saved connection evidence contracts
         run: |

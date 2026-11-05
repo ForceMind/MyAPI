@@ -39,6 +39,7 @@ interface ComboboxInputProps {
   id?: string
   allowCustomValue?: boolean
   openOnFocus?: boolean
+  'aria-invalid'?: React.AriaAttributes['aria-invalid']
 }
 
 export function ComboboxInput({
@@ -51,6 +52,7 @@ export function ComboboxInput({
   id,
   allowCustomValue = false,
   openOnFocus = true,
+  'aria-invalid': ariaInvalid,
 }: ComboboxInputProps) {
   const { t } = useTranslation()
   const [open, setOpen] = React.useState(false)
@@ -168,6 +170,7 @@ export function ComboboxInput({
         aria-expanded={open}
         aria-haspopup='listbox'
         aria-autocomplete='list'
+        aria-invalid={ariaInvalid}
         autoComplete='off'
         placeholder={placeholder}
         value={displayValue}

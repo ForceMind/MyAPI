@@ -16,13 +16,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { AxiosError } from 'axios'
+import { AxiosError, isCancel } from 'axios'
 import i18next from 'i18next'
 import { toast } from 'sonner'
 
 import { getServerErrorMessageKey } from '@/lib/server-error-message'
 
+/** Canceled observers and callers with local error UI must not trigger global navigation or notices. */
+export function skipGlobalErrorHandling(error: unknown): boolean {
+  return isCancel(error) || (error instanceof AxiosError && error.config?.skipErrorHandler === true)
+}
+
 export function handleServerError(error: unknown) {
+  if (skipGlobalErrorHandling(error)) return
   // eslint-disable-next-line no-console
   console.log(error)
 

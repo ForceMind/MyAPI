@@ -54,3 +54,10 @@ test('an account that could not be read shows Unknown, never a zero balance or u
     )
   }
 })
+
+test('a partial verified account keeps its known zero and usage while its missing balance stays Unknown', () => {
+  render(<WalletStatsCard showBalance user={{ id: 1, username: 'fixture', group: 'default', request_count: 0, used_quota: 20 }} />)
+  expect(screen.getByText('Current Balance').nextElementSibling).toHaveTextContent(/^Unknown$/)
+  expect(screen.getByText('Total Usage').nextElementSibling).not.toHaveTextContent('Unknown')
+  expect(screen.getByText('API Requests').nextElementSibling).toHaveTextContent(/^0$/)
+})

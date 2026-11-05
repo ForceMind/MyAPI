@@ -82,7 +82,6 @@ const API_KEYS_DEFAULT_HIDDEN_COLUMNS = {
   group: false,
   allow_ips: false,
   created_time: false,
-  expired_time: false,
 }
 const API_KEYS_MOBILE_SKELETON_IDS = Array.from(
   { length: 5 },
@@ -142,6 +141,7 @@ function ApiKeyMobileCard(props: { row: Row<ApiKey>; showQuota: boolean }) {
         <div className='min-w-0'><dt className='text-caption text-muted-foreground'>{t('Models')}</dt><dd className='min-w-0'>{renderCell('model_limits')}</dd></div>
         {props.showQuota && <div className='min-w-0'><dt className='text-caption text-muted-foreground'>{t('Quota')}</dt><dd className='min-w-0'>{renderCell('quota')}</dd></div>}
         <div className='min-w-0'><dt className='text-caption text-muted-foreground'>{t('Last used')}</dt><dd className='min-w-0'>{renderCell('accessed_time')}</dd></div>
+        <div className='min-w-0'><dt className='text-caption text-muted-foreground'>{t('Expires')}</dt><dd className='min-w-0'>{renderCell('expired_time')}</dd></div>
       </dl>
       <details className='min-w-0 rounded-lg border p-3'>
         <summary className='text-body flex min-h-11 cursor-pointer items-center font-medium'>{t('More details')}</summary>
@@ -149,7 +149,6 @@ function ApiKeyMobileCard(props: { row: Row<ApiKey>; showQuota: boolean }) {
           <div className='min-w-0'><dt className='text-caption text-muted-foreground'>{t('Group')}</dt><dd className='min-w-0'>{renderCell('group')}</dd></div>
           <div className='min-w-0'><dt className='text-caption text-muted-foreground'>{t('IP Restriction')}</dt><dd className='min-w-0'>{renderCell('allow_ips')}</dd></div>
           <div className='min-w-0'><dt className='text-caption text-muted-foreground'>{t('Created')}</dt><dd className='min-w-0'>{renderCell('created_time')}</dd></div>
-          <div className='min-w-0'><dt className='text-caption text-muted-foreground'>{t('Expires')}</dt><dd className='min-w-0'>{renderCell('expired_time')}</dd></div>
         </dl>
       </details>
       <div className='min-w-0 border-t pt-3'>{renderCell('actions')}</div>

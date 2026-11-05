@@ -68,6 +68,8 @@ export function SavedContentRenderer(props: {
   view?: 'body' | 'original' | 'stream'
   /** Keep the legacy dialog's Request and Response tabs. */
   tabbed?: boolean
+  /** The user explicitly loaded the same request at the bounded larger limit. */
+  expanded?: boolean
 }) {
   const { t } = useTranslation()
   const [showRaw, setShowRaw] = useState(false)
@@ -166,7 +168,7 @@ export function SavedContentRenderer(props: {
             </AlertDescription>
           </Alert>
         )}
-        <SavedStreamEvents key={props.detail.request_id} detail={props.detail} />
+        <SavedStreamEvents key={props.detail.request_id} detail={props.detail} expanded={props.expanded} />
         <SavedRecord
           title={t('Response headers')}
           values={props.detail.response_headers}

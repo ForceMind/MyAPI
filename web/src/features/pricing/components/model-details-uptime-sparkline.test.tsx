@@ -25,6 +25,7 @@ describe('uptime status presentation', () => {
     )
 
     expect(screen.getByText('No uptime data')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Uptime 96.50%' })).toBeVisible()
     expect(
       screen.getByText('Degraded performance recently')
     ).toBeInTheDocument()

@@ -27,6 +27,7 @@ import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 import { useFullContentLogDetail } from '../hooks/use-full-content-log-detail'
 import { formatLogBytes } from '../lib/format'
 import { SavedContentRenderer } from './saved-content-renderer'
+import { SavedContentReadMore } from './saved-content-read-more'
 
 // Retain the established import path for request-page and legacy consumers.
 export { ContentPanel } from './content-panel'
@@ -42,8 +43,8 @@ export function FullContentLogDetailsDialog(
 ) {
   const { t } = useTranslation()
   const isMobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
-  const { detailQuery, detail, contentError, canRead } =
-    useFullContentLogDetail(props.requestId, props.open)
+  const content = useFullContentLogDetail(props.requestId, props.open)
+  const { detailQuery, detail, contentError, canRead } = content
 
   return (
     <Dialog
@@ -132,7 +133,8 @@ export function FullContentLogDetailsDialog(
             </div>
           </div>
 
-          <SavedContentRenderer key={detail.request_id} detail={detail} tabbed />
+          <SavedContentReadMore content={content} />
+          <SavedContentRenderer key={detail.request_id} detail={detail} expanded={content.expanded} tabbed />
         </div>
       )}
     </Dialog>

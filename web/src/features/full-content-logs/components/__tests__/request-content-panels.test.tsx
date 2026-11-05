@@ -52,6 +52,86 @@ function panel(client: QueryClient, active: boolean, requestId: string | null = 
 }
 
 describe('saved request content panels', () => {
+  test('a truncated saved response is expanded only by an explicit bounded read while the existing preview stays visible', async () => {
+    const { read, client } = setup()
+    read.mockResolvedValueOnce({ success: true, data: { ...DETAIL, response_body_truncated: true, response_body_total_bytes: 2 * 1024 * 1024 } })
+    let release = () => {}
+    const pending = new Promise<void>((resolve) => { release = resolve })
+    read.mockImplementation(async () => { await pending; return { success: true, data: DETAIL } })
+    render(panel(client, true))
+    await screen.findByText('A saved answer')
+    expect(read).toHaveBeenCalledTimes(1)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Read more saved content (up to 16 MiB)' }))
+    expect(screen.getByText('A saved answer')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Read more saved content (up to 16 MiB)' })).toBeDisabled()
+    await act(async () => release())
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2))
+    expect(read.mock.calls[1]).toEqual([DETAIL.request_id, expect.any(AbortSignal), 16 * 1024 * 1024])
+  })
+
+  test('a failed expanded read keeps its explicit error and the previously read preview without pretending content is complete', async () => {
+    const { read, client } = setup()
+    read.mockResolvedValueOnce({ success: true, data: { ...DETAIL, response_body_truncated: true } })
+    read.mockRejectedValue(new Error('Synthetic expanded read failed'))
+    render(panel(client, true))
+    await screen.findByText('A saved answer')
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Read more saved content (up to 16 MiB)' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Synthetic expanded read failed')
+    expect(screen.getByText('A saved answer')).toBeVisible()
+  })
+
+  test('changing request identity cancels an expanded read and its late body never replaces the next request', async () => {
+    const { read, client } = setup()
+    read.mockResolvedValueOnce({ success: true, data: { ...DETAIL, response_body_truncated: true } })
+    let release = () => {}
+    let signal: AbortSignal | undefined
+    const pending = new Promise<void>((resolve) => { release = resolve })
+    read.mockImplementation(async (_id, readSignal, bytes) => {
+      if (bytes) { signal = readSignal; await pending; return { success: true, data: { ...DETAIL, response_body: 'LATE OLD SAVED BODY' } } }
+      return { success: true, data: { ...DETAIL, request_id: 'next-saved-request', response_body: '{"output_text":"Next saved answer"}' } }
+    })
+    const view = render(panel(client, true))
+    await screen.findByText('A saved answer')
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Read more saved content (up to 16 MiB)' }))
+    view.rerender(panel(client, true, 'next-saved-request'))
+    await screen.findByText('Next saved answer')
+    expect(signal?.aborted).toBe(true)
+    await act(async () => release())
+    expect(screen.queryByText('LATE OLD SAVED BODY')).not.toBeInTheDocument()
+  })
+
+  test('changing actors cancels the expanded read and does not grant the next actor an automatic expanded read', async () => {
+    const { read, client } = setup()
+    read.mockResolvedValueOnce({ success: true, data: { ...DETAIL, response_body_truncated: true } })
+    let release = () => {}
+    let signal: AbortSignal | undefined
+    const pending = new Promise<void>((resolve) => { release = resolve })
+    read.mockImplementation(async (_id, readSignal, bytes) => {
+      if (bytes) { signal = readSignal; await pending; return { success: true, data: { ...DETAIL, response_body: 'OLD ACTOR EXPANDED BODY' } } }
+      return { success: true, data: { ...DETAIL, response_body: '{"output_text":"Next actor saved answer"}' } }
+    })
+    render(panel(client, true))
+    await screen.findByText('A saved answer')
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Read more saved content (up to 16 MiB)' }))
+    act(() => useAuthStore.getState().auth.setUser({ id: 2, username: 'next-saved-viewer', role: 100 }))
+    await screen.findByText('Next actor saved answer')
+    expect(signal?.aborted).toBe(true)
+    await act(async () => release())
+    expect(screen.queryByText('OLD ACTOR EXPANDED BODY')).not.toBeInTheDocument()
+    expect(read.mock.calls.filter((call) => call[2] !== undefined)).toHaveLength(1)
+  })
+
+  test('the server truncation marker stays visible after the larger finite read reaches its limit', async () => {
+    const { read, client } = setup()
+    read.mockResolvedValue({ success: true, data: { ...DETAIL, response_body_truncated: true } })
+    render(panel(client, true))
+    await screen.findByText('A saved answer')
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Read more saved content (up to 16 MiB)' }))
+    expect(await screen.findByText('Saved content is still truncated at the 16 MiB read limit. The remainder is unavailable in this view.')).toBeVisible()
+    expect(read).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('button', { name: 'Read more saved content (up to 16 MiB)' })).not.toBeInTheDocument()
+  })
+
   test('body reads start only when active and the readable/original switch preserves all saved fields', async () => {
     const { read, client } = setup()
     const user = userEvent.setup()

@@ -39,11 +39,10 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useStatus } from '@/hooks/use-status'
+import { gatewayClientAddresses } from '@/lib/gateway-address'
 
 import {
-  buildRateLimits,
   buildSupportedParameters,
-  formatRateLimit,
   type SupportedParameter,
 } from '../lib/mock-stats'
 import { replaceModelInPath } from '../lib/model-helpers'
@@ -454,11 +453,8 @@ function CodeSamplesSection(props: {
       (status as Record<string, unknown> | null)?.serverAddress ??
       (status?.data as Record<string, unknown> | undefined)?.server_address ??
       (status?.data as Record<string, unknown> | undefined)?.serverAddress
-    if (candidate && typeof candidate === 'string') {
-      return candidate.replace(/\/$/, '')
-    }
-    if (typeof window !== 'undefined') return window.location.origin
-    return 'https://api.example.com'
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://api.example.com'
+    return gatewayClientAddresses(candidate, origin).root
   }, [status])
 
   const endpoints = useMemo(() => {
@@ -670,18 +666,17 @@ function ParamRangeCell(props: { param: SupportedParameter }) {
 
 function RateLimitsSection(props: { model: PricingModel }) {
   const { t } = useTranslation()
-  const limits = useMemo(() => buildRateLimits(props.model), [props.model])
-
-  if (limits.length === 0) return null
+  const groups = useMemo(() => [...new Set(props.model.enable_groups ?? [])]
+    .filter((group) => group && group !== 'auto').sort(), [props.model.enable_groups])
 
   return (
     <section>
       <SectionTitle icon={Gauge}>{t('Rate limits')}</SectionTitle>
-      <StaticDataTable
+      {groups.length === 0 ? <p className='text-muted-foreground text-sm'>{t('Unknown')}</p> : <StaticDataTable
         className={tableStyles.sectionContainer}
         headerRowClassName={tableStyles.mutedHeaderRow}
-        data={limits}
-        getRowKey={(limit) => limit.group}
+        data={groups}
+        getRowKey={(group) => group}
         getRowClassName={() => 'hover:bg-muted/20'}
         columns={[
           {
@@ -689,35 +684,33 @@ function RateLimitsSection(props: { model: PricingModel }) {
             header: t('Group'),
             className: 'h-9',
             cellClassName: 'py-2 font-mono',
-            cell: (limit) => limit.group,
+            cell: (group) => group,
           },
           {
             id: 'rpm',
             header: 'RPM',
             className: 'h-9 text-right',
             cellClassName: tableStyles.topNumericCell,
-            cell: (limit) => formatRateLimit(limit.rpm),
+            cell: () => t('Unknown'),
           },
           {
             id: 'tpm',
             header: 'TPM',
             className: 'h-9 text-right',
             cellClassName: tableStyles.topNumericCell,
-            cell: (limit) => formatRateLimit(limit.tpm),
+            cell: () => t('Unknown'),
           },
           {
             id: 'rpd',
             header: 'RPD',
             className: 'h-9 text-right',
             cellClassName: tableStyles.topNumericCell,
-            cell: (limit) => formatRateLimit(limit.rpd),
+            cell: () => t('Unknown'),
           },
         ]}
-      />
+      />}
       <p className='text-muted-foreground mt-2 text-[11px] leading-relaxed'>
-        {t(
-          'RPM = requests per minute, TPM = tokens per minute, RPD = requests per day. Limits apply per token group.'
-        )}
+        {t('This catalog does not provide actual rate-limit data.')}
       </p>
     </section>
   )

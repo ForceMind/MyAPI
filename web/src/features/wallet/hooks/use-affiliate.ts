@@ -21,23 +21,28 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
-import { getSelf } from '@/lib/api'
 import {
   isUserFundingUnavailableError,
   USER_FUNDING_UNAVAILABLE_MESSAGE_KEY,
 } from '@/lib/self-use-build'
 
-import { getAffiliateCode, transferAffiliateQuota } from '../api'
+import { getAffiliateCode, getWalletAccount, transferAffiliateQuota } from '../api'
 import { generateAffiliateLink } from '../lib'
+import { useWalletSession, walletRequestConfig, walletWriteIsUnknown, walletWriteErrorMessage } from './use-wallet-session'
 
 // ============================================================================
 // Affiliate Hook
 // ============================================================================
 
 export function useAffiliate() {
+  const isCurrent = useWalletSession()
+  const writeFlight = useRef(false)
+  const unknownTransfer = useRef(false)
+  const [outcomeUnknown, setOutcomeUnknown] = useState(false)
   const [affiliateCode, setAffiliateCode] = useState<string>('')
   const [affiliateLink, setAffiliateLink] = useState<string>('')
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [transferring, setTransferring] = useState(false)
   const { copyToClipboard } = useCopyToClipboard()
   // Idempotency key of the in-flight transfer attempt. Generated once per
@@ -50,30 +55,42 @@ export function useAffiliate() {
 
   // Fetch affiliate code
   const fetchAffiliateCode = useCallback(async () => {
+    if (!isCurrent()) return
     try {
       setLoading(true)
-      const response = await getAffiliateCode()
+      setError(null)
+      const response = await getAffiliateCode(walletRequestConfig(isCurrent))
 
+      if (!isCurrent()) return
       if (response.success && response.data) {
         setAffiliateCode(response.data)
         const link = generateAffiliateLink(response.data)
         setAffiliateLink(link)
+      } else {
+        setAffiliateCode('')
+        setAffiliateLink('')
+        setError(response.message || i18next.t('Referral information could not be read. Please retry.'))
       }
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to fetch affiliate code:', error)
+      if (!isCurrent()) return
+      setAffiliateCode('')
+      setAffiliateLink('')
+      setError(walletWriteErrorMessage(error, i18next.t('Referral information could not be read. Please retry.')))
     } finally {
-      setLoading(false)
+      if (isCurrent()) setLoading(false)
     }
-  }, [])
+  }, [isCurrent])
 
   // Copy affiliate link
   const copyAffiliateLink = useCallback(() => {
-    copyToClipboard(affiliateLink)
-  }, [affiliateLink, copyToClipboard])
+    if (isCurrent()) copyToClipboard(affiliateLink)
+  }, [affiliateLink, copyToClipboard, isCurrent])
 
   // Transfer affiliate quota to balance
-  const transferQuota = useCallback(async (quota: number): Promise<boolean> => {
+  const transferQuota = useCallback(async (quota: number, taskCurrent?: () => boolean): Promise<boolean> => {
+    const owns = () => isCurrent() && (taskCurrent?.() ?? true)
+    if (!owns() || writeFlight.current) return false
+    if (unknownTransfer.current && transferAttemptRef.current?.quota !== quota) return false
     if (
       !transferAttemptRef.current ||
       transferAttemptRef.current.quota !== quota
@@ -81,18 +98,26 @@ export function useAffiliate() {
       transferAttemptRef.current = { quota, requestId: crypto.randomUUID() }
     }
     const requestId = transferAttemptRef.current.requestId
+    writeFlight.current = true
     try {
       setTransferring(true)
       const response = await transferAffiliateQuota({
         quota,
         request_id: requestId,
-      })
+      }, walletRequestConfig(owns))
 
+      if (!owns()) return false
       if (response.success) {
+        unknownTransfer.current = false
+        setOutcomeUnknown(false)
         transferAttemptRef.current = null
         toast.success(response.message || i18next.t('Transfer successful'))
-        await getSelf()
-        return true
+        try {
+          await getWalletAccount(walletRequestConfig(owns))
+        } catch {
+          // The write was acknowledged. The wallet owns visible snapshot recovery.
+        }
+        return owns()
       }
 
       toast.error(
@@ -102,25 +127,34 @@ export function useAffiliate() {
       )
       return false
     } catch (error) {
-      toast.error(
-        isUserFundingUnavailableError(error)
-          ? i18next.t(USER_FUNDING_UNAVAILABLE_MESSAGE_KEY)
-          : i18next.t('Transfer failed')
-      )
+      if (!owns()) return false
+      const unknown = walletWriteIsUnknown(error)
+      if (unknown) unknownTransfer.current = true
+      setOutcomeUnknown(unknown || unknownTransfer.current)
+      let message = i18next.t('Transfer failed')
+      if (isUserFundingUnavailableError(error)) message = i18next.t(USER_FUNDING_UNAVAILABLE_MESSAGE_KEY)
+      if (unknown) message = i18next.t('Funding request outcome is unknown. Check current records and balances before retrying.')
+      toast.error(walletWriteErrorMessage(error, message))
       return false
     } finally {
-      setTransferring(false)
+      writeFlight.current = false
+      if (isCurrent()) {
+        setTransferring(false)
+        if (!owns()) { unknownTransfer.current = true; setOutcomeUnknown(true) }
+      }
     }
-  }, [])
+  }, [isCurrent])
 
   useEffect(() => {
     fetchAffiliateCode()
   }, [fetchAffiliateCode])
 
   return {
+    outcomeUnknown,
     affiliateCode,
     affiliateLink,
     loading,
+    error,
     transferring,
     copyAffiliateLink,
     transferQuota,

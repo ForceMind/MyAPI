@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils'
 
 import { API_KEY_STATUSES } from '../constants'
 import { checkedAddSafeIntegers } from '../lib/quota-display'
+import { keyExpiry } from '../lib/key-expiry'
 import type { ApiKey } from '../types'
 import { ApiKeyGroupCell } from './api-key-group-cell'
 import { ApiKeyNameCell, ApiKeyRowActionsCell } from './api-key-name-cell'
@@ -323,17 +324,18 @@ export function useApiKeysColumns(
       accessorKey: 'expired_time',
       header: t('Expires'),
       cell: ({ row }) => {
-        const expiredTime = row.getValue('expired_time') as number
-        if (expiredTime === -1) {
+        const expiry = keyExpiry(row.getValue('expired_time'))
+        if (expiry.kind !== 'dated') {
           return (
             <StatusBadge
-              label={t('Never')}
+              label={expiry.kind === 'never' ? t('Never') : t('Unknown')}
               variant='neutral'
               copyable={false}
               className='-ml-1.5'
             />
           )
         }
+        const expiredTime = expiry.timestamp
         const isExpired = expiredTime * 1000 < now
         return (
           <ApiKeyTimestampCell

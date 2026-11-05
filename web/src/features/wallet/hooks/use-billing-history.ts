@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import i18next from 'i18next'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react'
 import { toast } from 'sonner'
 
 import { useIsAdmin } from '@/hooks/use-admin'
@@ -30,12 +30,14 @@ import {
   isApiSuccess,
 } from '../api'
 import type { TopupRecord } from '../types'
+import { useWalletSession, walletRequestConfig, walletWriteIsUnknown, walletWriteErrorMessage } from './use-wallet-session'
 
 // ============================================================================
 // Billing History Hook
 // ============================================================================
 
 interface UseBillingHistoryOptions {
+  enabled?: boolean
   /** Initial page number */
   initialPage?: number
   /** Initial page size */
@@ -45,6 +47,10 @@ interface UseBillingHistoryOptions {
 export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
   const { initialPage = 1, initialPageSize = 10 } = options
   const isAdmin = useIsAdmin()
+  const isCurrent = useWalletSession()
+  const enabled = options.enabled !== false
+  const readActive = useRef(enabled)
+  const opening = useRef<object>({})
 
   const [records, setRecords] = useState<TopupRecord[]>([])
   const [total, setTotal] = useState<number | undefined>(undefined)
@@ -53,23 +59,33 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
   const [keyword, setKeyword] = useState('')
   const debouncedKeyword = useDebounce(keyword)
   const requestIdRef = useRef(0)
+  const completionFlight = useRef(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [completing, setCompleting] = useState(false)
+  const [completionUnknown, setCompletionUnknown] = useState(false)
+  const [completionFailure, setCompletionFailure] = useState<string | null>(null)
+
+  useLayoutEffect(() => {
+    opening.current = {}
+    readActive.current = enabled
+    if (!enabled) requestIdRef.current += 1
+  }, [enabled])
 
   /**
    * Fetch billing history
    */
   const fetchBillingHistory = useCallback(async () => {
+    if (!isCurrent() || !enabled || !readActive.current) return
     const requestId = ++requestIdRef.current
     setLoading(true)
     setError(null)
     try {
       const response = isAdmin
-        ? await getAllBillingHistory(page, pageSize, debouncedKeyword)
-        : await getUserBillingHistory(page, pageSize, debouncedKeyword)
+        ? await getAllBillingHistory(page, pageSize, debouncedKeyword, walletRequestConfig(() => isCurrent() && readActive.current && requestId === requestIdRef.current))
+        : await getUserBillingHistory(page, pageSize, debouncedKeyword, walletRequestConfig(() => isCurrent() && readActive.current && requestId === requestIdRef.current))
 
-      if (requestId !== requestIdRef.current) return
+      if (!isCurrent() || !readActive.current || requestId !== requestIdRef.current) return
 
       if (isApiSuccess(response) && response.data) {
         const items = response.data.items === null && response.data.total === 0
@@ -94,7 +110,7 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
         setError(response.message || i18next.t('Failed to load billing history'))
       }
     } catch (error) {
-      if (requestId !== requestIdRef.current) return
+      if (!isCurrent() || !readActive.current || requestId !== requestIdRef.current) return
 
       // eslint-disable-next-line no-console
       console.error('Failed to fetch billing history:', error)
@@ -103,44 +119,60 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
       setTotal(undefined)
       setError(error instanceof Error ? error.message : i18next.t('Failed to load billing history'))
     } finally {
-      if (requestId === requestIdRef.current) {
+      if (isCurrent() && readActive.current && requestId === requestIdRef.current) {
         setLoading(false)
       }
     }
-  }, [debouncedKeyword, isAdmin, page, pageSize])
+  }, [debouncedKeyword, enabled, isAdmin, isCurrent, page, pageSize])
 
   /**
    * Complete a pending order (admin only)
    */
   const handleCompleteOrder = useCallback(
     async (tradeNo: string) => {
+      if (!isCurrent() || !enabled || !readActive.current || completionFlight.current) return false
       if (!isAdmin) {
         toast.error(i18next.t('Admin access required'))
         return false
       }
 
+      const operation = opening.current
+      completionFlight.current = true
+      setCompletionUnknown(false)
+      setCompletionFailure(null)
       setCompleting(true)
       try {
-        const response = await completeOrder({ trade_no: tradeNo })
+        const response = await completeOrder({ trade_no: tradeNo }, walletRequestConfig(() => isCurrent() && readActive.current && operation === opening.current))
+        if (!isCurrent() || !readActive.current || operation !== opening.current) return false
         if (isApiSuccess(response)) {
           toast.success(i18next.t('Order completed successfully'))
           // Refresh the list
           await fetchBillingHistory()
-          return true
+          return isCurrent() && readActive.current
         } else {
-          toast.error(response.message || i18next.t('Failed to complete order'))
+          const message = response.message || i18next.t('Failed to complete order')
+          setCompletionFailure(message)
+          toast.error(message)
           return false
         }
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to complete order:', error)
-        toast.error(i18next.t('Failed to complete order'))
+        if (!isCurrent() || !readActive.current || operation !== opening.current) return false
+        const unknown = walletWriteIsUnknown(error)
+        const fallback = unknown ? i18next.t('Payment request outcome is unknown. Check billing history before trying again.') : i18next.t('Failed to complete order')
+        const message = walletWriteErrorMessage(error, fallback)
+        setCompletionUnknown(unknown)
+        setCompletionFailure(message)
+        toast.error(message)
         return false
       } finally {
-        setCompleting(false)
+        completionFlight.current = false
+        if (isCurrent()) {
+          setCompleting(false)
+          if (operation !== opening.current) setCompletionUnknown(true)
+        }
       }
     },
-    [isAdmin, fetchBillingHistory]
+    [enabled, isAdmin, fetchBillingHistory, isCurrent]
   )
 
   /**
@@ -169,10 +201,10 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
 
   // Fetch data after the search draft has settled.
   useEffect(() => {
-    if (keyword !== debouncedKeyword) return
+    if (!enabled || keyword !== debouncedKeyword) return
 
     fetchBillingHistory()
-  }, [debouncedKeyword, fetchBillingHistory, keyword])
+  }, [debouncedKeyword, enabled, fetchBillingHistory, keyword])
 
   return {
     records,
@@ -183,6 +215,8 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
     loading,
     error,
     completing,
+    completionUnknown,
+    completionFailure,
     isAdmin,
     handlePageChange,
     handlePageSizeChange,

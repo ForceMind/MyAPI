@@ -54,7 +54,8 @@ export async function getFullContentLogs(
 
 export async function getFullContentLogDetail(
   requestId: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  maxResponseBytes = 1024 * 1024
 ): Promise<ApiEnvelope<FullContentLogDetail>> {
   const response = await api.get(
     `/api/full-content-logs/${encodeURIComponent(requestId)}`,
@@ -62,7 +63,7 @@ export async function getFullContentLogDetail(
       signal,
       skipErrorHandler: true,
       skipBusinessError: true,
-      params: { max_response_bytes: 1024 * 1024 },
+      params: { max_response_bytes: maxResponseBytes },
     }
   )
   return response.data as ApiEnvelope<FullContentLogDetail>

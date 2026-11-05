@@ -73,6 +73,15 @@ export function ApiKeys() {
       key={`${userId}:${role}:${sessionId}`}
       viewRequests={openKey}
       openKey={openKey}
+      configureKey={(id) => {
+        rememberFocus('data-inspect-id', id)
+        void navigate({
+          to: '/keys/$keyId',
+          params: { keyId: String(id) },
+          search: { tab: 'delivery', keyReturn: listContext },
+          state: { inspectorBack: true },
+        })
+      }}
       requestFocusId={search.focusKeyId}
     >
       <SectionPageLayout fixedContent={false}>

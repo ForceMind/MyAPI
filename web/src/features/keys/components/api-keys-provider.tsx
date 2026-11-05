@@ -31,6 +31,7 @@ type ApiKeysContextType = {
   viewRequests?: (key: ApiKey) => void
   /** Opens a Key's page; absent outside the Keys list. */
   openKey?: (key: ApiKey) => void
+  configureKey?: (id: number) => void
   requestFocusId?: number
   /** Told after a confirmed deletion, so the Key's page can close. */
   onKeysDeleted?: (ids: number[]) => void
@@ -56,6 +57,7 @@ export function ApiKeysProvider(props: {
   children: React.ReactNode
   viewRequests?: (key: ApiKey) => void
   openKey?: (key: ApiKey) => void
+  configureKey?: (id: number) => void
   requestFocusId?: number
   onKeysDeleted?: (ids: number[]) => void
 }) {
@@ -189,6 +191,7 @@ export function ApiKeysProvider(props: {
       value={{
         viewRequests: props.viewRequests,
         openKey: props.openKey,
+        configureKey: props.configureKey,
         requestFocusId: props.requestFocusId,
         onKeysDeleted: props.onKeysDeleted,
         open,

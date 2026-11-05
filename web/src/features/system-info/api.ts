@@ -16,17 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { api } from '@/lib/api'
+import { api, type ApiRequestConfig } from '@/lib/api'
 
 import type {
   SystemInstanceDeleteResponse,
   SystemInstanceListResponse,
 } from './types'
 
-export async function listSystemInstances() {
-  const res = await api.get<SystemInstanceListResponse>(
-    '/api/system-info/instances'
-  )
+export async function listSystemInstances(config?: ApiRequestConfig) {
+  const res = config ? await api.get<SystemInstanceListResponse>('/api/system-info/instances', config) : await api.get<SystemInstanceListResponse>('/api/system-info/instances')
   return res.data
 }
 

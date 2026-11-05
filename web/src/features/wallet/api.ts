@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { api } from '@/lib/api'
+import { api, type ApiRequestConfig } from '@/lib/api'
 
 import type {
   RedemptionRequest,
@@ -55,8 +55,8 @@ export function isApiSuccess(response: ApiResponse): boolean {
 /**
  * Get topup configuration info
  */
-export async function getTopupInfo(): Promise<TopupInfoResponse> {
-  const res = await api.get('/api/user/topup/info')
+export async function getTopupInfo(config?: ApiRequestConfig): Promise<TopupInfoResponse> {
+  const res = config ? await api.get('/api/user/topup/info', config) : await api.get('/api/user/topup/info')
   return res.data
 }
 
@@ -64,9 +64,10 @@ export async function getTopupInfo(): Promise<TopupInfoResponse> {
  * Redeem a topup code
  */
 export async function redeemTopupCode(
-  request: RedemptionRequest
+  request: RedemptionRequest,
+  config?: ApiRequestConfig
 ): Promise<RedemptionResponse> {
-  const res = await api.post('/api/user/topup', request, { skipAuthRefresh: true })
+  const res = await api.post('/api/user/topup', request, { ...config, skipAuthRefresh: true })
   return res.data
 }
 
@@ -74,10 +75,12 @@ export async function redeemTopupCode(
  * Calculate payment amount for regular payment
  */
 export async function calculateAmount(
-  request: AmountRequest
+  request: AmountRequest,
+  config?: ApiRequestConfig
 ): Promise<AmountResponse> {
   const res = await api.post('/api/user/amount', request, {
     skipBusinessError: true,
+    ...config,
   } as Record<string, unknown>)
   return res.data
 }
@@ -86,10 +89,12 @@ export async function calculateAmount(
  * Calculate payment amount for Stripe payment
  */
 export async function calculateStripeAmount(
-  request: AmountRequest
+  request: AmountRequest,
+  config?: ApiRequestConfig
 ): Promise<AmountResponse> {
   const res = await api.post('/api/user/stripe/amount', request, {
     skipBusinessError: true,
+    ...config,
   } as Record<string, unknown>)
   return res.data
 }
@@ -98,10 +103,12 @@ export async function calculateStripeAmount(
  * Calculate payment amount for Waffo payment
  */
 export async function calculateWaffoAmount(
-  request: AmountRequest
+  request: AmountRequest,
+  config?: ApiRequestConfig
 ): Promise<AmountResponse> {
   const res = await api.post('/api/user/waffo/amount', request, {
     skipBusinessError: true,
+    ...config,
   } as Record<string, unknown>)
   return res.data
 }
@@ -110,10 +117,12 @@ export async function calculateWaffoAmount(
  * Request regular payment
  */
 export async function requestPayment(
-  request: PaymentRequest
+  request: PaymentRequest,
+  config?: ApiRequestConfig
 ): Promise<PaymentResponse> {
   const res = await api.post('/api/user/pay', request, {
     skipBusinessError: true,
+    ...config,
     skipAuthRefresh: true,
   } as Record<string, unknown>)
   return {
@@ -126,10 +135,12 @@ export async function requestPayment(
  * Request Stripe payment
  */
 export async function requestStripePayment(
-  request: PaymentRequest
+  request: PaymentRequest,
+  config?: ApiRequestConfig
 ): Promise<StripePaymentResponse> {
   const res = await api.post('/api/user/stripe/pay', request, {
     skipBusinessError: true,
+    ...config,
     skipAuthRefresh: true,
   } as Record<string, unknown>)
   return res.data
@@ -139,10 +150,12 @@ export async function requestStripePayment(
  * Request Creem payment
  */
 export async function requestCreemPayment(
-  request: CreemPaymentRequest
+  request: CreemPaymentRequest,
+  config?: ApiRequestConfig
 ): Promise<CreemPaymentResponse> {
   const res = await api.post('/api/user/creem/pay', request, {
     skipBusinessError: true,
+    ...config,
     skipAuthRefresh: true,
   } as Record<string, unknown>)
   return res.data
@@ -152,10 +165,12 @@ export async function requestCreemPayment(
  * Request Waffo payment
  */
 export async function requestWaffoPayment(
-  request: WaffoPaymentRequest
+  request: WaffoPaymentRequest,
+  config?: ApiRequestConfig
 ): Promise<WaffoPaymentResponse> {
   const res = await api.post('/api/user/waffo/pay', request, {
     skipBusinessError: true,
+    ...config,
     skipAuthRefresh: true,
   } as Record<string, unknown>)
   return res.data
@@ -165,10 +180,12 @@ export async function requestWaffoPayment(
  * Calculate payment amount for Waffo Pancake payment
  */
 export async function calculateWaffoPancakeAmount(
-  request: AmountRequest
+  request: AmountRequest,
+  config?: ApiRequestConfig
 ): Promise<AmountResponse> {
   const res = await api.post('/api/user/waffo-pancake/amount', request, {
     skipBusinessError: true,
+    ...config,
   } as Record<string, unknown>)
   return res.data
 }
@@ -177,10 +194,12 @@ export async function calculateWaffoPancakeAmount(
  * Request Waffo Pancake payment
  */
 export async function requestWaffoPancakePayment(
-  request: WaffoPancakePaymentRequest
+  request: WaffoPancakePaymentRequest,
+  config?: ApiRequestConfig
 ): Promise<WaffoPancakePaymentResponse> {
   const res = await api.post('/api/user/waffo-pancake/pay', request, {
     skipBusinessError: true,
+    ...config,
     skipAuthRefresh: true,
   } as Record<string, unknown>)
   return res.data
@@ -189,8 +208,8 @@ export async function requestWaffoPancakePayment(
 /**
  * Get affiliate code
  */
-export async function getAffiliateCode(): Promise<AffiliateCodeResponse> {
-  const res = await api.get('/api/user/aff')
+export async function getAffiliateCode(config?: ApiRequestConfig): Promise<AffiliateCodeResponse> {
+  const res = config ? await api.get('/api/user/aff', config) : await api.get('/api/user/aff')
   return res.data
 }
 
@@ -198,9 +217,10 @@ export async function getAffiliateCode(): Promise<AffiliateCodeResponse> {
  * Transfer affiliate quota to balance
  */
 export async function transferAffiliateQuota(
-  request: AffiliateTransferRequest
+  request: AffiliateTransferRequest,
+  config?: ApiRequestConfig
 ): Promise<AffiliateTransferResponse> {
-  const res = await api.post('/api/user/aff_transfer', request, { skipAuthRefresh: true })
+  const res = await api.post('/api/user/aff_transfer', request, { ...config, skipAuthRefresh: true })
   return res.data
 }
 
@@ -210,7 +230,8 @@ export async function transferAffiliateQuota(
 export async function getUserBillingHistory(
   page: number,
   pageSize: number,
-  keyword?: string
+  keyword?: string,
+  config?: ApiRequestConfig
 ): Promise<ApiResponse<BillingHistoryResponse>> {
   const params = new URLSearchParams({
     p: page.toString(),
@@ -219,7 +240,7 @@ export async function getUserBillingHistory(
   if (keyword) {
     params.append('keyword', keyword)
   }
-  const res = await api.get(`/api/user/topup/self?${params.toString()}`)
+  const res = config ? await api.get(`/api/user/topup/self?${params.toString()}`, config) : await api.get(`/api/user/topup/self?${params.toString()}`)
   return res.data
 }
 
@@ -229,7 +250,8 @@ export async function getUserBillingHistory(
 export async function getAllBillingHistory(
   page: number,
   pageSize: number,
-  keyword?: string
+  keyword?: string,
+  config?: ApiRequestConfig
 ): Promise<ApiResponse<BillingHistoryResponse>> {
   const params = new URLSearchParams({
     p: page.toString(),
@@ -238,7 +260,7 @@ export async function getAllBillingHistory(
   if (keyword) {
     params.append('keyword', keyword)
   }
-  const res = await api.get(`/api/user/topup?${params.toString()}`)
+  const res = config ? await api.get(`/api/user/topup?${params.toString()}`, config) : await api.get(`/api/user/topup?${params.toString()}`)
   return res.data
 }
 
@@ -246,8 +268,16 @@ export async function getAllBillingHistory(
  * Complete a pending order (admin only)
  */
 export async function completeOrder(
-  request: CompleteOrderRequest
+  request: CompleteOrderRequest,
+  config?: ApiRequestConfig
 ): Promise<ApiResponse> {
-  const res = await api.post('/api/user/topup/complete', request, { skipAuthRefresh: true })
+  const res = await api.post('/api/user/topup/complete', request, { ...config, skipAuthRefresh: true })
+  return res.data
+}
+
+
+/** The wallet reads only its current account; default options match the existing self read. */
+export async function getWalletAccount(config?: ApiRequestConfig): Promise<ApiResponse> {
+  const res = await api.get('/api/user/self', { skipErrorHandler: true, ...config })
   return res.data
 }

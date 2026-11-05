@@ -37,6 +37,18 @@ const PERIOD_DESCRIPTIONS: Record<RankingPeriod, string> = {
 
 const TOOLTIP_MAX_ROWS = 10
 
+/** A displayed total is known only when every contributing count and the sum are safe. */
+function knownTokenTotal(values: unknown[], numericText = false): number | null {
+  let total = 0
+  for (const raw of values) {
+    // Chart callback values can be numeric text; absent/empty text is never zero.
+    const value = numericText && typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : raw
+    if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0 || value > Number.MAX_SAFE_INTEGER - total) return null
+    total += value
+  }
+  return total
+}
+
 type ModelsSectionProps = {
   history: ModelHistorySeries
   rows: ModelRanking[]
@@ -73,9 +85,12 @@ export function ModelsSection(props: ModelsSectionProps) {
   }, [props.history])
 
   const totalTokens = useMemo(
-    () => props.rows.reduce((s, r) => s + r.total_tokens, 0),
+    () => knownTokenTotal(props.rows.map((row) => row.total_tokens)),
     [props.rows]
   )
+  const displayRows = useMemo(() => props.rows.map((row) => knownTokenTotal([row.total_tokens]) === null
+    ? { ...row, total_tokens: Number.NaN }
+    : row), [props.rows])
 
   const spec = useMemo(() => {
     if (orderedPoints.length === 0) return null
@@ -115,8 +130,10 @@ export function ModelsSection(props: ModelsSectionProps) {
             {
               key: (datum: Record<string, unknown>) =>
                 String(datum?.model ?? ''),
-              value: (datum: Record<string, unknown>) =>
-                typeof datum?.tokens === 'number' && Number.isFinite(datum.tokens) ? formatTokens(datum.tokens) : t('Unknown'),
+              value: (datum: Record<string, unknown>) => {
+                const value = knownTokenTotal([datum?.tokens])
+                return value === null ? t('Unknown') : formatTokens(value)
+              },
             },
           ],
         },
@@ -130,31 +147,28 @@ export function ModelsSection(props: ModelsSectionProps) {
               key: (datum: Record<string, unknown>) =>
                 String(datum?.model ?? ''),
               value: (datum: Record<string, unknown>) =>
-                typeof datum?.tokens === 'number' && Number.isFinite(datum.tokens) ? datum.tokens : Number.NaN,
+                knownTokenTotal([datum?.tokens]) ?? Number.NaN,
             },
           ],
           updateContent: (
             array: Array<{ key: string; value: string | number }>
           ) => {
             array.sort((a, b) => Number(b.value) - Number(a.value))
-            const sum = array.reduce((s, x) => s + (Number(x.value) || 0), 0)
+            const sum = knownTokenTotal(array.map((item) => item.value), true)
             const visible = array.slice(0, TOOLTIP_MAX_ROWS)
             const overflow = array.slice(TOOLTIP_MAX_ROWS)
-            const result = visible.map((item) => ({
-              key: item.key,
-              value: Number.isFinite(Number(item.value)) ? formatTokens(Number(item.value)) : t('Unknown'),
-            }))
+            const result = visible.map((item) => {
+              const value = knownTokenTotal([item.value], true)
+              return { key: item.key, value: value === null ? t('Unknown') : formatTokens(value) }
+            })
             if (overflow.length > 0) {
-              const otherSum = overflow.reduce(
-                (s, item) => s + (Number(item.value) || 0),
-                0
-              )
+              const otherSum = knownTokenTotal(overflow.map((item) => item.value), true)
               result.push({
                 key: t('+{{count}} more', { count: overflow.length }),
-                value: overflow.every((item) => Number.isFinite(Number(item.value))) ? formatTokens(otherSum) : t('Unknown'),
+                value: otherSum === null ? t('Unknown') : formatTokens(otherSum),
               })
             }
-            result.unshift({ key: t('Total:'), value: array.every((item) => Number.isFinite(Number(item.value))) ? formatTokens(sum) : t('Unknown') })
+            result.unshift({ key: t('Total:'), value: sum === null ? t('Unknown') : formatTokens(sum) })
             return result
           },
         },
@@ -178,7 +192,7 @@ export function ModelsSection(props: ModelsSectionProps) {
         </div>
         <div className='shrink-0 text-right'>
           <div className='text-foreground font-mono text-2xl font-semibold tabular-nums'>
-            {formatTokens(totalTokens)}
+            {totalTokens === null ? t('Unknown') : formatTokens(totalTokens)}
           </div>
           <div className='text-muted-foreground/80 text-[10px] font-medium tracking-widest uppercase'>
             {t('tokens')}
@@ -223,7 +237,7 @@ export function ModelsSection(props: ModelsSectionProps) {
           </div>
         ) : (
           <div className='px-5 pt-1 pb-4'>
-            <ModelLeaderboard key={props.period} rows={props.rows} />
+            <ModelLeaderboard key={props.period} rows={displayRows} />
           </div>
         )}
       </div>

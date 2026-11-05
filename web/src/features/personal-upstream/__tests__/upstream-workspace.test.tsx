@@ -30,6 +30,59 @@ async function mount(options: Parameters<typeof mountConnections>[0]) {
   return fixture
 }
 
+test('an explicit missing account never borrows another account or its Key context', async () => {
+  const fixture = await mount({ entry: '/upstream-accounts?channelId=99&keyId=21', windows: [sample] })
+  expect(await screen.findByText('The selected account has no observations in this view. Choose an account explicitly.')).toBeVisible()
+  const picker = screen.getByRole('complementary', { name: 'Select upstream account' })
+  expect(within(picker).getByRole('button', { name: 'Synthetic account' })).toHaveAttribute('aria-pressed', 'false')
+  expect(screen.queryByTestId('native-window-card')).not.toBeInTheDocument()
+  expect(screen.queryByRole('combobox', { name: 'Select an API Key' })).not.toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Manage account connection' })).toHaveAttribute('href', expect.stringContaining('/connections/99'))
+  expect(fixture.requests.some((request) => request.path === '/api/token/21/subscription-share')).toBe(false)
+  await userEvent.setup().click(within(picker).getByRole('button', { name: 'Synthetic account' }))
+  await waitFor(() => expect(fixture.router.state.location.search).toMatchObject({ channelId: 7 }))
+  expect(fixture.router.state.location.search.keyId).toBeUndefined()
+  expect(await screen.findByTestId('native-window-card')).toBeVisible()
+  expect(fixture.requests.every((request) => request.method === 'get')).toBe(true)
+})
+
+test('filtering out an explicitly selected account keeps its identity until another account is chosen', async () => {
+  const fixture = await mount({ entry: '/upstream-accounts?channelId=7', windows: [sample, { ...sample, channel_id: 8, series_id: 'other-account', name: 'Other account' }] })
+  await screen.findByRole('heading', { name: 'Synthetic account' })
+  const user = userEvent.setup()
+  await user.type(screen.getByRole('textbox', { name: 'Account or connection' }), 'Other')
+  await user.click(screen.getByRole('button', { name: 'Search' }))
+  expect(await screen.findByText('The selected account has no observations in this view. Choose an account explicitly.')).toBeVisible()
+  expect(fixture.router.state.location.search.channelId).toBe(7)
+  expect(screen.queryByTestId('native-window-card')).not.toBeInTheDocument()
+  const picker = screen.getByRole('complementary', { name: 'Select upstream account' })
+  expect(within(picker).getByRole('button', { name: 'Other account' })).toHaveAttribute('aria-pressed', 'false')
+  await user.click(within(picker).getByRole('button', { name: 'Other account' }))
+  await waitFor(() => expect(fixture.router.state.location.search.channelId).toBe(8))
+  expect(await screen.findByTestId('native-window-card')).toBeVisible()
+})
+
+test('a saved-data refresh does not change the initially displayed account when returned order changes', async () => {
+  const other = { ...sample, channel_id: 8, series_id: 'other-account', name: 'Other account' }
+  const fixture = await mount({ entry: '/upstream-accounts', windows: [sample, other] })
+  await screen.findByRole('heading', { name: 'Synthetic account' })
+  fixture.state.windows = [other, sample]
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Refresh account windows' }))
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Refresh account windows' })).not.toBeDisabled())
+  const picker = screen.getByRole('complementary', { name: 'Select upstream account' })
+  expect(within(picker).getByRole('button', { name: 'Synthetic account' })).toHaveAttribute('aria-pressed', 'true')
+  expect(within(picker).getByRole('button', { name: 'Other account' })).toHaveAttribute('aria-pressed', 'false')
+  expect(screen.getByRole('heading', { name: 'Synthetic account' })).toBeVisible()
+  await userEvent.setup().click(screen.getByRole('link', { name: 'Manage account connection' }))
+  await screen.findByRole('heading', { level: 1, name: 'Synthetic connection' })
+  await act(async () => useInspectorStore.getState().current?.close())
+  await waitFor(() => expect(fixture.router.state.location.pathname).toBe('/upstream-accounts'))
+  expect(fixture.router.state.location.search.channelId).toBe(7)
+  const restoredPicker = await screen.findByRole('complementary', { name: 'Select upstream account' })
+  expect(within(restoredPicker).getByRole('button', { name: 'Synthetic account' })).toHaveAttribute('aria-pressed', 'true')
+  expect(fixture.requests.every((request) => request.method === 'get')).toBe(true)
+})
+
 test('overview filters saved observations without another read and retains historical error context outside the filter', async () => {
   const fixture = await mount({ entry: '/upstream-accounts', windows: [sample, { ...sample, series_id: 'b'.repeat(64), status: 'error', source: 'codex_wham_usage', observed_at: now - 120, current_available: null, window_type: 'weekly', window_seconds: 604800 }, { ...sample, series_id: 'c'.repeat(64), channel_id: 8, name: 'Other account', current_available: 50 }] })
   await screen.findByRole('heading', { name: 'Synthetic account' })

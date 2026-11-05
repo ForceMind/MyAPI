@@ -22,6 +22,7 @@ import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
+import { ErrorState } from '@/components/error-state'
 import { StatTile } from '@/components/stat-tile'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -35,6 +36,8 @@ import {
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { getBuildRevision } from '@/lib/build-metadata'
 import { linkButtonClassName } from '@/lib/link-button'
+import { ROLE } from '@/lib/roles'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { OperationsUpgradePanel } from './components/operations-upgrade-panel'
 import { SystemInstancesPanel } from './components/system-instances-panel'
@@ -52,6 +55,14 @@ import {
  * lists. Figures that could not be read show "Unknown", never 0.
  */
 export function SystemInfo() {
+  const { t } = useTranslation()
+  const actor = useAuthStore((state) => state.auth.user)
+  const sid = useAuthStore((state) => state.auth.session?.sid ?? null)
+  if (actor?.role !== ROLE.SUPER_ADMIN) return <ErrorState title={t('Unauthorized Access')} />
+  return <SystemInfoContent key={`${actor.id}:${actor.role}:${sid}`} />
+}
+
+function SystemInfoContent() {
   const { t } = useTranslation()
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const buildRevision = getBuildRevision()

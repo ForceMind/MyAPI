@@ -21,10 +21,10 @@ import { useTranslation } from 'react-i18next'
 import { StatTile } from '@/components/stat-tile'
 import { formatQuota } from '@/lib/format'
 
-import type { UserWalletData } from '../types'
+import type { WalletAccountSnapshot } from '../lib/wallet-account'
 
 interface WalletStatsCardProps {
-  user: UserWalletData | null
+  user: WalletAccountSnapshot | null
   loading?: boolean
   showBalance?: boolean
 }
@@ -51,20 +51,20 @@ export function WalletStatsCard(props: WalletStatsCardProps) {
       {showBalance && (
         <StatTile
           label={t('Current Balance')}
-          value={user ? formatQuota(user.quota) : unknown}
+          value={user?.quota !== undefined ? formatQuota(user.quota) : unknown}
           detail={t('Remaining quota')}
           loading={props.loading}
         />
       )}
       <StatTile
         label={t('Total Usage')}
-        value={user ? formatQuota(user.used_quota) : unknown}
+        value={user?.used_quota !== undefined ? formatQuota(user.used_quota) : unknown}
         detail={t('Total consumed quota')}
         loading={props.loading}
       />
       <StatTile
         label={t('API Requests')}
-        value={user ? user.request_count.toLocaleString() : unknown}
+        value={user?.request_count !== undefined ? user.request_count.toLocaleString() : unknown}
         detail={t('Total requests made')}
         loading={props.loading}
       />

@@ -7,7 +7,7 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, expect, test, vi } from 'vitest'
 
@@ -16,6 +16,7 @@ import { Route as usageLogsRoute } from '@/routes/_authenticated/usage-logs/$sec
 import { Route as requestRoute } from '@/routes/_authenticated/usage-logs/request/$requestId'
 import { useAuthStore } from '@/stores/auth-store'
 import { useInspectorStore } from '@/stores/inspector-store'
+import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 
 import { UsageLogs } from '../index'
 
@@ -37,6 +38,9 @@ async function renderWorkflow(
   const selfResponse = new Promise<void>((resolve) => {
     releaseSelf = resolve
   })
+  let waitForLists = false
+  let releaseLists = () => {}
+  let listResponse = Promise.resolve()
   useAuthStore
     .getState()
     .auth.setUser({ id: 1, username: 'synthetic-maintainer', role })
@@ -45,6 +49,7 @@ async function renderWorkflow(
     const url = new URL(String(path), 'http://synthetic.invalid')
     requests.push(url)
     if (holdSelf && url.pathname === '/api/log/self') await selfResponse
+    if (waitForLists && (url.pathname === '/api/log' || url.pathname === '/api/log/self') && !url.searchParams.has('request_id')) await listResponse
     if (
       holdKeyId &&
       url.pathname === '/api/log' &&
@@ -178,7 +183,10 @@ async function renderWorkflow(
       <RouterProvider router={router} />
     </QueryClientProvider>
   )
-  return { router, requests, releaseSelf, user: userEvent.setup() }
+  return { router, requests, releaseSelf, client, user: userEvent.setup(),
+    holdLists: () => { waitForLists = true; listResponse = new Promise<void>((resolve) => { releaseLists = resolve }) },
+    releaseLists: () => { waitForLists = false; releaseLists() },
+  }
 }
 
 test('disabled funding preserves admin server pagination, saved content and return context without monetary cells', async () => {
@@ -215,6 +223,10 @@ test('disabled funding preserves admin server pagination, saved content and retu
   ).toBe(true)
   const before = router.state.location.href
   const openingLink = screen.getByTitle('Click to view full details')
+  const sourceScroll = openingLink.closest('table')?.parentElement
+  if (!sourceScroll) throw new Error('Expected internal log table scroll container')
+  sourceScroll.scrollTop = 321
+  sourceScroll.scrollLeft = 17
   openingLink.focus()
   // The request's details open as its page.
   await user.click(screen.getByTitle('Click to view full details'))
@@ -241,6 +253,90 @@ test('disabled funding preserves admin server pagination, saved content and retu
   await waitFor(() => expect(router.state.location.href).toBe(before))
   expect(await screen.findByText('REQ-SYNTHETIC-2')).toBeInTheDocument()
   await waitFor(() => expect(screen.getByTitle('Click to view full details')).toHaveFocus())
+  const restoredScroll = screen.getByTitle('Click to view full details').closest('table')?.parentElement
+  expect(restoredScroll?.scrollTop).toBe(321)
+  expect(restoredScroll?.scrollLeft).toBe(17)
+})
+
+test('Only Mine and mobile page scroll return after saved list data resolves without exposing an All read', async () => {
+  const original = window.matchMedia
+  vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({ ...original(query), matches: query === CONSOLE_MOBILE_QUERY }))
+  const fixture = await renderWorkflow(100, false, '/usage-logs/common?pageSize=1&model=fixture-model&startTime=1792400000&endTime=1792490000')
+  await screen.findByText('REQ-SYNTHETIC-1')
+  await fixture.user.click(screen.getByRole('tab', { name: 'Only Mine' }))
+  await waitFor(() => expect(screen.getByRole('tab', { name: 'Only Mine' })).toHaveAttribute('aria-selected', 'true'))
+  const opener = await screen.findByTitle('Click to view full details')
+  const source = opener.closest<HTMLElement>('[data-page-scroll]')
+  if (!source) throw new Error('Expected mobile log page scroll container')
+  source.scrollTop = 257
+  const before = fixture.router.state.location.href
+  await fixture.user.click(opener)
+  await screen.findByTestId('request-page')
+  fixture.client.removeQueries({ queryKey: ['logs', 'common'] })
+  fixture.holdLists()
+  const readCount = fixture.requests.length
+  act(() => fixture.router.history.back())
+  await waitFor(() => expect(fixture.router.state.location.href).toBe(before))
+  await screen.findByRole('tab', { name: 'Only Mine' })
+  const pendingPage = document.querySelector<HTMLElement>('[data-page-scroll]')
+  expect(pendingPage?.scrollTop).toBe(0)
+  fixture.releaseLists()
+  await screen.findByText('REQ-SYNTHETIC-1')
+  await waitFor(() => expect(screen.getByTitle('Click to view full details')).toHaveFocus())
+  expect(screen.getByRole('tab', { name: 'Only Mine' })).toHaveAttribute('aria-selected', 'true')
+  expect(screen.getByTitle('Click to view full details').closest<HTMLElement>('[data-page-scroll]')?.scrollTop).toBe(257)
+  expect(fixture.requests.slice(readCount).some((url) => url.pathname === '/api/log')).toBe(false)
+})
+
+test.each([{ id: 2, role: 100 }, { id: 1, role: 1 }])('actor or permission changes cannot restore a previous return point: %j', async (next) => {
+  const fixture = await renderWorkflow()
+  await screen.findByText('REQ-SYNTHETIC-1')
+  await fixture.user.click(screen.getByRole('tab', { name: 'Only Mine' }))
+  const opener = await screen.findByTitle('Click to view full details')
+  const source = opener.closest('table')?.parentElement
+  if (!source) throw new Error('Expected internal log table scroll container')
+  source.scrollTop = 321
+  await fixture.user.click(opener)
+  await screen.findByTestId('request-page')
+  act(() => useAuthStore.getState().auth.setUser({ ...next, username: 'next-scope-viewer' }))
+  act(() => fixture.router.history.back())
+  await waitFor(() => expect(fixture.router.state.location.pathname).toBe('/usage-logs/common'))
+  const restored = await screen.findByTitle('Click to view full details')
+  expect(restored.closest('table')?.parentElement?.scrollTop).toBe(0)
+  if (next.role === 1) expect(screen.queryByRole('tab', { name: 'All' })).not.toBeInTheDocument()
+  else expect(screen.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'true')
+})
+
+test('a modified request click does not capture the current page scroll or alter same-tab navigation', async () => {
+  const fixture = await renderWorkflow()
+  const opener = await screen.findByTitle('Click to view full details')
+  const source = opener.closest('table')?.parentElement
+  if (!source) throw new Error('Expected internal log table scroll container')
+  source.scrollTop = 321
+  const before = fixture.router.state.location.href
+  opener.addEventListener('click', (event) => event.preventDefault(), { once: true })
+  fireEvent.click(opener, { ctrlKey: true })
+  expect(fixture.router.state.location.href).toBe(before)
+  await act(async () => fixture.router.navigate({ to: '/usage-logs/request/$requestId', params: { requestId: 'REQ-SYNTHETIC-1' }, state: { inspectorBack: true } }))
+  await screen.findByTestId('request-page')
+  act(() => fixture.router.history.back())
+  const returned = await screen.findByTitle('Click to view full details')
+  expect(returned.closest('table')?.parentElement?.scrollTop).toBe(0)
+})
+
+test('opening a separately filtered call-record entry does not reuse the source entry scroll snapshot', async () => {
+  const fixture = await renderWorkflow()
+  const opener = await screen.findByTitle('Click to view full details')
+  const source = opener.closest('table')?.parentElement
+  if (!source) throw new Error('Expected internal log table scroll container')
+  source.scrollTop = 321
+  await fixture.user.click(opener)
+  const request = await screen.findByTestId('request-page')
+  await fixture.user.click(within(request).getByRole('link', { name: 'Show in call records' }))
+  await waitFor(() => expect(fixture.router.state.location.search).toMatchObject({ requestId: 'REQ-SYNTHETIC-1' }))
+  const filtered = await screen.findByTitle('Click to view full details')
+  expect(filtered.closest('table')?.parentElement?.scrollTop).toBe(0)
+  expect(fixture.router.state.location.search).not.toHaveProperty('model')
 })
 
 test('ordinary role uses only the self endpoint and never receives an all-users control', async () => {

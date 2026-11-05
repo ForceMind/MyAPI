@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 import { DEFAULT_TOKEN_UNIT } from '../constants'
 import { getDynamicDisplayGroupRatio, getDynamicPricingSummary } from '../lib/dynamic-price'
-import { isTokenBasedModel } from '../lib/model-helpers'
+import { hasRequestPrice, isTokenBasedModel } from '../lib/model-helpers'
 import { formatPrice, formatRequestPrice } from '../lib/price'
 import type { PricingModel, TokenUnit } from '../types'
 
@@ -122,13 +122,13 @@ export function ModelCatalogPrice(props: { model: PricingModel; tokenUnit?: Toke
     priceSummary = (
       <span className='text-muted-foreground whitespace-nowrap'>
         <span className='text-foreground font-mono font-semibold'>
-          {formatRequestPrice(
+          {hasRequestPrice(props.model) ? formatRequestPrice(
             props.model,
             showRechargePrice,
             priceRate,
             usdExchangeRate,
             props.selectedGroup
-          )}
+          ) : t('Unknown')}
         </span>{' '}
         / {t('request')}
       </span>

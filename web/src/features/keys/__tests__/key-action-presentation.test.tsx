@@ -297,7 +297,7 @@ test('CC Switch waits for one explicitly requested Key read before opening its o
     await screen.findByRole('dialog', { name: 'Import to CC Switch' })
   ).toBeVisible()
   await waitFor(() =>
-    expect(mocks.get).toHaveBeenCalledWith('/api/user/models')
+    expect(mocks.get).toHaveBeenCalledWith('/api/user/models', expect.objectContaining({ signal: expect.any(AbortSignal), disableDuplicate: true, skipErrorHandler: true, skipBusinessError: true, isCurrentScope: expect.any(Function) }))
   )
   expect(mocks.post).toHaveBeenCalledOnce()
   expect(mocks.put).not.toHaveBeenCalled()

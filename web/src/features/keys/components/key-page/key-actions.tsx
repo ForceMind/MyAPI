@@ -44,6 +44,7 @@ export function KeyActions(props: {
   apiKey: ApiKey
   onRefetch: () => unknown
   menu?: ReactNode
+  hideCopy?: boolean
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -132,7 +133,7 @@ export function KeyActions(props: {
             {active ? t('Pause Key') : t('Resume Key')}
           </Button>
         )}
-        <Button
+        {!props.hideCopy && <Button
           variant='ghost'
           disabled={copying}
           aria-busy={copying}
@@ -145,7 +146,7 @@ export function KeyActions(props: {
             aria-hidden='true'
           />
           {t('Copy Key')}
-        </Button>
+        </Button>}
         {showPlayground && (
           <Button
             variant='ghost'

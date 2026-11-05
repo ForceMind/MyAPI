@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import i18next from 'i18next'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useLayoutEffect } from 'react'
 import { toast } from 'sonner'
 
 import {
@@ -41,6 +41,7 @@ import {
   submitPaymentForm,
 } from '../lib'
 import type { AmountRequest, AmountResponse } from '../types'
+import { useWalletSession, walletWriteIsUnknown, walletWriteErrorMessage, walletRequestConfig, walletPaymentScope, hasUnconfirmedWalletPayment, retainUnconfirmedWalletPayment } from './use-wallet-session'
 
 // ============================================================================
 // Payment Hook
@@ -62,11 +63,11 @@ const defaultPaymentAmountCalculators: PaymentAmountCalculators = {
   waffoPancake: calculateWaffoPancakeAmount,
 }
 
-export async function requestPaymentAmount(
+async function requestPaymentQuote(
   topupAmount: number,
   paymentType: string,
   calculators: PaymentAmountCalculators = defaultPaymentAmountCalculators
-): Promise<number> {
+): Promise<{ amount: number; known: boolean; message?: string }> {
   let calculator = calculators.regular
   if (isStripePayment(paymentType)) {
     calculator = calculators.stripe
@@ -77,42 +78,93 @@ export async function requestPaymentAmount(
   }
 
   const response = await calculator({ amount: topupAmount })
-  if (!isApiSuccess(response) || !response.data) {
-    return 0
-  }
+  const amount = !isApiSuccess(response) || !response.data ? 0 : Number.parseFloat(response.data)
+  const raw = response.data as unknown
+  const hasNumericValue = (typeof raw === 'number' || (typeof raw === 'string' && raw.trim() !== '')) && Number.isFinite(Number(raw))
+  return { amount, known: isApiSuccess(response) && hasNumericValue && Number(raw) >= 0, message: response.message }
+}
 
-  return Number.parseFloat(response.data)
+// Keep the existing pure calculator contract for callers that need only its amount.
+export async function requestPaymentAmount(
+  topupAmount: number,
+  paymentType: string,
+  calculators: PaymentAmountCalculators = defaultPaymentAmountCalculators
+): Promise<number> {
+  return (await requestPaymentQuote(topupAmount, paymentType, calculators)).amount
 }
 
 export function usePayment() {
+  const isCurrent = useWalletSession()
+  const paymentFlight = useRef(false)
+  const paymentOwner = useRef(walletPaymentScope())
+  const unknownRef = useRef(hasUnconfirmedWalletPayment('wallet-payment', paymentOwner.current))
+  const [outcomeUnknown, setOutcomeUnknown] = useState(unknownRef.current)
+  useLayoutEffect(() => () => {
+    if (paymentFlight.current) retainUnconfirmedWalletPayment('wallet-payment', paymentOwner.current)
+  }, [])
+  const quoteGeneration = useRef(0)
+  const confirmedQuote = useRef<{ amount: number; paymentType: string } | null>(null)
+  const [quoteKnown, setQuoteKnown] = useState(false)
+  const [quoteError, setQuoteError] = useState<string | null>(null)
   const [amount, setAmount] = useState<number>(0)
   const [calculating, setCalculating] = useState(false)
   const [processing, setProcessing] = useState(false)
 
-  // Calculate payment amount
+  // Quotes are observations. Only the latest valid quote can open a confirmation.
   const calculatePaymentAmount = useCallback(
-    async (topupAmount: number, paymentType: string) => {
+    async (topupAmount: number, paymentType: string): Promise<number | undefined> => {
+      if (!isCurrent()) return undefined
+      const generation = ++quoteGeneration.current
+      confirmedQuote.current = null
+      setQuoteKnown(false)
+      setQuoteError(null)
+      setCalculating(true)
       try {
-        setCalculating(true)
-        const calculatedAmount = await requestPaymentAmount(
-          topupAmount,
-          paymentType
-        )
-        setAmount(calculatedAmount)
-        return calculatedAmount
-      } catch {
-        setAmount(0)
-        return 0
+        const config = walletRequestConfig(() => isCurrent() && generation === quoteGeneration.current)
+        const quote = await requestPaymentQuote(topupAmount, paymentType, {
+          regular: (request) => calculateAmount(request, config),
+          stripe: (request) => calculateStripeAmount(request, config),
+          waffo: (request) => calculateWaffoAmount(request, config),
+          waffoPancake: (request) => calculateWaffoPancakeAmount(request, config),
+        })
+        if (!isCurrent() || generation !== quoteGeneration.current) return undefined
+        setAmount(quote.amount)
+        setQuoteKnown(quote.known)
+        if (!quote.known) {
+          setQuoteError(quote.message || i18next.t('Payment quote could not be confirmed. Please try again.'))
+          return undefined
+        }
+        confirmedQuote.current = { amount: topupAmount, paymentType }
+        return quote.amount
+      } catch (error) {
+        if (!isCurrent() || generation !== quoteGeneration.current) return undefined
+        setQuoteKnown(false)
+        setQuoteError(walletWriteErrorMessage(error, i18next.t('Payment quote could not be confirmed. Please try again.')))
+        return undefined
       } finally {
-        setCalculating(false)
+        if (isCurrent() && generation === quoteGeneration.current) setCalculating(false)
       }
     },
-    []
+    [isCurrent]
   )
+
+  const isQuoteCurrent = useCallback((topupAmount: number, paymentType: string) => {
+    const quote = confirmedQuote.current
+    return isCurrent() && quote !== null && quote.amount === topupAmount && quote.paymentType === paymentType
+  }, [isCurrent])
 
   // Process payment
   const processPayment = useCallback(
-    async (topupAmount: number, paymentType: string) => {
+    async (topupAmount: number, paymentType: string, taskCurrent?: () => boolean) => {
+      const owns = () => isCurrent() && (taskCurrent?.() ?? true)
+      if (!owns() || paymentFlight.current) return false
+      if (unknownRef.current || hasUnconfirmedWalletPayment('wallet-payment', paymentOwner.current)) {
+        unknownRef.current = true
+        setOutcomeUnknown(true)
+        return false
+      }
+      paymentFlight.current = true
+      setOutcomeUnknown(false)
       try {
         setProcessing(true)
 
@@ -123,12 +175,13 @@ export function usePayment() {
           ? await requestStripePayment({
               amount,
               payment_method: 'stripe',
-            })
+            }, walletRequestConfig(owns))
           : await requestPayment({
               amount,
               payment_method: paymentType,
-            })
+            }, walletRequestConfig(owns))
 
+        if (!owns()) return false
         if (!isApiSuccess(response)) {
           toast.error(
             isUserFundingUnavailableError(response)
@@ -157,21 +210,40 @@ export function usePayment() {
 
         return false
       } catch (error) {
-        toast.error(
-          isUserFundingUnavailableError(error)
-            ? i18next.t(USER_FUNDING_UNAVAILABLE_MESSAGE_KEY)
-            : i18next.t('Payment request failed')
-        )
+        if (!owns()) return false
+        const unknown = walletWriteIsUnknown(error)
+        if (unknown) {
+          unknownRef.current = true
+          retainUnconfirmedWalletPayment('wallet-payment', paymentOwner.current)
+        }
+        setOutcomeUnknown(unknown)
+        let message = i18next.t('Payment request failed')
+        if (isUserFundingUnavailableError(error)) message = i18next.t(USER_FUNDING_UNAVAILABLE_MESSAGE_KEY)
+        if (unknown) message = i18next.t('Payment request outcome is unknown. Check billing history before trying again.')
+        toast.error(walletWriteErrorMessage(error, message))
         return false
       } finally {
-        setProcessing(false)
+        paymentFlight.current = false
+        const unconfirmed = !owns()
+        if (unconfirmed) {
+          unknownRef.current = true
+          retainUnconfirmedWalletPayment('wallet-payment', paymentOwner.current)
+        }
+        if (isCurrent()) {
+          setProcessing(false)
+          if (unconfirmed) setOutcomeUnknown(true)
+        }
       }
     },
-    []
+    [isCurrent]
   )
 
   return {
     amount,
+    quoteKnown,
+    isQuoteCurrent,
+    quoteError,
+    outcomeUnknown,
     calculating,
     processing,
     calculatePaymentAmount,

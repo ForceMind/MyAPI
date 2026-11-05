@@ -140,7 +140,7 @@ it('a versioned server setting keeps the existing Codex import endpoint contract
 it.each(['', null])('an enabled empty or null Key scope %s never falls back to the full user model directory', async (modelLimits) => {
   const user = userEvent.setup()
   render(<QueryClientProvider client={client}><CCSwitchDialog open tokenKey='synthetic-credential' apiKey={{ model_limits_enabled: true, model_limits: modelLimits }} onOpenChange={() => {}} /></QueryClientProvider>)
-  await waitFor(() => expect(api.get).toHaveBeenCalledWith('/api/user/models'))
+  await waitFor(() => expect(api.get).toHaveBeenCalledWith('/api/user/models', expect.objectContaining({ signal: expect.any(AbortSignal), disableDuplicate: true, skipErrorHandler: true, skipBusinessError: true, isCurrentScope: expect.any(Function) })))
   const primary = screen.getByRole('combobox', { name: 'Primary Model *' })
   await user.click(primary)
   expect(screen.queryByRole('option', { name: modelName })).not.toBeInTheDocument()
@@ -188,7 +188,7 @@ it('an explicit manual model ID can still be imported when the catalog fails wit
   const target = vi.mocked(window.open).mock.calls[0]?.[0]
   if (typeof target !== 'string') throw new Error('Expected a synthetic CC Switch URL')
   expect(new URL(target).searchParams.get('model')).toBe('manual-model-id')
-  expect(api.get).toHaveBeenCalledExactlyOnceWith('/api/user/models')
+  expect(api.get).toHaveBeenCalledExactlyOnceWith('/api/user/models', expect.objectContaining({ signal: expect.any(AbortSignal), disableDuplicate: true, skipErrorHandler: true, skipBusinessError: true, isCurrentScope: expect.any(Function) }))
 })
 
 it('a manual model ID outside the Key restriction cannot be imported while an allowed uncatalogued ID can', async () => {

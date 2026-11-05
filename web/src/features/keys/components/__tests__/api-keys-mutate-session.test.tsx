@@ -62,12 +62,12 @@ function changeIdentity(kind: 'user' | 'role' | 'session') {
   }))
 }
 
-async function startBatch() {
+async function startBatch(configureKey?: (id: number) => void, count = 2) {
   const user = userEvent.setup()
   const onOpenChange = vi.fn()
   const view = render(
     <QueryClientProvider client={client}>
-      <ApiKeysProvider>
+      <ApiKeysProvider configureKey={configureKey}>
         <ApiKeysMutateDrawer open onOpenChange={onOpenChange} />
       </ApiKeysProvider>
     </QueryClientProvider>
@@ -76,7 +76,7 @@ async function startBatch() {
   await waitFor(() => expect(save).toBeEnabled())
   await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Device')
   const quantity = screen.getByRole('spinbutton', { name: 'Quantity' })
-  fireEvent.change(quantity, { target: { value: '2' } })
+  fireEvent.change(quantity, { target: { value: String(count) } })
   await user.click(save)
   await waitFor(() => expect(api.post).toHaveBeenCalledOnce())
   return { ...view, onOpenChange, save }
@@ -204,4 +204,63 @@ test('a current creation failure remains visible and is never replayed automatic
   expect(toast.error).toHaveBeenCalledOnce()
   expect(toast.success).not.toHaveBeenCalled()
   expect(view.onOpenChange).not.toHaveBeenCalled()
+})
+
+
+test('a returned created ID adds an explicit configure action without reading a credential or navigating automatically', async () => {
+  const pending = deferredCreate()
+  vi.mocked(api.post).mockReturnValueOnce(pending.promise)
+  const configure = vi.fn()
+  const view = await startBatch(configure, 1)
+  await act(async () => pending.resolve({ data: { success: true, data: { id: 31 } } }))
+  await waitFor(() => expect(view.onOpenChange).toHaveBeenCalledExactlyOnceWith(false))
+  expect(configure).not.toHaveBeenCalled()
+  const options = vi.mocked(toast.success).mock.calls[0]?.[1]
+  expect(options).toMatchObject({ action: { label: 'Configure this Key', onClick: expect.any(Function) } })
+  const action = options?.action
+  if (!action || typeof action !== 'object' || !('onClick' in action) || typeof action.onClick !== 'function') throw new Error('Expected explicit configure action')
+  Reflect.apply(action.onClick, undefined, [])
+  expect(configure).toHaveBeenCalledExactlyOnceWith(31)
+  expect(api.post).toHaveBeenCalledOnce()
+})
+
+test.each(['unmount', 'user', 'role', 'session'] as const)('the created-Key action cannot navigate after its original %s changes', async (change) => {
+  const pending = deferredCreate()
+  vi.mocked(api.post).mockReturnValueOnce(pending.promise)
+  const configure = vi.fn()
+  const view = await startBatch(configure, 1)
+  await act(async () => pending.resolve({ data: { success: true, data: { id: 31 } } }))
+  await waitFor(() => expect(toast.success).toHaveBeenCalledOnce())
+  const action = vi.mocked(toast.success).mock.calls[0]?.[1]?.action
+  if (!action || typeof action !== 'object' || !('onClick' in action) || typeof action.onClick !== 'function') throw new Error('Expected explicit configure action')
+  act(() => { if (change === 'unmount') view.unmount(); else changeIdentity(change) })
+  Reflect.apply(action.onClick, undefined, [])
+  expect(configure).not.toHaveBeenCalled()
+  expect(api.post).toHaveBeenCalledOnce()
+})
+
+test('a batch action identifies its exact last confirmed ID instead of presenting it as all created Keys', async () => {
+  const pending = deferredCreate()
+  vi.mocked(api.post).mockReturnValueOnce(pending.promise).mockResolvedValueOnce({ data: { success: true, data: { id: 32 } } })
+  const configure = vi.fn()
+  const view = await startBatch(configure)
+  await act(async () => pending.resolve({ data: { success: true, data: { id: 31 } } }))
+  await waitFor(() => expect(view.onOpenChange).toHaveBeenCalledExactlyOnceWith(false))
+  expect(vi.mocked(toast.success).mock.calls[0]?.[1]).toMatchObject({ action: { label: 'Configure Key #32' } })
+  expect(configure).not.toHaveBeenCalled()
+  expect(api.post).toHaveBeenCalledTimes(2)
+})
+
+test('an older server without a created ID preserves success, close and no navigation without guessing a Key', async () => {
+  const pending = deferredCreate()
+  vi.mocked(api.post).mockReturnValueOnce(pending.promise)
+  const configure = vi.fn()
+  const view = await startBatch(configure, 1)
+  await act(async () => pending.resolve({ data: { success: true, data: {} } }))
+  await waitFor(() => expect(view.onOpenChange).toHaveBeenCalledExactlyOnceWith(false))
+  expect(toast.success).toHaveBeenCalledOnce()
+  expect(vi.mocked(toast.success).mock.calls[0]?.[1]?.action).toBeUndefined()
+  expect(toast.error).not.toHaveBeenCalled()
+  expect(configure).not.toHaveBeenCalled()
+  expect(api.post).toHaveBeenCalledOnce()
 })

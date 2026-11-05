@@ -32,10 +32,10 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatQuota } from '@/lib/format'
 
-import type { UserWalletData } from '../types'
+import type { WalletAccountSnapshot } from '../lib/wallet-account'
 
 interface AffiliateRewardsCardProps {
-  user: UserWalletData | null
+  user: WalletAccountSnapshot | null
   affiliateLink: string
   onTransfer: () => void
   canTransfer?: boolean
@@ -91,15 +91,15 @@ export function AffiliateRewardsCard({
         <dl className='grid min-w-0 grid-cols-1 gap-2 min-[360px]:grid-cols-3 sm:gap-3'>
           <StatTile
             label={t('Pending')}
-            value={user ? formatQuota(user.aff_quota) : unknown}
+            value={user?.aff_quota !== undefined ? formatQuota(user.aff_quota) : unknown}
           />
           <StatTile
             label={t('Total Earned')}
-            value={user ? formatQuota(user.aff_history_quota) : unknown}
+            value={user?.aff_history_quota !== undefined ? formatQuota(user.aff_history_quota) : unknown}
           />
           <StatTile
             label={t('Invites')}
-            value={user ? String(user.aff_count) : unknown}
+            value={user?.aff_count !== undefined ? String(user.aff_count) : unknown}
           />
         </dl>
 

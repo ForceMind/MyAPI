@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { api } from '@/lib/http-client'
+import { api, type ApiRequestConfig } from '@/lib/http-client'
 
 export {
   applyAuthBundle,
@@ -45,12 +45,12 @@ export async function getSelf() {
   return res.data
 }
 
-export async function getUserModels(): Promise<{
+export async function getUserModels(requestConfig?: ApiRequestConfig): Promise<{
   success: boolean
   message?: string
   data?: string[]
 }> {
-  const res = await api.get('/api/user/models')
+  const res = requestConfig ? await api.get('/api/user/models', requestConfig) : await api.get('/api/user/models')
   return res.data
 }
 

@@ -50,6 +50,7 @@ import { CommonLogsFilterBar } from './common-logs-filter-bar'
 import { TaskLogsFilterBar } from './task-logs-filter-bar'
 import { UsageLogsMobileList } from './usage-logs-mobile-card'
 import { useLogsViewScope } from './usage-logs-provider'
+import { useRestoreRequestReturn } from '../lib/request-return-state'
 
 const route = getRouteApi('/_authenticated/usage-logs/$section')
 
@@ -230,6 +231,7 @@ function UsageLogsTableContent({ logCategory }: UsageLogsTableProps) {
     settled: !isLoadingData && !isFetching,
     rows: currentData?.items,
   })
+  useRestoreRequestReturn({ ready: !isLoadingData && !isFetching && !isError, rows: currentData?.items })
 
   const isCommon = logCategory === 'common'
 

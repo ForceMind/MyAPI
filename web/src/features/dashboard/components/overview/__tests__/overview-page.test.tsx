@@ -643,6 +643,14 @@ describe('overview for a channel administrator', () => {
 })
 
 describe('gateway core card by edition', () => {
+  test.each(['https://gateway.example.test/tenant/v1', ' https://gateway.example.test/tenant/v1/// '])('configured access address %s uses the same single version suffix as Key delivery', (configured) => {
+    setUser(ROLE.USER)
+    renderOverview({ server_address: configured, product_edition: 'full' })
+    expect(within(core()).getByText('https://gateway.example.test/tenant/v1')).toBeVisible()
+    expect(within(core()).getByText('From the server address setting')).toBeVisible()
+    expect(within(core()).queryByText('https://gateway.example.test/tenant/v1/v1')).not.toBeInTheDocument()
+  })
+
   test('Lite shows the current access address and that it was opened on this computer', async () => {
     setUser(ROLE.USER)
     renderOverview({

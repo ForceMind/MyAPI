@@ -118,7 +118,7 @@ export function ApiKeysMutateDrawer({
   const isCurrentSession = useKeyMaintenanceSession()
   const isUpdate = !!currentRow
   const currentRowId = currentRow?.id
-  const { triggerRefresh } = useApiKeys()
+  const { triggerRefresh, configureKey } = useApiKeys()
   const { status, loading: statusLoading } = useStatus()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
@@ -430,6 +430,7 @@ export function ApiKeysMutateDrawer({
         // Create mode - handle batch creation
         const count = data.tokenCount || 1
         let successCount = 0
+        let createdId: number | undefined
 
         for (let i = 0; i < count; i++) {
           if (!isCurrentSession()) return
@@ -450,6 +451,7 @@ export function ApiKeysMutateDrawer({
           if (!isCurrentSession()) return
           if (result.success) {
             successCount++
+            if (result.data?.id !== undefined) createdId = result.data.id
           } else {
             toast.error(result.message || t(ERROR_MESSAGES.CREATE_FAILED))
             break
@@ -457,11 +459,20 @@ export function ApiKeysMutateDrawer({
         }
 
         if (successCount > 0) {
-          toast.success(
-            t('Successfully created {{count}} API Key(s)', {
-              count: successCount,
+          const message = t('Successfully created {{count}} API Key(s)', { count: successCount })
+          if (createdId !== undefined && configureKey) {
+            const id = createdId
+            toast.success(message, {
+              action: {
+                label: successCount === 1 ? t('Configure this Key') : t('Configure Key #{{id}}', { id }),
+                onClick: () => {
+                  if (isCurrentSession()) configureKey(id)
+                },
+              },
             })
-          )
+          } else {
+            toast.success(message)
+          }
           onOpenChange(false)
           triggerRefresh()
         }

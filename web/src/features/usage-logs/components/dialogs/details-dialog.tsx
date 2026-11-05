@@ -1520,8 +1520,8 @@ export function LogDetailsContent(props: {
             label={t('Status')}
             value={
               <StatusBadge
-                label={other.stream_status.status || t('Error')}
-                variant='red'
+                label={other.stream_status.status || t('Unknown')}
+                variant={other.stream_status.status ? 'red' : 'neutral'}
                 size='sm'
                 copyable={false}
               />

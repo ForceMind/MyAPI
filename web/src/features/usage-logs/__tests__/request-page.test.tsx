@@ -104,7 +104,9 @@ async function renderRequest(log: unknown, role = 100, options: { entry?: string
     validateSearch: requestRoute.options.validateSearch,
   })
   const router = createRouter({
-    routeTree: root.addChildren([auth.addChildren([request])]),
+    routeTree: root.addChildren([auth.addChildren([request,
+      createRoute({ getParentRoute: () => auth, path: 'connections/$connectionId', component: () => <p>Related connection page</p> }),
+    ])]),
     history: createMemoryHistory({
       initialEntries: [options.entry ?? `/usage-logs/request/${REQUEST_ID}`],
     }),
@@ -411,4 +413,28 @@ test('known names do not hide missing identity IDs or fabricate ID zero', async 
   expect(identity).toHaveTextContent('Fixture connection (ID: Not recorded)')
   expect(identity).not.toHaveTextContent('#0')
   expect(within(identity).queryByRole('button', { name: 'View this Key' })).not.toBeInTheDocument()
+  expect(within(identity).queryByRole('link', { name: 'View this Key' })).not.toBeInTheDocument()
+  expect(within(identity).queryByRole('link', { name: 'View connection' })).not.toBeInTheDocument()
+})
+
+test('an allowed connection link returns to the same request evidence tab and opener without writes', async () => {
+  const fixture = await renderRequest(record({ request_outcome: 'completed' }), 100, { entry: `/usage-logs/request/${REQUEST_ID}?tab=detail` })
+  const link = await screen.findByRole('link', { name: 'View connection' })
+  expect(link).toHaveAttribute('href', '/connections/4')
+  const before = fixture.router.state.location.href
+  await fixture.user.click(link)
+  await waitFor(() => expect(fixture.router.state.location.pathname).toBe('/connections/4'))
+  expect(fixture.router.state.location.state.inspectorBack).toBe(true)
+  act(() => fixture.router.history.back())
+  await waitFor(() => expect(fixture.router.state.location.href).toBe(before))
+  await waitFor(() => expect(screen.getByRole('link', { name: 'View connection' })).toHaveFocus())
+  expect(api.post).not.toHaveBeenCalled()
+  expect(api.put).not.toHaveBeenCalled()
+})
+
+test('connection navigation requires a known ID and channel read permission', async () => {
+  await renderRequest(record({ request_outcome: 'completed' }), 10)
+  const identity = await screen.findByLabelText('Request identity')
+  expect(identity).toHaveTextContent('Fixture connection (#4)')
+  expect(within(identity).queryByRole('link', { name: 'View connection' })).not.toBeInTheDocument()
 })

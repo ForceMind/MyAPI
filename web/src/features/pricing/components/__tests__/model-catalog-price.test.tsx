@@ -52,3 +52,17 @@ describe('catalog price presentation', () => {
     expect(container).not.toHaveTextContent('$0')
   })
 })
+
+it.each([undefined, null, Number.NaN, Number.POSITIVE_INFINITY])('an unknown per-request price %s never appears as a free request', (price) => {
+  const { container } = render(<ModelCatalogPrice model={{ ...model, quota_type: 1, model_price: price }} selectedGroup='default' />)
+  expect(container).toHaveTextContent('Unknown')
+  expect(container).toHaveTextContent('Per Request')
+  expect(container).not.toHaveTextContent('$0')
+})
+
+it('an explicitly zero per-request price keeps its free amount and original unit', () => {
+  const { container } = render(<ModelCatalogPrice model={{ ...model, quota_type: 1, model_price: 0 }} selectedGroup='default' />)
+  expect(container).toHaveTextContent('$0')
+  expect(container).not.toHaveTextContent('Unknown')
+  expect(container).toHaveTextContent('Per Request')
+})

@@ -109,10 +109,10 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
           <span className='truncate'>{maskedKey}</span>
         </PopoverTrigger>
         <PopoverContent
-          className='w-auto max-w-[min(90vw,28rem)]'
+          className='w-[min(90vw,28rem)] min-w-0 max-w-[min(90vw,28rem)]'
           align='start'
         >
-          <div className='space-y-2'>
+          <div className='min-w-0 max-w-full space-y-2'>
             <p className='text-muted-foreground text-xs'>{t('Full API Key')}</p>
             {isLoading ? (
               <div className='flex items-center gap-2 py-2'>
@@ -127,10 +127,11 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
             ) : (
               <input
                 readOnly
+                aria-label={t('Full API Key')}
                 value={resolvedFullKey || maskedKey}
                 autoFocus
                 onFocus={(e) => e.target.select()}
-                className='bg-muted/50 w-full min-w-[280px] rounded-md border px-3 py-2 font-mono text-xs outline-none'
+                className='bg-muted/50 w-full min-w-0 max-w-full rounded-md border px-3 py-2 font-mono text-xs outline-none'
               />
             )}
           </div>
@@ -144,6 +145,7 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
               size='icon'
               className='size-7 shrink-0'
               onClick={handleCopy}
+              aria-label={copyTooltip}
               disabled={isLoading}
             />
           }

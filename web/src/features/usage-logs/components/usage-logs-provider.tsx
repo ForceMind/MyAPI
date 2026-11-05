@@ -49,7 +49,8 @@ const UsageLogsContext = createContext<UsageLogsContextValue | undefined>(
 export function UsageLogsProvider(props: {
   children: ReactNode
   showCosts?: boolean
-  onRequestOpen?: (logId: number) => void
+  onRequestOpen?: (logId: number, viewScope?: LogsViewScope) => void
+  initialViewScope?: LogsViewScope
 }) {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
   const [userInfoDialogOpen, setUserInfoDialogOpen] = useState(false)
@@ -57,13 +58,17 @@ export function UsageLogsProvider(props: {
     useState<ChannelAffinityInfo | null>(null)
   const [affinityDialogOpen, setAffinityDialogOpen] = useState(false)
   const [sensitiveVisible, setSensitiveVisible] = useState(true)
-  const [viewScope, setViewScope] = useState<LogsViewScope>('all')
+  const canManageScope = useIsAdmin()
+  const [viewScope, setViewScope] = useState<LogsViewScope>(() => {
+    if (props.initialViewScope === undefined) return 'all'
+    return canManageScope ? props.initialViewScope : 'self'
+  })
 
   return (
     <UsageLogsContext.Provider
       value={{
         showCosts: props.showCosts ?? true,
-        rememberRequestFocus: props.onRequestOpen,
+        rememberRequestFocus: (logId) => props.onRequestOpen?.(logId, viewScope),
         selectedUserId,
         setSelectedUserId,
         userInfoDialogOpen,
