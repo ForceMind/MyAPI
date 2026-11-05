@@ -398,7 +398,7 @@ it.each(['SID', 'role'] as const)('an old pending inline edit cannot PUT during 
     }
   })
   fixture.unmount()
-  act(() => { vi.runOnlyPendingTimers() })
+  await act(async () => { vi.runOnlyPendingTimers() })
   await Promise.resolve()
   expect(api.put).not.toHaveBeenCalled()
   expect(api.post).not.toHaveBeenCalled()
@@ -410,7 +410,7 @@ it('same-actor write revocation prevents a pending inline cleanup PUT without ch
     useAuthStore.getState().auth.setUser({ id: 1, role: 10, username: 'synthetic-editor', permissions: { admin_permissions: { channel: { read: true, write: false, operate: true } } } })
   })
   fixture.unmount()
-  act(() => { vi.runOnlyPendingTimers() })
+  await act(async () => { vi.runOnlyPendingTimers() })
   await Promise.resolve()
   expect(api.put).not.toHaveBeenCalled()
 })
@@ -422,11 +422,11 @@ it.each(['blur', 'cleanup'] as const)('same-actor %s still commits exactly one o
   } else {
     fixture.unmount()
   }
-  act(() => { vi.runOnlyPendingTimers() })
+  await act(async () => { vi.runOnlyPendingTimers() })
   await Promise.resolve()
   expect(put).toHaveBeenCalledExactlyOnceWith('/api/channel/', { id: 23, priority: 1 }, expect.objectContaining({ skipAuthRefresh: true, skipErrorHandler: true, skipBusinessError: true }))
   if (trigger === 'blur') fixture.unmount()
-  act(() => { vi.runOnlyPendingTimers() })
+  await act(async () => { vi.runOnlyPendingTimers() })
   await Promise.resolve()
   expect(put).toHaveBeenCalledTimes(1)
 })
