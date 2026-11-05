@@ -106,6 +106,8 @@
 
 第二批首候选`4c6e79f0` / CI42090860956前端source失败，未执行回归：测试ByRole不支持exact参数、参数化数组被Vitest展开、3处form非空断言、账号选择effect依赖和删去推导事件数后的残留引用。按原始执行日志及check annotations逐项修正，字符串名称仍精确、原载荷/次数断言不变；本机未测试。其余尚在执行的候选不当完整通过。
 
+`9c61761a` / CI42091426438同步、types/lint通过，定向131例123过8失败，另49例认证通过；7项榜单失败来自测试初始化未沿生产nsSeparator=false，冒号键被当namespace，修fixture后保Total/Unknown/零原准确期待；钱包1项是Close同时匹配页脚和右上角，改为明确Actions组的Close，不改付款锁/POST次数断言。原始失败日志已读，不把fixture失败称为产品行为已复现。
+
 ### 第2–6步源码审查与实际合并映射（待本批 Actions）
 
 - 2.1–2.6：目录和管理元数据沿用原筛选/权限/详情。价格缺失显示Unknown、零倍率保持零；详情移除按模型名生成的限流伪数据，仅展示真实可知字段。证据：`pricing/components/__tests__/model-catalog-price.test.tsx`、`model-details-states.test.tsx`及已有`features/models`回归，价格计算模块不改。

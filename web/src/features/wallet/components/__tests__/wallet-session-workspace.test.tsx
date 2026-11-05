@@ -119,7 +119,7 @@ it('an unknown order locks payment buttons through close/reopen and a history re
   const history = await screen.findByRole('dialog', { name: 'Billing History' })
   expect(history).toBeVisible()
   await waitFor(() => expect(vi.mocked(api.get).mock.calls.some(([url]) => String(url).startsWith('/api/user/topup/self?'))).toBe(true))
-  await user.click(within(history).getByRole('button', { name: 'Close' }))
+  await user.click(within(within(history).getByRole('group', { name: 'Actions' })).getByRole('button', { name: 'Close' }))
   expect(screen.getByRole('button', { name: 'Synthetic Pay' })).toBeDisabled()
   await user.click(screen.getByRole('button', { name: 'Synthetic Pay' }))
   expect(api.post).toHaveBeenCalledTimes(before)

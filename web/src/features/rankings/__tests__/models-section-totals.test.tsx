@@ -1,5 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
 import { cleanup, screen, within } from '@testing-library/react'
+import i18next from 'i18next'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { renderListRoute } from '@/components/data-table/layout/__tests__/list-route-fixture'
@@ -16,8 +17,19 @@ vi.mock('@visactor/react-vchart', () => ({ VChart: (props: { spec: {
 } }) => <ul aria-label='Saved chart tooltip'>{props.spec.tooltip.dimension.updateContent([...tooltip.values]).map((item) => <li key={item.key}>{item.key}: {item.value}</li>)}</ul> }))
 
 const clients: QueryClient[] = []
-beforeEach(() => { tooltip.values = [] })
-afterEach(() => { cleanup(); clients.splice(0).forEach((client) => client.clear()); vi.restoreAllMocks() })
+let originalNamespaceSeparator: typeof i18next.options.nsSeparator
+beforeEach(() => {
+  tooltip.values = []
+  originalNamespaceSeparator = i18next.options.nsSeparator
+  // Match the production i18n config: English source keys can contain literal colons.
+  i18next.options.nsSeparator = false
+})
+afterEach(() => {
+  cleanup()
+  clients.splice(0).forEach((client) => client.clear())
+  i18next.options.nsSeparator = originalNamespaceSeparator
+  vi.restoreAllMocks()
+})
 
 async function renderModels(counts: unknown[]) {
   const rows: ModelRanking[] = counts.map((count, index) => ({ rank: index + 1, model_name: `Synthetic model ${index + 1}`, vendor: 'Synthetic vendor', category: 'all', total_tokens: count as number, share: 0, growth_pct: 0 }))
