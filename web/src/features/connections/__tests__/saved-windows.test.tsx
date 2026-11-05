@@ -152,7 +152,7 @@ test.each(['/connections', '/connections/7'])('read-only refresh at %s reads sav
   )
   const current = entry === '/connections'
     ? within(screen.getByRole('list', { name: 'Current account windows' }))
-    : screen
+    : within(screen.getByRole('region', { name: 'Saved account windows' }))
   expect(current.getByText(/No reliable usage sample/)).toBeVisible()
   expect(screen.queryByText(/100% left/)).not.toBeInTheDocument()
   expect(fixture.requests.slice(before)).toEqual([
