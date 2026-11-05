@@ -324,7 +324,7 @@ it('mobile table keeps operational status and all original fields available thro
   const reads = inventoryReads().length
   await user.selectOptions(screen.getByRole('combobox', { name: 'Column preset' }), 'custom')
   await user.click(screen.getByRole('button', { name: 'View' }))
-  await user.click(screen.getByRole('menuitemcheckbox', { name: 'Models', exact: true }))
+  await user.click(screen.getByRole('menuitemcheckbox', { name: 'Models' }))
   await user.keyboard('{Escape}')
   expect(screen.getByRole('columnheader', { name: /Priority/ })).toBeVisible()
   expect(screen.getByRole('columnheader', { name: /Weight/ })).toBeVisible()
