@@ -169,6 +169,9 @@ it.each(['table', 'card'])('the %s inventory batches saved evidence and keeps ba
     { channel_id: 24, name: 'Synthetic failed balance', metric_type: 'balance', source: 'channel_type_1', unit: 'usd', status: 'error', observed_at: Math.floor(Date.now() / 1000), series_id: 'b'.repeat(64) },
   ]
   await mount()
+  await screen.findByRole('link', { name: item.name })
+  expect(vi.mocked(api.get).mock.calls.filter(([url]) => url === '/api/channel/quota/changes')).toHaveLength(0)
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Read saved usage status' }))
   await waitFor(() => expect(screen.getAllByText(/Balance query: Balance query unsupported/)[0]).toBeVisible())
   expect(screen.getAllByText(/Balance query: Balance sample failed/)[0]).toBeVisible()
   expect(screen.getAllByText('Window query capability unknown')).toHaveLength(2)
@@ -184,12 +187,18 @@ it('changing the inventory actor discards saved evidence before reading that act
   savedEvidence = [{ channel_id: 23, name: item.name, metric_type: 'balance', source: 'channel_type_1', unit: 'usd', status: 'unsupported', series_id: 'a'.repeat(64) }]
   evidenceMetadata = { total_items: 101, items_complete: false }
   await mount()
+  await screen.findByRole('link', { name: item.name })
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Read saved usage status' }))
   await waitFor(() => expect(screen.getAllByText(/Balance query: Balance query unsupported/)[0]).toBeVisible())
   expect(screen.getAllByText('Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.')[0]).toBeVisible()
   savedEvidence = []
   evidenceMetadata = {}
   act(() => useAuthStore.getState().auth.setUser({ id: 2, role: 100, username: 'synthetic-new-actor' }))
   expect(screen.queryAllByText(/Balance query: Balance query unsupported/)).toHaveLength(0)
+  await screen.findByRole('link', { name: item.name })
+  expect(screen.queryByText('No saved window sample')).not.toBeInTheDocument()
+  expect(vi.mocked(api.get).mock.calls.filter(([url]) => url === '/api/channel/quota/changes')).toHaveLength(1)
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Read saved usage status' }))
   expect(await screen.findByText('No saved window sample')).toBeVisible()
   expect(screen.queryByText('Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.')).not.toBeInTheDocument()
   const reads = vi.mocked(api.get).mock.calls.filter(([url]) => url === '/api/channel/quota/changes')
@@ -201,6 +210,8 @@ it('truncated table evidence keeps a returned failure and does not label an omit
   savedEvidence = [{ channel_id: 23, name: item.name, metric_type: 'balance', source: 'channel_type_1', unit: 'usd', status: 'error', series_id: 'a'.repeat(64) }]
   evidenceMetadata = { total_items: 101, items_complete: false }
   await mount()
+  await screen.findByRole('link', { name: item.name })
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Read saved usage status' }))
   await waitFor(() => expect(screen.getAllByText(/Balance query: Balance sample failed/)[0]).toBeVisible())
   expect(screen.queryByText('No saved window sample')).not.toBeInTheDocument()
   const omitted = screen.getByRole('link', { name: 'Synthetic omitted evidence' }).closest('tr')
@@ -209,6 +220,30 @@ it('truncated table evidence keeps a returned failure and does not label an omit
   expect(vi.mocked(api.get).mock.calls.filter(([url]) => url === '/api/channel/quota/changes')).toHaveLength(1)
   expect(api.post).not.toHaveBeenCalled()
   expect(api.put).not.toHaveBeenCalled()
+})
+
+it('changing real row IDs or leaving the inventory requires a new explicit saved-evidence read', async () => {
+  const user = userEvent.setup()
+  const { client } = await mount({ task: true })
+  await user.click(screen.getByRole('button', { name: 'Open synthetic inventory' }))
+  await screen.findByRole('link', { name: item.name })
+  await user.click(screen.getByRole('button', { name: 'Read saved usage status' }))
+  await screen.findByText('No saved window sample')
+  const quotaReads = () => vi.mocked(api.get).mock.calls.filter(([url]) => url === '/api/channel/quota/changes')
+  expect(quotaReads()).toHaveLength(1)
+  items = [{ ...item, id: 24, name: 'Synthetic next page channel' }]
+  await act(async () => { await client.invalidateQueries({ queryKey: ['channels'] }) })
+  await screen.findByRole('link', { name: 'Synthetic next page channel' })
+  expect(screen.queryByText('No saved window sample')).not.toBeInTheDocument()
+  expect(quotaReads()).toHaveLength(1)
+  await user.click(screen.getByRole('button', { name: 'Read saved usage status' }))
+  await screen.findByText('No saved window sample')
+  expect(quotaReads()).toHaveLength(2)
+  await user.click(screen.getByRole('button', { name: 'Close synthetic inventory' }))
+  await user.click(screen.getByRole('button', { name: 'Open synthetic inventory' }))
+  await screen.findByRole('link', { name: 'Synthetic next page channel' })
+  expect(screen.queryByText('No saved window sample')).not.toBeInTheDocument()
+  expect(quotaReads()).toHaveLength(2)
 })
 it('a hidden known inventory error uses its own precise read time instead of the previous successful read or unread state', async () => {
   const now = vi.spyOn(Date, 'now').mockReturnValue(1700000000123)

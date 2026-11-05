@@ -363,15 +363,24 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
     if (isTagAggregateRow(channel)) return channel.children.map((child) => child.id)
     return [channel.id]
   })
-  const savedEvidence = useConnectionWindows({ identity: actor, canRead: canRead && active }, evidenceIds)
-  const evidenceContext = useMemo(() => ({
+  const evidenceIdsKey = [...new Set(evidenceIds)].sort((first, second) => first - second).join(',')
+  const evidenceScope = JSON.stringify([actor, evidenceIdsKey])
+  const [evidenceIntent, setEvidenceIntent] = useState<string | null>(null)
+  const evidenceRequested = active && canRead && !isError && evidenceIds.length > 0 && evidenceIntent === evidenceScope
+  const savedEvidence = useConnectionWindows({ identity: actor, canRead: canRead && active }, evidenceIds, { manual: true })
+  useEffect(() => {
+    // Reading saved usage is a one-time intent for this actor and this page of IDs.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEvidenceIntent(null)
+  }, [evidenceScope, active, canRead, isError])
+  const evidenceContext = useMemo(() => evidenceRequested ? ({
     identity: actor,
     data: savedEvidence.isError ? undefined : savedEvidence.data,
     known: savedEvidence.complete,
     incomplete: savedEvidence.isSuccess && !savedEvidence.complete,
     loading: savedEvidence.isPending,
     now: savedEvidence.now,
-  }), [actor, savedEvidence.data, savedEvidence.complete, savedEvidence.isError, savedEvidence.isSuccess, savedEvidence.isPending, savedEvidence.now])
+  }) : null, [evidenceRequested, actor, savedEvidence.data, savedEvidence.complete, savedEvidence.isError, savedEvidence.isSuccess, savedEvidence.isPending, savedEvidence.now])
 
   const knownTotal = isError || isFetching || !canRead ? undefined : data?.data?.total
   const totalCount = knownTotal ?? 0
@@ -530,6 +539,20 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
     <ConnectionEvidenceContext value={evidenceContext}>
       <div className='mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3'>
         <ConnectionViewSwitcher view='table' search={connectionReturn} showOther={showCards} />
+        <Button
+          variant='outline'
+          size='sm'
+          className='pointer-coarse:min-h-11'
+          disabled={!active || !canRead || isError || evidenceIds.length === 0 || savedEvidence.isFetching}
+          aria-busy={savedEvidence.isFetching}
+          onClick={() => {
+            if (!active || !canRead || isError || evidenceIds.length === 0) return
+            setEvidenceIntent(evidenceScope)
+            void savedEvidence.refetch()
+          }}
+        >
+          {t('Read saved usage status')}
+        </Button>
         <p className='text-caption text-muted-foreground'>{t('Advanced connection controls')}</p>
       </div>
       {enableTagMode ? (

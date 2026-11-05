@@ -7771,6 +7771,7 @@
     "You can enter a model ID manually. Its protocol and availability remain unverified.": "可手动输入模型 ID，其协议支持和可用性尚未实测。",
     "{{value}} {{unit}}": "{{value}} {{unit}}",
     "{{window}}: {{value}} {{unit}}": "{{window}}：{{value}} {{unit}}",
-    "Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.": "保存的额度证据不完整，可能遗漏部分序列和此前的失败记录。"
+    "Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.": "保存的额度证据不完整，可能遗漏部分序列和此前的失败记录。",
+    "Read saved usage status": "读取已保存用量状态"
   }
 }
