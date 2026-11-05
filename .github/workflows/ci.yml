@@ -788,6 +788,7 @@ jobs:
           git diff --exit-code -- "$target"
 
       - name: Build real quota UI for browser regression
+        if: ${{ !cancelled() && steps.frontend-source-checks.outcome == 'success' }}
         id: frontend-build
         env:
           RAYON_NUM_THREADS: '2'

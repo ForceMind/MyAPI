@@ -110,6 +110,8 @@
 
 `d5ee6acb` / CI42092022493前述131/131、Key64/64、连接69/69、敏感任务49/49通过；认证251例250过1失败，原始日志显示微信按钮SVG title把可访问名称拼成“WeChatContinue with WeChat”，测试原准确label无法定位。为OAuth按钮显式绑定原翻译label（视觉/提供方/载荷不改），保准确名称断言，继续原微信状态失效流程验证。
 
+`aa32ed57` / CI42092800286微信按钮准确名称已通过，原流程推进到失效状态检查；250/251认证通过。测试在query Promise结算后立即读alert，改为等待真实错误可见、重试后等待Confirm确实可用，保原3次GET/0认证POST及全部草稿断言；没有固定sleep或放宽等待结果。为避免首个定向失败遮住后续全量证据，既有build只要source门禁通过且未取消就执行；既有全量Test随后仍按build成功运行，任何失败仍使作业失败，未开启浏览器或continue-on-error。
+
 ### 第2–6步源码审查与实际合并映射（待本批 Actions）
 
 - 2.1–2.6：目录和管理元数据沿用原筛选/权限/详情。价格缺失显示Unknown、零倍率保持零；详情移除按模型名生成的限流伪数据，仅展示真实可知字段。证据：`pricing/components/__tests__/model-catalog-price.test.tsx`、`model-details-states.test.tsx`及已有`features/models`回归，价格计算模块不改。
