@@ -23,6 +23,7 @@ export function formatTestDuration(milliseconds: number) {
 
 /** The account window's name: its length when known, else its type. */
 export function windowName(item: ChannelQuotaChangeItem, t: TFunction) {
+  if (item.metric_type === 'balance') return t('Balance query')
   return item.window_seconds && item.window_seconds > 0
     ? formatQuotaDuration(item.window_seconds, t)
     : quotaWindowLabel(item.window_type, t)

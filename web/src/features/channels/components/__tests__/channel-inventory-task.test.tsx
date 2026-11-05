@@ -11,6 +11,7 @@ import { useSystemConfigStore } from '@/stores/system-config-store'
 
 import type { ChannelTaskReadState } from '../../channel-task-state'
 import { channelSchema } from '../../types'
+import type { ChannelQuotaChangeItem } from '../../types'
 import { ChannelsPrimaryButtons } from '../channels-primary-buttons'
 import { ChannelsProvider } from '../channels-provider'
 import { ChannelsTable } from '../channels-table'
@@ -21,17 +22,20 @@ const item = channelSchema.parse({ id: 23, type: 1, name: 'Synthetic inventory c
 const clients: QueryClient[] = []
 let outcome: 'ready' | 'error'
 let items: typeof item[]
+let savedEvidence: ChannelQuotaChangeItem[]
 
 beforeEach(() => {
   localStorage.clear()
   localStorage.setItem('channels:view-mode', 'table')
   outcome = 'ready'
   items = [item]
+  savedEvidence = []
   useAuthStore.getState().auth.setUser({ id: 1, role: 100, username: 'synthetic-root' })
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
   vi.spyOn(api, 'get').mockImplementation(async (url, config) => {
     if (url === '/api/status') return { data: { success: true, data: {} } }
     if (url === '/api/group/') return { data: { success: true, data: ['default', 'other'] } }
+    if (url === '/api/channel/quota/changes') return { data: { success: true, data: { items: savedEvidence } } }
     if (url === '/api/channel' || url === '/api/channel/search') {
       if (outcome === 'error') throw new Error('Synthetic inventory read failure')
       return { data: { success: true, data: { items, total: config?.params?.tag_mode ? 1 : 100, type_counts: { 1: 100, 57: 1 } } } }
@@ -125,6 +129,7 @@ it('inactive inventory performs no list or group read and hides portaled paginat
   const { client } = await mount({ task: true, report })
   expect(inventoryReads()).toHaveLength(0)
   expect(vi.mocked(api.get).mock.calls.filter(([url]) => url === '/api/group/')).toHaveLength(0)
+  expect(vi.mocked(api.get).mock.calls.filter(([url]) => url === '/api/channel/quota/changes')).toHaveLength(0)
   expect(screen.queryByRole('navigation', { name: 'Connections' })).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Open synthetic inventory' }))
   await screen.findByRole('link', { name: item.name })
@@ -140,6 +145,41 @@ it('inactive inventory performs no list or group read and hides portaled paginat
   expect(inventoryReads()).toHaveLength(before)
   await user.click(screen.getByRole('button', { name: 'Open synthetic inventory' }))
   expect(await screen.findByText('Selected channel IDs (1)')).toBeVisible()
+})
+
+it.each(['table', 'card'])('the %s inventory batches saved evidence and keeps balance capability separate from actual failure', async (view) => {
+  localStorage.setItem('channels:view-mode', view)
+  if (view === 'card') {
+    const original = window.matchMedia
+    vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({ ...original(query), matches: query === '(max-width: 640px)' }))
+  }
+  items = [item, { ...item, id: 24, name: 'Synthetic failed balance' }]
+  savedEvidence = [
+    { channel_id: 23, name: item.name, metric_type: 'balance', source: 'channel_type_1', unit: 'usd', status: 'unsupported', observed_at: Math.floor(Date.now() / 1000), series_id: 'a'.repeat(64) },
+    { channel_id: 24, name: 'Synthetic failed balance', metric_type: 'balance', source: 'channel_type_1', unit: 'usd', status: 'error', observed_at: Math.floor(Date.now() / 1000), series_id: 'b'.repeat(64) },
+  ]
+  await mount()
+  await waitFor(() => expect(screen.getAllByText(/Balance query: Balance query unsupported/)[0]).toBeVisible())
+  expect(screen.getAllByText(/Balance query: Balance sample failed/)[0]).toBeVisible()
+  expect(screen.getAllByText('Window query capability unknown')).toHaveLength(2)
+  const reads = vi.mocked(api.get).mock.calls.filter(([url]) => url === '/api/channel/quota/changes')
+  expect(reads).toHaveLength(1)
+  expect(reads[0]?.[1]?.params).toMatchObject({ channel_ids: '23,24' })
+  expect(vi.mocked(api.get).mock.calls.some(([url]) => /test|update_balance|codex\/usage/.test(String(url)))).toBe(false)
+  expect(api.post).not.toHaveBeenCalled()
+  expect(api.put).not.toHaveBeenCalled()
+})
+
+it('changing the inventory actor discards saved evidence before reading that actor scope', async () => {
+  savedEvidence = [{ channel_id: 23, name: item.name, metric_type: 'balance', source: 'channel_type_1', unit: 'usd', status: 'unsupported', series_id: 'a'.repeat(64) }]
+  await mount()
+  await waitFor(() => expect(screen.getAllByText(/Balance query: Balance query unsupported/)[0]).toBeVisible())
+  savedEvidence = []
+  act(() => useAuthStore.getState().auth.setUser({ id: 2, role: 100, username: 'synthetic-new-actor' }))
+  expect(screen.queryAllByText(/Balance query: Balance query unsupported/)).toHaveLength(0)
+  expect(await screen.findByText('No saved window sample')).toBeVisible()
+  const reads = vi.mocked(api.get).mock.calls.filter(([url]) => url === '/api/channel/quota/changes')
+  expect(reads).toHaveLength(2)
 })
 it('a hidden known inventory error uses its own precise read time instead of the previous successful read or unread state', async () => {
   const now = vi.spyOn(Date, 'now').mockReturnValue(1700000000123)

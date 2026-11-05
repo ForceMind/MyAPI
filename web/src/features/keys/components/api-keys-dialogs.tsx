@@ -27,7 +27,7 @@ import { SubscriptionShareDialog } from './subscription-share-dialog'
 import { TokenBudgetDialog } from './token-budget-dialog'
 
 export function ApiKeysDialogs() {
-  const { open, setOpen, currentRow, resolvedKey } = useApiKeys()
+  const { open, setOpen, currentRow, resolvedKey, setResolvedKey } = useApiKeys()
 
   return (
     <>
@@ -58,11 +58,18 @@ export function ApiKeysDialogs() {
         currentRow={open === 'update' ? currentRow || undefined : undefined}
       />
       <ApiKeysDeleteDialog />
-      <CCSwitchDialog
-        open={open === 'cc-switch'}
-        onOpenChange={(isOpen) => !isOpen && setOpen(null)}
+      {open === 'cc-switch' && currentRow && <CCSwitchDialog
+        key={currentRow.id}
+        open
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setResolvedKey('')
+            setOpen(null)
+          }
+        }}
         tokenKey={resolvedKey}
-      />
+        apiKey={currentRow}
+      />}
     </>
   )
 }

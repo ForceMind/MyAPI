@@ -253,3 +253,29 @@ test('unverified read permission never starts a saved-window timer request', asy
     screen.queryByRole('button', { name: 'Refresh saved windows' })
   ).not.toBeInTheDocument()
 })
+
+test.each(['/connections', '/connections/7'])('saved balance capability at %s is visible without a quota ring or provider calls', async (entry) => {
+  const fixture = await mount({ entry, items: [{ id: 7, type: 1, name: 'Balance connection', status: 1 }], windows: [{
+    channel_id: 7, name: 'Balance connection', metric_type: 'balance', unit: 'usd', source: 'channel_type_1', window_type: 'none', status: 'unsupported', observed_at: now - 20, account_label: 'Synthetic balance identity', series_id: 'b'.repeat(64), data_quality: { success_count: 0, error_count: 3, unsupported_count: 1, invalid_count: 0, reset_boundaries: 0, span_seconds: 120 },
+  }] })
+  if (entry === '/connections') {
+    const evidence = await screen.findByRole('list', { name: 'Saved quota evidence' })
+    expect(within(evidence).getByText(/Balance query unsupported/)).toBeVisible()
+  } else {
+    expect(await screen.findByText('Balance query unsupported')).toBeVisible()
+  }
+  expect(screen.queryByRole('img', { name: /% used/ })).not.toBeInTheDocument()
+  expect(screen.queryByText('Usage sample failed')).not.toBeInTheDocument()
+  expect(screen.queryByText('Window reporting unsupported')).not.toBeInTheDocument()
+  if (entry === '/connections') {
+    expect(screen.getByText('Failed samples in this series: 3')).not.toBeVisible()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Saved evidence details (1)' }))
+  }
+  expect(screen.getByText('Synthetic balance identity')).toBeVisible()
+  expect(screen.getByText('channel_type_1')).toBeVisible()
+  expect(screen.getByText('Failed samples in this series: 3')).toBeVisible()
+  expect(screen.getByText('Unsupported samples in this series: 1')).toBeVisible()
+  expect(screen.queryByText(/recovered|resolved/i)).not.toBeInTheDocument()
+  expect(fixture.requests.every((request) => request.method === 'get')).toBe(true)
+  expect(fixture.requests.some((request) => /balance|codex\/usage|test/.test(request.path))).toBe(false)
+})

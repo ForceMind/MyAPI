@@ -9,8 +9,16 @@ version.
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
 import {
   describeNativeWindowState,
+  nativeWindowFreshness,
   nativeWindowState,
 } from '@/features/personal-upstream/window-state'
+
+/** A provider balance can be negative; finite saved amounts preserve debt. */
+export function savedBalanceAmount(item: ChannelQuotaChangeItem): number | null {
+  if (item.metric_type !== 'balance' || item.status !== 'success' ||
+    typeof item.current_available !== 'number' || !Number.isFinite(item.current_available)) return null
+  return item.current_available
+}
 
 /** A later connection observation does not prove this older identity recovered. */
 export function isHistoricalConnectionWindow(
@@ -18,7 +26,7 @@ export function isHistoricalConnectionWindow(
   windows: ChannelQuotaChangeItem[],
   nowSeconds: number
 ): boolean {
-  return item.status === 'error' && item.source !== 'codex_relay_usage_limit' &&
+  return item.metric_type === 'codex_rate_limit' && item.status === 'error' && item.source !== 'codex_relay_usage_limit' &&
     Number.isSafeInteger(item.observed_at) && (item.observed_at ?? 0) > 0 &&
     (item.observed_at ?? 0) <= nowSeconds && windows.some((other) =>
       other.channel_id === item.channel_id &&
@@ -37,6 +45,36 @@ export function describeConnectionWindow(
   nowSeconds: number,
   t: (key: string) => string
 ): ReturnType<typeof describeNativeWindowState> {
+  // Balance-route capability belongs to this saved balance series only.
+  // A failed balance query never establishes native-window capability.
+  if (item.metric_type === 'balance') {
+    if (item.status === 'unsupported') {
+      if (item.error_code === 'quota_not_configured') {
+        return {
+          label: t('Balance query not configured'),
+          description: t('No balance query route was configured for this saved result. Account-window support is separate.'),
+          variant: 'neutral',
+        }
+      }
+      return {
+        label: t('Balance query unsupported'),
+        description: t('This saved result reports no balance query support for this series. It does not determine account-window support.'),
+        variant: 'neutral',
+      }
+    }
+    if (item.status === 'error') {
+      return {
+        label: t('Balance sample failed'),
+        description: t('This saved balance observation failed. Its timestamp applies only to this series.'),
+        variant: 'danger',
+      }
+    }
+    if (savedBalanceAmount(item) !== null) {
+      const freshness = nativeWindowFreshness(item, nowSeconds)
+      if (freshness === 'fresh') return describeNativeWindowState('available', t)
+      return describeNativeWindowState(freshness === 'stale' ? 'stale' : 'unverified', t)
+    }
+  }
   if (item.source === 'codex_relay_usage_limit') {
     return {
       label: t('Relay usage-limit event'),

@@ -57,20 +57,8 @@ import { updateApiKeyStatus } from '../api'
 import { API_KEY_STATUS, ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
 import { useKeyMaintenanceSession } from '../hooks/use-key-maintenance-session'
 import { apiKeySchema, type ApiKey } from '../types'
+import { savedKeyClientAddresses } from '../lib/client-configuration'
 import { useApiKeys } from './api-keys-provider'
-
-function getServerAddress(): string {
-  try {
-    const raw = localStorage.getItem('status')
-    if (raw) {
-      const status = JSON.parse(raw)
-      if (status.server_address) return status.server_address as string
-    }
-  } catch {
-    /* empty */
-  }
-  return window.location.origin
-}
 
 type DataTableRowActionsProps<TData> =
   | {
@@ -120,7 +108,7 @@ export function DataTableRowActions<TData = ApiKey>(
     const realKey = resolvedRealKey || (await resolveRealKey(apiKey.id))
     if (!realKey || !isCurrentSession()) return
     const value = connectionInfo
-      ? encodeChannelConnectionInfo(realKey, getServerAddress())
+      ? encodeChannelConnectionInfo(realKey, savedKeyClientAddresses().root)
       : realKey
     const copied = await copyToClipboard(value)
     if (!isCurrentSession()) return

@@ -33,6 +33,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { ConnectionListContext } from '@/features/connections/connection-list-context'
+import { ChannelSavedEvidence } from '@/features/connections/connection-evidence-summary'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { hasPermission } from '@/lib/admin-permissions'
@@ -813,6 +814,7 @@ export function useChannelsColumns(
                     <p className='text-muted-foreground text-xs wrap-anywhere'>{channel.remark}</p>
                   </SummaryDisclosure>
                 )}
+                {sensitiveVisible && <div className='text-caption text-muted-foreground min-w-0 wrap-anywhere'><ChannelSavedEvidence channelId={channel.id} /></div>}
               </div>
             </div>
           )

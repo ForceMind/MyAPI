@@ -1,12 +1,14 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { api } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { CCSwitchDialog } from '../dialogs/cc-switch-dialog'
 
+const originalAuth = useAuthStore.getState()
 let client: QueryClient
 const modelName = 'synthetic/model-with-a-complete-long-identifier-and-final-suffix'
 beforeEach(() => {
@@ -19,7 +21,7 @@ beforeEach(() => {
   })
   vi.spyOn(window, 'open').mockReturnValue(null)
 })
-afterEach(() => { cleanup(); client.clear(); localStorage.clear(); vi.restoreAllMocks() })
+afterEach(() => { cleanup(); client.clear(); useAuthStore.setState(originalAuth); localStorage.clear(); vi.restoreAllMocks() })
 
 it.each(['transport', 'business'] as const)('a %s catalog read failure has an explicit retry and preserves the CC Switch draft', async (failure) => {
   const get = vi.mocked(api.get)
@@ -104,4 +106,102 @@ it('CC Switch uses linked labels and one scrolling task body while Cancel never 
   await user.click(cancel)
   expect(window.open).not.toHaveBeenCalled()
   expect(onOpenChange).toHaveBeenCalledWith(false)
+})
+
+it('a selected Key only offers its own candidates and does not choose the first one', async () => {
+  const user = userEvent.setup()
+  vi.mocked(api.get).mockResolvedValue({ data: { success: true, data: ['allowed', 'other'] } })
+  render(<QueryClientProvider client={client}><CCSwitchDialog open tokenKey='synthetic-credential' apiKey={{ model_limits_enabled: true, model_limits: 'allowed' }} onOpenChange={() => {}} /></QueryClientProvider>)
+  const primary = screen.getByRole('combobox', { name: 'Primary Model *' })
+  await user.click(primary)
+  expect(await screen.findByRole('option', { name: 'allowed' })).toBeVisible()
+  expect(screen.queryByRole('option', { name: 'other' })).not.toBeInTheDocument()
+  expect(primary).toHaveValue('')
+  expect(screen.getByText('Candidates follow this Key’s restrictions. Protocol support and upstream availability have not been tested.')).toBeVisible()
+  expect(window.open).not.toHaveBeenCalled()
+})
+
+it('a versioned server setting keeps the existing Codex import endpoint contract without a duplicate suffix', async () => {
+  localStorage.setItem('status', JSON.stringify({ server_address: ' https://synthetic.gateway.invalid/root/v1/// ' }))
+  const user = userEvent.setup()
+  render(<QueryClientProvider client={client}><CCSwitchDialog open tokenKey='synthetic-credential' onOpenChange={() => {}} /></QueryClientProvider>)
+  await user.click(screen.getByRole('radio', { name: 'Codex' }))
+  await user.click(screen.getByRole('combobox', { name: 'Primary Model *' }))
+  await screen.findByRole('option', { name: modelName })
+  await user.keyboard('{ArrowDown}{Enter}')
+  await user.click(screen.getByRole('button', { name: 'Open CC Switch' }))
+  const target = vi.mocked(window.open).mock.calls[0]?.[0]
+  if (typeof target !== 'string') throw new Error('Expected a synthetic CC Switch URL')
+  expect(new URL(target).searchParams.get('endpoint')).toBe('https://synthetic.gateway.invalid/root/v1')
+  expect(new URL(target).searchParams.get('homepage')).toBe('https://synthetic.gateway.invalid/root')
+})
+
+
+it('an enabled empty Key scope never falls back to the full user model directory', async () => {
+  const user = userEvent.setup()
+  render(<QueryClientProvider client={client}><CCSwitchDialog open tokenKey='synthetic-credential' apiKey={{ model_limits_enabled: true, model_limits: '' }} onOpenChange={() => {}} /></QueryClientProvider>)
+  await waitFor(() => expect(api.get).toHaveBeenCalledWith('/api/user/models'))
+  const primary = screen.getByRole('combobox', { name: 'Primary Model *' })
+  await user.click(primary)
+  expect(screen.queryByRole('option', { name: modelName })).not.toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Open CC Switch' }))
+  expect(window.open).not.toHaveBeenCalled()
+})
+
+it('changing actor closes the old secret-bearing import and a fresh actor reads a separate directory', async () => {
+  useAuthStore.setState((state) => ({ ...state, auth: { ...state.auth, user: { id: 1, role: 1, username: 'first' }, session: null } }))
+  const renderDialog = (identity: string, secret: string) => <QueryClientProvider client={client}><CCSwitchDialog key={identity} open tokenKey={secret} onOpenChange={() => {}} /></QueryClientProvider>
+  const view = render(renderDialog('first', 'previous-secret'))
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('combobox', { name: 'Primary Model *' }))
+  await screen.findByRole('option', { name: modelName })
+  await user.keyboard('{ArrowDown}{Enter}')
+  act(() => useAuthStore.setState((state) => ({ ...state, auth: { ...state.auth, user: { id: 2, role: 1, username: 'next' } } })))
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  vi.mocked(api.get).mockResolvedValue({ data: { success: true, data: ['next-actor-model'] } })
+  view.rerender(renderDialog('next', 'next-secret'))
+  await user.click(screen.getByRole('combobox', { name: 'Primary Model *' }))
+  expect(await screen.findByRole('option', { name: 'next-actor-model' })).toBeVisible()
+  expect(screen.queryByRole('option', { name: modelName })).not.toBeInTheDocument()
+  expect(screen.getByRole('combobox', { name: 'Primary Model *' })).toHaveValue('')
+  expect(window.open).not.toHaveBeenCalled()
+})
+
+it.each([undefined, null, 'not-a-list', { models: [] }, ['valid-model', 42]])('a successful response with malformed directory %j is an error rather than a fabricated empty catalog', async (data) => {
+  vi.mocked(api.get).mockResolvedValue({ data: { success: true, data } })
+  render(<QueryClientProvider client={client}><CCSwitchDialog open tokenKey='synthetic-credential' onOpenChange={() => {}} /></QueryClientProvider>)
+  expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load available models')
+  expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled()
+  expect(window.open).not.toHaveBeenCalled()
+})
+
+it('an explicit manual model ID can still be imported when the catalog fails without testing an upstream', async () => {
+  vi.mocked(api.get).mockRejectedValue(new Error('Synthetic catalog unavailable'))
+  const user = userEvent.setup()
+  render(<QueryClientProvider client={client}><CCSwitchDialog open tokenKey='synthetic-credential' onOpenChange={() => {}} /></QueryClientProvider>)
+  expect(await screen.findByRole('alert')).toHaveTextContent('Synthetic catalog unavailable')
+  const submit = screen.getByRole('button', { name: 'Open CC Switch' })
+  expect(submit).toBeDisabled()
+  await user.type(screen.getByRole('combobox', { name: 'Primary Model *' }), 'manual-model-id')
+  expect(submit).toBeEnabled()
+  await user.click(submit)
+  const target = vi.mocked(window.open).mock.calls[0]?.[0]
+  if (typeof target !== 'string') throw new Error('Expected a synthetic CC Switch URL')
+  expect(new URL(target).searchParams.get('model')).toBe('manual-model-id')
+  expect(api.get).toHaveBeenCalledExactlyOnceWith('/api/user/models')
+})
+
+it('a manual model ID outside the Key restriction cannot be imported while an allowed uncatalogued ID can', async () => {
+  const user = userEvent.setup()
+  render(<QueryClientProvider client={client}><CCSwitchDialog open tokenKey='synthetic-credential' apiKey={{ model_limits_enabled: true, model_limits: 'allowed-manual-model' }} onOpenChange={() => {}} /></QueryClientProvider>)
+  const primary = screen.getByRole('combobox', { name: 'Primary Model *' })
+  await user.type(primary, 'outside-model')
+  expect(screen.getByRole('button', { name: 'Open CC Switch' })).toBeDisabled()
+  expect(screen.getByText('One or more model IDs are outside this Key’s restrictions.')).toBeVisible()
+  expect(window.open).not.toHaveBeenCalled()
+  await user.clear(primary)
+  await user.type(primary, 'allowed-manual-model')
+  expect(screen.getByRole('button', { name: 'Open CC Switch' })).toBeEnabled()
+  await user.click(screen.getByRole('button', { name: 'Open CC Switch' }))
+  expect(window.open).toHaveBeenCalledOnce()
 })

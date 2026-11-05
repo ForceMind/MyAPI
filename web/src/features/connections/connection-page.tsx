@@ -66,6 +66,7 @@ import {
   type ConnectionSummary,
 } from './connection-state'
 import { ConnectionWindows } from './connection-windows'
+import { describeConnectionWindow } from './window-state'
 import { useConnectionSwitch } from './use-connection-switch'
 import { useConnectionTest } from './use-connection-test'
 import {
@@ -371,7 +372,7 @@ function ConnectionPageContent(props: {
               }
             />
             <ConnectionKindBadge
-              kind={connectionKind(item, (savedWindows?.length ?? 0) > 0)}
+              kind={connectionKind(item, savedWindows?.some((window) => window.metric_type === 'codex_rate_limit' && window.unit === 'percent') ?? false)}
             />
             <span className='font-mono'>#{item.id}</span>
             <span>{t(getChannelTypeLabel(item.type))}</span>
@@ -520,15 +521,11 @@ function ConnectionStats(props: {
   )
   const used = window ? nativeWindowUsage(window) : null
 
-  const kind = connectionKind(props.item, false)
-  let windowDetail = t('Only saved observations are read. Opening a connection does not contact its provider.')
-  if (kind === 'local') windowDetail = t('Local server, no quota window')
-  if (kind === 'api') windowDetail = t('Metered, no subscription window')
   let third = (
     <StatTile
       label={t('Account window')}
       value={t('No saved window sample')}
-      detail={windowDetail}
+      detail={t('Window query capability unknown')}
       loading={props.windowsPending}
     />
   )
@@ -537,7 +534,7 @@ function ConnectionStats(props: {
       <StatTile
         label={t('{{window}} left', { window: windowName(window, t) })}
         value={used === null ? t('Unknown') : `${Math.round(100 - used)}%`}
-        detail={t('Closest to its limit among saved windows')}
+        detail={`${t('Closest to its limit among saved windows')} · ${describeConnectionWindow(window, props.windows ?? [], Date.now() / 1000, t).label}`}
       />
     )
   } else if (props.windows === undefined && !props.windowsPending) {

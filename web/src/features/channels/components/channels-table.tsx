@@ -42,6 +42,8 @@ import {
 import { LogPagination } from '@/components/log-pagination'
 import { ConnectionListContext } from '@/features/connections/connection-list-context'
 import { ConnectionViewSwitcher } from '@/features/connections/connection-view-switcher'
+import { ConnectionEvidenceContext } from '@/features/connections/connection-evidence-context'
+import { useConnectionWindows } from '@/features/connections/use-connections'
 import { tableToConnectionsSearch, type ConnectionReturn } from '@/features/connections/connection-state'
 import { normalizeLogPagination } from '@/lib/log-pagination'
 import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
@@ -355,6 +357,21 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
     return rawChannels
   }, [data, enableTagMode, isError, canRead])
 
+  // Query only the actual channels on this page; aggregate tag IDs are not channels.
+  const evidenceIds = channels.flatMap((channel) => {
+    if (!active || !canRead || isError) return []
+    if (isTagAggregateRow(channel)) return channel.children.map((child) => child.id)
+    return [channel.id]
+  })
+  const savedEvidence = useConnectionWindows({ identity: actor, canRead: canRead && active }, evidenceIds)
+  const evidenceContext = useMemo(() => ({
+    identity: actor,
+    data: savedEvidence.isError ? undefined : savedEvidence.data,
+    known: savedEvidence.isSuccess,
+    loading: savedEvidence.isPending,
+    now: savedEvidence.now,
+  }), [actor, savedEvidence.data, savedEvidence.isError, savedEvidence.isSuccess, savedEvidence.isPending, savedEvidence.now])
+
   const knownTotal = isError || isFetching || !canRead ? undefined : data?.data?.total
   const totalCount = knownTotal ?? 0
   const connectionReturn: ConnectionReturn = {
@@ -509,6 +526,7 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
 
   return (
     <ConnectionListContext value={connectionReturn}>
+    <ConnectionEvidenceContext value={evidenceContext}>
       <div className='mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3'>
         <ConnectionViewSwitcher view='table' search={connectionReturn} showOther={showCards} />
         <p className='text-caption text-muted-foreground'>{t('Advanced connection controls')}</p>
@@ -659,6 +677,7 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
         }}
         bulkActions={active && batchMode ? <DataTableBulkActions table={table} /> : null}
       />
+    </ConnectionEvidenceContext>
     </ConnectionListContext>
   )
 }

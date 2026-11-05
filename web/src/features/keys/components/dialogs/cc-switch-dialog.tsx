@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useQuery } from '@tanstack/react-query'
 import { useState, useEffect, useId, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -27,7 +26,9 @@ import { Button } from '@/components/ui/button'
 import { ComboboxInput } from '@/components/ui/combobox-input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { getUserModels } from '@/lib/api'
+import { useKeyClientModels } from '../../hooks/use-key-client-models'
+import { useKeyMaintenanceSession } from '../../hooks/use-key-maintenance-session'
+import { keyClientModelAllowed, keyClientModels, savedKeyClientAddresses, type KeyClientAddresses, type KeyClientScope } from '../../lib/client-configuration'
 
 const APP_CONFIGS = {
   claude: {
@@ -54,27 +55,14 @@ const APP_CONFIGS = {
 
 type AppType = keyof typeof APP_CONFIGS
 
-function getServerAddress(): string {
-  try {
-    const raw = localStorage.getItem('status')
-    if (raw) {
-      const status = JSON.parse(raw)
-      if (status.server_address) return status.server_address
-    }
-  } catch {
-    /* empty */
-  }
-  return window.location.origin
-}
-
 function buildCCSwitchURL(
   app: string,
   name: string,
   models: Record<string, string>,
-  apiKey: string
+  apiKey: string,
+  address: KeyClientAddresses
 ): string {
-  const serverAddress = getServerAddress()
-  const endpoint = app === 'codex' ? `${serverAddress}/v1` : serverAddress
+  const endpoint = app === 'codex' ? address.openAI : address.root
   const params = new URLSearchParams()
   params.set('resource', 'provider')
   params.set('app', app)
@@ -84,7 +72,7 @@ function buildCCSwitchURL(
   for (const [k, v] of Object.entries(models)) {
     if (v) params.set(k, v)
   }
-  params.set('homepage', serverAddress)
+  params.set('homepage', address.root)
   params.set('enabled', 'true')
   return `ccswitch://v1/import?${params.toString()}`
 }
@@ -93,45 +81,42 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   tokenKey: string
+  apiKey?: KeyClientScope
+  selectedModel?: string
+  address?: KeyClientAddresses
 }
 
 export function CCSwitchDialog(props: Props) {
   const { t } = useTranslation()
+  const isCurrentSession = useKeyMaintenanceSession()
   const [app, setApp] = useState<AppType>('claude')
   const [name, setName] = useState<string>(APP_CONFIGS.claude.defaultName)
   const [models, setModels] = useState<Record<string, string>>({})
   const id = useId()
 
-  const modelsQuery = useQuery({
-    queryKey: ['user-models-ccswitch'],
-    queryFn: async () => {
-      const response = await getUserModels()
-      if (!response.success) throw new Error(response.message || t('Unable to load available models'))
-      return response
-    },
-    retry: false,
-    enabled: props.open,
-    staleTime: 5 * 60 * 1000,
-  })
+  const modelsQuery = useKeyClientModels(props.open && isCurrentSession())
 
   const modelsData = modelsQuery.data
   const modelOptions = useMemo(() => {
-    const items = modelsData?.data ?? []
+    const items = keyClientModels(modelsData ?? [], props.apiKey)
     return items.map((m) => ({ value: m, label: m }))
-  }, [modelsData?.data])
+  }, [modelsData, props.apiKey])
 
   useEffect(() => {
     if (props.open) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setModels({})
+      setModels(props.selectedModel ? { model: props.selectedModel } : {})
 
       setApp('claude')
 
       setName(APP_CONFIGS.claude.defaultName)
     }
-  }, [props.open])
+  }, [props.open, props.selectedModel])
 
   const currentConfig = APP_CONFIGS[app]
+  const address = props.address ?? savedKeyClientAddresses()
+  const endpoint = app === 'codex' ? address.openAI : address.root
+  const modelsWithinScope = Object.values(models).every((model) => !model || keyClientModelAllowed(model, props.apiKey))
 
   const handleAppChange = (val: string) => {
     const appVal = val as AppType
@@ -141,17 +126,24 @@ export function CCSwitchDialog(props: Props) {
   }
 
   const handleSubmit = () => {
+    if (!isCurrentSession() || !props.tokenKey) return
     if (!models.model) {
       toast.warning(t('Please select a primary model'))
+      return
+    }
+    if (!modelsWithinScope) {
+      toast.warning(t('Please select a candidate model for this Key'))
       return
     }
     const key = props.tokenKey.startsWith('sk-')
       ? props.tokenKey
       : `sk-${props.tokenKey}`
-    const url = buildCCSwitchURL(app, name, models, key)
+    const url = buildCCSwitchURL(app, name, models, key, address)
     window.open(url, '_blank')
     props.onOpenChange(false)
   }
+
+  if (!isCurrentSession()) return null
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -162,6 +154,8 @@ export function CCSwitchDialog(props: Props) {
         <section role='region' aria-label={t('CC Switch import task')} className='flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-5 [overflow-wrap:anywhere] sm:px-6 [&_[role=listbox]]:max-h-none [&_[role=listbox]]:overflow-visible [&_div:has(>[role=listbox])]:static [&_[role=option]]:min-h-11 [&_[role=option]]:items-start [&_[role=option]_span]:overflow-visible [&_[role=option]_span]:text-clip [&_[role=option]_span]:whitespace-normal [&_[role=option]_span]:[overflow-wrap:anywhere]'>
           {modelsQuery.isFetching && <p role='status' className='text-muted-foreground text-sm'>{t('Loading...')}</p>}
           {modelsQuery.isError && <Alert variant='destructive'><AlertTitle>{t('Unable to load available models')}</AlertTitle><AlertDescription>{modelsQuery.error instanceof Error ? modelsQuery.error.message : t('Please try again.')}</AlertDescription><Button className='mt-3 min-h-11 w-fit' variant='outline' disabled={modelsQuery.isFetching} onClick={() => { void modelsQuery.refetch() }}>{t('Retry')}</Button></Alert>}
+          <p className='text-caption text-muted-foreground'>{t('Candidates follow this Key’s restrictions. Protocol support and upstream availability have not been tested.')}</p>
+          <p className='text-caption text-muted-foreground'>{t('You can enter a model ID manually. Its protocol and availability remain unverified.')}</p>
           <fieldset className='min-w-0'>
             <legend className='mb-2 text-sm font-medium'>{t('Application')}</legend>
             <RadioGroup aria-label={t('Application')} value={app} onValueChange={handleAppChange} className='grid gap-2 sm:grid-cols-3'>
@@ -171,18 +165,25 @@ export function CCSwitchDialog(props: Props) {
               </div>)}
             </RadioGroup>
           </fieldset>
+          <dl className='flex min-w-0 flex-col gap-1'>
+            <dt className='text-caption text-muted-foreground'>{t('Client endpoint')}</dt>
+            <dd className='text-data font-mono wrap-anywhere'>{endpoint}</dd>
+            <dd className='text-caption text-muted-foreground'>{address.source === 'setting' ? t('From the server address setting') : t('Current access address')}</dd>
+          </dl>
+          <p className='text-caption text-muted-foreground'>{t('Claude and Gemini use the installation root; Codex uses /v1. Choose models that support the selected client’s API.')}</p>
           <div className='flex min-w-0 flex-col gap-2'>
             <Label htmlFor={`${id}-name`}>{t('Name')}</Label>
             <ComboboxInput id={`${id}-name`} className='min-h-11' options={[]} value={name} onValueChange={setName} placeholder={currentConfig.defaultName} emptyText='' allowCustomValue />
           </div>
           {currentConfig.modelFields.map((field) => <div key={field.key} className='flex min-w-0 flex-col gap-2'>
             <Label htmlFor={`${id}-${field.key}`}>{t(field.labelKey)}{field.required && ' '}{field.required && <span className='text-destructive'>*</span>}</Label>
-            <ComboboxInput id={`${id}-${field.key}`} className='min-h-11' options={modelOptions} value={models[field.key] || ''} onValueChange={(value) => setModels((current) => ({ ...current, [field.key]: value }))} placeholder={t('Select or enter model name')} emptyText={t('No models found')} />
+            <ComboboxInput id={`${id}-${field.key}`} className='min-h-11' options={modelOptions} value={models[field.key] || ''} onValueChange={(value) => setModels((current) => ({ ...current, [field.key]: value }))} placeholder={t('Select or enter model name')} emptyText={t('No models found')} allowCustomValue />
           </div>)}
+          {!modelsWithinScope && <p role='alert' className='text-destructive text-sm'>{t('One or more model IDs are outside this Key’s restrictions.')}</p>}
         </section>
         <DialogFooter role='group' aria-label={t('Actions')} className='m-0 shrink-0 flex-row flex-wrap justify-end rounded-none px-4 py-4 sm:px-6'>
           <Button className='min-h-11' variant='outline' onClick={() => props.onOpenChange(false)}>{t('Cancel')}</Button>
-          <Button className='min-h-11' onClick={handleSubmit}>{t('Open CC Switch')}</Button>
+          <Button className='min-h-11' disabled={!models.model || !modelsWithinScope} onClick={handleSubmit}>{t('Open CC Switch')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

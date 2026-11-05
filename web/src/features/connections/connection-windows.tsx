@@ -14,14 +14,12 @@ import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { quotaSeriesKey } from '@/features/channels/lib/quota-history'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
-import {
-  nativeWindowState,
-  nativeWindowUsage,
-} from '@/features/personal-upstream/window-state'
+import { nativeWindowUsage } from '@/features/personal-upstream/window-state'
 import { formatTimestampToDate } from '@/lib/format'
 
 import { windowName } from './connection-format'
-import { describeConnectionWindow } from './window-state'
+import { ConnectionEvidenceQuality } from './connection-evidence-summary'
+import { describeConnectionWindow, savedBalanceAmount } from './window-state'
 
 /**
  * The connection's saved account windows (design v2 upstream "windows"):
@@ -37,13 +35,15 @@ export function ConnectionWindows(props: {
   now: number
 }) {
   const { t } = useTranslation()
+  const hasBalance = props.query.data?.some((item) => item.metric_type === 'balance') ?? false
+  const heading = hasBalance ? t('Saved quota evidence') : t('Saved account windows')
   return (
     <section
-      aria-label={t('Saved account windows')}
+      aria-label={heading}
       className='bg-card p-card flex min-w-0 flex-col gap-4 rounded-xl border'
     >
       <div className='flex flex-wrap items-center justify-between gap-2'>
-        <h2 className='text-body font-semibold'>{t('Saved account windows')}</h2>
+        <h2 className='text-body font-semibold'>{heading}</h2>
         <Button
           variant='outline'
           size='sm'
@@ -66,6 +66,9 @@ export function ConnectionWindows(props: {
           )}
         </p>
       )}
+      {!props.query.isPending && !props.query.isError && !props.query.data?.some((item) => item.metric_type === 'codex_rate_limit') && (
+        <p className='text-body text-muted-foreground'>{t('Window query capability unknown')}</p>
+      )}
       {!props.query.isError && (props.query.data?.length ?? 0) > 0 && (
         <ul className='flex min-w-0 flex-col gap-4'>
           {props.query.data?.map((item) => {
@@ -78,7 +81,11 @@ export function ConnectionWindows(props: {
             )
             const name = windowName(item, t)
             const observed = item.observed_at
-            const state = nativeWindowState(item, props.now)
+            let value = used === null ? t('Usage unavailable') : t('{{value}}% left', { value: Math.round(100 - used) })
+            const balance = savedBalanceAmount(item)
+            if (balance !== null) {
+              value = t('{{value}} {{unit}}', { value: balance, unit: item.currency || item.unit || t('Unknown') })
+            }
             return (
               <li
                 key={quotaSeriesKey(item)}
@@ -86,12 +93,12 @@ export function ConnectionWindows(props: {
                 className='grid min-w-0 gap-4 rounded-lg border p-4 lg:grid-cols-2 lg:gap-6'
               >
                 <div className='flex min-w-0 items-center gap-4'>
-                  {used === null ? (
+                  {used === null && item.metric_type === 'codex_rate_limit' ? (
                     <span
                       aria-hidden='true'
                       className='border-meter-track size-24 shrink-0 rounded-full border-[0.6rem] sm:size-28'
                     />
-                  ) : (
+                  ) : used !== null && (
                     <QuotaRing
                       used={used}
                       label={t('{{window}}: {{used}}% used, {{left}}% left', {
@@ -105,17 +112,11 @@ export function ConnectionWindows(props: {
                   <div className='flex min-w-0 flex-col gap-0.5'>
                     <h3 className='text-caption text-muted-foreground'>{name}</h3>
                     <p className='text-lg leading-7 font-semibold tabular-nums'>
-                      {used === null
-                        ? t('Usage unavailable')
-                        : t('{{value}}% left', {
-                            value: Math.round(100 - used),
-                          })}
+                      {value}
                     </p>
-                    {item.account_label && (
-                      <p className='text-caption text-muted-foreground wrap-anywhere'>
-                        {item.account_label}
-                      </p>
-                    )}
+                    <p className='text-caption text-muted-foreground wrap-anywhere'>
+                      {item.account_label || t('Account identity unknown')}
+                    </p>
                   </div>
                 </div>
                 <div className='flex min-w-0 flex-col items-start gap-2'>
@@ -143,7 +144,8 @@ export function ConnectionWindows(props: {
                       </dd>
                     </div>
                   </dl>
-                  {state !== 'available' && state !== 'unavailable' && (
+                  <ConnectionEvidenceQuality item={item} />
+                  {(described.variant === 'warning' || described.variant === 'danger' || item.status === 'unsupported') && (
                     <p className='text-caption text-muted-foreground wrap-anywhere'>
                       {described.description}
                     </p>

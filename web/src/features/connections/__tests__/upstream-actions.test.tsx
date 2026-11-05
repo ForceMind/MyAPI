@@ -222,13 +222,14 @@ test('the grid shows one card per connection with its kind, state and the saved 
   expect(within(within(card('Subscription A')).getByRole('list', { name: 'Current account windows' })).getByText(/18% left/)).toBeVisible()
   expect(within(card('Subscription A')).getByText('Subscription')).toBeVisible()
   expect(within(card('Subscription A')).getByText('Available')).toBeVisible()
-  // A metered connection draws no ring and says why.
+  // Empty records never establish provider query capability.
   expect(within(card('API connection B')).queryByRole('img')).toBeNull()
   expect(
     within(card('API connection B')).getByText(
-      'Metered, no subscription window'
+      'No saved window sample'
     )
   ).toBeVisible()
+  expect(within(card('API connection B')).getByText('Window query capability unknown')).toBeVisible()
   expect(within(card('API connection B')).getByText('API Key')).toBeVisible()
   // Carrying the latest requests: in use.
   expect(within(card('API connection B')).getByText('In use')).toBeVisible()

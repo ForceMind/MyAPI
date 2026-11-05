@@ -66,6 +66,10 @@ const maxAdvancedCustomBalanceResponseBytes = maxChannelBalanceResponseBytes
 // a first-class status so operators are not told to repair a healthy channel.
 var errChannelQuotaUnsupported = errors.New("channel quota unsupported")
 
+// A valid custom relay does not need a balance route. Keep that absence
+// distinct from broken configuration and a failed configured query.
+var errChannelBalanceNotConfigured = fmt.Errorf("balance query route not configured: %w", errChannelQuotaUnsupported)
+
 // Balance endpoints are provider-controlled and some providers do not close
 // stalled connections promptly.  A bounded request context keeps the
 // scheduled sampler from accumulating goroutines while preserving the
@@ -385,6 +389,16 @@ func updateChannelMoonshotBalance(ctx context.Context, channel *model.Channel) (
 
 func fetchAdvancedCustomBalance(ctx context.Context, channel *model.Channel) (channelBalanceResult, error) {
 	key := strings.TrimSpace(channel.Key)
+	var settings dto.ChannelOtherSettings
+	if err := common.UnmarshalJsonStr(channel.OtherSettings, &settings); err != nil {
+		return channelBalanceResult{}, sanitizeFetchModelsError(err, key)
+	}
+	if err := settings.AdvancedCustom.Validate(); err != nil {
+		return channelBalanceResult{}, sanitizeFetchModelsError(err, key)
+	}
+	if _, configured := settings.AdvancedCustom.BalanceRoute(); !configured {
+		return channelBalanceResult{}, errChannelBalanceNotConfigured
+	}
 	info := &relaycommon.RelayInfo{
 		RelayFormat:    types.RelayFormatOpenAI,
 		RelayMode:      relayconstant.RelayModeUnknown,
@@ -393,7 +407,7 @@ func fetchAdvancedCustomBalance(ctx context.Context, channel *model.Channel) (ch
 			ChannelType:          constant.ChannelTypeAdvancedCustom,
 			ChannelBaseUrl:       channel.GetBaseURL(),
 			ApiKey:               key,
-			ChannelOtherSettings: channel.GetOtherSettings(),
+			ChannelOtherSettings: settings,
 		},
 	}
 	requestURL, headers, err := (&advancedcustom.Adaptor{}).BuildBalanceRequest(info)
@@ -583,7 +597,11 @@ func recordChannelBalanceSnapshot(channel *model.Channel, result channelBalanceR
 		Source:     fmt.Sprintf("channel_type_%d", channel.Type),
 	}
 	if queryErr != nil {
-		if errors.Is(queryErr, errChannelQuotaUnsupported) {
+		if errors.Is(queryErr, errChannelBalanceNotConfigured) {
+			snapshot.Status = "unsupported"
+			snapshot.ErrorCode = "quota_not_configured"
+			snapshot.ErrorMessage = "balance query route is not configured"
+		} else if errors.Is(queryErr, errChannelQuotaUnsupported) {
 			snapshot.Status = "unsupported"
 			snapshot.ErrorCode = "quota_unsupported"
 			snapshot.ErrorMessage = "provider does not expose a supported balance endpoint"
@@ -646,7 +664,11 @@ func recordChannelBalanceSnapshotWithIdentity(channel *model.Channel, result cha
 		return recordQuotaSamplingSnapshots([]model.ChannelQuotaSnapshot{*snapshot})
 	}
 	if queryErr != nil {
-		if errors.Is(queryErr, errChannelQuotaUnsupported) {
+		if errors.Is(queryErr, errChannelBalanceNotConfigured) {
+			snapshot.Status = "unsupported"
+			snapshot.ErrorCode = "quota_not_configured"
+			snapshot.ErrorMessage = "balance query route is not configured"
+		} else if errors.Is(queryErr, errChannelQuotaUnsupported) {
 			snapshot.Status = "unsupported"
 			snapshot.ErrorCode = "quota_unsupported"
 			snapshot.ErrorMessage = "provider does not expose a supported balance endpoint"

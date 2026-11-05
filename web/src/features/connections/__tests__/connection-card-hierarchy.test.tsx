@@ -107,3 +107,34 @@ test('a healthy different account window never hides the failed weekly series wh
   expect(within(evidence).getByText(/not marked resolved/)).toBeVisible()
   expect(fixture.requests.slice(before)).toEqual([])
 })
+
+test.each([4, 1, 57])('empty saved records for type %i keep query capability unknown', async (type) => {
+  const fixture = await mountConnections({ items: [{ ...CONNECTION, type }] })
+  dispose = fixture.teardown
+  const card = within(await screen.findByRole('article', { name: CONNECTION.name }))
+  await waitFor(() => expect(card.getByText('No saved window sample')).toBeVisible())
+  expect(card.getByText('Window query capability unknown')).toBeVisible()
+  expect(card.queryByText('Metered, no subscription window')).not.toBeInTheDocument()
+  expect(card.queryByText('Local server, no quota window')).not.toBeInTheDocument()
+  expect(card.queryByRole('img')).not.toBeInTheDocument()
+})
+
+test('expanded card evidence retains account identity and source for each independently saved series', async () => {
+  const now = Math.floor(Date.now() / 1000)
+  const fixture = await mountConnections({ windows: [
+    { channel_id: 7, name: CONNECTION.name, metric_type: 'codex_rate_limit', unit: 'percent', window_type: 'weekly', status: 'unsupported', source: 'codex_wham_usage_secondary', account_label: 'Synthetic weekly account', observed_at: now - 20, series_id: 'f'.repeat(64) },
+    { channel_id: 7, name: CONNECTION.name, metric_type: 'codex_rate_limit', unit: 'percent', window_type: 'five_hour', status: 'success', source: 'codex_wham_usage_primary', account_label: 'Synthetic primary account', current_available: 82, observed_at: now - 5, series_id: 'a'.repeat(64) },
+  ] })
+  dispose = fixture.teardown
+  const card = within(await screen.findByRole('article', { name: CONNECTION.name }))
+  const current = await card.findByRole('list', { name: 'Current account windows' })
+  expect(within(current).getByText(/Window reporting unsupported/)).toBeVisible()
+  const before = fixture.requests.length
+  await userEvent.setup().click(card.getByRole('button', { name: 'Window details (2)' }))
+  const rows = within(card.getByRole('list', { name: 'Saved account windows' })).getAllByRole('listitem')
+  expect(within(rows[0]).getByText('Synthetic weekly account')).toBeVisible()
+  expect(within(rows[0]).getByText(/codex_wham_usage_secondary/)).toBeVisible()
+  expect(within(rows[1]).getByText('Synthetic primary account')).toBeVisible()
+  expect(within(rows[1]).getByText(/codex_wham_usage_primary/)).toBeVisible()
+  expect(fixture.requests.slice(before)).toEqual([])
+})

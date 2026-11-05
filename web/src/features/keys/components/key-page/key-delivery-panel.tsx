@@ -8,34 +8,68 @@ version.
 */
 import { SecurityCheckIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { ComboboxInput } from '@/components/ui/combobox-input'
+import { Label } from '@/components/ui/label'
 import { useStatus } from '@/hooks/use-status'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
 import type { ApiKey } from '../../types'
+import { useKeyClientModels } from '../../hooks/use-key-client-models'
+import { useKeyMaintenanceSession } from '../../hooks/use-key-maintenance-session'
+import { keyClientAddresses, keyClientModels } from '../../lib/client-configuration'
 import { ApiKeyCell } from '../api-keys-cells'
+import { useApiKeys } from '../api-keys-provider'
 import { CredentialMaintenanceDialog } from '../credential-maintenance-dialog'
+import { CCSwitchDialog } from '../dialogs/cc-switch-dialog'
 
 /**
  * What a client needs to use this Key: the base URL and the Key itself,
  * which stays masked until the user reveals or copies it. Root also
  * maintains the Key's stored credential here.
  */
-export function KeyDeliveryPanel(props: { apiKey: ApiKey }) {
+export function KeyDeliveryPanel(props: { apiKey: ApiKey; onViewScope: () => void }) {
   const { t } = useTranslation()
   const { status } = useStatus()
+  const modelId = useId()
+  const isCurrentSession = useKeyMaintenanceSession()
+  const { resolveRealKey } = useApiKeys()
   const role = useAuthStore((state) => state.auth.user?.role)
   const [maintaining, setMaintaining] = useState(false)
-  const serverAddress =
-    typeof status?.server_address === 'string'
-      ? status.server_address.trim().replace(/\/+$/, '')
-      : ''
-  const baseUrl = `${serverAddress || window.location.origin}/v1`
+  const [model, setModel] = useState('')
+  const [importKey, setImportKey] = useState('')
+  const [importPending, setImportPending] = useState(false)
+  const directory = useKeyClientModels(isCurrentSession())
+  const candidates = directory.isError ? [] : keyClientModels(directory.data ?? [], props.apiKey)
+  const selectedModel = candidates.includes(model) ? model : ''
+  const address = keyClientAddresses(status?.server_address, window.location.origin)
+  const baseUrl = address.openAI
+  const limitedModelCount = new Set(props.apiKey.model_limits.split(',').filter(Boolean)).size
+  let modelRestriction = t('No Key-level model restriction')
+  if (props.apiKey.model_limits_enabled) {
+    modelRestriction = limitedModelCount > 0
+      ? t('Model restriction enabled: {{count}} models', { count: limitedModelCount })
+      : t('Model restriction enabled: no models allowed')
+  }
+
+  const openImport = async () => {
+    if (!selectedModel || importPending || !isCurrentSession()) return
+    setImportPending(true)
+    try {
+      const key = await resolveRealKey(props.apiKey.id)
+      if (key && isCurrentSession()) setImportKey(key)
+    } finally {
+      if (isCurrentSession()) setImportPending(false)
+    }
+  }
+
+  if (!isCurrentSession()) return null
 
   return (
     <div className='flex min-w-0 flex-col gap-4'>
@@ -65,7 +99,7 @@ export function KeyDeliveryPanel(props: { apiKey: ApiKey }) {
               />
             </dd>
             <dd className='text-caption text-muted-foreground wrap-anywhere'>
-              {serverAddress
+              {address.source === 'setting'
                 ? t('From the server address setting')
                 : t('Current access address')}
             </dd>
@@ -76,10 +110,52 @@ export function KeyDeliveryPanel(props: { apiKey: ApiKey }) {
               <ApiKeyCell apiKey={props.apiKey} />
             </dd>
             <dd className='text-caption text-muted-foreground wrap-anywhere'>
-              {t('The full Key is read only when you reveal or copy it.')}
+              {t('The full Key is read only when you reveal, copy, or import it.')}
             </dd>
           </div>
         </dl>
+        <p className='text-caption text-muted-foreground wrap-anywhere'>
+          {t('OpenAI-compatible clients use this /v1 Base URL. CC Switch keeps the selected application’s endpoint format.')}
+        </p>
+        <div className='flex min-w-0 flex-col gap-2 border-t pt-4 [&_[role=option]]:min-h-11 [&_[role=option]]:items-start [&_[role=option]_span]:overflow-visible [&_[role=option]_span]:text-clip [&_[role=option]_span]:whitespace-normal [&_[role=option]_span]:wrap-anywhere'>
+          <Label htmlFor={modelId}>{t('Candidate model')}</Label>
+          <ComboboxInput
+            id={modelId}
+            className='min-h-11'
+            options={candidates.map((candidate) => ({ value: candidate, label: candidate }))}
+            value={selectedModel}
+            onValueChange={setModel}
+            placeholder={t('Select a model')}
+            emptyText={t('No candidate models for this Key')}
+          />
+          {directory.isFetching && <p role='status' className='text-caption text-muted-foreground'>{t('Loading...')}</p>}
+          {directory.isError && (
+            <Alert variant='destructive'>
+              <AlertTitle>{t('Unable to load available models')}</AlertTitle>
+              <AlertDescription>{directory.error.message}</AlertDescription>
+              <Button variant='outline' className='mt-3 min-h-11' disabled={directory.isFetching} onClick={() => void directory.refetch()}>{t('Retry')}</Button>
+            </Alert>
+          )}
+          {!directory.isPending && !directory.isError && candidates.length === 0 && (
+            <p className='text-caption text-muted-foreground'>{t('No candidate models for this Key')}</p>
+          )}
+          <p className='text-caption text-muted-foreground'>
+            {t('Candidates follow this Key’s restrictions. Protocol support and upstream availability have not been tested.')}
+          </p>
+          <div className='flex min-w-0 flex-wrap gap-2 pointer-coarse:[&_button]:min-h-11'>
+            {selectedModel && <CopyButton value={selectedModel} variant='outline' size='sm' tooltip={t('Copy model name')} aria-label={t('Copy model name')}>{t('Copy model name')}</CopyButton>}
+            <Button variant='outline' disabled={!selectedModel || importPending} aria-busy={importPending} onClick={() => void openImport()}>{t('Import to CC Switch')}</Button>
+          </div>
+        </div>
+        <div className='flex min-w-0 flex-col items-start gap-2 border-t pt-4'>
+          <h3 className='text-data font-medium'>{t('Key restrictions')}</h3>
+          <p className='text-caption text-muted-foreground wrap-anywhere'>
+            {modelRestriction}
+          </p>
+          <p className='text-caption text-muted-foreground wrap-anywhere'>{t('Access profile')}: {props.apiKey.access_profile?.label || props.apiKey.group || t('Default')}{props.apiKey.access_profile?.enabled === false && ` · ${t('Disabled')}`}</p>
+          <p className='text-caption text-muted-foreground wrap-anywhere'>{t('IP Restriction')}: {props.apiKey.allow_ips || t('None')}</p>
+          <Button variant='outline' className='pointer-coarse:min-h-11' onClick={props.onViewScope}>{t('View Key restrictions')}</Button>
+        </div>
       </section>
       {role === ROLE.SUPER_ADMIN && (
         <section
@@ -108,6 +184,9 @@ export function KeyDeliveryPanel(props: { apiKey: ApiKey }) {
           tokenId={props.apiKey.id}
           onClose={() => setMaintaining(false)}
         />
+      )}
+      {importKey && (
+        <CCSwitchDialog open tokenKey={importKey} apiKey={props.apiKey} selectedModel={selectedModel} address={address} onOpenChange={(open) => { if (!open) setImportKey('') }} />
       )}
     </div>
   )

@@ -111,3 +111,33 @@ test.each([undefined, 0, now + 1, Number.NaN])(
     )
   }
 )
+
+test('a saved balance query result keeps capability separate from native window sampling', () => {
+  const balance: ChannelQuotaChangeItem = {
+    channel_id: 7,
+    name: 'Balance connection',
+    metric_type: 'balance',
+    unit: 'usd',
+    window_type: 'none',
+    source: 'channel_type_1',
+    status: 'unsupported',
+    observed_at: now - 10,
+  }
+  expect(describeConnectionWindow(balance, [balance, success], now, t)).toEqual({
+    label: 'Balance query unsupported',
+    description: 'This saved result reports no balance query support for this series. It does not determine account-window support.',
+    variant: 'neutral',
+  })
+  expect(describeConnectionWindow({ ...balance, status: 'error' }, [balance, success], now, t).label).toBe('Balance sample failed')
+  expect(describeConnectionWindow({ ...balance, status: 'success', current_available: 0 }, [balance], now, t).label).toBe('Snapshot available')
+  expect(describeConnectionWindow({ ...balance, status: 'success', current_available: -3.5 }, [balance], now, t).label).toBe('Snapshot available')
+})
+
+test('an unconfigured balance route is not a provider failure or a native-window capability claim', () => {
+  const item: ChannelQuotaChangeItem = { channel_id: 7, name: 'Custom', metric_type: 'balance', status: 'unsupported', error_code: 'quota_not_configured' }
+  expect(describeConnectionWindow(item, [item], now, t)).toEqual({
+    label: 'Balance query not configured',
+    description: 'No balance query route was configured for this saved result. Account-window support is separate.',
+    variant: 'neutral',
+  })
+})

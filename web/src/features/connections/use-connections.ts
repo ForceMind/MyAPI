@@ -168,13 +168,14 @@ export function useConnectionDetail(
 }
 
 /**
- * Saved account window observations of the given connections (the native
- * percent windows of subscription accounts), in one read. Only stored
+ * Saved native percent windows and balance-query evidence of the given
+ * connections, in one read. Balance records never establish native-window
+ * capability or supply a percentage ring. Only stored
  * samples are read; no provider is contacted. A reply naming a connection
  * that was not asked for is an error, never a healthy empty result.
  */
 export function useConnectionWindows(
-  access: ConnectionAccess,
+  access: Pick<ConnectionAccess, 'identity' | 'canRead'>,
   connectionIds: number[]
 ) {
   const ids = [...new Set(connectionIds)].sort((a, b) => a - b)
@@ -205,7 +206,8 @@ export function useConnectionWindows(
       }
       return response.data.items.filter(
         (item) =>
-          item.metric_type === 'codex_rate_limit' && item.unit === 'percent'
+          (item.metric_type === 'codex_rate_limit' && item.unit === 'percent') ||
+          item.metric_type === 'balance'
       )
     },
     enabled,

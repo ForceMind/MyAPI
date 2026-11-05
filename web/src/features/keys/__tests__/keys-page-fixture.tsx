@@ -99,6 +99,9 @@ export function mockKeysApi(
     if (path === '/api/status') {
       return { data: { success: true, data: fixture.status } }
     }
+    if (path === '/api/user/models') {
+      return { data: { success: true, data: [] } }
+    }
     if (
       path.startsWith('/api/token/?') ||
       path.startsWith('/api/token/search?')

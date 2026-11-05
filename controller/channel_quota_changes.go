@@ -68,6 +68,7 @@ type quotaChangeItem struct {
 	SampleSpanSeconds      int64                           `json:"sample_span_seconds"`
 	ObservedAt             int64                           `json:"observed_at"`
 	Status                 string                          `json:"status"`
+	ErrorCode              string                          `json:"error_code,omitempty"`
 	Consumption            service.QuotaConsumptionSummary `json:"consumption"`
 	Analysis               *service.QuotaAnalysis          `json:"analysis,omitempty"`
 	OverviewPoints         *[]service.QuotaOverviewPoint   `json:"overview_points,omitempty"`
@@ -396,6 +397,9 @@ func buildQuotaChangeItem(rows []model.ChannelQuotaAggregateRow) quotaChangeItem
 		ObservedAt:    latest.ObservedAt, Status: quotaHistorySnapshotStatus(quotaChangeSnapshot(latest)), Direction: "unavailable",
 		Consumption:  consumption.Summary,
 		analysisRows: rows,
+	}
+	if item.Status != "success" {
+		item.ErrorCode = latest.ErrorCode
 	}
 	// Keep the global quota-change view consistent with the channel history
 	// endpoint: failed, unsupported, or total-less observations report an

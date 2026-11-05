@@ -26,7 +26,6 @@ import { getChannelTypeLabel } from '@/features/channels/lib/channel-utils'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
 import { tightestWindowByConnection } from '@/features/dashboard/lib/overview-flow'
 import { nativeWindowUsage } from '@/features/personal-upstream/window-state'
-import { formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -44,79 +43,8 @@ import {
   type ConnectionSummary,
 } from './connection-state'
 import type { ConnectionTestResult } from './use-connection-test'
-import { describeConnectionWindow, isHistoricalConnectionWindow } from './window-state'
-
-/** Every saved series keeps its own state and observation time. */
-function WindowsLine(props: {
-  connection: ConnectionSummary
-  windows: ChannelQuotaChangeItem[]
-  /** False when the saved windows could not be read. */
-  windowsKnown: boolean
-  windowsLoading: boolean
-  now: number
-  compact?: boolean
-}) {
-  const { t } = useTranslation()
-  const kind = connectionKind(props.connection, props.windows.length > 0)
-  if (props.windowsLoading) {
-    return <span>{t('Loading...')}</span>
-  }
-  if (!props.windowsKnown) {
-    return <span>{t('Account windows could not be read')}</span>
-  }
-  if (props.windows.length === 0) {
-    if (kind === 'local') {
-      return <span>{t('Local server, no quota window')}</span>
-    }
-    if (kind === 'api') {
-      return <span>{t('Metered, no subscription window')}</span>
-    }
-    return <span>{t('No saved window sample')}</span>
-  }
-  return (
-    <ul aria-label={props.compact ? t('Current account windows') : t('Saved account windows')} className={cn('flex min-w-0', props.compact ? 'flex-wrap gap-x-3 gap-y-1' : 'flex-col gap-2')}>
-      {props.windows.map((item) => {
-        const used = nativeWindowUsage(item)
-        const state = describeConnectionWindow(item, props.windows, props.now, t)
-        const stateLabel = props.compact && isHistoricalConnectionWindow(item, props.windows, props.now)
-          ? t('Saved sample error; recovery unconfirmed')
-          : state.label
-        const summary =
-          used === null
-            ? t('{{window}}: {{state}}', {
-                window: windowName(item, t),
-                state: stateLabel,
-              })
-            : t('{{window}} · {{value}}% left', {
-                window: windowName(item, t),
-                value: Math.round(100 - used),
-              })
-        const observed = item.observed_at
-        const time =
-          Number.isSafeInteger(observed) && (observed ?? 0) > 0
-            ? t('Observed {{time}}', {
-                time: formatTimestampToDate(observed as number),
-              })
-            : t('No timestamp')
-        return (
-          <li
-            key={item.series_id ?? `${item.channel_id}:${item.source}:${item.account_label ?? ''}:${item.window_type}:${item.window_seconds ?? ''}:${item.observed_at ?? ''}`}
-            className={cn('min-w-0 wrap-anywhere', props.compact && state.variant === 'danger' && 'text-destructive', props.compact && state.variant === 'warning' && 'text-warning')}
-          >
-            <span>
-              {[summary, used === null ? null : stateLabel, props.compact ? null : time]
-                .filter(Boolean)
-                .join(' · ')}
-            </span>
-            {item.status === 'error' && !props.compact && (
-              <p className='mt-1'>{state.description}</p>
-            )}
-          </li>
-        )
-      })}
-    </ul>
-  )
-}
+import { isHistoricalConnectionWindow } from './window-state'
+import { ConnectionEvidenceSummary } from './connection-evidence-summary'
 
 /**
  * One connection in the upstream grid (design v2 upstream): its ring or
@@ -147,7 +75,7 @@ export function ConnectionCard(props: {
   const identity = useAuthStore((state) => `${state.auth.user?.id ?? null}:${state.auth.user?.role ?? 0}:${state.auth.session?.sid ?? null}`)
   const connection = props.connection
   const name = connection.name || t('Connection #{{id}}', { id: connection.id })
-  const kind = connectionKind(connection, props.windows.length > 0)
+  const kind = connectionKind(connection, props.windows.some((item) => item.metric_type === 'codex_rate_limit' && item.unit === 'percent'))
   const window = tightestWindowByConnection(props.windows).get(connection.id)
   const used = props.windowsKnown && window ? nativeWindowUsage(window) : null
   const enabled = connection.status === CHANNEL_STATUS.ENABLED
@@ -155,6 +83,12 @@ export function ConnectionCard(props: {
   const models = connectionValues(connection.models)
   const groups = connectionValues(connection.group)
   const historicalCount = props.windows.filter((item) => isHistoricalConnectionWindow(item, props.windows, props.now)).length
+  const hasBalance = props.windows.some((item) => item.metric_type === 'balance')
+  let evidenceDetails = t('Window details ({{count}})', { count: props.windows.length })
+  if (historicalCount > 0) {
+    evidenceDetails = t('Window details ({{count}}), historical records ({{history}})', { count: props.windows.length, history: historicalCount })
+  }
+  if (hasBalance) evidenceDetails = t('Saved evidence details ({{count}})', { count: props.windows.length })
   const subtitle = [
     `#${connection.id}`,
     t(getChannelTypeLabel(connection.type)),
@@ -275,10 +209,9 @@ export function ConnectionCard(props: {
           </dd>
         </div>
         <div className='min-w-0 basis-full'>
-          <dt className='sr-only'>{t('Saved account windows')}</dt>
+          <dt className='sr-only'>{hasBalance ? t('Saved quota evidence') : t('Saved account windows')}</dt>
           <dd className='mt-1 text-muted-foreground'>
-            <WindowsLine
-              connection={connection}
+            <ConnectionEvidenceSummary
               windows={props.windows}
               windowsKnown={props.windowsKnown}
               windowsLoading={props.windowsLoading}
@@ -287,11 +220,9 @@ export function ConnectionCard(props: {
             />
             {props.windowsKnown && props.windows.length > 0 && <SummaryDisclosure
               key={`${identity}:${connection.id}:windows`}
-              summary={historicalCount > 0
-                ? t('Window details ({{count}}), historical records ({{history}})', { count: props.windows.length, history: historicalCount })
-                : t('Window details ({{count}})', { count: props.windows.length })}
+              summary={evidenceDetails}
             >
-              <WindowsLine connection={connection} windows={props.windows} windowsKnown={props.windowsKnown} windowsLoading={props.windowsLoading} now={props.now} />
+              <ConnectionEvidenceSummary windows={props.windows} windowsKnown={props.windowsKnown} windowsLoading={props.windowsLoading} now={props.now} />
             </SummaryDisclosure>}
           </dd>
         </div>

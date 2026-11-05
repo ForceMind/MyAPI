@@ -8,7 +8,7 @@ version.
 */
 import { useQueryClient } from '@tanstack/react-query'
 import { getRouteApi, Link, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useInspectorBack } from '@/components/inspector/inspector-history'
@@ -84,7 +84,7 @@ export function KeyPage() {
 
   return (
     <ApiKeysProvider
-      key={`${userId}:${role}:${sessionId}`}
+      key={`${userId}:${role}:${sessionId}:${keyId}`}
       onKeysDeleted={(ids) => {
         // The list is shown again from its cache; it must not list the Key.
         void queryClient.invalidateQueries({ queryKey: ['keys'] })
@@ -119,6 +119,7 @@ function KeyPageContent(props: {
   const isAdmin = role >= ROLE.ADMIN
   const { refreshTrigger } = useApiKeys()
   const queryClient = useQueryClient()
+  const scopeTab = useRef<HTMLButtonElement>(null)
   // A change made here (status, edit, scope) also makes the list's cached
   // rows stale, so Back shows the current state.
   useEffect(() => {
@@ -258,7 +259,7 @@ function KeyPageContent(props: {
                 <TabsTrigger value='requests'>
                   {t('Requests', { context: 'section' })}
                 </TabsTrigger>
-                <TabsTrigger value='scope'>{t('Scope and shares')}</TabsTrigger>
+                <TabsTrigger ref={scopeTab} value='scope'>{t('Scope and shares')}</TabsTrigger>
                 <TabsTrigger value='delivery'>{t('Delivery')}</TabsTrigger>
               </TabsList>
               <TabsContent value='requests' className='min-w-0'>
@@ -303,7 +304,17 @@ function KeyPageContent(props: {
                 </div>
               </TabsContent>
               <TabsContent value='delivery' className='min-w-0'>
-                <KeyDeliveryPanel apiKey={apiKey} />
+                <KeyDeliveryPanel
+                  key={apiKey.id}
+                  apiKey={apiKey}
+                  onViewScope={() => {
+                    void navigate({
+                      search: (previous) => ({ ...previous, tab: 'scope' }),
+                      replace: true,
+                      state: (previous) => previous,
+                    }).then(() => scopeTab.current?.focus())
+                  }}
+                />
               </TabsContent>
             </Tabs>
           </>
