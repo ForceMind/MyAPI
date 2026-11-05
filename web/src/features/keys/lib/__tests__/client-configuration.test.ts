@@ -26,8 +26,8 @@ test('a restricted Key intersects the catalog exactly without guessing model pro
   })).toEqual(['gpt-custom'])
 })
 
-test('an enabled empty Key restriction offers no candidate models', () => {
-  expect(keyClientModels(['gpt-custom'], { ...key, model_limits_enabled: true })).toEqual([])
+test.each(['', null])('an enabled empty or null Key restriction %s offers no candidate models', (modelLimits) => {
+  expect(keyClientModels(['gpt-custom'], { ...key, model_limits_enabled: true, model_limits: modelLimits })).toEqual([])
 })
 
 test('candidate models respect an explicit profile list and never invent absent catalog entries', () => {

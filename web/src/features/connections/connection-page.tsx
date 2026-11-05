@@ -254,6 +254,7 @@ function ConnectionPageContent(props: {
           item={item}
           windows={savedWindows}
           windowsPending={windows.isPending}
+          windowsIncomplete={windows.isSuccess && !windows.complete}
           stats={stats}
           showLogs={showLogs}
           listContext={listContext}
@@ -347,6 +348,7 @@ function ConnectionPageContent(props: {
               item={item}
               windows={savedWindows}
               windowsError={windows.isError}
+              windowsIncomplete={windows.isSuccess && !windows.complete}
               showFullHistory={showTable}
             />
           </TabsContent>
@@ -509,6 +511,7 @@ function ConnectionStats(props: {
   item: ConnectionSummary
   windows: ChannelQuotaChangeItem[] | undefined
   windowsPending: boolean
+  windowsIncomplete: boolean
   stats: ReturnType<typeof useConnectionStats>
   showLogs: boolean
   listContext: { connection: ConnectionReturn & { connection: number } }
@@ -524,8 +527,8 @@ function ConnectionStats(props: {
   let third = (
     <StatTile
       label={t('Account window')}
-      value={t('No saved window sample')}
-      detail={t('Window query capability unknown')}
+      value={props.windowsIncomplete ? t('Unknown') : t('No saved window sample')}
+      detail={props.windowsIncomplete ? t('Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.') : t('Window query capability unknown')}
       loading={props.windowsPending}
     />
   )
@@ -534,7 +537,7 @@ function ConnectionStats(props: {
       <StatTile
         label={t('{{window}} left', { window: windowName(window, t) })}
         value={used === null ? t('Unknown') : `${Math.round(100 - used)}%`}
-        detail={`${t('Closest to its limit among saved windows')} · ${describeConnectionWindow(window, props.windows ?? [], Date.now() / 1000, t).label}`}
+        detail={`${props.windowsIncomplete ? t('Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.') : t('Closest to its limit among saved windows')} · ${describeConnectionWindow(window, props.windows ?? [], Date.now() / 1000, t).label}`}
       />
     )
   } else if (props.windows === undefined && !props.windowsPending) {

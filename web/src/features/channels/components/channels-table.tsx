@@ -367,10 +367,11 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
   const evidenceContext = useMemo(() => ({
     identity: actor,
     data: savedEvidence.isError ? undefined : savedEvidence.data,
-    known: savedEvidence.isSuccess,
+    known: savedEvidence.complete,
+    incomplete: savedEvidence.isSuccess && !savedEvidence.complete,
     loading: savedEvidence.isPending,
     now: savedEvidence.now,
-  }), [actor, savedEvidence.data, savedEvidence.isError, savedEvidence.isSuccess, savedEvidence.isPending, savedEvidence.now])
+  }), [actor, savedEvidence.data, savedEvidence.complete, savedEvidence.isError, savedEvidence.isSuccess, savedEvidence.isPending, savedEvidence.now])
 
   const knownTotal = isError || isFetching || !canRead ? undefined : data?.data?.total
   const totalCount = knownTotal ?? 0

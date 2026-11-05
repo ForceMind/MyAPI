@@ -7770,6 +7770,7 @@
     "Window query capability unknown": "Window query capability unknown",
     "You can enter a model ID manually. Its protocol and availability remain unverified.": "You can enter a model ID manually. Its protocol and availability remain unverified.",
     "{{value}} {{unit}}": "{{value}} {{unit}}",
-    "{{window}}: {{value}} {{unit}}": "{{window}}: {{value}} {{unit}}"
+    "{{window}}: {{value}} {{unit}}": "{{window}}: {{value}} {{unit}}",
+    "Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.": "Saved quota evidence is incomplete. Missing series and earlier failures may be omitted."
   }
 }

@@ -215,7 +215,8 @@ export function Connections() {
                   (item) => item.channel_id === connection.id
                 ) ?? []
               }
-              windowsKnown={windows.isSuccess}
+              windowsKnown={windows.complete}
+              windowsIncomplete={windows.isSuccess && !windows.complete}
               windowsLoading={windows.isPending}
               now={windows.now}
               recentRequests={recentRequests(connection.id)}

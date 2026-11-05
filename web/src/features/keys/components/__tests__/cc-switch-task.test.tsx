@@ -137,9 +137,9 @@ it('a versioned server setting keeps the existing Codex import endpoint contract
 })
 
 
-it('an enabled empty Key scope never falls back to the full user model directory', async () => {
+it.each(['', null])('an enabled empty or null Key scope %s never falls back to the full user model directory', async (modelLimits) => {
   const user = userEvent.setup()
-  render(<QueryClientProvider client={client}><CCSwitchDialog open tokenKey='synthetic-credential' apiKey={{ model_limits_enabled: true, model_limits: '' }} onOpenChange={() => {}} /></QueryClientProvider>)
+  render(<QueryClientProvider client={client}><CCSwitchDialog open tokenKey='synthetic-credential' apiKey={{ model_limits_enabled: true, model_limits: modelLimits }} onOpenChange={() => {}} /></QueryClientProvider>)
   await waitFor(() => expect(api.get).toHaveBeenCalledWith('/api/user/models'))
   const primary = screen.getByRole('combobox', { name: 'Primary Model *' })
   await user.click(primary)

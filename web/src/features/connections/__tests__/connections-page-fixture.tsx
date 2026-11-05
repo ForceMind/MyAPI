@@ -53,6 +53,7 @@ export type ConnectionsFixtureOptions = {
   windowsFail?: boolean
   wrongWindow?: boolean
   windows?: Record<string, unknown>[]
+  windowsMetadata?: Record<string, unknown>
   empty?: boolean
   holdList?: boolean
   failList?: boolean
@@ -254,7 +255,14 @@ export async function mountConnections(
       }
       data = options.windowsFail
         ? { success: false }
-        : { success: true, data: { items: windows } }
+        : { success: true, data: {
+          items: windows.slice(0, Number(params.limit) || windows.length),
+          total_items: windows.length,
+          returned_items: Math.min(windows.length, Number(params.limit) || windows.length),
+          source_complete: true,
+          items_complete: windows.length <= (Number(params.limit) || windows.length),
+          ...options.windowsMetadata,
+        } }
     } else if (path === '/api/log' && options.failLogs) {
       data = { success: false, message: 'Synthetic failure' }
     } else if (path === '/api/log') {

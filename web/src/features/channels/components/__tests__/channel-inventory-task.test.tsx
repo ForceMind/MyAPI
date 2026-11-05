@@ -10,8 +10,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
 import type { ChannelTaskReadState } from '../../channel-task-state'
-import { channelSchema } from '../../types'
-import type { ChannelQuotaChangeItem } from '../../types'
+import { channelSchema, type ChannelQuotaChangeItem } from '../../types'
 import { ChannelsPrimaryButtons } from '../channels-primary-buttons'
 import { ChannelsProvider } from '../channels-provider'
 import { ChannelsTable } from '../channels-table'
@@ -23,6 +22,7 @@ const clients: QueryClient[] = []
 let outcome: 'ready' | 'error'
 let items: typeof item[]
 let savedEvidence: ChannelQuotaChangeItem[]
+let evidenceMetadata: Record<string, unknown>
 
 beforeEach(() => {
   localStorage.clear()
@@ -30,12 +30,20 @@ beforeEach(() => {
   outcome = 'ready'
   items = [item]
   savedEvidence = []
+  evidenceMetadata = {}
   useAuthStore.getState().auth.setUser({ id: 1, role: 100, username: 'synthetic-root' })
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
   vi.spyOn(api, 'get').mockImplementation(async (url, config) => {
     if (url === '/api/status') return { data: { success: true, data: {} } }
     if (url === '/api/group/') return { data: { success: true, data: ['default', 'other'] } }
-    if (url === '/api/channel/quota/changes') return { data: { success: true, data: { items: savedEvidence } } }
+    if (url === '/api/channel/quota/changes') return { data: { success: true, data: {
+      items: savedEvidence,
+      source_complete: true,
+      items_complete: true,
+      total_items: savedEvidence.length,
+      returned_items: savedEvidence.length,
+      ...evidenceMetadata,
+    } } }
     if (url === '/api/channel' || url === '/api/channel/search') {
       if (outcome === 'error') throw new Error('Synthetic inventory read failure')
       return { data: { success: true, data: { items, total: config?.params?.tag_mode ? 1 : 100, type_counts: { 1: 100, 57: 1 } } } }
@@ -172,14 +180,33 @@ it.each(['table', 'card'])('the %s inventory batches saved evidence and keeps ba
 
 it('changing the inventory actor discards saved evidence before reading that actor scope', async () => {
   savedEvidence = [{ channel_id: 23, name: item.name, metric_type: 'balance', source: 'channel_type_1', unit: 'usd', status: 'unsupported', series_id: 'a'.repeat(64) }]
+  evidenceMetadata = { total_items: 101, items_complete: false }
   await mount()
   await waitFor(() => expect(screen.getAllByText(/Balance query: Balance query unsupported/)[0]).toBeVisible())
+  expect(screen.getAllByText('Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.')[0]).toBeVisible()
   savedEvidence = []
+  evidenceMetadata = {}
   act(() => useAuthStore.getState().auth.setUser({ id: 2, role: 100, username: 'synthetic-new-actor' }))
   expect(screen.queryAllByText(/Balance query: Balance query unsupported/)).toHaveLength(0)
   expect(await screen.findByText('No saved window sample')).toBeVisible()
+  expect(screen.queryByText('Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.')).not.toBeInTheDocument()
   const reads = vi.mocked(api.get).mock.calls.filter(([url]) => url === '/api/channel/quota/changes')
   expect(reads).toHaveLength(2)
+})
+
+it('truncated table evidence keeps a returned failure and does not label an omitted connection as having no samples', async () => {
+  items = [item, { ...item, id: 24, name: 'Synthetic omitted evidence' }]
+  savedEvidence = [{ channel_id: 23, name: item.name, metric_type: 'balance', source: 'channel_type_1', unit: 'usd', status: 'error', series_id: 'a'.repeat(64) }]
+  evidenceMetadata = { total_items: 101, items_complete: false }
+  await mount()
+  await waitFor(() => expect(screen.getAllByText(/Balance query: Balance sample failed/)[0]).toBeVisible())
+  expect(screen.queryByText('No saved window sample')).not.toBeInTheDocument()
+  const omitted = screen.getByRole('link', { name: 'Synthetic omitted evidence' }).closest('tr')
+  if (!omitted) throw new Error('Expected omitted evidence channel row')
+  expect(within(omitted).getByText('Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.')).toBeVisible()
+  expect(vi.mocked(api.get).mock.calls.filter(([url]) => url === '/api/channel/quota/changes')).toHaveLength(1)
+  expect(api.post).not.toHaveBeenCalled()
+  expect(api.put).not.toHaveBeenCalled()
 })
 it('a hidden known inventory error uses its own precise read time instead of the previous successful read or unread state', async () => {
   const now = vi.spyOn(Date, 'now').mockReturnValue(1700000000123)

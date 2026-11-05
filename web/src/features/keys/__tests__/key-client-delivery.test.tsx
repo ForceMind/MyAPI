@@ -165,3 +165,62 @@ test('CC Switch exports the displayed server address when the public status stor
   expect(new URL(target).searchParams.get('endpoint')).toBe('https://current.gateway.invalid/root')
   expect(new URL(target).searchParams.get('homepage')).toBe('https://current.gateway.invalid/root')
 })
+
+test.each(['failure', 'removed'] as const)('a catalog refresh %s preserves the open CC Switch application, name and manual model draft', async (refresh) => {
+  let refreshed = false
+  const mocks = mockKeysApi({
+    keys: [KEY_21], logs: [], status: {},
+    extraGet: (path) => {
+      if (path !== '/api/user/models') return undefined
+      if (!refreshed) return { data: { success: true, data: ['selected-model'] } }
+      if (refresh === 'failure') return { data: { success: false, message: 'Synthetic refreshed catalog failed' } }
+      return { data: { success: true, data: [] } }
+    },
+  })
+  const user = userEvent.setup()
+  await renderKeysPage(client, '/keys/21?tab=delivery')
+  await user.click(await screen.findByRole('combobox', { name: 'Candidate model' }))
+  await screen.findByRole('option', { name: 'selected-model' })
+  await user.keyboard('{ArrowDown}{Enter}')
+  await user.click(screen.getByRole('button', { name: 'Import to CC Switch' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Import to CC Switch' })
+  await user.click(within(dialog).getByRole('radio', { name: 'Codex' }))
+  const name = within(dialog).getByRole('combobox', { name: 'Name' })
+  await user.clear(name)
+  await user.type(name, 'My manual client draft')
+  const primary = within(dialog).getByRole('combobox', { name: 'Primary Model *' })
+  await user.type(primary, 'manual-model-id')
+  await user.keyboard('{Escape}')
+  refreshed = true
+  await act(async () => client.invalidateQueries({ queryKey: ['user-models-key-client'] }))
+  if (refresh === 'failure') {
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Synthetic refreshed catalog failed')
+    expect(within(dialog).getByRole('button', { name: 'Retry' })).toBeEnabled()
+  } else {
+    expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument()
+  }
+  expect(within(dialog).getByRole('radio', { name: 'Codex' })).toBeChecked()
+  expect(name).toHaveValue('My manual client draft')
+  expect(primary).toHaveValue('manual-model-id')
+  expect(within(dialog).getByRole('button', { name: 'Open CC Switch' })).toBeEnabled()
+  expect(mocks.post).toHaveBeenCalledOnce()
+  expect(mocks.put).not.toHaveBeenCalled()
+  expect(window.open).not.toHaveBeenCalled()
+})
+
+
+test.each(['', null])('delivery treats enabled empty or null model restriction %s as no allowed models', async (modelLimits) => {
+  const mocks = mockKeysApi({
+    keys: [{ ...KEY_21, model_limits_enabled: true, model_limits: modelLimits }],
+    logs: [], status: {},
+    extraGet: (path) => path === '/api/user/models'
+      ? { data: { success: true, data: ['catalog-model'] } } : undefined,
+  })
+  await renderKeysPage(client, '/keys/21?tab=delivery')
+  const connection = await screen.findByRole('region', { name: 'Connection details' })
+  expect(within(connection).getByText('Model restriction enabled: no models allowed')).toBeVisible()
+  expect(await within(connection).findByText('No candidate models for this Key')).toBeVisible()
+  expect(within(connection).getByRole('button', { name: 'Import to CC Switch' })).toBeDisabled()
+  expect(mocks.post).not.toHaveBeenCalled()
+  expect(mocks.put).not.toHaveBeenCalled()
+})

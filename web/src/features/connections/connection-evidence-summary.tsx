@@ -31,6 +31,7 @@ export function ConnectionEvidenceSummary(props: {
   windows: ChannelQuotaChangeItem[]
   /** False when the saved windows could not be read. */
   windowsKnown: boolean
+  windowsIncomplete?: boolean
   windowsLoading: boolean
   now: number
   compact?: boolean
@@ -39,10 +40,10 @@ export function ConnectionEvidenceSummary(props: {
   if (props.windowsLoading) {
     return <span>{t('Loading...')}</span>
   }
-  if (!props.windowsKnown) {
+  if (!props.windowsKnown && !props.windowsIncomplete) {
     return <span>{t('Account windows could not be read')}</span>
   }
-  if (props.windows.length === 0) {
+  if (props.windows.length === 0 && !props.windowsIncomplete) {
     return <div><p>{t('No saved window sample')}</p><p>{t('Window query capability unknown')}</p></div>
   }
   const hasBalance = props.windows.some((item) => item.metric_type === 'balance')
@@ -50,6 +51,7 @@ export function ConnectionEvidenceSummary(props: {
   if (hasBalance) label = t('Saved quota evidence')
   return (
     <div className='flex min-w-0 flex-col gap-1'>
+    {props.windowsIncomplete && <p role='status' className='text-warning'>{t('Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.')}</p>}
     <ul aria-label={label} className={cn('flex min-w-0', props.compact ? 'flex-wrap gap-x-3 gap-y-1' : 'flex-col gap-2')}>
       {props.windows.map((item) => {
         const used = nativeWindowUsage(item)
@@ -119,9 +121,9 @@ export function ChannelSavedEvidence(props: { channelId: number }) {
   if (!evidence) return null
   const windows = evidence.data?.filter((item) => item.channel_id === props.channelId) ?? []
   return <div className='flex min-w-0 flex-col gap-1'>
-    <ConnectionEvidenceSummary windows={windows} windowsKnown={evidence.known} windowsLoading={evidence.loading} now={evidence.now} compact />
-    {evidence.known && windows.length > 0 && <SummaryDisclosure key={`${evidence.identity}:${props.channelId}:evidence`} summary={t('Saved evidence details ({{count}})', { count: windows.length })}>
-      <ConnectionEvidenceSummary windows={windows} windowsKnown={evidence.known} windowsLoading={evidence.loading} now={evidence.now} />
+    <ConnectionEvidenceSummary windows={windows} windowsKnown={evidence.known} windowsIncomplete={evidence.incomplete} windowsLoading={evidence.loading} now={evidence.now} compact />
+    {(evidence.known || evidence.incomplete) && windows.length > 0 && <SummaryDisclosure key={`${evidence.identity}:${props.channelId}:evidence`} summary={t('Saved evidence details ({{count}})', { count: windows.length })}>
+      <ConnectionEvidenceSummary windows={windows} windowsKnown={evidence.known} windowsIncomplete={evidence.incomplete} windowsLoading={evidence.loading} now={evidence.now} />
     </SummaryDisclosure>}
   </div>
 }

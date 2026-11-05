@@ -188,7 +188,7 @@ export function useConnectionWindows(
         {
           channel_ids: ids.join(','),
           range: '24h',
-          limit: 100,
+          limit: 2000,
           sort: 'observed_desc',
         },
         { signal, disableDuplicate: true }
@@ -204,11 +204,16 @@ export function useConnectionWindows(
       ) {
         throw new Error('Connection windows unavailable')
       }
-      return response.data.items.filter(
+      const complete = response.data.source_complete === true &&
+        response.data.items_complete === true &&
+        response.data.total_items === response.data.items.length &&
+        response.data.returned_items === response.data.items.length
+      const items = response.data.items.filter(
         (item) =>
           (item.metric_type === 'codex_rate_limit' && item.unit === 'percent') ||
           item.metric_type === 'balance'
       )
+      return { items, complete }
     },
     enabled,
     retry: false,
@@ -234,7 +239,7 @@ export function useConnectionWindows(
       document.removeEventListener('visibilitychange', refreshVisible)
     }
   }, [enabled, refetch])
-  return { ...query, refetch, now }
+  return { ...query, data: query.data?.items, complete: query.isSuccess && query.data.complete, refetch, now }
 }
 
 /**

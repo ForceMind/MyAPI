@@ -19,7 +19,7 @@ export function keyClientAddresses(serverAddress: unknown, origin: string) {
 /** Catalog candidates are configuration hints, never evidence of a live request. */
 export function keyClientModels(catalog: string[], scope?: KeyClientScope): string[] {
   const keyLimits = scope?.model_limits_enabled
-    ? new Set(scope.model_limits.split(',').filter(Boolean))
+    ? new Set((scope.model_limits ?? '').split(',').filter(Boolean))
     : null
   const profileLimits = scope?.access_profile?.model_allowlist
   const profileSet = profileLimits ? new Set(profileLimits) : null

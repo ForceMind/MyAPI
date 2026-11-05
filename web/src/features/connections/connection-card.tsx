@@ -56,6 +56,7 @@ export function ConnectionCard(props: {
   connection: ConnectionSummary
   windows: ChannelQuotaChangeItem[]
   windowsKnown: boolean
+  windowsIncomplete: boolean
   windowsLoading: boolean
   now: number
   recentRequests: number | undefined
@@ -77,7 +78,7 @@ export function ConnectionCard(props: {
   const name = connection.name || t('Connection #{{id}}', { id: connection.id })
   const kind = connectionKind(connection, props.windows.some((item) => item.metric_type === 'codex_rate_limit' && item.unit === 'percent'))
   const window = tightestWindowByConnection(props.windows).get(connection.id)
-  const used = props.windowsKnown && window ? nativeWindowUsage(window) : null
+  const used = (props.windowsKnown || props.windowsIncomplete) && window ? nativeWindowUsage(window) : null
   const enabled = connection.status === CHANNEL_STATUS.ENABLED
   const inUse = enabled && (props.recentRequests ?? 0) > 0
   const models = connectionValues(connection.models)
@@ -214,15 +215,16 @@ export function ConnectionCard(props: {
             <ConnectionEvidenceSummary
               windows={props.windows}
               windowsKnown={props.windowsKnown}
+              windowsIncomplete={props.windowsIncomplete}
               windowsLoading={props.windowsLoading}
               now={props.now}
               compact
             />
-            {props.windowsKnown && props.windows.length > 0 && <SummaryDisclosure
+            {(props.windowsKnown || props.windowsIncomplete) && props.windows.length > 0 && <SummaryDisclosure
               key={`${identity}:${connection.id}:windows`}
               summary={evidenceDetails}
             >
-              <ConnectionEvidenceSummary windows={props.windows} windowsKnown={props.windowsKnown} windowsLoading={props.windowsLoading} now={props.now} />
+              <ConnectionEvidenceSummary windows={props.windows} windowsKnown={props.windowsKnown} windowsIncomplete={props.windowsIncomplete} windowsLoading={props.windowsLoading} now={props.now} />
             </SummaryDisclosure>}
           </dd>
         </div>

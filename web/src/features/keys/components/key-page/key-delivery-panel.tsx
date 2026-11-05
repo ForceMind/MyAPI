@@ -50,7 +50,7 @@ export function KeyDeliveryPanel(props: { apiKey: ApiKey; onViewScope: () => voi
   const selectedModel = candidates.includes(model) ? model : ''
   const address = keyClientAddresses(status?.server_address, window.location.origin)
   const baseUrl = address.openAI
-  const limitedModelCount = new Set(props.apiKey.model_limits.split(',').filter(Boolean)).size
+  const limitedModelCount = new Set((props.apiKey.model_limits ?? '').split(',').filter(Boolean)).size
   let modelRestriction = t('No Key-level model restriction')
   if (props.apiKey.model_limits_enabled) {
     modelRestriction = limitedModelCount > 0

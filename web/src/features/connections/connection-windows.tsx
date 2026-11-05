@@ -6,7 +6,6 @@ it under the terms of the GNU Affero General Public License as published by
 the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
-import type { UseQueryResult } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
 import { QuotaRing } from '@/components/quota-ring'
@@ -28,10 +27,14 @@ import { describeConnectionWindow, savedBalanceAmount } from './window-state'
  * unsupported or untimed sample shows its state instead of a number.
  */
 export function ConnectionWindows(props: {
-  query: Pick<
-    UseQueryResult<ChannelQuotaChangeItem[]>,
-    'data' | 'isPending' | 'isError' | 'isFetching' | 'refetch'
-  >
+  query: {
+    data: ChannelQuotaChangeItem[] | undefined
+    isPending: boolean
+    isError: boolean
+    isFetching: boolean
+    complete: boolean
+    refetch: () => unknown
+  }
   now: number
 }) {
   const { t } = useTranslation()
@@ -59,7 +62,10 @@ export function ConnectionWindows(props: {
           <p>{t('Unable to load account windows')}</p>
         </div>
       )}
-      {props.query.data?.length === 0 && !props.query.isError && (
+      {!props.query.isPending && !props.query.isError && !props.query.complete && (
+        <p role='status' className='text-body text-warning'>{t('Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.')}</p>
+      )}
+      {props.query.data?.length === 0 && props.query.complete && !props.query.isError && (
         <p className='text-body text-muted-foreground'>
           {t(
             'No saved subscription windows for this connection. This does not mean the connection is unavailable.'

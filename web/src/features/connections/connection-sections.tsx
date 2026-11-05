@@ -233,6 +233,7 @@ export function ConnectionHistory(props: {
   item: ConnectionSummary
   windows: ChannelQuotaChangeItem[] | undefined
   windowsError: boolean
+  windowsIncomplete: boolean
   /** Links to the full window history of the table view. */
   showFullHistory: boolean
 }) {
@@ -311,8 +312,9 @@ export function ConnectionHistory(props: {
           {t('Unable to load account windows')}
         </p>
       )}
+      {props.windowsIncomplete && <p role='status' className='text-body text-warning'>{t('Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.')}</p>}
       {events.length === 0 ? (
-        <p className='text-body text-muted-foreground'>
+        !props.windowsIncomplete && <p className='text-body text-muted-foreground'>
           {t('No saved samples or tests for this connection yet.')}
         </p>
       ) : (

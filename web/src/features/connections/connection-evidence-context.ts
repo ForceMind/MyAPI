@@ -8,6 +8,7 @@ export const ConnectionEvidenceContext = createContext<{
   identity: string
   data: ChannelQuotaChangeItem[] | undefined
   known: boolean
+  incomplete: boolean
   loading: boolean
   now: number
 } | null>(null)

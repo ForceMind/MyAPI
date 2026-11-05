@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState, useEffect, useId, useMemo } from 'react'
+import { useState, useEffect, useId, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -92,6 +92,7 @@ export function CCSwitchDialog(props: Props) {
   const [app, setApp] = useState<AppType>('claude')
   const [name, setName] = useState<string>(APP_CONFIGS.claude.defaultName)
   const [models, setModels] = useState<Record<string, string>>({})
+  const wasOpen = useRef(false)
   const id = useId()
 
   const modelsQuery = useKeyClientModels(props.open && isCurrentSession())
@@ -103,7 +104,9 @@ export function CCSwitchDialog(props: Props) {
   }, [modelsData, props.apiKey])
 
   useEffect(() => {
-    if (props.open) {
+    const opening = props.open && !wasOpen.current
+    wasOpen.current = props.open
+    if (opening) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setModels(props.selectedModel ? { model: props.selectedModel } : {})
 

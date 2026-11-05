@@ -162,11 +162,37 @@ test.each(['/connections', '/connections/7'])('read-only refresh at %s reads sav
       params: {
         channel_ids: '7',
         range: '24h',
-        limit: 100,
+        limit: 2000,
         sort: 'observed_desc',
       },
     },
   ])
+})
+
+test('101 independent saved series retain the older failed series instead of truncating it to 100', async () => {
+  const windows = Array.from({ length: 101 }, (_, index) => ({
+    ...saved, series_id: index.toString(16).padStart(64, '0'), observed_at: now - index,
+    status: index === 100 ? 'error' : 'success', current_available: index === 100 ? null : 18,
+  }))
+  const fixture = await mount({ entry: '/connections/7', windows })
+  expect(await screen.findAllByTestId('connection-window')).toHaveLength(101)
+  expect(screen.getByText('Historical saved sample error')).toBeVisible()
+  expect(fixture.requests.filter((request) => request.path === '/api/channel/quota/changes')).toHaveLength(1)
+  expect(fixture.requests.find((request) => request.path === '/api/channel/quota/changes')?.params.limit).toBe(2000)
+})
+
+test.each(['/connections', '/connections/7'])('truncated evidence at %s preserves returned failure and never claims missing series have no record', async (entry) => {
+  await mount({ entry, windows: [{ ...saved, status: 'error', current_available: null }], windowsMetadata: { total_items: 101, returned_items: 1, items_complete: false } })
+  await waitFor(() => expect(screen.getAllByText('Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.')[0]).toBeVisible())
+  expect(screen.queryByText('No saved window sample')).not.toBeInTheDocument()
+  expect(screen.getAllByText(/WHAM usage sample failed/)[0]).toBeVisible()
+  expect(screen.queryByText('Account windows could not be read')).not.toBeInTheDocument()
+})
+
+test('a truncated empty reply is unknown evidence rather than proof that no samples exist', async () => {
+  await mount({ windows: [], windowsMetadata: { total_items: 101, returned_items: 0, items_complete: false } })
+  expect(await screen.findByText('Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.')).toBeVisible()
+  expect(screen.queryByText('No saved window sample')).not.toBeInTheDocument()
 })
 
 test('visible pages update saved windows and time every 60 seconds, hidden pages wait until visible and unmount stops refresh', async () => {
