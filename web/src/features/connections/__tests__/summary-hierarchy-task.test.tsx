@@ -51,7 +51,7 @@ afterEach(() => {
 
 it('routing counts expand complete loaded models and groups through explicit keyboard and click actions without any request', async () => {
   const user = userEvent.setup()
-  render(<ConnectionRouting item={{ id: 7, type: 1, name: 'Synthetic connection', status: 1, models: `alpha,${modelName}`, group: 'default,synthetic-team', priority: 0, weight: 0 }} showPreview={false} />)
+  render(<QueryClientProvider client={client()}><ConnectionRouting item={{ id: 7, type: 1, name: 'Synthetic connection', status: 1, models: `alpha,${modelName}`, group: 'default,synthetic-team', priority: 0, weight: 0 }} showPreview={false} canWrite={false} /></QueryClientProvider>)
   const models = screen.getByRole('button', { name: 'Models (2)' })
   const groups = screen.getByRole('button', { name: 'Groups (2)' })
   expect(models).toHaveAttribute('aria-expanded', 'false')
@@ -70,7 +70,7 @@ it('routing counts expand complete loaded models and groups through explicit key
   expect(api.put).not.toHaveBeenCalled()
 })
 it('missing routing metadata remains Unknown while an explicit zero weight is retained', () => {
-  render(<ConnectionRouting item={{ id: 7, type: 1, name: 'Synthetic connection', status: 1, models: null, group: null, priority: null, weight: 0 }} showPreview={false} />)
+  render(<QueryClientProvider client={client()}><ConnectionRouting item={{ id: 7, type: 1, name: 'Synthetic connection', status: 1, models: null, group: null, priority: null, weight: 0 }} showPreview={false} canWrite={false} /></QueryClientProvider>)
   expect(screen.getAllByText('Unknown')).toHaveLength(3)
   expect(screen.getByText('0')).toBeVisible()
   expect(screen.queryByRole('button', { name: 'Models (0)' })).not.toBeInTheDocument()

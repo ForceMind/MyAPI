@@ -23,6 +23,7 @@ import { vi } from 'vitest'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { api } from '@/lib/api'
 import { ROLE } from '@/lib/roles'
+import { Route as channelsRoute } from '@/routes/_authenticated/channels/index'
 import { Route as upstreamRoute } from '@/routes/_authenticated/upstream-accounts/index'
 import { Route as connectionPageRoute } from '@/routes/_authenticated/connections/$connectionId/index'
 import { Route as connectionsRoute } from '@/routes/_authenticated/connections/index'
@@ -44,6 +45,7 @@ export const CONNECTION = {
 }
 
 export type ConnectionsFixtureOptions = {
+  realTable?: boolean
   entry?: string
   mobile?: boolean
   read?: boolean
@@ -341,7 +343,13 @@ export async function mountConnections(
         grid,
         page,
         upstream,
-        stub('channels/', 'Table view page'),
+        options.realTable ? createRoute({
+          getParentRoute: () => authenticated,
+          path: 'channels/',
+          validateSearch: channelsRoute.options.validateSearch,
+          beforeLoad: (beforeLoad) => channelsRoute.options.beforeLoad?.(beforeLoad as never),
+          component: channelsRoute.options.component,
+        }) : stub('channels/', 'Table view page'),
         stub('keys/', 'Keys page'),
         stub('usage-logs/$section', 'Call records page'),
         stub('usage-logs/request/$requestId', 'Request page'),

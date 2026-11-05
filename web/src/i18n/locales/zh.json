@@ -7772,6 +7772,18 @@
     "{{value}} {{unit}}": "{{value}} {{unit}}",
     "{{window}}: {{value}} {{unit}}": "{{window}}：{{value}} {{unit}}",
     "Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.": "保存的额度证据不完整，可能遗漏部分序列和此前的失败记录。",
-    "Read saved usage status": "读取已保存用量状态"
+    "Read saved usage status": "读取已保存用量状态",
+    "Column preset": "列配置",
+    "Monitoring columns": "监控列",
+    "Pending save": "等待保存",
+    "Previous draft: {{value}}": "此前草稿：{{value}}",
+    "Read saved routing value": "读取已保存路由值",
+    "Routing columns": "路由列",
+    "Save result unknown. Read the saved value before trying again.": "保存结果未知，请读取已保存的值后再尝试。",
+    "Saved": "已保存",
+    "Saved; routing cache publication pending": "已保存，路由缓存待发布",
+    "The database change is committed, but runtime routing cache publication is pending.": "数据库变更已提交，运行时路由缓存仍待发布。",
+    "Unable to read the saved routing value. Editing remains locked.": "无法读取已保存路由值，编辑仍保持锁定。",
+    "Use Table view to manage tags, select connections in bulk, and mask identifiers.": "标签管理、批量选择和标识隐藏可在表格视图中操作。"
   }
 }

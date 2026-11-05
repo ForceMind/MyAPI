@@ -106,7 +106,7 @@ export function connectionFilterValue(value: string | string[] | undefined): str
 }
 
 /** Card and table URLs retain their existing status representations. */
-export function connectionsToTableSearch(search: ConnectionReturn) {
+export function connectionsToTableSearch(search: ConnectionReturn & { focusConnectionId?: number }) {
   return {
     page: search.page,
     pageSize: search.pageSize ?? CONNECTION_PAGE_SIZE,
@@ -116,6 +116,8 @@ export function connectionsToTableSearch(search: ConnectionReturn) {
     group: search.group ?? [],
     model: search.model,
     quotaChannelId: search.quotaChannelId,
+    upstreamReturn: search.upstreamReturn,
+    focusConnectionId: search.focusConnectionId,
   }
 }
 
@@ -128,6 +130,8 @@ export function tableToConnectionsSearch(search: {
   group?: string[]
   model?: string
   quotaChannelId?: number
+  upstreamReturn?: ConnectionReturn['upstreamReturn']
+  focusConnectionId?: number
 }): ConnectionsSearch {
   const status = search.status
   const single = status?.length === 1 ? status[0] : undefined
@@ -140,6 +144,8 @@ export function tableToConnectionsSearch(search: {
     group: search.group,
     model: search.model,
     quotaChannelId: search.quotaChannelId,
+    upstreamReturn: search.upstreamReturn,
+    focusConnectionId: search.focusConnectionId,
   }
 }
 

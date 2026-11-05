@@ -30,11 +30,8 @@ import { useTranslation } from 'react-i18next'
 
 import {
   DISABLED_ROW_DESKTOP,
-  DISABLED_ROW_MOBILE,
   DataTablePage,
   DataTableToolbar,
-  DataTableViewModeToggle,
-  useDataTableViewMode,
   DataTableRow,
   useDebouncedColumnFilter,
   useDataTable,
@@ -81,13 +78,11 @@ import { getChannelSortParams } from '../lib/channel-routing'
 import type { Channel } from '../types'
 import type { ChannelTaskProps, ChannelTaskReadState } from '../channel-task-state'
 import { CHANNEL_INVENTORY_PROFILE_KEY, channelInventoryStorage, channelInventoryVisibility, type ChannelInventoryProfile } from '../lib/channel-inventory-profile'
-import { ChannelCard } from './channel-card'
 import { useChannelsColumns } from './channels-columns'
 import { useChannels } from './channels-provider'
 import { DataTableBulkActions } from './data-table-bulk-actions'
 
 const route = getRouteApi('/_authenticated/channels/')
-const CHANNELS_VIEW_MODE_STORAGE_KEY = 'channels:view-mode'
 const CHANNELS_STATUS_FILTER_STORAGE_KEY = 'channel-status-filter'
 
 function isDisabledChannelRow(channel: Channel) {
@@ -125,7 +120,6 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
     }
   })
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [viewMode, setViewMode] = useDataTableViewMode({ storageKey: CHANNELS_VIEW_MODE_STORAGE_KEY, defaultMode: 'card' })
   const profileStorage = channelInventoryStorage(profile)
   const profileVisibility = useMemo(() => channelInventoryVisibility(profile), [profile])
   const lastReadReport = useRef('')
@@ -405,6 +399,7 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
     enableSelection: batchMode,
     tagMode: enableTagMode,
     profile,
+    readVersion: dataUpdatedAt,
   })
 
   // React Table instance
@@ -553,7 +548,6 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
         >
           {t('Read saved usage status')}
         </Button>
-        <p className='text-caption text-muted-foreground'>{t('Advanced connection controls')}</p>
       </div>
       {enableTagMode ? (
         <Alert className='mb-3'>
@@ -585,13 +579,8 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
           'No channels available. Create your first channel to get started.'
         )}
         skeletonKeyPrefix='channel-skeleton'
-        enableCardView
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        renderCard={(row, { isSelected }) => (
-          <ChannelCard row={row} isSelected={isSelected} profile={profile} />
-        )}
-        cardGridClassName='grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-3'
+        hideMobile
+        tableClassName='max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_a]:min-h-11'
         applyHeaderSize
         fixedHeight={false}
         pagination={active && !isError ? (
@@ -609,19 +598,18 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
           <div className='space-y-3 [&_[data-myapi-button]]:min-h-11 [&_select]:min-h-11'>
             <div className='flex flex-wrap items-center justify-between gap-3'>
               <label className='flex min-w-0 items-center gap-2 text-sm'>
-                {t('Inventory view')}
-                <NativeSelect aria-label={t('Inventory view')} value={profile} onChange={(event) => {
+                {t('Column preset')}
+                <NativeSelect aria-label={t('Column preset')} value={profile} onChange={(event) => {
                   const value = event.target.value
                   if (value !== 'monitoring' && value !== 'routing' && value !== 'custom') return
                   setProfile(value)
                   try { localStorage.setItem(CHANNEL_INVENTORY_PROFILE_KEY, value) } catch { /* Keep in-memory controls available. */ }
                 }}>
-                  <NativeSelectOption value='monitoring'>{t('Monitoring view')}</NativeSelectOption>
-                  <NativeSelectOption value='routing'>{t('Routing view')}</NativeSelectOption>
+                  <NativeSelectOption value='monitoring'>{t('Monitoring columns')}</NativeSelectOption>
+                  <NativeSelectOption value='routing'>{t('Routing columns')}</NativeSelectOption>
                   <NativeSelectOption value='custom'>{t('Custom columns')}</NativeSelectOption>
                 </NativeSelect>
               </label>
-              <DataTableViewModeToggle value={viewMode} onChange={setViewMode} />
             </div>
             <DataTableToolbar
               table={table}
@@ -672,7 +660,6 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
             {(typeFilter.length > 1 || groupFilter.length > 1 || statusFilter.length > 1) && (
               <p className='text-muted-foreground text-sm'>{t('Legacy multi-value filters keep their original URL values. All takes precedence; otherwise the first value is used.')}</p>
             )}
-            {profile === 'custom' && <p className='text-muted-foreground text-xs'>{t('Custom columns retain your previous channel column and width preferences.')}</p>}
           </div>
         }
         renderRow={(row, helpers) => (
@@ -690,12 +677,9 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
             onClick={(event) => openFromRow(event, row.original)}
           />
         )}
-        getRowClassName={(row, { isMobile }) => {
+        getRowClassName={(row) => {
           if (!isDisabledChannelRow(row.original)) {
             return undefined
-          }
-          if (isMobile) {
-            return DISABLED_ROW_MOBILE
           }
           return DISABLED_ROW_DESKTOP
         }}

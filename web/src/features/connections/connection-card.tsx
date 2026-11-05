@@ -22,6 +22,7 @@ import { Separator } from '@/components/ui/separator'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { CHANNEL_STATUS } from '@/features/channels/constants'
+import { ChannelRoutingFieldEditor } from '@/features/channels/components/channel-routing-field-editor'
 import { getChannelTypeLabel } from '@/features/channels/lib/channel-utils'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
 import { tightestWindowByConnection } from '@/features/dashboard/lib/overview-flow'
@@ -63,6 +64,7 @@ export function ConnectionCard(props: {
   connectionReturn: ConnectionReturn | undefined
   canOperate: boolean
   canEdit?: boolean
+  routingReadVersion?: number
   switching: boolean
   testing: boolean
   testBusy: boolean
@@ -187,11 +189,11 @@ export function ConnectionCard(props: {
       <dl className='flex min-w-0 flex-wrap items-start gap-x-4 gap-y-1 text-caption'>
         <div className='flex flex-wrap gap-x-1'>
           <dt className='text-muted-foreground'>{t('Priority')}</dt>
-          <dd className='tabular-nums'>{connection.priority ?? t('Unknown')}</dd>
+          <dd className='tabular-nums'><ChannelRoutingFieldEditor channelId={connection.id} field='priority' value={connection.priority} canWrite={props.canEdit === true} readVersion={props.routingReadVersion} /></dd>
         </div>
         <div className='flex flex-wrap gap-x-1'>
           <dt className='text-muted-foreground'>{t('Weight')}</dt>
-          <dd className='tabular-nums'>{connection.weight ?? t('Unknown')}</dd>
+          <dd className='tabular-nums'><ChannelRoutingFieldEditor channelId={connection.id} field='weight' value={connection.weight} canWrite={props.canEdit === true} readVersion={props.routingReadVersion} /></dd>
         </div>
         <div className='min-w-0 max-w-full has-[[data-slot=collapsible][data-open]]:basis-full'>
           <dt className='sr-only'>{t('Group')}</dt>

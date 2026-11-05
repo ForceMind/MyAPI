@@ -13,6 +13,7 @@ import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { StatusBadge, type StatusVariant } from '@/components/status-badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { CHANNEL_STATUS } from '@/features/channels/constants'
+import { ChannelRoutingFieldEditor } from '@/features/channels/components/channel-routing-field-editor'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
 import { nativeWindowUsage } from '@/features/personal-upstream/window-state'
 import { formatTimestampToDate } from '@/lib/format'
@@ -134,6 +135,8 @@ export function ConnectionRouting(props: {
   item: ConnectionSummary
   /** Links to the routing preview of the table view. */
   showPreview: boolean
+  canWrite: boolean
+  readVersion?: number
 }) {
   const { t } = useTranslation()
   const models = connectionValues(props.item.models)
@@ -151,13 +154,13 @@ export function ConnectionRouting(props: {
               {t('Priority')}
             </dt>
             <dd className='text-data tabular-nums'>
-              {props.item.priority ?? t('Unknown')}
+              <ChannelRoutingFieldEditor channelId={props.item.id} field='priority' value={props.item.priority} canWrite={props.canWrite} readVersion={props.readVersion} />
             </dd>
           </div>
           <div>
             <dt className='text-caption text-muted-foreground'>{t('Weight')}</dt>
             <dd className='text-data tabular-nums'>
-              {props.item.weight ?? t('Unknown')}
+              <ChannelRoutingFieldEditor channelId={props.item.id} field='weight' value={props.item.weight} canWrite={props.canWrite} readVersion={props.readVersion} />
             </dd>
           </div>
           <div className='col-span-2 min-w-0'>

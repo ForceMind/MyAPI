@@ -210,6 +210,7 @@ export function Connections() {
           <li key={connection.id} className='flex min-w-0'>
             <ConnectionCard
               connection={connection}
+              routingReadVersion={list.dataUpdatedAt}
               windows={
                 windows.data?.filter(
                   (item) => item.channel_id === connection.id
@@ -309,6 +310,7 @@ export function Connections() {
                 >
                   {t('Configured connections')}
                 </h2>
+                {showTable && <p className='text-caption text-muted-foreground'>{t('Use Table view to manage tags, select connections in bulk, and mask identifiers.')}</p>}
                 <div className='bg-card flex min-w-0 flex-col gap-4 rounded-xl border p-4'>
                   <h3 className='text-body font-medium'>{t('Filters')}</h3>
                   <form

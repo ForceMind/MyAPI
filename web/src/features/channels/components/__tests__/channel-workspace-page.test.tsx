@@ -159,3 +159,14 @@ test('a same-user session change discards private task drafts and previous read 
   expect(within(screen.getByRole('navigation', { name: 'Channel workspace' })).getByRole('link', { name: 'Quota evidence' })).not.toHaveTextContent('Read failed')
   expect(requests.some((request) => request.path === '/api/channel/routing-preview')).toBe(false)
 })
+
+test('the advanced table shares the Connections identity and does not label unopened tasks as unloaded failures', async () => {
+  await page()
+  await screen.findByRole('link', { name: item.name })
+  expect(screen.getByRole('heading', { level: 1, name: 'Connections' })).toBeVisible()
+  const nav = screen.getByRole('navigation', { name: 'Channel workspace' })
+  expect(within(nav).queryByText('Not loaded')).not.toBeInTheDocument()
+  expect(within(nav).queryByText('Not submitted')).not.toBeInTheDocument()
+  expect(screen.getByRole('table')).toBeVisible()
+  expect(heavyReads()).toEqual([])
+})

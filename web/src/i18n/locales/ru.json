@@ -7772,6 +7772,18 @@
     "{{value}} {{unit}}": "{{value}} {{unit}}",
     "{{window}}: {{value}} {{unit}}": "{{window}}: {{value}} {{unit}}",
     "Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.": "Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.",
-    "Read saved usage status": "Read saved usage status"
+    "Read saved usage status": "Read saved usage status",
+    "Column preset": "Column preset",
+    "Monitoring columns": "Monitoring columns",
+    "Pending save": "Pending save",
+    "Previous draft: {{value}}": "Previous draft: {{value}}",
+    "Read saved routing value": "Read saved routing value",
+    "Routing columns": "Routing columns",
+    "Save result unknown. Read the saved value before trying again.": "Save result unknown. Read the saved value before trying again.",
+    "Saved": "Saved",
+    "Saved; routing cache publication pending": "Saved; routing cache publication pending",
+    "The database change is committed, but runtime routing cache publication is pending.": "The database change is committed, but runtime routing cache publication is pending.",
+    "Unable to read the saved routing value. Editing remains locked.": "Unable to read the saved routing value. Editing remains locked.",
+    "Use Table view to manage tags, select connections in bulk, and mask identifiers.": "Use Table view to manage tags, select connections in bulk, and mask identifiers."
   }
 }

@@ -91,18 +91,19 @@ it('monitoring and routing profiles change only information while custom restore
   const user = userEvent.setup()
   await mount()
   await screen.findByRole('link', { name: item.name })
-  expect(screen.getAllByRole('columnheader')).toHaveLength(6)
+  expect(screen.getAllByRole('columnheader')).toHaveLength(8)
   expect(screen.getByRole('columnheader', { name: /Last saved test/ })).toBeVisible()
-  expect(screen.queryByRole('columnheader', { name: /Priority/ })).not.toBeInTheDocument()
+  expect(screen.getByRole('columnheader', { name: /Priority/ })).toBeVisible()
+  expect(screen.getByRole('columnheader', { name: /Weight/ })).toBeVisible()
   expect(localStorage.getItem('channels:column-visibility')).toBe(JSON.stringify(legacy))
   expect(localStorage.getItem('channels:column-sizing')).toBe(JSON.stringify({ name: 333 }))
   const reads = inventoryReads().length
-  await user.selectOptions(screen.getByRole('combobox', { name: 'Inventory view' }), 'routing')
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Column preset' }), 'routing')
   expect(await screen.findByRole('columnheader', { name: /Priority/ })).toBeVisible()
   expect(screen.getByRole('columnheader', { name: /Weight/ })).toBeVisible()
   expect(screen.getByRole('columnheader', { name: /Models/ })).toBeVisible()
   expect(localStorage.getItem('channels:column-visibility')).toBe(JSON.stringify(legacy))
-  await user.selectOptions(screen.getByRole('combobox', { name: 'Inventory view' }), 'custom')
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Column preset' }), 'custom')
   expect(await screen.findByRole('columnheader', { name: /^ID/ })).toBeVisible()
   expect(screen.getByRole('columnheader', { name: /Models/ })).toBeVisible()
   expect(JSON.parse(localStorage.getItem('channels:column-sizing') ?? '{}')).toMatchObject({ name: 333 })
@@ -157,7 +158,7 @@ it('inactive inventory performs no list or group read and hides portaled paginat
   expect(await screen.findByText('Selected channel IDs (1)')).toBeVisible()
 })
 
-it.each(['table', 'card'])('the %s inventory batches saved evidence and keeps balance capability separate from actual failure', async (view) => {
+it.each(['table', 'card'])('the table preserves saved evidence with legacy %s preferences at either width', async (view) => {
   localStorage.setItem('channels:view-mode', view)
   if (view === 'card') {
     const original = window.matchMedia
@@ -308,7 +309,7 @@ it('global maintenance and display settings are explicit scopes while read-only 
   expect(api.delete).not.toHaveBeenCalled()
 })
 
-it('mobile monitoring keeps operational status visible and exposes every supplementary original field through an explicit local action', async () => {
+it('mobile table keeps operational status and all original fields available through column configuration', async () => {
   localStorage.setItem('channels:view-mode', 'card')
   const original = window.matchMedia
   vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({ ...original(query), matches: query === '(max-width: 640px)' }))
@@ -319,11 +320,14 @@ it('mobile monitoring keeps operational status visible and exposes every supplem
   expect(screen.getByRole('button', { name: 'Disable' })).toBeVisible()
   expect(screen.getByRole('button', { name: 'Edit' })).toBeVisible()
   expect(screen.getByRole('button', { name: 'Test Connection' })).toBeVisible()
-  expect(screen.getByText('Priority')).not.toBeVisible()
+  expect(screen.getByRole('table')).toBeVisible()
   const reads = inventoryReads().length
-  await user.click(screen.getByRole('button', { name: 'More channel fields' }))
-  expect(screen.getByText('Priority')).toBeVisible()
-  expect(screen.getByText('Weight')).toBeVisible()
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Column preset' }), 'custom')
+  await user.click(screen.getByRole('button', { name: 'View' }))
+  await user.click(screen.getByRole('menuitemcheckbox', { name: 'Models', exact: true }))
+  await user.keyboard('{Escape}')
+  expect(screen.getByRole('columnheader', { name: /Priority/ })).toBeVisible()
+  expect(screen.getByRole('columnheader', { name: /Weight/ })).toBeVisible()
   await user.click(screen.getByRole('button', { name: 'Models (2)' }))
   expect(screen.getByText('alpha')).toBeVisible()
   expect(screen.getByText('beta')).toBeVisible()
@@ -375,7 +379,7 @@ async function pendingPriorityChange() {
   const fixture = await mount()
   const initialUser = userEvent.setup()
   await screen.findByRole('link', { name: item.name })
-  await initialUser.selectOptions(screen.getByRole('combobox', { name: 'Inventory view' }), 'routing')
+  await initialUser.selectOptions(screen.getByRole('combobox', { name: 'Column preset' }), 'routing')
   const priority = await screen.findByRole('group', { name: 'Priority' })
   vi.useFakeTimers({ shouldClearNativeTimers: true })
   const increment = within(priority).getByRole('button', { name: 'Increment' })
@@ -425,4 +429,34 @@ it.each(['blur', 'cleanup'] as const)('same-actor %s still commits exactly one o
   act(() => { vi.runOnlyPendingTimers() })
   await Promise.resolve()
   expect(put).toHaveBeenCalledTimes(1)
+})
+
+
+it('mobile table retains Tag aggregation, numerical child selection and sensitive masks after removing the duplicate card display', async () => {
+  const original = window.matchMedia
+  vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({ ...original(query), matches: query === '(max-width: 640px)' }))
+  items = [item, { ...item, id: 24, name: 'Second synthetic channel' }]
+  const user = userEvent.setup()
+  await mount()
+  await screen.findByRole('link', { name: item.name })
+  expect(screen.getByRole('table')).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Display settings' }))
+  await user.click(screen.getByRole('menuitemcheckbox', { name: 'Tag Mode' }))
+  await user.keyboard('{Escape}')
+  await user.click(await screen.findByRole('button', { name: 'Expand tag synthetic-tag' }))
+  await user.click(screen.getByRole('button', { name: 'Select channels' }))
+  const row = screen.getByRole('link', { name: item.name }).closest('tr')
+  if (!row) throw new Error('Expected a real channel table row')
+  await user.click(within(row).getByRole('checkbox', { name: 'Select row' }))
+  expect(screen.getByText('Selected channel IDs (1)')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Disable selected channels' })).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Mask channel identifiers' }))
+  expect(screen.queryByRole('link', { name: item.name })).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Second synthetic channel' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Collapse tag synthetic-tag' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Show channel identifiers' })).toBeVisible()
+  expect(vi.mocked(api.get).mock.calls.some(([url]) => /quota|test|update_balance|codex\/usage/.test(String(url)))).toBe(false)
+  expect(api.post).not.toHaveBeenCalled()
+  expect(api.put).not.toHaveBeenCalled()
+  expect(api.delete).not.toHaveBeenCalled()
 })

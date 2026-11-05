@@ -20,6 +20,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import z from 'zod'
 
 import { Channels } from '@/features/channels'
+import { upstreamViewSchema } from '@/features/personal-upstream/upstream-view-state'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -33,6 +34,7 @@ const channelsSearchSchema = z.object({
   group: z.array(z.string()).optional().catch([]),
   model: z.string().optional().catch(''),
   quotaChannelId: z.coerce.number().optional().catch(undefined),
+  upstreamReturn: upstreamViewSchema.optional().catch(undefined),
 })
 
 export const Route = createFileRoute('/_authenticated/channels/')({

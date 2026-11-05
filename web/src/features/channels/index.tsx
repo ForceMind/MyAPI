@@ -170,8 +170,7 @@ function ChannelWorkspace(props: { identity: string }) {
 
   return <>
     <SectionPageLayout fixedContent={false}>
-      <SectionPageLayout.Title>{t('Channels')}</SectionPageLayout.Title>
-      <SectionPageLayout.Description>{t('Manage channel inventory and open saved evidence explicitly.')}</SectionPageLayout.Description>
+      <SectionPageLayout.Title>{t('Connections')}</SectionPageLayout.Title>
       <SectionPageLayout.Actions>{active === 'inventory' && <ChannelsPrimaryButtons />}</SectionPageLayout.Actions>
       <SectionPageLayout.Content>
         <div className='min-w-0 space-y-4'>
@@ -183,7 +182,7 @@ function ChannelWorkspace(props: { identity: string }) {
             }} className={cn(buttonVariants({ variant: 'ghost' }), 'h-auto min-h-11 shrink-0 rounded-none border-b-2 border-transparent px-3 py-2', active === item.mode && 'border-primary text-primary')}>
               <span className='flex min-w-0 flex-col items-start gap-0.5'>
                 <span>{t(item.title)}</span>
-                <ReadSummary state={reads[item.mode]} routing={item.mode === 'routing'} compact />
+                {reads[item.mode].phase !== 'unread' && <ReadSummary state={reads[item.mode]} routing={item.mode === 'routing'} compact />}
               </span>
             </Link>)}
           </nav>
@@ -215,7 +214,7 @@ function ChannelWorkspace(props: { identity: string }) {
                   {item.mode === 'events' && t('Events cover all channels; the current API does not filter them by channel.')}
                   {item.mode === 'routing' && t('Read-only local routing snapshot')}
                 </p>
-                {item.mode === active && <div className='flex flex-wrap gap-x-3 gap-y-1 text-caption'><ReadSummary state={read} routing={item.mode === 'routing'} />{read.readAt != null && Number.isFinite(read.readAt) && read.readAt > 0 && <span>{t('Last saved-data read: {{time}}', { time: formatTimestampToDate(read.readAt) })}</span>}</div>}
+                {item.mode === active && read.phase !== 'unread' && <div className='flex flex-wrap gap-x-3 gap-y-1 text-caption'><ReadSummary state={read} routing={item.mode === 'routing'} />{read.readAt != null && Number.isFinite(read.readAt) && read.readAt > 0 && <span>{t('Last saved-data read: {{time}}', { time: formatTimestampToDate(read.readAt) })}</span>}</div>}
               </div>
               <Button type='button' variant='outline' className='min-h-11' data-channel-workspace-return={active === item.mode ? 'active' : undefined} onClick={() => openTask('inventory')}>{t('Back to inventory')}</Button>
             </header>

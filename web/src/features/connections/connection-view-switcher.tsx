@@ -14,8 +14,8 @@ export function ConnectionViewSwitcher(props: {
 }) {
   const { t } = useTranslation()
   if (!props.showOther) return null
-  const activeClass = cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'h-auto min-h-8')
-  const linkClass = cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'h-auto min-h-8')
+  const activeClass = cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'h-auto min-h-11')
+  const linkClass = cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'h-auto min-h-11')
   const tableSearch = connectionsToTableSearch(props.search)
   return (
     <nav aria-label={t('Connection views')} className='flex min-w-0 flex-wrap gap-1'>

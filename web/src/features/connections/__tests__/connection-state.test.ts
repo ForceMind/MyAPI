@@ -129,3 +129,12 @@ test('view changes keep unrecognized legacy status arrays and long existing sear
   const table = { status: ['legacy', 'enabled'], filter: 'x'.repeat(250), type: [], group: [], pageSize: 20 }
   expect(connectionsToTableSearch(connectionsSearchSchema.parse(tableToConnectionsSearch(table)))).toEqual(table)
 })
+
+
+test('card and table bridges retain validated upstream origin and focus without admitting credentials', () => {
+  const cards = connectionsSearchSchema.parse({ page: 3, pageSize: 50, focusConnectionId: 7, upstreamReturn: { channelId: 7, keyId: 21, filter: 'team', status: 'error', token: 'never-retain' } })
+  const table = connectionsToTableSearch(cards)
+  expect(table.focusConnectionId).toBe(7)
+  expect(table.upstreamReturn).toEqual({ channelId: 7, keyId: 21, filter: 'team', status: 'error' })
+  expect(tableToConnectionsSearch(table)).toMatchObject({ focusConnectionId: 7, upstreamReturn: table.upstreamReturn })
+})

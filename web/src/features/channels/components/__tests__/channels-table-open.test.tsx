@@ -7,7 +7,7 @@ the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
 import { QueryClient } from '@tanstack/react-query'
-import { act, cleanup, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
@@ -202,4 +202,27 @@ test('changing account clears the previous inventory while the new account read 
   await act(async () => release())
   expect(await screen.findByRole('link', { name: 'second-account-channel' })).toBeVisible()
   expect(screen.queryByRole('link', { name: 'needle-channel' })).not.toBeInTheDocument()
+})
+
+test.each([390, 1440])('the table URL stays a real scrollable table at %ipx despite a legacy card preference and refresh', async (width) => {
+  localStorage.setItem('channels:view-mode', 'card')
+  const original = window.matchMedia
+  vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({ ...original(query), matches: query === '(max-width: 640px)' && width < 640 }))
+  const { router } = await renderTable('/channels/?pageSize=50&filter=needle&model=public-model&focusConnectionId=23')
+  await screen.findByRole('link', { name: 'needle-channel' })
+  const table = screen.getByRole('table')
+  expect(table).toBeVisible()
+  expect(table.closest('[data-slot="table-container"]')).toHaveClass('overflow-x-auto')
+  expect(screen.queryByRole('button', { name: 'Card view' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Table view' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('article')).not.toBeInTheDocument()
+  const views = screen.getByRole('navigation', { name: 'Connection views' })
+  expect(within(views).getByText('Table view')).toHaveAttribute('aria-current', 'page')
+  expect(within(views).getByRole('link', { name: 'Card view' })).toHaveAttribute('href', expect.stringContaining('/connections'))
+  await act(async () => client.invalidateQueries({ queryKey: ['channels'] }))
+  expect(screen.getByRole('table')).toBeVisible()
+  expect(router.state.location.pathname).toBe('/channels/')
+  expect(router.state.location.search).toMatchObject({ filter: 'needle', model: 'public-model', pageSize: 50, focusConnectionId: 23 })
+  expect(localStorage.getItem('channels:view-mode')).toBe('card')
+  expect(vi.mocked(api.get).mock.calls.some(([url]) => /quota|test|update_balance|codex\/usage/.test(String(url)))).toBe(false)
 })

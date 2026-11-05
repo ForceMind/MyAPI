@@ -303,7 +303,7 @@ function ConnectionPageContent(props: {
             )}
           </TabsContent>
           <TabsContent value='routing' className='min-w-0'>
-            <ConnectionRouting item={item} showPreview={showTable} />
+            <ConnectionRouting item={item} showPreview={showTable} canWrite={access.canWrite} readVersion={detail.dataUpdatedAt} />
           </TabsContent>
           <TabsContent value='requests' className='min-w-0'>
             <RecentRequestList

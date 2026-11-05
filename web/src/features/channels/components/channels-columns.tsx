@@ -28,7 +28,7 @@ import {
   Shuffle,
   SlidersHorizontal,
 } from 'lucide-react'
-import { useState, useMemo, useContext, useEffect, type ReactNode } from 'react'
+import { useState, useMemo, useContext, useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -76,9 +76,7 @@ import {
   parseGroupsList,
   parseChannelSettings,
   channelsQueryKeys,
-  handleUpdateChannelField,
   handleUpdateTagField,
-  createChannelFieldUpdateScheduler,
   isTagAggregateRow,
   type TagRow,
 } from '../lib'
@@ -96,6 +94,7 @@ import {
   type CodexUsageDialogData,
 } from './dialogs/codex-usage-dialog'
 import { NumericSpinnerInput } from './numeric-spinner-input'
+import { ChannelRoutingFieldEditor } from './channel-routing-field-editor'
 
 function parseIonetMeta(otherInfo: string | null | undefined): null | {
   source?: string
@@ -182,17 +181,17 @@ function UpstreamUpdateTags({ channel }: { channel: Channel }) {
 /**
  * Priority cell component with inline editing
  */
-function PriorityCell({ channel }: { channel: Channel }) {
+function PriorityCell({ channel, readVersion }: { channel: Channel; readVersion?: number }) {
   if (isTagAggregateRow(channel)) {
     return <TagPriorityCell channel={channel} />
   }
 
   return (
-    <ChannelFieldCell
+    <ChannelRoutingFieldEditor
       channelId={channel.id}
       value={channel.priority}
       field='priority'
-      min={-999}
+      readVersion={readVersion}
     />
   )
 }
@@ -242,70 +241,20 @@ function TagPriorityCell({ channel }: { channel: TagRow }) {
   )
 }
 
-function ChannelFieldCell({
-  channelId,
-  value,
-  field,
-  min,
-}: {
-  channelId: number
-  value: number | null | undefined
-  field: 'priority' | 'weight'
-  min: number
-}) {
-  const { t } = useTranslation()
-  const user = useAuthStore((state) => state.auth.user)
-  const actorId = user?.id
-  const actorRole = user?.role
-  const actorSid = useAuthStore((state) => state.auth.session?.sid ?? null)
-  const canWrite = hasPermission(user, 'channel', 'write')
-  const queryClient = useQueryClient()
-  const fieldUpdateScheduler = useMemo(
-    () =>
-      createChannelFieldUpdateScheduler((nextValue) => {
-        const current = useAuthStore.getState().auth
-        if (
-          current.user?.id !== actorId ||
-          current.user?.role !== actorRole ||
-          (current.session?.sid ?? null) !== actorSid ||
-          !hasPermission(current.user, 'channel', 'write')
-        ) {
-          return
-        }
-        void handleUpdateChannelField(channelId, field, nextValue, queryClient)
-      }),
-    [channelId, field, queryClient, actorId, actorRole, actorSid]
-  )
-
-  useEffect(() => () => fieldUpdateScheduler.flush(), [fieldUpdateScheduler])
-
-  return (
-    <div role='group' aria-label={field === 'priority' ? t('Priority') : t('Weight')} className='[&>div]:max-w-full [&>div>div]:h-auto [&>div>div]:min-h-11 [&>div>div]:max-w-full [&>div>div]:flex-wrap [&_button]:min-h-11 [&_button]:min-w-11 [&_input]:min-h-11'>
-    <NumericSpinnerInput
-      disabled={!canWrite}
-      value={value ?? 0}
-      onChange={fieldUpdateScheduler.schedule}
-      onCommit={fieldUpdateScheduler.flush}
-      min={min}
-    />
-    </div>
-  )
-}
-
 /**
  * Weight cell component with inline editing
  */
-function WeightCell({ channel }: { channel: Channel }) {
+function WeightCell({ channel, readVersion }: { channel: Channel; readVersion?: number }) {
   if (isTagAggregateRow(channel)) {
     return <TagWeightCell channel={channel} />
   }
 
   return (
-    <ChannelFieldCell
+    <ChannelRoutingFieldEditor
       channelId={channel.id}
       value={channel.weight}
       field='weight'
-      min={0}
+      readVersion={readVersion}
     />
   )
 }
@@ -651,6 +600,7 @@ export function useChannelsColumns(
     enableSelection?: boolean
     tagMode?: boolean
     profile?: ChannelInventoryProfile
+    readVersion?: number
   } = {}
 ): ColumnDef<Channel>[] {
   const { t, i18n } = useTranslation()
@@ -658,6 +608,10 @@ export function useChannelsColumns(
   const enableSelection = options.enableSelection ?? true
   const tagMode = options.tagMode ?? false
   const profile = options.profile ?? 'custom'
+  // Keep cell renderer identities stable across data reads so pending editors
+  // are not unmounted (and cleanup-flushed) by a read-version-only change.
+  const readVersion = useRef(options.readVersion)
+  readVersion.current = options.readVersion
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   // The column definitions only depend on the translation function, the active
   // locale, and sensitive-data visibility. Memoizing keeps the array (and every
@@ -1165,7 +1119,7 @@ export function useChannelsColumns(
         accessorKey: 'priority',
         header: t('Priority'),
         meta: { mobileHidden: true },
-        cell: ({ row }) => <PriorityCell channel={row.original} />,
+        cell: ({ row }) => <PriorityCell channel={row.original} readVersion={readVersion.current} />,
         size: profile === 'custom' ? 100 : 160,
         enableSorting: !isChannelSortDisabledInTagMode('priority', tagMode),
       },
@@ -1175,7 +1129,7 @@ export function useChannelsColumns(
         accessorKey: 'weight',
         header: t('Weight'),
         meta: { mobileHidden: true },
-        cell: ({ row }) => <WeightCell channel={row.original} />,
+        cell: ({ row }) => <WeightCell channel={row.original} readVersion={readVersion.current} />,
         size: profile === 'custom' ? 90 : 160,
         enableSorting: !isChannelSortDisabledInTagMode('weight', tagMode),
       },

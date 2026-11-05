@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { QueryClient } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 import i18next from 'i18next'
 import { toast } from 'sonner'
 
@@ -255,15 +256,34 @@ export async function handleDeleteChannel(
 /**
  * Update a specific channel field (e.g., priority, weight)
  */
+export type ChannelFieldUpdateResult = {
+  state: 'saved' | 'cache-pending' | 'failed' | 'unknown'
+  message?: string
+}
+
 export async function handleUpdateChannelField(
   id: number,
   fieldName: string,
   value: number,
   queryClient?: QueryClient,
-  onSuccess?: () => void
+  onSuccess?: () => void,
+  feedback?: {
+    isCurrent: () => boolean
+    onResult: (result: ChannelFieldUpdateResult) => void
+  }
 ): Promise<void> {
+  if (feedback && !feedback.isCurrent()) return
   try {
+    if (feedback && queryClient) {
+      // A pre-write configuration read must not later replace the acknowledged value.
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: channelsQueryKeys.lists() }),
+        queryClient.cancelQueries({ queryKey: channelsQueryKeys.detail(id) }),
+      ])
+      if (!feedback.isCurrent()) return
+    }
     const response = await updateChannel(id, { [fieldName]: value })
+    if (feedback && !feedback.isCurrent()) return
     if (response.success) {
       // Show success toast with field name
       const fieldLabel =
@@ -271,17 +291,23 @@ export async function handleUpdateChannelField(
       notifyChannelMutationSuccess(
         response,
         i18next.t('{{field}} updated to {{value}}', {
-          field: fieldLabel,
+          field: i18next.t(fieldLabel),
           value,
         })
       )
       queryClient?.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
+      feedback?.onResult({ state: response.cache_pending ? 'cache-pending' : 'saved' })
       onSuccess?.()
     } else {
-      toast.error(response.message || i18next.t(ERROR_MESSAGES.UPDATE_FAILED))
+      const message = response.message || i18next.t(ERROR_MESSAGES.UPDATE_FAILED)
+      toast.error(message)
+      feedback?.onResult({ state: 'failed', message })
     }
-  } catch {
+  } catch (error) {
+    if (feedback && !feedback.isCurrent()) return
     toast.error(i18next.t(ERROR_MESSAGES.UPDATE_FAILED))
+    const status = isAxiosError(error) ? error.response?.status : undefined
+    feedback?.onResult({ state: status && status >= 400 && status < 500 && status !== 408 ? 'failed' : 'unknown' })
   }
 }
 

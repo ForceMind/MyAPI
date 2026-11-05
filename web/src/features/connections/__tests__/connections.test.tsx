@@ -14,6 +14,8 @@ import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 import { useInspectorStore } from '@/stores/inspector-store'
 
+import { connectionPageSearchSchema } from '../connection-state'
+
 import { mountConnections } from './connections-page-fixture'
 
 vi.mock('@/hooks/use-sidebar-config', () => ({
@@ -543,4 +545,33 @@ test('reopening a card cancels an old pending return and a later Back restores t
   await waitFor(() => expect(heading).toHaveFocus())
   await leavePage()
   await waitFor(async () => expect(await cardLink()).toHaveFocus())
+})
+
+
+test('cards, the real advanced table and detail retain upstream origin, filters and focus through back navigation', async () => {
+  const upstreamReturn = { channelId: 7, keyId: 21, filter: 'team', period: 'duration:18000', status: 'error', changes: true } as const
+  const entry = new URLSearchParams({ page: '2', pageSize: '50', filter: 'Synthetic', model: 'alpha', type: '["57","1"]', group: '["default","premium"]', status: 'enabled', focusConnectionId: '7', upstreamReturn: JSON.stringify(upstreamReturn) })
+  const fixture = await mount({ realTable: true, total: 220, entry: `/connections?${entry}`, extraReads: { '/api/status': {}, '/api/group/': ['default'], '/api/channel/ops': { retry_times: 3 } } })
+  const user = userEvent.setup()
+  await cardLink()
+  await user.click(screen.getByRole('link', { name: 'Table view' }))
+  const tableLink = await screen.findByRole('link', { name: 'Synthetic connection' })
+  expect(screen.getByRole('table')).toBeVisible()
+  expect(search(fixture)).toMatchObject({ page: 2, pageSize: 50, filter: 'Synthetic', model: 'alpha', type: ['57', '1'], group: ['default', 'premium'], status: ['enabled'], focusConnectionId: 7, upstreamReturn })
+  await waitFor(() => expect(tableLink).toHaveFocus())
+  await user.click(tableLink)
+  await screen.findByRole('heading', { level: 1, name: 'Synthetic connection' })
+  expect(search(fixture)).toMatchObject({ connectionReturn: { page: 2, pageSize: 50, filter: 'Synthetic', model: 'alpha', type: ['57', '1'], group: ['default', 'premium'], status: 'enabled', view: 'table', upstreamReturn } })
+  const detailSearch = connectionPageSearchSchema.parse(fixture.router.state.location.search)
+  await leavePage()
+  await waitFor(() => expect(fixture.router.state.location.pathname).toBe('/channels'))
+  expect(search(fixture)).toMatchObject({ focusConnectionId: 7, upstreamReturn, page: 2, pageSize: 50 })
+  await waitFor(() => expect(screen.getByRole('link', { name: 'Synthetic connection' })).toHaveFocus())
+  await act(async () => fixture.router.navigate({ to: '/connections/$connectionId', params: { connectionId: '7' }, search: detailSearch, state: { inspectorBack: false } }))
+  await screen.findByRole('heading', { level: 1, name: 'Synthetic connection' })
+  await leavePage()
+  await waitFor(() => expect(fixture.router.state.location.pathname).toBe('/upstream-accounts'))
+  expect(search(fixture)).toEqual({ ...upstreamReturn, focusChannelId: 7 })
+  expect(fixture.requests.every((request) => request.method === 'get')).toBe(true)
+  expect(fixture.requests.some((request) => /test|update_balance|codex\/usage/.test(request.path))).toBe(false)
 })
