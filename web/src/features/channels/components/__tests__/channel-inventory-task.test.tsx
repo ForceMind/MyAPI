@@ -36,14 +36,16 @@ beforeEach(() => {
   vi.spyOn(api, 'get').mockImplementation(async (url, config) => {
     if (url === '/api/status') return { data: { success: true, data: {} } }
     if (url === '/api/group/') return { data: { success: true, data: ['default', 'other'] } }
-    if (url === '/api/channel/quota/changes') return { data: { success: true, data: {
-      items: savedEvidence,
-      source_complete: true,
-      items_complete: true,
-      total_items: savedEvidence.length,
-      returned_items: savedEvidence.length,
-      ...evidenceMetadata,
-    } } }
+    if (url === '/api/channel/quota/changes') {
+      return { data: { success: true, data: {
+        items: savedEvidence,
+        source_complete: true,
+        items_complete: true,
+        total_items: savedEvidence.length,
+        returned_items: savedEvidence.length,
+        ...evidenceMetadata,
+      } } }
+    }
     if (url === '/api/channel' || url === '/api/channel/search') {
       if (outcome === 'error') throw new Error('Synthetic inventory read failure')
       return { data: { success: true, data: { items, total: config?.params?.tag_mode ? 1 : 100, type_counts: { 1: 100, 57: 1 } } } }
