@@ -10,6 +10,7 @@
 - [验证报告artifact13393727830](https://github.com/ForceMind/MyAPI/actions/runs/41980838279/artifacts/13393727830)：ZIP SHA256 `2da227e580376736b86029a9c930a58b6f0075dc5866978477444039ab83a0a2`，有效至2026-11-12 06:34:46 UTC。含source/manifest/qualification；tar内部摘要须从已校验manifest读取，本机未下载产物，不编造未读字段。GitHub artifact元数据、ZIP摘要与过期时间已读。
 - 工作流原有运维kit同时产出并在runner独立解包28/28通过、servicesStarted=false/productionTouched=false；[kit artifact13394235519](https://github.com/ForceMind/MyAPI/actions/runs/41980838279/artifacts/13394235519)不构成本次安装/启动授权。
 - 已向现有服务器任务「查看状态并更新部署版本」发送精确制品身份、证据与本轮边界，请其仅做必要只读预检并提交更新方案，等维护者确认。明确禁止在方案阶段下载/加载镜像、写文件/备份、改配置/容器/重启策略、安装kit、改Docker或开启诊断。上次beta.33因config ID与containerd/OCI loaded ID不完全相等退出2，未部署；这次仍严格相等，不沿用beta.31等价授权。未证明兼容就停，不通过重标tag、换产物或弱化门禁继续。
+- 服务器任务已返回只读预检及最小方案，等待维护者明确确认：其回报现网beta.31/98dcd374仍healthy、HTTP200，缓存会话和正文日志开启、诊断关闭，当前未下载/加载制品或修改生产。确认后先保持旧服务运行下载并严格核验ZIP/manifest/tar及加载后ID；身份通过才排空、备份当时最新SQLite/WAL/配置/日志并以最新数据副本单次切换，再只读检查健康/版本/静态HTTP、DB完整性/外键及历史账务连续性。服务器估计切换30–90秒，排空/迁移可能延长；备份不完整不启动，新增账务出现后不自动恢复旧快照。containerd镜像ID兼容尚未验证，若不符停止，适配身份方案须另行审批，历史执行授权不延用。
 - 未来经确认的方案必须保留全部现有配置、开关与当时最新SQLite/WAL/日志，排空后一致备份；切换后新增账务不得被旧快照覆盖，故障保全、不重放请求。仅健康/版本/静态HTTP及数据连续性验收，不主动模型请求。收尾只更新本任务记录和handoff/README；镜像继续绑定08e44520/41980838279，读取收尾文档提交自己的完整CI，不把后续文档SHA当新镜像。
 
 ## 2026-11-05 连接能力、用量状态与 Key 客户端配置（beta.34，源码完整 CI 已通过）
