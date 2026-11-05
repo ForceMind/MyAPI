@@ -21,11 +21,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import dayjs from '@/lib/dayjs'
 import { formatTimestampRelative, formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 interface ApiKeyTimestampCellProps {
   timestamp: number
+  zeroIsEpoch?: boolean
   now: number
   locale?: string
   justNowLabel: string
@@ -33,16 +35,18 @@ interface ApiKeyTimestampCellProps {
 }
 
 export function ApiKeyTimestampCell(props: ApiKeyTimestampCellProps) {
-  if (!props.timestamp || props.timestamp === -1) {
+  const epochZero = props.zeroIsEpoch === true && props.timestamp === 0
+  if ((!props.timestamp && !epochZero) || props.timestamp === -1) {
     return <span className='text-muted-foreground text-xs'>-</span>
   }
 
   const timestampMs = props.timestamp * 1000
   const isJustNow = timestampMs <= props.now && props.now - timestampMs < 60_000
-  const relativeTime = isJustNow
+  let relativeTime = isJustNow
     ? props.justNowLabel
     : formatTimestampRelative(props.timestamp, 'seconds', props.locale)
-  const absoluteTime = formatTimestampToDate(props.timestamp)
+  const absoluteTime = epochZero ? dayjs(0).format('YYYY-MM-DD HH:mm:ss') : formatTimestampToDate(props.timestamp)
+  if (epochZero) relativeTime = absoluteTime
 
   return (
     <Tooltip>

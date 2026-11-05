@@ -27,6 +27,7 @@ import { DetailsDialog } from '@/features/usage-logs/components/dialogs/details-
 import type { UsageLog } from '@/features/usage-logs/data/schema'
 import { usePersonalWorkbenchMode } from '@/hooks/use-personal-workbench-mode'
 import { OBJECT_PAGE_TABS_LIST_CLASS } from '@/lib/console-layout'
+import dayjs from '@/lib/dayjs'
 import { formatTimestampToDate } from '@/lib/format'
 import { linkButtonClassName } from '@/lib/link-button'
 import { ROLE } from '@/lib/roles'
@@ -345,7 +346,7 @@ function KeyMeta(props: { apiKey: ApiKey }) {
   const expiry = keyExpiry(key.expired_time)
   let expiryLabel = t('Unknown')
   if (expiry.kind === 'never') expiryLabel = t('Never')
-  if (expiry.kind === 'dated') expiryLabel = formatTimestampToDate(expiry.timestamp)
+  if (expiry.kind === 'dated') expiryLabel = expiry.timestamp === 0 ? dayjs(0).format('YYYY-MM-DD HH:mm:ss') : formatTimestampToDate(expiry.timestamp)
   return (
     <>
       <StatusBadge

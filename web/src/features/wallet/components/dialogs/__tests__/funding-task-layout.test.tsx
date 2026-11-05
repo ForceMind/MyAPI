@@ -127,8 +127,11 @@ it('a failed manual completion keeps the exact order confirmation open with no a
   const confirmation = await screen.findByRole('alertdialog', { name: 'Complete Order' })
   await user.click(within(confirmation).getByRole('button', { name: 'Confirm' }))
   expect(await within(confirmation).findByRole('alert')).toHaveTextContent('Failed to complete order')
+  expect(within(confirmation).getByRole('alert')).toHaveTextContent('Synthetic completion failed')
+  expect(confirmation).toBeVisible()
   expect(within(confirmation).getByText(order)).toBeVisible()
   expect(post).toHaveBeenCalledTimes(1)
+  expect(post.mock.calls[0]?.[0]).toBe('/api/user/topup/complete')
   expect(post.mock.calls[0]?.[1]).toEqual({ trade_no: order })
 })
 

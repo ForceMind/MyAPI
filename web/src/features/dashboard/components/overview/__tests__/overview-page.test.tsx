@@ -647,7 +647,7 @@ describe('gateway core card by edition', () => {
     setUser(ROLE.USER)
     renderOverview({ server_address: configured, product_edition: 'full' })
     expect(within(core()).getByText('https://gateway.example.test/tenant/v1')).toBeVisible()
-    expect(within(core()).getByText('From the server address setting')).toBeVisible()
+    expect(within(core()).getByText('Configured server address')).toBeVisible()
     expect(within(core()).queryByText('https://gateway.example.test/tenant/v1/v1')).not.toBeInTheDocument()
   })
 

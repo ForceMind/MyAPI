@@ -88,7 +88,7 @@ async function stepBack() {
 
 test('a completed request without a usage report is successful and shows no invented tokens', async () => {
   const user = userEvent.setup()
-  const { inspector, mocks } = await openKey()
+  const { inspector, mocks, router } = await openKey()
   const rows = await within(inspector).findAllByRole('button', {
     name: /synthetic-model/,
   })
@@ -100,9 +100,20 @@ test('a completed request without a usage report is successful and shows no inve
   expect(
     (await within(detail).findAllByText('Usage not provided')).length
   ).toBeGreaterThan(0)
-  expect(
-    within(detail).getByRole('button', { name: 'View this Key' })
-  ).toHaveAttribute('href', '/keys/21')
+  const relatedKey = within(detail).getByRole('link', { name: 'View this Key' })
+  expect(relatedKey).toHaveAttribute('href', '/keys/21')
+  const requestPath = router.state.location.pathname
+  const requestSearch = router.state.location.search
+  await user.click(relatedKey)
+  await screen.findByTestId('key-page')
+  expect(router.state.location.pathname).toBe('/keys/21')
+  expect(router.state.location.state.inspectorBack).toBe(true)
+  await waitFor(() => expect(useInspectorStore.getState().current?.title).toBe(KEY_21.name))
+  await stepBack()
+  await waitFor(() => expect(router.state.location.pathname).toBe(requestPath))
+  expect(router.state.location.search).toEqual(requestSearch)
+  expect(await screen.findByTestId('request-page')).toBeVisible()
+  expect(mocks.post).not.toHaveBeenCalled()
   expect(screen.queryByText('Current Balance')).not.toBeInTheDocument()
   // An ordinary user reads only its own call records for this Key.
   const logCall = mocks.get.mock.calls

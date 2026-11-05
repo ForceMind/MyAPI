@@ -11,6 +11,7 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
+import dayjs from '@/lib/dayjs'
 import { useAuthStore } from '@/stores/auth-store'
 import { useInspectorStore } from '@/stores/inspector-store'
 import { useSystemConfigStore } from '@/stores/system-config-store'
@@ -323,7 +324,7 @@ test('a long credential at 320px stays shrinkable, completely selected and copya
 test.each([1440, 390])('viewing an unknown expiry at %ipx preserves the list filters, page and origin focus on return', async (width) => {
   setViewport(width)
   signIn(1)
-  const mocks = mockKeysApi({ keys: [{ ...KEY_21, expired_time: 0 }], total: 100, logs: [], status: {} })
+  const mocks = mockKeysApi({ keys: [{ ...KEY_21, expired_time: Number.MAX_SAFE_INTEGER }], total: 100, logs: [], status: {} })
   const user = userEvent.setup()
   const { router } = await renderKeysPage(client, '/keys?page=3&pageSize=20&filter=saved&status=%5B%221%22%5D')
   const opener = await screen.findByRole('button', { name: /Desktop application/ })
@@ -335,6 +336,16 @@ test.each([1440, 390])('viewing an unknown expiry at %ipx preserves the list fil
   expect(router.state.location.search).toMatchObject({ page: 3, pageSize: 20, filter: 'saved', status: ['1'] })
   const returned = await screen.findByRole('button', { name: /Desktop application/ })
   await waitFor(() => expect(returned).toHaveFocus())
+  expect(mocks.post).not.toHaveBeenCalled()
+  expect(mocks.put).not.toHaveBeenCalled()
+})
+
+
+test('an explicit epoch expiry displays its full date on the Key page without changing unused timestamps or reading a credential', async () => {
+  const mocks = mockKeysApi({ keys: [{ ...KEY_21, expired_time: 0, accessed_time: 0 }], logs: [], status: {} })
+  await renderKeysPage(client, '/keys/21')
+  expect(await screen.findByText(`Expires: ${dayjs(0).format('YYYY-MM-DD HH:mm:ss')}`)).toBeVisible()
+  expect(screen.getByText('Last used: Never')).toBeVisible()
   expect(mocks.post).not.toHaveBeenCalled()
   expect(mocks.put).not.toHaveBeenCalled()
 })

@@ -343,7 +343,7 @@ function BillingHistoryTask({
               )}
               <code className='mt-3 block font-mono text-xs break-words [overflow-wrap:anywhere]'>{confirmTradeNo}</code>
             </AlertDialogDescription>
-            {completionError && <p role='alert' className='text-destructive mt-3 text-sm'>{completionFailure || completionError}</p>}
+            {completionError && <div role='alert' className='text-destructive mt-3 space-y-1 text-sm'><p>{t('Failed to complete order')}</p>{completionFailure && completionFailure !== t('Failed to complete order') && <p>{completionFailure}</p>}</div>}
           </section>
           <AlertDialogFooter className='m-0 shrink-0 border-t px-4 py-4 sm:px-6'>
             <AlertDialogCancel disabled={completing}>

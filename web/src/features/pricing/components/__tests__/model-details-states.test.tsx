@@ -238,17 +238,20 @@ it('dynamic group presentation preserves a configured zero ratio alongside a non
     group_ratio: { free: 0, default: 2 },
     usable_group: { free: { desc: 'Synthetic free group', ratio: 0 }, default: { desc: 'Synthetic paid group', ratio: 2 } },
   } })
-  await renderDetails()
+  const { router } = await renderDetails()
   await screen.findByRole('heading', { name: 'synthetic-text-model' })
   const groups = screen.getByRole('heading', { name: 'Pricing by Group' }).closest('section')
   if (!groups) throw new Error('Expected dynamic group prices')
+  expect(router.state.location.search.tokenUnit).toBe('K')
+  expect(within(groups).getByText('Prices shown per 1K tokens')).toBeVisible()
   const free = within(groups).getByRole('group', { name: 'Pricing for group free' })
   const paid = within(groups).getByRole('group', { name: 'Pricing for group default' })
   expect(within(free).getByText('0x')).toBeVisible()
   expect(within(paid).getByText('2x')).toBeVisible()
   expect(within(free).getAllByText('$0')).toHaveLength(2)
-  expect(within(paid).getByText('$5')).toBeVisible()
-  expect(within(paid).getByText('$30')).toBeVisible()
+  // Expression coefficients are USD/1M tokens; this route displays USD/1K.
+  expect(within(paid).getByText('$0.005')).toBeVisible()
+  expect(within(paid).getByText('$0.03')).toBeVisible()
   expect(groups).not.toHaveTextContent('1x')
 })
 

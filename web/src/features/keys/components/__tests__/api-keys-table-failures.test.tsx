@@ -326,16 +326,17 @@ test('a periodic list timestamp refresh preserves an explicitly opened credentia
 })
 
 
-test.each([-1, 0, 1700000000])('default desktop expiry %s stays visible without credential reads or writes', async (value) => {
+test.each([-1, 0, 1700000000, Number.MAX_SAFE_INTEGER])('default desktop expiry %s stays visible without credential reads or writes', async (value) => {
   expiry = value
   await renderTable()
   const row = (await screen.findByText('needle-key')).closest('tr')
   if (!row) throw new Error('Expected Key table row')
   expect(screen.getByRole('columnheader', { name: /Expires/ })).toBeVisible()
   if (value === -1) expect(within(row).getByText('Never')).toBeVisible()
-  else if (value === 0) expect(within(row).getByText('Unknown')).toBeVisible()
+  else if (value === Number.MAX_SAFE_INTEGER) expect(within(row).getByText('Unknown')).toBeVisible()
   else {
-    const timestamp = row.querySelector(`time[datetime="${new Date(value * 1000).toISOString()}"]`)
+    const expected = value === 0 ? '1970-01-01T00:00:00.000Z' : new Date(value * 1000).toISOString()
+    const timestamp = row.querySelector(`time[datetime="${expected}"]`)
     expect(timestamp).toBeVisible()
     expect(timestamp).toHaveClass('text-destructive')
   }
@@ -348,7 +349,7 @@ test('an explicitly hidden expiry column remains the user’s custom preference'
   await renderTable()
   await screen.findByText('needle-key')
   expect(screen.queryByRole('columnheader', { name: /Expires/ })).not.toBeInTheDocument()
-  expect(screen.getByRole('columnheader', { name: /Group/ })).toBeVisible()
+  expect(screen.getByRole('columnheader', { name: 'Access profile' })).toBeVisible()
   expect(JSON.parse(localStorage.getItem('api-keys:column-visibility') ?? '{}')).toMatchObject({ expired_time: false, group: true })
 })
 
@@ -360,12 +361,13 @@ test('a malformed null expiry does not masquerade as a never-expiring Key', asyn
   expect(api.post).not.toHaveBeenCalled()
 })
 
-test.each([-1, 0, 1700000000])('mobile expiry %s stays on the first screen exactly once without opening More details', async (value) => {
+test.each([-1, 0, 1700000000, Number.MAX_SAFE_INTEGER])('mobile expiry %s stays on the first screen exactly once without opening More details', async (value) => {
   expiry = value
   const matchMedia = window.matchMedia
   vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({ ...matchMedia(query), matches: query === CONSOLE_MOBILE_QUERY }))
   await renderTable()
-  await screen.findByText('needle-key')
+  const card = (await screen.findByText('needle-key')).closest('article')
+  if (!card) throw new Error('Expected mobile Key card')
   expect(screen.getByText('Expires')).toBeVisible()
   expect(screen.getAllByText('Expires')).toHaveLength(1)
   const details = screen.getByText('More details').closest('details')
@@ -373,7 +375,13 @@ test.each([-1, 0, 1700000000])('mobile expiry %s stays on the first screen exact
   expect(details).not.toHaveAttribute('open')
   expect(within(details).queryByText('Expires')).not.toBeInTheDocument()
   if (value === -1) expect(screen.getByText('Never')).toBeVisible()
-  if (value === 0) expect(screen.getByText('Unknown')).toBeVisible()
+  if (value === Number.MAX_SAFE_INTEGER) expect(within(card).getByText('Unknown')).toBeVisible()
+  if (value !== -1 && value !== Number.MAX_SAFE_INTEGER) {
+    const expected = value === 0 ? '1970-01-01T00:00:00.000Z' : new Date(value * 1000).toISOString()
+    const timestamp = card.querySelector(`time[datetime="${expected}"]`)
+    expect(timestamp).toBeVisible()
+    expect(timestamp).toHaveClass('text-destructive')
+  }
   expect(api.post).not.toHaveBeenCalled()
   expect(api.put).not.toHaveBeenCalled()
 })

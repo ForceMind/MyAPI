@@ -4,7 +4,7 @@ export function keyExpiry(value: unknown):
   | { kind: 'unknown' }
   | { kind: 'dated'; timestamp: number } {
   if (value === -1) return { kind: 'never' }
-  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0 ||
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0 ||
     !Number.isFinite(new Date(value * 1000).getTime())) return { kind: 'unknown' }
   return { kind: 'dated', timestamp: value }
 }

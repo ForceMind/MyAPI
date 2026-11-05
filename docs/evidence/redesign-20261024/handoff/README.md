@@ -2,6 +2,15 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**2026-11-06 UI 整体衔接与精简总计划正在收口，候选 beta.35，尚未整体验收。** 第0–8步已获维护者确认，沿已有329视图线稿与功能总账持续实施，不逐小批重问。第1步`46d786c2` / [CI42077445265](https://github.com/ForceMind/MyAPI/actions/runs/42077445265)完整success；新卡片/真实表格/详情已共用权重和优先级编辑，/connections卡片、/channels真实表格，旧卡片及内层切换职责迁移后删除。其后Key、请求返回、账号/性能、钱包与公共页的源码/复用/删除证据统一在[TASKS最新节](../TASKS.md)，不把目录/测试数量当整体UI完成。
+
+最近完整取证`64b76246839a78ba732f36f70a9e9311dee09df6` / [CI42093719533](https://github.com/ForceMind/MyAPI/actions/runs/42093719533)已结束：9作业成功、前端失败、1浏览器/真实API跳过，全部步骤和10份执行日志已亲读。后端/独立relaykit/386/全部既有race/三库/Redis/ClickHouse/分发/Desktop通过；前端同步/types/lint（24警告0错误）/构建通过，全量416文件3352过9失败，因此不能部署或称整批通过。先前source/fixture/微信可访问名称及异步等待失败按原始日志修正，全部既有断言保留。
+
+本次收口修正上述9项：唯一Delivery导入和关联Key原生链接按真实入口验导航/返回，保精确凭据读取/导出及零写；列偏好准确按Access profile列名核对；账号按钮保精确对象/返回；价格按K单位准确断言，不改公式；订单确认同时保任务失败与服务器具体原因。另按后端只把-1作为Never的实际规则，明确0显示epoch过期日期；创建/上次使用0原语义保持。上述修正待本提交自身完整CI，接手先核对实际git status、HEAD及匹配SHA的最新Actions，不沿用旧候选结果。
+
+当前不动生产、不发真实模型/提供方请求、不安装依赖或在本机运行构建测试/浏览器/Docker、不下载产物、不合main或发布镜像/tag。本文下方beta.34及更早部署描述是各自历史取证，不能当本轮UI生产授权或最新服务器状态。正文默认1MiB、明确读取至现有有限上限16MiB；超过仍截断的准确完整原文访问缺后端契约，不能猜文件或发取消上限的0参数。浏览器仍需单独授权，未验证不称视觉/交互验收。
+
+
 **2026-11-05 beta.34 已在 Actions 打包验收并交接服务器先给方案，尚未授权生产更新。** 镜像真实构建源码 `08e44520a0958711c96321bf8804d062880783e1` / 完整CI41975976001 success；[Docker smoke41980838279](https://github.com/ForceMind/MyAPI/actions/runs/41980838279) attempt1 success，Full+SQLite、linux/amd64、api_only=true/run_browser=false/personal=false，2作业成功/1LAN安装跳过，报告20/20全true，全部步骤及原始日志已读。鉴权、合成用量/权限、7静态资产HTTP、原容器重启及同镜像SQLite/WAL恢复通过；browser=not_run，不代表生产兼容性或真实供应商验收。镜像包[13394106401](https://github.com/ForceMind/MyAPI/actions/runs/41980838279/artifacts/13394106401)与报告[13393727830](https://github.com/ForceMind/MyAPI/actions/runs/41980838279/artifacts/13393727830)有效至11月12日，完整SHA/ZIP摘要/精确时间见[TASKS最新节](../TASKS.md)。
 
 已向现有服务器任务「查看状态并更新部署版本」发送完整身份和本轮仅预检/方案边界：维护者确认前不下载/加载镜像、不写备份/配置、不改或启停容器/服务，不装运维kit、不改Docker、不重标tag或放宽身份门禁。该任务上次beta.33因containerd/OCI loaded ID与config ID不同停止，未部署；不可沿用beta.31等价授权或把Actions成功当生产兼容。目标app ID须精确为 `sha256:03474e78120630f20aaf9ba3ec5522858633d02be3bfc0bf471a115c6f6dba5a`；未来获准切换须保全部配置/开关和当时最新账务，故障保全不回灌旧快照、不重放。工作流附带kit不等于本次安装授权。本机无依赖/构建测试/Docker/产物下载，无浏览器/真实模型/生产/发布/main操作；收尾只两份文档，镜像始终绑定08e44520/41980838279，接手读取收尾提交自身CI。

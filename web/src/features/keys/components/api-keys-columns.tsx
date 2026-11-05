@@ -340,6 +340,7 @@ export function useApiKeysColumns(
         return (
           <ApiKeyTimestampCell
             timestamp={expiredTime}
+            zeroIsEpoch
             now={now}
             locale={locale}
             justNowLabel={justNowLabel}
