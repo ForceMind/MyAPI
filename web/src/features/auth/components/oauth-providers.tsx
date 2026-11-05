@@ -170,6 +170,7 @@ export function OAuthProviders({
                 key={key}
                 variant='outline'
                 type='button'
+                aria-label={label}
                 disabled={disabled || isLoading || extraDisabled}
                 onClick={onClick}
                 className='h-11 w-full justify-center gap-2 rounded-lg'
