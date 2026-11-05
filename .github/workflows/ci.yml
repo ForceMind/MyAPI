@@ -606,13 +606,18 @@ jobs:
           bun run lint || myapi_source_checks_status=1
           exit "$myapi_source_checks_status"
 
-      - name: Verify Key client delivery and explicit import contracts
-        run: >-
-          bun run test src/features/keys/lib/__tests__/client-configuration.test.ts
-          src/features/keys/__tests__/key-client-delivery.test.tsx
-          src/features/keys/__tests__/key-detail-layout.test.tsx
-          src/features/keys/components/__tests__/cc-switch-task.test.tsx
-          src/features/keys/components/__tests__/api-key-export-session.test.tsx
+      - name: Verify Key delivery and saved connection evidence contracts
+        run: |
+          myapi_client_contract_status=0
+          bun run test src/features/keys/lib/__tests__/client-configuration.test.ts \
+            src/features/keys/__tests__/key-client-delivery.test.tsx \
+            src/features/keys/__tests__/key-detail-layout.test.tsx \
+            src/features/keys/components/__tests__/cc-switch-task.test.tsx \
+            src/features/keys/components/__tests__/api-key-export-session.test.tsx || myapi_client_contract_status=1
+          bun run test src/features/connections/__tests__/saved-windows.test.tsx \
+            src/features/channels/components/__tests__/channel-inventory-task.test.tsx \
+            src/features/channels/components/__tests__/channel-workspace-page.test.tsx || myapi_client_contract_status=1
+          exit "$myapi_client_contract_status"
 
       - name: Verify profile and authentication task contracts
         run: bun run test src/features/profile src/features/auth src/components/__tests__/password-input-accessibility.test.tsx src/features/system-info/__tests__/operations-api.test.ts src/features/system-info/__tests__/operations-upgrade-panel.test.tsx
