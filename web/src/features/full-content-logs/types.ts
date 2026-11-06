@@ -100,3 +100,28 @@ export interface ApiEnvelope<T> {
   message?: string
   data?: T
 }
+
+export type SavedContentPart = 'request' | 'response'
+
+export interface SavedContentSegmentRequest {
+  part: SavedContentPart
+  offset: string
+  limit?: number
+  snapshot?: string
+}
+
+export interface SavedContentSegment {
+  request_id: string
+  part: SavedContentPart
+  requested_offset: string
+  offset: string
+  next_offset: string | null
+  total_bytes: string
+  expected_bytes: string | null
+  has_more: boolean
+  snapshot: string
+  encoding: 'utf-8' | 'base64'
+  content_type: string
+  body: string
+  source_complete: boolean | null
+}

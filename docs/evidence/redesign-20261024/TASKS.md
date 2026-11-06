@@ -8,7 +8,11 @@
 
 从代码看，旧collector先裁response_chunk后，join可能无法再判定截断（原总量大于已读但flag为false）。这是3.6完整性提示的直接必要前置：单独追加现loader的小型UTF8/cap回归，与缺segments路由的回归分开，在Actions取红后修最小flag传播；不得删截断断言或改成空值。新入口还需用总量>已读/本地预览受限兜底旧服务。
 
-最小读取契约：新增同AdminAuth+DisableCache组的GET `/:request_id/segments`，part=request/response，单段4B–1MiB、默认1MiB；offset/next/已存及预期字节数用十进制字符串，缺预期元数据为null不补0。版本标识绑定同请求/part/actor/session的保存记录，其他请求自然追加不使它失效；目标变化/轮转丢记录/两遍读取不一致明确409，不返回混合正文。UTF8边界完整、base64保精确字节，完整性只描述保存证据，缺终止/预期元数据为null，不表示业务成功/用量/结算。不得调用旧详情max_response_bytes=0或整段拼接；保旧预览、16MiB扩展、SSE结构化预览/搜索和权限。分段原始查看仅明确动作GET，支持前后段及起始字节跳转、明确重读；不累加全量、不静默下载、不改日志写入/数据库/计费/供应商。
+红证据已亲读：5cb71edef51622e5db096c72f84c67c83ec27f17 / CI42154060719 attempt1 failure，全部作业/步骤及10份执行日志/checkout SHA已核对。后端精确UTF8前缀/总量成立后truncated=true失败；真实Admin旧详情200后新segments返回404，匿名/普通目标401/403亦因缺route404失败，均无未定义符号或初始化错误。前端同步/types/lint过，旧3363例通过，新增1例在缺Read saved response in segments按钮失败；原读取/零写前置已通过。其余8作业success，浏览器/真实API skipped。已据此进入产品实现；候选版本仅在本交付批次统一为beta.36，不发布镜像/tag或部署。
+
+产品候选已落源码，仍未通过CI：后端独立只读GET、JSONL顶层body位置投影及common完整JSON校验/小转义解码、页范围复制和二次目标版本复核，不整段拼接响应；原collector真实截断标记取OR。新回归包含真实17MiB尾部/UTF8跳转、元数据缺失/null/0、base64、同inode同长度两遍间改写不得返body、普通/匿名及actor/SID隔离、参数/范围和取消。前端保持有界单页、decimal字符串/BigInt，前后/首段/直接位置、明确重读、同part预览切换、仅20条位置/版本元数据，401/403清同scope旧body，当前只读保续期。最大审查风险是新的流式body定位/转义处理；common现有元数据64层/5万节点校验边界仍适用，重复扫描大日志的性能未实测，不宣称性能或浏览器验收。已新增31键由脚本写en/zh+五英文，待Actions sync/类型/lint/构建及全部门禁。主代理已读关键源和红日志，子代理报告不代替CI。
+
+最小读取契约：新增同AdminAuth+DisableCache组的GET `/:request_id/segments`，part=request/response，单段解码后4B–1MiB、默认1MiB（base64/JSON表示有编码开销）；offset/next/已存及预期字节数用十进制字符串，缺预期元数据为null不补0。版本标识绑定同请求/part/actor/session的保存记录，其他请求自然追加不使它失效；目标变化/轮转丢记录/两遍读取不一致明确409，不返回混合正文。UTF8边界完整、base64保精确字节，完整性只描述保存证据，缺终止/预期元数据为null，不表示业务成功/用量/结算。不得调用旧详情max_response_bytes=0或整段拼接；保旧预览、16MiB扩展、SSE结构化预览/搜索和权限。分段原始查看仅明确动作GET，支持前后段及起始字节跳转、明确重读；不累加全量、不静默下载、不改日志写入/数据库/计费/供应商。
 
 维护者已确认第0–8步总计划，授权在dev连续实施和路径限定提交推送，不逐小项等待。唯一主线为：连接上游 → 获取模型 → 调整路由 → 创建Key → 配置客户端 → 请求/用量 → 故障定位。沿既有方向3及329个线稿视图，已有功能先复用和核对，不因新清单重新开发。基线cc60be87/CI41982100994完整success，初始工作区干净、fetch后与origin/dev无分歧。
 

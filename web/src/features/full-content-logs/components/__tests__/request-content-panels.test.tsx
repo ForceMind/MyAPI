@@ -99,6 +99,7 @@ describe('saved request content panels', () => {
     await screen.findByRole('region', { name: 'Saved response segments' })
     const viewer = () => screen.getByRole('region', { name: 'Saved response segments' })
     await waitFor(() => expect(viewer().querySelector('pre')?.textContent).toBe('HEAD'))
+    expect(preview).not.toBeVisible()
     expect(within(viewer()).getByRole('button', { name: 'Previous segment' })).toBeDisabled()
     for (const label of ['Expected bytes', 'Capture completeness']) {
       const term = within(viewer()).getByText(label, { selector: 'dt' })
@@ -134,6 +135,9 @@ describe('saved request content panels', () => {
     expect(post).not.toHaveBeenCalled()
     expect(put).not.toHaveBeenCalled()
     expect(remove).not.toHaveBeenCalled()
+    await user.click(within(viewer()).getByRole('button', { name: 'Close segment reader' }))
+    expect(preview).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Read saved response in segments' })).toHaveFocus()
   })
 
   test('a truncated saved response is expanded only by an explicit bounded read while the existing preview stays visible', async () => {

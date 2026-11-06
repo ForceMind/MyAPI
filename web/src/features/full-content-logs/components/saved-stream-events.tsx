@@ -17,12 +17,14 @@ import { parseSavedSse } from '../lib/saved-sse'
 import { CONTENT_EXPANDED_LIMIT } from '../lib/content-preview'
 import type { FullContentLogDetail } from '../types'
 import { ContentPanel } from './content-panel'
+import { SavedContentSegments } from './saved-content-segments'
+import { hasSavedSegments } from '../lib/saved-segment'
 
 const EVENT_BATCH_SIZE = 50
 const EVENT_TYPE_FIELDS = { event: 'event', payload: 'data.type', default: '' } as const
 
 /** A local inspection of saved events, without a provider call or state change. */
-export function SavedStreamEvents(props: { detail: FullContentLogDetail; expanded?: boolean }) {
+export function SavedStreamEvents(props: { detail: FullContentLogDetail; expanded?: boolean; active?: boolean }) {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [visibleCount, setVisibleCount] = useState(EVENT_BATCH_SIZE)
@@ -58,7 +60,7 @@ export function SavedStreamEvents(props: { detail: FullContentLogDetail; expande
     evidenceText = t('SSE fields were observed in the saved body; the saved content type does not confirm streaming.')
   }
 
-  return (
+  const preview = (
     <div className='min-w-0 space-y-4'>
       <div className='text-muted-foreground space-y-2 rounded-lg border p-3 text-xs'>
         <p>{evidenceText}</p>
@@ -161,4 +163,5 @@ export function SavedStreamEvents(props: { detail: FullContentLogDetail; expande
       />
     </div>
   )
+  return <SavedContentSegments requestId={props.detail.request_id} part='response' active={props.active} available={hasSavedSegments(props.detail, 'response')} preview={preview} />
 }

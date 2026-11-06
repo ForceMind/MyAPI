@@ -371,6 +371,7 @@ func SetApiRouter(router *gin.Engine) {
 			fullContentLogRoute.DELETE("/files/:filename", controller.DeleteFullContentLogFile)
 			fullContentLogRoute.DELETE("/files", controller.DeleteAllFullContentLogFiles)
 			fullContentLogRoute.GET("/:request_id", controller.GetFullContentLogDetail)
+			fullContentLogRoute.GET("/:request_id/segments", controller.GetFullContentLogSegment)
 		}
 
 		systemTaskRoute := apiRouter.Group("/system-task")

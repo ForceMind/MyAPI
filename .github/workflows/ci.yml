@@ -66,7 +66,7 @@ jobs:
 
       - name: Verify connection relationship Go formatting
         run: |
-          files=(controller/token.go controller/token_creation_identity_test.go controller/full_content_log_test.go controller/subscription_share.go controller/subscription_share_connections_test.go model/subscription_share_connections.go model/subscription_share_connections_test.go model/subscription_share_database_test.go router/api-router.go router/full_content_log_segments_test.go)
+          files=(controller/token.go controller/token_creation_identity_test.go controller/full_content_log.go controller/full_content_log_test.go controller/subscription_share.go controller/subscription_share_connections_test.go model/subscription_share_connections.go model/subscription_share_connections_test.go model/subscription_share_database_test.go router/api-router.go router/full_content_log_segments_test.go)
           unformatted="$(gofmt -l "${files[@]}")"
           if [ -n "$unformatted" ]; then
             printf '%s\n' "$unformatted"
@@ -75,7 +75,7 @@ jobs:
           fi
 
       - name: Verify saved content segment contract and truthful truncation
-        run: go test -race -p 1 ./controller ./router -run '^Test(FullContentLogSegments|LoadFullContentLogDetailReportsReadLimitTruncation)' -count=1 -timeout=180s -v
+        run: go test -race -p 1 ./controller ./router -run '^Test(FullContentLogSegments|LoadFullContentLogDetail)' -count=1 -timeout=180s -v
 
       - name: Vet root module
         run: go vet ./...
@@ -613,7 +613,11 @@ jobs:
           exit "$myapi_source_checks_status"
 
       - name: Verify complete saved content reading without provider traffic
-        run: bun run test src/features/full-content-logs/components/__tests__/request-content-panels.test.tsx
+        run: >-
+          bun run test src/features/full-content-logs/components/__tests__/request-content-panels.test.tsx
+          src/features/full-content-logs/components/__tests__/saved-content-segments.test.tsx
+          src/features/full-content-logs/lib/__tests__/saved-segment.test.ts
+          src/features/full-content-logs/__tests__/segments-http-scope.test.ts
 
       - name: Verify scoped reads and complete UI task handoffs
         run: >-

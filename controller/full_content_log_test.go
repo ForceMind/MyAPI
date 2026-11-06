@@ -1,9 +1,13 @@
 package controller
 
 import (
+	"bytes"
+	"context"
 	"encoding/base64"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -181,4 +185,267 @@ func TestLoadFullContentLogDetailReportsReadLimitTruncation(t *testing.T) {
 	require.Equal(t, "你好ab", detail.ResponseBody)
 	require.Equal(t, total, detail.ResponseBodyTotalBytes)
 	require.True(t, detail.ResponseBodyTruncated, "collector clipped one saved chunk and discarded the following bytes")
+}
+
+func writeSavedSegmentRecords(t *testing.T, records ...map[string]any) (string, string) {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "full-content-20261106T000000.000000000Z.jsonl")
+	var data []byte
+	for _, record := range records {
+		encoded, err := common.Marshal(record)
+		require.NoError(t, err)
+		data = append(data, encoded...)
+		data = append(data, '\n')
+	}
+	require.NoError(t, os.WriteFile(path, data, 0600))
+	return dir, path
+}
+
+func TestFullContentLogSegmentsPreserveCaptureMetadataPresence(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		part         string
+		body         string
+		requestBytes any
+		end          map[string]any
+		sequence     any
+		expected     *string
+		complete     *bool
+	}{
+		{name: "request absent expected", part: "request", body: "saved", requestBytes: nil},
+		{name: "request explicit zero", part: "request", body: "", requestBytes: int64(0), expected: pointerSavedSegmentString("0"), complete: pointerSavedSegmentBool(true)},
+		{name: "request mismatch is capture incomplete", part: "request", body: "saved", requestBytes: int64(9), expected: pointerSavedSegmentString("9"), complete: pointerSavedSegmentBool(false)},
+		{name: "response missing terminal", part: "response", body: "saved", sequence: int64(1)},
+		{name: "response absent expected", part: "response", body: "saved", sequence: int64(1), end: map[string]any{"sequence": 1}},
+		{name: "response null expected", part: "response", body: "saved", sequence: int64(1), end: map[string]any{"sequence": 1, "body_bytes": nil}},
+		{name: "response absent sequence", part: "response", body: "saved", end: map[string]any{"sequence": 1, "body_bytes": 5}, expected: pointerSavedSegmentString("5")},
+		{name: "response sequence gap", part: "response", body: "saved", sequence: int64(2), end: map[string]any{"sequence": 2, "body_bytes": 5}, expected: pointerSavedSegmentString("5"), complete: pointerSavedSegmentBool(false)},
+		{name: "response explicit zero", part: "response", body: "", sequence: int64(1), end: map[string]any{"sequence": 1, "body_bytes": 0}, expected: pointerSavedSegmentString("0"), complete: pointerSavedSegmentBool(true)},
+		{name: "HTTP error is not capture failure", part: "response", body: "saved", sequence: int64(1), end: map[string]any{"sequence": 1, "body_bytes": 5, "status": 502}, expected: pointerSavedSegmentString("5"), complete: pointerSavedSegmentBool(true)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			request := map[string]any{"request_id": "metadata", "phase": "request", "body": tc.body, "encoding": "utf-8"}
+			if tc.requestBytes != nil {
+				request["body_bytes"] = tc.requestBytes
+			}
+			chunk := map[string]any{"request_id": "metadata", "phase": "response_chunk", "body": tc.body, "encoding": "utf-8"}
+			if tc.sequence != nil {
+				chunk["sequence"] = tc.sequence
+			}
+			records := []map[string]any{request, chunk}
+			if tc.end != nil {
+				tc.end["request_id"], tc.end["phase"] = "metadata", "response_end"
+				records = append(records, tc.end)
+			}
+			dir, _ := writeSavedSegmentRecords(t, records...)
+			page, err := readFullContentLogSegment(context.Background(), dir, "metadata", tc.part, 0, 64, "", "actor")
+			require.NoError(t, err)
+			assert.Equal(t, tc.body, page.Body)
+			assert.Equal(t, strconv.Itoa(len(tc.body)), page.TotalBytes)
+			assert.Equal(t, tc.expected, page.ExpectedBytes)
+			assert.Equal(t, tc.complete, page.SourceComplete)
+		})
+	}
+}
+
+func pointerSavedSegmentString(value string) *string { return &value }
+func pointerSavedSegmentBool(value bool) *bool       { return &value }
+
+func TestFullContentLogSegmentsPreserveMixedBinaryPagesAndSequenceTies(t *testing.T) {
+	binary := []byte{0xff, 0, 0x80, '\n', 1}
+	dir, _ := writeSavedSegmentRecords(t,
+		map[string]any{"request_id": "binary", "phase": "request", "body": "{}"},
+		map[string]any{"request_id": "binary", "phase": "response_chunk", "sequence": 2, "body": base64.StdEncoding.EncodeToString(binary)[:4] + "\r\n" + base64.StdEncoding.EncodeToString(binary)[4:], "encoding": "base64", "body_bytes": len(binary)},
+		map[string]any{"request_id": "binary", "phase": "response_chunk", "sequence": 1, "body": "abc", "encoding": "utf-8", "body_bytes": 3, "content_type": "application/octet-stream"},
+		map[string]any{"request_id": "binary", "phase": "response_chunk", "sequence": 2, "body": "z", "encoding": "utf-8", "body_bytes": 1},
+		map[string]any{"request_id": "binary", "phase": "response_end", "sequence": 3, "body_bytes": 9},
+	)
+	first, err := readFullContentLogSegment(context.Background(), dir, "binary", "response", 0, 4, "", "actor")
+	require.NoError(t, err)
+	assert.Equal(t, "base64", first.Encoding)
+	assert.Equal(t, "application/octet-stream", first.ContentType)
+	require.Equal(t, pointerSavedSegmentBool(false), first.SourceComplete, "duplicate sequence is not a complete capture")
+	firstBytes, err := base64.StdEncoding.DecodeString(first.Body)
+	require.NoError(t, err)
+	assert.Equal(t, []byte{'a', 'b', 'c', 0xff}, firstBytes)
+	require.Equal(t, pointerSavedSegmentString("4"), first.NextOffset)
+	second, err := readFullContentLogSegment(context.Background(), dir, "binary", "response", 4, 4, first.Snapshot, "actor")
+	require.NoError(t, err)
+	secondBytes, err := base64.StdEncoding.DecodeString(second.Body)
+	require.NoError(t, err)
+	assert.Equal(t, []byte{0, 0x80, '\n', 1}, secondBytes)
+	require.Equal(t, pointerSavedSegmentString("8"), second.NextOffset)
+	last, err := readFullContentLogSegment(context.Background(), dir, "binary", "response", 8, 4, first.Snapshot, "actor")
+	require.NoError(t, err)
+	lastBytes, err := base64.StdEncoding.DecodeString(last.Body)
+	require.NoError(t, err)
+	assert.Equal(t, []byte{'z'}, lastBytes)
+	assert.False(t, last.HasMore)
+	assert.Nil(t, last.NextOffset)
+	assert.Equal(t, "9", last.TotalBytes)
+}
+
+func TestFullContentLogSegmentsIgnoreUnrelatedAppendAndBindActor(t *testing.T) {
+	dir, path := writeSavedSegmentRecords(t,
+		map[string]any{"request_id": "stable", "phase": "request", "body": "abcdefgh", "body_bytes": 8},
+	)
+	first, err := readFullContentLogSegment(context.Background(), dir, "stable", "request", 0, 4, "", `{"id":1,"role":10,"sid":"one"}`)
+	require.NoError(t, err)
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0600)
+	require.NoError(t, err)
+	_, err = file.WriteString("{\"request_id\":\"another\",\"phase\":\"request\",\"body\":\"unrelated\"}\n{\"request_id\":\"pending-other\",\"body\":\"not finished")
+	require.NoError(t, err)
+	require.NoError(t, file.Close())
+	next, err := readFullContentLogSegment(context.Background(), dir, "stable", "request", 4, 4, first.Snapshot, `{"id":1,"role":10,"sid":"one"}`)
+	require.NoError(t, err)
+	assert.Equal(t, "efgh", next.Body)
+	assert.Equal(t, first.Snapshot, next.Snapshot)
+	for _, actor := range []string{`{"id":2,"role":10,"sid":"one"}`, `{"id":1,"role":100,"sid":"one"}`, `{"id":1,"role":10,"sid":"two"}`} {
+		page, err := readFullContentLogSegment(context.Background(), dir, "stable", "request", 4, 4, first.Snapshot, actor)
+		var conflict *savedLogSegmentError
+		require.ErrorAs(t, err, &conflict)
+		assert.Equal(t, http.StatusConflict, conflict.status)
+		assert.Equal(t, "FULL_CONTENT_SEGMENT_CHANGED", conflict.code)
+		assert.Empty(t, page.Body)
+	}
+	// Removing the original target cannot turn a continuation into a new read.
+	require.NoError(t, os.WriteFile(path, []byte("{\"request_id\":\"other\",\"phase\":\"request\"}\n"), 0600))
+	page, err := readFullContentLogSegment(context.Background(), dir, "stable", "request", 4, 4, first.Snapshot, `{"id":1,"role":10,"sid":"one"}`)
+	var conflict *savedLogSegmentError
+	require.ErrorAs(t, err, &conflict)
+	assert.Equal(t, "FULL_CONTENT_SEGMENT_CHANGED", conflict.code)
+	assert.Empty(t, page.Body)
+}
+
+func TestFullContentLogSegmentsValidateOriginalJSONAndCrossBufferStrings(t *testing.T) {
+	// Position the escape at the physical scanner's last buffer byte, then put
+	// a raw rune and paired surrogate in the next buffer. The body is before ID.
+	prefix := `{"body":"`
+	padding := strings.Repeat("x", (32<<10)-len(prefix)-1)
+	raw := prefix + padding + `\\\"\n\uD83D\uDE03終","request_id":"escaped","phase":"request","encoding":"utf-8","unknown":{"body":"not the payload","array":[0,false,null,{"a":"x\\y"}]}}` + "\n"
+	expected := padding + "\\\"\n😃終"
+	dir := t.TempDir()
+	path := filepath.Join(dir, "full-content-20261106T000000.000000000Z.jsonl")
+	require.NoError(t, os.WriteFile(path, []byte(raw), 0600))
+	page, err := readFullContentLogSegment(context.Background(), dir, "escaped", "request", 0, 1<<20, "", "actor")
+	require.NoError(t, err)
+	assert.Equal(t, expected, page.Body)
+	assert.Equal(t, strconv.Itoa(len(expected)), page.TotalBytes)
+	assert.Nil(t, page.ExpectedBytes)
+	assert.Nil(t, page.SourceComplete)
+
+	for _, tc := range []struct{ name, record string }{
+		{"duplicate body", `{"request_id":"bad","phase":"request","body":"one","body":"two"}`},
+		{"escaped duplicate body", `{"request_id":"bad","phase":"request","body":"one","\u0062ody":"two"}`},
+		{"nested duplicate", `{"request_id":"bad","phase":"request","body":"one","extra":{"a":1,"a":2}}`},
+		{"invalid nested JSON", `{"request_id":"bad","phase":"request","body":"one","extra":[1,]}`},
+		{"invalid body escape", `{"request_id":"bad","phase":"request","body":"\x00"}`},
+		{"invalid base64", `{"request_id":"bad","phase":"request","encoding":"base64","body":"YWJj=AAA"}`},
+		{"unfinished target", `{"request_id":"bad","phase":"request","body":"pending`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.NoError(t, os.WriteFile(path, []byte(tc.record+"\n"), 0600))
+			page, err := readFullContentLogSegment(context.Background(), dir, "bad", "request", 0, 4, "", "actor")
+			var conflict *savedLogSegmentError
+			require.ErrorAs(t, err, &conflict)
+			assert.Equal(t, http.StatusConflict, conflict.status)
+			assert.Equal(t, "FULL_CONTENT_SEGMENT_CORRUPT", conflict.code)
+			assert.Empty(t, page.Body)
+		})
+	}
+}
+
+func TestFullContentLogSegmentsDuplicateRequestsAndChangedContent(t *testing.T) {
+	request := map[string]any{"request_id": "duplicate", "phase": "request", "body": "abcdefgh"}
+	dir, path := writeSavedSegmentRecords(t, request)
+	first, err := readFullContentLogSegment(context.Background(), dir, "duplicate", "request", 0, 4, "", "actor")
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, []byte("{\"request_id\":\"duplicate\",\"phase\":\"request\",\"body\":\"ABCDEFGH\"}\n"), 0600))
+	page, err := readFullContentLogSegment(context.Background(), dir, "duplicate", "request", 4, 4, first.Snapshot, "actor")
+	var changed *savedLogSegmentError
+	require.ErrorAs(t, err, &changed)
+	assert.Equal(t, "FULL_CONTENT_SEGMENT_CHANGED", changed.code)
+	assert.Empty(t, page.Body)
+	encoded, err := common.Marshal(request)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, append(append(append([]byte{}, encoded...), '\n'), append(encoded, '\n')...), 0600))
+	page, err = readFullContentLogSegment(context.Background(), dir, "duplicate", "request", 0, 4, "", "actor")
+	var ambiguous *savedLogSegmentError
+	require.ErrorAs(t, err, &ambiguous)
+	assert.Equal(t, "FULL_CONTENT_SEGMENT_AMBIGUOUS", ambiguous.code)
+	assert.Empty(t, page.Body)
+}
+
+func TestLoadFullContentLogDetailReadLimitBinaryAndEmptyChunks(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		bytes     []byte
+		limit     int64
+		truncated bool
+		expected  []byte
+	}{
+		{"binary clipped", []byte{0xff, 1, 2, 3, 4}, 4, true, []byte{0xff, 1, 2, 3}},
+		{"padded binary exactly retained", []byte{0xff}, 1, false, []byte{0xff}},
+		{"binary followed only by empty chunk", []byte{0xff, 1, 2}, 3, false, []byte{0xff, 1, 2}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeFullContentLogTestFile(t, dir, []fullContentLogRecord{
+				{RequestID: "binary-limit", Phase: "request", Body: "{}"},
+				{RequestID: "binary-limit", Phase: "response_chunk", Sequence: 1, Encoding: "base64", Body: base64.StdEncoding.EncodeToString(tc.bytes)},
+				{RequestID: "binary-limit", Phase: "response_chunk", Sequence: 2, Encoding: "base64", Body: ""},
+				{RequestID: "binary-limit", Phase: "response_end", Sequence: 2, BodyBytes: int64(len(tc.bytes))},
+			})
+			detail, found, err := loadFullContentLogDetailWithLimit(dir, "binary-limit", tc.limit)
+			require.NoError(t, err)
+			require.True(t, found)
+			decoded, err := base64.StdEncoding.DecodeString(detail.ResponseBody)
+			require.NoError(t, err)
+			assert.Equal(t, tc.expected, decoded)
+			assert.Equal(t, tc.truncated, detail.ResponseBodyTruncated)
+			assert.Equal(t, int64(len(tc.bytes)), detail.ResponseBodyTotalBytes)
+		})
+	}
+}
+
+func TestFullContentLogSegmentsCancellationDoesNotReturnSavedBody(t *testing.T) {
+	dir, _ := writeSavedSegmentRecords(t, map[string]any{"request_id": "cancelled", "phase": "request", "body": "private saved content"})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	page, err := readFullContentLogSegment(ctx, dir, "cancelled", "request", 0, 4, "", "actor")
+	require.ErrorIs(t, err, context.Canceled)
+	assert.Empty(t, page.Body)
+}
+
+func TestFullContentLogSegmentsRejectSameFileRewriteBetweenScans(t *testing.T) {
+	dir, path := writeSavedSegmentRecords(t, map[string]any{"request_id": "between-scans", "phase": "request", "body": "abcdefgh", "body_bytes": 8})
+	first, err := scanSavedLogSnapshot(context.Background(), dir, "between-scans", "request", "actor")
+	require.NoError(t, err)
+	before, err := os.Stat(path)
+	require.NoError(t, err)
+	original, err := os.ReadFile(path)
+	require.NoError(t, err)
+	bodyPosition := bytes.Index(original, []byte("abcdefgh"))
+	require.NotEqual(t, -1, bodyPosition)
+	file, err := os.OpenFile(path, os.O_WRONLY, 0600)
+	require.NoError(t, err)
+	written, writeErr := file.WriteAt([]byte("ABCDEFGH"), int64(bodyPosition))
+	closeErr := file.Close()
+	require.NoError(t, writeErr)
+	require.NoError(t, closeErr)
+	require.Equal(t, 8, written)
+	after, err := os.Stat(path)
+	require.NoError(t, err)
+	require.True(t, os.SameFile(before, after))
+	require.Equal(t, before.Size(), after.Size())
+
+	page, err := readSavedSnapshotSegment(context.Background(), dir, "between-scans", "request", 4, 4, "actor", first)
+	var changed *savedLogSegmentError
+	require.ErrorAs(t, err, &changed)
+	assert.Equal(t, http.StatusConflict, changed.status)
+	assert.Equal(t, "FULL_CONTENT_SEGMENT_CHANGED", changed.code)
+	assert.Empty(t, page.Body, "bytes copied after the first scan must not escape on version mismatch")
+	assert.Empty(t, page.Snapshot)
+	assert.Nil(t, page.NextOffset)
 }

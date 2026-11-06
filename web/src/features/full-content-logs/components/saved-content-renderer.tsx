@@ -22,6 +22,8 @@ import {
 import type { FullContentLogDetail } from '../types'
 import { ContentPanel } from './content-panel'
 import { SavedStreamEvents } from './saved-stream-events'
+import { SavedContentSegments } from './saved-content-segments'
+import { hasSavedSegments } from '../lib/saved-segment'
 
 /** Only serialize and mount a saved header/parameter record when expanded. */
 function SavedRecord(props: {
@@ -70,6 +72,7 @@ export function SavedContentRenderer(props: {
   tabbed?: boolean
   /** The user explicitly loaded the same request at the bounded larger limit. */
   expanded?: boolean
+  active?: boolean
 }) {
   const { t } = useTranslation()
   const [showRaw, setShowRaw] = useState(false)
@@ -103,7 +106,7 @@ export function SavedContentRenderer(props: {
     }
   }, [props.detail, props.view])
 
-  const request = (
+  const requestPanel = (
     <div className='min-w-0 space-y-3'>
       <SavedRecord
         title={t('Request headers')}
@@ -136,7 +139,7 @@ export function SavedContentRenderer(props: {
       />
     </div>
   )
-  const response = (
+  const responsePanel = (
     <div className='min-w-0 space-y-3'>
       <SavedRecord
         title={t('Response headers')}
@@ -157,6 +160,9 @@ export function SavedContentRenderer(props: {
     </div>
   )
 
+  const request = <SavedContentSegments requestId={props.detail.request_id} part='request' active={props.active} available={hasSavedSegments(props.detail, 'request')} preview={requestPanel} />
+  const response = <SavedContentSegments requestId={props.detail.request_id} part='response' active={props.active} available={hasSavedSegments(props.detail, 'response')} preview={responsePanel} />
+
   if (props.view === 'stream') {
     return (
       <div className='min-w-0 space-y-3'>
@@ -168,7 +174,7 @@ export function SavedContentRenderer(props: {
             </AlertDescription>
           </Alert>
         )}
-        <SavedStreamEvents key={props.detail.request_id} detail={props.detail} expanded={props.expanded} />
+        <SavedStreamEvents key={props.detail.request_id} detail={props.detail} expanded={props.expanded} active={props.active} />
         <SavedRecord
           title={t('Response headers')}
           values={props.detail.response_headers}

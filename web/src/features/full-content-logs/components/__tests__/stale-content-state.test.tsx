@@ -36,13 +36,13 @@ vi.mock('@/hooks/use-media-query', () => ({
 
 const actor = vi.hoisted(() => ({ role: 100 }))
 vi.mock('@/stores/auth-store', () => ({
-  useAuthStore: (selector: (state: unknown) => unknown) =>
+  useAuthStore: Object.assign((selector: (state: unknown) => unknown) =>
     selector({
       auth: {
         user: { id: 1, role: actor.role },
         session: { sid: 'synthetic-body-session' },
       },
-    }),
+    }), { subscribe: vi.fn(() => () => undefined) }),
 }))
 
 vi.mock('@/components/layout', () => {

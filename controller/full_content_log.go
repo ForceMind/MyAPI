@@ -3,9 +3,15 @@ package controller
 import (
 	"bufio"
 	"bytes"
+	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
+	"errors"
 	"fmt"
+	"hash"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,6 +23,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -96,17 +103,17 @@ type FullContentLogListResponse struct {
 
 type FullContentLogDetail struct {
 	FullContentLogSummary
-	RequestContentType    string              `json:"request_content_type,omitempty"`
-	RequestEncoding       string              `json:"request_encoding,omitempty"`
-	RequestBody           string              `json:"request_body"`
-	ResponseContentType   string              `json:"response_content_type,omitempty"`
-	ResponseEncoding      string              `json:"response_encoding,omitempty"`
-	ResponseBody          string              `json:"response_body"`
-	ResponseBodyTotalBytes int64              `json:"response_body_total_bytes,omitempty"`
-	ResponseBodyTruncated  bool               `json:"response_body_truncated,omitempty"`
-	RequestHeaders        map[string][]string `json:"request_headers"`
-	ResponseHeaders       map[string][]string `json:"response_headers"`
-	Query                 map[string][]string `json:"query"`
+	RequestContentType     string              `json:"request_content_type,omitempty"`
+	RequestEncoding        string              `json:"request_encoding,omitempty"`
+	RequestBody            string              `json:"request_body"`
+	ResponseContentType    string              `json:"response_content_type,omitempty"`
+	ResponseEncoding       string              `json:"response_encoding,omitempty"`
+	ResponseBody           string              `json:"response_body"`
+	ResponseBodyTotalBytes int64               `json:"response_body_total_bytes,omitempty"`
+	ResponseBodyTruncated  bool                `json:"response_body_truncated,omitempty"`
+	RequestHeaders         map[string][]string `json:"request_headers"`
+	ResponseHeaders        map[string][]string `json:"response_headers"`
+	Query                  map[string][]string `json:"query"`
 }
 
 type fullContentLogQuery struct {
@@ -406,6 +413,7 @@ func loadFullContentLogDetailWithLimit(dir string, requestID string, maxResponse
 	var endRecord *fullContentLogRecord
 	chunks := make([]fullContentLogRecord, 0)
 	var collectedResponseBytes int64
+	collectorTruncated := false
 	err := visitFullContentLogRecords(dir, func(record fullContentLogRecord) error {
 		if record.RequestID != requestID {
 			return nil
@@ -418,9 +426,17 @@ func loadFullContentLogDetailWithLimit(dir string, requestID string, maxResponse
 			if maxResponseBytes > 0 {
 				remaining := maxResponseBytes - collectedResponseBytes
 				if remaining <= 0 {
+					collectorTruncated = collectorTruncated || record.Body != ""
 					record.Body = ""
 				} else if record.Encoding == "base64" {
 					// Keep a valid base64 prefix while bounding retained input.
+					decodedBytes := int64(base64.StdEncoding.DecodedLen(len(record.Body)))
+					if strings.HasSuffix(record.Body, "==") {
+						decodedBytes -= 2
+					} else if strings.HasSuffix(record.Body, "=") {
+						decodedBytes--
+					}
+					collectorTruncated = collectorTruncated || decodedBytes > remaining
 					maxEncoded := int((remaining+2)/3) * 4
 					if maxEncoded < len(record.Body) {
 						maxEncoded -= maxEncoded % 4
@@ -429,13 +445,14 @@ func loadFullContentLogDetailWithLimit(dir string, requestID string, maxResponse
 						}
 						record.Body = record.Body[:maxEncoded]
 					}
-					decodedEstimate := int64(len(record.Body) / 4 * 3)
+					decodedEstimate := decodedBytes
 					if decodedEstimate > remaining {
 						decodedEstimate = remaining
 					}
 					collectedResponseBytes += decodedEstimate
 				} else {
 					if int64(len(record.Body)) > remaining {
+						collectorTruncated = true
 						record.Body = truncateUTF8Prefix(record.Body, remaining)
 					}
 					collectedResponseBytes += int64(len(record.Body))
@@ -495,18 +512,18 @@ func loadFullContentLogDetailWithLimit(dir string, requestID string, maxResponse
 		responseTotalBytes = endRecord.BodyBytes
 	}
 	return FullContentLogDetail{
-		FullContentLogSummary: summary,
-		RequestContentType:    requestRecord.ContentType,
-		RequestEncoding:       requestRecord.Encoding,
-		RequestBody:           requestRecord.Body,
-		ResponseContentType:   responseContentType,
-		ResponseEncoding:      responseEncoding,
-		ResponseBody:          responseBody,
+		FullContentLogSummary:  summary,
+		RequestContentType:     requestRecord.ContentType,
+		RequestEncoding:        requestRecord.Encoding,
+		RequestBody:            requestRecord.Body,
+		ResponseContentType:    responseContentType,
+		ResponseEncoding:       responseEncoding,
+		ResponseBody:           responseBody,
 		ResponseBodyTotalBytes: responseTotalBytes,
-		ResponseBodyTruncated:  responseBodyTruncated,
-		RequestHeaders:        requestRecord.Headers,
-		ResponseHeaders:       responseHeaders,
-		Query:                 requestRecord.Query,
+		ResponseBodyTruncated:  responseBodyTruncated || collectorTruncated,
+		RequestHeaders:         requestRecord.Headers,
+		ResponseHeaders:        responseHeaders,
+		Query:                  requestRecord.Query,
 	}, true, nil
 }
 
@@ -743,4 +760,700 @@ func containsFold(value string, filter string) bool {
 
 func isFullContentLogFilename(filename string) bool {
 	return filepath.Base(filename) == filename && strings.HasPrefix(filename, "full-content-") && strings.HasSuffix(filename, ".jsonl")
+}
+
+// Saved segments deliberately do not use the preview loader: even one saved
+// chunk can exceed the preview limit. Only record metadata and one page are kept.
+type fullContentLogSegment struct {
+	RequestID       string  `json:"request_id"`
+	Part            string  `json:"part"`
+	RequestedOffset string  `json:"requested_offset"`
+	Offset          string  `json:"offset"`
+	NextOffset      *string `json:"next_offset"`
+	TotalBytes      string  `json:"total_bytes"`
+	ExpectedBytes   *string `json:"expected_bytes"`
+	HasMore         bool    `json:"has_more"`
+	Snapshot        string  `json:"snapshot"`
+	Encoding        string  `json:"encoding"`
+	ContentType     string  `json:"content_type"`
+	Body            string  `json:"body"`
+	SourceComplete  *bool   `json:"source_complete"`
+}
+
+type savedLogSegmentError struct {
+	status int
+	code   string
+}
+
+func (e *savedLogSegmentError) Error() string { return e.code }
+func savedLogConflict(code string) error {
+	return &savedLogSegmentError{http.StatusConflict, "FULL_CONTENT_SEGMENT_" + code}
+}
+
+// GetFullContentLogSegment reads only locally saved bytes. The enclosing router
+// retains AdminAuth and DisableCache; the snapshot is a version, not authority.
+func GetFullContentLogSegment(c *gin.Context) {
+	part, rawOffset, rawLimit, snapshot := c.Query("part"), c.DefaultQuery("offset", "0"), c.DefaultQuery("limit", "1048576"), c.Query("snapshot")
+	offset, offsetErr := strconv.ParseInt(rawOffset, 10, 64)
+	limit, limitErr := strconv.ParseInt(rawLimit, 10, 64)
+	validSnapshot := snapshot == ""
+	if len(snapshot) == 64 {
+		_, err := hex.DecodeString(snapshot)
+		validSnapshot = err == nil && snapshot == strings.ToLower(snapshot)
+	}
+	if (part != "request" && part != "response") || offsetErr != nil || offset < 0 || strconv.FormatInt(offset, 10) != rawOffset || limitErr != nil || limit < 4 || limit > 1<<20 || strconv.FormatInt(limit, 10) != rawLimit || !validSnapshot || (offset > 0 && snapshot == "") || strings.TrimSpace(c.Param("request_id")) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "FULL_CONTENT_SEGMENT_INVALID", "message": common.TranslateMessage(c, i18n.MsgInvalidParams)})
+		return
+	}
+	// Length-prefixing via the JSON wrapper makes actor/session components
+	// unambiguous without depending on any secret or process-local cursor state.
+	actor, err := common.Marshal([]any{c.GetInt("id"), c.GetInt("role"), c.GetString("session_id")})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "code": "FULL_CONTENT_SEGMENT_READ_FAILED", "message": common.TranslateMessage(c, i18n.MsgOperationFailed)})
+		return
+	}
+	page, err := readFullContentLogSegment(c.Request.Context(), middleware.FullContentLogDirectory(), c.Param("request_id"), part, offset, limit, snapshot, string(actor))
+	if err != nil {
+		if c.Request.Context().Err() != nil {
+			return
+		}
+		status, code, message := http.StatusInternalServerError, "FULL_CONTENT_SEGMENT_READ_FAILED", i18n.MsgOperationFailed
+		var segmentErr *savedLogSegmentError
+		if errors.As(err, &segmentErr) {
+			status, code = segmentErr.status, segmentErr.code
+			if status == http.StatusNotFound {
+				message = i18n.MsgNotFound
+			}
+		}
+		c.JSON(status, gin.H{"success": false, "code": code, "message": common.TranslateMessage(c, message)})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": page})
+}
+
+type savedLogRecord struct {
+	RequestID                    string  `json:"request_id"`
+	Phase                        string  `json:"phase"`
+	Sequence                     *int64  `json:"sequence"`
+	BodyBytes                    *int64  `json:"body_bytes"`
+	Encoding                     string  `json:"encoding"`
+	ContentType                  string  `json:"content_type"`
+	Capture                      string  `json:"capture_state"`
+	Error                        string  `json:"error"`
+	Body                         *string `json:"body"`
+	path                         string
+	fileInfo                     os.FileInfo
+	bodyOffset, bodyLength, size int64
+	digest                       [32]byte
+}
+
+type savedLogSnapshot struct {
+	chunks                        []savedLogRecord
+	total                         int64
+	expected                      *int64
+	complete                      *bool
+	encoding, contentType, digest string
+}
+
+// savedLogLine exposes a single JSONL record without buffering the whole line.
+// A writer's unfinished final line is distinguishable from a complete record.
+type savedLogLine struct {
+	source               *bufio.Reader
+	pending              []byte
+	done                 bool
+	err                  error
+	rawLength, delivered int64
+	digest               hash.Hash
+	ctx                  context.Context
+}
+
+func (l *savedLogLine) Read(p []byte) (int, error) {
+	if err := l.ctx.Err(); err != nil {
+		return 0, err
+	}
+	if len(l.pending) == 0 && !l.done {
+		fragment, err := l.source.ReadSlice('\n')
+		l.rawLength += int64(len(fragment))
+		if len(fragment) > 0 && fragment[len(fragment)-1] == '\n' {
+			fragment = fragment[:len(fragment)-1]
+			l.done = true
+		}
+		if err != nil && err != bufio.ErrBufferFull {
+			l.done = true
+			if err != io.EOF {
+				l.err = err
+			}
+		}
+		l.pending = fragment
+	}
+	if len(l.pending) == 0 {
+		if l.err != nil {
+			return 0, l.err
+		}
+		return 0, io.EOF
+	}
+	n := copy(p, l.pending)
+	l.pending = l.pending[n:]
+	l.delivered += int64(n)
+	_, _ = l.digest.Write(p[:n])
+	return n, nil
+}
+
+// streamSavedLogString is only a JSONL body locator/string reader. The complete
+// projected record is validated and decoded by common.* below. Small escape
+// tokens are decoded with common.Unmarshal, including paired UTF-16 surrogates.
+// raw optionally preserves a metadata token; decoded receives bounded chunks.
+func streamSavedLogString(r *bufio.Reader, raw, decoded io.Writer) error {
+	opening, err := r.ReadByte()
+	if err != nil {
+		return err
+	}
+	if opening != '"' {
+		return savedLogConflict("CORRUPT")
+	}
+	if raw != nil {
+		if _, err := raw.Write([]byte{'"'}); err != nil {
+			return err
+		}
+	}
+	for {
+		available, err := r.Peek(1)
+		if err != nil {
+			return err
+		}
+		available, _ = r.Peek(r.Buffered())
+		n := 0
+		for n < len(available) && available[n] != '"' && available[n] != '\\' && available[n] >= 0x20 {
+			n++
+		}
+		if n > 0 {
+			// A read buffer may end in the middle of a UTF-8 rune.
+			if !utf8.Valid(available[:n]) {
+				for n > 0 && !utf8.Valid(available[:n]) && len(available)-n < utf8.UTFMax {
+					n--
+				}
+				if n == 0 {
+					peek, _ := r.Peek(utf8.UTFMax)
+					_, size := utf8.DecodeRune(peek)
+					if size <= 1 {
+						return savedLogConflict("CORRUPT")
+					}
+					available, n = peek, size
+				} else if !utf8.Valid(available[:n]) {
+					return savedLogConflict("CORRUPT")
+				}
+			}
+			if raw != nil {
+				if _, err := raw.Write(available[:n]); err != nil {
+					return err
+				}
+			}
+			if decoded != nil {
+				if _, err := decoded.Write(available[:n]); err != nil {
+					return err
+				}
+			}
+			_, _ = r.Discard(n)
+			continue
+		}
+		ch, _ := r.ReadByte()
+		if ch == '"' {
+			if raw != nil {
+				_, err = raw.Write([]byte{'"'})
+			}
+			return err
+		}
+		if ch != '\\' {
+			return savedLogConflict("CORRUPT")
+		}
+		token := []byte{'"', '\\'}
+		escape, err := r.ReadByte()
+		if err != nil {
+			return err
+		}
+		token = append(token, escape)
+		if escape == 'u' {
+			var digits [4]byte
+			if _, err := io.ReadFull(r, digits[:]); err != nil {
+				return err
+			}
+			token = append(token, digits[:]...)
+			code, err := strconv.ParseUint(string(digits[:]), 16, 16)
+			if err != nil {
+				return savedLogConflict("CORRUPT")
+			}
+			if code >= 0xd800 && code <= 0xdbff {
+				peek, _ := r.Peek(6)
+				if len(peek) == 6 && peek[0] == '\\' && peek[1] == 'u' {
+					low, err := strconv.ParseUint(string(peek[2:]), 16, 16)
+					if err == nil && low >= 0xdc00 && low <= 0xdfff {
+						token = append(token, peek...)
+						_, _ = r.Discard(6)
+					}
+				}
+			}
+		}
+		token = append(token, '"')
+		var value string
+		if err := common.Unmarshal(token, &value); err != nil {
+			return savedLogConflict("CORRUPT")
+		}
+		if raw != nil {
+			if _, err := raw.Write(token[1 : len(token)-1]); err != nil {
+				return err
+			}
+		}
+		if decoded != nil {
+			if _, err := io.WriteString(decoded, value); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// Only top-level body strings are replaced. All other syntax and metadata,
+// including unknown nested fields and duplicate body keys, reach common's full
+// JSON validation unchanged. Raw record hashing also includes the saved body.
+func projectSavedLogRecord(line *savedLogLine, base int64, target string) (savedLogRecord, bool, error) {
+	r := bufio.NewReaderSize(line, 32<<10)
+	var metadata bytes.Buffer
+	record := savedLogRecord{}
+	depth, last, key, matched := 0, byte(0), "", false
+	for {
+		ch, err := r.Peek(1)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return record, matched, err
+		}
+		if ch[0] == '"' {
+			isKey := depth == 1 && (last == '{' || last == ',')
+			isBody := depth == 1 && last == ':' && key == "body"
+			start := base + line.delivered - int64(r.Buffered())
+			var token bytes.Buffer
+			var raw io.Writer = &metadata
+			if isKey || (depth == 1 && last == ':' && key == "request_id") {
+				raw = &token
+			}
+			if isBody {
+				raw = nil
+				metadata.WriteString(`""`)
+			}
+			if err := streamSavedLogString(r, raw, nil); err != nil {
+				return record, matched, err
+			}
+			if raw == &token {
+				metadata.Write(token.Bytes())
+				var value string
+				if err := common.Unmarshal(token.Bytes(), &value); err != nil {
+					return record, matched, err
+				}
+				if isKey {
+					key = value
+				} else {
+					matched = matched || value == target
+				}
+			}
+			if isBody {
+				record.bodyOffset = start
+				record.bodyLength = base + line.delivered - int64(r.Buffered()) - start
+			}
+			last = '"'
+			continue
+		}
+		chByte, _ := r.ReadByte()
+		metadata.WriteByte(chByte)
+		switch chByte {
+		case '{', '[':
+			depth++
+		case '}', ']':
+			depth--
+		}
+		if chByte != ' ' && chByte != '\t' && chByte != '\r' {
+			last = chByte
+		}
+	}
+	if line.err != nil {
+		return record, matched, line.err
+	}
+	if err := common.ValidateUniqueJSONKeys(metadata.Bytes()); err != nil {
+		return record, matched, savedLogConflict("CORRUPT")
+	}
+	if err := common.Unmarshal(metadata.Bytes(), &record); err != nil {
+		return record, matched, savedLogConflict("CORRUPT")
+	}
+	if record.Body != nil && *record.Body != "" {
+		return record, matched, savedLogConflict("CORRUPT")
+	}
+	copy(record.digest[:], line.digest.Sum(nil))
+	return record, matched || record.RequestID == target, nil
+}
+
+// The JSON string can contain escaped newlines in base64. Keep only one quartet
+// pending so binary decoding never allocates a complete saved chunk.
+type savedLogBase64Writer struct {
+	output  io.Writer
+	quartet [4]byte
+	count   int
+	ended   bool
+}
+
+func (w *savedLogBase64Writer) Write(p []byte) (int, error) {
+	for _, ch := range p {
+		if ch == '\r' || ch == '\n' {
+			continue
+		}
+		if w.ended {
+			return 0, savedLogConflict("CORRUPT")
+		}
+		w.quartet[w.count] = ch
+		w.count++
+		if w.count == 4 {
+			var decoded [3]byte
+			n, err := base64.StdEncoding.Decode(decoded[:], w.quartet[:])
+			if err != nil {
+				return 0, savedLogConflict("CORRUPT")
+			}
+			if _, err := w.output.Write(decoded[:n]); err != nil {
+				return 0, err
+			}
+			w.ended = w.quartet[3] == '='
+			w.count = 0
+		}
+	}
+	return len(p), nil
+}
+
+type savedLogByteRange struct {
+	position, start, end int64
+	page                 []byte
+}
+
+func (w *savedLogByteRange) Write(p []byte) (int, error) {
+	if int64(len(p)) > math.MaxInt64-w.position {
+		return 0, savedLogConflict("CORRUPT")
+	}
+	from, to := max(w.start-w.position, 0), min(w.end-w.position, int64(len(p)))
+	if from < to {
+		w.page = append(w.page, p[from:to]...)
+	}
+	w.position += int64(len(p))
+	return len(p), nil
+}
+
+type savedLogContextWriter struct {
+	ctx    context.Context
+	output io.Writer
+}
+
+func (w savedLogContextWriter) Write(p []byte) (int, error) {
+	if err := w.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return w.output.Write(p)
+}
+
+func decodeSavedLogBody(ctx context.Context, file *os.File, record savedLogRecord, output io.Writer) error {
+	output = savedLogContextWriter{ctx, output}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if record.bodyLength == 0 {
+		return nil
+	}
+	r := bufio.NewReaderSize(io.NewSectionReader(file, record.bodyOffset, record.bodyLength), 32<<10)
+	if record.Encoding == "base64" {
+		writer := &savedLogBase64Writer{output: output}
+		if err := streamSavedLogString(r, nil, writer); err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+				return savedLogConflict("CORRUPT")
+			}
+			return err
+		}
+		if writer.count != 0 {
+			return savedLogConflict("CORRUPT")
+		}
+		return ctx.Err()
+	}
+	if record.Encoding != "" && record.Encoding != "utf-8" && record.Encoding != "json" && record.Encoding != "omitted_playground_content" {
+		return savedLogConflict("CORRUPT")
+	}
+	if err := streamSavedLogString(r, nil, output); err != nil {
+		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+			return savedLogConflict("CORRUPT")
+		}
+		return err
+	}
+	return ctx.Err()
+}
+
+func scanSavedLogSnapshot(ctx context.Context, dir, requestID, part, actor string) (savedLogSnapshot, error) {
+	result := savedLogSnapshot{encoding: "utf-8"}
+	if err := ctx.Err(); err != nil {
+		return result, err
+	}
+	paths, err := fullContentLogFilePaths(dir)
+	if err != nil {
+		return result, err
+	}
+	version := sha256.New()
+	identity, err := common.Marshal([]string{requestID, part, actor})
+	if err != nil {
+		return result, err
+	}
+	_, _ = version.Write(identity)
+	requests, ends := 0, 0
+	var request, end *savedLogRecord
+	for _, path := range paths {
+		if err := ctx.Err(); err != nil {
+			return result, err
+		}
+		before, err := os.Lstat(path)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return result, err
+		}
+		if !before.Mode().IsRegular() {
+			continue
+		}
+		file, err := os.Open(path)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return result, err
+		}
+		info, err := file.Stat()
+		if err != nil || !info.Mode().IsRegular() || !os.SameFile(before, info) {
+			_ = file.Close()
+			return result, savedLogConflict("CHANGED")
+		}
+		r := bufio.NewReaderSize(file, 32<<10)
+		var position int64
+		for {
+			if _, err := r.Peek(1); err != nil {
+				if err != io.EOF {
+					_ = file.Close()
+					return result, err
+				}
+				break
+			}
+			line := &savedLogLine{source: r, digest: sha256.New(), ctx: ctx}
+			record, matched, parseErr := projectSavedLogRecord(line, position, requestID)
+			// Drain malformed/unrelated lines without retaining their bytes.
+			_, drainErr := io.Copy(io.Discard, line)
+			position += line.rawLength
+			if drainErr != nil {
+				_ = file.Close()
+				return result, drainErr
+			}
+			if !matched {
+				continue
+			}
+			if parseErr != nil {
+				_ = file.Close()
+				if ctx.Err() != nil {
+					return result, ctx.Err()
+				}
+				return result, savedLogConflict("CORRUPT")
+			}
+			if record.RequestID != requestID || (record.BodyBytes != nil && *record.BodyBytes < 0) || (record.Sequence != nil && *record.Sequence < 0) {
+				_ = file.Close()
+				return result, savedLogConflict("CORRUPT")
+			}
+			record.path, record.fileInfo = path, info
+			counter := &savedLogByteRange{}
+			if err := decodeSavedLogBody(ctx, file, record, counter); err != nil {
+				_ = file.Close()
+				return result, err
+			}
+			record.size = counter.position
+			_, _ = version.Write(record.digest[:])
+			switch record.Phase {
+			case "request":
+				requests++
+				copy := record
+				request = &copy
+			case "response_end":
+				ends++
+				copy := record
+				end = &copy
+			case "response_chunk":
+				result.chunks = append(result.chunks, record)
+			}
+		}
+		if err := file.Close(); err != nil {
+			return result, err
+		}
+	}
+	if requests > 1 || ends > 1 {
+		return result, savedLogConflict("AMBIGUOUS")
+	}
+	if request == nil || (part == "response" && len(result.chunks) == 0 && end == nil) {
+		return result, &savedLogSegmentError{http.StatusNotFound, "FULL_CONTENT_SEGMENT_NOT_FOUND"}
+	}
+	if part == "request" {
+		result.chunks = []savedLogRecord{*request}
+		result.expected = request.BodyBytes
+	} else {
+		sort.SliceStable(result.chunks, func(i, j int) bool { return savedLogSequence(result.chunks[i]) < savedLogSequence(result.chunks[j]) })
+		if end != nil {
+			result.expected = end.BodyBytes
+		}
+	}
+	knownSequence, contiguous, captureComplete := true, true, true
+	for i, record := range result.chunks {
+		if record.size > math.MaxInt64-result.total {
+			return result, savedLogConflict("CORRUPT")
+		}
+		result.total += record.size
+		if record.Encoding == "base64" {
+			result.encoding = "base64"
+		}
+		if result.contentType == "" {
+			result.contentType = record.ContentType
+		}
+		if record.Sequence == nil {
+			knownSequence = false
+		} else if *record.Sequence != int64(i+1) {
+			contiguous = false
+		}
+		if (record.Capture != "" && record.Capture != "complete") || record.Encoding == "omitted_playground_content" || record.Error != "" {
+			captureComplete = false
+		}
+		if record.BodyBytes != nil && *record.BodyBytes != record.size {
+			captureComplete = false
+		}
+	}
+	if part == "request" && result.expected != nil {
+		complete := result.total == *result.expected && captureComplete
+		result.complete = &complete
+	} else if part == "response" && end != nil && result.expected != nil {
+		if (end.Capture != "" && end.Capture != "complete") || end.Error != "" {
+			captureComplete = false
+		}
+		if end.Sequence != nil && knownSequence {
+			complete := contiguous && *end.Sequence == int64(len(result.chunks)) && result.total == *result.expected && captureComplete
+			result.complete = &complete
+		}
+	}
+	result.digest = hex.EncodeToString(version.Sum(nil))
+	return result, nil
+}
+func savedLogSequence(record savedLogRecord) int64 {
+	if record.Sequence == nil {
+		return 0
+	}
+	return *record.Sequence
+}
+
+func readFullContentLogSegment(ctx context.Context, dir, requestID, part string, offset, limit int64, snapshot, actor string) (fullContentLogSegment, error) {
+	page := fullContentLogSegment{RequestID: requestID, Part: part, RequestedOffset: strconv.FormatInt(offset, 10)}
+	first, err := scanSavedLogSnapshot(ctx, dir, requestID, part, actor)
+	if err != nil {
+		var segmentErr *savedLogSegmentError
+		if snapshot != "" && errors.As(err, &segmentErr) && segmentErr.status == http.StatusNotFound {
+			return page, savedLogConflict("CHANGED")
+		}
+		return page, err
+	}
+	if snapshot != "" && snapshot != first.digest {
+		return page, savedLogConflict("CHANGED")
+	}
+	return readSavedSnapshotSegment(ctx, dir, requestID, part, offset, limit, actor, first)
+}
+
+// readSavedSnapshotSegment only publishes a page after revalidating the saved
+// records against the first snapshot, even when file identity and size survive.
+func readSavedSnapshotSegment(ctx context.Context, dir, requestID, part string, offset, limit int64, actor string, first savedLogSnapshot) (fullContentLogSegment, error) {
+	page := fullContentLogSegment{RequestID: requestID, Part: part, RequestedOffset: strconv.FormatInt(offset, 10)}
+	if offset > first.total {
+		return page, &savedLogSegmentError{http.StatusRequestedRangeNotSatisfiable, "FULL_CONTENT_SEGMENT_RANGE"}
+	}
+	start := offset
+	if first.encoding == "utf-8" {
+		start = max(offset-3, 0)
+	}
+	end := first.total
+	if limit <= math.MaxInt64-offset {
+		end = min(end, offset+limit)
+	}
+	collector := &savedLogByteRange{start: start, end: end}
+	for _, record := range first.chunks {
+		if collector.position+record.size > start && collector.position < end {
+			file, err := os.Open(record.path)
+			if err != nil {
+				return page, savedLogConflict("CHANGED")
+			}
+			info, err := file.Stat()
+			if err != nil || !os.SameFile(info, record.fileInfo) {
+				_ = file.Close()
+				return page, savedLogConflict("CHANGED")
+			}
+			err = decodeSavedLogBody(ctx, file, record, collector)
+			closeErr := file.Close()
+			if err != nil {
+				return page, err
+			}
+			if closeErr != nil {
+				return page, closeErr
+			}
+		} else {
+			collector.position += record.size
+		}
+	}
+	second, err := scanSavedLogSnapshot(ctx, dir, requestID, part, actor)
+	if err != nil {
+		var segmentErr *savedLogSegmentError
+		if errors.As(err, &segmentErr) && segmentErr.status == http.StatusNotFound {
+			return page, savedLogConflict("CHANGED")
+		}
+		return page, err
+	}
+	if first.digest != second.digest {
+		return page, savedLogConflict("CHANGED")
+	}
+	body, actual := collector.page, offset
+	if first.encoding == "utf-8" && offset < first.total {
+		i := int(offset - start)
+		if i >= len(body) {
+			return page, savedLogConflict("CHANGED")
+		}
+		for i > 0 && !utf8.RuneStart(body[i]) {
+			i--
+		}
+		actual = start + int64(i)
+		body = body[i:]
+		if int64(len(body)) > limit {
+			body = body[:limit]
+		}
+		for len(body) > 0 && !utf8.Valid(body) {
+			body = body[:len(body)-1]
+		}
+		if len(body) == 0 {
+			return page, savedLogConflict("CORRUPT")
+		}
+	} else if offset == first.total {
+		body = nil
+	}
+	page.Offset, page.TotalBytes, page.Snapshot = strconv.FormatInt(actual, 10), strconv.FormatInt(first.total, 10), first.digest
+	page.Encoding, page.ContentType, page.SourceComplete = first.encoding, first.contentType, first.complete
+	if first.expected != nil {
+		expected := strconv.FormatInt(*first.expected, 10)
+		page.ExpectedBytes = &expected
+	}
+	page.HasMore = actual+int64(len(body)) < first.total
+	if page.HasMore {
+		next := strconv.FormatInt(actual+int64(len(body)), 10)
+		page.NextOffset = &next
+	}
+	if first.encoding == "base64" {
+		page.Body = base64.StdEncoding.EncodeToString(body)
+	} else {
+		page.Body = string(body)
+	}
+	return page, nil
 }

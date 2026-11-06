@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth-store'
 
 import type {
   ApiEnvelope,
@@ -24,7 +25,10 @@ import type {
   FullContentLogFileStats,
   FullContentLogList,
   FullContentLogListParams,
+  SavedContentSegment,
+  SavedContentSegmentRequest,
 } from './types'
+import { parseSavedSegment, SAVED_SEGMENT_LIMIT } from './lib/saved-segment'
 
 function localTimeToUnix(value: string): number | undefined {
   if (!value) return undefined
@@ -74,6 +78,33 @@ export async function getFullContentLogFiles(): Promise<
 > {
   const response = await api.get('/api/full-content-logs/files')
   return response.data as ApiEnvelope<FullContentLogFileStats>
+}
+
+export async function getFullContentLogSegment(
+  requestId: string,
+  request: SavedContentSegmentRequest,
+  signal: AbortSignal
+): Promise<SavedContentSegment> {
+  const auth = useAuthStore.getState().auth
+  const actor = JSON.stringify([auth.user?.id, auth.user?.role, auth.session?.sid ?? null])
+  const isCurrentScope = () => {
+    const current = useAuthStore.getState().auth
+    return !signal.aborted && actor === JSON.stringify([current.user?.id, current.user?.role, current.session?.sid ?? null])
+  }
+  const response = await api.get(`/api/full-content-logs/${encodeURIComponent(requestId)}/segments`, {
+    signal,
+    isCurrentScope,
+    disableDuplicate: true,
+    skipBusinessError: true,
+    skipErrorHandler: true,
+    params: {
+      part: request.part,
+      offset: request.offset,
+      limit: request.limit ?? SAVED_SEGMENT_LIMIT,
+      ...(request.snapshot ? { snapshot: request.snapshot } : {}),
+    },
+  })
+  return parseSavedSegment(response.data, requestId, request)
 }
 
 export async function downloadFullContentLogFile(

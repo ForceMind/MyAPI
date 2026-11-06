@@ -213,3 +213,78 @@ func TestFullContentLogSegmentsRequireExistingAdminAuthority(t *testing.T) {
 		})
 	}
 }
+
+func TestFullContentLogSegmentsValidateHTTPParametersAndSnapshotAuthority(t *testing.T) {
+	previousMode := gin.Mode()
+	fixture := newManagementHTTPFixture(t)
+	t.Cleanup(func() { gin.SetMode(previousMode) })
+	dir := t.TempDir()
+	t.Setenv("FULL_CONTENT_LOG_DIR", dir)
+	file, err := os.Create(filepath.Join(dir, "full-content-20261106T010000.000000000Z.jsonl"))
+	require.NoError(t, err)
+	body := strings.Repeat("p", 1<<20) + "tail"
+	writeSavedContentHTTPRecord(t, file, map[string]any{"request_id": "http-range", "phase": "request", "encoding": "utf-8", "body": body, "body_bytes": len(body)})
+	require.NoError(t, file.Close())
+	base := "/api/full-content-logs/http-range/segments"
+	first := readSavedContentSegmentHTTP(t, fixture.engine, base+"?part=request", fixture.adminSession)
+	assert.Equal(t, strings.Repeat("p", 1<<20), first.Data.Body)
+	assert.Equal(t, "1048580", first.Data.TotalBytes)
+	require.Equal(t, pointerSavedContentHTTPString("1048576"), first.Data.NextOffset)
+	assert.True(t, first.Data.HasMore)
+	tail := readSavedContentSegmentHTTP(t, fixture.engine, base+"?part=request&offset=1048576&limit=4&snapshot="+first.Data.Snapshot, fixture.adminSession)
+	assert.Equal(t, "tail", tail.Data.Body)
+	assert.False(t, tail.Data.HasMore)
+	empty := readSavedContentSegmentHTTP(t, fixture.engine, base+"?part=request&offset=1048580&limit=4&snapshot="+first.Data.Snapshot, fixture.adminSession)
+	assert.Empty(t, empty.Data.Body)
+	assert.Equal(t, "1048580", empty.Data.Offset)
+	assert.Nil(t, empty.Data.NextOffset)
+
+	for _, query := range []string{
+		"", "?part=unknown", "?part=request&offset=-1", "?part=request&offset=01", "?part=request&offset=%2B1",
+		"?part=request&offset=9223372036854775808", "?part=request&offset=1", "?part=request&limit=0", "?part=request&limit=3",
+		"?part=request&limit=1048577", "?part=request&limit=4.0", "?part=request&snapshot=abc", "?part=request&snapshot=" + strings.Repeat("A", 64),
+	} {
+		t.Run(query, func(t *testing.T) {
+			response := requestSavedContentHTTP(fixture.engine, base+query, fixture.adminSession)
+			require.Equal(t, http.StatusBadRequest, response.Code)
+			var failure struct {
+				Success bool   `json:"success"`
+				Code    string `json:"code"`
+			}
+			require.NoError(t, common.Unmarshal(response.Body.Bytes(), &failure))
+			assert.False(t, failure.Success)
+			assert.Equal(t, "FULL_CONTENT_SEGMENT_INVALID", failure.Code)
+			assert.NotContains(t, response.Body.String(), `"body"`)
+			assert.NotContains(t, response.Body.String(), dir)
+		})
+	}
+	// A second real session of the same actor must not inherit a cursor.
+	secondSessionActor := *fixture.admin
+	secondSessionActor.Username += "-segments-second-session"
+	_, secondSession := createCodexLocalRouteSession(t, &secondSessionActor)
+	for _, tc := range []struct {
+		name, path, credential, code string
+		status                       int
+	}{
+		{"beyond total", base + "?part=request&offset=1048581&limit=4&snapshot=" + first.Data.Snapshot, fixture.adminSession, "FULL_CONTENT_SEGMENT_RANGE", http.StatusRequestedRangeNotSatisfiable},
+		{"another actor", base + "?part=request&offset=1048576&limit=4&snapshot=" + first.Data.Snapshot, fixture.session, "FULL_CONTENT_SEGMENT_CHANGED", http.StatusConflict},
+		{"another session", base + "?part=request&offset=1048576&limit=4&snapshot=" + first.Data.Snapshot, secondSession, "FULL_CONTENT_SEGMENT_CHANGED", http.StatusConflict},
+		{"missing target", "/api/full-content-logs/absent/segments?part=request", fixture.adminSession, "FULL_CONTENT_SEGMENT_NOT_FOUND", http.StatusNotFound},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			response := requestSavedContentHTTP(fixture.engine, tc.path, tc.credential)
+			require.Equal(t, tc.status, response.Code)
+			var failure struct {
+				Success bool   `json:"success"`
+				Code    string `json:"code"`
+			}
+			require.NoError(t, common.Unmarshal(response.Body.Bytes(), &failure))
+			assert.False(t, failure.Success)
+			assert.Equal(t, tc.code, failure.Code)
+			assert.NotContains(t, response.Body.String(), `"body"`)
+			assert.NotContains(t, response.Body.String(), dir)
+		})
+	}
+}
+
+func pointerSavedContentHTTPString(value string) *string { return &value }

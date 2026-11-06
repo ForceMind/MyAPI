@@ -134,7 +134,7 @@ export function FullContentLogDetailsDialog(
           </div>
 
           <SavedContentReadMore content={content} />
-          <SavedContentRenderer key={detail.request_id} detail={detail} expanded={content.expanded} tabbed />
+          <SavedContentRenderer key={detail.request_id} detail={detail} expanded={content.expanded} active={props.open} tabbed />
         </div>
       )}
     </Dialog>

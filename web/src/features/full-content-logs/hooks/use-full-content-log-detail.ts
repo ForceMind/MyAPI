@@ -7,7 +7,7 @@ the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { isAxiosError } from 'axios'
+import { CanceledError } from 'axios'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -16,6 +16,7 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import { getFullContentLogDetail } from '../api'
 import { CONTENT_EXPANDED_LIMIT } from '../lib/content-preview'
+import { denySavedContent, savedContentStatus } from '../lib/saved-content-access'
 
 /**
  * Reads one saved, redacted request body. The query key carries the signed-in
@@ -41,6 +42,26 @@ export function useFullContentLogDetail(
     return current.user?.id === userId && current.user?.role === role &&
       (current.session?.sid ?? null) === sessionId && role >= ROLE.ADMIN
   }
+  const readSavedDetail = async (signal: AbortSignal, bytes?: number) => {
+    try {
+      if (!isCurrent() || !requestId) throw new CanceledError('Saved-content scope changed')
+      const response = bytes === undefined
+        ? await getFullContentLogDetail(requestId, signal)
+        : await getFullContentLogDetail(requestId, signal, bytes)
+      if (!isCurrent() || signal.aborted) throw new CanceledError('Saved-content scope changed')
+      if (!response.success || !response.data || response.data.request_id !== requestId ||
+        typeof response.data.request_body !== 'string' || typeof response.data.response_body !== 'string') {
+        throw new Error(response.message || t('Failed to load log detail'))
+      }
+      return response.data
+    } catch (error) {
+      const status = savedContentStatus(error)
+      if (requestId && userId !== null && isCurrent() && !signal.aborted && (status === 401 || status === 403)) {
+        await denySavedContent(client, requestId, { id: userId, role, sid: sessionId }, status)
+      }
+      throw error
+    }
+  }
   const previewQuery = useQuery({
     // Keep sensitive request/response bodies isolated when a tab switches
     // authenticated identities without a full page reload.
@@ -52,36 +73,14 @@ export function useFullContentLogDetail(
       sessionId,
       role,
     ],
-    queryFn: async ({ signal }) => {
-      const response = await getFullContentLogDetail(requestId || '', signal)
-      if (
-        !response.success ||
-        !response.data ||
-        response.data.request_id !== requestId ||
-        typeof response.data.request_body !== 'string' ||
-        typeof response.data.response_body !== 'string'
-      ) {
-        throw new Error(response.message || t('Failed to load log detail'))
-      }
-      return response.data
-    },
+    queryFn: ({ signal }) => readSavedDetail(signal),
     enabled: enabled && Boolean(requestId) && canRead,
     retry: false,
   })
   const expandedQuery = useQuery({
     queryKey: expandedKey,
     enabled: false,
-    queryFn: async ({ signal }) => {
-      if (!isCurrent() || !requestId) throw new Error(t('Request content is available to administrators only.'))
-      // This is the existing same-request read, at the server's finite maximum.
-      const response = await getFullContentLogDetail(requestId, signal, CONTENT_EXPANDED_LIMIT)
-      if (!isCurrent() || !response.success || !response.data ||
-        response.data.request_id !== requestId ||
-        typeof response.data.request_body !== 'string' || typeof response.data.response_body !== 'string') {
-        throw new Error(response.message || t('Failed to load log detail'))
-      }
-      return response.data
-    },
+    queryFn: ({ signal }) => readSavedDetail(signal, CONTENT_EXPANDED_LIMIT),
     retry: false,
     refetchOnWindowFocus: false,
   })
@@ -92,14 +91,12 @@ export function useFullContentLogDetail(
     return () => { void client.cancelQueries({ queryKey: expandedKey, exact: true }) }
   }, [client, expandedKey])
   const expansionRequested = expandedScope === scope
-  const expandedStatus = isAxiosError(expandedQuery.error) ? expandedQuery.error.response?.status : undefined
+  const expandedStatus = savedContentStatus(expandedQuery.error)
   const expansionDenied = expandedStatus === 401 || expandedStatus === 403
   let detailQuery = previewQuery
   if (!previewQuery.isError && expansionRequested && (expandedQuery.isSuccess || expansionDenied)) detailQuery = expandedQuery
   const detail = canRead && !detailQuery.isError ? detailQuery.data : undefined
-  const status = isAxiosError(detailQuery.error)
-    ? detailQuery.error.response?.status
-    : undefined
+  const status = savedContentStatus(detailQuery.error)
   let contentError =
     detailQuery.error instanceof Error
       ? detailQuery.error.message
