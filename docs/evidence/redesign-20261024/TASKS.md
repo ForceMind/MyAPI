@@ -1,5 +1,30 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+
+## 2026-11-07 P2-A1首批只读审查与beta.36部署候选
+
+维护者要求“继续按计划开发，可以部署的版本部署一个”。本轮沿原P2计划先补A1两个明确缺口（Lite支付回调、仅外部登录账户），不扩为支付/认证修复；同时为已完整CI通过的beta.36源码打包Full+SQLite。主代理独立执行，无新增子代理。基线dev/f46f19c7干净，fetch后0/0，ff-only已是最新；源[完整CI42207405306](https://github.com/ForceMind/MyAPI/actions/runs/42207405306) attempt1仍success，沿用上轮已亲读10作业全部日志/checkout匹配证据，不因纯文档重复升级应用。
+
+成功标准：增量审查给文件/行号、区分静态与运行证据；可部署候选通过精确来源/镜像身份与Full+SQLite隔离验证，后续生产更新保配置/开关/新增账务。验证方法：所有实际构建测试在Actions，不跑浏览器、不主动调用真实模型/供应商；本机只代码/文档读写、Git与日志元数据轻量检查，不安装依赖、运行构建测试/Docker或下载产物。
+
+### beta.36镜像与资格证据（已验证，未据此声称生产已更新）
+
+- 真实构建source/head：`f46f19c71dbf6954620feb43c01b8d8aa87bb1d5`；tree：`9f12fcbf1b544736f973dc96f265644eeaf6ac07`；版本`0.2.0-beta.36`，Full、linux/amd64。
+- [Docker smoke42256473767](https://github.com/ForceMind/MyAPI/actions/runs/42256473767) attempt1 success，输入api_only=true/run_browser=false/personal=false，producer与独立consumer共2作业成功、LAN安装1作业跳过；已亲读全部步骤、2份执行日志与实际checkout SHA。消费方按manifest摘要验证并加载同一包，不从registry补取应用镜像。
+- 日志内完整qualification已读：20/20全true，鉴权/权限/合成用量及精确单次扣费、正文脱敏、7个静态HTML/JS/CSS资产HTTP、原容器重启、同镜像独立SQLite/WAL恢复通过；browser=not_run。这些不是浏览器/真实供应商/生产数据迁移验收。
+- app config/image ID：`sha256:45328cb9158b6c85e31131caf4507428f003856683eb470adbac969a8ac03152`；manifest.json SHA256：`7d4c00ecf574013393b40cb156b5c47b70a51a2ddad75f9c7c32bc9d90c87d56`。
+- [镜像包13523545793](https://github.com/ForceMind/MyAPI/actions/runs/42256473767/artifacts/13523545793)：`myapi-smoke-images-42256473767-1-f46f19c71dbf6954620feb43c01b8d8aa87bb1d5-full`，315187419 bytes，ZIP SHA256 `aea07352ae8957063166ea7b4caaed1c4a4a5b660c3319dd86c5e6bd20c8e1d1`，有效至2026-11-13 16:55:50 UTC（北京时间11月14日00:55:50）。
+- [资格报告13521909250](https://github.com/ForceMind/MyAPI/actions/runs/42256473767/artifacts/13521909250)：ZIP SHA256 `68206dcf07a28809084570a19663f4df9e2614631894078696031ceddac82d7c`，2072 bytes，有效至2026-11-13 16:57:00 UTC。tar摘要与服务器OCI descriptor摘要须从上述可信绑定的manifest/tar读取并逐项核对，本机未下载产物，不编造未读字段。
+- 原工作流同时产出的operations kit不构成安装授权。本轮不发布GHCR/NPM/tag、不合main，不改变生产edition/配置/开关，不开诊断，不安装运维服务，不更新Docker。
+
+### A1本次已读结论与边界
+
+见[增量结构审查](architecture-review-v2.md)：11条结论逐项有源位置，均为“从代码看”。Lite多数支付回调在业务签名处理器前被路径门禁拒绝；Pancake的同级路径不匹配原waffo斜杠前缀，但仍有签名/资金/订单门禁，不能称其可无签名充值。funding retirement与edition不是同一开关，不应互换；OAuth可创建空密码账户，Passkey/邮箱恢复分别有条件，不能假定都有本地登录方式。完整A1账务/异步恢复及tools/website/deploy其余审查仍待，不因这11条或旧CI绿标整体完成；本轮没有新增行为测试或产品修复。后续A2先明确预检/订单/账户范围，不能直接开放所有回调或删资金门禁。
+
+### 部署交接状态
+
+已读现有服务器任务最近已交付记录：beta.34/08e44520由维护者单独批准“双摘要分别精确匹配”后部署，记录包含双摘要、层内容/RootFS、配置/开关及账务保全、静态资源回读；这是历史交付记录，不是本轮现场状态。当前维护者已授权部署一个可部署版本；已另发唯一必要确认：跨聊天消息工具要求明确授权向现有服务器任务发送beta.36执行消息。确认前不发消息、不自行操作服务器。执行时沿已批准双摘要流程，所有绑定精确匹配才允许排空并备份最新SQLite/WAL/配置/日志；不回灌旧快照、不重放，不以同版本字符串或重标tag替代镜像证明。镜像持续绑定f46f19c7/42256473767，不重标成后续文档SHA。
+
 ## 2026-11-06 P1-9：CLI与安装器的受限版本来源规则（源码与完整CI通过）
 
 维护者对上一答的具体范围回复“好”，本轮只做cli/myapi.mjs、cli/test/edition-contract.test.mjs和必要tools/lan/check.mjs合同同步；安装器只读作更严格基准，不改现有部署文件/配置。基线dev/ee7c5a8f工作区干净，fetch后无分歧。既有UI/正文分段源码已收口，不重做、不因此运行浏览器、部署或重新选择Lite坐标/签名等已确认决定。
