@@ -22,7 +22,7 @@ export function SavedContentSegments(props: Props) {
   const offered = useRef({ scope, available: props.available !== false })
   if (offered.current.scope !== scope) offered.current = { scope, available: props.available !== false }
   else if (props.available !== false) offered.current.available = true
-  if (!user || user.role < ROLE.ADMIN || !offered.current.available) return <>{props.preview}</>
+  if (!user || user.role < ROLE.ADMIN || !offered.current.available) return props.preview ?? null
   return <SegmentReader key={scope} {...props} actor={{ id: user.id, role: user.role, sid }} />
 }
 
