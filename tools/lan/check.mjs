@@ -281,12 +281,18 @@ function checkInstallerEnvParsing(checks) {
       .replace(/^MYAPI_ALLOW_LAN=.*$/m, 'MYAPI_ALLOW_LAN=false')
     writeFileSync(envPath, env, { mode: 0o600 })
     const fakeDocker = path.join(binDir, 'docker')
-    writeFileSync(fakeDocker, '#!/usr/bin/env bash\nexit 0\n', { mode: 0o700 })
+    const dockerLog = path.join(project, 'docker-commands.log')
+    writeFileSync(fakeDocker, '#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$MYAPI_LAN_CHECK_DOCKER_LOG"\nexit 0\n', { mode: 0o700 })
     chmodSync(fakeDocker, 0o700)
+    const boundaryEnvironment = {
+      ...process.env,
+      PATH: `${binDir}:${process.env.PATH || ''}`,
+      MYAPI_LAN_CHECK_DOCKER_LOG: dockerLog,
+    }
     const runInstaller = () => spawnSync('bash', [path.join(deployDir, 'install.sh')], {
       cwd: project,
       encoding: 'utf8',
-      env: { ...process.env, PATH: `${binDir}:${process.env.PATH || ''}` },
+      env: boundaryEnvironment,
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
     })
@@ -337,6 +343,30 @@ function checkInstallerEnvParsing(checks) {
         .replace(/^MYAPI_PUBLIC_URL=.*$/m, 'MYAPI_PUBLIC_URL=https://evil.example.com'),
     )
     record(checks, 'installer rejects non-private lite origins', runInstaller().status !== 0)
+    // Exercise the real CLI preflight too: a public HTTPS origin must not
+    // fall through to Full's public-origin rules for either restricted value.
+    for (const edition of ['lan', 'lite']) {
+      for (const origin of ['http://api.example.test:3000', 'https://api.example.test']) {
+        const rejectedEnv = env
+          .replace(/^MYAPI_EDITION=.*$/m, `MYAPI_EDITION=${edition}`)
+          .replace(/^MYAPI_PUBLIC_URL=.*$/m, `MYAPI_PUBLIC_URL=${origin}`)
+        for (const args of [['up'], ['upgrade', '--version', 'v0.2.0', '--dry-run']]) {
+          writeFileSync(envPath, rejectedEnv, { mode: 0o600 })
+          writeFileSync(dockerLog, '')
+          const result = spawnSync(process.execPath, [cli, ...args, '--project-dir', project], {
+            cwd: repositoryRoot,
+            encoding: 'utf8',
+            env: boundaryEnvironment,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            shell: false,
+          })
+          const label = `CLI ${edition} ${origin} ${args.join(' ')}`
+          record(checks, `${label} rejects public origin`, result.status !== 0 && /localhost or private-network origin in LAN edition/.test(`${result.stdout}${result.stderr}`))
+          record(checks, `${label} calls no Docker command`, readFileSync(dockerLog, 'utf8') === '')
+          record(checks, `${label} preserves deployment bytes`, readFileSync(envPath, 'utf8') === rejectedEnv)
+        }
+      }
+    }
     writeFileSync(envPath, env.replace(/^MYAPI_EDITION=.*$/m, 'MYAPI_EDITION=lit'))
     record(checks, 'installer rejects unknown edition values', runInstaller().status !== 0)
     writeFileSync(

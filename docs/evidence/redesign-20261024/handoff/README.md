@@ -2,7 +2,7 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
-**2026-11-06当前P1-9来源规则对齐正在实施，尚未验证。** 维护者已对cli/myapi.mjs、edition-contract.test.mjs及必要tools/lan/check.mjs的最小方案回复“好”。基线dev/ee7c5a8f干净，UI/正文分段已收口，不重做。此次先以实际CLI/更严格安装器和隔离Docker边界取红：lan/lite应拒公网HTTP/HTTPS，拒绝前零Docker命令/.env字节不变，合法本地/私网及Full对照保留。具体范围与进度统一在TASKS最新节。本机不跑测试或工具链/浏览器/Docker、不下载产物，不动生产/真实模型/main/发布，不扩大到安装器改配置或镜像/Lite策略。下方beta.36是最近完整通过源码，当前测试候选不是可部署版本。
+**2026-11-06当前P1-9来源规则对齐正在实施，尚未验证。** 红测9f806f13/CI42201604018已亲读：旧135过、公网HTTPS放行的12例如期失败；现只修CLI受限来源回退和临时LAN合同，产品结果仍待本提交完整CI。 维护者已对cli/myapi.mjs、edition-contract.test.mjs及必要tools/lan/check.mjs的最小方案回复“好”。基线dev/ee7c5a8f干净，UI/正文分段已收口，不重做。此次先以实际CLI/更严格安装器和隔离Docker边界取红：lan/lite应拒公网HTTP/HTTPS，拒绝前零Docker命令/.env字节不变，合法本地/私网及Full对照保留。具体范围与进度统一在TASKS最新节。本机不跑测试或工具链/浏览器/Docker、不下载产物，不动生产/真实模型/main/发布，不扩大到安装器改配置或镜像/Lite策略。下方beta.36是最近完整通过源码，当前测试候选不是可部署版本。
 
 
 **2026-11-06最新：原计划3.6完整逐段读取已通过源码完整CI，beta.36候选；浏览器/真实环境未验。** 产品代码31960fd412b81ff5c4a071a72323a7a21382bdac / [完整CI42160794199](https://github.com/ForceMind/MyAPI/actions/runs/42160794199) attempt1 success，10作业成功/1浏览器与真实API跳过，全部步骤及10份原始执行日志已亲读，实际checkout SHA一致、失败/race标记0。前端419文件3417/3417、分段专项65/65、日志/返回483/483，同步/构建/types/lint过（26警告0错误）；根/独立relaykit/原生386/两模块全量/全部既有race、三库/Redis/ClickHouse/分发/Desktop通过。

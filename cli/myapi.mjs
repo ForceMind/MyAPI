@@ -258,7 +258,10 @@ function validateRuntimeConfiguration(values) {
       publicUrl === 'https://my-api.example.com' ||
       publicUrl === 'https://new-api.example.com')
   const lanOrigin = restricted && validateLanOrigin(publicUrl)
-  if (!lanPlaceholder && !lanOrigin && !validatePublicOrigin(publicUrl)) {
+  const allowedOrigin = restricted
+    ? lanPlaceholder || lanOrigin
+    : validatePublicOrigin(publicUrl)
+  if (!allowedOrigin) {
     errors.push(
       restricted
         ? 'MYAPI_PUBLIC_URL must be a localhost or private-network origin in LAN edition'
