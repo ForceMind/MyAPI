@@ -162,3 +162,23 @@ func TestTruncateFullContentLogBodyPreservesBinaryEncoding(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []byte{0x01, 0x02}, decoded)
 }
+
+func TestLoadFullContentLogDetailReportsReadLimitTruncation(t *testing.T) {
+	dir := t.TempDir()
+	firstChunk := "你好abcdef"
+	lastChunk := "tail"
+	total := int64(len(firstChunk) + len(lastChunk))
+	writeFullContentLogTestFile(t, dir, []fullContentLogRecord{
+		{Timestamp: "2026-11-06T00:00:00Z", RequestID: "collector-truncated", Phase: "request", Method: "POST", Path: "/v1/responses", Encoding: "json", Body: `{}`, BodyBytes: 2},
+		{Timestamp: "2026-11-06T00:00:01Z", RequestID: "collector-truncated", Phase: "response_chunk", Sequence: 1, Encoding: "utf-8", ContentType: "text/plain; charset=utf-8", Body: firstChunk, BodyBytes: int64(len(firstChunk))},
+		{Timestamp: "2026-11-06T00:00:01Z", RequestID: "collector-truncated", Phase: "response_chunk", Sequence: 2, Encoding: "utf-8", ContentType: "text/plain; charset=utf-8", Body: lastChunk, BodyBytes: int64(len(lastChunk))},
+		{Timestamp: "2026-11-06T00:00:02Z", RequestID: "collector-truncated", Phase: "response_end", Sequence: 2, Status: 200, BodyBytes: total},
+	})
+
+	detail, found, err := loadFullContentLogDetailWithLimit(dir, "collector-truncated", 8)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, "你好ab", detail.ResponseBody)
+	require.Equal(t, total, detail.ResponseBodyTotalBytes)
+	require.True(t, detail.ResponseBodyTruncated, "collector clipped one saved chunk and discarded the following bytes")
+}

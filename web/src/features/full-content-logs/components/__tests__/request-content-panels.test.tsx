@@ -7,11 +7,12 @@ the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
 import { useAuthStore } from '@/stores/auth-store'
+import { api } from '@/lib/api'
 
 import * as savedApi from '../../api'
 import type { FullContentLogDetail } from '../../types'
@@ -52,6 +53,89 @@ function panel(client: QueryClient, active: boolean, requestId: string | null = 
 }
 
 describe('saved request content panels', () => {
+  test('an explicit saved-response segment reader reaches bytes beyond 16 MiB without eager reads, accumulation or writes', async () => {
+    useAuthStore.getState().auth.setUser({ id: 1, username: 'saved-viewer', role: 100 })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0, staleTime: Infinity } } })
+    clients.push(client)
+    const detailPath = `/api/full-content-logs/${DETAIL.request_id}`
+    const segmentsPath = `${detailPath}/segments`
+    const snapshot = 'a'.repeat(64)
+    const limit = 1024 * 1024
+    const tailOffset = '16777216'
+    const totalBytes = '16777220'
+    const get = vi.spyOn(api, 'get').mockImplementation(async (url, config) => {
+      if (url === detailPath) return { data: { success: true, data: { ...DETAIL, response_body: 'HEAD', response_encoding: 'utf-8', response_content_type: 'text/plain', response_body_truncated: true } } }
+      if (url !== segmentsPath) throw new Error(`Unexpected saved-content GET ${url}`)
+      const params = config?.params as Record<string, unknown> | undefined
+      if (params?.part !== 'response' || params.limit !== limit || typeof params.offset !== 'string') throw new Error('Invalid saved response segment request')
+      if (params.offset !== '0' && params.snapshot !== snapshot) throw new Error('Missing saved response snapshot')
+      const pages: Record<string, { body: string; next: string | null }> = {
+        '0': { body: 'HEAD', next: '4' },
+        '4': { body: 'NEXT', next: '8' },
+        [tailOffset]: { body: 'TAIL', next: null },
+      }
+      const page = pages[params.offset]
+      if (!page) throw new Error('Unexpected saved response byte position')
+      return { data: { success: true, data: {
+        request_id: DETAIL.request_id, part: 'response', requested_offset: params.offset,
+        offset: params.offset, next_offset: page.next, total_bytes: totalBytes,
+        expected_bytes: null, has_more: page.next !== null, snapshot,
+        encoding: 'utf-8', content_type: 'text/plain', body: page.body, source_complete: null,
+      } } }
+    })
+    const post = vi.spyOn(api, 'post').mockRejectedValue(new Error('Saved-content reads must not POST'))
+    const put = vi.spyOn(api, 'put').mockRejectedValue(new Error('Saved-content reads must not PUT'))
+    const remove = vi.spyOn(api, 'delete').mockRejectedValue(new Error('Saved-content reads must not DELETE'))
+    render(<QueryClientProvider client={client}><RequestOriginalPanel requestId={DETAIL.request_id} active /></QueryClientProvider>)
+    const preview = await screen.findByRole('region', { name: 'Raw response body' })
+    expect(preview.querySelector('pre')?.textContent).toBe('HEAD')
+    expect(get).toHaveBeenCalledExactlyOnceWith(detailPath, expect.objectContaining({ params: { max_response_bytes: limit } }))
+    expect(post).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+    expect(remove).not.toHaveBeenCalled()
+
+    // The old source must fail here on the missing user-visible entry, not an import.
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Read saved response in segments' }))
+    await screen.findByRole('region', { name: 'Saved response segments' })
+    const viewer = () => screen.getByRole('region', { name: 'Saved response segments' })
+    await waitFor(() => expect(viewer().querySelector('pre')?.textContent).toBe('HEAD'))
+    expect(within(viewer()).getByRole('button', { name: 'Previous segment' })).toBeDisabled()
+    for (const label of ['Expected bytes', 'Capture completeness']) {
+      const term = within(viewer()).getByText(label, { selector: 'dt' })
+      const value = term.nextElementSibling
+      if (!value) throw new Error(`Expected saved-content metadata for ${label}`)
+      expect(value).toHaveTextContent('Unknown')
+      expect(value).not.toHaveTextContent(/^0$/)
+    }
+    const user = userEvent.setup()
+    await user.click(within(viewer()).getByRole('button', { name: 'Next segment' }))
+    await waitFor(() => expect(viewer().querySelector('pre')?.textContent).toBe('NEXT'))
+    expect(viewer().querySelectorAll('pre')).toHaveLength(1)
+    await user.click(within(viewer()).getByRole('button', { name: 'Previous segment' }))
+    await waitFor(() => expect(viewer().querySelector('pre')?.textContent).toBe('HEAD'))
+    const position = within(viewer()).getByRole('textbox', { name: 'Saved byte position' })
+    await user.clear(position)
+    await user.type(position, tailOffset)
+    expect(get.mock.calls.filter(([url]) => url === segmentsPath)).toHaveLength(3)
+    await user.click(within(viewer()).getByRole('button', { name: 'Go to saved byte' }))
+    await waitFor(() => expect(viewer().querySelector('pre')?.textContent).toBe('TAIL'))
+    expect(within(viewer()).getByRole('textbox', { name: 'Saved byte position' })).toHaveValue(tailOffset)
+    expect(within(viewer()).getByRole('button', { name: 'Next segment' })).toBeDisabled()
+    expect(viewer().querySelectorAll('pre')).toHaveLength(1)
+    await user.click(within(viewer()).getByRole('button', { name: 'First segment' }))
+    await waitFor(() => expect(viewer().querySelector('pre')?.textContent).toBe('HEAD'))
+    expect(get.mock.calls.filter(([url]) => url === segmentsPath).map(([, config]) => config?.params)).toEqual([
+      { part: 'response', offset: '0', limit },
+      { part: 'response', offset: '4', limit, snapshot },
+      { part: 'response', offset: '0', limit, snapshot },
+      { part: 'response', offset: tailOffset, limit, snapshot },
+      { part: 'response', offset: '0', limit, snapshot },
+    ])
+    expect(post).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+    expect(remove).not.toHaveBeenCalled()
+  })
+
   test('a truncated saved response is expanded only by an explicit bounded read while the existing preview stays visible', async () => {
     const { read, client } = setup()
     read.mockResolvedValueOnce({ success: true, data: { ...DETAIL, response_body_truncated: true, response_body_total_bytes: 2 * 1024 * 1024 } })

@@ -1110,6 +1110,20 @@ for entry in route_map:
     if entry['source']=='web/src/routes/_authenticated/channels/index.tsx':
         entry['wireframes'] += [item[0] for item in channel_tasks if item[0] not in entry['wireframes']]
 
+# Original request views retain their existing layout; the complete reader is explicit and bounded.
+segment_reader_ids = {'body-detail', 'request-body', 'request-sse', 'request-raw', 'key-request-body', 'key-request-sse', 'key-request-raw'}
+for page in pages:
+    if page['id'] not in segment_reader_ids:
+        continue
+    page['sections'].append(dict(title='完整分段原文〔明确打开后〕', items=[
+        '请求 / 响应各自读取；上屏最多1 MiB，不一次加载全部正文',
+        '同请求版本 / 当前字节范围 / 已保存总量；采集完整性缺失仍为未知',
+        '首页 / 上一段 / 下一段；起始字节输入 + 跳转，不必逐页翻',
+        '复制当前段 / 换行 / 返回预览；旧16 MiB及SSE结构化预览能力保留',
+        '内容变更或轮转：保当前上下文并提示明确重读；换账号或权限失效不显示旧正文',
+    ]))
+    page['notes'].append('分段只读取已经保存的原始字节；不下载整日志、不重放请求，不把读到末尾当业务成功或已结算。')
+
 catalog=dict(title='MyAPI 全站线稿目录',source_sha=BASE,date='2026-10-28',direction='已确认方向3：流向图 / 顶部导航 / 对象整页',
              evidence='设计源文件；未运行浏览器、产品构建或本机测试。',pages=pages,routes=route_map,tabs=tab_inventory,overlay_inventory=overlay_inventory,
              unconfirmed_overlay_sources=unconfirmed,
