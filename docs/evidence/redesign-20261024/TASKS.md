@@ -7,7 +7,7 @@
 
 成功标准：增量审查给文件/行号、区分静态与运行证据；可部署候选通过精确来源/镜像身份与Full+SQLite隔离验证，后续生产更新保配置/开关/新增账务。验证方法：所有实际构建测试在Actions，不跑浏览器、不主动调用真实模型/供应商；本机只代码/文档读写、Git与日志元数据轻量检查，不安装依赖、运行构建测试/Docker或下载产物。
 
-### beta.36镜像与资格证据（已验证，未据此声称生产已更新）
+### beta.36镜像与资格证据（Actions已验证，生产结果另见下节）
 
 - 真实构建source/head：`f46f19c71dbf6954620feb43c01b8d8aa87bb1d5`；tree：`9f12fcbf1b544736f973dc96f265644eeaf6ac07`；版本`0.2.0-beta.36`，Full、linux/amd64。
 - [Docker smoke42256473767](https://github.com/ForceMind/MyAPI/actions/runs/42256473767) attempt1 success，输入api_only=true/run_browser=false/personal=false，producer与独立consumer共2作业成功、LAN安装1作业跳过；已亲读全部步骤、2份执行日志与实际checkout SHA。消费方按manifest摘要验证并加载同一包，不从registry补取应用镜像。
@@ -21,9 +21,13 @@
 
 见[增量结构审查](architecture-review-v2.md)：11条结论逐项有源位置，均为“从代码看”。Lite多数支付回调在业务签名处理器前被路径门禁拒绝；Pancake的同级路径不匹配原waffo斜杠前缀，但仍有签名/资金/订单门禁，不能称其可无签名充值。funding retirement与edition不是同一开关，不应互换；OAuth可创建空密码账户，Passkey/邮箱恢复分别有条件，不能假定都有本地登录方式。完整A1账务/异步恢复及tools/website/deploy其余审查仍待，不因这11条或旧CI绿标整体完成；本轮没有新增行为测试或产品修复。后续A2先明确预检/订单/账户范围，不能直接开放所有回调或删资金门禁。
 
-### 部署交接状态
+### 部署执行与回读（2026-11-07）
 
-已读现有服务器任务最近已交付记录：beta.34/08e44520由维护者单独批准“双摘要分别精确匹配”后部署，记录包含双摘要、层内容/RootFS、配置/开关及账务保全、静态资源回读；这是历史交付记录，不是本轮现场状态。当前维护者已授权部署一个可部署版本；已另发唯一必要确认：跨聊天消息工具要求明确授权向现有服务器任务发送beta.36执行消息。确认前不发消息、不自行操作服务器。执行时沿已批准双摘要流程，所有绑定精确匹配才允许排空并备份最新SQLite/WAL/配置/日志；不回灌旧快照、不重放，不以同版本字符串或重标tag替代镜像证明。镜像持续绑定f46f19c7/42256473767，不重标成后续文档SHA。
+维护者已直接回复“授权发送并执行部署”，主聊天向既有服务器任务「查看状态并更新部署版本」（01a181f9-e239-7543-a32a-ddd24edfe1b9）发送了上述精确制品及最小边界。该任务本轮turn `01a1b1d2-2025-7d42-8a2a-7a6d8c102957` 已completed/error=null。主聊天已亲读该轮11条命令的status/exitCode，全部completed/0，其中包含一次 `deploy.py` 与最终 `readback.py`；源码、tree、config、ZIP和manifest常量与本节绑定相同。部分长命令在跨聊天记录中被截断，主聊天没有独立读取服务器所有JSON文件，以下运行数据明确来源于服务器任务最终回报，不能包装成开发机现场测量。
+
+服务器任务最终回报：已由beta.34更新至beta.36 Full/f46f19c7，容器 `my-api-beta36-f46f19c7-live` healthy；版本、首页和7静态资源回读通过，双摘要、全部5层、RootFS及完整配置核验通过，11个离线错误输入均被拒绝。切换约26秒；SQLite完整性、外键、账务/历史日志连续性通过，原配置与开关不变（缓存会话/正文日志开启，诊断关闭），原容器/镜像/备份保留，未回灌旧快照或重放。未改Docker、未装运维服务、未开诊断、未发真实模型/供应商请求，浏览器未验。
+
+服务器本地完整记录：`/root/myapi/docs/evidence/beta36-deployment-20261107/README.md`，同目录包含authenticated-binding、preflight、image-identity、qualification-summary、deployment-result、readback及command-summary。它是服务器任务负责的记录，不冒充已推送到本仓库的文件；主聊天本轮本机未下载任何构建产物。镜像始终绑定f46f19c7/42256473767，不重标成文档SHA。首次交接提交9f003130/CI42257544099当时仍运行；最终部署结果收尾提交会替代它，取消运行不计完整绿，接手读最终提交自身完整CI。
 
 ## 2026-11-06 P1-9：CLI与安装器的受限版本来源规则（源码与完整CI通过）
 

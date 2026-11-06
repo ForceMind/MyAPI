@@ -3,11 +3,13 @@
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
 
-**2026-11-07最新：beta.36 Full+SQLite已在Actions打包验证通过；本轮生产尚未更新。** 镜像真实source/head `f46f19c71dbf6954620feb43c01b8d8aa87bb1d5`、tree `9f12fcbf1b544736f973dc96f265644eeaf6ac07`；源完整CI42207405306已通过，[Docker smoke42256473767](https://github.com/ForceMind/MyAPI/actions/runs/42256473767) attempt1 success，2成功/1LAN跳过，api_only=true/run_browser=false/personal=false；全部步骤/2份执行日志/实际checkout与完整20项qualification已亲读，20/20全true，browser=not_run。镜像包[13523545793](https://github.com/ForceMind/MyAPI/actions/runs/42256473767/artifacts/13523545793)、报告[13521909250](https://github.com/ForceMind/MyAPI/actions/runs/42256473767/artifacts/13521909250)；精确config ID、manifest/ZIP摘要和有效期集中在[TASKS最新节](../TASKS.md)，部署不得混用旧包或文档SHA。
+**2026-11-07最新：beta.36 Full+SQLite已通过Actions打包验证，服务器任务已回报生产更新成功。** 镜像真实source/head `f46f19c71dbf6954620feb43c01b8d8aa87bb1d5`、tree `9f12fcbf1b544736f973dc96f265644eeaf6ac07`；源完整CI42207405306已通过，[Docker smoke42256473767](https://github.com/ForceMind/MyAPI/actions/runs/42256473767) attempt1 success，2成功/1LAN跳过，api_only=true/run_browser=false/personal=false；全部步骤/2份执行日志/实际checkout与完整20项qualification已亲读，20/20全true，browser=not_run。镜像包[13523545793](https://github.com/ForceMind/MyAPI/actions/runs/42256473767/artifacts/13523545793)、报告[13521909250](https://github.com/ForceMind/MyAPI/actions/runs/42256473767/artifacts/13521909250)；精确config ID、manifest/ZIP摘要和有效期集中在[TASKS最新节](../TASKS.md)，部署不得混用旧包或文档SHA。
 
-维护者本轮已要求部署一个可部署版本；现有服务器任务的最近历史记录是beta.34已按另行批准的双摘要方案成功部署。本轮仍需服务器现场核对。当前只等待跨聊天工具所需的明确发消息授权，未发送beta.36执行消息、未自行操作生产。后续沿双摘要/层/RootFS/运行配置严格校验，身份不符停止；保配置、开关与新增账务，不回灌旧快照、不重放，不改Docker/装运维服务/开诊断/跑浏览器/发模型请求。工作流附带kit不等于安装授权；本机无依赖/构建测试/Docker/产物下载，无GHCR/NPM/tag/main操作。
+维护者已明确回复“授权发送并执行部署”；主聊天已向既有服务器任务发送精确包与边界，并亲读其本轮completed/error=null及11条命令全部exit0（含单次deploy.py和最终readback.py）。服务器任务最终回报：`my-api-beta36-f46f19c7-live`健康，版本/首页/7静态资源、双摘要/5层/RootFS/完整配置、SQLite完整性/外键/账务与日志连续性通过，切换约26秒；原配置和开关保留（缓存会话/正文日志开启、诊断关闭），旧容器/镜像/备份保留，未回灌或重放。完整远端记录在`/root/myapi/docs/evidence/beta36-deployment-20261107/README.md`；它由服务器任务负责，不冒充已提交到本仓库的文档。主聊天未独立读取其全部JSON或现场测量，运行结果按来源明确标记；准确任务turn及证据局限见TASKS最新节。
 
-P2按原计划推进A1首批只读审查，新增[architecture-review-v2.md](../architecture-review-v2.md)，本次只核对Lite支付回调和仅外部登录账户：11条结论均有文件/行号，均从代码看，没有新行为验证或产品修复。Full→Lite路径/订单与本地登录风险不能混作Full→Full发布阻塞；Pancake保签名/资金门禁。账务/异步恢复及tools/website/deploy其余覆盖仍待，A1整体未完成，不重做已有UI或P1-9。收尾只本README、TASKS与该增量审查文档；接手仍读最新提交自身完整CI。
+本轮没有改Docker、装运维服务、开诊断、跑浏览器或发真实模型/供应商请求；工作流附带kit不等于安装授权。本机无依赖/构建测试/Docker/产物下载，无GHCR/NPM/tag/main操作。此后生产动作仍须对应授权，不将本次更新扩为持续运维许可。
+
+P2按原计划推进A1首批只读审查，新增[architecture-review-v2.md](../architecture-review-v2.md)，本次只核对Lite支付回调和仅外部登录账户：11条结论均有文件/行号，均从代码看，没有新行为验证或产品修复。Full→Lite路径/订单与本地登录风险不能混作Full→Full发布阻塞；Pancake保签名/资金门禁。账务/异步恢复及tools/website/deploy其余覆盖仍待，A1整体未完成，不重做已有UI或P1-9。收尾只本README、TASKS与该增量审查文档；接手仍读最新提交自身完整CI；首次交接9f003130/CI42257544099被最终部署结果收尾替代，取消不计完整绿。
 
 **2026-11-06最新：P1-9来源规则对齐已通过源码与完整CI。** 产品代码`e0699bd9730212d3219881c621845d60661a6811` / [完整CI42202296214](https://github.com/ForceMind/MyAPI/actions/runs/42202296214) attempt1 success，10作业成功、1浏览器/真实API跳过；全部步骤、10份执行日志及实际checkout SHA已亲读核对，失败/race标记0。CLI147/147、LAN新增24条预检合同、前端3417/3417，以及根/独立relaykit/386/race/三库/Redis/ClickHouse/分发/Desktop门禁通过；lint26警告0错误。红测9f806f13/CI42201604018先证明12项公网HTTPS被旧CLI错误放行，后续推送使该运行整体取消，不计完整绿。
 
