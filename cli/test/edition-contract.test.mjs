@@ -67,9 +67,11 @@ function deploymentFixture(settings) {
     .map(([key, value]) => `${key}=${value}`)
   writeFileSync(path.join(deploy, '.env'), `${lines.join('\n')}\n`, { mode: 0o600 })
   const log = path.join(root, 'docker.log')
+  const commands = path.join(root, 'docker-commands.log')
   writeFileSync(
     path.join(bin, 'docker'),
     '#!/bin/sh\n' +
+      'printf "%s\\n" "$*" >> "$MYAPI_EDITION_COMMAND_LOG"\n' +
       'if [ "$1" = container ] && [ "$2" = ls ]; then exit 0; fi\n' +
       'printf "%s|%s|%s|%s|%s\\n" "${MYAPI_IMAGE-unset}" "${MYAPI_EDITION-unset}" ' +
       '"${MYAPI_SESSION_COOKIE_SECURE-unset}" "${MYAPI_SESSION_COOKIE_TRUSTED_URL-unset}" ' +
@@ -81,8 +83,9 @@ function deploymentFixture(settings) {
     ...process.env,
     PATH: `${bin}:${process.env.PATH || ''}`,
     MYAPI_EDITION_TEST_LOG: log,
+    MYAPI_EDITION_COMMAND_LOG: commands,
   }
-  return { root, project, envFile: path.join(deploy, '.env'), log, env }
+  return { root, project, envFile: path.join(deploy, '.env'), log, commands, env }
 }
 
 function runCli(fixture, args) {
@@ -108,6 +111,15 @@ function loggedCalls(fixture) {
     return readFileSync(fixture.log, 'utf8').trim().split('\n').filter(Boolean)
   } catch {
     return []
+  }
+}
+
+function recordedDockerCommands(fixture) {
+  try {
+    return readFileSync(fixture.commands, 'utf8').trim().split('\n').filter(Boolean)
+  } catch (error) {
+    if (error.code === 'ENOENT') return []
+    throw error
   }
 }
 
@@ -189,6 +201,53 @@ test('CLI applies the LAN binding and origin rules to lite and lan identically',
   }
 })
 
+for (const edition of ['lan', 'lite']) {
+  for (const origin of ['http://api.example.test:3000', 'https://api.example.test', 'https://203.0.113.10:3443']) {
+    for (const args of [
+      ['up'],
+      ['upgrade', '--version', 'v0.2.0', '--dry-run'],
+      ['upgrade', '--version', 'v0.2.0'],
+    ]) {
+      test(`CLI refuses ${edition} public origin ${origin} during ${args.join(' ')} before Docker or deployment-file changes`, () => {
+        const fixture = deploymentFixture({ MYAPI_EDITION: edition, MYAPI_PUBLIC_URL: origin })
+        const original = readFileSync(fixture.envFile)
+        if (args[0] === 'up') {
+          const installer = runInstaller(fixture)
+          assert.notEqual(installer.status, 0)
+          assert.match(installer.output, /localhost, loopback, or private-network origin in LAN edition/)
+          assert.deepEqual(recordedDockerCommands(fixture), [])
+          assert.deepEqual(readFileSync(fixture.envFile), original)
+        }
+        const result = runCli(fixture, [...args, '--project-dir', fixture.project])
+        assert.notEqual(result.status, 0, `${args.join(' ')}: ${result.output}`)
+        assert.match(result.output, /localhost or private-network origin in LAN edition/)
+        assert.deepEqual(recordedDockerCommands(fixture), [], result.output)
+        assert.deepEqual(readFileSync(fixture.envFile), original)
+      })
+    }
+  }
+}
+
+test('CLI retains local and private HTTP(S) origins for both restricted editions without rewriting their files', () => {
+  for (const edition of ['lan', 'lite']) {
+    for (const origin of [
+      'http://localhost:3000',
+      'https://localhost:3443',
+      'http://127.0.0.1:3000',
+      'https://10.23.45.67:3443',
+      'http://172.16.0.2:3000',
+      'https://192.168.1.20:3443',
+    ]) {
+      const fixture = deploymentFixture({ MYAPI_EDITION: edition, MYAPI_PUBLIC_URL: origin })
+      const original = readFileSync(fixture.envFile)
+      const result = runCli(fixture, ['up', '--project-dir', fixture.project])
+      assert.equal(result.status, 0, `${edition} ${origin}: ${result.output}`)
+      assert.ok(recordedDockerCommands(fixture).length > 0)
+      assert.deepEqual(readFileSync(fixture.envFile), original)
+    }
+  }
+})
+
 test('CLI keeps full on HTTPS-only rules and rejects unknown edition values', () => {
   const full = deploymentFixture({ MYAPI_EDITION: 'full', MYAPI_PUBLIC_URL: 'http://localhost:3000' })
   const refusedFull = runCli(full, ['up', '--project-dir', full.project])
@@ -196,8 +255,10 @@ test('CLI keeps full on HTTPS-only rules and rejects unknown edition values', ()
   assert.match(refusedFull.output, /exact non-placeholder HTTPS origin/)
 
   const fullOk = deploymentFixture({ MYAPI_EDITION: 'full', MYAPI_PUBLIC_URL: 'https://api.example.test' })
+  const originalFull = readFileSync(fullOk.envFile)
   assert.equal(runCli(fullOk, ['up', '--project-dir', fullOk.project]).status, 0)
   assert.ok(loggedCalls(fullOk).every((line) => line.includes('|true|https://api.example.test|')))
+  assert.deepEqual(readFileSync(fullOk.envFile), originalFull)
 
   for (const edition of ['pro', 'lit', 'lan-lite', 'fulll']) {
     const fixture = deploymentFixture({ MYAPI_EDITION: edition, MYAPI_PUBLIC_URL: 'https://api.example.test' })
