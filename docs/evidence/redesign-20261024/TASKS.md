@@ -1,12 +1,16 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
-## 2026-11-06 P1-9：CLI与安装器的受限版本来源规则（实施中）
+## 2026-11-06 P1-9：CLI与安装器的受限版本来源规则（源码与完整CI通过）
 
 维护者对上一答的具体范围回复“好”，本轮只做cli/myapi.mjs、cli/test/edition-contract.test.mjs和必要tools/lan/check.mjs合同同步；安装器只读作更严格基准，不改现有部署文件/配置。基线dev/ee7c5a8f工作区干净，fetch后无分歧。既有UI/正文分段源码已收口，不重做、不因此运行浏览器、部署或重新选择Lite坐标/签名等已确认决定。
 
 成功标准：lan/lite拒绝公网HTTP和HTTPS，合法本地/私网来源保留；Full原HTTPS规则不变；拒绝前没有任何Docker命令或配置写入。验证只在GitHub Actions，先兼容旧源的真实CLI/安装器合同取红，再做最小预检修正并读本提交完整CI。使用原隔离项目和假的Docker边界，新增命令日志记录包括container ls，保证零调用断言不被原fixture跳过；精确核对.env原字节，覆盖up、升级dry-run和原CLI默认实际升级入口。不能用不支持的选项或后续Docker假环境失败伪造来源拒绝。该批次窄而串行，主代理独立完成，不增子代理；不本机依赖/构建测试/浏览器/Docker/产物下载，不动生产/真实模型/main/发布。
 
-红证据已亲读：9f806f1359be103ca9cc3003af71f7d9ac110242 / CI42201604018的分发job127837970166日志1388行，147例135过12红。12项均为lan/lite公网HTTPS（域名与公网IPv4）的up、dry-run和默认实际升级入口旧CLI返回0；up同源安装器拒绝前置已成立，其他原测试/HTTP拒绝/合法本地私网/Full对照通过，不是参数、假Docker后续失败或初始化造红。现最小产品修正只将受限版本来源限定为原placeholder或validateLanOrigin，Full继续validatePublicOrigin，不改原validator允许集合、绑定、额度/缓存模式和配置归一化。tools/lan/check仅在既有临时假Docker边界同步相同HTTP/HTTPS预检、零命令和原.env字节合同。本批作为未发布beta.36候选的P1来源门禁收口，不增加发布动作或反复升调试版本。尚待产品提交自身完整CI，不称完成。
+红证据已亲读：9f806f1359be103ca9cc3003af71f7d9ac110242 / CI42201604018的分发job127837970166日志1388行，147例135过12红。12项均为lan/lite公网HTTPS（域名与公网IPv4）的up、dry-run和默认实际升级入口旧CLI返回0；up同源安装器拒绝前置已成立，其他原测试/HTTP拒绝/合法本地私网/Full对照通过，不是参数、假Docker后续失败或初始化造红。现最小产品修正只将受限版本来源限定为原placeholder或validateLanOrigin，Full继续validatePublicOrigin，不改原validator允许集合、绑定、额度/缓存模式和配置归一化。tools/lan/check仅在既有临时假Docker边界同步相同HTTP/HTTPS预检、零命令和原.env字节合同。本批作为未发布beta.36候选的P1来源门禁收口，不增加发布动作或反复升调试版本。当时尚待产品提交自身完整CI；最终结果见下段。
+
+产品代码`e0699bd9730212d3219881c621845d60661a6811` / [完整CI42202296214](https://github.com/ForceMind/MyAPI/actions/runs/42202296214) attempt1 success：10作业成功、1浏览器/真实API作业跳过。全部步骤、10份执行日志与实际checkout SHA已亲读核对，失败/race标记0。CLI 147/147，包括18项公网来源拒绝回归，LAN合同新增24条来源拒绝/零Docker命令/.env字节不变检查通过；合法本地/私网及Full控制通过。前端419文件3417/3417，同步/构建/types/lint通过（26警告0错误）；根模块/独立relaykit、原生/386、两模块全量与既有race、三库/Redis/ClickHouse/分发/Desktop门禁通过。红测运行42201604018在后续推送后整体取消，不计完整绿；产品完整绿以42202296214为准。
+
+本项已完成批准范围内的源码与非浏览器验证。沿用未发布beta.36候选，没有新增镜像包、tag或NPM发布，没有修改现有部署配置；浏览器、真实部署与生产未验证。收尾仅更新本总账与handoff/README，接手仍读取最新文档提交自身完整CI，不能把源码门禁通过当作已有可部署镜像。
 
 从代码看，validateRuntimeConfiguration在受限来源不合法后仍回退validatePublicOrigin，公网HTTPS可被放行；已有用例只拒绝公网HTTP。新红测同一来源先证明安装器拒绝，再要求CLI也拒绝，并保合法本地/私网及Full对照。此段是改动前的源码发现；后续红绿与产品结果以上文为准。
 

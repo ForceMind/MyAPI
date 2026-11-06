@@ -2,7 +2,9 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
-**2026-11-06当前P1-9来源规则对齐正在实施，尚未验证。** 红测9f806f13/CI42201604018已亲读：旧135过、公网HTTPS放行的12例如期失败；现只修CLI受限来源回退和临时LAN合同，产品结果仍待本提交完整CI。 维护者已对cli/myapi.mjs、edition-contract.test.mjs及必要tools/lan/check.mjs的最小方案回复“好”。基线dev/ee7c5a8f干净，UI/正文分段已收口，不重做。此次先以实际CLI/更严格安装器和隔离Docker边界取红：lan/lite应拒公网HTTP/HTTPS，拒绝前零Docker命令/.env字节不变，合法本地/私网及Full对照保留。具体范围与进度统一在TASKS最新节。本机不跑测试或工具链/浏览器/Docker、不下载产物，不动生产/真实模型/main/发布，不扩大到安装器改配置或镜像/Lite策略。下方beta.36是最近完整通过源码，当前测试候选不是可部署版本。
+**2026-11-06最新：P1-9来源规则对齐已通过源码与完整CI。** 产品代码`e0699bd9730212d3219881c621845d60661a6811` / [完整CI42202296214](https://github.com/ForceMind/MyAPI/actions/runs/42202296214) attempt1 success，10作业成功、1浏览器/真实API跳过；全部步骤、10份执行日志及实际checkout SHA已亲读核对，失败/race标记0。CLI147/147、LAN新增24条预检合同、前端3417/3417，以及根/独立relaykit/386/race/三库/Redis/ClickHouse/分发/Desktop门禁通过；lint26警告0错误。红测9f806f13/CI42201604018先证明12项公网HTTPS被旧CLI错误放行，后续推送使该运行整体取消，不计完整绿。
+
+按维护者“好”授权，仅修CLI受限来源回退和隔离LAN合同：lan/lite拒绝公网HTTP/HTTPS，拒绝前零Docker命令、.env原字节不变，合法本地/私网及Full原规则保留。未改安装器、已有部署配置或镜像/Lite策略，未放宽断言；范围与红绿集中在[TASKS最新节](../TASKS.md)。本轮沿用未发布beta.36候选，UI/正文分段不重做；没有新增镜像包或生产更新。所有构建测试在Actions，本机无依赖/构建测试/浏览器/Docker/产物下载，未动生产/真实模型/main/发布。浏览器和真实部署未验证；接手读最新文档提交自身完整CI，后续镜像另核对真实构建身份。
 
 
 **2026-11-06最新：原计划3.6完整逐段读取已通过源码完整CI，beta.36候选；浏览器/真实环境未验。** 产品代码31960fd412b81ff5c4a071a72323a7a21382bdac / [完整CI42160794199](https://github.com/ForceMind/MyAPI/actions/runs/42160794199) attempt1 success，10作业成功/1浏览器与真实API跳过，全部步骤及10份原始执行日志已亲读，实际checkout SHA一致、失败/race标记0。前端419文件3417/3417、分段专项65/65、日志/返回483/483，同步/构建/types/lint过（26警告0错误）；根/独立relaykit/原生386/两模块全量/全部既有race、三库/Redis/ClickHouse/分发/Desktop通过。
@@ -232,7 +234,7 @@ UI10模型缺失/同步/冲突、UI11部署与UI12第一组Key/渠道敏感任�
 5. 已知但没修的界面问题：Lite 版本行在 1280 宽度下于"用量未提供"中间折行；英文计数无单复数；1024 宽度上游节点名被截断；`/channels` 视图切换按钮没有可访问名称；`models-390` 的"更多"按钮 40px 的修复未验证；Key 节点只显示 `#ID` 而非掩码尾号、上游节点没有"测试失败 401"（现有数据不提供）；首页没有"今天 / 7 天"切换；Full 首页核心卡没有"用户 / 分组"摘要；channels 的 toast 文案仍写 "Track progress in System Info"；设置里"Header navigation"的中文"顶部导航"易与控制台顶栏混淆；`personal-console.css` 的 `.pc-card` 依赖运行时可能不存在的 `--radius-card`。
 6. 七语言：补 zh-TW、fr、ru、ja、vi 的译文；验证俄语、法语下顶栏导航（1024–1279 宽度需把一项收进"更多"，样稿未验证）；恢复七语言截图验收。`web/src/i18n/locales/_reports` 一直没有重新生成（子代理不能运行同步脚本），在能运行 `bun run i18n:sync` 的环境（注意 exFAT 上要过滤 `._*.json`）重新生成。
 7. Desktop 专属界面：首页"本机接入"卡；托盘文案接 i18n（见部署 B5）。
-9. 命令行与安装脚本公网 HTTPS 来源规则对齐（见上方"已确认的小决定"第二条），小而独立，可与 CI 修复穿插。
+9. **P1-9源码与完整CI通过**：CLI受限版本与安装脚本公网来源规则对齐，e0699bd9 / CI42202296214；详见零节。已有部署配置未修改，浏览器/真实部署未验，不再作为未实施项重做。
 8. `tools/` 下不在 CI 里的浏览器脚本（`console-layout-browser.mjs`、`input-policy-browser.mjs`、`tools/quota/token-budget-browser.mjs`）可能依赖旧外壳，需检查；`tools/runtime/personal-browser.test.mjs` 有 5 个基线就存在的失败，不在 CI 里。
 
 ### P2 第二阶段（`PLAN_PHASE2.md`，B1、B2 已完成，其余未开始）
@@ -243,7 +245,7 @@ UI10模型缺失/同步/冲突、UI11部署与UI12第一组Key/渠道敏感任�
 
 ### 维护者已确认的小决定（2026-10-26，原话"都按你推荐的"）**[维护者]**
 - Docker 的 `docker-build.yml`、`docker-smoke.yml` **暂不改用 `lite` 构建**，保持 `lan` 构建同一个 `myapi-lan` 镜像，等 Lite 镜像坐标落地再一起做（这两个工作流的版本值与 `tools/runtime` 里的镜像包合同绑定，改动会连带改浏览器脚本）。
-- 命令行与安装脚本**对齐到安装脚本的更严格规则**：`lan` / `lite` 版本只接受本地或私网来源，拒绝公网 HTTPS 来源。**这项还没有实现**，列为待办 P1-9：改 `cli/myapi.mjs` 与 `cli/test/edition-contract.test.mjs`（该测试目前为规避这个不一致用的是 http 公网来源），并检查 `tools/lan/check.mjs`；先让新测试失败再通过；不得改变已有部署的现有配置。
+- 命令行与安装脚本**对齐到安装脚本的更严格规则**：`lan` / `lite` 版本只接受本地或私网来源，拒绝公网 HTTPS 来源。**P1-9已于2026-11-06通过源码与非浏览器验证**：`cli/myapi.mjs`、`cli/test/edition-contract.test.mjs`与`tools/lan/check.mjs`按先红后绿实施，e0699bd9 / CI42202296214。公网HTTP/HTTPS拒绝、零Docker命令和.env字节不变均有合同证据；没有改变已有部署的现有配置。
 - 分析页图表前 5 个系列用设计色、其余统一中性灰，**已接受**（用户图、模型图在系列很多时靠图例与悬停提示区分）。
 - 另有 5 项原文档遗留决定已按推荐确认（见 `PLAN_PHASE2.md` 第二节）：Lite 镜像坐标保持不变、签名信任根采用 GitHub OIDC / Sigstore 但本阶段不接线、原生安装路径、Desktop 先 macOS 再 Windows、自动更新全部默认关闭。
 - 上述既有决定不要重问；**2026-10-27 后续已明确批准 Codex 会话头最小修复**，当前实现与CI状态见零节，不再重复询问同一授权。
