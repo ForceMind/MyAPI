@@ -1272,7 +1272,7 @@ jobs:
 
           root = Path(os.environ['RUNNER_TEMP']) / 'myapi-native-literal-paths'
           data = root / '数据 data=value space "quote" \\ %n $HOME $(literal) `literal`'
-          config = root / "config 'quote' %h $CONFIG"
+          config = root / r"配置 config='quote' %h $CONFIG * ? [literal] \ backslash"
           state = root / 'state space "quote" \\ %i ${HOME}'
           cache = root / 'cache space %t $CACHE'
           runtime = root / 'runtime'

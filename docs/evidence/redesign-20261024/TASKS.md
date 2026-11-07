@@ -2,6 +2,8 @@
 
 ## 2026-11-08 B3a：Linux原生路径预览与服务模板（beta.45候选，非安装器/生命周期验收）
 
+第二次候选`7dc5eeee7c26d926a8b1f83c2fee66685f5070af` / CI42414561122的native作业128529798642完整268行已读：lint成功、6/6 Node合同PASS/0skip；真实systemd255.4在user WorkingDirectory外层引号处报非绝对路径，故后续复杂路径解析skipped，不能称unit通过。按[systemd-stable v255.4字段解析](https://github.com/systemd/systemd-stable/blob/v255.4/src/core/load-fragment.c#L2400-L2494)改为field-specific路径编码：WorkingDirectory raw仅%%；EnvFile raw再转义glob层的反斜杠和*?[]，不套word引号，Environment/Exec保原编码。原6组、PID/环境/退出码/数据保全和完整路径期望不减；字段decoder现在拒绝非法外引号/裸glob，并补config literal glob路径。依据[EnvFile加载源码](https://github.com/systemd/systemd-stable/blob/v255.4/src/core/execute.c#L676-L739)，此glob结论标“从代码看”；真实EnvFile读取仍未验证，analyze仅证明解析，不外推配置加载/生命周期。beta.45不重升，后继源仍须完整CI。
+
 首推`d3b89d16a5d90bfc049827cf9634c25bb54e857e` / CI42414107174的native作业128528355160失败，183行完整日志/步骤已读：bash语法过，shellcheck报CDPATH空赋值SC1007，以及case匹配/printf输出literal systemd dollar时的两处SC2016。Node6组合同和两类systemd解析全部skipped，不能算功能已验。仅将CDPATH写成显式空串，并在仅匹配/输出固定模板的case前标注`# shellcheck disable=SC2016`：这里必须原样输出$$，不能展开为当前shell的PID/参数；完整argv等全部功能断言和shellcheck命令保留，不改其它lint配置。beta.45不重升。此SHA静态检查42414107228与打包42414107204成功，381/433行及步骤/checkout已读，仅绑定d3b89d16，不外推后继源；最终候选仍需自身完整CI。
 
 前一小批A5a已验收：dev/`679ceee0f5e91162b1cffbc7becbbd0632955306` / [完整CI42411676577](https://github.com/ForceMind/MyAPI/actions/runs/42411676577) attempt1 success，11执行作业成功/2可选作业跳过；18494行全部日志、步骤和11个checkout已核对，失败/race标记0。原三库12场景、Native105/105/0skip、前端421文件3452/3452及根main/根与独立relaykit/386/原有race均通过。仅coalesce机械展开和原进度文档，未改原断言或发布；这不等于整个A5已逐项清理。B3a是在等待该CI期间并行准备，未抢先推送，实际结果仍待本批自身CI。

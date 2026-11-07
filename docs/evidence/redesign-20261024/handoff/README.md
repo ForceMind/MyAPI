@@ -2,6 +2,8 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**B3a第二轮：7dc5eeee / CI42414561122的lint与6/6合同已过，unit仍未验收。** native作业268行日志/步骤已读；systemd在user WorkingDirectory外引号处拒绝，复杂路径步骤未执行。候选只按实际字段解析修raw路径/EnvFile glob编码，保原全部字面路径、PID/环境/退出码/数据保全断言，并加强字段decoder与glob路径；不改已有功能或版本号，仍beta.45待最终完整CI。真实EnvFile加载/manager生命周期继续未验证，详细源码依据与红灯边界见TASKS。
+
 **B3a首轮未验收：d3b89d16 / CI42414107174在新native脚本lint失败。** 失败作业183行日志/步骤已读；功能合同和systemd校验均未执行。候选只修CDPATH空赋值写法与literal systemd dollar的定域说明，保全部断言与校验命令，仍beta.45，待后继SHA完整CI；详细红灯与静态网站两项成功的精确边界见TASKS最新节，不将其称安装或运行通过。
 
 **已验证基线：A5a `679ceee0f5e91162b1cffbc7becbbd0632955306` / [完整CI42411676577](https://github.com/ForceMind/MyAPI/actions/runs/42411676577) attempt1 success。** 11执行作业成功/2可选作业跳过，18494行日志、全部步骤及11个checkout已核对，失败/race标记0；三库12、Native105、前端3452与根main/独立relaykit/386/原有race通过。A5a仅controller机械内联，整个A5仍有后续；应用当时beta.44未发布，下面beta.45是新候选，不能混用证据。

@@ -54,6 +54,26 @@ unit_quote() {
   printf '"%s"' "$value"
 }
 
+# These path fields keep the complete value, without word unquoting. Only
+# EnvironmentFile subsequently passes it through glob(), so escape that layer.
+unit_path() {
+  local value="$1"
+  local field="$2"
+  case "$field" in
+    directory) ;;
+    env-file)
+      value="${value//\\/\\\\}"
+      value="${value//\*/\\*}"
+      value="${value//\?/\\?}"
+      value="${value//\[/\\[}"
+      value="${value//\]/\\]}"
+      ;;
+    *) fail 'Unknown internal unit path field / 未知的内部服务路径字段。' ;;
+  esac
+  value="${value//\%/%%}"
+  printf '%s' "$value"
+}
+
 if [[ "$#" -eq 1 && "$1" == --help ]]; then
   print_help
   exit 0
@@ -135,9 +155,9 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   # Match and emit literal systemd dollar placeholders, never shell expansion.
   # shellcheck disable=SC2016
   case "$line" in
-    'WorkingDirectory=@DATA@') printf 'WorkingDirectory=%s\n' "$(unit_quote "$data")" ;;
+    'WorkingDirectory=@DATA@') printf 'WorkingDirectory=%s\n' "$(unit_path "$data" directory)" ;;
     'Environment=@SQLITE_DEFAULT@') printf 'Environment=%s\n' "$(unit_quote "SQLITE_PATH=$data/my-api.db?_busy_timeout=30000")" ;;
-    'EnvironmentFile=@CONFIG@') printf 'EnvironmentFile=%s\n' "$(unit_quote "$config")" ;;
+    'EnvironmentFile=@CONFIG@') printf 'EnvironmentFile=%s\n' "$(unit_path "$config" env-file)" ;;
     'ExecStart=/bin/sh -c "exec \"$$1\" --log-dir \"$$2\"" my-api @BINARY@ @LOGS@')
       # Double backslashes here survive printf once and then systemd unquoting.
       # Path values never enter the fixed shell script; they are $1 and $2.

@@ -165,6 +165,31 @@ function unitWords(value, exec = false) {
   return words
 }
 
+// These two directives consume their entire raw value, not a quoted word.
+// EnvironmentFile additionally passes the path through its glob layer. This
+// decoder checks the rendering contract; it does not load a systemd env file.
+function unitLiteralPath(value, environmentFile = false) {
+  assert.ok(value.startsWith('/'), 'the raw directive value must be an absolute path without wrapping quotes or an optional-file prefix')
+  let literal = ''
+  for (let index = 0; index < value.length; index++) {
+    const character = value[index]
+    if (character === '%') {
+      assert.equal(value[++index], '%', 'literal percent must not become a systemd path specifier')
+      literal += '%'
+    } else if (environmentFile && character === '\\') {
+      const escaped = value[++index]
+      assert.ok(['\\', '*', '?', '[', ']'].includes(escaped), 'EnvironmentFile must use only the literal glob escapes')
+      literal += escaped
+    } else {
+      if (environmentFile) {
+        assert.equal('*?[]'.includes(character), false, 'EnvironmentFile must not select other files through an unescaped glob')
+      }
+      literal += character
+    }
+  }
+  return literal
+}
+
 function unitDirectives(output) {
   const directives = new Map()
   for (const line of output.split('\n')) {
@@ -194,8 +219,8 @@ function assertRenderedUnit(output, expected) {
   } else {
     assert.deepEqual(command, ['/bin/sh', '-c', 'exec "$1" --log-dir "$2"', 'my-api', expected.binary, expected.logs])
   }
-  assert.deepEqual(unitWords(one('WorkingDirectory')), [expected.data])
-  assert.deepEqual(unitWords(one('EnvironmentFile')), [expected.config], 'configuration is required, never silently optional')
+  assert.equal(unitLiteralPath(one('WorkingDirectory')), expected.data)
+  assert.equal(unitLiteralPath(one('EnvironmentFile'), true), expected.config, 'configuration is required and selects exactly the literal path')
   const environment = (directives.get('Environment') || []).flatMap(value => unitWords(value))
   assert.deepEqual(environment, [`SQLITE_PATH=${expected.data}/my-api.db?_busy_timeout=30000`], 'only the SQLite default belongs in the unit; secrets and feature configuration stay in the required configuration file')
   assert.equal(one('Restart'), 'on-failure')
@@ -250,7 +275,7 @@ test('custom XDG metacharacters remain literal in plans and correctly escaped sy
   const local = fixture(t)
   const overrides = {
     XDG_DATA_HOME: path.join(local.root, '数据=data space "quote" \\ %n $HOME $(touch NATIVE_PWNED)'),
-    XDG_CONFIG_HOME: path.join(local.root, "config 'single' %h `touch NATIVE_BACKTICK`"),
+    XDG_CONFIG_HOME: path.join(local.root, "config 'single' %h `touch NATIVE_BACKTICK` \\ literal=*?[]"),
     XDG_STATE_HOME: path.join(local.root, 'state space \\ "quote" %i ${HOME}'),
     XDG_CACHE_HOME: path.join(local.root, 'cache space %t $HOME'),
   }
@@ -300,7 +325,7 @@ test('rendered user argv transfers literal paths and inherited environment to an
   const local = fixture(t)
   const overrides = {
     XDG_DATA_HOME: path.join(local.root, '数据=bin "quote" \\ %n $HOME $(touch NATIVE_PWNED) `touch NATIVE_BACKTICK`'),
-    XDG_CONFIG_HOME: path.join(local.root, '配置=config "quote" %h'),
+    XDG_CONFIG_HOME: path.join(local.root, '配置=config "quote" %h \\ literal=*?[]'),
     XDG_STATE_HOME: path.join(local.root, '状态=logs "quote" \\ %i ${HOME} $(touch NATIVE_LOG_PWNED) `touch NATIVE_LOG_BACKTICK`'),
     XDG_CACHE_HOME: path.join(local.root, '缓存=cache %t'),
   }
