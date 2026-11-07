@@ -15,6 +15,10 @@ on:
         description: 'Collect current Go reachability evidence on dev without deleting code'
         type: boolean
         default: false
+      run_cleanup_inventory:
+        description: 'Collect current cleanup candidates on dev without changing product code'
+        type: boolean
+        default: false
       baseline_red:
         description: 'Reproduce the personal Key handoff regression on the fixed pre-fix source before testing the candidate'
         type: boolean
@@ -32,6 +36,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  cleanup-inventory:
+    name: Current private-function and frontend cleanup inventory
+    if: github.event_name == 'workflow_dispatch' && inputs.run_cleanup_inventory && github.ref == 'refs/heads/dev'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/cleanup-inventory.yml
+
   a3-reachability:
     name: A3 current Go reachability evidence
     if: github.event_name == 'workflow_dispatch' && inputs.run_reachability && github.ref == 'refs/heads/dev'

@@ -1,5 +1,21 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-08 A5/A6：当前精简候选清单（工具候选，应用仍beta.45）
+
+B3a已通过源码及非浏览器合同验收：dev/`34ad42acf14ce72aecacc7c96657528d6c0eabba` / [完整CI42415882062](https://github.com/ForceMind/MyAPI/actions/runs/42415882062) attempt1 success，12执行作业成功/2可选作业跳过（A3分析、浏览器真实API）。主会话读取18695行全部日志，核对所有步骤与12个checkout一致，失败/race标记0；Linux预览/argv合同6/6/0skip、systemd255.4两scope及复杂路径真实解析通过（native作业282行），Desktop合同105/105/0skip、前端421文件3452/3452、额度历史三库12场景、根main/根与独立relaykit/386/原有race均过。前端lint26 warnings/0 errors未扩展处理。本批不等于完整B3：真实EnvFile读取、MyAPI/manager生命周期、安装/升级/回退/卸载、浏览器及生产仍未实现或未验证。
+
+过程证据保留：d3b89d16/CI42414107174及7dc5eeee/CI42414561122均最终cancelled，各9成功/1native失败/2取消/2跳过，所有实际作业日志、步骤与checkout已读取；前者lint阻塞、后者user路径字段解析阻塞，没有把跳过/取消算绿，最终只认34ad42ac自己的完整CI。旧d3两静态网站成功仍只绑定原SHA，不重标34ad42ac或后继源码。
+
+沿PLAN_PHASE2 A5/A6生成当前清单，不重建过期790/396或140/68/637数量，不开新BUG专项。成功标准：清单绑定精确SHA、源码哈希、实际工具状态，合法空与缺失/损坏分开，未知位置/方法引用保持未知，不自动删代码。验证方法：Go collector10组及前端reporter15组合同、当前Go AST/Knip扫描和完整CI全部Actions，亲读最终SHA所有步骤、日志和报告；本机只源码、gofmt、node --check、YAML/内嵌脚本轻语法，不执行工具/测试/分析、安装依赖、构建、Docker、浏览器或下载产物。
+
+两名复用sol/high代理分别唯一负责Go只读collector/test/既有README、前端只读reporter/test；主会话集成既有ci.yml开关、新cleanup-inventory.yml及本交接，无新代理/递归。Go两文件build ignore，Actions显式命名文件运行；仅标准库AST和XML，不导入业务、不typecheck或执行产品init，不改Go模块与根JSON wrapper门禁，也不另加JSON例外。普通函数同目录/包词法引用，API/方法/init/生成/测试/fixture/relaykit/build或平台特定/cgo/重复/函数值/编译器指令等保守保护；引用未知输出XML unknown而非0，Go/token列为字节坐标。SHA256和Git blobSHA1绑定实际读取字节与index，HEAD/整tracked树前后核对，缺源/变更/越界/链接/parse错误非零，不伪零候选。AST计数不是动态/外部或目标构建可达性证明。
+
+前端冻结锁实际为Knip6.27.0（package范围^6.24.0，不改依赖）；[官方reporter合同](https://knip.dev/features/reporters)和现成6.27源码已只读核对。configured保持原ignore，ui-inclusive仅Runner在web内创建临时config去掉UI ignore、保routeTree ignore及同ignoreDependencies；每次收files/exports/types。6.27根为issues数组，files在各row内，不盲兼容旧顶层files。合法空合法零，缺/坏/未知schema拒绝；缺位置null、pos0合法、line/col1-based UTF16，整文件位置not_applicable，不补0。每项tracked安全路径/hash/位置核对，整tracked树前后检查；source_files只代表报告涉及并校验的文件组数，不是Knip全扫描文件总数。工具版本/exit/config选择元数据明确caller-reported、invocation_verified=false；外围CI真实执行命令/退出码和日志才补调用来源链，不能拿一个report JSON当验签。
+
+入口复用已注册CI：`gh workflow run ci.yml --repo ForceMind/MyAPI --ref dev -f run_browser=false -f run_cleanup_inventory=true`，新开关默认false、仅manual/dev可运行reusable工作流，checkout固定run SHA，原完整门禁保留。报告仅analysis_only=true/deletion_authorized=false/manual_review_required，候选/保护计数日志与完整原始证据上传7天；不下载到本机。当前工具和清单尚未执行，不报候选为0或称A5/A6完成；拿到当前证据后再逐项审阅，同包精简另提交，整文件删除仍需具体范围授权。
+
+本批不改产品/界面/转发/计费/数据库/权限/版本，不发布/部署/main或调用真实供应商模型；R4继续关闭，历史BUG统一质量阶段处理。完整三版本Goal仍保A5/A6后续、B3剩余安装信任/生命周期、B4一致性备份恢复/保留策略、B5b后续、B6/B7及七语言/独立统一质量/全量验收。B4已复用现有copier/CLI/operations只读定位，不把停写整树copy或合成smoke伪称在线backup/用户restore，不因此顺带接线T1或运维生产。
+
 ## 2026-11-08 B3a：Linux原生路径预览与服务模板（beta.45候选，非安装器/生命周期验收）
 
 第二次候选`7dc5eeee7c26d926a8b1f83c2fee66685f5070af` / CI42414561122的native作业128529798642完整268行已读：lint成功、6/6 Node合同PASS/0skip；真实systemd255.4在user WorkingDirectory外层引号处报非绝对路径，故后续复杂路径解析skipped，不能称unit通过。按[systemd-stable v255.4字段解析](https://github.com/systemd/systemd-stable/blob/v255.4/src/core/load-fragment.c#L2400-L2494)改为field-specific路径编码：WorkingDirectory raw仅%%；EnvFile raw再转义glob层的反斜杠和*?[]，不套word引号，Environment/Exec保原编码。原6组、PID/环境/退出码/数据保全和完整路径期望不减；字段decoder现在拒绝非法外引号/裸glob，并补config literal glob路径。依据[EnvFile加载源码](https://github.com/systemd/systemd-stable/blob/v255.4/src/core/execute.c#L676-L739)，此glob结论标“从代码看”；真实EnvFile读取仍未验证，analyze仅证明解析，不外推配置加载/生命周期。beta.45不重升，后继源仍须完整CI。

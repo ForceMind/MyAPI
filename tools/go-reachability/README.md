@@ -79,3 +79,18 @@ gh api repos/ForceMind/MyAPI/actions/jobs/JOB_ID/logs
 ```
 
 这些命令用于读取日志，不是 `gh run download`；不需要下载构件或在本机重跑分析。先核对实际 checkout SHA，再核对报告中的目标、pin 和 run/attempt；只有 summary 数字或构件已上传，不能代替逐项读取失败状态和完整记录。任一输入/构建未完成时，应报告缺失证据，不把它记为“无候选”或“全部支持”。
+
+## A5 当前短函数 AST 清单
+
+独立的 `short-functions.go` 只读 Git tracked Go 源码；两个 Go 文件均使用 `//go:build ignore`，需在 Actions 显式指定文件运行：
+
+复用CI的`run_cleanup_inventory=true`手动dev入口，保持`run_browser=false`；该开关同时收集当前前端files/exports/types清单，不改变产品或自动删除。普通push不启动清单扫描，完整CI原门禁始终保留。历史数量不能替代本次来源与日志。
+
+```text
+GOWORK=off go test tools/go-reachability/short-functions.go tools/go-reachability/short-functions_test.go
+GOWORK=off go run tools/go-reachability/short-functions.go --root "$GITHUB_WORKSPACE" --source-sha "$GITHUB_SHA"
+```
+
+本机不执行这些命令。CLI 在扫描前后核对完整 HEAD、tracked tree 和 tracked Go 文件列表；脏树、解析失败、缺失或越界源码、符号链接均失败，不补成零。输出是标准库 XML，根为 `short_functions_report`，固定保留 `files`、`records`、`references`、`protections` 容器；未知计数用 `unknown="true"` 空元素，不能当0。没有 JSON 序列化、业务导入、类型检查或产品初始化。
+
+清单包含物理声明跨度不超过15行的函数及保护原因，并另列含花括号的 `body_lines`。引用只在同目录、同 package 的裸标识符范围观察，定义不算引用；方法引用不作类型解析。导出 API、方法、init、生成/测试/fixture、relaykit、构建约束或重复定义，以及非直接引用均保护。`manual_review_candidate` 仅表示一个私有普通函数在该词法范围恰有一个直接生产调用、没有直接测试引用且无保护项；动态引用、外部消费者、实际 build-tag/平台可达性和安全内联仍需人工核对，`analysis_only=true`、`deletion_authorized=false` 始终保留。它不复原或凑齐历史790/396清单，也不自动删除产品代码。

@@ -2,6 +2,10 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**2026-11-08已验收：B3a `34ad42acf14ce72aecacc7c96657528d6c0eabba` / [完整CI42415882062](https://github.com/ForceMind/MyAPI/actions/runs/42415882062) attempt1 success，beta.45源码与非浏览器合同。** 12执行作业成功/2可选作业跳过，18695行日志、全部步骤与12个checkout已核对；失败/race标记0。Linux合同6/6及system/user/复杂路径实际systemd解析通过，Desktop105/前端3452/额度历史三库12与根main/独立relaykit/386/原有race通过；lint26 warnings/0 errors未扩展。两次红灯/取消证据未当绿，过程集中TASKS。实际安装/升级/回退/卸载、EnvFile加载、MyAPI/manager生命周期、浏览器和生产未实现或未验，不把B3a称完整B3。
+
+**当前续办A5/A6清单工具候选，不改产品，版本仍beta.45。** Go AST/XML与前端Knip6.27 files/exports/types reporter绑定Git SHA、文件哈希和实际来源，未知不补0，仅分析、无删除授权；新manual/dev开关run_cleanup_inventory默认false，复用完整CI入口，原门禁不减。Go工具不导入业务、不改JSON例外；UI-inclusive只用Runner临时config，不改有效配置或locale。10组Go/15组Node及实际扫描待Actions，本机未运行；旧数量不作为当前事实，拿到证据再逐项审阅。源文件范围、调用来源局限及剩余完整三版本主线集中[TASKS最新节](../TASKS.md)，整文件删除仍须具体范围确认；R4保持关闭，历史BUG最后统一处理，无生产/模型/发布或本机依赖/构建测试/浏览器/产物下载。
+
 **B3a第二轮：7dc5eeee / CI42414561122的lint与6/6合同已过，unit仍未验收。** native作业268行日志/步骤已读；systemd在user WorkingDirectory外引号处拒绝，复杂路径步骤未执行。候选只按实际字段解析修raw路径/EnvFile glob编码，保原全部字面路径、PID/环境/退出码/数据保全断言，并加强字段decoder与glob路径；不改已有功能或版本号，仍beta.45待最终完整CI。真实EnvFile加载/manager生命周期继续未验证，详细源码依据与红灯边界见TASKS。
 
 **B3a首轮未验收：d3b89d16 / CI42414107174在新native脚本lint失败。** 失败作业183行日志/步骤已读；功能合同和systemd校验均未执行。候选只修CDPATH空赋值写法与literal systemd dollar的定域说明，保全部断言与校验命令，仍beta.45，待后继SHA完整CI；详细红灯与静态网站两项成功的精确边界见TASKS最新节，不将其称安装或运行通过。
