@@ -1,6 +1,6 @@
 {
   "name": "@forcemind/myapi",
-  "version": "0.2.0-beta.44",
+  "version": "0.2.0-beta.45",
   "description": "MyAPI self-hosting CLI and complete source distribution.",
   "type": "module",
   "bin": {
@@ -56,6 +56,8 @@
     "deploy/.env.example",
     "deploy/docker-compose.yml",
     "deploy/install.sh",
+    "deploy/install-native.sh",
+    "deploy/my-api-user.service",
     "CUSTOMIZATION.md",
     "DEPLOYMENT_CUSTOM.md",
     "AGENTS.md",

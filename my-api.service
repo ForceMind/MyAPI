@@ -1,23 +1,30 @@
-# File path: /etc/systemd/system/my-api.service
-#
-# MyAPI canonical systemd unit. Replace the example user and paths before
-# enabling it. Existing installations can keep using new-api.service while
-# they migrate their unit name and executable path.
-#
-# sudo systemctl daemon-reload
-# sudo systemctl start my-api
-# sudo systemctl enable my-api
-# sudo systemctl status my-api
+# Preview with: bash deploy/install-native.sh render-unit --scope system
+# B3a does not install this unit, create its paths, or control any service.
+# Existing installations are not adopted by this template.
 [Unit]
 Description=MyAPI Service
 After=network.target
 
 [Service]
-User=ubuntu  # 注意修改用户名
-WorkingDirectory=/path/to/my-api  # 注意修改路径
-ExecStart=/path/to/my-api/my-api --port 3000 --log-dir /path/to/my-api/logs  # 注意修改路径和端口号
-Restart=always
+Type=simple
+User=my-api
+Group=my-api
+WorkingDirectory=/var/lib/my-api/data
+# The required configuration file can override this new-install SQLite default.
+Environment="SQLITE_PATH=/var/lib/my-api/data/my-api.db?_busy_timeout=30000"
+EnvironmentFile=/etc/my-api/my-api.env
+ExecStart=/opt/my-api/current/my-api --log-dir /var/log/my-api
+Restart=on-failure
 RestartSec=5
+# Go allows 120 seconds by default for HTTP shutdown, followed by cache flush.
+# An unconfirmed stop must not be treated as permission to change the instance.
+TimeoutStopSec=infinity
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+# The application cannot write installation state, backups, or runtime files.
+ReadWritePaths=/var/lib/my-api/data /var/log/my-api /var/cache/my-api
 
 [Install]
 WantedBy=multi-user.target

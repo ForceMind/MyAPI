@@ -1207,6 +1207,90 @@ jobs:
       - name: Run Electron runtime tests
         run: node --test electron/test/*.test.mjs
 
+  native-service-contract:
+    name: Native service paths and unit contracts
+    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.repo.full_name || github.repository }}
+          persist-credentials: false
+          ref: ${{ github.event.action == 'closed' && github.event.pull_request.base.ref || github.ref }}
+
+      - name: Check native preview entry syntax and shell lint
+        run: |
+          bash -n deploy/install-native.sh
+          shellcheck deploy/install-native.sh
+
+      - name: Verify read-only paths and preserved fixture data
+        run: node --test tools/runtime/native-service.test.mjs
+
+      - name: Verify rendered system and user units with synthetic executable fixtures
+        run: |
+          set -euo pipefail
+          command -v systemd-analyze
+          systemd-analyze --version
+          # These files exist only on this disposable runner. They are inert
+          # executable fixtures, not a MyAPI build or an installed service.
+          for path in /opt/my-api /etc/my-api /var/lib/my-api /var/log/my-api /var/cache/my-api; do
+            if [[ -e "$path" || -L "$path" ]]; then
+              echo "::error::Refusing to replace a pre-existing native fixture path."
+              exit 1
+            fi
+          done
+          myapi_native_ci_root="$RUNNER_TEMP/myapi-native-unit-fixtures"
+          mkdir -p "$myapi_native_ci_root/system" "$myapi_native_ci_root/user"
+          install -d -m 0700 "$myapi_native_ci_root/runtime"
+          printf '#!/bin/sh\nexit 0\n' > "$myapi_native_ci_root/inert-binary"
+          sudo install -d /opt/my-api/current /etc/my-api /var/lib/my-api/data /var/log/my-api /var/cache/my-api
+          sudo install -m 0755 "$myapi_native_ci_root/inert-binary" /opt/my-api/current/my-api
+          printf 'MYAPI_UNIT_FIXTURE=1\n' | sudo tee /etc/my-api/my-api.env > /dev/null
+          bash deploy/install-native.sh render-unit --scope system > "$myapi_native_ci_root/system/my-api.service"
+          systemd-analyze verify --man=no "$myapi_native_ci_root/system/my-api.service"
+          myapi_native_ci_data="$myapi_native_ci_root/xdg-data"
+          myapi_native_ci_config="$myapi_native_ci_root/xdg-config"
+          myapi_native_ci_state="$myapi_native_ci_root/xdg-state"
+          myapi_native_ci_cache="$myapi_native_ci_root/xdg-cache"
+          mkdir -p "$myapi_native_ci_data/my-api/current" "$myapi_native_ci_data/my-api/data" "$myapi_native_ci_config/my-api" "$myapi_native_ci_state/my-api/logs" "$myapi_native_ci_cache/my-api"
+          install -m 0755 "$myapi_native_ci_root/inert-binary" "$myapi_native_ci_data/my-api/current/my-api"
+          printf 'MYAPI_UNIT_FIXTURE=1\n' > "$myapi_native_ci_config/my-api/my-api.env"
+          XDG_DATA_HOME="$myapi_native_ci_data" XDG_CONFIG_HOME="$myapi_native_ci_config" XDG_STATE_HOME="$myapi_native_ci_state" XDG_CACHE_HOME="$myapi_native_ci_cache" bash deploy/install-native.sh render-unit --scope user > "$myapi_native_ci_root/user/my-api.service"
+          # No manager is started and no unit is installed/enabled. The user
+          # check must not require a login session or user-namespace sandbox.
+          XDG_RUNTIME_DIR="$myapi_native_ci_root/runtime" systemd-analyze --user verify --man=no "$myapi_native_ci_root/user/my-api.service"
+          echo 'MYAPI_NATIVE_UNITS_VERIFY_PASS system=true user=true runtime_started=false installation_connected=false fixture=synthetic-executable'
+
+      - name: Verify literal user path characters with systemd
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import subprocess
+
+          root = Path(os.environ['RUNNER_TEMP']) / 'myapi-native-literal-paths'
+          data = root / '数据 data=value space "quote" \\ %n $HOME $(literal) `literal`'
+          config = root / "config 'quote' %h $CONFIG"
+          state = root / 'state space "quote" \\ %i ${HOME}'
+          cache = root / 'cache space %t $CACHE'
+          runtime = root / 'runtime'
+          for directory in [data / 'my-api/current', data / 'my-api/data', config / 'my-api', state / 'my-api/logs', cache / 'my-api', runtime]:
+              directory.mkdir(parents=True, exist_ok=True)
+          runtime.chmod(0o700)
+          binary = data / 'my-api/current/my-api'
+          binary.write_text('#!/bin/sh\nexit 0\n')
+          binary.chmod(0o755)
+          (config / 'my-api/my-api.env').write_text('MYAPI_UNIT_FIXTURE=1\n')
+          environment = {**os.environ, 'XDG_DATA_HOME': str(data), 'XDG_CONFIG_HOME': str(config), 'XDG_STATE_HOME': str(state), 'XDG_CACHE_HOME': str(cache), 'XDG_RUNTIME_DIR': str(runtime)}
+          rendered = subprocess.run(['bash', 'deploy/install-native.sh', 'render-unit', '--scope', 'user'], env=environment, check=True, text=True, capture_output=True)
+          unit = root / 'my-api.service'
+          unit.write_text(rendered.stdout)
+          subprocess.run(['systemd-analyze', '--user', 'verify', '--man=no', str(unit)], env=environment, check=True)
+          print('MYAPI_NATIVE_LITERAL_PATHS_VERIFY_PASS runtime_started=false fixture=synthetic-executable')
+          PY
+
   distribution-contract:
     name: Distribution and release contracts
     if: github.event.action != 'closed' || github.event.pull_request.merged == true

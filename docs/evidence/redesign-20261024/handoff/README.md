@@ -2,6 +2,12 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**已验证基线：A5a `679ceee0f5e91162b1cffbc7becbbd0632955306` / [完整CI42411676577](https://github.com/ForceMind/MyAPI/actions/runs/42411676577) attempt1 success。** 11执行作业成功/2可选作业跳过，18494行日志、全部步骤及11个checkout已核对，失败/race标记0；三库12、Native105、前端3452与根main/独立relaykit/386/原有race通过。A5a仅controller机械内联，整个A5仍有后续；应用当时beta.44未发布，下面beta.45是新候选，不能混用证据。
+
+**2026-11-08当前候选：B3a Linux路径预览与服务模板，beta.45，待Actions验证。** 复用system/XDG已确认路径和T1只做合同/合成、不接线下载安装边界；新入口仅plan/render-unit/stdout，中英明确未查既有配置和健康、不可据此接管/替换。system固定专用用户与受限写目录，user安全渲染且不依赖namespace；必需配置可覆盖SQLite缺省，停机未确认不允许继续。特殊路径经固定exec位置参数传入，保全部literal字符，严格argv/PID/环境/退出码和数据保全合同待Actions，不在本机跑测试。
+
+两代理完成owner候选、主会话已亲读并集成；新native CI检查6组Node合同、shellcheck和systemd-analyze两scope/复杂路径，源码包清单包含新入口/模板，版本仅既有五处beta.45。语法/差异轻检查不等于运行通过；实际安装、manager生命周期、配置加载与生产仍未验证，不将本批称完整B3。详情、官方语义依据、权限/路径/转交合同和剩余计划集中[TASKS最新节](../TASKS.md)。所有构建测试只Actions，浏览器/生产/真实模型/供应商/main/发布不动；R4保持关闭，其余历史BUG最后统一处理，完整三版本Goal继续。
+
 **2026-11-08当前：A4完整CI已通过，继续A5a controller机械内联；应用仍beta.44。** dev/`3df6dd05ef16098a2bf6741f1f271829d0eca9a6` / [完整CI42408737566](https://github.com/ForceMind/MyAPI/actions/runs/42408737566) attempt1 success：11执行作业成功/2可选作业跳过（A3分析、浏览器真实API），18578行日志、全部步骤与11个checkout已核对，失败/race标记0。三库12场景、23个原test的race逐名PASS、保留分析解析test的普通全量、前端3452、Native105及根main/独立relaykit/386/原有race均通过；前端lint26 warnings/0 errors未扩展处理。两项同SHA静态网站作业也成功，没有浏览器、生产或真实模型/供应商验收。
 
 A5a只内联controller/model_sync.go中单调用coalesce，保空白回退、非空图标原值及原vendor行为；原断言不改，不删文件或公开API，不按旧数量凑清理。两代理窄查保留业务/权限/审计/配置/回调与测试边界，其它同包候选与未覆盖部分集中[TASKS最新节](../TASKS.md)，不能称A5全部完成。本批源码待自身完整CI，beta.44未发布/部署；全部构建测试仍只Actions，本机仅源码与轻检查，无依赖/项目编译测试/Docker/浏览器/产物下载。R4保持关闭，历史BUG最后统一处理；完整三版本Goal及A5后续/A6/B3/B4/B5b后续/B6/B7与收口继续。

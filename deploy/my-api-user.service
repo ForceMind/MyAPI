@@ -1,0 +1,26 @@
+# Render first: bash deploy/install-native.sh render-unit --scope user
+# These placeholders are not an installable unit. B3a only prints the result.
+# No directories, configuration, service, or lingering user session are created.
+[Unit]
+Description=MyAPI User Service
+
+[Service]
+Type=simple
+WorkingDirectory=@DATA@
+# The required configuration file can override this new-install SQLite default.
+Environment=@SQLITE_DEFAULT@
+EnvironmentFile=@CONFIG@
+# Only this fixed script is interpreted; paths are separate positional values.
+# exec replaces the shell, preserving the service PID and inherited environment.
+ExecStart=/bin/sh -c "exec \"$$1\" --log-dir \"$$2\"" my-api @BINARY@ @LOGS@
+Restart=on-failure
+RestartSec=5
+# Go allows 120 seconds by default for HTTP shutdown, followed by cache flush.
+# An unconfirmed stop must not be treated as permission to change the instance.
+TimeoutStopSec=infinity
+UMask=0077
+NoNewPrivileges=true
+# User units deliberately omit namespace-dependent filesystem restrictions.
+
+[Install]
+WantedBy=default.target

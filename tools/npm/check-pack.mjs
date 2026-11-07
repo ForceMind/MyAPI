@@ -45,6 +45,8 @@ const required = [
   'cli/myapi.mjs',
   'Dockerfile',
   'my-api.service',
+  'deploy/install-native.sh',
+  'deploy/my-api-user.service',
   'deploy/docker-compose.yml',
   'AGENTS.md',
   'LICENSE',

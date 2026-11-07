@@ -1,5 +1,23 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-08 B3a：Linux原生路径预览与服务模板（beta.45候选，非安装器/生命周期验收）
+
+前一小批A5a已验收：dev/`679ceee0f5e91162b1cffbc7becbbd0632955306` / [完整CI42411676577](https://github.com/ForceMind/MyAPI/actions/runs/42411676577) attempt1 success，11执行作业成功/2可选作业跳过；18494行全部日志、步骤和11个checkout已核对，失败/race标记0。原三库12场景、Native105/105/0skip、前端421文件3452/3452及根main/根与独立relaykit/386/原有race均通过。仅coalesce机械展开和原进度文档，未改原断言或发布；这不等于整个A5已逐项清理。B3a是在等待该CI期间并行准备，未抢先推送，实际结果仍待本批自身CI。
+
+沿已批准PLAN_PHASE2 B3及已确认system/XDG路径，先交付可审阅的只读入口与两种unit，不重做现有CLI、operations或Desktop。维护者确认的Release Manifest阶段仍只做合同/合成，不接线下载、验签、安装；本批没有新增管理执行器。`bash deploy/install-native.sh plan --scope system|user`只显示目标目录，`render-unit --scope system|user`只向stdout输出服务文件；帮助和预览有中英说明，明确尚未检查现有安装、配置、健康/端口/edition，不可据此接管或替换服务。安装/升级/回退/卸载及未知命令均非零拒绝，不创建目录或控制服务。
+
+成功标准：固定system专用账户与路径、解析user XDG路径，特殊字符保持字面值，预览不读密钥/正文/配置或改变既有数据；system/user模板各自适用，未确认停机不假称可继续。验证方法：6组Node合同的路径/拒写/字节权限保全及合成exec转交、shellcheck、真实systemd-analyze解析system/user及复杂路径unit，均只在Actions；随后按最终SHA读取完整CI。当前为源码候选，轻检查不代替这些运行证明，不提前称B3a验收或完整B3完成。
+
+文件与分工：复用2名gpt-6.1-sol/high，模板/入口owner仅my-api.service、deploy/my-api-user.service、deploy/install-native.sh；测试owner仅tools/runtime/native-service.test.mjs；主会话负责既有CI新增独立native合同作业、NPM源码files/check-pack required资产接线、既有五处beta.45值和本交接。主会话集成后亲读全部候选源码，未在本机执行入口/test/shellcheck/systemd，只有bash -n、node --check、YAML及内嵌Bash/Python轻语法/差异。没有安装依赖/项目编译测试/Go分析/Docker/浏览器或下载产物，NPM只验证源码包，不发布。
+
+system固定/opt/my-api/{current,releases}、/etc/my-api/my-api.env、/var/lib/my-api/{data,state,backups}、/var/log/my-api、/var/cache/my-api，由my-api账户运行。user从已校验的HOME和显式/默认XDG data/config/state/cache解析绝对路径；data/release与state/backups分开，不改HOME、不扫描或自动接管旧目录。空/相对/控制字符/点段路径拒绝；plan不把目标路径说成存在或健康。SQLite缺省与必需EnvironmentFile并存，显式配置仍可覆盖，unit只写此SQLite缺省而不硬编码密钥/功能开关。system限制后端仅写data/log/cache，不赋予安装state/backups写权；user不依赖usernamespace文件系统隔离，均UMask0077/NoNewPrivileges/on-failure。
+
+停机：从main代码看默认HTTP Shutdown为120秒且随后可能保存看板数据，故unit用TimeoutStopSec=infinity避免manager默认截止后强杀；未确认停止时不得备份/换程序/重启，不把等待说成已停。依据[systemd官方停机合同](https://www.freedesktop.org/software/systemd/man/256/systemd.service.html)；本批不发任何stop或manager控制命令，不证明实际停机过程。
+
+特殊路径：从[systemd v256官方源码](https://github.com/systemd/systemd/blob/v256/src/core/load-fragment.c)看ExecutablePath与argv展开不同，直接给可执行路径加$$或转义quote不能支持本批已锁的literal域；env也将含=的operand视为赋值。user因此采用固定/bin/sh与固定`exec "$1" --log-dir "$2"`字面脚本，目录只通过位置参数传入，不拼shell源码、不eval；`exec`转交语义见[Ubuntu官方dash手册](https://manpages.ubuntu.com/manpages/noble/man1/dash.1.html)。完整6项argv严格断言，合成程序校验相同PID、原binary/log路径、继承环境、原非零退出码以及无额外命令/文件修改；中文、空格、引号、反斜杠、%/$/=及命令样文本不缩减。真实systemd解析另校验，不能只用自写词法decoder当外部验证。
+
+Actions的system/user verify只使用一次性Runner的inert executable/临时配置与目录，拒绝覆盖预存/opt等路径；不会安装/enable unit、启动manager或真实MyAPI，也没有真实模型/供应商请求。Node的合成exec不是服务生命周期、真实配置加载或生产账务验收。剩余B3的可信制品接线/安装升级/兼容回退/保数据卸载及manager生命周期仍未实现或验收，不能以本批替代；B4/B5b后续/B6/B7、A5后续/A6及七语言/统一质量/全量验收继续同一Goal。R4保持关闭，历史BUG到版本功能之后；无生产/服务器/main/tag/GHCR/NPM发布或部署，浏览器未验证。
+
 ## 2026-11-08 A5a：controller单调用机械辅助函数（沿用beta.44，完整CI待验）
 
 A4已通过源码与非浏览器验收：dev/`3df6dd05ef16098a2bf6741f1f271829d0eca9a6` / [完整CI42408737566](https://github.com/ForceMind/MyAPI/actions/runs/42408737566) attempt1 success，11执行作业成功，A3可选分析和浏览器真实API两作业跳过。主会话读取18578行全部执行日志，核对全部步骤与11个checkout一致，失败/race标记0。A4原23条相关test在race专项逐名PASS，独立的分析窗口解析test保留于普通controller全量；15条纯测试、分桶三断言与10个保留test/helper的文本映射一致。三库12叶场景全PASS/0skip（B2完整2203行）；根main、根/独立relaykit、386及原有race成功；前端421文件3452/3452、Native105/105/0skip通过。前端lint26 warnings/0 errors，本轮未扩展处理。相同源码的静态网站检查42408737654和打包42408737578成功，382/431行日志、步骤与checkout已核对；未下载产物。浏览器、真实供应商/模型、生产及平台GUI未验证或操作。
