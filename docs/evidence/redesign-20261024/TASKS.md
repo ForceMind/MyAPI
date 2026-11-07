@@ -1,5 +1,26 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-08 A2：Lite配置兼容预检与实际部署来源（beta.42候选，三库/完整CI为门禁）
+
+上一轮为实质进展：B5b1源码及非浏览器验证已交付，dev/`65325d7926d706fe66aaac3c5e1cdd52c686a40f` / [完整CI42385209689](https://github.com/ForceMind/MyAPI/actions/runs/42385209689) attempt1 success，10执行作业成功/1浏览器真实API跳过；主会话亲读17305行完整日志、全部步骤与10个checkout一致，失败/race标记0。原生105/105且0skip，前端421文件3452/3452，根/独立relaykit/386/三库/全部既有race通过。同SHA额外[静态打包42385209664](https://github.com/ForceMind/MyAPI/actions/runs/42385209664)和[静态检查42385209663](https://github.com/ForceMind/MyAPI/actions/runs/42385209663)成功，全部431/382行与步骤/checkout已读，没有浏览器或部署。beta.41仅源码交付；beta.40旧安装包仍绑定13eedad9，不重标新源。完整B5b公网外部验证仍在原Goal，不以入口记录向导代替。
+
+本轮开工dev/65325d79干净，fetch后0/0、ff-only最新，基线CI仍success。复用A1报告及既有支付、密码、Passkey、来源/身份/batch保护，只实施PLAN_PHASE2 A2；R4保持关闭，不重开R1–R3/R5–R8或其它BUG专项。不新增页面或重画UI，已有方向3/效果图/线稿保持；本批交付是后端启动门禁、独立只读检查及CLI/安装接线。
+
+成功标准：Lite启动迁移前可识别未完成充值/订阅购买、无本地登录配置及无法确认的数据；未知不放行，检查不改订单/账务/账号/绑定/身份；CLI核对实际受管容器而不是把已编辑.env当成当前版本，拒绝把普通升级当未确认切版。验证方法：专属SQLite/MySQL5.7/PostgreSQL9.6矩阵与只读/行和文件保全、服务判定及实际main子进程、CLI/真实Bash配fake Docker合同，加完整CI全部在Actions；推送后按最终精确SHA亲读所有作业/步骤/日志。Go格式、JSON/YAML/Node/Bash语法与差异只作本机源码轻检查，不编译/测试/装依赖/跑Docker或浏览器，不下载产物。
+
+已锁定文件与分工：2名gpt-6.1-sol/high代理分别唯一负责新model只读facts与三库/SQLite回归、CLI/installer与合同；主会话负责service判定、main首flag/启动接线与回归、CI新A2数据库作业、既有五处beta.42值和本交接。无新代理或递归。候选范围：
+
+- 原生只读连接解析同一SQL_DSN primary，复用现有SQLite/WAL保全和三库只读事务工具，不改旧金额/writer/execution规则。检查仅5表：top_ups、subscription_orders、users、options、passkey_credentials；user_subscriptions活动权益不作为pending购买订单。
+- 区分真实新库、已有库、部分schema/外部表/视图及不可确认；失败的三个facts段为null，不补0。订单精确识别pending/success/failed/expired，NULL/未知状态不自动改为终态。MySQL必需表均InnoDB才声称跨表一致读，不对生产ALTER引擎；三库自有fixture对照失败/终态/未知及行不变。
+- 本地认证仅检查配置兼容：精确已保存/启动默认/非法的PasswordLoginEnabled与passkey.enabled，启用且未软删账号的受支持bcrypt/结构有效Passkey候选及缺失/未知，含Root；不返回hash、credential ID、公钥或OAuth标识。Passkey保留为本地方式，候选不等于实际登录，报告固定scope=configuration、login_continuity=not-verified、runtime_login_verified=false；建议切换前用原合法登录流程确认，不自动设密码/开关/绑解绑。
+- 新首flag `my-api --edition-check=<full|lite|lan> [--json]` 在普通InitEnv/DB/日志/Redis/后台/HTTP初始化前处理，匹配.env读取优先级和SQLite原位选择；不以旧二进制可能忽略的子命令探测。0/1/2分别配置兼容/已阻止/无法确认，JSON只用common包装。Full目标保原功能面，不为Lite缩减检查打开DB；Full启动原路径保持。
+- 匿名裸:memory:在每个连接独立，不能把新进程空库当运行实例的旧数据，独立检查报告不可确认；仅明确的全新Lite匿名内存初始化可沿原启动行为(scope=initialization)，不开放用户bypass旗标。命名/shared内存仍不可确认，不打开另库造旧数据证据。依据[SQLite官方内存库说明](https://www.sqlite.org/inmemorydb.html)，对应真实行为仍由Actions测试证明。
+- `myapi doctor --target-edition lite [--json]` 为独立只读模式，不跑普通doctor端口bind探测。投影读取同一现有容器ID/immutable image ID/实际edition/状态/data与log绑定/工作目录/非secret存储来源标记，不dump Env、DSN或原stderr；只在该running容器exec原环境的明确后端flag，不pull/up/新建探测容器。报告是时点检查，不是切换授权或后续数据不变证明。
+- 普通up/upgrade/installer在首个备份/写配置/mkdir/pull/up前核对来源。实际版与目标不符或未知时拒绝并给出检查/独立切换方案提示；正常受管Full→Full、Lite→Lite、lan↔lite不依赖新bin旗标，已停容器同版可继续；旧bin不支持检查则unknown，不猜成功。原fresh-data/identity/batch/回滚保护及拒绝前零写入断言保留。
+- 当前deploy模板未转发SQL_DSN/SQLITE_PATH，不能拿带额外存储配置的运行容器冒充模板默认同库；此情形拒绝且不自动迁移/补变量。根docker-compose手工MySQL/PG形态和原生后端仍保三库，不宣称由该CLI模板覆盖。
+
+候选beta.42只在dev源码与Actions验证，不发布/部署/合main、不改实际生产配置或发模型/供应商请求。新增专属A2三库作业，缺任一DSN必须失败，普通全量跳过关系库专属入口不当作三库已验。浏览器、真实供应商、实际登录/认证器、真实主机/大库/公网尚未验证；A3–A6/B3/B4/B5b后续/B6/B7及统一质量/七语言/全量验收仍按同一Goal继续。
+
 ## 2026-11-07 B5b1：已有HTTPS反代接入向导（beta.41候选，完整CI为门禁）
 
 上一轮为实质进展：B5a源码与双平台非浏览器打包已交付。dev/`13eedad93b365f1a00f45da27faf05e18409af9d` / [完整CI42379188640](https://github.com/ForceMind/MyAPI/actions/runs/42379188640) attempt1 success，10作业成功/1浏览器真实API跳过；主会话亲读16195行完整执行日志、全部步骤和10个checkout一致，失败/race标记0。前端421文件3452/3452，Native59/59且0skip，根/独立relaykit/386/三库/Redis/ClickHouse/全部既有race通过。原生owned-child合成进程实际close、无关进程不受影响通过，不冒充GUI/安装验收。

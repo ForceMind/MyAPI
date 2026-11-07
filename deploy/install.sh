@@ -300,6 +300,17 @@ resolve_deploy_path() {
   esac
 }
 
+fail_existing_edition_storage() {
+  echo "Edition/storage configuration needs review: the existing container metadata or storage binding could not be verified; no container or configuration was changed." >&2
+  exit 1
+}
+
+canonical_deploy_directory() {
+  local candidate
+  candidate=$(resolve_deploy_path "$1")
+  (cd "$candidate" && pwd -P) 2>/dev/null
+}
+
 # Inspect only the nonsecret effective batch choice before any image pull or
 # container recreation. Old templates hardcoded true even when .env said false.
 if ! existing_target=$(docker container ls -a --filter 'name=^/my-api$' --format '{{.ID}}' 2>/dev/null); then
@@ -313,6 +324,56 @@ if [[ -n "$existing_target" ]]; then
   fi
   if ! previous_batch=$(docker container inspect --format '{{range .Config.Env}}{{if eq . "BATCH_UPDATE_ENABLED=true"}}true{{end}}{{if eq . "BATCH_UPDATE_ENABLED=false"}}false{{end}}{{end}}' "$existing_target" 2>/dev/null) || [[ "$previous_batch" != "$BATCH_UPDATE_ENABLED" ]]; then
     echo "Accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart." >&2
+    exit 1
+  fi
+  # The running configuration is authoritative, not a possibly edited .env.
+  # This fixed projection never requests secrets or the complete Env array.
+  existing_format='id={{.Id}}
+image_id={{.Image}}
+image_reference={{.Config.Image}}
+running={{.State.Running}}
+edition={{range .Config.Env}}{{if eq (index (split . "=") 0) "MYAPI_EDITION"}}{{.}}{{end}}{{end}}
+data={{range .Mounts}}{{if eq .Destination "/data"}}{{printf "%s|%s|%t" .Type .Source .RW}}{{end}}{{end}}
+logs={{range .Mounts}}{{if eq .Destination "/app/logs"}}{{printf "%s|%s|%t" .Type .Source .RW}}{{end}}{{end}}
+working_dir={{.Config.WorkingDir}}
+custom_storage={{range .Config.Env}}{{if or (and (eq (index (split . "=") 0) "SQL_DSN") (ne . "SQL_DSN=")) (and (eq (index (split . "=") 0) "SQLITE_PATH") (ne . "SQLITE_PATH=")) (and (eq (index (split . "=") 0) "LOG_SQL_DSN") (ne . "LOG_SQL_DSN="))}}custom{{end}}{{end}}'
+  if ! edition_metadata=$(docker container inspect --format "$existing_format" "$existing_target" 2>/dev/null); then
+    fail_existing_edition_storage
+  fi
+  edition_meta_id="" edition_meta_image="" edition_meta_reference="" edition_meta_running="" edition_meta_edition="" edition_meta_data="" edition_meta_logs="" edition_meta_workdir="" edition_meta_storage=""
+  edition_meta_count=0
+  while IFS= read -r edition_meta_line; do
+    case "$edition_meta_count:$edition_meta_line" in
+      0:id=*) edition_meta_id=${edition_meta_line#id=} ;;
+      1:image_id=*) edition_meta_image=${edition_meta_line#image_id=} ;;
+      2:image_reference=*) edition_meta_reference=${edition_meta_line#image_reference=} ;;
+      3:running=*) edition_meta_running=${edition_meta_line#running=} ;;
+      4:edition=*) edition_meta_edition=${edition_meta_line#edition=} ;;
+      5:data=*) edition_meta_data=${edition_meta_line#data=} ;;
+      6:logs=*) edition_meta_logs=${edition_meta_line#logs=} ;;
+      7:working_dir=*) edition_meta_workdir=${edition_meta_line#working_dir=} ;;
+      8:custom_storage=*) edition_meta_storage=${edition_meta_line#custom_storage=} ;;
+      *) fail_existing_edition_storage ;;
+    esac
+    edition_meta_count=$((edition_meta_count + 1))
+  done <<< "$edition_metadata"
+  if [[ "$edition_meta_count" != 9 || ! "$edition_meta_id" =~ ^[a-f0-9]{64}$ || "$edition_meta_id" != "$existing_target"* ||
+        ! "$edition_meta_image" =~ ^sha256:[a-f0-9]{64}$ || ! "$edition_meta_reference" =~ ^[A-Za-z0-9._:/@+-]{1,2048}$ ||
+        ( "$edition_meta_running" != true && "$edition_meta_running" != false ) || "$edition_meta_edition" != MYAPI_EDITION=* ||
+        "$edition_meta_workdir" != /data || -n "$edition_meta_storage" ]]; then
+    fail_existing_edition_storage
+  fi
+  actual_edition=$(printf '%s' "${edition_meta_edition#MYAPI_EDITION=}" | tr '[:upper:]' '[:lower:]' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  actual_edition=${actual_edition:-full}
+  case "$actual_edition" in full) ;; lite|lan) actual_edition=lite ;; *) fail_existing_edition_storage ;; esac
+  if ! expected_data=$(canonical_deploy_directory "$MYAPI_DATA_DIR") || ! expected_logs=$(canonical_deploy_directory "$MYAPI_LOGS_DIR") ||
+     [[ "$edition_meta_data" != "bind|$expected_data|true" || "$edition_meta_logs" != "bind|$expected_logs|true" ]]; then
+    fail_existing_edition_storage
+  fi
+  target_edition=full
+  if [[ "$is_restricted_edition" == true ]]; then target_edition=lite; fi
+  if [[ "$actual_edition" != "$target_edition" ]]; then
+    printf 'Ordinary upgrades cannot change the existing product edition; run "myapi doctor --target-edition %s --project-dir DIR --json" and review a manual edition-change plan. No container or configuration was changed.\n' "$target_edition" >&2
     exit 1
   fi
 else

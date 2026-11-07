@@ -47,6 +47,9 @@ var buildFS embed.FS
 var indexPage []byte
 
 func main() {
+	if handled, code := handleEditionCompatibilityCommand(os.Args[1:], os.Stdout); handled {
+		os.Exit(code)
+	}
 	startTime := time.Now()
 	kitutil.SetLogging(common.SysLog, func(message string) {
 		logger.LogError(nil, message)
@@ -313,6 +316,17 @@ func InitResources() error {
 
 	// 加载环境变量
 	common.InitEnv()
+
+	// Lite keeps local authentication and existing subscription benefits, but
+	// cannot finish Full-only purchase flows or external OAuth login. Inspect
+	// the actual primary before migrations, workers or HTTP admission begin.
+	if middleware.IsLANEdition() {
+		report := service.CheckEditionStartupConfiguration(context.Background(), os.Getenv("MYAPI_EDITION"), "lite")
+		if report.ExitCode() != 0 {
+			issues := append(append([]string{}, report.Blockers...), report.Unknowns...)
+			return fmt.Errorf("Lite configuration check %s (%s); run my-api --edition-check=lite --json and resolve the listed conditions in Full before retrying", report.State, strings.Join(issues, ", "))
+		}
+	}
 
 	logger.SetupLogger()
 

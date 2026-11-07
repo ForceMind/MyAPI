@@ -16,6 +16,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -888,9 +889,18 @@ test('reviewed existing false overrides conflicting ambient batch choice in both
   const docker = path.join(f.root, 'bin/docker')
   writeFileSync(docker, '#!/bin/sh\n' +
     'if [ "$1" = container ] && [ "$2" = ls ]; then printf "012345abcdef\\n"; exit 0; fi\n' +
-    'if [ "$1" = container ] && [ "$2" = inspect ]; then printf "false\\n"; exit 0; fi\n' +
+    'if [ "$1" = container ] && [ "$2" = inspect ]; then\n' +
+    '  case "$4" in id=*) printf "%s\\n" "$MYAPI_TEST_METADATA" ;; *) printf "false\\n" ;; esac\n' +
+    '  exit 0\nfi\n' +
     'printf "%s\\n" "$BATCH_UPDATE_ENABLED" >> "$MYAPI_ACCOUNTING_TEST_LOG"\n', { mode: 0o700 })
-  const env = { ...f.env, BATCH_UPDATE_ENABLED: 'true' }
+  const metadata = [
+    `id=012345abcdef${'0'.repeat(52)}`, `image_id=sha256:${'a'.repeat(64)}`,
+    'image_reference=ghcr.io/forcemind/myapi:fixture', 'running=false', 'edition=MYAPI_EDITION=full',
+    `data=bind|${realpathSync(path.join(f.project, 'deploy/data'))}|true`,
+    `logs=bind|${realpathSync(path.join(f.project, 'deploy/logs'))}|true`,
+    'working_dir=/data', 'custom_storage=',
+  ].join('\n')
+  const env = { ...f.env, BATCH_UPDATE_ENABLED: 'true', MYAPI_TEST_METADATA: metadata }
   runCliWithEnv(env, 'up', '--project-dir', f.project)
   execFileSync('bash', [path.join(f.project, 'deploy/install.sh')], { cwd: f.project, env, encoding: 'utf8' })
   assert.ok(readFileSync(f.log, 'utf8').trim().split('\n').every((value) => value === 'false'))

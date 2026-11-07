@@ -378,6 +378,56 @@ jobs:
           MYAPI_S2A_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=s2a-fixture-password dbname=myapi_s2a_test sslmode=disable
         run: go test -p 1 ./model -run '^TestS2APaymentConfiguredDatabases$' -count=1 -timeout=180s -v
 
+  a2-edition-databases:
+    name: A2 edition compatibility database regression
+    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_DATABASE: myapi_edition_test
+          MYSQL_ROOT_PASSWORD: edition-fixture-password
+          MYSQL_ROOT_HOST: '%'
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pedition-fixture-password"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+      postgres:
+        image: postgres:9.6
+        env:
+          POSTGRES_DB: myapi_edition_test
+          POSTGRES_PASSWORD: edition-fixture-password
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd="pg_isready -U postgres -d myapi_edition_test"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    env:
+      GOWORK: 'off'
+      GOMAXPROCS: '1'
+      GOMEMLIMIT: '768MiB'
+      MYAPI_EDITION_DATABASE_TESTS: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            relaykit/go.sum
+      - name: Verify read-only edition compatibility on three disposable databases
+        env:
+          MYAPI_EDITION_MYSQL_DSN: root:edition-fixture-password@tcp(127.0.0.1:${{ job.services.mysql.ports[3306] }})/myapi_edition_test?charset=utf8mb4&parseTime=true
+          MYAPI_EDITION_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=edition-fixture-password dbname=myapi_edition_test sslmode=disable
+        run: go test -p 1 ./model -run '^TestEditionCompatibilityConfiguredDatabases$' -count=1 -timeout=600s -v
+
   b2-databases:
     name: B2 durable submission database regression
     if: github.event.action != 'closed' || github.event.pull_request.merged == true

@@ -26,6 +26,7 @@ func printHelp() {
 	fmt.Println("MyAPI " + Version + " - The next-generation LLM gateway and AI asset management system supports multiple languages.")
 	fmt.Println("Project: MyAPI - https://github.com/ForceMind/MyAPI")
 	fmt.Println("Usage: my-api [--port <port>] [--log-dir <log directory>] [--version] [--help]")
+	fmt.Println("Read-only edition check: my-api --edition-check=<full|lite|lan> [--json]")
 }
 
 func InitEnv() {

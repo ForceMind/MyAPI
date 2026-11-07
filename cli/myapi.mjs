@@ -18,6 +18,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
@@ -69,6 +70,23 @@ const deploymentDefaults = Object.freeze({
 // lan and lite are the same restricted edition; the value already present in a
 // deployment file is never rewritten from one spelling to the other.
 const knownEditions = Object.freeze(['full', 'lite', 'lan'])
+// Fixed nonsecret projection only. Never request all Config.Env or print the
+// captured response. Matching this protocol also rejects duplicate/extra lines.
+const existingDeploymentFormat = [
+  'id={{.Id}}',
+  'image_id={{.Image}}',
+  'image_reference={{.Config.Image}}',
+  'running={{.State.Running}}',
+  'edition={{range .Config.Env}}{{if eq (index (split . "=") 0) "MYAPI_EDITION"}}{{.}}{{end}}{{end}}',
+  'data={{range .Mounts}}{{if eq .Destination "/data"}}{{printf "%s|%s|%t" .Type .Source .RW}}{{end}}{{end}}',
+  'logs={{range .Mounts}}{{if eq .Destination "/app/logs"}}{{printf "%s|%s|%t" .Type .Source .RW}}{{end}}{{end}}',
+  'working_dir={{.Config.WorkingDir}}',
+  'custom_storage={{range .Config.Env}}{{if or (and (eq (index (split . "=") 0) "SQL_DSN") (ne . "SQL_DSN=")) (and (eq (index (split . "=") 0) "SQLITE_PATH") (ne . "SQLITE_PATH=")) (and (eq (index (split . "=") 0) "LOG_SQL_DSN") (ne . "LOG_SQL_DSN="))}}custom{{end}}{{end}}',
+].join('\n')
+
+function canonicalEdition(edition) {
+  return isRestrictedEdition(edition) ? 'lite' : edition
+}
 
 function deploymentEdition(values) {
   const edition = String(values.MYAPI_EDITION ?? '').trim().toLowerCase()
@@ -897,6 +915,8 @@ function adoptDataPaths(args) {
 }
 
 async function doctor(args) {
+  if (argumentValue(args, '--target-edition') !== undefined) return doctorEdition(args)
+  if (args.includes('--json')) throw new Error('doctor --json requires --target-edition')
   const projectRoot = projectRootFromArgs(args)
   const paths = deploymentPaths(projectRoot)
   const checks = []
@@ -998,13 +1018,175 @@ function verifyExistingAccountingConfiguration(paths, values) {
   if (ids.length === 0) {
     const selectedData = path.resolve(paths.deployDir, deploymentValue(values, 'MYAPI_DATA_DIR') || deploymentDefaults.MYAPI_DATA_DIR)
     assertFreshDeploymentData(paths, selectedData)
-    return
+    return null
   }
   const inspected = run('docker', ['container', 'inspect', '--format', '{{range .Config.Env}}{{if eq . "BATCH_UPDATE_ENABLED=true"}}true{{end}}{{if eq . "BATCH_UPDATE_ENABLED=false"}}false{{end}}{{end}}', ids[0]], { capture: true, env: composeEnvironment(values), timeout: 10000, maxBuffer: 4096 })
   const previous = String(inspected.stdout || '').trim()
   if (inspected.status !== 0 || !['true', 'false'].includes(previous) || previous !== values.BATCH_UPDATE_ENABLED) {
     throw new Error('accounting configuration needs review: the existing container batch setting is unknown or differs from the deployment file; keep its original configuration and review outstanding quota work before any restart')
   }
+  return ids[0]
+}
+
+function inspectExistingDeployment(paths, values, containerId) {
+  const inspected = run('docker', ['container', 'inspect', '--format', existingDeploymentFormat, containerId], {
+    capture: true, env: composeEnvironment(values), timeout: 10000, maxBuffer: 32768,
+  })
+  const failure = () => new Error('edition/storage configuration needs review: the existing container metadata or storage binding could not be verified; no container or configuration was changed')
+  if (inspected.status !== 0 || inspected.error) throw failure()
+  const lines = String(inspected.stdout || '').replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n')
+  const names = ['id', 'image_id', 'image_reference', 'running', 'edition', 'data', 'logs', 'working_dir', 'custom_storage']
+  if (lines.length !== names.length) throw failure()
+  const metadata = {}
+  for (let index = 0; index < names.length; index++) {
+    const prefix = `${names[index]}=`
+    if (!lines[index].startsWith(prefix)) throw failure()
+    metadata[names[index]] = lines[index].slice(prefix.length)
+  }
+  if (!/^[a-f0-9]{64}$/.test(metadata.id) || !metadata.id.startsWith(containerId) ||
+    !/^sha256:[a-f0-9]{64}$/.test(metadata.image_id) ||
+    !/^[A-Za-z0-9._:/@+-]{1,2048}$/.test(metadata.image_reference) ||
+    !['true', 'false'].includes(metadata.running) || !metadata.edition.startsWith('MYAPI_EDITION=')) throw failure()
+  const edition = metadata.edition.slice('MYAPI_EDITION='.length).trim().toLowerCase() || 'full'
+  if (!knownEditions.includes(edition) || metadata.custom_storage !== '' || metadata.working_dir !== '/data') throw failure()
+  try {
+    for (const [key, variable] of [['data', 'MYAPI_DATA_DIR'], ['logs', 'MYAPI_LOGS_DIR']]) {
+      const selected = path.resolve(paths.deployDir, deploymentValue(values, variable) || deploymentDefaults[variable])
+      if (!statSync(selected).isDirectory() || metadata[key] !== `bind|${realpathSync(selected)}|true`) throw failure()
+    }
+  } catch { throw failure() }
+  return { id: metadata.id, imageId: metadata.image_id, imageReference: metadata.image_reference, edition: canonicalEdition(edition), running: metadata.running === 'true' }
+}
+
+function verifyExistingEditionConfiguration(paths, values, containerId) {
+  if (!containerId) return null
+  const observed = inspectExistingDeployment(paths, values, containerId)
+  const target = canonicalEdition(deploymentEdition(values))
+  if (observed.edition !== target) {
+    throw new Error(`ordinary upgrades cannot change the existing product edition; run "myapi doctor --target-edition ${target} --project-dir DIR --json" and review a manual edition-change plan. No container or configuration was changed`)
+  }
+  return observed
+}
+
+function editionOrderCounts(value) {
+  if (value === null) return null
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('invalid facts')
+  const counts = {}
+  for (const key of ['total', 'pending', 'terminal', 'unknown']) {
+    if (!Number.isSafeInteger(value[key]) || value[key] < 0) throw new Error('invalid facts')
+    counts[key] = value[key]
+  }
+  const sum = counts.pending + counts.terminal + counts.unknown
+  if (!Number.isSafeInteger(sum) || sum !== counts.total) throw new Error('invalid facts')
+  return counts
+}
+
+function editionFacts(value, state) {
+  if (value === null) return null
+  if (!value || typeof value !== 'object' || Array.isArray(value) || value.schema_version !== 1 || value.read_only !== true ||
+    !['fresh', 'existing', 'partial', 'unavailable'].includes(value.schema) ||
+    !['configured-primary', 'new-anonymous-memory'].includes(value.source) ||
+    (!['sqlite', 'mysql', 'postgres'].includes(value.database) && !(value.database === 'unknown' && state === 'unverifiable')) ||
+    typeof value.complete !== 'boolean' || value.login_continuity !== 'not-verified') throw new Error('invalid facts')
+  let authentication = null
+  if (value.authentication !== null) {
+    const auth = value.authentication
+    if (!auth || typeof auth !== 'object' || Array.isArray(auth) ||
+      ![true, false, null].includes(auth.password_login_enabled) || ![true, false, null].includes(auth.passkey_enabled) ||
+      !['persisted', 'startup-default', 'invalid'].includes(auth.password_login_source) ||
+      !['persisted', 'startup-default', 'invalid'].includes(auth.passkey_source)) throw new Error('invalid authentication facts')
+    authentication = {
+      password_login_enabled: auth.password_login_enabled, password_login_source: auth.password_login_source,
+      passkey_enabled: auth.passkey_enabled, passkey_source: auth.passkey_source,
+    }
+    for (const key of ['enabled_users', 'enabled_root_users', 'password_candidates', 'passkey_candidates', 'local_candidates', 'root_local_candidates', 'missing_local_candidates', 'unknown_users', 'unknown_credential_records']) {
+      if (!Number.isSafeInteger(auth[key]) || auth[key] < 0) throw new Error('invalid authentication facts')
+      authentication[key] = auth[key]
+    }
+  }
+  return {
+    schema_version: 1, read_only: true, schema: value.schema, source: value.source, database: value.database,
+    complete: value.complete, login_continuity: 'not-verified', top_ups: editionOrderCounts(value.top_ups),
+    subscription_orders: editionOrderCounts(value.subscription_orders), authentication,
+  }
+}
+
+function parseEditionReport(text, target, source, status) {
+  const value = JSON.parse(text)
+  const states = { compatible: 0, blocked: 1, unverifiable: 2 }
+  if (!value || typeof value !== 'object' || Array.isArray(value) || value.schema_version !== 1 || value.check !== 'edition-compatibility' ||
+    value.read_only !== true || value.target_edition !== target || value.source_edition !== source ||
+    !Object.hasOwn(states, value.state) || states[value.state] !== status || value.scope !== 'configuration' ||
+    value.login_continuity !== 'not-verified' || value.runtime_login_verified !== false) throw new Error('invalid edition report')
+  const projected = {
+    schema_version: 1, check: 'edition-compatibility', read_only: true, target_edition: target, source_edition: source,
+    state: value.state, scope: 'configuration', login_continuity: 'not-verified', runtime_login_verified: false,
+    facts: editionFacts(value.facts, value.state),
+  }
+  for (const [key, allowed] of [
+    ['blockers', ['pending-top-ups', 'pending-subscription-orders', 'missing-local-login']],
+    ['unknowns', ['database-unavailable', 'schema-unverifiable', 'order-status-unverifiable', 'authentication-unverifiable', 'invalid-source-edition', 'invalid-target-edition', 'invalid-request']],
+    ['warnings', ['local-login-not-verified', 'full-edition-no-feature-reduction']],
+  ]) {
+    if (!Array.isArray(value[key]) || value[key].length > allowed.length || new Set(value[key]).size !== value[key].length || !value[key].every((item) => allowed.includes(item))) throw new Error('invalid edition report')
+    projected[key] = [...value[key]]
+  }
+  if (!projected.warnings.includes('local-login-not-verified') ||
+    (projected.state === 'compatible' && (projected.blockers.length || projected.unknowns.length)) ||
+    (projected.state === 'compatible' && projected.facts?.source === 'new-anonymous-memory') ||
+    (projected.state === 'compatible' && target === 'lite' && (!projected.facts?.complete || projected.facts.source !== 'configured-primary' ||
+      !['fresh', 'existing'].includes(projected.facts.schema) || (projected.facts.schema === 'existing' &&
+        (!projected.facts.top_ups || !projected.facts.subscription_orders || !projected.facts.authentication))))) throw new Error('invalid edition report')
+  return projected
+}
+
+function doctorEdition(args) {
+  const spelling = String(argumentValue(args, '--target-edition') || '').trim().toLowerCase()
+  const target = knownEditions.includes(spelling) ? canonicalEdition(spelling) : null
+  const paths = deploymentPaths(projectRootFromArgs(args))
+  let result = {
+    schema_version: 1, check: 'edition-compatibility', read_only: true, target_edition: target, source_edition: null,
+    state: 'unverifiable', scope: 'configuration', login_continuity: 'not-verified', runtime_login_verified: false,
+    facts: null, blockers: [], unknowns: [target ? 'database-unavailable' : 'invalid-request'], warnings: ['local-login-not-verified'],
+  }
+  try {
+    if (!target) throw new Error('invalid target edition')
+    assertDeploymentSource(paths)
+    if (!existsSync(paths.envFile)) throw new Error('configuration unavailable')
+    const values = parseEnvFile(paths.envFile)
+    if (values.MYAPI_ACCOUNTING_CONFIG_VERSION !== '1' || !['true', 'false'].includes(values.BATCH_UPDATE_ENABLED)) throw new Error('accounting configuration unavailable')
+    const containerId = verifyExistingAccountingConfiguration(paths, values)
+    if (!containerId) throw new Error('no existing container')
+    const observed = inspectExistingDeployment(paths, values, containerId)
+    result.source_edition = observed.edition
+    if (!observed.running) throw new Error('existing container is stopped')
+    const inspected = run('docker', ['exec', observed.id, '/my-api', `--edition-check=${target}`, '--json'], {
+      capture: true, env: composeEnvironment(values), timeout: 90000, maxBuffer: 262144,
+    })
+    if (inspected.error || ![0, 1, 2].includes(inspected.status)) throw new Error('backend inspection unavailable')
+    try {
+      const projected = parseEditionReport(String(inspected.stdout || ''), target, observed.edition, inspected.status)
+      // This helper's inspected /data template has no custom database Env.
+      // Other database deployments use the backend's standalone flag instead.
+      if (projected.facts && !['sqlite', 'unknown'].includes(projected.facts.database)) throw new Error('primary binding mismatch')
+      result = projected
+    }
+    catch { result.unknowns = ['schema-unverifiable'] }
+  } catch { /* Only the fixed safe report is emitted; raw commands, Env and errors stay private. */ }
+  if (args.includes('--json')) console.log(JSON.stringify(result, null, 2))
+  else {
+    console.log(`Read-only edition compatibility: ${result.state}`)
+    console.log(`Observed source: ${result.source_edition || 'unknown'}; requested target: ${target || 'unknown'}`)
+    console.log(`Blockers: ${result.blockers.join(', ') || 'none reported'}; unknowns: ${result.unknowns.join(', ') || 'none reported'}`)
+    if (result.facts) {
+      console.log(`Stored data: schema=${result.facts.schema}, database=${result.facts.database}, complete=${result.facts.complete}`)
+      console.log(`Pending top-ups: ${result.facts.top_ups?.pending ?? 'unknown'}; pending subscription orders: ${result.facts.subscription_orders?.pending ?? 'unknown'}`)
+      console.log(`Local login candidates: ${result.facts.authentication?.local_candidates ?? 'unknown'}; root candidates: ${result.facts.authentication?.root_local_candidates ?? 'unknown'} (configuration evidence only, not verified)`)
+    } else console.log('Stored data facts: unavailable')
+    console.log('This checks configuration only. Login continuity is not verified; it does not authorize an edition change or prove that no writes occurred after inspection.')
+    console.log('No configuration, order, credential, container, image, or database was changed by this check.')
+  }
+  process.exitCode = { compatible: 0, blocked: 1, unverifiable: 2 }[result.state]
 }
 
 function deploymentCommand(command, args) {
@@ -1061,7 +1243,8 @@ function deploymentCommand(command, args) {
     if (errors.length > 0) {
       throw new Error(`deployment preflight failed: ${errors.join('; ')}`)
     }
-    verifyExistingAccountingConfiguration(paths, values)
+    const existingId = verifyExistingAccountingConfiguration(paths, values)
+    verifyExistingEditionConfiguration(paths, values, existingId)
     const composeConfig = run(
       'docker',
       composeArguments(paths, ['config', '--quiet']),
@@ -1218,6 +1401,7 @@ function printUpgradeDryRun(plan, args) {
     projectDir: plan.paths.projectRoot,
     edition: plan.edition,
     currentImage: plan.currentImage,
+    currentImageSource: 'deployment-file-not-running-state',
     targetImage: plan.image,
     version: plan.version,
     // Upgrade always resolves the target to a versioned GHCR image. Local
@@ -1230,6 +1414,7 @@ function printUpgradeDryRun(plan, args) {
     rollbackPolicy: 'manual-database-verification-after-target-start',
     checks: ['deployment-files', 'environment', 'runtime-configuration'],
     existingAccountingConfiguration: 'must-be-verified-before-apply',
+    existingEditionConfiguration: 'must-be-verified-before-apply',
     writes: [],
     dockerOperations: [],
   }
@@ -1240,14 +1425,14 @@ function printUpgradeDryRun(plan, args) {
   console.log('MyAPI upgrade dry-run: no files, containers, images, or data were changed.')
   console.log(`Project: ${result.projectDir}`)
   console.log(`Edition: ${result.edition}`)
-  console.log(`Current image: ${result.currentImage}`)
+  console.log(`Configured image (running container not inspected): ${result.currentImage}`)
   console.log(`Target image: ${result.targetImage}`)
   console.log('Image action: pull the pinned target image from GHCR')
   console.log(
     `Signature verification: ${result.signatureVerification === 'requested-not-executed' ? 'requested (not executed in dry-run)' : 'not requested'}`
   )
   console.log(`Digest pinning: ${result.imagePinning === 'requested-not-executed' ? 'requested (resolved after pull)' : 'not requested'}`)
-  console.log('Configuration checks passed. Applying the upgrade additionally verifies the existing container accounting configuration before any write or restart.')
+  console.log('Configuration checks passed. Applying the upgrade additionally verifies the existing container accounting, edition and storage configuration before any write or restart.')
   console.log('After target startup is attempted, automatic image rollback is disabled. Verify the database backup before any downgrade.')
   console.log('Next step: run the same command without --dry-run only on an approved copy.')
 }
@@ -1260,7 +1445,8 @@ function upgradeDeployment(args) {
     values,
     image,
   } = plan
-  verifyExistingAccountingConfiguration(paths, values)
+  const existingId = verifyExistingAccountingConfiguration(paths, values)
+  verifyExistingEditionConfiguration(paths, values, existingId)
   if (plan.verifySignature && !plan.pinDigest) verifyImageSignature(image, values)
   const backupDir = path.join(paths.projectRoot, 'backups')
   const backupPath = path.join(
@@ -1346,6 +1532,7 @@ Usage:
   myapi configure [--project-dir DIR] [--public-url URL] [--data-dir DIR] [--logs-dir DIR]
   myapi migrate [--project-dir DIR]
   myapi doctor [--project-dir DIR]
+  myapi doctor --target-edition full|lite|lan [--project-dir DIR] [--json]
   myapi upgrade --version VERSION [--project-dir DIR] [--verify-signature] [--pin-digest] [--dry-run] [--json]
   myapi adopt --project-dir DIR --data-dir DIR --logs-dir DIR
   myapi lan init [directory] [--bind-address ADDRESS] [--port PORT] [--allow-lan]
@@ -1386,7 +1573,7 @@ try {
     validateArguments(args, { values: ['--project-dir'] })
     migrateDeploymentEnv(args)
   } else if (command === 'doctor') {
-    validateArguments(args, { values: ['--project-dir'] })
+    validateArguments(args, { values: ['--project-dir', '--target-edition'], flags: ['--json'] })
     await doctor(args)
   } else if (command === 'upgrade') {
     validateArguments(args, {
