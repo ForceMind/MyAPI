@@ -56,11 +56,6 @@ type CustomEvent struct {
 	Data  interface{}
 }
 
-func encode(writer io.Writer, event CustomEvent) error {
-	w := checkWriter(writer)
-	return writeData(w, event.Data)
-}
-
 func writeData(w stringWriter, data interface{}) error {
 	dataReplacer.WriteString(w, fmt.Sprint(data))
 	if strings.HasPrefix(data.(string), "data") {
@@ -71,7 +66,8 @@ func writeData(w stringWriter, data interface{}) error {
 
 func (r CustomEvent) Render(w http.ResponseWriter) error {
 	r.WriteContentType(w)
-	return encode(w, r)
+	dataWriter := checkWriter(w)
+	return writeData(dataWriter, r.Data)
 }
 
 func (r CustomEvent) WriteContentType(w http.ResponseWriter) {

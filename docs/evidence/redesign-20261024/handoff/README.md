@@ -2,6 +2,14 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**2026-11-08最新已验收：清单工具与证据绑定`6200959c5ec5148c74b3b629c589245db97515bf` / [手动完整CI42419812845](https://github.com/ForceMind/MyAPI/actions/runs/42419812845) attempt1 success，应用仍beta.45。** 13执行成功/2跳过，主会话亲读20142行全部日志、13个checkout及全部步骤，0 error。清单job128545672516的1347行已读，Go 10组/Node 15组通过；Go 1575文件/5873短函数/423 manual，前端configured files/exports/types=2/372/178、ui-inclusive=13/417/180，工具实际exit0。自动42419777489 cancelled的实际日志已读，仅部分执行，不计绿。此结论只验收分析清单，不是全部A5/A6或安全删除授权。
+
+[证据artifact13592982829](https://github.com/ForceMind/MyAPI/actions/runs/42419812845/artifacts/13592982829)为584252 bytes，SHA256 `4400708028dd5f549d2cecd3090f92f0d9894da3c44ea9ecbaa5cda166557677`，到期`2026-11-14T22:17:08Z`，未下载。本轮逐项判断统一见[1033项复核CSV](../cleanup-review-6200959c.csv)：Go 423=422 keep/1 inline；前端610=451 keep/145 unknown/4 modifier/10 wholefile待授权。每项保身份/hash/理由和实际readscope，部分保留项只读定义签名，不能外推未读调用链或间接覆盖；`analysis_only=true`、`deletion_authorized=false`保持。
+
+**当前待提交/验收的是A5b common小批，不是修饰符清理。** 仅`common/custom-event.go`的私有encode→Render原位展开，加`common/custom_event_render_test.go`的6个公共SSE场景；原协议、writer适配和完整版权头保持，源码已写但6场景尚未CI运行。与本交接合批后再读该提交自身完整CI，beta.45不升；6200959c绿灯不覆盖这个新候选。前端3文件4个type export removal仍是独立WIP，不含本common提交。10个UI整文件删除已按旧约束9异步询问、尚无回复，禁止删除。
+
+剩余主线仍为A5/A6后续、B3余项、B4、B5b后续、B6/B7及C1/C2/C3，详细范围集中[TASKS当前节](../TASKS.md)。不新开BUG专项，不操作生产、真实模型/供应商、浏览器或发布；项目测试/构建只CI。**以下“当前候选/工具未执行/待验”等均按原历史时点保留，以本段最新状态为准。**
+
 **2026-11-08已验收：B3a `34ad42acf14ce72aecacc7c96657528d6c0eabba` / [完整CI42415882062](https://github.com/ForceMind/MyAPI/actions/runs/42415882062) attempt1 success，beta.45源码与非浏览器合同。** 12执行作业成功/2可选作业跳过，18695行日志、全部步骤与12个checkout已核对；失败/race标记0。Linux合同6/6及system/user/复杂路径实际systemd解析通过，Desktop105/前端3452/额度历史三库12与根main/独立relaykit/386/原有race通过；lint26 warnings/0 errors未扩展。两次红灯/取消证据未当绿，过程集中TASKS。实际安装/升级/回退/卸载、EnvFile加载、MyAPI/manager生命周期、浏览器和生产未实现或未验，不把B3a称完整B3。
 
 **当前续办A5/A6清单工具候选，不改产品，版本仍beta.45。** Go AST/XML与前端Knip6.27 files/exports/types reporter绑定Git SHA、文件哈希和实际来源，未知不补0，仅分析、无删除授权；新manual/dev开关run_cleanup_inventory默认false，复用完整CI入口，原门禁不减。Go工具不导入业务、不改JSON例外；UI-inclusive只用Runner临时config，不改有效配置或locale。10组Go/15组Node及实际扫描待Actions，本机未运行；旧数量不作为当前事实，拿到证据再逐项审阅。源文件范围、调用来源局限及剩余完整三版本主线集中[TASKS最新节](../TASKS.md)，整文件删除仍须具体范围确认；R4保持关闭，历史BUG最后统一处理，无生产/模型/发布或本机依赖/构建测试/浏览器/产物下载。

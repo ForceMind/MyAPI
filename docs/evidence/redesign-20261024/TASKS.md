@@ -1,5 +1,21 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-08 当前：清单证据已验收，A5b common 候选待自身CI（仍beta.45）
+
+`6200959c5ec5148c74b3b629c589245db97515bf` / [手动完整CI42419812845](https://github.com/ForceMind/MyAPI/actions/runs/42419812845) attempt1 success：13个执行作业成功、2个可选作业跳过。主会话已亲读20142行全部日志，核对13个checkout及所有步骤，0 error。自动CI42419777489 cancelled的全部实际日志也已读，仅部分执行，不计为完整绿灯。本节优先于下文“工具尚未执行”“待Actions”等历史时点记录。
+
+清单作业128545672516共1347行已亲读：Go collector 10组、前端reporter Node 15组通过；当前Go扫描1575文件、5873个短函数、423个manual候选。前端configured的files/exports/types为2/372/178，ui-inclusive为13/417/180，实际工具退出码均0。报告仍为`analysis_only=true`、`deletion_authorized=false`；AST词法和Knip结果不是动态可达性、无间接覆盖或安全删除证明，工具验收不等于整个A5/A6验收。
+
+[清单证据artifact13592982829](https://github.com/ForceMind/MyAPI/actions/runs/42419812845/artifacts/13592982829)：584252 bytes，SHA256 `4400708028dd5f549d2cecd3090f92f0d9894da3c44ea9ecbaa5cda166557677`，到期`2026-11-14T22:17:08Z`。仅记录服务端证据，没有下载到本机。
+
+逐项复核集中保存在[cleanup-review-6200959c.csv](cleanup-review-6200959c.csv)，共1033行数据，保留每项身份、文件hash、理由和实际阅读范围：Go 423项为422 keep / 1 inline；前端610项为451 keep / 145 unknown / 4 modifier / 10 wholefile待授权。保留项部分仅读定义名字/签名，不能把未读调用链称已验证；未知项保留，不按旧数量凑精简。该CSV是集中复核入口，不另建状态体系。
+
+当前A5b common小批仅在`common/custom-event.go`删除私有`encode`并按原顺序内联到公开`Render`，新增`common/custom_event_render_test.go`保护6个公共SSE场景；writer适配、帧字节、原协议及完整MIT版权头保持。源码已准备，gofmt/文本核对完成，6个场景尚未CI运行；将与本交接合批提交，再亲读该提交自身完整CI。应用保持beta.45，不升版本；不能借6200959c的清单绿灯称本common候选已验收。
+
+前端3文件4个type导出修饰符移除另有WIP，本次common提交不包含它们。10个UI整文件删除已按旧约束9异步请求具体授权，尚无回复，禁止删除；不将修饰符候选或整文件候选称为已交付。
+
+完整Goal继续保留A5/A6后续、B3余项、B4、B5b后续、B6/B7与C1/C2/C3；B4只读定位不等于用户备份恢复已实现，Release Manifest阶段边界不变。不新开BUG专项，不接生产、真实模型/供应商、浏览器或发布；所有项目测试与构建只在CI执行。下文旧候选和失败记录保留，按各自源码/时点理解。
+
 ## 2026-11-08 A5/A6：当前精简候选清单（工具候选，应用仍beta.45）
 
 B3a已通过源码及非浏览器合同验收：dev/`34ad42acf14ce72aecacc7c96657528d6c0eabba` / [完整CI42415882062](https://github.com/ForceMind/MyAPI/actions/runs/42415882062) attempt1 success，12执行作业成功/2可选作业跳过（A3分析、浏览器真实API）。主会话读取18695行全部日志，核对所有步骤与12个checkout一致，失败/race标记0；Linux预览/argv合同6/6/0skip、systemd255.4两scope及复杂路径真实解析通过（native作业282行），Desktop合同105/105/0skip、前端421文件3452/3452、额度历史三库12场景、根main/根与独立relaykit/386/原有race均过。前端lint26 warnings/0 errors未扩展处理。本批不等于完整B3：真实EnvFile读取、MyAPI/manager生命周期、安装/升级/回退/卸载、浏览器及生产仍未实现或未验证。
