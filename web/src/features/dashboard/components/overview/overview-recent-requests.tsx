@@ -98,8 +98,9 @@ function RequestLink(props: {
           event.altKey ||
           event.defaultPrevented ||
           (event.currentTarget.target && event.currentTarget.target !== '_self')
-        )
+        ) {
           return
+        }
         props.capture(props.log.id)
       }}
     >

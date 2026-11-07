@@ -231,13 +231,16 @@ function SavedWindowGroup(props: {
   const ranked = props.observations
     .map((record, index) => {
       let priority = 3
-      if (record.item.status === 'error') priority = 0
-      else if (
+      if (record.item.status === 'error') {
+        priority = 0
+      } else if (
         record.item.status !== 'unsupported' &&
         record.state.variant !== 'success'
-      )
+      ) {
         priority = 1
-      else if (record.item.status === 'unsupported') priority = 2
+      } else if (record.item.status === 'unsupported') {
+        priority = 2
+      }
       return { ...record, priority, index }
     })
     .sort((a, b) => a.priority - b.priority || a.index - b.index)
@@ -297,17 +300,18 @@ function SavedWindowGroup(props: {
             window: label,
             state: t('Unknown'),
           })
-          if (used !== null)
+          if (used !== null) {
             value = t('{{window}} · {{value}}% left', {
               window: label,
               value: Math.round(100 - used),
             })
-          else if (balance !== null)
+          } else if (balance !== null) {
             value = t('{{window}}: {{value}} {{unit}}', {
               window: label,
               value: balance,
               unit: item.currency || item.unit || t('Unknown'),
             })
+          }
           const observed = item.observed_at
           const time =
             Number.isSafeInteger(observed) &&

@@ -64,8 +64,9 @@ async function renderWorkflow(
       waitForLists &&
       (url.pathname === '/api/log' || url.pathname === '/api/log/self') &&
       !url.searchParams.has('request_id')
-    )
+    ) {
       await listResponse
+    }
     if (
       holdKeyId &&
       url.pathname === '/api/log' &&
@@ -268,14 +269,20 @@ test.each([false, true])(
         '[data-usage-request-link="1"]'
       )
       expect(link).toBeInTheDocument()
-      return link!
+      if (!link) {
+        throw new Error('Expected the saved overview request link')
+      }
+      return link
     })
     const scroller = mobile
       ? opener.closest<HTMLElement>('[data-page-scroll]')
       : opener.closest('table')?.parentElement
     expect(scroller).toBeTruthy()
-    scroller!.scrollTop = 257
-    scroller!.scrollLeft = mobile ? 0 : 19
+    if (!scroller) {
+      throw new Error('Expected the overview scroll container')
+    }
+    scroller.scrollTop = 257
+    scroller.scrollLeft = mobile ? 0 : 19
     const before = fixture.router.state.location.href
     await fixture.user.click(opener)
     await screen.findByTestId('request-page')
@@ -301,7 +308,10 @@ test.each([false, true])(
     )
     const restored = document.querySelector<HTMLElement>(
       '[data-usage-request-link="1"]'
-    )!
+    )
+    if (!restored) {
+      throw new Error('Expected the restored overview request link')
+    }
     const returnedScroller = mobile
       ? restored.closest<HTMLElement>('[data-page-scroll]')
       : restored.closest('table')?.parentElement
@@ -325,9 +335,16 @@ test('a modified overview request click cannot restore scroll into a later indep
       '[data-usage-request-link="1"]'
     )
     expect(link).toBeInTheDocument()
-    return link!
+    if (!link) {
+      throw new Error('Expected the saved overview request link')
+    }
+    return link
   })
-  opener.closest('table')!.parentElement!.scrollTop = 257
+  const sourceScroller = opener.closest('table')?.parentElement
+  if (!sourceScroller) {
+    throw new Error('Expected the overview table scroll container')
+  }
+  sourceScroller.scrollTop = 257
   const before = fixture.router.state.location.href
   fireEvent.click(opener, { button: 0, ctrlKey: true })
   expect(fixture.router.state.location.href).toBe(before)
@@ -349,7 +366,10 @@ test('a modified overview request click cannot restore scroll into a later indep
       '[data-usage-request-link="1"]'
     )
     expect(element).toBeInTheDocument()
-    return element!
+    if (!element) {
+      throw new Error('Expected the returned overview request link')
+    }
+    return element
   })
   expect(link.closest('table')?.parentElement?.scrollTop).toBe(0)
   expect(link).not.toHaveFocus()
@@ -390,8 +410,9 @@ test('disabled funding preserves admin server pagination, saved content and retu
   const before = router.state.location.href
   const openingLink = screen.getByTitle('Click to view full details')
   const sourceScroll = openingLink.closest('table')?.parentElement
-  if (!sourceScroll)
+  if (!sourceScroll) {
     throw new Error('Expected internal log table scroll container')
+  }
   sourceScroll.scrollTop = 321
   sourceScroll.scrollLeft = 17
   openingLink.focus()
@@ -510,13 +531,14 @@ test.each([
     )
     const restored = await screen.findByTitle('Click to view full details')
     expect(restored.closest('table')?.parentElement?.scrollTop).toBe(0)
-    if (next.role === 1)
+    if (next.role === 1) {
       expect(screen.queryByRole('tab', { name: 'All' })).not.toBeInTheDocument()
-    else
+    } else {
       expect(screen.getByRole('tab', { name: 'All' })).toHaveAttribute(
         'aria-selected',
         'true'
       )
+    }
   }
 )
 

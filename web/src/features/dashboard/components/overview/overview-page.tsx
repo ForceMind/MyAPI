@@ -442,24 +442,36 @@ function OverviewSession() {
                       className='mt-2 h-auto min-h-11 whitespace-normal'
                       onClick={() => {
                         setFlowExpanded(true)
-                        if (data.keys.isError) void data.keys.refetch()
-                        if (data.sample.isError) void data.sample.refetch()
+                        if (data.keys.isError) {
+                          void data.keys.refetch()
+                        }
+                        if (data.sample.isError) {
+                          void data.sample.refetch()
+                        }
                         if (
                           data.counts.isError ||
                           data.counts.data?.failed === null
-                        )
+                        ) {
                           void data.counts.refetch()
-                        if (data.upstream.selfQuery.isError)
+                        }
+                        if (data.upstream.selfQuery.isError) {
                           void data.upstream.selfQuery.refetch()
-                        if (data.canReadChannels && data.connections.isError)
+                        }
+                        if (data.canReadChannels && data.connections.isError) {
                           void data.connections.refetch()
+                        }
                         if (
                           data.canReadChannels &&
                           data.upstream.accountsQuery.isError
-                        )
+                        ) {
                           void data.upstream.accountsQuery.refetch()
-                        if (data.capture.canRead && data.capture.query.isError)
+                        }
+                        if (
+                          data.capture.canRead &&
+                          data.capture.query.isError
+                        ) {
                           void data.capture.query.refetch()
+                        }
                       }}
                     >
                       {hasReadFailure
