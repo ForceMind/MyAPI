@@ -8,7 +8,7 @@ class Element {
   set innerHTML(_value) { throw new Error('Panel content must use text, not HTML interpolation') }
   addEventListener(name, listener) { const listeners = this.listeners.get(name) || []; listeners.push(listener); this.listeners.set(name, listeners) }
   append(...children) { this.children.push(...children) }
-  replaceChildren(...children) { this.children = children }
+  replaceChildren(...children) { this.children = children; this.onChildrenReplaced?.() }
   async fire(name) { await Promise.all((this.listeners.get(name) || []).map((listener) => listener({ target: this }))) }
 }
 
@@ -19,7 +19,7 @@ const state = (overrides = {}) => ({
   reasonLabel: 'No error reported', notice: null, ...overrides,
 })
 
-async function mount({ available = true, initial = state(), actionResponse } = {}) {
+async function mount({ available = true, initial = state(), actionResponse, expectInitialRender = true } = {}) {
   const source = await readFile(new URL('../service-panel.js', import.meta.url), 'utf8')
   const html = await readFile(new URL('../service-panel.html', import.meta.url), 'utf8')
   const ids = new Map()
@@ -44,7 +44,18 @@ async function mount({ available = true, initial = state(), actionResponse } = {
   const calls = []
   let listener
   let fail = false
-  const initialResponse = Promise.resolve(initial)
+  let completeRender, consumeRevision
+  const rendered = new Promise((resolve) => { completeRender = resolve })
+  const revisionConsumed = new Promise((resolve) => { consumeRevision = resolve })
+  // The real render finishes with this DOM update. Awaiting the host response
+  // alone does not wait for the VM realm's async continuation to populate it.
+  ids.get('locations').onChildrenReplaced = completeRender
+  const initialResponse = Promise.resolve(new Proxy(initial, {
+    get(target, property, receiver) {
+      if (property === 'revision') consumeRevision()
+      return Reflect.get(target, property, receiver)
+    },
+  }))
   const bridge = {
     snapshot() { calls.push({ name: 'snapshot', args: [] }); return initialResponse },
     onState(callback) { listener = callback; return () => { listener = undefined } },
@@ -54,7 +65,11 @@ async function mount({ available = true, initial = state(), actionResponse } = {
   }
   const unload = []
   vm.runInNewContext(source, { document, window: { myapiService: available ? bridge : undefined, addEventListener(name, callback) { assert.equal(name, 'unload'); unload.push(callback) } } })
-  await initialResponse
+  if (available) {
+    // Invalid snapshots deliberately never reach the DOM completion boundary;
+    // wait until the real validator consumed them before asserting rejection.
+    await (expectInitialRender ? rendered : revisionConsumed)
+  }
   return { ids, calls, document, translated, publish(next) { listener?.(next) }, failActions() { fail = true }, unload() { unload.forEach((callback) => callback()) } }
 }
 
@@ -120,7 +135,7 @@ test('a delayed invoke response cannot overwrite a newer pushed state or languag
   f.publish(state({ revision: undefined }))
   f.publish(state({ revision: -1 }))
   assert.equal(f.ids.get('state').textContent, '已停止')
-  const unverified = await mount({ initial: state({ revision: undefined }) })
+  const unverified = await mount({ initial: state({ revision: undefined }), expectInitialRender: false })
   assert.notEqual(unverified.ids.get('state').textContent, 'Running')
   assert.equal(unverified.ids.get('start').disabled, true)
   assert.equal(unverified.ids.get('stop').disabled, true)

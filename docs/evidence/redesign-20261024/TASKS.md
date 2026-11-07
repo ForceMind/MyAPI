@@ -23,6 +23,8 @@
 
 候选统一beta.40，仅dev源码与GHA构建产物；本机未安装依赖、运行项目tests/lint/typecheck/build/Docker/浏览器或下载CI产物，只有源码/既有格式器/JSON/XML/语法轻检查。无生产/服务器/真实供应商模型/main/tag/GHCR/NPM/发布或新签名证书。首次候选`b54b0cd191cae5d7965783fb360be8bb21a6ff33` / CI42374604372的Desktop job128409516612完整434行日志已读：仅“packaged UI follows the effective LAN bind host”静态check失败，Node行为尚未执行；checker先前同步为局部别名window.loadURL，最终main仍调用mainWindow.loadURL，实际loadHost继续getHealthCheckAddress(BIND_ADDRESS)，URL仍固定http://${loadHost}:${loadPort}。只将checker精确引用同步回实际同一console窗口调用；host/port/旧public/LAN及VM真实行为断言不减，main运行逻辑不改。修正后继续完整Actions，不把此失败当功能测试或最终绿。
 
+第二候选`225d6b76d9488c9fae08c1a9ce71498eb7df340e` / CI42374795810的Desktop job128410139447完整808行已读：静态合同过，Node59项57过/2失败/0skip；仅renderer前两case在mount返回时DOM尚未完成(state空、第二地址节点不存在)，主进程/控制器/IPC与GHA合成child已有实际PASS。测试helper只await外层Node的initialResponse，不能代表真实VM async续体已完成渲染；后续仅让helper等待真实最后locations.replaceChildren，非法初始状态等真实validator读过revision再核拒绝、缺bridge保同步禁用。原Running/地址/版本/revision/无副作用等断言不改，不加sleep或任意微任务次数，不修改产品来同步化测试。实际结果继续以新提交完整Actions为准。
+
 结果须按最终提交精确SHA亲读自己的完整CI与平台构建，不提前称完成；公网B5b、A2–A6/B3/B4/B6/B7及统一质量/七语言/全量验收仍在主Goal。
 
 
