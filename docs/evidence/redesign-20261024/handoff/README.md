@@ -4,6 +4,8 @@
 
 **2026-11-08当前：B5b1源码已完整CI通过，继续A2 Lite配置兼容预检，beta.42候选。** dev/`65325d7926d706fe66aaac3c5e1cdd52c686a40f` / [完整CI42385209689](https://github.com/ForceMind/MyAPI/actions/runs/42385209689) attempt1 success：10成功/1浏览器真实API跳过；17305行全部日志、步骤与10个checkout已亲读。Native105/105/0skip、前端3452/3452、根/独立relaykit/386/三库与全部既有race通过；同SHA两静态网站工作流也已全文核对成功，未浏览器/部署。beta.41无新安装包，beta.40包保原13eedad9身份。完整公网B5b外部验证仍待，不把保存入口或格式校验称公网可用。
 
+A2首产品源`f308bfcd` / [CI42392877229](https://github.com/ForceMind/MyAPI/actions/runs/42392877229)虽整体success（11成功/1浏览器真实API跳过，18414行及11个checkout亲读；A2三库20叶场景、CLI181、Native105、前端3452通过），但最终命令核对发现make test排除root main，新增5个主程序Test尚未执行，故不提前称A2完成。本次仅CI增加根目录定向入口和这两份交接，不改产品/断言、不重升beta.42；按后继精确SHA重读完整CI和主程序专项，详情见TASKS最新节。
+
 本轮沿PLAN_PHASE2 A2，复用已有账务/登录/安装来源保护：新model只读facts、service配置兼容判定、main迁移前Lite门禁及独立`--edition-check=lite --json`，CLI `doctor --target-edition lite`与普通up/upgrade/installer实际容器来源核对。只读flag先于普通初始化，不启动DB迁移、日志、Redis、HTTP或worker；未知保null与不可确认，不自动改订单/密码/绑定或切版。配置密码/Passkey候选不等于登录已验证；正常Full路径与现有同版升级/初装规则保留。原金额预检/R4不改，不新开BUG专项；详细范围、分工、严格门禁和历史证据集中[TASKS最新节](../TASKS.md)。
 
 当前为源码候选，三库专属与完整CI必须按最终SHA读结果，不提前称完成。不新增页面或重画现有设计，本机仅源码/格式/轻语法，无依赖安装/项目编译测试/Docker/浏览器/产物下载；无生产/真实供应商/模型/main/tag/GHCR/NPM或部署。全部版本计划仍未完成，后续A/B阶段与统一质量保留。下文B5b1/B5a“当前候选”等为历史，不覆盖本节。

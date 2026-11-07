@@ -208,6 +208,9 @@ jobs:
       - name: Prove credential rotation and outbound generation compatibility
         run: go test -race -p 1 ./model ./service ./middleware ./relay ./relay/channel ./relay/channel/openai ./controller ./router -run '^Test(TokenCredential|ValidateTokenCredential|BeginTokenCredentialDispatchAdmission|CompleteTokenCredentialDispatchAdmission|ShouldRetryTaskRelayStopsAfterCredentialDispatchAdmission|MidjourneyCredential|MidjourneyAuthoritativeAdmission|PreWssConsumeQuotaAuthoritativeSession|RealtimeCredentialRotation|WebSocketCredentialGeneration|AssignedAccessHTTPDispatchWithoutFailover|VideoProxyPrivateResponses|RelayTask_GateOn_SuccessAcceptedAndReplay)' -count=1 -timeout=180s
 
+      - name: Verify read-only edition command and Lite startup before migration
+        run: go test -p 1 . -run '^TestEditionCompatibility' -count=1 -timeout=120s -v
+
       - name: Test root and relaykit modules
         run: make test
 

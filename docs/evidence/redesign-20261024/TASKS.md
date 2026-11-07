@@ -21,6 +21,12 @@
 
 候选beta.42只在dev源码与Actions验证，不发布/部署/合main、不改实际生产配置或发模型/供应商请求。新增专属A2三库作业，缺任一DSN必须失败，普通全量跳过关系库专属入口不当作三库已验。浏览器、真实供应商、实际登录/认证器、真实主机/大库/公网尚未验证；A3–A6/B3/B4/B5b后续/B6/B7及统一质量/七语言/全量验收仍按同一Goal继续。
 
+### A2首次CI与主程序覆盖补齐
+
+首个产品提交`f308bfcd7ed35e7c4c140186443fba7a8e0a991d` / [CI42392877229](https://github.com/ForceMind/MyAPI/actions/runs/42392877229) attempt1 success，11执行作业成功/1浏览器真实API跳过；全部18414行日志、步骤和11个checkout已亲读，失败/race标记0。新增A2三库job128463957725完整834行已读：SQLite5/MySQL8/PostgreSQL7共20叶场景全部PASS、无skip，含MyISAM拒绝与原行保全；CLI主合同181/181，完整分发job2869行及全部步骤已读。前端3452/3452、Native105/105/0skip与既有门禁通过；两静态网站工作流42392877216/42392877332完整387/431行及源码/步骤已读成功。
+
+**本轮验收尚未结束。** 主会话在核对实际测试命令时确认`Makefile:49–54`的`make test`明确排除了根目录main包，因此新增`edition_compatibility_command_test.go`里的独立旗标/实际main子进程/迁移前启动拒绝5个Test函数尚未执行；不能把上述整体绿冒充这部分已验。只在CI backend增加`go test -p 1 . -run '^TestEditionCompatibility' -count=1 -timeout=120s -v`（已有embed占位），不改变Makefile、产品逻辑或测试断言，不重升beta.42。与本段交接合并一次提交，按最后SHA重读完整CI；只有新主程序专项与全部原门禁均通过才交付A2。本机未编译或运行测试，继续只Actions。
+
 ## 2026-11-07 B5b1：已有HTTPS反代接入向导（beta.41候选，完整CI为门禁）
 
 上一轮为实质进展：B5a源码与双平台非浏览器打包已交付。dev/`13eedad93b365f1a00f45da27faf05e18409af9d` / [完整CI42379188640](https://github.com/ForceMind/MyAPI/actions/runs/42379188640) attempt1 success，10作业成功/1浏览器真实API跳过；主会话亲读16195行完整执行日志、全部步骤和10个checkout一致，失败/race标记0。前端421文件3452/3452，Native59/59且0skip，根/独立relaykit/386/三库/Redis/ClickHouse/全部既有race通过。原生owned-child合成进程实际close、无关进程不受影响通过，不冒充GUI/安装验收。
