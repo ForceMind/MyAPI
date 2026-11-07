@@ -3,6 +3,38 @@
 
 
 
+
+## 2026-11-07 R4：Actions三库合成取证与交互验收约束
+
+维护者对“先做Actions三库合成取证，再定最小修复范围”明确回复“确认”，并要求交互操作让小白能看懂。本轮授权是测试/取证/报告，不包含产品金额校验修复或再做一批UI。基线dev/2b6c19a7干净、远端0/0，[完整CI42339945718](https://github.com/ForceMind/MyAPI/actions/runs/42339945718) attempt1仍success；主会话与2名gpt-6.1-sol/high代理分别负责集成/反例校验、Go三库fixture、专项workflow与报告，不递归派工。
+
+成功标准：真实authoritative正常扣减、精确余额/used/version/回执与同key单次效果先成立；关闭临时DB连接后调用InitDB实际使用的公开金额预检，区分预检是否拒绝；SQLite/MySQL5.7/PostgreSQL9.6与3项对照均有结果，预检不改数据。合法扣减的目标断言保留require.NoError，不改成期待拒绝；只有精确目标红可计复现，编译/初始化/缺库/额外断言不算。验证方法：仅Actions临时服务，SQLite=t.TempDir、关系库literal127.0.0.1+myapi_r4_probe门禁及每case新库，拒借生产/default SQL_DSN；没有完整服务重启、生产访问或模型请求。主CI可明确跳过opt-in专项，另有手动专项执行；报告的evidence_valid不等于product_fixed，product_fixed始终false。
+
+### 面向初学者的后续交互验收规则（本轮只记录，不称UI已实现）
+
+- 先解释“发生了什么、现在是否成功、下一步做什么”，技术ID/原始JSON/账务阶段等放可展开详情，不能仅给code或笼统“操作失败”。
+- 按任务命名按钮并交代影响，例如读取保存记录与查询上游是不同操作；不能用一个“刷新”让用户误判是否会联系供应商、改配置或扣费。
+- 未获取、不支持查询、读取失败、已读取要分清；用量未知不补0，只有可比较观测才显示带时间/依据的估算，不把估算写成真实账单或缓存命中证明。
+- 写入结果不明时先“查看结果/核对记录”，不能诱导再次提交、自动重放或刷新登录重试写入。敏感确认与原权限保留，常见操作的结果说明不能被高级详情完全藏掉。
+- 合并重复展示和入口时保留全部字段/高级能力/返回上下文；常用的权重、优先级、启停等必须可达。折叠是信息层级，不代替功能迁移；小白能完成任务与原断言同时满足，浏览器验收仍须单独授权。
+
+### 实际取证结果（产品尚未修复）
+
+- 专项真实源码`5455efdfdad872e154149f47ebeb4822fbfb3c36` / [R4 Actions42346062834](https://github.com/ForceMind/MyAPI/actions/runs/42346062834) attempt1 success。主会话已亲读唯一作业1445行完整日志、步骤、实际checkout SHA及完整安全JSON报告。evidence_valid=true、status=reproduced、product_fixed=false，Go真实exit=1保留；不是将所有红都吞成绿。
+- 三库真实版本：SQLite3.50.4、MySQL5.7.44、PostgreSQL9.6.24。12个case：3个合法扣减的真实NoError目标断言红、9个对照绿。每个case干净基线预检先通过，所有扣额/回执/幂等/只读不变前置均通过；不存在编译、初始化、连接或额外断言错误。报告checker的5个反例测试在Actions通过。
+- 直白结论：Key原有500额度，真实扣100后剩400、已用100、version=1；用户钱包仍1000；signed direct_token回执requested/applied=-100且仅1条，同key重放不再扣。关闭连接后真实启动金额预检把这条正常记录拒绝。合法增加额度、普通预扣后结算、非法负收费仍被拒绝三个对照在每库都通过。SQLite文件字节/目录、三库全部fixture行在预检前后不变。
+- 只模拟“关闭连接→再次启动金额检查”，未启动完整应用/重启容器、未查询生产writer配置，不据此认定线上已经触发或所有部署均受影响。产品代码与beta.36镜像未改，R1–R3及R5–R8未顺带取证/修复。
+- [证据构件13563123017](https://github.com/ForceMind/MyAPI/actions/runs/42346062834/artifacts/13563123017)：5917bytes，ZIP SHA256 `967dd0db70d1b978ed5fe2e423d24d84bbeaaefe41f18573ef20acbf9bcd7f6b`，有效至2026-11-14 06:16:57 UTC；含原始Go JSON/原始exit/stderr和report.json。报告完整内容已从日志读取，本机未下载构件。
+- 过程错误保留：首次`6f4bd971`中job级env误用了job.services/runner.temp，GitHub422拒绝解析，运行42345893786 failure/0 jobs，未执行数据库。主会话承认漏审并只在5455efdf把DSN移step env、目录用RUNNER_TEMP写GITHUB_ENV；不是R4红证据。6f对应主CI42345894902被后续推送取消，不计完整通过；最终文档提交会替代5455efdf主CI42346036650，取消同样不计绿，最终仍读自己完整CI。
+
+### 待维护者确认的最小产品修复方案
+
+成功标准：真实合法direct_token增减记录能通过启动金额预检，普通reserve/settle等收费记录仍非负且在原单笔上限内；未知类型、缺类型而无法证明合法的负记录仍拒绝。预检全程只读，不改余额/回执，不重放写入，不改schema/计费公式/供应商转发/生产配置。
+
+拟涉及`model/quota_amount_preflight.go`（仅按可识别回执类型细分amount规则与三库查询）、`model/quota_amount_preflight_test.go`（合法正负direct_token、普通负charge/越界/未知或缺类型拒绝及只读控制）及必要专项测试合同保留；现有R4合法扣减NoError不得放宽，修复后应真实转绿。无类型字段的历史表继续兼容原合法非负记录，不因缺字段统一报错；负记录不能凭空推断direct_token。精确实现以获批最小diff为准，不把所有receipt列一律改为signed，不将金额预检扩成全账本修复器。
+
+验证方法：先用已保存本轮三库红证据，再在Actions执行针对性金额/单次入账/只读回归、R4三库专项（目标NoError全部真实通过）、完整CI及既有relaykit/三库门禁。构建测试全部Actions；浏览器/生产/真实模型/供应商不运行。修改产品逻辑尚未获本轮授权，当前只提交测试取证与报告。
+
 ## 2026-11-07 P2-A1第三批：剩余账务、工具与部署资产收口
 
 维护者明确要求补完A1，沿用本报告/总账，不重做前两批及已完成UI/P1/部署。基线dev/`eea2634e0d84de2a912e8105c50421fb03cbdd15`干净；fetch后0/0且ff-only最新，审查后再次核对同样成立。[基线完整CI42327110195](https://github.com/ForceMind/MyAPI/actions/runs/42327110195) attempt1仍success，沿用上轮已亲读10份日志/实际checkout一致证据，不冒充本轮新反例运行。

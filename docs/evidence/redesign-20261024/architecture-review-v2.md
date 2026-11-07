@@ -115,6 +115,12 @@ flowchart LR
 | A1-50 | 任务HTTP/Suno/Video主链区分durable与legacy；本地超时/身份不明/未知status对durable只写manual/retryable，正式证据才结算；legacy沿截止日期/原有CAS和持久fact补账；`service/task_polling.go:42`、`:387`、`:651`、`:1126`，`service/task_billing.go:262`、`:408`，`model/task_polling_disposition.go:48` | 没有主动轮询供应商；独立适配器全部协议实测不属于本次结构证明，不能把保守hold称为新终态 |
 | A1-51 | JSON/表单/多媒体幂等指纹分家，规范Token/route/content family、拒重复字段/非法文件名，表单/多媒体限制1MiB/字段128/part64并以长度frame哈希；`service/task_submission_fingerprint.go:41`，`service/task_submission_form_fingerprint.go:155`、`:212`、`:261` | 指纹不是保存/重放正文，boundary/filename/路由等规范化合同不能随便放宽；未执行新的碰撞/等价反例 |
 
+### R4后续合成取证（2026-11-07，产品未修）
+
+维护者已确认三库合成取证。`5455efdf` / [Actions42346062834](https://github.com/ForceMind/MyAPI/actions/runs/42346062834) attempt1：SQLite3.50.4、MySQL5.7.44、PostgreSQL9.6.24均复现；主会话已读完整作业日志、checkout与报告，3个合法扣减NoError精确红、9对照绿，所有基线/真实扣减/幂等/只读前置通过。500 Key额度扣100→400、used100、version1，用户余额1000不变；direct_token回执-100仅1条，关闭连接后公开启动金额预检拒绝。不是初始化或编译红；原始Go exit1保留，专项绿色仅表示取证完整，product_fixed=false。
+
+R4从静态候选更新为**三库合成已复现、产品未修复**，不把此结论推广到生产或完整服务重启。下表保留A1时点原始发现；其他R项未据此改状态。精确证据、首轮workflow上下文配置错误、构件身份和最小产品修复范围统一见TASKS最新R4节；产品修改等待维护者确认。本轮没有改模型价格/余额/回执/转发/预检产品代码。
+
 ### 新增候选与边界（未实施产品修复，原R1–R3不变）
 
 | ID | 优先级与源码首个差异 | 最小后续Actions取证/禁止事项 |
