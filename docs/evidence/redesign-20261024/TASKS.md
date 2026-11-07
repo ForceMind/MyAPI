@@ -28,6 +28,12 @@
 结果须按最终提交精确SHA亲读自己的完整CI与平台构建，不提前称完成；公网B5b、A2–A6/B3/B4/B6/B7及统一质量/七语言/全量验收仍在主Goal。
 
 
+### B5a平台构建续办（测试路径修正，结果按最终SHA核对）
+
+第三候选`f7220ea9f985fd3693938b22b4d59880200ba391`的完整CI42375347710已成功：10执行作业成功，前端3452/3452、Native59/59且0skip；主会话亲读16293行完整日志和10个checkout一致，失败/race标记0。macOS构建42378099362成功，同SHA Native59/59/0skip，实际arm64 DMG与ZIP版本0.2.0-beta.40、minimal与VITE_BUILD_ID=f722一致；全部1428行、步骤/源码已亲读，release跳过。构件13575844254（macos-build）276358764bytes，ZIP SHA256 `70a659128c47950cf1b97f93a508c8afa2cd4489f1f6100c563d393d3496015c`，有效至2027-02-05 13:41:19 UTC。本机未下载，该包始终绑定f722，不重标为后继源码。
+
+随后Windows构建42378665848在Native门禁失败，完整1073行已读：59项55过4失败、0skip，未进入打包，release跳过。四处均为Main VM夹具混用硬编码POSIX fake-fs键与Windows原生node:path：canonical假查无文件误选legacy，语言JSON与diagnostic键查得undefined；真实合成child及其它55项过。仅在`electron/test/main-lifecycle.test.mjs`以host path.normalize/join建立准确synthetic资源、userData、日志、DB、prefs和diagnostic常量，fake-fs只认明确canonical集合；不改产品，不接受canonical/legacy二选一，不减JSON、0600、秘密及字段断言，也不normalize用户显式数据库环境原字符串。测试修正已提交`a6c485b2`；该轮交接脚本因UTF-8输入错误未写文档，随后仅补本段，不重做产品。新最终SHA须重新完整CI、macOS后Windows构建；旧mac包保留原身份，GUI/真实安装仍未验证。
+
 ## 2026-11-07 UI主线M2：Full首页保存模型与路由快捷入口（beta.39候选，完整CI为交付门禁）
 
 上一轮为实质进展：UI-M1的Lite三步接入、有限保存窗口摘要、Full中性核心和准确请求返回已通过非浏览器验证。dev/`de4ee4d2571ce6634796e59d3c57dbcc1718da6c` / [CI42362321291](https://github.com/ForceMind/MyAPI/actions/runs/42362321291) attempt1 success，10作业成功/1浏览器真实API跳过，主会话亲读16542行完整执行日志/步骤，10个checkout一致，失败/race标记0；前端419文件3434/3434、首页44/44、平台流程16/16（新增桌面/手机返回与modified click三场景在专项和全量均明确PASS）。根/独立relaykit、386/race/三库/Redis/ClickHouse/分发/Desktop门禁通过。旧599ee3d2 lint21错误、420da142测试夹具漏capabilities及主会话误判步骤成功已留证并更正，不把取消当完整绿。M1对应源码收口，浏览器未验证，不代表三版本全量完成。
