@@ -22,6 +22,7 @@ import { OverviewPage } from '@/features/dashboard/components/overview/overview-
 import { overviewSearchSchema } from '@/features/dashboard/lib/overview-flow'
 import { api } from '@/lib/api'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
+import { PRODUCT_CAPABILITIES } from '@/lib/product-edition'
 import { Route as usageLogsRoute } from '@/routes/_authenticated/usage-logs/$section'
 import { Route as requestRoute } from '@/routes/_authenticated/usage-logs/request/$requestId'
 import { useAuthStore } from '@/stores/auth-store'
@@ -77,7 +78,14 @@ async function renderWorkflow(
     let data: unknown = {}
     if (url.pathname === '/api/status') {
       data = {
-        ...(fromOverview ? { product_edition: 'lite' } : {}),
+        ...(fromOverview
+          ? {
+              product_edition: 'lite',
+              capabilities: Object.fromEntries(
+                PRODUCT_CAPABILITIES.map((capability) => [capability, false])
+              ),
+            }
+          : {}),
         user_funding_mode: 'disabled',
         user_funding_capabilities: { mode: 'disabled', epoch: 1, ready: true },
       }
@@ -264,6 +272,9 @@ test.each([false, true])(
     const recent = await screen.findByRole('region', {
       name: 'Recent requests',
     })
+    expect(
+      await screen.findByRole('region', { name: 'Start using MyAPI' })
+    ).toBeInTheDocument()
     const opener = await waitFor(() => {
       const link = recent.querySelector<HTMLAnchorElement>(
         '[data-usage-request-link="1"]'
@@ -330,6 +341,9 @@ test('a modified overview request click cannot restore scroll into a later indep
     '/dashboard/overview?activity=usage'
   )
   const recent = await screen.findByRole('region', { name: 'Recent requests' })
+  expect(
+    await screen.findByRole('region', { name: 'Start using MyAPI' })
+  ).toBeInTheDocument()
   const opener = await waitFor(() => {
     const link = recent.querySelector<HTMLAnchorElement>(
       '[data-usage-request-link="1"]'
