@@ -2,6 +2,21 @@
 
 
 
+
+## 2026-11-07 P2-A1第三批：剩余账务、工具与部署资产收口
+
+维护者明确要求补完A1，沿用本报告/总账，不重做前两批及已完成UI/P1/部署。基线dev/`eea2634e0d84de2a912e8105c50421fb03cbdd15`干净；fetch后0/0且ff-only最新，审查后再次核对同样成立。[基线完整CI42327110195](https://github.com/ForceMind/MyAPI/actions/runs/42327110195) attempt1仍success，沿用上轮已亲读10份日志/实际checkout一致证据，不冒充本轮新反例运行。
+
+成功标准：PLAN_PHASE2 1.2第1–4项剩余源码结构、调用链/权限/账务/三库/恢复及tools/website/deploy都有逐文件或分级覆盖，重要结论附路径/行号，原A1-01..28/R1..3保留；验证方法：实际构建测试仅Actions，本机只源码/文档/引用/差异轻量检查，提交推送后读本提交完整CI。无浏览器、Docker、依赖安装、项目构建/测试或产物下载，无服务器/生产/供应商/真实模型，无main/tag/GHCR/NPM/网站发布。
+
+本轮依原计划分工启用2名gpt-6.1-sol/high只读代理，无递归派工、无代理文件写入：持久账务代理完整读account/quota/usage_review等生产实现并复用补订阅/topup/funding/share；资产代理对183 tracked资产F/K/T/I/G逐路径归档并复用补12个预算/dispatch准入生产文件。主会话补计费service/任务内部/根9个资产，最终资产192项；关键结论亲读抽查超过10项原文，代理报告不自动算运行事实。i18n技能仅用于Desktop文案边界审查，没有改locale或额外跑本机同步。
+
+[现有architecture-review-v2第三批](architecture-review-v2.md)已补A1-29..51共23条账务/任务结论、A1-D1..D16共16条资产结论、完整覆盖索引与A1关闭/后续条件。四个结构审查缺口均有交付：账务/任务持久事实与恢复、首批Lite支付回调、首批仅外部登录账户、全部目标工具/网站/部署入口。F/K/T/I/G不混为“全部源码每行已验”，测试全文/运行故障/真实平台不在只读审查证明中；A1只读覆盖收口，文档交付以本提交自身完整CI为门禁，不等于产品修复或全量真实验收。
+
+新增优先候选R4：authoritative direct_token允许负增量回执，而启动amount preflight对相同两列一律非负；主会话已核创建hook、真实扣额调用和InitDB前置链。代码条件闭合但未运行重启反例、未查生产writer值；建议下一项单列Actions三库反例→最小phase-aware修复方案，**不普遍放宽receipt为signed**。R5首次退款fact确实未落盘时的恢复身份边界、R6邀请聚合int32跨库边界、R7桌面两构建入口参数、R8复制目录备份提示另列待证据/后续B项。旧R1排队gate、R2批次success语义、R3审核并发回查仍未复现/未修复；CI绿不能替代这些反例。
+
+B1/B2/P1-9和既有Ops/kit保持完成；CLI .env备份、CI SQLite夹具、Ops保全和历史审计模拟分清，不写成“没有备份/运维能力”或“用户通用backup/restore已完成”。A2–A6、B3–B7、C1–C3仍按原计划分项实施，历史790/637/37候选未重测，不产生删除授权。只更新本TASKS、handoff/README和现有审查报告，不改产品/配置/版本；已部署beta.36仍绑定f46f19c7/42256473767，不重标为文档提交。
+
 ## 2026-11-07 P2-A1第二批：异步恢复与任务账务（只读审查）
 
 维护者回复“好的，继续按照计划”，本轮沿已批准A1继续，不重做UI/P1-9或beta.36部署；只更新本TASKS、handoff/README和既有architecture-review-v2。基线dev/`4e42f4939422e8a7f04de4f6f50ce102dd77ed21`干净，fetch后0/0、ff-only为最新；[完整CI42259867386](https://github.com/ForceMind/MyAPI/actions/runs/42259867386) attempt1仍success，沿用上轮已亲读10作业/全部日志与checkout一致证据，本轮只复核元数据。继续复用现有总账和报告；主代理独立审读，没有新子代理。

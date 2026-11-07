@@ -4,6 +4,13 @@
 
 
 
+
+**2026-11-07当前续办：A1剩余只读审查覆盖已收口，未改产品。** 基线dev/eea2634e干净、同步无分歧，[基线完整CI42327110195](https://github.com/ForceMind/MyAPI/actions/runs/42327110195) attempt1仍success（上轮已亲读10份日志与checkout SHA）。维护者明确要求补完剩余账务、工具和部署资产；沿用[architecture-review-v2第三批](../architecture-review-v2.md)，前两批结论不重做。2名gpt-6.1-sol/high只读代理与主会话分工，持久账务/订阅/预算/任务/计价及全部目标资产归档；资产192项F/K/T/I/G明确分级，主会话抽查超过10条关键源码。新增23条账务、16条资产结论与后续门禁；四个A1结构缺口都有交付，测试全文/真实平台/供应商和新反例未验，不称产品全量验收。
+
+优先候选R4是signed direct_token回执与启动amount preflight非负范围的源码差异，已复核创建/扣额/启动调用链，但未在Actions运行重启反例，未查生产writer值。R5退款事实首次未持久化、R6邀请聚合跨库边界、R7桌面构建入口、R8备份提示，以及原R1–R3均保留未复现/未修复。建议下一步先给R4最小Actions三库取证范围，再按证据提修复，禁止普遍放宽金额校验。A2–A6/B3–B7/C1–C3仍分项执行；B1/B2/P1-9/既有Ops不重做，历史死代码/翻译键数量不生成删除授权。
+
+当前仅更新本README、TASKS和现有报告，提交后读自身完整CI，绿灯不替代新候选复现。所有实际构建测试在Actions；本机没有安装依赖、执行项目构建测试/Docker/浏览器或下载产物，无服务器/生产/真实模型/供应商、main/tag/GHCR/NPM/网站操作。beta.36镜像身份和既有部署记录保持，不能把本次文档SHA当镜像来源；下方A1未完成描述均为前两批历史时点。
+
 **2026-11-07当前续办：P2-A1第二批异步恢复与任务账务只读审查已落文档，未改产品。** 基线dev/4e42f493干净、同步无分歧，[完整CI42259867386](https://github.com/ForceMind/MyAPI/actions/runs/42259867386) attempt1仍success（上轮全部日志/checkout已亲读）。维护者“好的，继续按照计划”沿原A1授权继续，主代理独立完成本批源码阅读。既有[architecture-review-v2第二批](../architecture-review-v2.md)补17条文件/行号结论、状态/责任图和明确覆盖：真实系统任务调度、意图/预扣/发送CAS、未知不重发退款、终态证据/人工核对、回执/SQL/缓存/日志投影分层；均标“从代码看”，不是新的运行验收。
 
 R1排队后gate复核、R2日志批次success语义、R3人工审核并发回查差异是3个待合成验证点，不是已复现生产故障；最小反例方案见报告，不改产品、不放宽断言或补零。A1账务/任务其余分支及tools/website/deploy覆盖仍待；全量A1未完成。当前只更新本README、TASKS与既有报告，提交后读自身完整CI，CI通过不证明这3点已复现/修复。没有本机依赖/构建测试/浏览器/Docker/产物下载，没有生产/服务器动作、真实模型/供应商、main/tag/GHCR/NPM操作；下方已部署beta.36精确身份保持，不能重标成这次文档SHA。
@@ -251,8 +258,8 @@ UI10模型缺失/同步/冲突、UI11部署与UI12第一组Key/渠道敏感任�
 9. **P1-9源码与完整CI通过**：CLI受限版本与安装脚本公网来源规则对齐，e0699bd9 / CI42202296214；详见零节。已有部署配置未修改，浏览器/真实部署未验，不再作为未实施项重做。
 8. `tools/` 下不在 CI 里的浏览器脚本（`console-layout-browser.mjs`、`input-policy-browser.mjs`、`tools/quota/token-budget-browser.mjs`）可能依赖旧外壳，需检查；`tools/runtime/personal-browser.test.mjs` 有 5 个基线就存在的失败，不在 CI 里。
 
-### P2 第二阶段（`PLAN_PHASE2.md`，B1、B2 已完成，其余未开始）
-9. A1 补全结构审查（账务与任务恢复逐文件读；支付回调在 Lite 下对未完成订单的处理；只用外部登录、没有密码的账户在 Lite 下能否登录；`tools/`、`website/`、`deploy/`；790 个单调用点函数；637 个疑似未用翻译键）。
+### P2 第二阶段（B1/B2已完成，A1只读审查见零节，A2–A6/B3–B7待实施）
+9. **A1只读覆盖已收口，见零节与architecture-review-v2第三批**：账务/任务、Lite支付回调/外部登录、tools/website/deploy有覆盖记录与候选。新反例/产品修复/真实验收另列，不重做前两批；790单调用函数与637疑似翻译键是后续A5/A6历史候选，未重测。
 10. A2 Lite 降级影响修复（依 A1）；A3 审查并删除 37 个计费相邻不可达函数；A4 分层整理（`controller/channel-billing.go` 约 1.2k 行业务逻辑下沉 `service/`）；A5 内联单调用点短函数；A6 清理前端未用导出（140 + 68）、未引用 UI 原语（约 1,448 行）、未用翻译键。
 11. B3 Linux 原生服务（修正 `my-api.service`：行内注释从 systemd 语法看不被支持，未实测；加固；`deploy/install-native.sh`；user service）；B4 `myapi backup` / `myapi restore`；B5 Desktop（托盘 i18n、窗口关闭 / 退出 / 停止服务区分）；B6 容器加固评估（非 root 运行）；B7 中英文部署教程。
 12. C1 七语言补译与验收；C2 独立质量审查（Fable，只审查）；C3 全量验收。
