@@ -21,7 +21,9 @@
 
 必要验证资产包括新controller/main/IPC/renderer/合成child Node测试与固定fixture、tools/desktop合同、原runtime-config及desktop-probe合同；生产探测仅多了本次AbortSignal第6参时，静态签名严格要求signal，原status/env/logs/dev断言全部保留，并以真实VM补更强取消/JSON/非2xx行为。Root package白名单追加controller、安全诊断模块、面板/IPC/preload/CSS/i18n及en/zh资源；测试fixture不打包。
 
-候选统一beta.40，仅dev源码与GHA构建产物；本机未安装依赖、运行项目tests/lint/typecheck/build/Docker/浏览器或下载CI产物，只有源码/既有格式器/JSON/XML/语法轻检查。无生产/服务器/真实供应商模型/main/tag/GHCR/NPM/发布或新签名证书。结果须按最终提交精确SHA亲读自己的完整CI与平台构建，不提前称完成；公网B5b、A2–A6/B3/B4/B6/B7及统一质量/七语言/全量验收仍在主Goal。
+候选统一beta.40，仅dev源码与GHA构建产物；本机未安装依赖、运行项目tests/lint/typecheck/build/Docker/浏览器或下载CI产物，只有源码/既有格式器/JSON/XML/语法轻检查。无生产/服务器/真实供应商模型/main/tag/GHCR/NPM/发布或新签名证书。首次候选`b54b0cd191cae5d7965783fb360be8bb21a6ff33` / CI42374604372的Desktop job128409516612完整434行日志已读：仅“packaged UI follows the effective LAN bind host”静态check失败，Node行为尚未执行；checker先前同步为局部别名window.loadURL，最终main仍调用mainWindow.loadURL，实际loadHost继续getHealthCheckAddress(BIND_ADDRESS)，URL仍固定http://${loadHost}:${loadPort}。只将checker精确引用同步回实际同一console窗口调用；host/port/旧public/LAN及VM真实行为断言不减，main运行逻辑不改。修正后继续完整Actions，不把此失败当功能测试或最终绿。
+
+结果须按最终提交精确SHA亲读自己的完整CI与平台构建，不提前称完成；公网B5b、A2–A6/B3/B4/B6/B7及统一质量/七语言/全量验收仍在主Goal。
 
 
 ## 2026-11-07 UI主线M2：Full首页保存模型与路由快捷入口（beta.39候选，完整CI为交付门禁）

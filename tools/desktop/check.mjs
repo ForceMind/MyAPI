@@ -118,7 +118,7 @@ function checkRuntime() {
   record(
     'packaged UI follows the effective LAN bind host',
     main.includes('getHealthCheckAddress(BIND_ADDRESS)') &&
-      main.includes('window.loadURL(`http://${loadHost}:${loadPort}`)'),
+      main.includes('mainWindow.loadURL(`http://${loadHost}:${loadPort}`)'),
   )
   record(
     'wildcard LAN status exposes discovered endpoints without placeholders',
