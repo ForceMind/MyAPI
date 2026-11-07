@@ -834,21 +834,6 @@ func cancelPendingQuotaBalanceGeneration(expected *QuotaBalanceBatchDrain, messa
 	return fmt.Errorf("%w: generation cancel compare-and-swap lost", ErrQuotaBalanceMutationUnknown)
 }
 
-func quotaBalanceGenerationTouchesSubject(generation *QuotaBalanceBatchDrain, kind, id int) bool {
-	if generation == nil {
-		return false
-	}
-	if kind == BatchUpdateTypeUserQuota {
-		_, ok := generation.Payload.UserQuota[id]
-		return ok
-	}
-	if kind == BatchUpdateTypeTokenQuota {
-		_, ok := generation.Payload.TokenQuota[id]
-		return ok
-	}
-	return false
-}
-
 func drainQuotaBalanceGenerationsForSubject(kind, id int) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

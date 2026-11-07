@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/ForceMind/MyAPI/common"
 	"gorm.io/gorm"
@@ -371,8 +370,4 @@ func channelQuotaAlertRetryExponent(attempt int) int {
 		return attempt
 	}
 	return 8
-}
-
-func channelQuotaAlertNow() int64 {
-	return time.Now().Unix()
 }

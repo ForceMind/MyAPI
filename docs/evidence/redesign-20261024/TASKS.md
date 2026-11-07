@@ -1,5 +1,26 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-08 A3b：17个私有未使用函数精简（beta.43候选，重新分析/完整CI为门禁）
+
+上一轮为实质进展：A3a当前可达性证据已交付，dev/`7e6d3fa452aa89462da83903ee690f2dbcb5c9c4` / [manual完整CI42401193288](https://github.com/ForceMind/MyAPI/actions/runs/42401193288) attempt1 success，14执行作业成功/1浏览器真实API跳过；主会话亲读21759行全部日志、步骤和14个checkout一致，失败/race标记0。被手动运行替代的自动CI42401192003真实cancelled，仅31行setup已执行，其余未执行/无日志，不计绿。前端3452/3452、Native105/105、A2三库20场景与原有根/独立relaykit/386/race通过。
+
+三目标linux/amd64、darwin/arm64、windows/amd64分析job分别128489088279/128489088167/128489088187成功，完整1301/1300/1301行及每个步骤已读。各Node分类合同17/17、0skip；每目标root production/root with-tests/独立relaykit with-tests三扫描actual_exit均0，报告函数数394/62/115、合并490条、仅17条可进入人工复核。三目标这17项名字/位置/文件hash集合完全相同；导出API/方法/relaykit全部manual=false且deletion_authorized始终false（证据不替代用户范围授权）。不宣称其它标签、外部消费者、平台GUI或真实服务已验。
+
+三份原始证据保留7天，本机未下载：Linux构件13585980053（ZIP SHA256 `0750926e4d1e56d5ea909483ab8d864292345afdb89d022d70343c9f22559b7b`，到2026-11-14 18:27:35 UTC）；darwin13585681915（`71a5d880a5fdbf57a3da5963b5feb07e948ceec4f3b2874212520245cc1ac6d0`，到18:28:11 UTC）；windows13585821199（`080f4271e6ccc07114a41fd812a3f5493a4c37d25c2f2bde2a708b770fdb4d37`，到18:28:19 UTC）。全部绑定run42401193288/attempt1/7e6d3fa4，不重标后继源。
+
+本轮dev/7e6d3fa4干净，fetch后0/0、ff-only最新，基线CI仍success；主会话已亲核17项当前文件hash仍等于分析报告。完整读过pkg/billingexpr/expr.md，保原表达式、token归一化、计价/结算和饱和审计；本轮不改它们，不新找BUG。仅执行已批准A3内私有函数级精简，**不删除整文件或对外API**。不重建旧37清单或按过期数量制造完成。
+
+成功标准：只删除已逐项复核且三目标prod/test均不可达的17个private完整定义及唯一失效注释/确实无用import，所有活跃功能/字段/价格/权限/付款/账务/未知/不重放契约与原测试断言保持。验证方法：相关既有测试、根main/根模块/独立relaykit/三库/386/race与三目标重新构建/分析全部Actions，推送后按最终源码SHA亲读完整CI。本机仅源码、gofmt、轻语法/差异，不装依赖、编译、测试、运行分析/Docker/浏览器或下载产物。
+
+本批文件与唯一owner：复用2名gpt-6.1-sol/high分别负责controller三个文件中的14函数、model三个文件中的3函数；主会话负责版本/交接、集成、提交/CI，无新代理或递归。函数边界：
+
+- controller/channel-billing.go：updateChannelCloseAIBalance、updateChannelOpenAISBBalance，另移除后者已失效注释调用；保活动余额分派、超时/响应上限/采样持久化和两个导出response类型，不宣称同供应商已验替代。
+- controller/topup.go：getPayMoney、getMinTopup、getMaxTopUpAmount；保captureEpayQuoteContext、quote.payMoney/minimum、maxTopUpAmountForSnapshot、normalize、严格额度转换和容量检查。现有decimal等import仍有活动用途，不连带删。
+- controller/payment_webhook_availability.go：isStripeWebhookConfigured、isCreemWebhookConfigured、isWaffoTopUpEnabled、isWaffoWebhookConfigured、isWaffoPancakeTopUpEnabled、isWaffoPancakeWebhookConfiguredFromPaymentConfig、isWaffoPancakeWebhookConfigured、isEpayTopUpEnabled、isEpayWebhookConfigured；Pancake两项内部相互引用成对处理。所有活动FromPaymentConfig与provider/签名/环境/funding decision/epoch/状态/幂等结算及路由保留，不删文件或连带import。
+- model/account_quota_refund_fact.go：nowUnix，保活动DB时钟和time超时用途；model/channel_quota_alert.go：channelQuotaAlertNow及此文件唯一time import，保显式now/deliveredAt/failedAt API；model/quota_batch_drain.go：quotaBalanceGenerationTouchesSubject，保主体关联表JOIN/预算/游标及所有类型/字段/constants。
+
+导出PostConsumeQuota、DeltaUpdateUserQuota及其活动下层/真实GORM hooks继续保留，relaykit API不动；非默认标签/外部私有补丁不当作已知无调用。代码删除不是把函数改成空壳或放宽检查，也不新增“函数不存在”测试；必要旧回归按原语义执行。当前只是候选，实际运行须看新提交完整CI及三目标重新分析，应用候选统一beta.43但不发布/部署/main/tag/GHCR/NPM或改实际生产配置，不发真实模型请求。剩余A3外部API边界、A4–A6/B3/B4/B5b后续/B6/B7与统一质量/七语言/全量验收仍在同一Goal。
+
 ## 2026-11-08 A3a：当前Go可达性清单（仅分析，非删除授权）
 
 上一轮为实质进展：A2配置兼容检查已源码/非浏览器交付，最终dev/`77fed01ef38081cdbab1d22a9506f892b2f4e40c` / [完整CI42396095331](https://github.com/ForceMind/MyAPI/actions/runs/42396095331) attempt1 success，11执行作业成功/1浏览器真实API跳过。主会话亲读17688行全部日志、步骤与11个checkout一致，失败/race标记0；新增根main定向5个Test全部PASS（含3个状态子场景及实际main子进程/迁移前拒绝），SQLite5/MySQL8/PostgreSQL7共20叶场景通过、CLI181/181、前端421文件3452/3452、Native105/105/0skip，根/独立relaykit/386/全部原有race通过。首次产品源f308bfcd的整体绿但漏root main及后继覆盖修正保留，不把旧make test排除根包当已验。真实登录/认证器、历史大库、浏览器和生产均未验证/操作。

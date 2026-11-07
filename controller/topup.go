@@ -169,46 +169,6 @@ func GetEpayClient(paymentConfig setting.PaymentConfig) *epay.Client {
 	return withUrl
 }
 
-func getPayMoney(amount int64, group string, paymentConfig setting.PaymentConfig) float64 {
-	dAmount := decimal.NewFromInt(amount)
-	// 充值金额以“展示类型”为准：
-	// - USD/CNY: 前端传 amount 为金额单位；TOKENS: 前端传 tokens，需要换成 USD 金额
-	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
-		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
-		dAmount = dAmount.Div(dQuotaPerUnit)
-	}
-
-	topupGroupRatio := common.GetTopupGroupRatio(group)
-	if topupGroupRatio == 0 {
-		topupGroupRatio = 1
-	}
-
-	dTopupGroupRatio := decimal.NewFromFloat(topupGroupRatio)
-	dPrice := decimal.NewFromFloat(paymentConfig.Price())
-	// apply optional preset discount by the original request amount (if configured), default 1.0
-	discount := 1.0
-	if ds, ok := operation_setting.GetPaymentSetting().AmountDiscount[int(amount)]; ok {
-		if ds > 0 {
-			discount = ds
-		}
-	}
-	dDiscount := decimal.NewFromFloat(discount)
-
-	payMoney := dAmount.Mul(dPrice).Mul(dTopupGroupRatio).Mul(dDiscount)
-
-	return payMoney.InexactFloat64()
-}
-
-func getMinTopup(paymentConfig setting.PaymentConfig) int64 {
-	minTopup := paymentConfig.MinTopUp()
-	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
-		dMinTopup := decimal.NewFromInt(int64(minTopup))
-		dQuotaPerUnit := decimal.NewFromFloat(common.QuotaPerUnit)
-		minTopup = common.QuotaFromDecimal(dMinTopup.Mul(dQuotaPerUnit))
-	}
-	return int64(minTopup)
-}
-
 func getTopUpQuota(amount int64) (int, error) {
 	return topUpQuotaForSnapshot(amount, common.QuotaPerUnit, operation_setting.GetQuotaDisplayType())
 }
@@ -222,10 +182,6 @@ func topUpQuotaForSnapshot(amount int64, unit float64, displayType string) (int,
 		quota = quota.Mul(decimal.NewFromFloat(unit))
 	}
 	return common.QuotaFromDecimalStrict(quota)
-}
-
-func getMaxTopUpAmount() int64 {
-	return maxTopUpAmountForSnapshot(common.QuotaPerUnit, operation_setting.GetQuotaDisplayType())
 }
 
 func maxTopUpAmountForSnapshot(unit float64, displayType string) int64 {

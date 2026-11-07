@@ -2,6 +2,13 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**2026-11-08当前：A3a当前证据已通过，继续17个私有函数精简；beta.43候选。** dev/`7e6d3fa452aa89462da83903ee690f2dbcb5c9c4` / [manual完整CI42401193288](https://github.com/ForceMind/MyAPI/actions/runs/42401193288) attempt1 success：14执行作业成功/1浏览器真实API跳过，21759行日志、全部步骤和14个checkout亲读，失败/race标记0。三目标root/relaykit构建与9扫描实际exit0，各分类合同17/17，17个private人工复核候选集合与文件hash一致；原有前端3452/Native105/三库/386/race通过。被替代自动CI42401192003取消/未执行已留档，不计绿。证据构件/摘要和完整边界集中[TASKS最新节](../TASKS.md)。
+
+本轮只处理这17个已复核的private函数定义：controller14/model3，另唯一无用time import/失效注释；不删整文件、导出API、response类型、GORM钩子或relaykit API。活动配置快照、Epay quote/严格额度、付款签名-provider-epoch-幂等及退款DB时钟/主体JOIN/提醒传入时钟全部保留，不放宽断言或改价格/表达式。主会话已重新核对当前hash匹配源证据，候选版本按既有5处统一beta.43；实际源码/重新分析和完整CI都按最终SHA验，不提前称完成。
+
+只Actions构建/测试/三目标分析，不本机依赖/编译/测试/分析/Docker/浏览器或下载产物；无生产/真实模型/供应商/main/发布。R4保持关闭，版本功能后才统一BUG审查；其它A/B阶段和收口仍在完整Goal。下文A3a/A2“待验收”等为历史，不覆盖本节。
+
+
 **2026-11-08当前：A2已通过源码/非浏览器验收，继续A3a当前可达性清单；应用仍beta.42。** dev/`77fed01ef38081cdbab1d22a9506f892b2f4e40c` / [完整CI42396095331](https://github.com/ForceMind/MyAPI/actions/runs/42396095331) attempt1 success：11成功/1浏览器真实API跳过；17688行完整日志、步骤和11个checkout已亲读。根main定向5个Test及3状态子场景全部PASS，A2三库20叶场景、CLI181、Native105、前端3452与原有独立relaykit/386/race等门禁通过。首次f308bfcd漏root main覆盖的过程保留，不将其整体绿冒充主程序已验；产品源f308与后继77的产品树一致，77只补CI/交接。真实登录、大库、平台GUI/安装、浏览器和生产未验证/操作。
 
 A3历史37项原始scratchpad名单未保存在主检出或旧c916 Git树，且部分旧“不可达”概括已随当前引用漂移。先在Actions固定版本工具生成当前prod/test/独立relaykit及三Go目标清单，不编造名单，不按根模块分析删除库公开API。当前新增manual-only dev可复用分析工作流与报告工具；为不合main，借既有ci.yml的run_reachability默认false手动输入调用，所有记录analysis_only=true/deletion_authorized=false，关闭遥测；测试引用、导出函数/方法、GORM/JSON接口、init/生成/测试源/独立模块有明确人工保护。详情与分工/门禁见[TASKS最新节](../TASKS.md)。本批不是全部A3清理，也未删除代码。

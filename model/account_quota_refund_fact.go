@@ -571,8 +571,6 @@ func applyLegacySubscriptionRefundFact(ctx context.Context, db *gorm.DB, claimed
 	return nil
 }
 
-func nowUnix() int64 { return time.Now().Unix() }
-
 func RecoverAccountQuotaRefundFact(ctx context.Context, db *gorm.DB, fact *AccountQuotaRefundFact, workerID string) (*AccountQuotaRefundFact, *AccountQuotaMutationReceipt, error) {
 	if db == nil || fact == nil || strings.TrimSpace(workerID) == "" {
 		return nil, nil, gorm.ErrInvalidDB

@@ -66,10 +66,6 @@ func isStripeWebhookConfiguredFromPaymentConfig(paymentConfig setting.PaymentCon
 	return strings.TrimSpace(paymentConfig.StripeWebhookSecret()) != ""
 }
 
-func isStripeWebhookConfigured() bool {
-	return isStripeWebhookConfiguredFromPaymentConfig(setting.CapturePaymentConfig())
-}
-
 func isStripeWebhookEnabledFromPaymentConfig(paymentConfig setting.PaymentConfig) bool {
 	// Subscription plans have their own prices; recharge catalog configuration
 	// must not disable fulfillment of their already-created orders.
@@ -98,10 +94,6 @@ func isCreemWebhookConfiguredFromPaymentConfig(paymentConfig setting.PaymentConf
 	return strings.TrimSpace(paymentConfig.CreemWebhookSecret()) != ""
 }
 
-func isCreemWebhookConfigured() bool {
-	return isCreemWebhookConfiguredFromPaymentConfig(setting.CapturePaymentConfig())
-}
-
 func isCreemWebhookEnabledFromPaymentConfig(paymentConfig setting.PaymentConfig) bool {
 	return isPaymentComplianceConfirmed() && strings.TrimSpace(paymentConfig.CreemApiKey()) != "" && isCreemWebhookConfiguredFromPaymentConfig(paymentConfig)
 }
@@ -121,10 +113,6 @@ func isWaffoTopUpEnabledFromPaymentConfig(paymentConfig setting.PaymentConfig) b
 	return isWaffoWebhookConfiguredFromPaymentConfig(paymentConfig)
 }
 
-func isWaffoTopUpEnabled() bool {
-	return isWaffoTopUpEnabledFromPaymentConfig(setting.CapturePaymentConfig())
-}
-
 func isWaffoWebhookConfiguredFromPaymentConfig(paymentConfig setting.PaymentConfig) bool {
 	if paymentConfig.WaffoSandbox() {
 		return strings.TrimSpace(paymentConfig.WaffoSandboxApiKey()) != "" &&
@@ -135,10 +123,6 @@ func isWaffoWebhookConfiguredFromPaymentConfig(paymentConfig setting.PaymentConf
 	return strings.TrimSpace(paymentConfig.WaffoApiKey()) != "" &&
 		strings.TrimSpace(paymentConfig.WaffoPrivateKey()) != "" &&
 		strings.TrimSpace(paymentConfig.WaffoPublicCert()) != ""
-}
-
-func isWaffoWebhookConfigured() bool {
-	return isWaffoWebhookConfiguredFromPaymentConfig(setting.CapturePaymentConfig())
 }
 
 func isWaffoWebhookEnabledFromPaymentConfig(paymentConfig setting.PaymentConfig) bool {
@@ -160,18 +144,6 @@ func isWaffoPancakeTopUpEnabledFromPaymentConfig(paymentConfig setting.PaymentCo
 		strings.TrimSpace(paymentConfig.WaffoPancakeProductID()) != ""
 }
 
-func isWaffoPancakeTopUpEnabled() bool {
-	return isWaffoPancakeTopUpEnabledFromPaymentConfig(setting.CapturePaymentConfig())
-}
-
-func isWaffoPancakeWebhookConfiguredFromPaymentConfig(paymentConfig setting.PaymentConfig) bool {
-	return isWaffoPancakeTopUpEnabledFromPaymentConfig(paymentConfig)
-}
-
-func isWaffoPancakeWebhookConfigured() bool {
-	return isWaffoPancakeWebhookConfiguredFromPaymentConfig(setting.CapturePaymentConfig())
-}
-
 func isWaffoPancakeWebhookEnabledFromPaymentConfig(paymentConfig setting.PaymentConfig) bool {
 	return isWaffoPancakeTopUpEnabledFromPaymentConfig(paymentConfig)
 }
@@ -187,18 +159,10 @@ func isEpayTopUpEnabledFromPaymentConfig(paymentConfig setting.PaymentConfig) bo
 	return isEpayWebhookConfiguredFromPaymentConfig(paymentConfig) && len(operation_setting.GetPayMethods()) > 0
 }
 
-func isEpayTopUpEnabled() bool {
-	return isEpayTopUpEnabledFromPaymentConfig(setting.CapturePaymentConfig())
-}
-
 func isEpayWebhookConfiguredFromPaymentConfig(paymentConfig setting.PaymentConfig) bool {
 	return strings.TrimSpace(paymentConfig.PayAddress()) != "" &&
 		strings.TrimSpace(paymentConfig.EpayId()) != "" &&
 		strings.TrimSpace(paymentConfig.EpayKey()) != ""
-}
-
-func isEpayWebhookConfigured() bool {
-	return isEpayWebhookConfiguredFromPaymentConfig(setting.CapturePaymentConfig())
 }
 
 func isEpayWebhookEnabledFromPaymentConfig(paymentConfig setting.PaymentConfig) bool {
