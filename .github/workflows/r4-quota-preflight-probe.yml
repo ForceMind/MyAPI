@@ -1,0 +1,102 @@
+name: R4 quota startup evidence (synthetic databases only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  collect-evidence:
+    name: Collect SQLite / MySQL 5.7 / PostgreSQL 9.6 evidence
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_DATABASE: myapi_r4_probe
+          MYSQL_ROOT_PASSWORD: r4-synthetic-fixture-password
+          MYSQL_ROOT_HOST: '%'
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pr4-synthetic-fixture-password"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+      postgres:
+        image: postgres:9.6
+        env:
+          POSTGRES_DB: myapi_r4_probe
+          POSTGRES_PASSWORD: r4-synthetic-fixture-password
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd="pg_isready -U postgres -d myapi_r4_probe"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    env:
+      GOWORK: 'off'
+      GOMAXPROCS: '1'
+      GOMEMLIMIT: '768MiB'
+      MYAPI_R4_DATABASE_TESTS: '1'
+      MYAPI_R4_MYSQL_DSN: root:r4-synthetic-fixture-password@tcp(127.0.0.1:${{ job.services.mysql.ports[3306] }})/myapi_r4_probe?charset=utf8mb4&parseTime=true
+      MYAPI_R4_POSTGRES_DSN: postgres://postgres:r4-synthetic-fixture-password@127.0.0.1:${{ job.services.postgres.ports[5432] }}/myapi_r4_probe?sslmode=disable
+      R4_EVIDENCE_DIR: ${{ runner.temp }}/myapi-r4-evidence
+    steps:
+      - name: Checkout dispatched dev revision
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Record exact source revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/dev
+          checkout_sha=$(git -c core.fileMode=false rev-parse HEAD)
+          test "$checkout_sha" = "$GITHUB_SHA"
+          mkdir -p "$R4_EVIDENCE_DIR" "$RUNNER_TEMP/myapi-r4-tmp"
+          echo "R4_SOURCE_SHA=$checkout_sha" >> "$GITHUB_ENV"
+          echo "source_sha=$checkout_sha; run_id=$GITHUB_RUN_ID; run_attempt=$GITHUB_RUN_ATTEMPT"
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            relaykit/go.sum
+      - name: Verify evidence classifier rejects unrelated failures
+        working-directory: tools/accounting-audit
+        run: python3 -m unittest test_r4_probe_report.py
+      - name: Collect real assertions from all three disposable databases
+        env:
+          TMPDIR: ${{ runner.temp }}/myapi-r4-tmp
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Preserve the real Go status. Only the next step may classify a known assertion failure.
+          set +e
+          go test -json -p 1 ./model -run '^TestR4QuotaAmountPreflightProbe$' -count=1 -timeout=600s > "$R4_EVIDENCE_DIR/go-test.jsonl" 2> "$R4_EVIDENCE_DIR/go-test.stderr"
+          go_exit=$?
+          set -e
+          printf '%s\n' "$go_exit" > "$R4_EVIDENCE_DIR/go-test.exit"
+          cat "$R4_EVIDENCE_DIR/go-test.jsonl"
+          cat "$R4_EVIDENCE_DIR/go-test.stderr"
+          echo "Original go test exit code: $go_exit"
+      - name: Classify evidence without treating arbitrary failures as reproduction
+        if: always()
+        shell: bash
+        run: |
+          python3 tools/accounting-audit/r4_probe_report.py \
+            --log "$R4_EVIDENCE_DIR/go-test.jsonl" \
+            --stderr "$R4_EVIDENCE_DIR/go-test.stderr" \
+            --exit-code-file "$R4_EVIDENCE_DIR/go-test.exit" \
+            --output "$R4_EVIDENCE_DIR/report.json"
+      - name: Preserve synthetic evidence for seven days
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: r4-quota-preflight-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/myapi-r4-evidence/
+          if-no-files-found: error
+          retention-days: 7
