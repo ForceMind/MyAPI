@@ -2,6 +2,8 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**B3a首轮未验收：d3b89d16 / CI42414107174在新native脚本lint失败。** 失败作业183行日志/步骤已读；功能合同和systemd校验均未执行。候选只修CDPATH空赋值写法与literal systemd dollar的定域说明，保全部断言与校验命令，仍beta.45，待后继SHA完整CI；详细红灯与静态网站两项成功的精确边界见TASKS最新节，不将其称安装或运行通过。
+
 **已验证基线：A5a `679ceee0f5e91162b1cffbc7becbbd0632955306` / [完整CI42411676577](https://github.com/ForceMind/MyAPI/actions/runs/42411676577) attempt1 success。** 11执行作业成功/2可选作业跳过，18494行日志、全部步骤及11个checkout已核对，失败/race标记0；三库12、Native105、前端3452与根main/独立relaykit/386/原有race通过。A5a仅controller机械内联，整个A5仍有后续；应用当时beta.44未发布，下面beta.45是新候选，不能混用证据。
 
 **2026-11-08当前候选：B3a Linux路径预览与服务模板，beta.45，待Actions验证。** 复用system/XDG已确认路径和T1只做合同/合成、不接线下载安装边界；新入口仅plan/render-unit/stdout，中英明确未查既有配置和健康、不可据此接管/替换。system固定专用用户与受限写目录，user安全渲染且不依赖namespace；必需配置可覆盖SQLite缺省，停机未确认不允许继续。特殊路径经固定exec位置参数传入，保全部literal字符，严格argv/PID/环境/退出码和数据保全合同待Actions，不在本机跑测试。

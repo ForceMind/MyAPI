@@ -125,13 +125,15 @@ if [[ "$command_name" == plan ]]; then
   exit 0
 fi
 
-script_directory="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+script_directory="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 if [[ "$scope" == system ]]; then
   cat "$script_directory/../my-api.service"
   exit 0
 fi
 
 while IFS= read -r line || [[ -n "$line" ]]; do
+  # Match and emit literal systemd dollar placeholders, never shell expansion.
+  # shellcheck disable=SC2016
   case "$line" in
     'WorkingDirectory=@DATA@') printf 'WorkingDirectory=%s\n' "$(unit_quote "$data")" ;;
     'Environment=@SQLITE_DEFAULT@') printf 'Environment=%s\n' "$(unit_quote "SQLITE_PATH=$data/my-api.db?_busy_timeout=30000")" ;;
