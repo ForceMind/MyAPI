@@ -13,8 +13,8 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
-import { useState, type ReactNode, type Ref } from 'react'
+import { getRouteApi, Link } from '@tanstack/react-router'
+import type { ReactNode, Ref } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -51,10 +51,16 @@ import {
   isRequestFailure,
   isRequestLog,
 } from '@/features/usage-logs/lib/request-facts'
+import {
+  requestReturnActorKey,
+  useCaptureRequestReturn,
+  useRestoreRequestReturn,
+} from '@/features/usage-logs/lib/request-return-state'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 import { linkButtonClassName } from '@/lib/link-button'
+import { useAuthStore } from '@/stores/auth-store'
 
 import type { FlowSelection } from '../../lib/overview-flow'
 import type { OverviewData } from './use-overview-data'
@@ -62,6 +68,7 @@ import type { OverviewData } from './use-overview-data'
 const DESKTOP_ROWS = 8
 const MOBILE_ROWS = 5
 type Outcome = 'all' | 'failed' | 'usage'
+const route = getRouteApi('/_authenticated/dashboard/$section')
 const outcomeItemClassName =
   'h-auto min-h-7 min-w-0 shrink whitespace-normal max-lg:min-h-11'
 
@@ -70,6 +77,7 @@ function RequestLink(props: {
   log: UsageLog
   className?: string
   children: ReactNode
+  capture: (id: number) => void
 }) {
   if (!props.log.request_id) {
     return <span className={props.className}>{props.children}</span>
@@ -79,6 +87,21 @@ function RequestLink(props: {
       to='/usage-logs/request/$requestId'
       params={{ requestId: props.log.request_id }}
       className={props.className}
+      state={{ inspectorBack: true }}
+      data-usage-request-link={props.log.id}
+      onClick={(event) => {
+        if (
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey ||
+          event.defaultPrevented ||
+          (event.currentTarget.target && event.currentTarget.target !== '_self')
+        )
+          return
+        props.capture(props.log.id)
+      }}
     >
       {props.children}
     </Link>
@@ -170,7 +193,11 @@ export function OverviewRecentRequests(props: {
   const { t } = useTranslation()
   const mobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
   const showLogs = useIsSidebarModuleVisible('/usage-logs/common')
-  const [outcome, setOutcome] = useState<Outcome>('all')
+  const search = route.useSearch()
+  const navigate = route.useNavigate()
+  const outcome: Outcome = search.activity ?? 'all'
+  const actor = useAuthStore((state) => requestReturnActorKey(state.auth))
+  const { capture } = useCaptureRequestReturn(actor)
   const selection = props.selection
   const limit = mobile ? MOBILE_ROWS : DESKTOP_ROWS
   const failures = useRecentFailures(
@@ -193,6 +220,10 @@ export function OverviewRecentRequests(props: {
     return true
   })
   const shown = rows?.slice(0, limit) ?? []
+  useRestoreRequestReturn({
+    ready: !query.isPending && !query.isFetching && !query.isError,
+    rows: shown,
+  })
   const showConnection = props.data.isAdmin
   const filtered = selection !== null || outcome !== 'all'
   let recordsSearch: Record<string, unknown> = {}
@@ -263,6 +294,7 @@ export function OverviewRecentRequests(props: {
           <li key={row.id}>
             <RequestLink
               log={row}
+              capture={capture}
               className='hover:bg-muted flex min-h-14 min-w-0 items-center gap-3 px-3 py-2'
             >
               <span className='flex min-w-0 flex-1 flex-col gap-1'>
@@ -311,6 +343,7 @@ export function OverviewRecentRequests(props: {
                 <TableCell>
                   <RequestLink
                     log={row}
+                    capture={capture}
                     className='text-primary underline-offset-4 hover:underline'
                   >
                     <RequestTime seconds={row.created_at} />
@@ -382,7 +415,16 @@ export function OverviewRecentRequests(props: {
           value={[outcome]}
           onValueChange={(value) => {
             const next = value[0] as Outcome | undefined
-            if (next) setOutcome(next)
+            if (!next) return
+            void navigate({
+              search: (previous) => ({
+                ...previous,
+                activity: next === 'all' ? undefined : next,
+              }),
+              replace: true,
+              resetScroll: false,
+              state: (previous) => previous,
+            })
           }}
           className='max-w-full'
         >

@@ -2,6 +2,13 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**2026-11-07当前主线：R4已通过三库及完整CI，进入三版本首页/接入增量，beta.38候选。** 基线dev/`09be9f7a` / [CI42355744255](https://github.com/ForceMind/MyAPI/actions/runs/42355744255) attempt1 success，全部16517行执行日志、步骤与10个checkout已亲读，10成功/1浏览器真实API跳过，前端3417/3417及根/独立relaykit/386/race/三库门禁过。R4三库12/12/Go exit0，原断言保留，专项关闭；不再追其它历史BUG，持续Goal仍覆盖完整Full/Lite/Desktop计划。
+
+本轮沿已入仓效果图，细化既有overview/connections/key-delivery三视图6SVG，目录329对象与其它326对象保持；候选首页实现Full紧凑中性核心、Lite三任务+真实BaseURL/有限保存窗口摘要/高级统计键盘展开，失败/未知/风险保外显，准确请求返回保URL筛选/滚动/焦点。已有管理/交付页复用，Desktop只已有关窗/托盘引导，原生控制仍属B5；不把设计图当已实现或视觉验证。当前源码/版本/i18n与交接同批提交，完整范围/剩余清单集中于[TASKS最新节](../TASKS.md)，最终按该提交精确SHA读取自己的完整CI，不提前称完成。
+
+没有本机依赖安装、项目测试/构建/typecheck/lint/Docker/浏览器或CI产物下载；只源码写入与格式/JSON/XML轻检查。无生产/服务器/真实上游模型/发布/main操作。beta.38仅候选，已部署beta.36不变；浏览器未验证。
+
+
 **2026-11-07最新：R4修复的三库目标已真实转绿，beta.37候选；最终交付还须完整CI回读。** 产品源码`2795b70c672613cebd5e8f68be29474d98b578c1` / [三库专项42354605593](https://github.com/ForceMind/MyAPI/actions/runs/42354605593) attempt1 success，全部1447行日志/步骤/checkout与完整报告已亲读：SQLite3.50.4、MySQL5.7.44、PostgreSQL9.6.24的12case全部pass、Go exit0；合法扣额后启动金额预检现通过，非法负收费拒绝、幂等与预检只读对照保留。仅修改金额预检及对应测试，新增38个边界场景随完整CI验证；原R4断言与checker未改，报告固定product_fixed=false不作生产整体证明。从代码看窄例外要求字节精确direct_token/token/direct、requested=applied非零且均在原signed单笔界内；NULL/缺失/未知身份、越界继续原拦截，旧非负历史表兼容。
 
 版本与分发示例已按既有体系同步beta.37，没有发布镜像或更新生产。三库绿、构件身份与本批范围集中在[TASKS最新节](../TASKS.md)；本批最终交付须按最后提交精确SHA亲读完整CI，不以首推42354593006的进行中或取消算绿。所有项目构建测试在Actions，本机无依赖安装、构建测试、Docker、浏览器或产物下载，无服务器/真实模型操作。下一主线已给[三版本首页概念效果预览](../ui-design-v2/screenshots/three-editions-home-concept-20261107.png)，这是imagegen示例设计，未改产品UI，非实机截图/视觉验收；后续顺序沿TASKS，不另建状态体系。

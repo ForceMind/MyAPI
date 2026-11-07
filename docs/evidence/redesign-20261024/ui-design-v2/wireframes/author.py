@@ -1125,6 +1125,74 @@ for page in pages:
     ]))
     page['notes'].append('分段只读取已经保存的原始字节；不下载整日志、不重放请求，不把读到末尾当业务成功或已结算。')
 
+# 2026-11-07: update only the three existing entry views. Never regenerate the
+# complete directory for this increment; the selective write is reviewed outside
+# this authoring module, before its historical bulk-output block.
+EDITION_ENTRY_LAYOUTS = {
+    'overview': {
+        'sections': [
+            ('Full · 谁在调用 → MyAPI网关 → 连接到哪里', ['Key掩码 / 请求数 / 已保存状态', '中性紧凑核心卡：真实Base URL及来源 / 复制', '24小时请求 / 失败率 / 耗时中位数；未知不补零', '每小时请求图及数值替代 / 样本覆盖说明 / 版本与访问摘要']),
+            ('Lite · 三步接入你的客户端', ['1 添加连接 → /connections；保存仍在原编辑任务', '2 创建或选择API Key → /keys；不自动创建', '3 先选Key → 该Key交付；不自动读取凭据或发送请求', '地址复用配置服务器地址或当前访问地址；明确复制']),
+            ('Desktop · Lite桌面壳', ['复用Lite三步、实际地址来源与已保存连接', '已有关窗 / 托盘引导保持；不据此推断服务健康', 'B5待实现：原生健康、停止服务、LAN控制；本轮没有可操作按钮']),
+        ],
+        'actions': [
+            A('添加连接〔跳转〕', 'connections', '跳转/connections；沿当前权限进入原添加任务，只有原保存才写入；返回保留来源。'),
+            A('创建 / 选择Key〔跳转〕', 'keys', '跳转/keys；已有Key可选择，不自动创建、读取秘密或扩大权限。'),
+            A('配置客户端〔先选Key〕', 'keys', '必须先在/keys选择准确Key，再进入/keys/$keyId?tab=delivery；保首页来源与返回焦点，不自动读取Key或发送。'),
+            A('复制接入地址〔只读〕', 'overview', '仅明确点击复制真实配置地址或当前访问地址；来源可见，复制失败就近提示；不写配置、不验证上游。'),
+            A('模型 N 展开〔只读〕', 'overview', '键盘或点击展开当前连接已加载模型；完整ID可达，未知数量不用0；不重新获取模型或供应商测试。'),
+            A('查看请求〔只读跳转〕', 'requests', '按原节点及时间筛选已保存请求，返回恢复选择；不重放模型请求。'),
+            A('完整流向 / 重试入口〔只读展开〕', 'overview', '键盘Enter/Space或点击展开已有FlowBoard；展开不新增请求，全部原retry/actions/值和样本说明仍可达。'),
+        ],
+        'notes': ['效果图仅作方向参考；Full保原全部统计、图表可访问文字、样本覆盖和meta，不因卡片紧凑删字段。', 'Lite首屏是三步任务与真实地址，完整流向/统计放可键盘展开区；收起保已加载数据，展开不新增HTTP。', '折叠外保OverviewAttention及各类加载/读取失败/未知摘要；已保存窗口的剩余/状态/观察时间常驻，保进入详情重试入口。', '加载、无连接、无Key、失败、未知和权限变化分别提示；没有证据不得显示健康或可调用。', '当前供应商余额能力按实际连接说明支持/不支持/未获取/失败；可查看已保存账号窗口，不笼统判定全部不支持。', 'Desktop原生服务健康、停止、LAN均标B5待实现；本轮只保已有壳及关窗/托盘指引，不承诺已验收。'],
+    },
+    'connections': {
+        'sections': [
+            ('合成连接 A #7 · 已保存状态', ['模型 8 ▾ / 分组 1 ▾：就地完整展开', '7天 / 5小时窗口分别展示；来源、观察时间和单位可见', '优先级 9 / 权重 25 → 原路由编辑任务', '失败 / 待处理 / 未知常驻；开关与明确测试分开']),
+            ('展开态 · 当前卡片自然增高', ['完整模型ID逐项列出，可复制；不自动重新发现', '每个窗口独立显示来源 / 观察时间 / 期限 / 状态', '无窗口 / 不支持余额查询 / 尚未获取 / 读取失败分别说明', '卡片 / 表格为同一对象，保筛选、分页与返回焦点']),
+        ],
+        'actions': [
+            A('添加连接〔跳转〕', 'connection-edit', '仅打开原编辑任务；沿权限、字段校验及原保存写入；取消不改连接。'),
+            A('模型 N 展开〔只读〕', 'connections', '仅展开已加载模型；保完整ID、未知与加载失败，不测试、不取密钥或自动HTTP。'),
+            A('查看窗口〔只读跳转〕', 'connection-windows', '查看准确连接已保存窗口；来源/观察时间/单位/失败与未知保留，不自动调用供应商。'),
+            A('优先级 / 权重〔编辑跳转〕', 'connection-routing', '进入原路由任务；沿原权限与保存载荷，取消保原值，不用展示调整改变选路算法。'),
+            A('启用切换〔原写入〕', 'connections', '沿原授权及已有确认流程；处理中禁止重复，失败回到已确认状态，结果未知提示只读核对且不自动重放。'),
+            A('测试连接〔进入确认〕', 'provider-test', '只打开原测试任务；明确选择模型并主动执行才联系供应商，可能产生用量；线稿不执行。'),
+            A('切换表格〔跳转〕', 'channels', '同一连接对象、原权限及筛选；不复制对象或触发后台测试。'),
+            A('返回来源〔跳转〕', 'overview', '恢复实际来源、查询和焦点；首页只作为示意来源，权限变化不恢复旧敏感数据。'),
+            A('分组 N 展开〔只读〕', 'connections', '键盘或点击展开当前连接已加载分组；不改分组、不发请求，收起恢复焦点。'),
+        ],
+        'notes': ['卡片自然高度；一个展开不拉伸同排其他卡；手机单列、按钮44px、长模型ID换行。', '数量按钮使用准确已加载计数；未知不能显示0，展开与关闭保焦点且不触发写入。', '窗口百分比为合成占位，不代表供应商当前健康；不同窗口/单位/来源不相加。', '保存、开关、测试均沿原权限；身份或权限变化清除旧私有结果，失败与未知不能藏在收起区。'],
+    },
+    'key-delivery': {
+        'sections': [
+            ('准确Key · 原权限 · 来源可返回', ['Key #示例 / 名称与掩码 / 状态；不会在首屏显示秘密', '从首页配置任务到达时保来源；取消返回原选择与焦点', '撤权或换账号清旧秘密、复制结果与导入草稿']),
+            ('接入地址与客户端候选', ['真实Base URL / 配置或当前访问来源 / 明确复制', '候选地址选择与手工输入复用现有逻辑；不扫描本机或网络', '客户端模板 / 原协议字段 / 校验错误；未知不自动填猜测值']),
+            ('显式交付步骤', ['凭据保持掩码；用户可手工粘贴，沿原授权显式读取流程', '复制配置：明确点击；包含秘密时按原确认与失败反馈', '导入客户端：展示目标应用与地址并明确确认；未确认不唤起', '复制/导入不代表客户端已连通；本页不自动发送测试']),
+        ],
+        'actions': [
+            A('返回来源〔跳转〕', 'keys', '返回实际来源与已选Key/筛选/焦点；无来源才回/keys，不重新读取秘密。'),
+            A('复制Base URL〔只读〕', 'key-delivery', '仅明确点击复制当前准确地址；不复制Key，不写配置或发送测试，复制失败就近提示。'),
+            A('选择 / 手填候选〔本地草稿〕', 'key-delivery', '沿已有候选与手填字段；只更新当前表单草稿，不自动发现设备、读凭据或写后端。'),
+            A('手工粘贴凭据〔本地草稿〕', 'key-delivery', '由用户明确提供；保原显式授权读取入口，不在进入页面或展开时自动读取Key。'),
+            A('复制配置〔显式 / 原确认〕', 'key-delivery', '沿原权限、凭据状态和复制合同；含秘密时保原明确确认；失败不声称复制成功，不自动测试。'),
+            A('导入客户端〔明确确认〕', 'key-delivery', '沿原支持的客户端与导入流程；确认目标/地址及秘密后才唤起，不自动导入或调用模型。'),
+            A('凭据维护〔独立确认〕', 'credential-maintenance', '轮换与迁移进入原任务，保权限及恢复状态，不由复制或导入触发。'),
+        ],
+        'notes': ['所有地址、Key与候选均为线稿占位；实现复用现有真实来源与模板，不把示例URL写死进产品。', '保完整原字段、协议、复制/导入能力与权限；本轮不新增自动读密钥、自动唤起或自动测试。', '加载、无Key、字段无效、复制失败、目标应用不可用、权限变化均就近可见；禁止旧对象秘密进入新对象。', '返回与取消保非秘密上下文，敏感值沿原生命周期清理；轮换、保存与交付分离。'],
+    },
+}
+for page in pages:
+    if page['id'] in EDITION_ENTRY_LAYOUTS:
+        layout = EDITION_ENTRY_LAYOUTS[page['id']]
+        page['entry_increment'] = '2026-11-07 Full / Lite / Desktop主线增量；实现与浏览器验收分开'
+        page['sections'] = [dict(title=title, items=items) for title, items in layout['sections']]
+        page['actions'] = [dict(label=label, target=target, effect=effect) for label, target, effect in layout['actions']]
+        page['notes'] = layout['notes']
+        page['status'] = '已批准主线设计增量；不代表产品或浏览器验收'
+        if page['id'] == 'connections':
+            page['information_hierarchy'] = dict(closed=layout['sections'][0][1], open=layout['sections'][1][1], notes=layout['notes'])
+
 catalog=dict(title='MyAPI 全站线稿目录',source_sha=BASE,date='2026-10-28',direction='已确认方向3：流向图 / 顶部导航 / 对象整页',
              evidence='设计源文件；未运行浏览器、产品构建或本机测试。',pages=pages,routes=route_map,tabs=tab_inventory,overlay_inventory=overlay_inventory,
              unconfirmed_overlay_sources=unconfirmed,
@@ -1222,6 +1290,63 @@ class Drawing:
                 x=self.margin+j*(cw+gap);self.rect(x,self.y,cw,h,'#fafafa','#888888');self.text(x+8,self.y+25,label,12,width=cw-16)
             self.y+=h+8
         self.y+=8
+    def edition_entry_view(self):
+        p=self.page
+        if p['id']=='overview':
+            self.banner('Full · 流向图主视图；Lite / Desktop布局在下方分别定义，不叠成产品中的三个面板')
+            self.buttons([p['actions'][0],p['actions'][1],p['actions'][3],p['actions'][5]])
+            nodes=[('谁在调用 · API Key',['Key A〔掩码〕 / 请求 —','Key B〔掩码〕 / 状态未知','选择节点：只筛选已存请求']),
+                   ('MyAPI 网关 · 中性紧凑核心',['真实Base URL〔来源：配置 / 当前访问〕','A4 复制接入地址〔只读〕','24小时请求 — / 失败率 — / 中位耗时 —','每小时请求及数值文字；样本未覆盖不补0','版本 / 访问摘要；完整原meta保留']),
+                   ('连接到哪里 · 原连接',['连接 A / 已保存状态；健康未知','A5 模型 N ▾〔只读展开〕','优先级 / 权重 → 原连接路由任务','窗口剩余 — / 来源 / 观察时间'])]
+            if self.mobile:
+                for title,items in nodes:
+                    self.y+=self.block(title,items)+18
+            else:
+                gap=24;node_width=(self.cw-gap*2)/3;heights=[]
+                for index,(title,items) in enumerate(nodes):
+                    x=self.margin+index*(node_width+gap)
+                    heights.append(self.block(title,items,x=x,w=node_width,y=self.y))
+                    if index:self.text(x-22,self.y+66,'→',19,'600')
+                self.y+=max(heights)+18
+            self.y+=self.block('最近请求 · Full完整保留',['时间 / 模型 / Key / 连接 / 业务结果 / 用量证据','选择节点只筛选；A6 查看请求 → 原调用记录，返回恢复条件'])+18
+            self.banner('Lite · 接入你的客户端；默认以三步任务和实际地址为首屏')
+            steps=[('1 添加连接',['A1 → /connections〔跳转〕','在原编辑任务保存；不自动创建或测试']),
+                   ('2 创建 / 选择 API Key',['A2 → /keys〔跳转〕','选择准确Key；不自动创建或读秘密']),
+                   ('3 配置客户端',['A3 先选Key → 该Key交付〔跳转〕','地址 / 模板 / 复制 / 导入按原明确流程'])]
+            if self.mobile:
+                for title,items in steps:self.y+=self.block(title,items)+12
+            else:
+                gap=16;step_width=(self.cw-gap*2)/3;heights=[]
+                for index,(title,items) in enumerate(steps):heights.append(self.block(title,items,x=self.margin+index*(step_width+gap),w=step_width,y=self.y))
+                self.y+=max(heights)+18
+            self.workspace_controls(['真实Base URL〔配置 / 当前访问来源〕','A4 复制地址〔只读 / 失败反馈〕'],1 if self.mobile else 2)
+            self.y+=self.block('折叠外常驻 · 已有状态与保存窗口',['待处理 / 失败 / 结果未知：原OverviewAttention保持','Key / 连接 / 统计各自加载、失败或未知；不把缺数据当空列表','当前连接已保存窗口：剩余 — / 状态未知 / 来源 / 观察时间','不支持余额接口、尚未获取、读取失败分别说明；不推断全部不支持'])+18
+            self.workspace_controls(['A7 完整流向与统计 ▸〔只读 / Enter或Space展开〕'],1)
+            self.y+=self.block('A7展开态参考 · 同一页面，默认收起',['原完整FlowBoard：Key → 网关 → 连接及全部值、筛选和统计','原错误详情、retry/actions、样本覆盖和每小时数值文字完整可达','展开/收起不新增请求；失败/未知/窗口风险保留在外侧，焦点回summary'])+18
+            self.banner('Desktop · Lite桌面壳；复用上方任务 / 地址 / 已存状态，不把概念图画成已实现服务控制')
+            self.y+=self.block('原生壳边界',['当前只保已有关闭窗口 / 托盘指引；状态来自真实既有能力','配置客户端仍先选Key，不自动读秘密或测试','B5待实现：原生服务健康、停止服务、局域网访问控制','本轮不画停止 / LAN开关，不用页面可访问推断后台健康'])+18
+        elif p['id']=='connections':
+            self.fields(p['filters'])
+            self.buttons([p['actions'][0],p['actions'][6],p['actions'][7]])
+            cards=[('合成连接 A #7 · 默认收起',['原启用状态 / 待处理 / 失败 / 未知常驻','模型 8 ▾〔A2只读〕 · 分组 1 ▾〔A9只读〕','7天 / 5小时各自剩余 — · 来源 / 观察时间','优先级 9 / 权重 25 → A4原路由任务','A5 启用切换〔原写入 / 忙保护〕','A3 查看窗口〔只读跳转〕 · A6 测试〔确认任务〕']),
+                   ('同一连接 · A2明确展开后',['模型8：完整模型ID逐项换行；保全部名称，不用前缀猜','可复制完整已加载模型；不获取上游或读取密钥','窗口：来源 / 观察时间 / 期限 / 单位 / 状态完整','未知 / 无窗口 / 不支持 / 尚未获取 / 失败分开','历史记录只读；不把历史错误当当前故障','同排卡片自然高度，收起恢复A2焦点'])]
+            if self.mobile:
+                for title,items in cards:self.y+=self.block(title,items)+18
+            else:
+                gap=18;card_width=(self.cw-gap)/2;heights=[]
+                for index,(title,items) in enumerate(cards):heights.append(self.block(title,items,x=self.margin+index*(card_width+gap),w=card_width,y=self.y))
+                self.y+=max(heights)+18
+            self.buttons(p['actions'][1:6])
+            self.y+=self.block('状态与写入边界',['加载骨架 / 真空列表 / 失败与重读 / 未授权分别呈现；未知数量不补0','A4进入原编辑，原保存才写；取消保值，权限变化清私有内容','A5失败回已确认状态；未知结果只读核对，不自动重放写入','A6只有明确执行测试才联系上游，可能有用量；本线稿不执行'])+18
+        else:
+            self.tabs()
+            self.buttons([p['actions'][0],p['actions'][6]])
+            self.y+=self.block('准确Key与来源 · 首屏常驻',['Key #示例 · 名称 / 掩码 / 状态未知；当前身份和权限','首页来源 → 该Key交付；A1返回恢复原选择与焦点','加载 / 无Key / 读取失败 / 撤权可见，不回显旧对象秘密'])+18
+            self.workspace_controls(['真实Base URL〔配置 / 当前访问来源〕','A2 复制Base URL〔只读〕'],1 if self.mobile else 2)
+            self.fields(['客户端模板〔原支持列表〕','候选地址 ▾ / 手工输入〔原校验〕','凭据〔默认掩码；可手工粘贴〕'],'交付草稿 · 不自动发现 / 读密钥 / 发送')
+            self.buttons(p['actions'][2:6])
+            self.y+=self.block('预览与确认 · 复制 / 导入分开',['预览：准确地址、目标客户端、原协议字段；秘密保持原掩码策略','A5显式复制配置；含秘密沿原确认，复制失败就近反馈','A6导入前明确确认目标 / 地址及秘密；确认后才按原方式唤起','无目标应用 / 无导入支持 / 字段无效：保草稿和替代复制入口','不自动调用模型；成功复制不等于客户端已经连通'])+18
+            self.y+=self.block('权限变化与返回',['切Key / 换账号 / 撤权：清旧秘密及敏感导入草稿，不复用旧异步回报','取消与返回保非秘密上下文；显示 / 复制 / 轮换保持独立原授权','A7凭据维护进入既有任务，保独立确认与结果未知恢复'])+18
     def channel_workspace_view(self):
         p=self.page
         if p['id']=='surface-features-channels-components-dialogs-fetch-models-dialog':
@@ -1400,9 +1525,9 @@ class Drawing:
         self.y=78
         self.y+=self.text(self.margin,self.y+18,p['title'],22 if self.mobile else 26,'600',width=self.cw)+10
         self.y+=self.text(self.margin,self.y+14,p['url'],11,color='#666666',width=self.cw)+12
-        self.banner('已批准的信息层级方案 · 合成占位 · 实现待CI / 浏览器未验证 · 不连接API' if p.get('information_hierarchy') else '低保真设计提案 · 合成占位 · 待确认 · 不连接API / 不执行业务动作')
-        if not p.get('channel_workspace'):self.tabs()
-        if not p.get('channel_workspace'):self.stats()
+        self.banner('2026-11-07已批准主线设计增量 · 合成占位 · 产品实现另验 / 浏览器未验证' if p.get('entry_increment') else ('已批准的信息层级方案 · 合成占位 · 实现待CI / 浏览器未验证 · 不连接API' if p.get('information_hierarchy') else '低保真设计提案 · 合成占位 · 待确认 · 不连接API / 不执行业务动作'))
+        if not p.get('channel_workspace') and not p.get('entry_increment'):self.tabs()
+        if not p.get('channel_workspace') and not p.get('entry_increment'):self.stats()
         if p['id']=='request-bodies':
             self.buttons([p['actions'][3],p['actions'][4]])
             if self.mobile:
@@ -1413,11 +1538,13 @@ class Drawing:
             else:
                 self.fields(['A3 日期范围〔同一日历〕','模型','API Key','Request ID'])
                 self.buttons(p['actions'][:2])
-        elif p['filters'] and not p.get('channel_workspace'):self.fields(p['filters'])
+        elif p['filters'] and not p.get('channel_workspace') and not p.get('entry_increment'):self.fields(p['filters'])
         kind=p['kind']
         footer_actions=kind in ['form','overlay','auth','setup','calendar','chat']
-        if not footer_actions and p['id']!='request-bodies' and not p.get('channel_workspace'):self.buttons()
-        if p.get('focused_task_layout'):
+        if not footer_actions and p['id']!='request-bodies' and not p.get('channel_workspace') and not p.get('entry_increment'):self.buttons()
+        if p.get('entry_increment'):
+            self.edition_entry_view()
+        elif p.get('focused_task_layout'):
             layout=p['focused_task_layout']
             self.workspace_controls(layout['controls'],1 if self.mobile else len(layout['controls']))
             self.fields(layout['fields'],'当前主任务 / 关键状态')
@@ -1484,7 +1611,7 @@ class Drawing:
         self.y+=self.text(self.margin,self.y+14,p['id']+' · '+('手机390' if self.mobile else '桌面1200')+' · 来源 '+BASE[:8]+' · 浏览器未验证',10,color='#666666',width=self.cw)+22
         height=max(650,self.y)
         title=html.escape(p['title']+' · '+('手机' if self.mobile else '桌面'))
-        desc=html.escape('低保真设计源文件，合成数据，待确认。'+p['access'])
+        desc=html.escape(('2026-11-07主线线稿增量，合成数据；不是产品或浏览器验收。' if p.get('entry_increment') else '低保真设计源文件，合成数据，待确认。')+p['access'])
         return f'<svg xmlns="http://www.w3.org/2000/svg" width="{self.width}" height="{height}" viewBox="0 0 {self.width} {height}" role="img" aria-labelledby="title desc"><title id="title">{title}</title><desc id="desc">{desc}</desc><rect width="100%" height="100%" fill="#ffffff"/><g font-family="system-ui, -apple-system, BlinkMacSystemFont, sans-serif">'+''.join(self.parts)+'</g></svg>\n'
 
 def sample_value(column,row):
@@ -1511,7 +1638,7 @@ def review_html(catalog):
         tabs=''.join(f'<a href="#{target}">{html.escape(label)}</a>' for target,label in p['tabs'])
         notes=''.join('<li>'+html.escape(note)+'</li>' for note in p['notes']+COMMON_NOTES)
         sources=''.join(f'<li><a href="https://github.com/ForceMind/MyAPI/blob/{BASE}/{html.escape(s,quote=True)}">{html.escape(s)}</a></li>' for s in p['sources'])
-        articles+=f'''<article id="{p['id']}" data-wireframe><header><p class="eyebrow">{html.escape(p['group'])} · 设计提案 / 待确认</p><h1>{html.escape(p['title'])}</h1><p class="route">{html.escape(p['url'])}</p><p>{html.escape(p['access'])}</p><nav class="tabs">{tabs}</nav></header><div class="figures"><figure class="desktop"><figcaption>桌面 1200px · <a href="svg/{p['id']}-desktop.svg">单独打开SVG</a></figcaption><img loading="lazy" src="svg/{p['id']}-desktop.svg" alt="{html.escape(p['title'],quote=True)} 桌面线稿"></figure><figure class="mobile"><figcaption>手机 390px · <a href="svg/{p['id']}-mobile.svg">单独打开SVG</a></figcaption><img loading="lazy" src="svg/{p['id']}-mobile.svg" alt="{html.escape(p['title'],quote=True)} 手机线稿"></figure></div><section class="spec"><h2>按钮与交互去向</h2><div class="table-wrap"><table><thead><tr><th>编号</th><th>操作</th><th>设计去向</th><th>行为 / 边界</th></tr></thead><tbody>{actions}</tbody></table></div><h2>拟精简 / 合并</h2><p>{html.escape(p['merge'] or '复用方向3外壳与共用控件，保留该页独立业务与权限。')}</p><h2>状态、恢复与权限</h2><ul>{notes}</ul><p><a href="#state-board">共用状态线稿</a> · <a href="#component-rules">按钮与控件规范</a> · <a href="#date-range">日期范围</a> · <a href="#pagination">分页</a></p><h2>源码依据</h2><ul>{sources}</ul><p class="muted">{html.escape(p['variants'])}</p></section></article>'''
+        articles+=f'''<article id="{p['id']}" data-wireframe><header><p class="eyebrow">{html.escape(p['group'])} · {html.escape('2026-11-07已批准主线设计增量 · 产品实现另验' if p.get('entry_increment') else '设计提案 / 待确认')}</p><h1>{html.escape(p['title'])}</h1><p class="route">{html.escape(p['url'])}</p><p>{html.escape(p['access'])}</p><nav class="tabs">{tabs}</nav></header><div class="figures"><figure class="desktop"><figcaption>桌面 1200px · <a href="svg/{p['id']}-desktop.svg">单独打开SVG</a></figcaption><img loading="lazy" src="svg/{p['id']}-desktop.svg" alt="{html.escape(p['title'],quote=True)} 桌面线稿"></figure><figure class="mobile"><figcaption>手机 390px · <a href="svg/{p['id']}-mobile.svg">单独打开SVG</a></figcaption><img loading="lazy" src="svg/{p['id']}-mobile.svg" alt="{html.escape(p['title'],quote=True)} 手机线稿"></figure></div><section class="spec"><h2>按钮与交互去向</h2><div class="table-wrap"><table><thead><tr><th>编号</th><th>操作</th><th>设计去向</th><th>行为 / 边界</th></tr></thead><tbody>{actions}</tbody></table></div><h2>拟精简 / 合并</h2><p>{html.escape(p['merge'] or '复用方向3外壳与共用控件，保留该页独立业务与权限。')}</p><h2>状态、恢复与权限</h2><ul>{notes}</ul><p><a href="#state-board">共用状态线稿</a> · <a href="#component-rules">按钮与控件规范</a> · <a href="#date-range">日期范围</a> · <a href="#pagination">分页</a></p><h2>源码依据</h2><ul>{sources}</ul><p class="muted">{html.escape(p['variants'])}</p></section></article>'''
     return '''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' file: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; connect-src 'none'"><title>MyAPI 全站低保真线稿</title><style>
 *{box-sizing:border-box}[hidden]{display:none!important}html{color-scheme:light}body{margin:0;background:#eee;color:#222;font:14px/1.65 system-ui,-apple-system,sans-serif}a{color:inherit;text-underline-offset:3px}button,input{font:inherit}button{min-height:44px;background:#fff;border:1px solid #777;border-radius:6px;padding:8px 14px;cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #333;outline-offset:3px}.review-header{position:sticky;top:0;z-index:2;background:#fafafa;border-bottom:1px solid #999;padding:12px 24px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}.review-header strong{font-size:18px}.review-header p{margin:0}.badge{font-size:12px;border:1px dashed #777;padding:3px 7px}.layout{display:grid;grid-template-columns:272px minmax(0,1fr)}aside{position:sticky;top:90px;max-height:calc(100vh - 90px);overflow:auto;background:#fafafa;padding:16px;border-right:1px solid #aaa}input{width:100%;min-height:44px;padding:9px;border:1px solid #999;border-radius:5px}details{margin:16px 0}summary{cursor:pointer;font-weight:650;min-height:36px}aside a{display:block;padding:8px;border-radius:5px;text-decoration:none;overflow-wrap:anywhere}aside a[aria-current=page]{background:#dedede;font-weight:650}aside a:hover{background:#e8e8e8}main{min-width:0;padding:24px}article{display:none}article.active{display:block}article header,.spec{background:#fff;border:1px solid #aaa;padding:20px;margin-bottom:20px;border-radius:8px}.eyebrow,.muted{color:#555;font-size:12px}.route{overflow-wrap:anywhere;font-family:ui-monospace,monospace}h1{font-size:26px;margin:8px 0}h2{font-size:18px;margin-top:24px}.tabs{display:flex;flex-wrap:wrap;gap:8px}.tabs a{border:1px solid #aaa;border-radius:5px;padding:7px 12px}.figures{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,390px);gap:20px;align-items:start}figure{margin:0 0 20px;min-width:0}figcaption{padding:10px;background:#fafafa;border:1px solid #aaa;font-weight:600}img{width:100%;display:block;background:#fff;border:1px solid #aaa;border-top:0}figure.mobile{max-width:390px;width:100%;justify-self:center}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse}td,th{padding:10px;border:1px solid #bbb;text-align:left;vertical-align:top;min-width:80px}td:last-child{min-width:220px}[data-viewport=desktop] .figures{grid-template-columns:1fr}[data-viewport=desktop] .mobile{display:none}[data-viewport=mobile] .figures{grid-template-columns:1fr}[data-viewport=mobile] .desktop{display:none}.not-found{display:none;padding:24px;background:#fff}.footer-note{font-size:12px;color:#555;margin:16px 0;overflow-wrap:anywhere}@media(max-width:1100px){.figures{grid-template-columns:1fr}.layout{grid-template-columns:220px minmax(0,1fr)}}@media(max-width:720px){.review-header{position:static;padding:12px}.layout{display:block}aside{position:static;max-height:320px;border-bottom:1px solid #999}main{padding:12px}article header,.spec{padding:16px}h1{font-size:22px}.figures{gap:10px}}@media print{.review-header,aside{display:none}.layout{display:block}main{padding:0}article{display:block!important;break-before:page}.figures{display:block}figure{break-inside:avoid}img{max-width:100%}}
 </style></head><body data-viewport="both"><header class="review-header"><strong>MyAPI 全站线稿</strong><span class="badge">方向3 · 灰度结构图 · 待确认</span><p>源代码 '''+BASE[:8]+f''' · {len(pages)} 个页面/分区/交互视图 · {len(pages)*2} 张SVG</p><button type="button" data-view="both">桌面与手机</button><button type="button" data-view="desktop">只看桌面</button><button type="button" data-view="mobile">只看手机</button></header><div class="layout"><aside><label for="search">搜索页面 / 路径</label><input id="search" type="search" placeholder="正文、设置、Key…"><p class="footer-note">本目录只展示设计，不连接API，不调用供应商，不执行保存、删除、部署或支付。<br><a href="README.md">审阅说明</a> · <a href="routes.csv">66条路由覆盖表</a> · <a href="catalog.json">设计数据</a></p>'''+nav+'''</aside><main><p class="not-found" role="status">未找到此线稿，请从目录选择。所有产品操作均只是设计说明。</p>'''+articles+'''<p class="footer-note">浏览器未验证；静态线稿不等于页面实现、视觉验收或生产升级证明。</p></main></div><script>

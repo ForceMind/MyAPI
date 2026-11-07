@@ -27,6 +27,8 @@ const HOURS = 24
 export const overviewSearchSchema = z.object({
   key: savedKeyIdSchema.optional().catch(undefined),
   connection: savedKeyIdSchema.optional().catch(undefined),
+  activity: z.enum(['failed', 'usage']).optional().catch(undefined),
+  flow: z.enum(['expanded', 'collapsed']).optional().catch(undefined),
 })
 export type OverviewSearch = z.infer<typeof overviewSearchSchema>
 

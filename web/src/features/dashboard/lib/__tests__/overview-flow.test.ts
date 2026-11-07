@@ -250,6 +250,45 @@ describe('selection in the URL', () => {
   const parse = (search: Record<string, unknown>) =>
     selectionFromSearch(overviewSearchSchema.parse(search))
 
+  test('the overview keeps the selected activity and data disclosure in the same shareable address', () => {
+    expect(
+      overviewSearchSchema.parse({
+        key: 21,
+        activity: 'usage',
+        flow: 'expanded',
+      })
+    ).toEqual({
+      key: 21,
+      activity: 'usage',
+      flow: 'expanded',
+    })
+    expect(
+      overviewSearchSchema.parse({
+        connection: 3,
+        activity: 'failed',
+        flow: 'collapsed',
+      })
+    ).toEqual({
+      connection: 3,
+      activity: 'failed',
+      flow: 'collapsed',
+    })
+  })
+
+  test('invalid activity and disclosure values cannot change the overview task', () => {
+    expect(
+      overviewSearchSchema.parse({
+        key: 21,
+        activity: '/external',
+        flow: ['expanded'],
+      })
+    ).toEqual({
+      key: 21,
+      activity: undefined,
+      flow: undefined,
+    })
+  })
+
   test('a Key ID from a shared link selects that Key', () => {
     expect(parse({ key: 21 })).toEqual({ kind: 'key', id: 21 })
     expect(parse({ key: '21' })).toEqual({ kind: 'key', id: 21 })

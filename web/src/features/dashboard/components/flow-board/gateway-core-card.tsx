@@ -24,13 +24,9 @@ export type GatewayAddress = {
 function Kpi(props: { label: string; loading: boolean; value: string }) {
   return (
     <div className='flex min-w-0 flex-col'>
-      <dt className='text-caption opacity-90'>{props.label}</dt>
+      <dt className='text-caption text-muted-foreground'>{props.label}</dt>
       <dd className='text-title font-semibold tabular-nums'>
-        {props.loading ? (
-          <Skeleton className='bg-core-foreground/20 mt-1 h-5 w-12' />
-        ) : (
-          props.value
-        )}
+        {props.loading ? <Skeleton className='mt-1 h-5 w-12' /> : props.value}
       </dd>
     </div>
   )
@@ -76,7 +72,7 @@ export function GatewayCoreCard(props: {
     <section
       aria-labelledby='overview-gateway-title'
       data-testid='flow-core'
-      className='bg-core text-core-foreground rounded-card flex min-w-0 flex-col gap-3 p-5'
+      className='bg-card text-card-foreground rounded-card flex min-w-0 flex-col gap-3 border p-4'
     >
       <h3
         id='overview-gateway-title'
@@ -85,12 +81,12 @@ export function GatewayCoreCard(props: {
         <img
           src='/myapi-logo-v1.png'
           alt=''
-          className='size-8 shrink-0 rounded-md'
+          className='size-7 shrink-0 rounded-md'
         />
         {t('MyAPI gateway')}
       </h3>
       <div className='flex min-w-0 flex-col gap-1'>
-        <div className='bg-core-foreground/10 flex min-w-0 items-center gap-1 rounded-md py-0.5 ps-2.5'>
+        <div className='bg-muted flex min-w-0 items-center gap-1 rounded-md py-0.5 ps-2.5'>
           <code
             className='text-data min-w-0 flex-1 truncate font-mono'
             title={props.address.baseUrl}
@@ -101,10 +97,10 @@ export function GatewayCoreCard(props: {
             value={props.address.baseUrl}
             tooltip={t('Copy access address')}
             aria-label={t('Copy access address')}
-            className='hover:bg-core-foreground/15 text-core-foreground hover:text-core-foreground'
+            className='pointer-coarse:min-h-11 pointer-coarse:min-w-11'
           />
         </div>
-        <p className='text-caption opacity-90'>
+        <p className='text-caption text-muted-foreground'>
           {props.address.source === 'server'
             ? t('Configured server address')
             : t('Current access address')}
@@ -158,7 +154,7 @@ export function GatewayCoreCard(props: {
                   className={cn(
                     'flex h-full min-w-0 flex-1 items-end',
                     !bucket.covered &&
-                      'border-core-foreground/40 border-b border-dashed'
+                      'border-muted-foreground/40 border-b border-dashed'
                   )}
                 >
                   <span className='sr-only'>{label}</span>
@@ -175,14 +171,14 @@ export function GatewayCoreCard(props: {
                   {bucket.covered && bucket.count === 0 && (
                     <span
                       aria-hidden='true'
-                      className='bg-core-foreground/30 block h-0.5 w-full'
+                      className='bg-muted-foreground/30 block h-0.5 w-full'
                     />
                   )}
                 </li>
               )
             })}
           </ol>
-          <figcaption className='text-caption opacity-90'>
+          <figcaption className='text-caption text-muted-foreground'>
             {uncovered
               ? t('Requests per hour, latest sampled requests only')
               : t('Requests per hour, last 24 hours')}
@@ -190,7 +186,9 @@ export function GatewayCoreCard(props: {
         </figure>
       )}
       {props.meta.length > 0 && (
-        <p className='text-caption opacity-90'>{props.meta.join(' · ')}</p>
+        <p className='text-caption text-muted-foreground'>
+          {props.meta.join(' · ')}
+        </p>
       )}
     </section>
   )

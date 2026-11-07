@@ -42,17 +42,28 @@ const url = vi.hoisted(() => {
 
 vi.mock('@tanstack/react-router', async () => {
   const { useSyncExternalStore } = await import('react')
+  const router = {
+    state: { location: { state: { __TSR_key: 'overview-entry' } } },
+  }
   return {
+    useRouter: () => router,
+    useLocation: ({
+      select,
+    }: {
+      select: (location: typeof router.state.location) => unknown
+    }) => select(router.state.location),
     Link: ({
       to,
       params,
       search,
+      state: _state,
       children,
       ...attributes
     }: AnchorHTMLAttributes<HTMLAnchorElement> & {
       to: string
       params?: Record<string, string>
       search?: Record<string, unknown>
+      state?: unknown
     }) => {
       const query = new URLSearchParams(
         Object.entries(search ?? {})
@@ -136,7 +147,7 @@ let logRows: Row[]
 // Failures of the 24 hours that are older than the sampled latest rows.
 let olderFailures: Row[]
 let logFailures: number
-let countFailures: boolean
+let countFailures: boolean | 'failure-only'
 let channelTotals: { all: number; enabled: number }
 let channelItems: Row[]
 let keyItems: Row[]
@@ -202,17 +213,19 @@ beforeEach(() => {
           : logRows
       if (query.get('page_size') === '1') {
         const type = query.has('type') ? Number(query.get('type')) : null
-        data = countFailures
-          ? { success: false, message: 'private count detail' }
-          : {
-              success: true,
-              data: {
-                items: [],
-                total: matching.filter(
-                  (item) => type === null || item.type === type
-                ).length,
-              },
-            }
+        data =
+          countFailures === true ||
+          (countFailures === 'failure-only' && query.get('result') === 'failed')
+            ? { success: false, message: 'private count detail' }
+            : {
+                success: true,
+                data: {
+                  items: [],
+                  total: matching.filter(
+                    (item) => type === null || item.type === type
+                  ).length,
+                },
+              }
       } else if (query.get('result') === 'failed') {
         data = {
           success: true,
@@ -245,6 +258,7 @@ beforeEach(() => {
               channel_id: 1,
               series_id: 'a',
               name: 'Account A',
+              account_label: 'Account A',
               metric_type: 'codex_rate_limit',
               unit: 'percent',
               status: 'success',
@@ -257,6 +271,7 @@ beforeEach(() => {
               channel_id: 2,
               series_id: 'b',
               name: 'Account B',
+              account_label: 'Account B',
               metric_type: 'codex_rate_limit',
               unit: 'percent',
               status: 'success',
@@ -643,13 +658,25 @@ describe('overview for a channel administrator', () => {
 })
 
 describe('gateway core card by edition', () => {
-  test.each(['https://gateway.example.test/tenant/v1', ' https://gateway.example.test/tenant/v1/// '])('configured access address %s uses the same single version suffix as Key delivery', (configured) => {
-    setUser(ROLE.USER)
-    renderOverview({ server_address: configured, product_edition: 'full' })
-    expect(within(core()).getByText('https://gateway.example.test/tenant/v1')).toBeVisible()
-    expect(within(core()).getByText('Configured server address')).toBeVisible()
-    expect(within(core()).queryByText('https://gateway.example.test/tenant/v1/v1')).not.toBeInTheDocument()
-  })
+  test.each([
+    'https://gateway.example.test/tenant/v1',
+    ' https://gateway.example.test/tenant/v1/// ',
+  ])(
+    'configured access address %s uses the same single version suffix as Key delivery',
+    (configured) => {
+      setUser(ROLE.USER)
+      renderOverview({ server_address: configured, product_edition: 'full' })
+      expect(
+        within(core()).getByText('https://gateway.example.test/tenant/v1')
+      ).toBeVisible()
+      expect(
+        within(core()).getByText('Configured server address')
+      ).toBeVisible()
+      expect(
+        within(core()).queryByText('https://gateway.example.test/tenant/v1/v1')
+      ).not.toBeInTheDocument()
+    }
+  )
 
   test('Lite shows the current access address and that it was opened on this computer', async () => {
     setUser(ROLE.USER)
@@ -660,6 +687,9 @@ describe('gateway core card by edition', () => {
         PRODUCT_CAPABILITIES.map((capability) => [capability, false])
       ),
     })
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Request flow and statistics' })
+    )
     const card = core()
     expect(within(card).getByText(`${window.location.origin}/v1`)).toBeVisible()
     expect(within(card).getByText('Current access address')).toBeVisible()
@@ -691,6 +721,511 @@ describe('gateway core card by edition', () => {
     setUser(ROLE.USER)
     renderOverview()
     expect(within(core()).getByText(/Version not provided/)).toBeVisible()
+  })
+})
+
+describe('Lite access tasks and optional flow details', () => {
+  test('an administrator opens existing management pages, copies the real address and expands the existing flow with the keyboard', async () => {
+    setUser(ROLE.ADMIN, { read: true, write: true })
+    const user = userEvent.setup()
+    const copy = vi
+      .spyOn(navigator.clipboard, 'writeText')
+      .mockResolvedValue(undefined)
+    renderOverview({
+      product_edition: 'lite',
+      server_address: 'https://gateway.example.test/team',
+    })
+    const tasks = screen.getByRole('region', { name: 'Start using MyAPI' })
+    expect(
+      await within(tasks).findByRole('link', { name: 'Open connections' })
+    ).toHaveAttribute('href', '/connections')
+    expect(
+      within(tasks).getByRole('link', { name: 'Open API Keys' })
+    ).toHaveAttribute('href', '/keys')
+    expect(
+      within(tasks).getByRole('link', { name: 'Choose a Key' })
+    ).toHaveAttribute('href', '/keys')
+    expect(
+      within(tasks).getByText(
+        'Select a Key, then open its Delivery tab to copy the address and Key or import a client configuration.'
+      )
+    ).toBeVisible()
+    await user.click(
+      within(tasks).getByRole('button', { name: 'Copy Base URL' })
+    )
+    expect(copy).toHaveBeenCalledWith('https://gateway.example.test/team/v1')
+    await within(board()).findByText('Account A link')
+    await screen.findByText('Account A')
+    const toggle = screen.getByRole('button', {
+      name: 'Request flow and statistics',
+    })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(core()).not.toBeVisible()
+    expect(
+      screen.queryByRole('complementary', { name: 'Desktop window and tray' })
+    ).not.toBeInTheDocument()
+    const beforeOpen = requests.length
+    act(() => toggle.focus())
+    await user.keyboard('{Enter}')
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(core()).toBeVisible()
+    expect(await within(board()).findByText('Account A link')).toBeVisible()
+    expect(within(core()).getByText('Last 24 h')).toBeVisible()
+    expect(within(board()).getByText(/Node counts cover all/)).toBeVisible()
+    expect(url.navigations.at(-1)).toMatchObject({
+      search: { flow: 'expanded' },
+      replace: true,
+      resetScroll: false,
+    })
+    expect(requests).toHaveLength(beforeOpen)
+    await user.keyboard(' ')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(core()).not.toBeVisible()
+    expect(
+      paths().some((path) => /\/test|\/models|\/api\/token/.test(path))
+    ).toBe(false)
+    expect(requests.every((request) => request.method === 'get')).toBe(true)
+  })
+
+  test('without connection permission the task has no connection link, and hidden Key navigation has no substitute action', async () => {
+    setUser(ROLE.USER)
+    renderOverview({
+      product_edition: 'lite',
+      SidebarModulesAdmin: JSON.stringify({ console: { token: false } }),
+    })
+    const tasks = screen.getByRole('region', { name: 'Start using MyAPI' })
+    expect(
+      within(tasks).queryByRole('link', { name: 'Open connections' })
+    ).not.toBeInTheDocument()
+    expect(
+      within(tasks).queryByRole('link', { name: 'Open API Keys' })
+    ).not.toBeInTheDocument()
+    expect(
+      within(tasks).queryByRole('link', { name: 'Choose a Key' })
+    ).not.toBeInTheDocument()
+    expect(
+      within(tasks).getAllByText('This task is not available for this account.')
+    ).toHaveLength(3)
+    expect(
+      within(tasks).getByText(
+        'Ask an administrator to configure a connection for this account.'
+      )
+    ).toBeVisible()
+    expect(
+      within(tasks).getAllByText(
+        'Ask an administrator how to obtain an API Key.'
+      )
+    ).toHaveLength(2)
+    expect(
+      within(tasks).queryByText(
+        'Open connections to review saved upstream settings.'
+      )
+    ).not.toBeInTheDocument()
+    expect(
+      within(tasks).queryByText(
+        'Open API Keys to create a Key or select an existing one.'
+      )
+    ).not.toBeInTheDocument()
+    await screen.findByRole('region', { name: 'Recent requests' })
+    expect(paths().some((path) => path.startsWith('/api/channel'))).toBe(false)
+  })
+
+  test('unavailable counts stay outside the closed flow and explicit recovery reuses the saved-record read', async () => {
+    setUser(ROLE.USER)
+    countFailures = true
+    const client = renderOverview({ product_edition: 'lite' })
+    const status = screen.getByRole('region', { name: 'Saved data status' })
+    expect(
+      await within(status).findByText('24-hour request counts are unavailable.')
+    ).toBeVisible()
+    expect(within(status).getByRole('status')).toHaveClass('bg-warning-muted')
+    expect(core()).not.toBeVisible()
+    expect(screen.queryByText(/private count detail/)).not.toBeInTheDocument()
+    countFailures = false
+    await userEvent.click(
+      within(status).getByRole('button', { name: 'View details and retry' })
+    )
+    expect(core()).toBeVisible()
+    await waitFor(() =>
+      expect(
+        within(core()).getByText('Last 24 h').nextElementSibling
+      ).toHaveTextContent('1')
+    )
+    expect(paths().some((path) => path.startsWith('/api/token'))).toBe(false)
+    countFailures = 'failure-only'
+    await act(async () => {
+      await client.refetchQueries({ queryKey: ['overview', 'request-counts'] })
+    })
+    expect(
+      await within(status).findByText('Failure count is unavailable.')
+    ).toBeVisible()
+    expect(
+      within(status).queryByText('24-hour request counts are unavailable.')
+    ).not.toBeInTheDocument()
+    expect(
+      within(core()).getByText('Last 24 h').nextElementSibling
+    ).toHaveTextContent('1')
+    expect(within(status).getByRole('status')).toHaveClass('bg-warning-muted')
+  })
+
+  test('window and Key read failures remain visible while flow details are closed', async () => {
+    setUser(ROLE.ADMIN, { read: true })
+    const adapter = api.defaults.adapter as AxiosAdapter
+    api.defaults.adapter = async (config) => {
+      if (
+        config.url?.startsWith('/api/channel/quota/changes') ||
+        config.url === '/pg/keys'
+      ) {
+        requests.push(config)
+        return {
+          config,
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          data: { success: false, message: 'private fixture details' },
+        }
+      }
+      return adapter(config)
+    }
+    renderOverview({ product_edition: 'lite' })
+    const status = screen.getByRole('region', { name: 'Saved data status' })
+    expect(
+      await within(status).findByText('API Keys could not be loaded.')
+    ).toBeVisible()
+    const failures = await within(status).findAllByText(
+      'Account windows could not be read'
+    )
+    failures.forEach((item) => expect(item).toBeVisible())
+    expect(core()).not.toBeVisible()
+    expect(
+      screen.queryByText('private fixture details')
+    ).not.toBeInTheDocument()
+  })
+
+  test('saved remaining windows, observation times and existing attention remain outside closed details', async () => {
+    setUser(ROLE.ADMIN, { read: true })
+    const observation = (
+      channel: number,
+      series: string,
+      overrides: Row = {}
+    ): Row => ({
+      channel_id: channel,
+      series_id: series,
+      name: 'Shared account',
+      account_label: 'Shared account',
+      metric_type: 'codex_rate_limit',
+      unit: 'percent',
+      status: 'success',
+      source: 'codex_wham_usage_snapshot',
+      window_type: 'five_hour',
+      window_seconds: 18000,
+      current_available: 60,
+      observed_at: NOW - 30,
+      ...overrides,
+    })
+    const saved = [
+      observation(1, 'new-success', { current_available: 18 }),
+      observation(1, 'older-error', {
+        status: 'error',
+        source: 'codex_wham_usage_error',
+        observed_at: NOW - 90,
+      }),
+      observation(1, 'unavailable-balance', {
+        metric_type: 'balance',
+        unit: 'USD',
+        source: 'saved_balance',
+        status: 'unavailable',
+      }),
+      observation(1, 'success-balance', {
+        metric_type: 'balance',
+        unit: 'EUR',
+        source: 'saved_balance',
+        current_available: 5,
+      }),
+      observation(2, 'other-connection'),
+      observation(3, 'third-connection'),
+      observation(4, 'unsupported-connection', { status: 'unsupported' }),
+      observation(5, 'fifth-connection'),
+      observation(6, 'sixth-connection'),
+      observation(7, 'unshown-error', { status: 'error' }),
+      observation(0, 'unassigned-error', { status: 'error' }),
+    ]
+    const adapter = api.defaults.adapter as AxiosAdapter
+    api.defaults.adapter = async (config) => {
+      if (config.url?.startsWith('/api/channel/quota/changes')) {
+        requests.push(config)
+        return {
+          config,
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          data: { success: true, data: { items: saved } },
+        }
+      }
+      return adapter(config)
+    }
+    renderOverview({ product_edition: 'lite' })
+    const status = screen.getByRole('region', { name: 'Saved data status' })
+    const evidence = await within(status).findByRole('region', {
+      name: 'Saved quota evidence',
+    })
+    await within(evidence).findByRole('region', { name: 'Account A link (#1)' })
+    await within(evidence).findByRole('region', { name: 'Account B link (#2)' })
+    const first = within(evidence).getByRole('region', {
+      name: 'Account A link (#1)',
+    })
+    const second = within(evidence).getByRole('region', {
+      name: 'Account B link (#2)',
+    })
+    expect(within(first).getAllByRole('listitem')).toHaveLength(2)
+    expect(within(first).getAllByText('Shared account')).toHaveLength(2)
+    expect(
+      within(first).getByText('Historical saved sample error')
+    ).toBeVisible()
+    expect(within(first).getByText(/Balance query: Unknown/)).toBeVisible()
+    expect(within(first).queryByText(/18% left/)).not.toBeInTheDocument()
+    expect(within(second).getByText(/60% left/)).toBeVisible()
+    expect(
+      within(second).queryByText(/Historical saved sample error/)
+    ).not.toBeInTheDocument()
+    expect(within(second).queryByText(/USD|EUR/)).not.toBeInTheDocument()
+    expect(within(first).getAllByText(/Observed /)).toHaveLength(2)
+    expect(within(evidence).getAllByRole('region')).toHaveLength(6)
+    expect(
+      within(evidence).getByRole('region', { name: 'Connection #6' })
+    ).toBeVisible()
+    expect(
+      within(evidence).queryByRole('region', { name: 'Connection #7' })
+    ).not.toBeInTheDocument()
+    expect(
+      within(evidence).getByText(
+        'Showing 6 of 7 read connections. Unshown connections are not assumed safe.'
+      )
+    ).toBeVisible()
+    expect(
+      within(evidence).getByText('Read observations marked as failed: 3')
+    ).toBeVisible()
+    expect(
+      within(evidence).getByText(
+        'Connection ownership is unknown for 1 read observations. Review the complete saved records.'
+      )
+    ).toBeVisible()
+    expect(
+      within(evidence).queryByRole('region', { name: 'Connection #0' })
+    ).not.toBeInTheDocument()
+    expect(
+      within(evidence)
+        .getAllByRole('link', { name: 'View all saved windows' })
+        .every((link) => link.getAttribute('href') === '/upstream-accounts')
+    ).toBe(true)
+    const unsupported = within(evidence).getByRole('region', {
+      name: 'Connection #4',
+    })
+    expect(
+      within(unsupported).getByText('Window reporting unsupported')
+    ).not.toHaveClass('text-warning', 'text-destructive')
+    expect(await screen.findByText('1 connections are disabled')).toBeVisible()
+    expect(core()).not.toBeVisible()
+    const user = userEvent.setup()
+    const toggle = within(first).getByRole('button', {
+      name: 'Saved observations (4)',
+    })
+    const beforeOpen = requests.length
+    act(() => toggle.focus())
+    await user.keyboard('{Enter}')
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(within(first).getByText(/18% left/)).toBeVisible()
+    expect(within(first).getByText(/5 EUR/)).toBeVisible()
+    expect(within(second).queryByText(/5 EUR|18% left/)).not.toBeInTheDocument()
+    expect(within(first).getByText(/not marked resolved/)).toBeVisible()
+    expect(requests).toHaveLength(beforeOpen)
+  })
+
+  test('a pending safe Key read is named before the optional details and does not become a completed task', async () => {
+    setUser(ROLE.USER)
+    let release!: () => void
+    const pending = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const adapter = api.defaults.adapter as AxiosAdapter
+    api.defaults.adapter = async (config) => {
+      if (config.url === '/pg/keys') await pending
+      return adapter(config)
+    }
+    renderOverview({ product_edition: 'lite' })
+    const status = screen.getByRole('region', { name: 'Saved data status' })
+    expect(within(status).getByText('Loading API Keys...')).toBeVisible()
+    expect(within(status).getByRole('status')).toHaveClass('bg-muted')
+    expect(within(status).getByRole('status')).not.toHaveClass(
+      'bg-warning-muted'
+    )
+    expect(core()).not.toBeVisible()
+    await act(async () => release())
+    await waitFor(() =>
+      expect(
+        within(status).queryByText('Loading API Keys...')
+      ).not.toBeInTheDocument()
+    )
+    expect(screen.getByRole('link', { name: 'Choose a Key' })).toHaveAttribute(
+      'href',
+      '/keys'
+    )
+    expect(screen.queryByText(/Setup complete/)).not.toBeInTheDocument()
+  })
+
+  test('unsupported or incomplete saved windows remain explicit outside the flow without fabricated remaining quota', async () => {
+    setUser(ROLE.ADMIN, { read: true })
+    const adapter = api.defaults.adapter as AxiosAdapter
+    api.defaults.adapter = async (config) => {
+      if (config.url?.startsWith('/api/channel/quota/changes')) {
+        requests.push(config)
+        return {
+          config,
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          data: {
+            success: true,
+            data: {
+              source_complete: false,
+              items: [
+                {
+                  channel_id: 1,
+                  series_id: 'unsupported',
+                  name: 'Account A',
+                  metric_type: 'codex_rate_limit',
+                  unit: 'percent',
+                  status: 'unsupported',
+                  window_type: 'weekly',
+                  current_available: 0,
+                  observed_at: NOW - 30,
+                },
+              ],
+            },
+          },
+        }
+      }
+      return adapter(config)
+    }
+    renderOverview({ product_edition: 'lite' })
+    const status = screen.getByRole('region', { name: 'Saved data status' })
+    expect(
+      await within(status).findByText(/Saved quota evidence is incomplete/)
+    ).toBeVisible()
+    expect(
+      within(status).getByText(/Window reporting unsupported/)
+    ).toBeVisible()
+    expect(within(status).queryByText(/0% left/)).not.toBeInTheDocument()
+    expect(core()).not.toBeVisible()
+  })
+
+  test('a selected Key opens its restored details unless the URL explicitly keeps them collapsed', async () => {
+    setUser(ROLE.USER)
+    url.set({ key: 21, activity: 'failed' })
+    renderOverview({ product_edition: 'lite' })
+    const toggle = screen.getByRole('button', {
+      name: 'Request flow and statistics',
+    })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await userEvent.click(toggle)
+    expect(url.get()).toEqual({
+      key: 21,
+      activity: 'failed',
+      flow: 'collapsed',
+    })
+    expect(core()).not.toBeVisible()
+  })
+
+  test('a Lite root operator reaches pending request reviews without opening flow details', async () => {
+    setUser(ROLE.SUPER_ADMIN, { read: true })
+    renderOverview({ product_edition: 'lite' })
+    const attention = await screen.findByRole('region', {
+      name: 'Needs attention',
+    })
+    expect(
+      within(attention).getByRole('button', { name: 'Pending requests' })
+    ).toBeVisible()
+    expect(core()).not.toBeVisible()
+  })
+
+  test('a new session for the same actor removes the previous request data from the Lite overview', async () => {
+    setUser(ROLE.USER)
+    const session = {
+      sid: 'session-a',
+      current: true,
+      login_method: 'password',
+      ip: '',
+      user_agent: '',
+      created_at: 1,
+      last_active_at: 1,
+      expires_at: 2,
+    }
+    useAuthStore.setState((state) => ({ auth: { ...state.auth, session } }))
+    logRows = [row({ token_name: 'Previous session request' })]
+    renderOverview({ product_edition: 'lite' })
+    expect(
+      await within(
+        screen.getByRole('region', { name: 'Recent requests' })
+      ).findByText('Previous session request')
+    ).toBeVisible()
+    logRows = [row({ token_name: 'Current session request' })]
+    act(() =>
+      useAuthStore.setState((state) => ({
+        auth: { ...state.auth, session: { ...session, sid: 'session-b' } },
+      }))
+    )
+    expect(
+      screen.queryByText('Previous session request')
+    ).not.toBeInTheDocument()
+    expect(
+      await within(
+        screen.getByRole('region', { name: 'Recent requests' })
+      ).findByText('Current session request')
+    ).toBeVisible()
+  })
+
+  test('Desktop guidance uses only the existing electron flag and exposes no service controls', async () => {
+    setUser(ROLE.USER)
+    const previous = Object.getOwnPropertyDescriptor(window, 'electron')
+    Object.defineProperty(window, 'electron', {
+      configurable: true,
+      value: { isElectron: true },
+    })
+    try {
+      renderOverview({ product_edition: 'lite' })
+      const guide = screen.getByRole('complementary', {
+        name: 'Desktop window and tray',
+      })
+      expect(
+        within(guide).getByText(
+          /Closing this window keeps MyAPI running in the tray/
+        )
+      ).toBeVisible()
+      expect(
+        within(guide).getByText(/This page does not change the local service/)
+      ).toBeVisible()
+      expect(within(guide).queryByRole('button')).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: /Stop service|LAN/ })
+      ).not.toBeInTheDocument()
+    } finally {
+      if (previous) Object.defineProperty(window, 'electron', previous)
+      else Reflect.deleteProperty(window, 'electron')
+    }
+  })
+
+  test('Full keeps its flow visible and has no Lite setup or Desktop service panel', () => {
+    setUser(ROLE.USER)
+    renderOverview({ product_edition: 'full' })
+    expect(core()).toBeVisible()
+    expect(core()).toHaveClass('bg-card', 'text-card-foreground')
+    expect(core()).not.toHaveClass('bg-core')
+    expect(
+      screen.queryByRole('region', { name: 'Start using MyAPI' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Request flow and statistics' })
+    ).not.toBeInTheDocument()
   })
 })
 

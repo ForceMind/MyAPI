@@ -13,6 +13,12 @@ import { useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
+import { Button } from '@/components/ui/button'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { getRequestFacts } from '@/features/usage-logs/lib/request-facts'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { useConfirmedFundingMode } from '@/hooks/use-personal-workbench-mode'
@@ -21,9 +27,10 @@ import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
 import { useStatus } from '@/hooks/use-status'
 import { hasPermission } from '@/lib/admin-permissions'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
-import { linkButtonClassName } from '@/lib/link-button'
-import { useAuthStore } from '@/stores/auth-store'
 import { gatewayClientAddresses } from '@/lib/gateway-address'
+import { linkButtonClassName } from '@/lib/link-button'
+import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { useDashboardContentVisibility } from '../../hooks/use-status-data'
 import {
@@ -40,12 +47,14 @@ import {
   GatewayCoreCard,
   type GatewayAddress,
 } from '../flow-board/gateway-core-card'
+import { AccessStartPanel } from './access-start-panel'
 import { AnnouncementsPanel } from './announcements-panel'
 import { ApiInfoPanel } from './api-info-panel'
 import { FAQPanel } from './faq-panel'
 import { OverviewAttention } from './overview-attention'
 import { OverviewRecentRequests } from './overview-recent-requests'
 import { PerformanceHealthPanel } from './performance-health-panel'
+import { SavedWindowsOverview } from './saved-windows-overview'
 import { SummaryCards } from './summary-cards'
 import { UptimePanel } from './uptime-panel'
 import { useOverviewData } from './use-overview-data'
@@ -89,8 +98,24 @@ function OverviewSession() {
   const mobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
   const showKeys = useIsSidebarModuleVisible('/keys')
   const showConnections = useIsSidebarModuleVisible('/connections')
+  const showAccounts = useIsSidebarModuleVisible('/upstream-accounts')
   const requestsRef = useRef<HTMLElement>(null)
   const selection = selectionFromSearch(search)
+  const flowExpanded =
+    search.flow === 'expanded' ||
+    (search.flow !== 'collapsed' && selection !== null)
+  const setFlowExpanded = (expanded: boolean) => {
+    void navigate({
+      search: (previous) => ({
+        ...previous,
+        flow: expanded ? 'expanded' : 'collapsed',
+      }),
+      replace: true,
+      resetScroll: false,
+      state: (previous) => previous,
+    })
+  }
+  const lite = edition.edition === 'lite'
   const isAdmin = data.isAdmin
   const canAddConnection =
     showConnections &&
@@ -148,7 +173,13 @@ function OverviewSession() {
     const facts = getRequestFacts(row)
     return facts.completed && !facts.usageKnown
   }).length
-  const clientAddress = gatewayClientAddresses(status?.server_address, window.location.origin)
+  const duration = rows
+    ? medianSeconds(rows.map((row) => row.use_time))
+    : undefined
+  const clientAddress = gatewayClientAddresses(
+    status?.server_address,
+    window.location.origin
+  )
   const address: GatewayAddress = {
     baseUrl: clientAddress.openAI,
     source: clientAddress.source === 'setting' ? 'server' : 'current',
@@ -213,16 +244,140 @@ function OverviewSession() {
     selectionLabel = t('Upstream: {{name}}', { name })
   }
 
+  // Keep incomplete sources visible before the optional flow details. These
+  // are the existing observers; opening the disclosure starts no new query.
+  const unavailableSources: string[] = []
+  if (data.upstream.selfQuery.isPending) {
+    unavailableSources.push(t('Checking account access...'))
+  } else if (data.upstream.selfQuery.isError) {
+    unavailableSources.push(t('Account access could not be verified.'))
+  }
+  if (data.keys.isPending) {
+    unavailableSources.push(t('Loading API Keys...'))
+  } else if (data.keys.isError) {
+    unavailableSources.push(t('API Keys could not be loaded.'))
+  } else if (data.keys.data?.length === 0) {
+    unavailableSources.push(t('No API Keys yet'))
+  }
+  if (data.sample.isPending) {
+    unavailableSources.push(t('Loading recent requests...'))
+  } else if (data.sample.isError) {
+    unavailableSources.push(t('Unable to load recent requests'))
+  }
+  if (data.counts.isPending) {
+    unavailableSources.push(t('Loading 24-hour request counts...'))
+  } else if (data.counts.isError) {
+    unavailableSources.push(t('24-hour request counts are unavailable.'))
+  } else if (data.counts.data?.failed === null) {
+    unavailableSources.push(t('Failure count is unavailable.'))
+  }
+  if (
+    !data.sample.isPending &&
+    !data.sample.isError &&
+    duration === undefined
+  ) {
+    unavailableSources.push(t('Request timing is unknown.'))
+  }
+  if (data.canReadChannels && showConnections) {
+    if (data.connections.isPending) {
+      unavailableSources.push(t('Loading connections...'))
+    } else if (data.connections.isError) {
+      unavailableSources.push(t('Connections could not be loaded.'))
+    } else if (data.connections.data?.total === 0) {
+      unavailableSources.push(t('No upstream connections yet'))
+    }
+    if (data.upstream.accountsQuery.isPending) {
+      unavailableSources.push(t('Loading saved account windows...'))
+    } else if (data.upstream.accountsQuery.isError) {
+      unavailableSources.push(t('Account windows could not be read'))
+    }
+  }
+  if (data.capture.canRead && data.capture.capturing === undefined) {
+    unavailableSources.push(t('Body capture status is unknown.'))
+  }
+  const hasReadFailure =
+    data.keys.isError ||
+    data.sample.isError ||
+    data.counts.isError ||
+    data.counts.data?.failed === null ||
+    data.upstream.selfQuery.isError ||
+    (data.canReadChannels &&
+      (data.connections.isError || data.upstream.accountsQuery.isError)) ||
+    (data.capture.canRead && data.capture.query.isError)
+
+  const flowBoard = (
+    <FlowBoard
+      caption={caption}
+      selection={selection}
+      onSelect={select}
+      keys={{
+        nodes: keyNodes,
+        state: columnState(data.keys),
+        onRetry: () => void data.keys.refetch(),
+        createAction: showKeys && (
+          <Link
+            to='/keys'
+            data-myapi-button=''
+            className={linkButtonClassName({ size: 'sm' })}
+          >
+            {t('Create API Key')}
+          </Link>
+        ),
+      }}
+      connections={
+        data.canReadChannels && showConnections
+          ? {
+              items: data.connections.data?.items ?? [],
+              total: data.connections.data?.total ?? 0,
+              windows,
+              windowsError: data.upstream.accountsQuery.isError,
+              onRetryWindows: () => void data.upstream.accountsQuery.refetch(),
+              traffic: connectionTraffic,
+              state: columnState(data.connections),
+              onRetry: () => void data.connections.refetch(),
+              addAction: canAddConnection && (
+                <Link
+                  to='/connections'
+                  data-myapi-button=''
+                  className={linkButtonClassName({ size: 'sm' })}
+                >
+                  {t('Add connection')}
+                </Link>
+              ),
+            }
+          : null
+      }
+      core={
+        <GatewayCoreCard
+          address={address}
+          requests={
+            data.counts.isError ? null : (data.counts.data?.requests ?? null)
+          }
+          requestsLoading={data.counts.isPending}
+          failureRate={failureRate}
+          medianSeconds={duration}
+          sampleLoading={data.sample.isPending}
+          buckets={buckets}
+          meta={meta}
+        />
+      }
+    />
+  )
+
   return (
     <SectionPageLayout>
       <SectionPageLayout.Title>{t('Overview')}</SectionPageLayout.Title>
       <SectionPageLayout.Description>
-        {t(
-          'Who calls, through the gateway, to which upstream. Select a node to filter the requests below.'
-        )}
+        {lite
+          ? t(
+              'Set up a connection, choose an API Key, then configure your client.'
+            )
+          : t(
+              'Who calls, through the gateway, to which upstream. Select a node to filter the requests below.'
+            )}
       </SectionPageLayout.Description>
       <SectionPageLayout.Actions>
-        {canAddConnection && (
+        {!lite && canAddConnection && (
           <Link
             to='/connections'
             data-myapi-button=''
@@ -236,7 +391,7 @@ function OverviewSession() {
             {t('Add connection')}
           </Link>
         )}
-        {showKeys && (
+        {!lite && showKeys && (
           <Link
             to='/keys'
             data-myapi-button=''
@@ -254,69 +409,107 @@ function OverviewSession() {
       <SectionPageLayout.Content>
         <div className='flex min-w-0 flex-col gap-5' data-testid='overview'>
           <OverviewAttention data={data} />
-          <FlowBoard
-            caption={caption}
-            selection={selection}
-            onSelect={select}
-            keys={{
-              nodes: keyNodes,
-              state: columnState(data.keys),
-              onRetry: () => void data.keys.refetch(),
-              createAction: showKeys && (
-                <Link
-                  to='/keys'
-                  data-myapi-button=''
-                  className={linkButtonClassName({ size: 'sm' })}
-                >
-                  {t('Create API Key')}
-                </Link>
-              ),
-            }}
-            connections={
-              data.canReadChannels && showConnections
-                ? {
-                    items: data.connections.data?.items ?? [],
-                    total: data.connections.data?.total ?? 0,
-                    windows,
-                    windowsError: data.upstream.accountsQuery.isError,
-                    onRetryWindows: () =>
-                      void data.upstream.accountsQuery.refetch(),
-                    traffic: connectionTraffic,
-                    state: columnState(data.connections),
-                    onRetry: () => void data.connections.refetch(),
-                    addAction: canAddConnection && (
-                      <Link
-                        to='/connections'
-                        data-myapi-button=''
-                        className={linkButtonClassName({ size: 'sm' })}
-                      >
-                        {t('Add connection')}
-                      </Link>
-                    ),
-                  }
-                : null
-            }
-            core={
-              <GatewayCoreCard
+          {lite ? (
+            <>
+              <AccessStartPanel
                 address={address}
-                requests={
-                  data.counts.isError
-                    ? null
-                    : (data.counts.data?.requests ?? null)
-                }
-                requestsLoading={data.counts.isPending}
-                failureRate={failureRate}
-                medianSeconds={
-                  rows
-                    ? medianSeconds(rows.map((row) => row.use_time))
-                    : undefined
-                }
-                sampleLoading={data.sample.isPending}
-                buckets={buckets}
-                meta={meta}
+                canReadConnections={data.canReadChannels && showConnections}
+                canAddConnection={canAddConnection}
+                showKeys={showKeys}
               />
-            }
-          />
+              <section
+                aria-label={t('Saved data status')}
+                className='flex min-w-0 flex-col gap-3'
+              >
+                {unavailableSources.length > 0 && (
+                  <div
+                    className={cn(
+                      'text-caption rounded-lg p-3',
+                      hasReadFailure
+                        ? 'bg-warning-muted text-warning'
+                        : 'bg-muted text-muted-foreground'
+                    )}
+                    role='status'
+                  >
+                    <ul className='flex min-w-0 flex-wrap gap-x-4 gap-y-1'>
+                      {unavailableSources.map((source) => (
+                        <li key={source}>{source}</li>
+                      ))}
+                    </ul>
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      className='mt-2 h-auto min-h-11 whitespace-normal'
+                      onClick={() => {
+                        setFlowExpanded(true)
+                        if (data.keys.isError) void data.keys.refetch()
+                        if (data.sample.isError) void data.sample.refetch()
+                        if (
+                          data.counts.isError ||
+                          data.counts.data?.failed === null
+                        )
+                          void data.counts.refetch()
+                        if (data.upstream.selfQuery.isError)
+                          void data.upstream.selfQuery.refetch()
+                        if (data.canReadChannels && data.connections.isError)
+                          void data.connections.refetch()
+                        if (
+                          data.canReadChannels &&
+                          data.upstream.accountsQuery.isError
+                        )
+                          void data.upstream.accountsQuery.refetch()
+                        if (data.capture.canRead && data.capture.query.isError)
+                          void data.capture.query.refetch()
+                      }}
+                    >
+                      {hasReadFailure
+                        ? t('View details and retry')
+                        : t('View data details')}
+                    </Button>
+                  </div>
+                )}
+                {data.canReadChannels &&
+                  showConnections &&
+                  !data.upstream.accountsQuery.isPending && (
+                    <SavedWindowsOverview
+                      windows={
+                        data.upstream.accountsQuery.isError
+                          ? []
+                          : (data.upstream.accountsQuery.data?.items ?? [])
+                      }
+                      windowsKnown={
+                        !data.upstream.accountsQuery.isError &&
+                        data.upstream.accountsQuery.isSuccess
+                      }
+                      incomplete={
+                        data.upstream.accountsQuery.data?.source_complete ===
+                          false ||
+                        data.upstream.accountsQuery.data?.items_complete ===
+                          false
+                      }
+                      connections={
+                        data.connections.isError
+                          ? []
+                          : (data.connections.data?.items ?? [])
+                      }
+                      showAccounts={showAccounts}
+                      now={Date.now() / 1000}
+                    />
+                  )}
+              </section>
+              <Collapsible open={flowExpanded} onOpenChange={setFlowExpanded}>
+                <CollapsibleTrigger
+                  render={<Button variant='outline' />}
+                  className='mb-3 h-auto min-h-11 max-w-full whitespace-normal'
+                >
+                  {t('Request flow and statistics')}
+                </CollapsibleTrigger>
+                <CollapsibleContent keepMounted>{flowBoard}</CollapsibleContent>
+              </Collapsible>
+            </>
+          ) : (
+            flowBoard
+          )}
           <OverviewRecentRequests
             ref={requestsRef}
             data={data}
