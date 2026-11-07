@@ -263,7 +263,9 @@ describe('Full saved connection tools', () => {
     render(<TestBoard onSelect={selected} />)
     expect(screen.queryByRole('article')).not.toBeInTheDocument()
     const filter = screen.getByRole('button', { name: /Connection 17/ })
-    expect(within(filter).getByText('Priority 0')).toBeVisible()
+    expect(
+      within(filter).getByText('· Priority 0', { exact: true })
+    ).toBeVisible()
     expect(
       screen.queryByRole('button', { name: /Models/ })
     ).not.toBeInTheDocument()

@@ -422,7 +422,16 @@ test.each(['removed', 'failed'] as const)(
     await returnThroughInspector(fixture)
     await act(async () => fixture.releaseLists())
     if (outcome === 'removed') {
-      const other = await routingLink()
+      const other = await waitFor(() => {
+        const link = screen.getByRole('link', { name: 'Routing and models' })
+        expect(link).toHaveAttribute('data-overview-routing-link', '8')
+        expect(
+          screen
+            .getByTestId('overview')
+            .querySelector('[data-overview-routing-link="7"]')
+        ).not.toBeInTheDocument()
+        return link
+      })
       expect(other).toHaveAttribute('data-overview-routing-link', '8')
       expect(other).not.toHaveFocus()
       expect(other.closest('[data-page-scroll]')).toHaveProperty('scrollTop', 0)
