@@ -12,6 +12,20 @@ import diagnostics from '../service-diagnostics.js'
 
 const require = createRequire(import.meta.url)
 const directory = fileURLToPath(new URL('..', import.meta.url))
+// Main receives the host's real node:path implementation. Only test-owned
+// locations use native separators; explicit database/env values stay verbatim.
+const SYNTHETIC_ROOT = path.normalize('/synthetic')
+const RESOURCES_DIRECTORY = path.join(SYNTHETIC_ROOT, 'resources')
+const USER_DATA_DIRECTORY = path.join(SYNTHETIC_ROOT, 'userData')
+const DATA_DIRECTORY = path.join(USER_DATA_DIRECTORY, 'data')
+const LOGS_DIRECTORY = path.join(USER_DATA_DIRECTORY, 'logs')
+const DATABASE_PATH = path.join(DATA_DIRECTORY, 'my-api.db')
+const LANGUAGE_PATH = path.join(USER_DATA_DIRECTORY, 'myapi-desktop-language.json')
+const DIAGNOSTIC_PATH = path.join(LOGS_DIRECTORY, 'desktop-service-diagnostic.log')
+const CANONICAL_BINARIES = new Set([
+  path.join(RESOURCES_DIRECTORY, 'bin', 'my-api'),
+  path.join(RESOURCES_DIRECTORY, 'bin', 'my-api.exe'),
+])
 function deferred() {
   let resolve
   const promise = new Promise((yes) => { resolve = yes })
@@ -44,7 +58,7 @@ async function boot(options = {}) {
   app.requestSingleInstanceLock = () => true
   app.getLocale = () => options.locale || 'en-US'
   app.getVersion = () => '0.2.0-synthetic'
-  app.getPath = (name) => `/synthetic/${name}`
+  app.getPath = (name) => path.join(SYNTHETIC_ROOT, name)
   app.dock = { visible: true, show() { this.visible = true }, hide() { this.visible = false } }
   app.relaunch = (value) => { app.relaunchArguments = value }
   app.quit = () => {
@@ -83,7 +97,7 @@ async function boot(options = {}) {
     setToolTip(value) { this.tooltip = value }
   }
   const fs = {
-    existsSync(file) { return files.has(file) || file.endsWith('/bin/my-api') || file.endsWith('/bin/my-api.exe') },
+    existsSync(file) { return files.has(file) || CANONICAL_BINARIES.has(file) },
     readFileSync(file) { if (!files.has(file)) throw Object.assign(new Error('Synthetic missing file'), { code: 'ENOENT' }); return files.get(file) },
     writeFileSync(target, value, config) { const file = descriptors.get(target)?.file || target; if (options.failDiagnosticWrite && file.endsWith('desktop-service-diagnostic.log')) throw new Error('private filesystem detail'); files.set(file, String(value)); if (config) fileOptions.set(file, config) },
     constants: require('node:fs').constants,
@@ -94,7 +108,7 @@ async function boot(options = {}) {
     appendFileSync(file, value) { files.set(file, (files.get(file) || '') + value) },
     mkdirSync() {}, chmodSync() {},
   }
-  const fakeProcess = { platform: options.platform || 'darwin', arch: 'arm64', argv: ['electron', '/synthetic/app.asar', ...(options.args || [])], env: { SESSION_SECRET: 'synthetic-session-secret-never-rendered', ...(options.dev ? { NODE_ENV: 'development' } : {}), ...options.env }, resourcesPath: '/synthetic/resources' }
+  const fakeProcess = { platform: options.platform || 'darwin', arch: 'arm64', argv: ['electron', path.join(SYNTHETIC_ROOT, 'app.asar'), ...(options.args || [])], env: { SESSION_SECRET: 'synthetic-session-secret-never-rendered', ...(options.dev ? { NODE_ENV: 'development' } : {}), ...options.env }, resourcesPath: RESOURCES_DIRECTORY }
   const native = require('../native-i18n.js')
   const runtimeModule = { exports: {} }
   const runtimeSource = await readFile(new URL('../runtime-config.js', import.meta.url), 'utf8')
@@ -170,12 +184,12 @@ for (const platform of ['darwin', 'win32']) {
     const f = await boot({ platform, args: ['--allow-lan', '--bind-address', '192.168.1.10'], env: { SQL_DSN: 'postgres://synthetic:PRIVATE-DSN@private.invalid/data' } })
     assert.equal(f.children.length, 1)
     const launched = f.children[0]
-    assert.equal(launched.binary, `/synthetic/resources/bin/${platform === 'win32' ? 'my-api.exe' : 'my-api'}`)
-    assert.deepEqual(Array.from(launched.args), ['--log-dir', '/synthetic/userData/logs'])
+    assert.equal(launched.binary, path.join(RESOURCES_DIRECTORY, 'bin', platform === 'win32' ? 'my-api.exe' : 'my-api'))
+    assert.deepEqual(Array.from(launched.args), ['--log-dir', LOGS_DIRECTORY])
     assert.equal(launched.config.env.MYAPI_EDITION, 'lite')
     assert.equal(launched.config.env.MYAPI_BIND_ADDRESS, '192.168.1.10')
-    assert.equal(launched.config.env.FULL_CONTENT_LOG_DIR, '/synthetic/userData/logs/full-content')
-    assert.equal(launched.config.env.SQLITE_PATH, '/synthetic/userData/data/my-api.db')
+    assert.equal(launched.config.env.FULL_CONTENT_LOG_DIR, path.join(LOGS_DIRECTORY, 'full-content'))
+    assert.equal(launched.config.env.SQLITE_PATH, DATABASE_PATH)
     assert.equal(f.probes[0].config.hostname, '192.168.1.10')
     assert.equal(f.probes[0].config.path, '/api/status')
     assert.equal(f.windows.length, 1, 'the local panel does not open an unready console')
@@ -319,13 +333,13 @@ test('native language selection rebuilds the real tray and persists only languag
   assert.notEqual(f.menus.at(-1)[0].label, 'Show service panel')
   assert.equal((await f.invoke('setLanguage', 'en')).language, 'en')
   assert.equal(f.menus.at(-1)[0].label, f.translated('Show service panel', 'en'))
-  assert.equal(f.files.get('/synthetic/userData/myapi-desktop-language.json'), '{"language":"en"}\n')
+  assert.equal(f.files.get(LANGUAGE_PATH), '{"language":"en"}\n')
   await f.invoke('copyKnownAddress', 'http://127.0.0.1:3000/v1')
   assert.deepEqual(f.copied, ['http://127.0.0.1:3000/v1'])
   await f.invoke('copyKnownAddress', 'http://not-configured.invalid/v1')
   assert.equal(f.copied.length, 1)
   await f.invoke('openKnownLogs')
-  assert.deepEqual(f.openedPaths, ['/synthetic/userData/logs/desktop-service-diagnostic.log'])
+  assert.deepEqual(f.openedPaths, [DIAGNOSTIC_PATH])
 })
 
 test('copy uses the exact displayed known address, never a reordered index or an expired address', async () => {
@@ -369,7 +383,7 @@ test('original stderr stays bounded and private per generation until an explicit
   assert.equal(snapshot.diagnostic.category, 'network')
   assert.equal(snapshot.diagnostic.hasOriginal, true)
   assert.ok(!JSON.stringify(snapshot).includes('PRIVATE-'))
-  const diagnosticPath = '/synthetic/userData/logs/desktop-service-diagnostic.log'
+  const diagnosticPath = DIAGNOSTIC_PATH
   assert.equal(f.files.has(diagnosticPath), false)
   await f.invoke('openKnownLogs')
   const contents = f.files.get(diagnosticPath)
