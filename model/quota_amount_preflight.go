@@ -31,6 +31,9 @@ type quotaAmountColumnSpec struct {
 	minimum  int64
 	maximum  int64
 	nullable bool
+	// Only receipts with a complete, byte-exact direct-token identity may
+	// carry a signed token delta instead of a nonnegative charge.
+	allowDirectTokenDelta bool
 }
 
 type quotaAmountTableSpec struct {
@@ -408,7 +411,7 @@ func inspectSQLiteQuotaAmountTx(ctx context.Context, tx *sql.Tx) error {
 	if err := validateQuotaAmountPhysicalSchema(common.DatabaseTypeSQLite, tableKinds, columns); err != nil {
 		return err
 	}
-	return inspectQuotaAmountValues(ctx, tx, common.DatabaseTypeSQLite, tableKinds)
+	return inspectQuotaAmountValues(ctx, tx, common.DatabaseTypeSQLite, tableKinds, columns)
 }
 
 func sqliteQuotaAmountColumns(ctx context.Context, tx *sql.Tx, table string) (map[string]quotaAmountPhysicalColumn, error) {
@@ -494,7 +497,7 @@ WHERE n.nspname = ANY (current_schemas(false))
 	if err := validateQuotaAmountPhysicalSchema(databaseType, tableKinds, columns); err != nil {
 		return err
 	}
-	return inspectQuotaAmountValues(ctx, tx, databaseType, tableKinds)
+	return inspectQuotaAmountValues(ctx, tx, databaseType, tableKinds, columns)
 }
 
 func quotaAmountCatalogTableNames() string {
@@ -617,12 +620,34 @@ func quotaAmountColumnIsExact(databaseType common.DatabaseType, column quotaAmou
 	}
 }
 
-func inspectQuotaAmountValues(ctx context.Context, queryer quotaAmountQueryer, databaseType common.DatabaseType, tableKinds map[string]string) error {
+func inspectQuotaAmountValues(ctx context.Context, queryer quotaAmountQueryer, databaseType common.DatabaseType, tableKinds map[string]string, columns map[string]map[string]quotaAmountPhysicalColumn) error {
 	for _, table := range quotaAmountTableSpecs {
 		if _, exists := tableKinds[table.name]; !exists {
 			continue
 		}
+		allowDirectTokenDelta := table.name == "account_quota_mutation_receipts"
+		if allowDirectTokenDelta {
+			for _, name := range []string{"phase", "billing_source", "billing_preference"} {
+				column, exists := columns[table.name][name]
+				// Fixed-width CHAR can discard trailing spaces on retrieval or
+				// casts. Unknown identity storage retains the old charge rule.
+				identityIsExact := false
+				switch databaseType {
+				case common.DatabaseTypeSQLite:
+					identityIsExact = !column.hidden && (column.dataType == "text" || column.dataType == "clob" || column.dataType == "varchar" || strings.HasPrefix(column.dataType, "varchar("))
+				case common.DatabaseTypeMySQL:
+					identityIsExact = column.dataType == "varchar" || column.dataType == "tinytext" || column.dataType == "text" || column.dataType == "mediumtext" || column.dataType == "longtext"
+				case common.DatabaseTypePostgreSQL:
+					identityIsExact = column.dataType == "varchar" || column.dataType == "text"
+				}
+				if !exists || !identityIsExact {
+					allowDirectTokenDelta = false
+					break
+				}
+			}
+		}
 		for _, spec := range table.columns {
+			spec.allowDirectTokenDelta = allowDirectTokenDelta
 			query := quotaAmountInvalidValueQuery(databaseType, spec)
 			var marker int
 			err := queryer.QueryRowContext(ctx, query, spec.minimum, spec.maximum).Scan(&marker)
@@ -641,6 +666,7 @@ func inspectQuotaAmountValues(ctx context.Context, queryer quotaAmountQueryer, d
 
 func quotaAmountInvalidValueQuery(databaseType common.DatabaseType, spec quotaAmountColumnSpec) string {
 	var table, column, minimumPlaceholder, maximumPlaceholder string
+	var directTokenIdentity, requestedColumn, appliedColumn string
 	conditions := make([]string, 0, 3)
 	switch databaseType {
 	case common.DatabaseTypeSQLite:
@@ -648,17 +674,32 @@ func quotaAmountInvalidValueQuery(databaseType common.DatabaseType, spec quotaAm
 		column = quoteSQLiteQuotaAmountIdentifier(spec.column)
 		conditions = append(conditions, "typeof("+column+") <> 'integer'")
 		minimumPlaceholder, maximumPlaceholder = "?", "?"
+		directTokenIdentity = `CAST("phase" AS BLOB) = CAST('direct_token' AS BLOB) AND CAST("billing_source" AS BLOB) = CAST('token' AS BLOB) AND CAST("billing_preference" AS BLOB) = CAST('direct' AS BLOB)`
+		requestedColumn, appliedColumn = `"requested_quota"`, `"applied_quota"`
 	case common.DatabaseTypeMySQL:
 		table = "`" + spec.table + "`"
 		column = "`" + spec.column + "`"
 		minimumPlaceholder, maximumPlaceholder = "?", "?"
+		directTokenIdentity = "BINARY `phase` = BINARY 'direct_token' AND BINARY `billing_source` = BINARY 'token' AND BINARY `billing_preference` = BINARY 'direct'"
+		requestedColumn, appliedColumn = "`requested_quota`", "`applied_quota`"
 	case common.DatabaseTypePostgreSQL:
 		table = `"` + spec.table + `"`
 		column = `"` + spec.column + `"`
 		minimumPlaceholder, maximumPlaceholder = "$1", "$2"
+		directTokenIdentity = `convert_to("phase"::text, 'UTF8') = convert_to('direct_token', 'UTF8') AND convert_to("billing_source"::text, 'UTF8') = convert_to('token', 'UTF8') AND convert_to("billing_preference"::text, 'UTF8') = convert_to('direct', 'UTF8')`
+		requestedColumn, appliedColumn = `"requested_quota"`, `"applied_quota"`
+	}
+	minimumCondition := column + " < " + minimumPlaceholder
+	if spec.allowDirectTokenDelta && spec.table == "account_quota_mutation_receipts" && (spec.column == "requested_quota" || spec.column == "applied_quota") {
+		validDirectToken := fmt.Sprintf("%s AND %s = %s AND %s <> 0 AND %s BETWEEN %d AND %d AND %s BETWEEN %d AND %d",
+			directTokenIdentity, requestedColumn, appliedColumn, requestedColumn,
+			requestedColumn, common.MinQuota, common.MaxQuota, appliedColumn, common.MinQuota, common.MaxQuota)
+		// CASE rejects NULL identity fields as well as false predicates; a
+		// nullable classifier must never make a negative charge invisible.
+		minimumCondition = "(" + minimumCondition + " AND CASE WHEN " + validDirectToken + " THEN 0 ELSE 1 END = 1)"
 	}
 	conditions = append(conditions,
-		column+" < "+minimumPlaceholder,
+		minimumCondition,
 		column+" > "+maximumPlaceholder,
 	)
 	invalidValue := strings.Join(conditions, " OR ")

@@ -324,6 +324,125 @@ func TestQuotaAmountPreflightUsesConfiguredSQLiteAndSanitizesErrors(t *testing.T
 	assert.NotContains(t, err.Error(), "private.invalid")
 }
 
+func TestQuotaAmountPreflightDirectTokenDeltasPreserveChargeGuards(t *testing.T) {
+	const identityColumns = "phase, billing_source, billing_preference, requested_quota, applied_quota"
+	const identitySchema = `(phase TEXT COLLATE NOCASE, billing_source TEXT COLLATE NOCASE, billing_preference TEXT COLLATE NOCASE, requested_quota INTEGER, applied_quota INTEGER)`
+	tests := []struct {
+		name      string
+		schema    string
+		columns   string
+		values    []any
+		wantError bool
+	}{
+		{name: "legal token debit", values: []any{"direct_token", "token", "direct", -100, -100}},
+		{name: "legal token credit", values: []any{"direct_token", "token", "direct", 100, 100}},
+		{name: "signed minimum", values: []any{"direct_token", "token", "direct", common.MinQuota, common.MinQuota}},
+		{name: "signed maximum", values: []any{"direct_token", "token", "direct", common.MaxQuota, common.MaxQuota}},
+		{name: "ordinary reserve positive charge", values: []any{"reserve", "wallet", "wallet_only", 100, 100}},
+		{name: "ordinary settle positive charge", values: []any{"settle", "wallet", "wallet_only", 60, 60}},
+		{name: "ordinary reserve negative charge", values: []any{"reserve", "wallet", "wallet_only", -100, -100}, wantError: true},
+		{name: "ordinary settle negative charge", values: []any{"settle", "wallet", "wallet_only", -60, -60}, wantError: true},
+		{name: "unknown phase", values: []any{"unknown", "token", "direct", -100, -100}, wantError: true},
+		{name: "wrong billing source", values: []any{"direct_token", "wallet", "direct", -100, -100}, wantError: true},
+		{name: "wrong billing preference", values: []any{"direct_token", "token", "wallet_only", -100, -100}, wantError: true},
+		{name: "null phase", values: []any{nil, "token", "direct", -100, -100}, wantError: true},
+		{name: "null billing source", values: []any{"direct_token", nil, "direct", -100, -100}, wantError: true},
+		{name: "null billing preference", values: []any{"direct_token", "token", nil, -100, -100}, wantError: true},
+		{name: "NOCASE phase lookalike", values: []any{"DIRECT_TOKEN", "token", "direct", -100, -100}, wantError: true},
+		{name: "NOCASE source lookalike", values: []any{"direct_token", "TOKEN", "direct", -100, -100}, wantError: true},
+		{name: "NOCASE preference lookalike", values: []any{"direct_token", "token", "DIRECT", -100, -100}, wantError: true},
+		{name: "phase trailing space", values: []any{"direct_token ", "token", "direct", -100, -100}, wantError: true},
+		{name: "source trailing space", values: []any{"direct_token", "token ", "direct", -100, -100}, wantError: true},
+		{name: "preference trailing space", values: []any{"direct_token", "token", "direct ", -100, -100}, wantError: true},
+		{name: "different negative amounts", values: []any{"direct_token", "token", "direct", -100, -99}, wantError: true},
+		{name: "negative request with zero applied", values: []any{"direct_token", "token", "direct", -100, 0}, wantError: true},
+		{name: "zero request with negative applied", values: []any{"direct_token", "token", "direct", 0, -100}, wantError: true},
+		{name: "null requested amount", values: []any{"direct_token", "token", "direct", nil, 100}, wantError: true},
+		{name: "null applied amount", values: []any{"direct_token", "token", "direct", 100, nil}, wantError: true},
+		{name: "negative request with null applied", values: []any{"direct_token", "token", "direct", -100, nil}, wantError: true},
+		{name: "text amount", values: []any{"direct_token", "token", "direct", "not-an-amount", -100}, wantError: true},
+		{name: "fractional amount", values: []any{"direct_token", "token", "direct", -100.5, -100.5}, wantError: true},
+		{name: "below signed minimum", values: []any{"direct_token", "token", "direct", int64(common.MinQuota) - 1, int64(common.MinQuota) - 1}, wantError: true},
+		{name: "above signed maximum", values: []any{"direct_token", "token", "direct", int64(common.MaxQuota) + 1, int64(common.MaxQuota) + 1}, wantError: true},
+		{
+			name: "historical amount-only positive receipt", schema: `(requested_quota INTEGER, applied_quota INTEGER)`,
+			columns: "requested_quota, applied_quota", values: []any{100, 100},
+		},
+		{
+			name: "historical amount-only negative receipt", schema: `(requested_quota INTEGER, applied_quota INTEGER)`,
+			columns: "requested_quota, applied_quota", values: []any{-100, -100}, wantError: true,
+		},
+		{
+			name: "missing phase", schema: `(billing_source TEXT, billing_preference TEXT, requested_quota INTEGER, applied_quota INTEGER)`,
+			columns: "billing_source, billing_preference, requested_quota, applied_quota", values: []any{"token", "direct", -100, -100}, wantError: true,
+		},
+		{
+			name: "missing billing source", schema: `(phase TEXT, billing_preference TEXT, requested_quota INTEGER, applied_quota INTEGER)`,
+			columns: "phase, billing_preference, requested_quota, applied_quota", values: []any{"direct_token", "direct", -100, -100}, wantError: true,
+		},
+		{
+			name: "missing billing preference", schema: `(phase TEXT, billing_source TEXT, requested_quota INTEGER, applied_quota INTEGER)`,
+			columns: "phase, billing_source, requested_quota, applied_quota", values: []any{"direct_token", "token", -100, -100}, wantError: true,
+		},
+		{
+			name: "hidden generated phase", schema: `(phase TEXT GENERATED ALWAYS AS ('direct_token') VIRTUAL, billing_source TEXT, billing_preference TEXT, requested_quota INTEGER, applied_quota INTEGER)`,
+			columns: "billing_source, billing_preference, requested_quota, applied_quota", values: []any{"token", "direct", -100, -100}, wantError: true,
+		},
+		{
+			name: "fixed CHAR phase", schema: `(phase CHAR(16), billing_source TEXT, billing_preference TEXT, requested_quota INTEGER, applied_quota INTEGER)`,
+			values: []any{"direct_token", "token", "direct", -100, -100}, wantError: true,
+		},
+		{
+			name: "unknown identity storage", schema: `(phase BLOB, billing_source TEXT, billing_preference TEXT, requested_quota INTEGER, applied_quota INTEGER)`,
+			values: []any{"direct_token", "token", "direct", -100, -100}, wantError: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			directory := t.TempDir()
+			path := filepath.Join(directory, "receipt.db")
+			schema, columns := test.schema, test.columns
+			if schema == "" {
+				schema = identitySchema
+			}
+			if columns == "" {
+				columns = identityColumns
+			}
+			createQuotaAmountSQLiteFixture(t, path,
+				`CREATE TABLE users (quota INTEGER, used_quota INTEGER)`,
+				`CREATE TABLE tokens (remain_quota INTEGER, used_quota INTEGER)`,
+				"CREATE TABLE account_quota_mutation_receipts "+schema,
+			)
+			fixture, err := sql.Open(sqlite.DriverName, quotaAmountFixtureURI(path))
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, fixture.Close()) })
+			placeholders := make([]string, len(test.values))
+			for index := range placeholders {
+				placeholders[index] = "?"
+			}
+			_, err = fixture.Exec("INSERT INTO account_quota_mutation_receipts ("+columns+") VALUES ("+strings.Join(placeholders, ", ")+")", test.values...)
+			require.NoError(t, err)
+			require.NoError(t, fixture.Close())
+			before := readQuotaAmountFixture(t, path)
+			beforeNames := quotaAmountFixtureDirectoryNames(t, directory)
+			previousPath := common.SQLitePath
+			common.SQLitePath = path
+			t.Cleanup(func() { common.SQLitePath = previousPath })
+			t.Setenv("SQL_DSN", "local")
+
+			err = ValidateQuotaAmountPreMigrationConfiguration(context.Background())
+			if test.wantError {
+				require.ErrorIs(t, err, ErrQuotaAmountStartupUnverifiable)
+				assert.ErrorContains(t, err, "account_quota_mutation_receipts.")
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, before, readQuotaAmountFixture(t, path), "startup inspection must not rewrite receipt storage")
+			assert.Equal(t, beforeNames, quotaAmountFixtureDirectoryNames(t, directory), "startup inspection must not create or remove SQLite sidecars")
+		})
+	}
+}
+
 func TestQuotaAmountPhysicalTypesByDialect(t *testing.T) {
 	tests := []struct {
 		name         string
