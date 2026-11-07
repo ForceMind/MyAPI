@@ -9,6 +9,7 @@ import vm from 'node:vm'
 import service from '../service-controller.js'
 import ipc from '../service-panel-ipc.js'
 import diagnostics from '../service-diagnostics.js'
+import publicConfig from '../public-access-config.js'
 
 const require = createRequire(import.meta.url)
 const directory = fileURLToPath(new URL('..', import.meta.url))
@@ -22,6 +23,7 @@ const LOGS_DIRECTORY = path.join(USER_DATA_DIRECTORY, 'logs')
 const DATABASE_PATH = path.join(DATA_DIRECTORY, 'my-api.db')
 const LANGUAGE_PATH = path.join(USER_DATA_DIRECTORY, 'myapi-desktop-language.json')
 const DIAGNOSTIC_PATH = path.join(LOGS_DIRECTORY, 'desktop-service-diagnostic.log')
+const PUBLIC_ENTRY_PATH = path.join(USER_DATA_DIRECTORY, 'myapi-desktop-public-access.json')
 const CANONICAL_BINARIES = new Set([
   path.join(RESOURCES_DIRECTORY, 'bin', 'my-api'),
   path.join(RESOURCES_DIRECTORY, 'bin', 'my-api.exe'),
@@ -35,10 +37,11 @@ function deferred() {
 async function boot(options = {}) {
   const source = await readFile(new URL('../main.js', import.meta.url), 'utf8')
   const files = new Map()
+  if (options.publicRecordText !== undefined) files.set(PUBLIC_ENTRY_PATH, options.publicRecordText)
   const fileOptions = new Map()
   const descriptors = new Map()
   let nextDescriptor = 10
-  const children = [], windows = [], probes = [], dialogs = [], answers = [], menus = [], copied = [], openedPaths = []
+  const children = [], windows = [], probes = [], dialogs = [], answers = [], menus = [], copied = [], openedPaths = [], removedPaths = []
   const timers = new Map()
   const handlers = new Map()
   const updates = new EventEmitter()
@@ -47,6 +50,7 @@ async function boot(options = {}) {
   let exits = 0
   let lastState
   let privateCandidates = options.candidates || ['192.168.1.20']
+  let publicReadFailure = false
   const clock = {
     setTimeout(callback, delay) { const id = ++nextTimer; timers.set(id, { callback, delay }); return id },
     clearTimeout(id) { timers.delete(id) },
@@ -98,13 +102,18 @@ async function boot(options = {}) {
   }
   const fs = {
     existsSync(file) { return files.has(file) || CANONICAL_BINARIES.has(file) },
-    readFileSync(file) { if (!files.has(file)) throw Object.assign(new Error('Synthetic missing file'), { code: 'ENOENT' }); return files.get(file) },
-    writeFileSync(target, value, config) { const file = descriptors.get(target)?.file || target; if (options.failDiagnosticWrite && file.endsWith('desktop-service-diagnostic.log')) throw new Error('private filesystem detail'); files.set(file, String(value)); if (config) fileOptions.set(file, config) },
+    lstatSync(file) {
+      if (!files.has(file)) throw Object.assign(new Error('Synthetic missing file'), { code: 'ENOENT' })
+      return { isFile: () => file !== PUBLIC_ENTRY_PATH || !options.publicSymlink, isSymbolicLink: () => file === PUBLIC_ENTRY_PATH && options.publicSymlink === true, dev: 1, ino: 1, size: Buffer.byteLength(files.get(file)), mtimeMs: 1, mode: file === PUBLIC_ENTRY_PATH ? (options.publicMode ?? 0o600) : 0o600 }
+    },
+    readFileSync(file) { if ((options.failPublicRead || publicReadFailure) && file === PUBLIC_ENTRY_PATH) throw Object.assign(new Error('private read detail'), { code: 'EACCES' }); if (!files.has(file)) throw Object.assign(new Error('Synthetic missing file'), { code: 'ENOENT' }); return files.get(file) },
+    writeFileSync(target, value, config) { const file = descriptors.get(target)?.file || target; if (options.failDiagnosticWrite && file.endsWith('desktop-service-diagnostic.log') || options.failPublicWrite && file.startsWith(PUBLIC_ENTRY_PATH + '.')) throw new Error('private filesystem detail'); files.set(file, String(value)); if (config) fileOptions.set(file, config) },
     constants: require('node:fs').constants,
     openSync(file, flags, mode) { if (options.failDiagnosticWrite) throw new Error('private filesystem detail'); const descriptor = ++nextDescriptor; descriptors.set(descriptor, { file }); fileOptions.set(file, { flags, mode }); return descriptor },
     fchmodSync(descriptor, mode) { fileOptions.get(descriptors.get(descriptor).file).mode = mode },
     closeSync(descriptor) { descriptors.delete(descriptor) },
-    renameSync(from, to) { files.set(to, files.get(from)); files.delete(from) },
+    renameSync(from, to) { if (options.failPublicRename && to === PUBLIC_ENTRY_PATH) throw new Error('private rename detail'); files.set(to, files.get(from)); files.delete(from); if (fileOptions.has(from)) { fileOptions.set(to, fileOptions.get(from)); fileOptions.delete(from) } if (options.failPublicReadAfterRename && to === PUBLIC_ENTRY_PATH) publicReadFailure = true },
+    unlinkSync(file) { removedPaths.push(file); files.delete(file) },
     appendFileSync(file, value) { files.set(file, (files.get(file) || '') + value) },
     mkdirSync() {}, chmodSync() {},
   }
@@ -141,7 +150,7 @@ async function boot(options = {}) {
     fs, path, crypto: require('node:crypto'), url: require('node:url'),
     './runtime-config': runtime,
     './service-controller': { createServiceController: (config) => service.createServiceController({ ...config, timers: clock }) },
-    './service-panel-ipc': ipc, './native-i18n': native, './service-diagnostics': diagnostics,
+    './service-panel-ipc': ipc, './native-i18n': native, './service-diagnostics': diagnostics, './public-access-config': publicConfig,
   }
   vm.runInNewContext(source, { require(name) { assert.ok(Object.hasOwn(modules, name), `unexpected main module ${name}`); return modules[name] }, process: fakeProcess, __dirname: directory, console: { log() {}, error() {} }, AbortController, ...clock })
   ready.resolve(); await ready.promise
@@ -152,8 +161,9 @@ async function boot(options = {}) {
     return handlers.get(ipc.SERVICE_PANEL_CHANNELS[name])({ sender: current.webContents, senderFrame: current.webContents.mainFrame }, ...args)
   }
   return {
-    app, children, windows, probes, dialogs, answers, menus, copied, openedPaths, files, fileOptions, timers, panel, invoke,
+    app, children, windows, probes, dialogs, answers, menus, copied, openedPaths, removedPaths, files, fileOptions, timers, panel, invoke,
     setCandidates(value) { privateCandidates = value },
+    setPublicReadFailure(value) { publicReadFailure = value },
     get quits() { return quits }, get exits() { return exits },
     currentState: () => lastState,
     waitForState(expected) {
@@ -500,4 +510,211 @@ test('a public bind is still rejected before a child or console is created', asy
   assert.equal(f.probes.length, 0)
   assert.equal(f.windows.length, 1, 'only the local diagnostic panel is available')
   assert.equal((await f.invoke('snapshot')).canStart, false)
+})
+
+test('public guide saves only an unverified private entry and keeps client, proxy and local-copy sources separate', async () => {
+  const f = await boot()
+  await running(f)
+  const initial = await f.invoke('snapshot')
+  assert.deepEqual(JSON.parse(JSON.stringify(initial.publicAccess)), { recordRevision: 0, savedOrigin: null, savedBaseURL: null, status: 'not-configured', verification: 'unknown', busy: false, listenerScope: 'local', proxyTargets: ['http://127.0.0.1:3000'] })
+  const requested = await f.invoke('showPublicHelp')
+  assert.equal(requested.publicGuideRequest, initial.publicGuideRequest + 1)
+  assert.equal(f.dialogs.length, 0)
+  const cancelled = await f.invoke('savePublicEntry', 'https://public.example.test', 0)
+  assert.equal(cancelled.publicSaveResult.outcome, 'cancelled')
+  assert.equal(cancelled.publicSaveResult.unchanged, true)
+  assert.equal(f.files.has(PUBLIC_ENTRY_PATH), false, 'default cancellation does not create an entry')
+  f.answers.push({ response: 1 })
+  const saved = await f.invoke('savePublicEntry', 'https://public.example.test/', 0)
+  assert.equal(saved.publicAccess.status, 'unverified')
+  assert.equal(saved.publicAccess.verification, 'unknown')
+  assert.equal(saved.publicAccess.savedOrigin, 'https://public.example.test')
+  assert.equal(saved.publicAccess.savedBaseURL, 'https://public.example.test/v1')
+  assert.equal(saved.publicAccess.recordRevision, 1)
+  assert.equal(saved.publicAccess.busy, false)
+  assert.deepEqual(JSON.parse(JSON.stringify(saved.publicSaveResult)), { outcome: 'saved', expectedRevision: 0, origin: 'https://public.example.test', recordRevision: 1, unchanged: false })
+  assert.equal(Object.hasOwn(f.currentState(), 'publicSaveResult'), false)
+  assert.equal(Object.hasOwn(await f.invoke('snapshot'), 'publicSaveResult'), false)
+  assert.deepEqual(JSON.parse(f.files.get(PUBLIC_ENTRY_PATH)), { schemaVersion: 1, origin: 'https://public.example.test' })
+  assert.equal(f.fileOptions.get(PUBLIC_ENTRY_PATH).mode, 0o600)
+  await f.invoke('copyPublicBaseURL', saved.publicAccess.savedBaseURL, 0)
+  await f.invoke('copyKnownAddress', saved.publicAccess.savedBaseURL)
+  assert.equal(f.copied.length, 0, 'public entries never enter the old local copy set')
+  await f.invoke('copyPublicBaseURL', saved.publicAccess.savedBaseURL, 1)
+  await f.invoke('copyProxyTarget', 'http://127.0.0.1:3000')
+  await f.invoke('copyProxyTarget', 'http://127.0.0.1:3000/v1')
+  assert.deepEqual(f.copied, ['https://public.example.test/v1', 'http://127.0.0.1:3000'])
+  const beforeClear = f.files.get(PUBLIC_ENTRY_PATH)
+  await f.invoke('clearPublicEntry', saved.publicAccess.savedOrigin, 1)
+  assert.equal(f.files.get(PUBLIC_ENTRY_PATH), beforeClear)
+  assert.ok(f.dialogs.at(-1).detail.includes(saved.publicAccess.savedBaseURL))
+  f.answers.push({ response: 1 })
+  const cleared = await f.invoke('clearPublicEntry', saved.publicAccess.savedOrigin, 1)
+  assert.equal(cleared.publicAccess.status, 'not-configured')
+  assert.equal(cleared.publicAccess.savedBaseURL, null)
+  assert.equal(cleared.publicAccess.recordRevision, 2)
+  assert.equal(cleared.publicClearResult.outcome, 'cleared')
+  assert.equal(cleared.publicClearResult.unchanged, false)
+  assert.deepEqual(JSON.parse(f.files.get(PUBLIC_ENTRY_PATH)), { schemaVersion: 1, origin: null })
+  assert.equal(f.removedPaths.includes(PUBLIC_ENTRY_PATH), false)
+  await f.invoke('copyPublicBaseURL', saved.publicAccess.savedBaseURL, 1)
+  assert.equal(f.copied.length, 2)
+  assert.equal(f.children.length, 1)
+  assert.deepEqual(f.children[0].child.signals, [])
+  assert.equal(f.probes.length, 1, 'no public address, DNS or model probe is added')
+  assert.equal(f.openedPaths.length, 0)
+  assert.equal(f.app.relaunchArguments, undefined)
+})
+
+for (const change of ['frame', 'generation', 'record']) {
+  test(`public entry confirmation rejects a changed ${change} instead of writing or replaying`, async () => {
+    const f = await boot()
+    await running(f)
+    const confirmation = deferred()
+    f.answers.push(confirmation.promise)
+    const pending = f.invoke('savePublicEntry', 'https://first.example.test', 0)
+    await f.waitForDialog(1)
+    assert.equal((await f.invoke('snapshot')).publicAccess.busy, true)
+    await f.invoke('savePublicEntry', 'https://duplicate.example.test', 0)
+    assert.equal(f.dialogs.length, 1)
+    if (change === 'frame') f.panel().webContents.mainFrame.url = 'https://untrusted.invalid/'
+    if (change === 'generation') f.children[0].child.emit('close', 0)
+    if (change === 'record') f.files.set(PUBLIC_ENTRY_PATH, JSON.stringify({ schemaVersion: 1, origin: 'https://other.example.test' }))
+    confirmation.resolve({ response: 1 })
+    const result = await pending
+    assert.equal(result.publicAccess.busy, false)
+    assert.equal(result.publicSaveResult.outcome, 'rejected')
+    if (change === 'record') assert.equal(result.publicAccess.savedOrigin, 'https://other.example.test')
+    else assert.equal(f.files.has(PUBLIC_ENTRY_PATH), false)
+    assert.equal(f.files.get(PUBLIC_ENTRY_PATH)?.includes('first.example.test') ?? false, false)
+    assert.deepEqual(f.copied, [])
+    assert.equal(f.probes.length, 1)
+  })
+}
+
+for (const failure of ['failPublicWrite', 'failPublicRename']) {
+  test(`public entry ${failure} preserves the exact previous bytes and saved source`, async () => {
+    const original = JSON.stringify({ schemaVersion: 1, origin: 'https://old.example.test' })
+    const f = await boot({ publicRecordText: original, [failure]: true })
+    await running(f)
+    f.answers.push({ response: 1 })
+    const result = await f.invoke('savePublicEntry', 'https://new.example.test', 0)
+    assert.equal(f.files.get(PUBLIC_ENTRY_PATH), original)
+    assert.equal(result.publicAccess.savedOrigin, 'https://old.example.test')
+    assert.equal(result.publicAccess.recordRevision, 0)
+    assert.equal(result.publicAccess.status, 'unverified')
+    assert.equal(result.publicSaveResult.outcome, 'failed')
+    assert.equal(result.publicSaveResult.unchanged, true)
+    assert.equal(result.notice.message, f.translated('The saved entry could not be updated. The previous record has been retained.'))
+    assert.equal(f.removedPaths.includes(PUBLIC_ENTRY_PATH), false)
+  })
+}
+
+test('a committed save or clear with unreadable read-back is unknown until explicitly read again, never rolled back or reported as success', async () => {
+  const f = await boot({ publicRecordText: JSON.stringify({ schemaVersion: 1, origin: 'https://old.example.test' }), failPublicReadAfterRename: true })
+  await running(f)
+  f.answers.push({ response: 1 })
+  const saved = await f.invoke('savePublicEntry', 'https://new.example.test', 0)
+  assert.deepEqual(JSON.parse(f.files.get(PUBLIC_ENTRY_PATH)), { schemaVersion: 1, origin: 'https://new.example.test' })
+  assert.equal(saved.publicAccess.status, 'unreadable')
+  assert.equal(saved.publicAccess.savedOrigin, null)
+  assert.equal(saved.publicAccess.savedBaseURL, null)
+  assert.equal(saved.publicAccess.recordRevision, 1)
+  assert.equal(saved.publicSaveResult.outcome, 'unconfirmed')
+  assert.equal(saved.publicSaveResult.unchanged, false)
+  assert.equal(saved.notice.message, f.translated('The write result could not be confirmed. Read the saved entry again before taking another action.'))
+  await f.invoke('copyPublicBaseURL', 'https://new.example.test/v1', 1)
+  assert.deepEqual(f.copied, [])
+  f.setPublicReadFailure(false)
+  const reread = await f.invoke('snapshot')
+  assert.equal(reread.publicAccess.status, 'unverified')
+  assert.equal(reread.publicAccess.savedOrigin, 'https://new.example.test')
+  assert.equal(reread.publicAccess.recordRevision, 2)
+  f.answers.push({ response: 1 })
+  const cleared = await f.invoke('clearPublicEntry', reread.publicAccess.savedOrigin, 2)
+  assert.deepEqual(JSON.parse(f.files.get(PUBLIC_ENTRY_PATH)), { schemaVersion: 1, origin: null })
+  assert.equal(cleared.publicAccess.status, 'unreadable')
+  assert.equal(cleared.publicAccess.recordRevision, 3)
+  assert.equal(cleared.publicClearResult.outcome, 'unconfirmed')
+  assert.equal(cleared.publicClearResult.unchanged, false)
+  assert.equal(cleared.notice.message, f.translated('The write result could not be confirmed. Read the saved entry again before taking another action.'))
+  assert.equal(f.removedPaths.includes(PUBLIC_ENTRY_PATH), false)
+})
+
+test('a corrupt readable entry requires explicit reset to an empty record before a new URL can be saved', async () => {
+  const f = await boot({ publicRecordText: '{bad original bytes' })
+  await running(f)
+  assert.equal((await f.invoke('snapshot')).publicAccess.status, 'unreadable')
+  await f.invoke('savePublicEntry', 'https://new.example.test', 0)
+  assert.equal(f.dialogs.length, 0)
+  assert.equal(f.files.get(PUBLIC_ENTRY_PATH), '{bad original bytes')
+  await f.invoke('clearPublicEntry', null, 0)
+  assert.equal(f.dialogs.at(-1).message, f.translated("The old entry cannot be read. Reset only this computer's saved entry?"))
+  assert.equal(f.files.get(PUBLIC_ENTRY_PATH), '{bad original bytes')
+  f.answers.push({ response: 1 })
+  const empty = await f.invoke('clearPublicEntry', null, 0)
+  assert.equal(empty.publicAccess.status, 'not-configured')
+  assert.equal(empty.publicAccess.recordRevision, 1)
+  assert.deepEqual(JSON.parse(f.files.get(PUBLIC_ENTRY_PATH)), { schemaVersion: 1, origin: null })
+  f.answers.push({ response: 1 })
+  const saved = await f.invoke('savePublicEntry', 'https://new.example.test', 1)
+  assert.equal(saved.publicAccess.status, 'unverified')
+  assert.equal(saved.publicAccess.verification, 'unknown')
+  assert.equal(saved.publicAccess.recordRevision, 2)
+})
+
+for (const protection of [{ publicSymlink: true }, { publicMode: 0o400 }, { failPublicRead: true }]) {
+  test(`an unreadable or unsafe entry is never followed, chmodded or removed: ${Object.keys(protection)[0]}`, async () => {
+    const original = JSON.stringify({ schemaVersion: 1, origin: 'https://private.example.test' })
+    const f = await boot({ publicRecordText: original, ...protection })
+    await running(f)
+    assert.equal((await f.invoke('snapshot')).publicAccess.status, 'unreadable')
+    const result = await f.invoke('clearPublicEntry', null, 0)
+    assert.equal(result.publicAccess.status, 'unreadable')
+    assert.equal(f.dialogs.length, 0)
+    assert.equal(f.files.get(PUBLIC_ENTRY_PATH), original)
+    assert.equal(f.fileOptions.has(PUBLIC_ENTRY_PATH), false)
+    assert.deepEqual(f.removedPaths, [])
+  })
+}
+
+test('a cancelled save cannot acknowledge an external record that happens to match the requested URL', async () => {
+  const f = await boot()
+  await running(f)
+  const confirmation = deferred()
+  f.answers.push(confirmation.promise)
+  const pending = f.invoke('savePublicEntry', 'https://desired.example.test', 0)
+  await f.waitForDialog(1)
+  f.files.set(PUBLIC_ENTRY_PATH, JSON.stringify({ schemaVersion: 1, origin: 'https://desired.example.test' }))
+  confirmation.resolve({ response: 0 })
+  const result = await pending
+  assert.equal(result.publicAccess.savedOrigin, 'https://desired.example.test')
+  assert.equal(result.publicAccess.recordRevision, 1)
+  assert.deepEqual(JSON.parse(JSON.stringify(result.publicSaveResult)), { outcome: 'cancelled', expectedRevision: 0, origin: 'https://desired.example.test', recordRevision: 1, unchanged: false })
+  assert.equal(Object.hasOwn(await f.invoke('snapshot'), 'publicSaveResult'), false)
+})
+
+test('rejected invalid input is never echoed as an origin in a typed public-save reply', async () => {
+  const f = await boot()
+  await running(f)
+  const result = await f.invoke('savePublicEntry', 'https://user:private-secret@public.example.test', 0)
+  assert.equal(result.publicSaveResult.outcome, 'rejected')
+  assert.equal(result.publicSaveResult.origin, null)
+  assert.equal(JSON.stringify(result).includes('private-secret'), false)
+  assert.equal(f.files.has(PUBLIC_ENTRY_PATH), false)
+  assert.equal(f.dialogs.length, 0)
+})
+
+test('listener scope is a runtime fact while every saved public entry remains unverified', async () => {
+  const lan = await boot({ args: ['--allow-lan', '--bind-address', '192.168.1.20'] })
+  await running(lan)
+  const state = await lan.invoke('snapshot')
+  assert.equal(state.publicAccess.listenerScope, 'lan')
+  assert.deepEqual(Array.from(state.publicAccess.proxyTargets), ['http://192.168.1.20:3000'])
+  assert.equal(state.publicAccess.verification, 'unknown')
+  const invalid = await boot({ args: ['--allow-lan', '--bind-address', '8.8.8.8'] })
+  const rejected = await invalid.invoke('snapshot')
+  assert.equal(rejected.publicAccess.listenerScope, 'unavailable')
+  assert.deepEqual(Array.from(rejected.publicAccess.proxyTargets), [])
+  assert.equal(invalid.children.length, 0)
 })

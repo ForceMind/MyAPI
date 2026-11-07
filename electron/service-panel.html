@@ -9,6 +9,7 @@
     />
     <title>MyAPI</title>
     <link rel="stylesheet" href="service-panel.css" />
+    <script src="public-access-config.js" defer></script>
     <script src="service-panel.js" defer></script>
   </head>
   <body>
@@ -76,8 +77,10 @@
             Public access help
           </button>
         </div>
-        <details>
-          <summary data-i18n="Change local access scope">Change local access scope</summary>
+        <details id="local-access-controls">
+          <summary id="local-access-summary" data-i18n="Change local access scope">
+            Change local access scope
+          </summary>
           <p
             class="muted"
             data-i18n="Changing the listener requires confirmation and an application restart."
@@ -98,6 +101,279 @@
           </div>
         </details>
       </section>
+      <details id="public-guide" class="card public-guide">
+        <summary id="public-guide-summary">
+          <span data-i18n="Existing HTTPS reverse proxy guide"
+            >Existing HTTPS reverse proxy guide</span
+          >
+          <span id="public-summary-status" class="state">Not provided</span>
+        </summary>
+        <p
+          data-i18n="Record an HTTPS reverse proxy you already operate. MyAPI does not configure or verify external infrastructure."
+        >
+          Record an HTTPS reverse proxy you already operate. MyAPI does not configure or verify
+          external infrastructure.
+        </p>
+        <p
+          id="public-record-status"
+          class="guide-status"
+          role="status"
+          aria-live="polite"
+          data-i18n="Public entry status is unknown."
+        >
+          Public entry status is unknown.
+        </p>
+        <p
+          class="muted"
+          data-i18n="User provided and unverified. Valid address syntax does not prove DNS, TLS, reachability or model availability."
+        >
+          User provided and unverified. Valid address syntax does not prove DNS, TLS, reachability
+          or model availability.
+        </p>
+        <nav id="public-step-navigation" aria-label="Public access guide steps">
+          <ol class="guide-steps">
+            <li>
+              <button
+                type="button"
+                id="public-step-1"
+                disabled
+                aria-current="step"
+                aria-controls="public-page-1"
+              >
+                <span>1</span> <span data-i18n="Proxy location">Proxy location</span>
+              </button>
+            </li>
+            <li>
+              <button type="button" id="public-step-2" disabled aria-controls="public-page-2">
+                <span>2</span>
+                <span data-i18n="External prerequisites">External prerequisites</span>
+              </button>
+            </li>
+            <li>
+              <button type="button" id="public-step-3" disabled aria-controls="public-page-3">
+                <span>3</span> <span data-i18n="HTTPS entry">HTTPS entry</span>
+              </button>
+            </li>
+            <li>
+              <button type="button" id="public-step-4" disabled aria-controls="public-page-4">
+                <span>4</span> <span data-i18n="Configure your client">Configure your client</span>
+              </button>
+            </li>
+          </ol>
+        </nav>
+        <section id="public-page-1" class="guide-page" aria-labelledby="public-heading-1">
+          <h3 id="public-heading-1" tabindex="-1" data-i18n="Where does your reverse proxy run?">
+            Where does your reverse proxy run?
+          </h3>
+          <fieldset class="guide-options">
+            <legend data-i18n="Reverse proxy location">Reverse proxy location</legend>
+            <label
+              ><input
+                id="public-proxy-same"
+                type="radio"
+                name="public-proxy-location"
+                value="same"
+                disabled
+              /><span data-i18n="On this computer">On this computer</span></label
+            >
+            <label
+              ><input
+                id="public-proxy-lan"
+                type="radio"
+                name="public-proxy-location"
+                value="lan"
+                disabled
+              /><span data-i18n="On another LAN device">On another LAN device</span></label
+            >
+          </fieldset>
+          <p
+            data-i18n="This choice describes your proxy. It does not change the actual local listener."
+          >
+            This choice describes your proxy. It does not change the actual local listener.
+          </p>
+          <h3 data-i18n="Actual configured proxy targets">Actual configured proxy targets</h3>
+          <p id="public-listener-scope" role="status"></p>
+          <div id="public-proxy-targets"></div>
+          <p
+            class="muted"
+            data-i18n="These are local console root URLs for your proxy target, not the public client Base URL."
+          >
+            These are local console root URLs for your proxy target, not the public client Base URL.
+          </p>
+          <div id="public-lan-note" hidden>
+            <p
+              data-i18n="A proxy on another LAN device needs explicit private-LAN access. Nothing is restarted automatically."
+            >
+              A proxy on another LAN device needs explicit private-LAN access. Nothing is restarted
+              automatically.
+            </p>
+            <button
+              type="button"
+              id="public-review-lan"
+              disabled
+              data-i18n="Review existing LAN controls"
+            >
+              Review existing LAN controls
+            </button>
+          </div>
+          <div class="actions">
+            <button type="button" id="public-next-1" disabled data-i18n="Continue">Continue</button>
+          </div>
+        </section>
+        <section id="public-page-2" class="guide-page" aria-labelledby="public-heading-2" hidden>
+          <h3
+            id="public-heading-2"
+            tabindex="-1"
+            data-i18n="Do you already operate an HTTPS reverse proxy?"
+          >
+            Do you already operate an HTTPS reverse proxy?
+          </h3>
+          <label class="guide-field" for="public-prerequisites"
+            ><span data-i18n="Existing HTTPS reverse proxy">Existing HTTPS reverse proxy</span
+            ><select id="public-prerequisites" disabled>
+              <option value="unknown" data-i18n="I do not know yet">I do not know yet</option>
+              <option value="ready" data-i18n="I already have an HTTPS reverse proxy">
+                I already have an HTTPS reverse proxy
+              </option>
+              <option value="missing" data-i18n="I have not configured one yet">
+                I have not configured one yet
+              </option>
+            </select></label
+          >
+          <p
+            id="public-prerequisite-note"
+            role="status"
+            data-i18n="External prerequisites are not confirmed. Configure your reverse proxy outside MyAPI before continuing."
+          >
+            External prerequisites are not confirmed. Configure your reverse proxy outside MyAPI
+            before continuing.
+          </p>
+          <ul class="guide-prerequisites">
+            <li data-i18n="You control the HTTPS origin and its reverse proxy configuration.">
+              You control the HTTPS origin and its reverse proxy configuration.
+            </li>
+            <li
+              data-i18n="DNS or IP routing, TLS certificates and forwarding to the selected local target are managed outside this panel."
+            >
+              DNS or IP routing, TLS certificates and forwarding to the selected local target are
+              managed outside this panel.
+            </li>
+            <li
+              data-i18n="MyAPI does not create a public listener, DNS record, certificate or tunnel here."
+            >
+              MyAPI does not create a public listener, DNS record, certificate or tunnel here.
+            </li>
+          </ul>
+          <div class="actions">
+            <button type="button" id="public-back-2" disabled data-i18n="Back">Back</button
+            ><button type="button" id="public-next-2" disabled data-i18n="Continue">
+              Continue
+            </button>
+          </div>
+        </section>
+        <section id="public-page-3" class="guide-page" aria-labelledby="public-heading-3" hidden>
+          <h3 id="public-heading-3" tabindex="-1" data-i18n="Enter your existing HTTPS root origin">
+            Enter your existing HTTPS root origin
+          </h3>
+          <label class="guide-field" for="public-origin"
+            ><span data-i18n="HTTPS root origin">HTTPS root origin</span
+            ><input
+              id="public-origin"
+              type="text"
+              inputmode="url"
+              autocomplete="off"
+              autocapitalize="none"
+              spellcheck="false"
+              placeholder="https://gateway.example.com"
+              aria-describedby="public-origin-help public-origin-feedback"
+              disabled
+          /></label>
+          <p
+            id="public-origin-help"
+            class="muted"
+            data-i18n="Use only the HTTPS root origin. Path prefixes, credentials, query strings and fragments are not supported."
+          >
+            Use only the HTTPS root origin. Path prefixes, credentials, query strings and fragments
+            are not supported.
+          </p>
+          <p
+            id="public-prerequisite-required"
+            class="muted"
+            data-i18n="Choose the proxy location and confirm your existing HTTPS prerequisites before saving."
+          >
+            Choose the proxy location and confirm your existing HTTPS prerequisites before saving.
+          </p>
+          <p id="public-origin-feedback" role="status" aria-live="polite"></p>
+          <p class="guide-preview">
+            <span data-i18n="Client Base URL preview">Client Base URL preview</span
+            ><code id="public-preview">Not provided</code>
+          </p>
+          <p
+            id="public-draft-note"
+            class="muted"
+            hidden
+            data-i18n="The saved entry changed. Your draft is preserved; review the current saved entry before saving."
+          >
+            The saved entry changed. Your draft is preserved; review the current saved entry before
+            saving.
+          </p>
+          <div class="actions">
+            <button type="button" id="public-back-3" disabled data-i18n="Back">Back</button
+            ><button
+              type="button"
+              id="public-save"
+              disabled
+              class="primary"
+              data-i18n="Confirm and save entry"
+            >
+              Confirm and save entry
+            </button>
+          </div>
+        </section>
+        <section id="public-page-4" class="guide-page" aria-labelledby="public-heading-4" hidden>
+          <h3
+            id="public-heading-4"
+            tabindex="-1"
+            data-i18n="Configure your client with the saved entry"
+          >
+            Configure your client with the saved entry
+          </h3>
+          <div id="public-saved-entry"></div>
+          <button
+            type="button"
+            id="public-open-console"
+            disabled
+            data-i18n="Open local console to choose an API Key"
+          >
+            Open local console to choose an API Key
+          </button>
+          <p
+            data-i18n="Choose an API Key in the local console. This guide does not read credentials or send a test request."
+          >
+            Choose an API Key in the local console. This guide does not read credentials or send a
+            test request.
+          </p>
+          <p
+            data-i18n="Clearing removes only this application's saved entry. Revoke or change the external reverse proxy yourself."
+          >
+            Clearing removes only this application's saved entry. Revoke or change the external
+            reverse proxy yourself.
+          </p>
+          <div class="actions">
+            <button type="button" id="public-back-4" disabled data-i18n="Back">Back</button>
+          </div>
+        </section>
+        <div id="public-recovery" class="guide-status" hidden>
+          <p
+            data-i18n="The saved entry cannot be read. Clear this computer's entry record before saving a new one. External infrastructure is unchanged."
+          >
+            The saved entry cannot be read. Clear this computer's entry record before saving a new
+            one. External infrastructure is unchanged.
+          </p>
+          <div id="public-recovery-actions"></div>
+        </div>
+        <p id="public-action-feedback" role="status" aria-live="polite"></p>
+      </details>
       <details class="card">
         <summary data-i18n="Data and logs">Data and logs</summary>
         <dl id="locations"></dl>

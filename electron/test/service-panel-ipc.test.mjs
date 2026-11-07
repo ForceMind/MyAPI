@@ -53,6 +53,10 @@ test('panel methods reject arbitrary argument payloads and language or address c
     ['openKnownLogs', ['/private/arbitrary']], ['openConsole', ['https://other.invalid']], ['restartLAN', ['8.8.8.8']],
     ['setLanguage', ['../zh']], ['setLanguage', ['en', 'extra']],
     ['copyKnownAddress', ['']], ['copyKnownAddress', ['a'.repeat(2049)]], ['copyKnownAddress', [0]], ['copyKnownAddress', [-1]], ['copyKnownAddress', [0.5]], ['copyKnownAddress', [Infinity]],
+    ['savePublicEntry', ['https://public.example.test']], ['savePublicEntry', ['https://public.example.test', -1]], ['savePublicEntry', ['a'.repeat(2049), 0]],
+    ['clearPublicEntry', [null]], ['clearPublicEntry', [{}, 0]], ['clearPublicEntry', [null, NaN]],
+    ['copyPublicBaseURL', ['a'.repeat(2052), 0]], ['copyPublicBaseURL', ['https://public.example.test/v1', '0']],
+    ['copyProxyTarget', [0]], ['copyProxyTarget', ['http://127.0.0.1:3000', 'extra']],
   ]) {
     await assert.rejects(f.handlers.get(ipc.SERVICE_PANEL_CHANNELS[name])(f.event(), ...args), /Invalid|Unexpected/)
   }
@@ -90,9 +94,17 @@ test('the real preload exposes only named operations and a removable state subsc
   } })
   assert.deepEqual(Object.keys(bridge).sort(), [...Object.keys(ipc.SERVICE_PANEL_CHANNELS), 'onState'].sort())
   await bridge.stop(); await bridge.copyKnownAddress('http://127.0.0.1:3000/v1')
+  await bridge.savePublicEntry('https://public.example.test', 0)
+  await bridge.clearPublicEntry(null, 1)
+  await bridge.copyPublicBaseURL('https://public.example.test/v1', 2)
+  await bridge.copyProxyTarget('http://127.0.0.1:3000')
   assert.deepEqual(invoked, [
     { channel: ipc.SERVICE_PANEL_CHANNELS.stop, args: [] },
     { channel: ipc.SERVICE_PANEL_CHANNELS.copyKnownAddress, args: ['http://127.0.0.1:3000/v1'] },
+    { channel: ipc.SERVICE_PANEL_CHANNELS.savePublicEntry, args: ['https://public.example.test', 0] },
+    { channel: ipc.SERVICE_PANEL_CHANNELS.clearPublicEntry, args: [null, 1] },
+    { channel: ipc.SERVICE_PANEL_CHANNELS.copyPublicBaseURL, args: ['https://public.example.test/v1', 2] },
+    { channel: ipc.SERVICE_PANEL_CHANNELS.copyProxyTarget, args: ['http://127.0.0.1:3000'] },
   ])
   const values = []
   const unsubscribe = bridge.onState((value) => values.push(value))

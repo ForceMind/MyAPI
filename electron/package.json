@@ -40,6 +40,7 @@
     "files": [
       "main.js",
       "runtime-config.js",
+      "public-access-config.js",
       "preload.js",
       "icon.png",
       "tray-iconTemplate.png",

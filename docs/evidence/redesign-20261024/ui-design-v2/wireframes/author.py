@@ -1231,6 +1231,34 @@ for page in pages:
         page['notes'] += ['mobile SVG仅窄窗口排列参考，不表示移动App或手机支持。']
         page['status'] = '已批准B5a主线设计；产品与平台验收另验'
 
+# 2026-11-07 B5b1: guide for an existing HTTPS reverse proxy, not an automatic public listener.
+for page in pages:
+    if page['id'] == 'desktop-tray':
+        page['entry_increment'] += '；B5b1已有HTTPS反代向导'
+        page['source_sha'] = '13eedad93b365f1a00f45da27faf05e18409af9d'
+        page['title'] = 'Desktop · 本机服务 / 公网接入向导'
+        page['desktop_public_guide'] = True
+        page['sources'] += ['electron/public-access-config.js', 'electron/service-panel.html', 'electron/service-panel.js', 'electron/service-panel-ipc.js']
+        page['sections'] = [
+            dict(title='本机事实〔保留原B5a操作〕', items=['服务状态 / 实际监听范围 / 当前版本；关窗留托盘、仅停止和退出仍各自独立', '本机监听 http://127.0.0.1:3000〔合成〕；公网入口单独显示，不混入本机复制列表']),
+            dict(title='1 反代位置〔选择后继续〕', items=['同一电脑：明确复制本机反代目标根地址，不附 /v1', '另一台LAN设备：需要现有私网监听与防火墙条件，只提供原LAN显式确认入口；不因填写地址自动重启']),
+            dict(title='2 外部条件〔默认收起说明〕', items=['已有HTTPS反代：由用户管理域名/DNS/证书、端口、反代与防火墙；未具备则待配置，不伪报连接失败', '开机/休眠/合盖/断网/退出、动态地址、上行带宽和额度会影响服务；NAT/CGNAT、IPv4/IPv6与第三方入口由用户选择，不自动购买或改配置']),
+            dict(title='3 填入口地址〔本图当前步骤〕', items=['只接受已有HTTPS根origin；示例 https://gateway.example.com', '预览 https://gateway.example.com/v1；用户提供 · 未验证', 'HTTP/凭据/query/fragment/控制符/超长输入拒绝；路径前缀或已知本机/LAN入口解释当前不支持/转对应分支，不偷偷截断', '保存前默认取消确认：仅保存此电脑的入口记录；确认后重新核对可信窗口、声明版本与服务身份']),
+            dict(title='4 配置客户端〔保存后显示〕', items=['已保存 · 未验证；明确复制当前所见公网 /v1，打开本机控制台选择Key', '不读取Key，不发模型请求，不改现有客户端导入、后台配置或监听', '修改/撤销后旧地址不可复制；撤销需确认，只清除此应用声明，外部反代/隧道须用户自行关闭']),
+            dict(title='状态与恢复〔关键说明始终可见〕', items=['待配置 / 当前不支持 / 外部状态无法判断 / 已保存未验证分开；文件无法读取不得装成从未配置', '保存失败保旧记录与草稿；旧revision不盖新结果，定时状态不重置输入/步骤或抢焦点', '公网DNS/TLS/反代/鉴权与外部可达性验证仍属完整B5b后续，不以格式、本机健康或LAN启动作证明']),
+        ]
+        page['actions'][5] = dict(label='公网接入向导', target='desktop-tray', effect='打开本地四步向导；不触发网络探测、隧道或公网监听。')
+        page['actions'] += [
+            dict(label='确认保存入口', target='desktop-tray', effect='默认取消，明确确认后仅写固定本地私有声明；失败保旧值，不改数据库/secret/后台配置。'),
+            dict(label='复制公网Base URL', target='desktop-tray', effect='只复制所见且版本一致的已保存/v1；不请求或打开输入URL，不混入本机地址集合。'),
+            dict(label='清除已存入口', target='desktop-tray', effect='明确确认后仅解除本应用声明；保数据、Key、配置和外部设施，并给出人工撤销说明。'),
+            dict(label='返回上一步', target='desktop-tray', effect='保当前草稿，不保存、不重启；键盘焦点回当前步骤。'),
+        ]
+        page['fields'] = ['反代位置：同机 / 另一台LAN设备', '已有HTTPS根origin〔示例〕']
+        page['notes'] += ['沿desktop-public-access-concept-20261107.png；本批B5b1是已有反代交付，不取代完整B5b公网验证目标。', '所有公网示例均未验证；原B5a停止未知/owned-child、可信file IPC、明确LAN和数据保护规则不放宽。']
+        page['merge'] = '公网入口引导收在原本机面板内，分步只展当前任务；真实监听与用户声明各有来源，原服务管理/网关控制台继续复用。'
+        page['status'] = '已批准主线B5b1增量设计；源码与Actions结果另验，公网未验证'
+
 catalog=dict(title='MyAPI 全站线稿目录',source_sha=BASE,date='2026-10-28',direction='已确认方向3：流向图 / 顶部导航 / 对象整页',
              evidence='设计源文件；未运行浏览器、产品构建或本机测试。',pages=pages,routes=route_map,tabs=tab_inventory,overlay_inventory=overlay_inventory,
              unconfirmed_overlay_sources=unconfirmed,
@@ -1331,10 +1359,21 @@ class Drawing:
     def edition_entry_view(self):
         p=self.page
         if p['id']=='desktop-tray':
-            self.banner('本机原生面板：以下均为线稿状态；后端停止/失败时仍保留操作入口')
-            for section in p['sections']:
-                self.y+=self.block(section['title'],section['items'])+16
-            self.buttons()
+            if p.get('desktop_public_guide'):
+                self.banner('已有HTTPS反代向导 · 以下均为合成示例 · 用户提供的公网入口始终未验证')
+                self.y+=self.block(p['sections'][0]['title'],p['sections'][0]['items'])+16
+                self.workspace_controls(['1 反代位置', '2 外部条件', '3 入口地址〔当前〕', '4 配置客户端'], 2 if self.mobile else 4)
+                for section in p['sections'][1:3]:
+                    self.y+=self.block('▸ '+section['title']+'〔步骤说明〕',section['items'])+16
+                self.y+=self.block(p['sections'][3]['title'],p['sections'][3]['items'])+16
+                self.buttons([p['actions'][-1],p['actions'][8]])
+                self.y+=self.block('保存后 · '+p['sections'][4]['title'],p['sections'][4]['items'])+16
+                self.y+=self.block(p['sections'][5]['title'],p['sections'][5]['items'])+16
+            else:
+                self.banner('本机原生面板：以下均为线稿状态；后端停止/失败时仍保留操作入口')
+                for section in p['sections']:
+                    self.y+=self.block(section['title'],section['items'])+16
+                self.buttons()
         elif p['id']=='overview':
             self.banner('Full · 流向图主视图；Lite / Desktop布局在下方分别定义，不叠成产品中的三个面板')
             self.buttons([p['actions'][0],p['actions'][1],p['actions'][3],p['actions'][5]])

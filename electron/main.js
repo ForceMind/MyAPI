@@ -21,6 +21,7 @@ const { createServiceController } = require("./service-controller");
 const { createServicePanelIPC, SERVICE_PANEL_STATE_CHANNEL } = require("./service-panel-ipc");
 const { createNativeI18n, normalizeLanguage } = require("./native-i18n");
 const { createServiceDiagnostics } = require("./service-diagnostics");
+const { validatePublicEntry, validateProxyTarget } = require("./public-access-config");
 
 const APP_NAME = "MyAPI";
 const CANONICAL_BINARY_NAME = process.platform === "win32" ? "my-api.exe" : "my-api";
@@ -42,6 +43,10 @@ let notice = null;
 let nativeReason = null;
 let launchDiagnostics = createServiceDiagnostics(0);
 let stateRevision = 0;
+let publicGuideRequest = 0;
+let publicFile = null;
+let publicEntry = { recordRevision: 0, savedOrigin: null, status: "not-configured" };
+let publicWriteUnconfirmed = false;
 const developmentProbe = new AbortController();
 let translator = createNativeI18n();
 const t = (key, values) => translator.t(key, values);
@@ -102,6 +107,91 @@ const PANEL_KEYS = [
   "The service panel bridge is unavailable. Reopen it from the tray.",
   "Service state unknown",
   "Saving diagnostics writes bounded original stderr to a private local file. Review it before sharing.",
+  "A proxy on another LAN device needs explicit private-LAN access. Nothing is restarted automatically.",
+  "Actual configured proxy targets",
+  "Address format accepted. External access is still unverified.",
+  "Back",
+  "Backslashes are not allowed in the HTTPS origin.",
+  "Choose an API Key in the local console. This guide does not read credentials or send a test request.",
+  "Choose the proxy location and confirm your existing HTTPS prerequisites before saving.",
+  "Clear the unreadable entry record",
+  "Clear this application's saved entry",
+  "Clearing removes only this application's saved entry. Revoke or change the external reverse proxy yourself.",
+  "Client Base URL preview",
+  "Configure your client",
+  "Configure your client with the saved entry",
+  "Confirm and save entry",
+  "Continue",
+  "Control characters are not allowed in the HTTPS origin.",
+  "Copy proxy target",
+  "Copy saved public Base URL",
+  "DNS or IP routing, TLS certificates and forwarding to the selected local target are managed outside this panel.",
+  "Do not include credentials in the HTTPS origin.",
+  "Do you already operate an HTTPS reverse proxy?",
+  "Enter a public HTTPS origin, not a local or private-LAN address.",
+  "Enter the existing HTTPS root origin.",
+  "Enter your existing HTTPS root origin",
+  "Entry saved on this computer. It remains unverified.",
+  "Existing HTTPS reverse proxy",
+  "Existing HTTPS reverse proxy guide",
+  "External prerequisites",
+  "External prerequisites are not confirmed. Configure your reverse proxy outside MyAPI before continuing.",
+  "HTTPS entry",
+  "HTTPS root origin",
+  "I already have an HTTPS reverse proxy",
+  "I do not know yet",
+  "I have not configured one yet",
+  "MyAPI does not create a public listener, DNS record, certificate or tunnel here.",
+  "No configured proxy target is available.",
+  "No public entry is saved on this computer.",
+  "On another LAN device",
+  "On this computer",
+  "Open local console to choose an API Key",
+  "Path prefixes are not supported. Enter only the HTTPS root origin.",
+  "Proxy location",
+  "Public access guide steps",
+  "Public entry action failed. Your draft is preserved; review the saved entry before retrying.",
+  "Public entry status is unknown.",
+  "Query strings and fragments are not supported.",
+  "Record an HTTPS reverse proxy you already operate. MyAPI does not configure or verify external infrastructure.",
+  "Reverse proxy location",
+  "Review existing LAN controls",
+  "Saved on this computer · unverified",
+  "The HTTPS origin is too long.",
+  "The HTTPS root origin is invalid.",
+  "The saved entry cannot be read. Clear this computer's entry record before saving a new one. External infrastructure is unchanged.",
+  "The saved entry changed. Your draft is preserved; review the current saved entry before saving.",
+  "The saved entry did not change. Your draft is preserved.",
+  "The saved public entry is unreadable.",
+  "These are local console root URLs for your proxy target, not the public client Base URL.",
+  "You confirmed these prerequisites. MyAPI has not checked the external reverse proxy.",
+  "This choice describes your proxy. It does not change the actual local listener.",
+  "Use an HTTPS origin.",
+  "Use only the HTTPS root origin. Path prefixes, credentials, query strings and fragments are not supported.",
+  "User provided and unverified. Valid address syntax does not prove DNS, TLS, reachability or model availability.",
+  "Where does your reverse proxy run?",
+  "You control the HTTPS origin and its reverse proxy configuration.",
+  "Configured listener: private LAN.",
+  "Configured listener: this computer only.",
+  "Save result is unconfirmed. Your draft is preserved; review the saved entry.",
+  "The configured listener is unavailable.",
+  "The save was cancelled or rejected. Your draft is preserved; review the current saved entry.",
+  "Clear saved entry",
+  "Forget the public entry saved on this computer?",
+  "Only the entry record on this computer changes. Listener, proxy, DNS, certificates, keys, database and requests are not changed.",
+  "Save this HTTPS address on this computer? Public access remains unverified.",
+  "Save unverified entry",
+  "The configured reverse-proxy target was copied.",
+  "The entry was saved on this computer. Public access remains unverified.",
+  "The old entry cannot be read. Reset only this computer's saved entry?",
+  "The saved entry changed. Review the current record before trying again.",
+  "The saved entry could not be changed. Clear an unreadable record before saving a new address.",
+  "The saved entry could not be updated. The previous record has been retained.",
+  "The saved entry on this computer was cleared. External configuration is unchanged.",
+  "The saved entry or service state changed while confirmation was open. Review it before trying again.",
+  "The unverified public Base URL was copied.",
+  "The write result could not be confirmed. Read the saved entry again before taking another action.",
+  "This saved entry cannot be safely changed. Check its file type and permissions; no external configuration was changed.",
 ];
 
 function locations() {
@@ -545,6 +635,320 @@ function diagnosticText() {
   }
 }
 
+function publicEntryPath() {
+  return path.join(app.getPath("userData"), "myapi-desktop-public-access.json");
+}
+
+function inspectPublicEntryFile() {
+  const target = publicEntryPath();
+  let stat;
+  try {
+    stat = fs.lstatSync(target);
+  } catch (error) {
+    return error.code === "ENOENT"
+      ? { kind: "missing", fingerprint: "missing", text: null }
+      : { kind: "blocked", fingerprint: "blocked", text: null };
+  }
+  if (
+    !stat.isFile() ||
+    stat.isSymbolicLink() ||
+    (process.platform !== "win32" && typeof stat.mode === "number" && (stat.mode & 0o200) === 0)
+  ) {
+    return { kind: "blocked", fingerprint: "blocked", text: null };
+  }
+  try {
+    const text = stat.size > 8192 ? null : fs.readFileSync(target, "utf8");
+    const digest =
+      text === null ? "oversized" : crypto.createHash("sha256").update(text).digest("hex");
+    return {
+      kind: "readable",
+      text,
+      fingerprint: JSON.stringify([stat.dev, stat.ino, stat.size, stat.mtimeMs, stat.mode, digest]),
+    };
+  } catch {
+    return { kind: "blocked", fingerprint: "blocked", text: null };
+  }
+}
+
+function publicEntryFromFile(file) {
+  if (file.kind === "missing") return { savedOrigin: null, status: "not-configured" };
+  if (file.kind !== "readable" || file.text === null)
+    return { savedOrigin: null, status: "unreadable" };
+  try {
+    const record = JSON.parse(file.text);
+    if (!record || Array.isArray(record) || record.schemaVersion !== 1)
+      throw new Error("Invalid declaration");
+    if (record.origin === null) return { savedOrigin: null, status: "not-configured" };
+    const result = validatePublicEntry(record.origin);
+    if (!result.ok || result.origin !== record.origin) throw new Error("Invalid declaration");
+    return { savedOrigin: result.origin, status: "unverified" };
+  } catch {
+    return { savedOrigin: null, status: "unreadable" };
+  }
+}
+
+function refreshPublicEntry(forceRead = false) {
+  const file = inspectPublicEntryFile();
+  if (
+    publicFile &&
+    publicFile.fingerprint === file.fingerprint &&
+    publicFile.kind === file.kind &&
+    !(forceRead && publicWriteUnconfirmed)
+  )
+    return false;
+  const previous = publicFile;
+  publicFile = file;
+  const recordRevision = previous ? publicEntry.recordRevision + 1 : 0;
+  publicEntry = { ...publicEntryFromFile(file), recordRevision };
+  publicWriteUnconfirmed = false;
+  stateRevision++;
+  return true;
+}
+
+function proxyTargets() {
+  if (runtimeConfig.error) return [];
+  return describeRuntimeConfig(runtimeConfig, process.platform).endpoints.filter(
+    validateProxyTarget,
+  );
+}
+
+function commitPublicEntry(origin, expectedFile) {
+  if (expectedFile.kind === "blocked" || publicEntry.recordRevision >= Number.MAX_SAFE_INTEGER)
+    throw new Error("Declaration cannot be safely changed");
+  const target = publicEntryPath();
+  const temporary = `${target}.${crypto.randomBytes(8).toString("hex")}.tmp`;
+  let descriptor = null;
+  let created = false;
+  let committed = false;
+  try {
+    fs.mkdirSync(app.getPath("userData"), { recursive: true });
+    descriptor = fs.openSync(
+      temporary,
+      fs.constants.O_WRONLY |
+        fs.constants.O_CREAT |
+        fs.constants.O_EXCL |
+        (fs.constants.O_NOFOLLOW || 0),
+      0o600,
+    );
+    created = true;
+    fs.fchmodSync(descriptor, 0o600);
+    fs.writeFileSync(descriptor, JSON.stringify({ schemaVersion: 1, origin }) + "\n");
+    fs.closeSync(descriptor);
+    descriptor = null;
+    const currentFile = inspectPublicEntryFile();
+    if (
+      currentFile.kind !== expectedFile.kind ||
+      currentFile.fingerprint !== expectedFile.fingerprint
+    ) {
+      refreshPublicEntry();
+      throw new Error("Declaration changed");
+    }
+    fs.renameSync(temporary, target);
+    committed = true;
+    publicFile = inspectPublicEntryFile();
+    publicEntry = {
+      recordRevision: publicEntry.recordRevision + 1,
+      ...publicEntryFromFile(publicFile),
+    };
+    const expectedStatus = origin === null ? "not-configured" : "unverified";
+    const confirmed = publicEntry.status === expectedStatus && publicEntry.savedOrigin === origin;
+    if (!confirmed) {
+      publicWriteUnconfirmed = true;
+      publicEntry = {
+        recordRevision: publicEntry.recordRevision,
+        savedOrigin: null,
+        status: "unreadable",
+      };
+    }
+    return confirmed;
+  } catch (error) {
+    const failure = new Error("Public entry write failed");
+    failure.publicCommitted = committed;
+    throw failure;
+  } finally {
+    if (descriptor !== null) fs.closeSync(descriptor);
+    if (created && !committed) {
+      // Only the temporary file created by this operation is eligible for
+      // cleanup. The fixed declaration path is never unlinked or chmodded.
+      try {
+        fs.unlinkSync(temporary);
+      } catch {
+        /* retain the failed private temporary file */
+      }
+    }
+  }
+}
+
+async function runPublicEntryAction(name, context, value, expectedRevision) {
+  refreshPublicEntry();
+  const clearing = name === "clearPublicEntry";
+  const validated = value === null ? null : validatePublicEntry(value);
+  const canonicalOrigin = validated?.ok ? validated.origin : null;
+  const initial = {
+    revision: publicEntry.recordRevision,
+    file: publicFile,
+    savedOrigin: publicEntry.savedOrigin,
+    status: publicEntry.status,
+  };
+  const canReportUnchanged =
+    !actionBusy &&
+    Number.isSafeInteger(expectedRevision) &&
+    expectedRevision >= 0 &&
+    expectedRevision === initial.revision;
+  let committed = false;
+  const reply = (outcome) => {
+    refreshPublicEntry();
+    if (
+      (outcome === "saved" || outcome === "cleared") &&
+      (publicEntry.savedOrigin !== (clearing ? null : canonicalOrigin) ||
+        publicEntry.status !== (clearing ? "not-configured" : "unverified"))
+    )
+      outcome = "unconfirmed";
+    const unchanged =
+      !committed &&
+      canReportUnchanged &&
+      publicEntry.recordRevision === initial.revision &&
+      publicEntry.savedOrigin === initial.savedOrigin &&
+      publicEntry.status === initial.status &&
+      publicFile.kind === initial.file.kind &&
+      publicFile.fingerprint === initial.file.fingerprint;
+    const result = {
+      outcome,
+      expectedRevision:
+        Number.isSafeInteger(expectedRevision) && expectedRevision >= 0 ? expectedRevision : null,
+      origin: canonicalOrigin,
+      recordRevision: publicEntry.recordRevision,
+      unchanged,
+    };
+    return { ...snapshot(), [clearing ? "publicClearResult" : "publicSaveResult"]: result };
+  };
+  if (
+    actionBusy ||
+    !context.isTrusted() ||
+    !Number.isSafeInteger(expectedRevision) ||
+    expectedRevision !== publicEntry.recordRevision
+  ) {
+    notice = {
+      key: "The saved entry changed. Review the current record before trying again.",
+      tone: "warning",
+    };
+    publishState();
+    return reply("rejected");
+  }
+  if (
+    (clearing && value !== publicEntry.savedOrigin) ||
+    (!clearing && (!validated?.ok || publicEntry.status === "unreadable"))
+  ) {
+    notice = {
+      key: "The saved entry could not be changed. Clear an unreadable record before saving a new address.",
+      tone: "warning",
+    };
+    publishState();
+    return reply("rejected");
+  }
+  if (clearing && publicEntry.status === "not-configured") return reply("rejected");
+  if (publicFile.kind === "blocked") {
+    notice = {
+      key: "This saved entry cannot be safely changed. Check its file type and permissions; no external configuration was changed.",
+      tone: "warning",
+    };
+    publishState();
+    return reply("rejected");
+  }
+  actionBusy = true;
+  notice = null;
+  const identity = controller.identity();
+  const file = publicFile;
+  const unreadable = publicEntry.status === "unreadable";
+  let outcome = "cancelled";
+  publishState();
+  try {
+    const options = {
+      type: "question",
+      title: APP_NAME,
+      message: clearing
+        ? t(
+            unreadable
+              ? "The old entry cannot be read. Reset only this computer's saved entry?"
+              : "Forget the public entry saved on this computer?",
+          )
+        : t("Save this HTTPS address on this computer? Public access remains unverified."),
+      detail: [
+        clearing
+          ? publicEntry.savedOrigin
+            ? `${publicEntry.savedOrigin}/v1`
+            : ""
+          : validated.baseURL,
+        t(
+          "Only the entry record on this computer changes. Listener, proxy, DNS, certificates, keys, database and requests are not changed.",
+        ),
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+      buttons: [t("Cancel"), t(clearing ? "Clear saved entry" : "Save unverified entry")],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    };
+    const answer =
+      serviceWindow && !serviceWindow.isDestroyed()
+        ? await dialog.showMessageBox(serviceWindow, options)
+        : await dialog.showMessageBox(options);
+    refreshPublicEntry();
+    if (answer.response === 1) {
+      if (
+        !context.isTrusted() ||
+        controller.identity() !== identity ||
+        !actionBusy ||
+        publicEntry.recordRevision !== expectedRevision ||
+        publicFile !== file
+      ) {
+        outcome = "rejected";
+        notice = {
+          key: "The saved entry or service state changed while confirmation was open. Review it before trying again.",
+          tone: "warning",
+        };
+      } else {
+        const confirmed = commitPublicEntry(clearing ? null : canonicalOrigin, file);
+        committed = true;
+        outcome = confirmed ? (clearing ? "cleared" : "saved") : "unconfirmed";
+        notice = confirmed
+          ? {
+              key: clearing
+                ? "The saved entry on this computer was cleared. External configuration is unchanged."
+                : "The entry was saved on this computer. Public access remains unverified.",
+              tone: "neutral",
+            }
+          : {
+              key: "The write result could not be confirmed. Read the saved entry again before taking another action.",
+              tone: "warning",
+            };
+      }
+    }
+  } catch (error) {
+    committed = Boolean(error && error.publicCommitted === true);
+    outcome = committed ? "unconfirmed" : "failed";
+    if (committed) {
+      publicWriteUnconfirmed = true;
+      publicEntry = {
+        recordRevision: initial.revision + 1,
+        savedOrigin: null,
+        status: "unreadable",
+      };
+    }
+    notice = {
+      key: committed
+        ? "The write result could not be confirmed. Read the saved entry again before taking another action."
+        : "The saved entry could not be updated. The previous record has been retained.",
+      tone: "warning",
+    };
+  } finally {
+    actionBusy = false;
+    publishState();
+  }
+  return reply(outcome);
+}
+
 function snapshot() {
   const service = controller?.snapshot() || {
     state: "stopped",
@@ -572,6 +976,21 @@ function snapshot() {
   const diagnostic = diagnosticText();
   return {
     revision: stateRevision,
+    publicGuideRequest,
+    publicAccess: {
+      recordRevision: publicEntry.recordRevision,
+      savedOrigin: publicEntry.savedOrigin,
+      savedBaseURL: publicEntry.savedOrigin ? `${publicEntry.savedOrigin}/v1` : null,
+      status: publicEntry.status,
+      verification: "unknown",
+      busy: actionBusy,
+      listenerScope: runtimeConfig.error
+        ? "unavailable"
+        : runtimeConfig.isLan && runtimeConfig.allowLan
+          ? "lan"
+          : "local",
+      proxyTargets: proxyTargets(),
+    },
     applicationVersion: app.getVersion(),
     state: service.state,
     generation: service.generation,
@@ -849,12 +1268,43 @@ async function applyConfirmedServiceAction(name, context) {
   }
 }
 
-async function dispatch(name, context = { isTrusted: () => true }, argument) {
+async function dispatch(name, context = { isTrusted: () => true }, argument, expectedRevision) {
   if (!context.isTrusted()) return snapshot();
+  if (name === "savePublicEntry" || name === "clearPublicEntry")
+    return runPublicEntryAction(name, context, argument, expectedRevision);
   if (["start", "stop", "quit", "restartLAN", "restartLoopback"].includes(name))
     return runControlledAction(name, context);
   try {
-    if (name === "openConsole") {
+    if (name === "copyPublicBaseURL") {
+      refreshPublicEntry();
+      if (
+        actionBusy ||
+        publicEntry.status !== "unverified" ||
+        publicEntry.recordRevision !== expectedRevision ||
+        argument !== `${publicEntry.savedOrigin}/v1`
+      ) {
+        notice = {
+          key: "The saved entry changed. Review the current record before trying again.",
+          tone: "warning",
+        };
+      } else {
+        clipboard.writeText(argument);
+        notice = { key: "The unverified public Base URL was copied.", tone: "neutral" };
+      }
+    } else if (name === "copyProxyTarget") {
+      if (!validateProxyTarget(argument) || !proxyTargets().includes(argument)) {
+        notice = {
+          key: "The action could not be completed. Reopen the service panel and review its state.",
+          tone: "warning",
+        };
+      } else {
+        clipboard.writeText(argument);
+        notice = { key: "The configured reverse-proxy target was copied.", tone: "neutral" };
+      }
+    } else if (name === "showPublicHelp") {
+      showServicePanel();
+      publicGuideRequest++;
+    } else if (name === "openConsole") {
       if (IS_DEV)
         await checkServerAvailability(DEV_FRONTEND_PORT, 1, 0, "127.0.0.1", "/", {
           signal: developmentProbe.signal,
@@ -912,8 +1362,8 @@ async function dispatch(name, context = { isTrusted: () => true }, argument) {
       }
       const error = await shell.openPath(diagnosticPath);
       if (error) notice = { key: "The diagnostic log could not be opened.", tone: "warning" };
-    } else if (name === "showLAN" || name === "showPublicHelp") {
-      const lan = name === "showLAN";
+    } else if (name === "showLAN") {
+      const lan = true;
       await dialog.showMessageBox({
         type: "info",
         title: t(lan ? "LAN status and help" : "Public access help"),
@@ -1036,6 +1486,7 @@ app
       /* Missing preferences keep the operating system language. */
     }
     translator.setLanguage(language);
+    refreshPublicEntry();
     process.env.ELECTRON_DATA_DIR = locations().dataDir;
     controller = createServiceController({
       launch: startServer,
@@ -1056,9 +1507,18 @@ app
       "showPublicHelp",
       "restartLAN",
       "restartLoopback",
+      "savePublicEntry",
+      "clearPublicEntry",
+      "copyPublicBaseURL",
+      "copyProxyTarget",
     ]) {
-      actions[name] = (context, argument) =>
-        name === "snapshot" ? snapshot() : dispatch(name, context, argument);
+      actions[name] = (context, ...args) => {
+        if (name === "snapshot") {
+          refreshPublicEntry(true);
+          return snapshot();
+        }
+        return dispatch(name, context, ...args);
+      };
     }
     createServicePanelIPC({
       ipcMain,

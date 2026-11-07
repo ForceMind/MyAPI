@@ -2,6 +2,13 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**2026-11-07当前：B5a已完成源码及双平台非浏览器打包，继续B5b1已有HTTPS反代向导，beta.41候选。** dev/`13eedad93b365f1a00f45da27faf05e18409af9d` / [完整CI42379188640](https://github.com/ForceMind/MyAPI/actions/runs/42379188640) attempt1 success：10成功/1浏览器真实API跳过，16195行全部日志、步骤与10个checkout已亲读；前端3452/3452、Native59/59/0skip及根/独立relaykit/386/三库/全部既有race通过。该SHA的[macOS42379249054](https://github.com/ForceMind/MyAPI/actions/runs/42379249054)和[Windows42379624002](https://github.com/ForceMind/MyAPI/actions/runs/42379624002)均成功，分别arm64 DMG+ZIP、x64 NSIS+portable；两平台Native59/59/0skip、完整1381/1400行日志与实际源码/版本/minimal身份均已核对，release跳过。包链接、摘要、失效时间和历史失败边界集中于[TASKS最新节](../TASKS.md)。beta.40包始终绑定13eedad9，不能重标为本批beta.41。
+
+B5b1已先出[效果图](../ui-design-v2/screenshots/desktop-public-access-concept-20261107.png)，再细化既有desktop-tray两SVG/单对象/article，仍329视图，其余328保持。候选实现四步已有HTTPS反代向导：真实监听与用户声明分开、确认保存/清除固定本地入口、准确复制已存/v1并复用本机控制台选Key，始终显示用户提供/未验证；原服务/权限/确认/数据与LAN/public-bind门禁保留。不自动改监听/反代/防火墙或外部设施，不读Key、不发模型/外部探测。源码候选按最终SHA读取自己的完整CI；当前不提前称验收，未替代完整B5b外部验证或其余版本计划。
+
+本机无依赖安装/项目测试构建/lint/typecheck/Docker/浏览器/CI构件下载；无生产/服务器/真实供应商模型/main/tag/GHCR/NPM/部署，自动更新关闭。浏览器、实际安装/托盘与公网均未验证；R4保持关闭，历史BUG到版本功能后统一处理。下文B5a/M2“当前候选”等保留为历史，不覆盖本节。
+
+
 **2026-11-07当前：UI-M2已完整源码CI通过，进入B5a Desktop，beta.40候选。** dev/`4601139a` / [CI42367969543](https://github.com/ForceMind/MyAPI/actions/runs/42367969543) attempt1 success：10成功/1浏览器真实API跳过，15918行完整执行日志、步骤与10个checkout已亲读，失败/race标记0；前端3452/3452、节点5/5、真实路由13/13及根/独立relaykit/386/race/三库等过。M2模型保存配置展开、0/未知、routing原页及严格返回合同已源码交付；浏览器未验证，非三版本全量完成。R4继续关闭，其余历史BUG没有扩展。
 
 B5a先做[本机服务效果图](../ui-design-v2/screenshots/desktop-service-concept-20261107.png)与既有desktop-tray两SVG，再实现独立本地服务面板/托盘双语/owned-child controller/严格file IPC和构建对齐；旧HTTP preload不加服务权限，旧数据/密钥/显式SQLite路径与LAN/private门禁保留。关窗、仅停止、退出分开，停止未知不得假停/重启第二进程。当前候选未验收，完整CI/Node VM与GHA合成child、macOS再Windows无发布构建都按最终精确SHA读取；不启动Electron GUI或浏览器，不把mock当实机托盘证明。细节、分工、必要文件、严格门禁和剩余项集中于[TASKS最新节](../TASKS.md)。

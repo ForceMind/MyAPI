@@ -71,7 +71,8 @@ section,
   min-width: 0;
 }
 button,
-select {
+select,
+input {
   font: inherit;
   font-size: 13px;
   min-height: 44px;
@@ -100,6 +101,7 @@ button:disabled {
 }
 button:focus-visible,
 select:focus-visible,
+input:focus-visible,
 summary:focus-visible {
   outline: 3px solid #315cff;
   outline-offset: 3px;
@@ -174,6 +176,101 @@ footer {
   gap: 20px;
   font-size: 12px;
 }
+[hidden] {
+  display: none !important;
+}
+.public-guide summary .state {
+  display: inline-block;
+  margin-inline-start: 8px;
+  vertical-align: middle;
+}
+.guide-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+}
+.guide-steps li,
+.guide-steps button,
+.guide-field,
+.guide-field input,
+.guide-field select,
+.guide-options {
+  min-width: 0;
+  max-width: 100%;
+}
+.guide-steps button {
+  width: 100%;
+  height: 100%;
+}
+.guide-steps button[aria-current="step"] {
+  border-color: #315cff;
+  box-shadow: inset 0 0 0 1px #315cff;
+}
+.guide-page {
+  margin-top: 16px;
+  margin-bottom: 12px;
+}
+.guide-page h3 {
+  font-size: 15px;
+  margin-top: 0;
+  outline-offset: 4px;
+}
+.guide-options {
+  padding: 10px 12px;
+  border: 1px solid #cbd1db;
+  border-radius: 8px;
+}
+.guide-options legend {
+  padding-inline: 4px;
+  font-size: 13px;
+}
+.guide-options label {
+  min-height: 44px;
+  cursor: pointer;
+}
+.guide-options input {
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  flex-shrink: 0;
+}
+.guide-field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.guide-field input {
+  width: 100%;
+}
+.guide-status,
+.guide-preview {
+  border: 1px solid #cbd1db;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.guide-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.guide-preview code {
+  overflow-wrap: anywhere;
+}
+.guide-prerequisites {
+  padding-inline-start: 20px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.guide-prerequisites li {
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+.public-guide .actions {
+  margin-top: 12px;
+}
 @media (max-width: 600px) {
   main {
     padding: 14px;
@@ -196,6 +293,12 @@ footer {
   dd {
     margin-bottom: 8px;
   }
+  .guide-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .public-guide .actions > button {
+    flex: 1 1 140px;
+  }
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -208,8 +311,14 @@ footer {
     border-color: #394252;
   }
   button,
-  select {
+  select,
+  input {
     background: #292f3a;
+    border-color: #536075;
+  }
+  .guide-options,
+  .guide-status,
+  .guide-preview {
     border-color: #536075;
   }
   button:hover:not(:disabled) {

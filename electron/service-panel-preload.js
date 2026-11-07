@@ -15,6 +15,13 @@ contextBridge.exposeInMainWorld("myapiService", {
   showPublicHelp: () => ipcRenderer.invoke("myapi:service:show-public-help"),
   restartLAN: () => ipcRenderer.invoke("myapi:service:restart-lan"),
   restartLoopback: () => ipcRenderer.invoke("myapi:service:restart-loopback"),
+  savePublicEntry: (origin, expectedRevision) =>
+    ipcRenderer.invoke("myapi:service:save-public-entry", origin, expectedRevision),
+  clearPublicEntry: (expectedOrigin, expectedRevision) =>
+    ipcRenderer.invoke("myapi:service:clear-public-entry", expectedOrigin, expectedRevision),
+  copyPublicBaseURL: (baseURL, expectedRevision) =>
+    ipcRenderer.invoke("myapi:service:copy-public-base-url", baseURL, expectedRevision),
+  copyProxyTarget: (rootURL) => ipcRenderer.invoke("myapi:service:copy-proxy-target", rootURL),
   onState: (listener) => {
     if (typeof listener !== "function") return () => {};
     const receive = (_event, snapshot) => listener(snapshot);

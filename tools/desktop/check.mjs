@@ -48,7 +48,7 @@ function checkPackage() {
   record('runtime preflight is packaged', (pkg.build?.files || []).includes('runtime-config.js'))
   record('desktop lifecycle, native translations and local panel are packaged', includes(pkg.build?.files || [], [
     'service-controller.js', 'service-diagnostics.js', 'service-panel-ipc.js', 'service-panel-preload.js',
-    'service-panel.html', 'service-panel.js', 'service-panel.css',
+    'service-panel.html', 'service-panel.js', 'service-panel.css', 'public-access-config.js',
     'native-i18n.js', 'locales/en.json', 'locales/zh.json',
   ]))
   record('desktop publishing and macOS signing remain disabled by default', pkg.build?.publish === null && pkg.build?.mac?.identity === null)

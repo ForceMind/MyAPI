@@ -1,5 +1,31 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-07 B5b1：已有HTTPS反代接入向导（beta.41候选，完整CI为门禁）
+
+上一轮为实质进展：B5a源码与双平台非浏览器打包已交付。dev/`13eedad93b365f1a00f45da27faf05e18409af9d` / [完整CI42379188640](https://github.com/ForceMind/MyAPI/actions/runs/42379188640) attempt1 success，10作业成功/1浏览器真实API跳过；主会话亲读16195行完整执行日志、全部步骤和10个checkout一致，失败/race标记0。前端421文件3452/3452，Native59/59且0skip，根/独立relaykit/386/三库/Redis/ClickHouse/全部既有race通过。原生owned-child合成进程实际close、无关进程不受影响通过，不冒充GUI/安装验收。
+
+同一13eedad9的[macOS42379249054](https://github.com/ForceMind/MyAPI/actions/runs/42379249054)成功，完整1381行/全部步骤及实际checkout已读：59/59/0skip，arm64 DMG+ZIP，minimal、VITE_BUILD_ID及Go/Electron版本均为该源码/beta.40；release跳过。[macos-build13576574439](https://github.com/ForceMind/MyAPI/actions/runs/42379249054/artifacts/13576574439) 276358755 bytes，构件ZIP SHA256 `56e9c2f3c897ea53b735d4c8277e9e69e10397aae9df10f0aa4d6e9df9c925d6`，有效至2027-02-05 13:56:38 UTC。
+
+随后同SHA的[Windows42379624002](https://github.com/ForceMind/MyAPI/actions/runs/42379624002)成功，完整1400行/全部步骤已读；Windows git.exe实际checkout原始行另行精确核对13eedad9，59/59/0skip，win32 x64 NSIS+portable、minimal与各版本身份一致；release跳过。[windows-build13577680791](https://github.com/ForceMind/MyAPI/actions/runs/42379624002/artifacts/13577680791) 227981950 bytes，构件ZIP SHA256 `2d9a48f130a9c72b4ecb0e0fa110477ec4997dc3f46583bcd5d8fb1289c8ccac`，有效至2027-02-05 14:01:30 UTC。两个包始终绑定beta.40/13eedad9，不重标为本批beta.41；本机未下载，未发布/签名或安装运行。
+
+本轮开工dev/13eedad9干净，fetch后0/0、ff-only最新，CI元数据仍success。继续完整Goal，R4已关闭，不开展新BUG专项。B5b1先交付“接入已有HTTPS反代”的本地四步向导，**不以本批代替完整B5b外部验证目标**。实际DNS、HTTPS/证书、反代/鉴权和外部网络可达性仍未验证，格式通过、本机健康和LAN启动均不能证明公网可用；后续版本工作保留这些明确边界。
+
+成功标准：小白能分清当前真实监听与自己提供的公网入口，按反代位置→外部条件→HTTPS根地址→客户端配置完成交付；明确保存/清除仅操作此电脑固定私有入口声明，不修改监听、后台配置、数据/Key、反代/隧道/防火墙或外部端口。验证方法：共享URL校验、真实main/IPC/HTML/renderer的Node/VM回归、原生命周期/public-bind/LAN和全部既有门禁仅Actions，提交推送后按最终SHA亲读完整CI。本机仅源码、格式、JSON/XML/AST/node --check等轻检查，不运行项目tests/lint/typecheck/build/Docker/浏览器或下载CI产物。
+
+设计与文件边界：先用内置imagegen参考原Desktop效果图生成[公网接入向导效果图](ui-design-v2/screenshots/desktop-public-access-concept-20261107.png)，已看图，明确概念/示例/非实机；再只更新既有desktop-tray的两SVG、单catalog对象/article及作者源，仍329视图，其余328保持。复用2名gpt-6.1-sol/high代理，main/module/IPC与其直接测试、panel/renderer与其直接测试各有唯一owner；主会话负责线稿、规范locale脚本、资源白名单/checker、beta.41五处版本值与本交接/CI，没有递归或新建代理。
+
+候选行为与必要保护：
+
+- 原本机服务/托盘、关窗/停止/退出、配置/secret/显式SQLite路径及LAN/private/public-bind限制保留；公网向导默认折叠，分步只展当前任务，反代异机只提供原LAN明确入口，不因填写地址自动重启。
+- 共享纯校验模块只接HTTPS根origin及可选端口，明确拒绝路径前缀/已附v1、凭据、query/fragment含空参数、控制符/反斜杠/超长输入；已知本机/LAN入口回对应分支。域名/IP格式不作DNS、TLS或可达性证据，不请求或打开输入URL。
+- 固定私有声明、可信本地file主frame、专用有界IPC、默认取消原生确认，返回后复核来源/服务身份/声明revision与忙状态。新公网地址与旧本机复制集合分开，明确点击只复制所见且仍准确匹配的/v1，旧回包/撤销后旧值不可复制。
+- 未配置、无法读取、当前不支持、外部状态未知和已存未验证分开；读取坏文件不冒充空配置。合法DTO但不可读时先专门确认清除本应用记录，成功变为空记录后才允许保存新地址；失败保旧字节与状态，不自动修权限/删除外部文件。保存失败保旧记录和草稿，刷新不重置步骤/输入或抢焦点。
+- 主窗不读Key、不改客户端自动导入；保存后打开原本机控制台选择Key。清除只解除本应用声明，外部反代须自行撤销；个人电脑的开机/休眠/断网/退出/地址变化、上行带宽与资源/额度影响通过折叠帮助可达，不替用户选厂商、账号、费用或NAT设置。
+
+本批交付文案新增85条原生English key（69界面/16确认与结果），按i18n-translate规范脚本写en/zh，各196键，临时脚本已移除；JSON与占位符轻检查通过。原生仍仅中英文，Web七语言无新调用或改动，frontend i18n:sync由Actions执行。对本批候选的自查补护包括：规范化后的IDN长度仍受2048上限；实际listenerScope使异机分支在未开LAN时不能继续/保存；保存/清除直接回复固定机器结果与origin/expectedRevision/recordRevision/unchanged，普通snapshot/推送不携上次结果。界面不从状态变化猜本次保存成功；rename后读回无法确认保未知、禁copy且不恢复旧值，只有明确成功的匹配回执才进客户端配置。取消、外部同值变化、窗口/身份失效和旧回包均保留草稿，严格回归仍待本提交Actions，不以代码审读称运行通过。
+
+候选beta.41先做源码与完整CI交付，安装包在Desktop整体收口再按精确源码重打，不以beta.40包冒充本批。没有生产/服务器/模型请求、main/tag/GHCR/NPM或发布；浏览器、真实安装/托盘和公网仍未验证。B5b后续、A2–A6/B3/B4/B6/B7与统一质量/七语言/全量验收仍留在主Goal，不缩减为本批即可完成。
+
 ## 2026-11-07 B5a：Desktop本机服务、双语托盘与构建对齐（beta.40候选，完整CI/平台构建为门禁）
 
 上一轮为实质进展：UI-M2源码交付完成。dev/`4601139a48fc875cbd975428f8b1a545b18f4947` / [CI42367969543](https://github.com/ForceMind/MyAPI/actions/runs/42367969543) attempt1 success，10执行作业成功/1浏览器真实API跳过；主会话亲读15918行完整日志、步骤与10个checkout一致，失败/race标记0。前端421文件3452/3452，新增节点5/5与路由13/13在专项和全量均通过；精确0、ID8/旧ID消失、无抢焦点/scroll0等断言保留。首轮2d242099前端4221行/3450过2失败及对应严格测试修正保留；不把失败当绿，不重开R4或其它历史BUG。
