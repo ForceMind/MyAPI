@@ -33,7 +33,7 @@ export function formatUptimePct(pct: number): string {
   return `${pct.toFixed(2)}%`
 }
 
-export type SuccessRateLevel =
+type SuccessRateLevel =
   | 'excellent'
   | 'good'
   | 'warning'

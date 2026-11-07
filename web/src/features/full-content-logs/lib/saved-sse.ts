@@ -8,13 +8,13 @@ version.
 */
 import { previewContent } from './content-preview'
 
-export interface SavedSseMarker {
+interface SavedSseMarker {
   kind: 'completion' | 'error'
   /** The exact saved protocol field that supplied this observation. */
   source: string
 }
 
-export interface SavedSseEvent {
+interface SavedSseEvent {
   index: number
   type: string
   typeSource: 'event' | 'payload' | 'default'

@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-export type JsonParseResult<T> =
+type JsonParseResult<T> =
   | { success: true; data: T }
   | { success: false; error: string }
 

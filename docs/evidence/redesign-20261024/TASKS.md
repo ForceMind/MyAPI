@@ -1,5 +1,15 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-08 当前：A5b common已验，A6a内部类型修饰符候选（仍beta.45）
+
+common小批`05088cbbd70b2fc13c6b8c74342bbed381d8551a` / [完整CI42422805505](https://github.com/ForceMind/MyAPI/actions/runs/42422805505) attempt1 success：12执行作业成功/3可选作业跳过。主会话读取18111行全部日志，核对12个checkout与所有步骤，失败/race标记0。`make test`的真实common包输出`ok .../common 0.524s`，新公共Render表驱动6场景包含于该包全量执行；该命令不逐例打印，不能写成逐例日志PASS。根main/根与独立relaykit/386/三库/原有race及前端3452等原门禁均成功。清单与复核基线仍绑定6200959c，不重标为当前源码；只删除一个已核对的私有转交，SSE帧算法与MIT版权头完整保留，没有扩展BUG专项。
+
+A6a只在三个内部工具文件移除四处export修饰符：full-content-logs/lib/saved-sse.ts的SavedSseMarker/SavedSseEvent、performance-metrics/lib/format.ts的SuccessRateLevel、system-settings/utils/json-parser.ts的JsonParseResult。主会话已文本对照确认除四个修饰符外所有字节不变；定义/字段/价格与成功率判定/JSON和SSE行为/权限/返回上下文不改。源码复核未发现这些类型的外部或barrel/namespace消费，不据此宣称未知外部源码消费者不存在；本批只收内部模块边界，不处理其它145未闭合项。
+
+成功标准：调用方可编译，所有原功能与精确断言保持。验证方法：Actions的typecheck、lint、既有完整测试与构建，加manual/dev两模式清单重新绑定最终SHA；本机只源码/差异检查，不装依赖、执行类型检查或项目测试/构建/Knip，不跑浏览器或下载产物。低影响类型修饰符变化不新增镜像实现的类型测试，原测试不改。候选待自身完整CI，beta.45不重升，没有新发布包。
+
+本批提交仅三前端源及两交接文档。独立B6评估的ci.yml/callee/helper/test仍为另一WIP，不含本提交；B6只测当前镜像用户/体积/root旧卷兼容性，不改默认USER或生产，预期不兼容须严格保全后报告compatibility=false，资料未知/保全失败非零。10个UI整文件仍等具体授权，没有回复不删除；原生B3执行器、B4、B5b后续、B6/B7、七语言与统一质量/全量验收仍在主Goal，不将本批称A5/A6或全项目完成。生产/真实供应商模型/发布/main与浏览器均未操作。
+
 ## 2026-11-08 当前：清单证据已验收，A5b common 候选待自身CI（仍beta.45）
 
 `6200959c5ec5148c74b3b629c589245db97515bf` / [手动完整CI42419812845](https://github.com/ForceMind/MyAPI/actions/runs/42419812845) attempt1 success：13个执行作业成功、2个可选作业跳过。主会话已亲读20142行全部日志，核对13个checkout及所有步骤，0 error。自动CI42419777489 cancelled的全部实际日志也已读，仅部分执行，不计为完整绿灯。本节优先于下文“工具尚未执行”“待Actions”等历史时点记录。

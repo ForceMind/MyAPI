@@ -2,6 +2,10 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**2026-11-08最新已验：A5b common `05088cbbd70b2fc13c6b8c74342bbed381d8551a` / [完整CI42422805505](https://github.com/ForceMind/MyAPI/actions/runs/42422805505) attempt1 success。** 12成功/3可选跳过，18111行全部日志、12checkout和所有步骤已核，失败/race标记0。新公共Render6场景包含于实际common包全量通过，未打印逐例日志；原根main/独立relaykit/386/三库/race及前端3452门禁过。仅去私有encode转交，帧算法和版权头不变；旧清单/CSV仍绑定6200959c，不重标新源。
+
+**当前A6a候选：三内部工具文件仅去四处类型export，待自身CI，仍beta.45。** SavedSseMarker/Event、SuccessRateLevel、JsonParseResult只收修饰符，定义/字段/运行逻辑/原测试未变；主会话文本核对除四处外字节一致。推送后在Actions重读typecheck/lint/test/build及两模式当前清单，不在本机执行。10整文件授权仍未回复，禁止删除；145未知项保留。B6独立评估的workflow/helper WIP不含此次提交，不改默认USER；完整主Goal剩余及边界见TASKS最新节，历史候选按当时源码解释。无生产/模型/浏览器/发布/main或本机依赖/构建测试/产物下载。
+
 **2026-11-08最新已验收：清单工具与证据绑定`6200959c5ec5148c74b3b629c589245db97515bf` / [手动完整CI42419812845](https://github.com/ForceMind/MyAPI/actions/runs/42419812845) attempt1 success，应用仍beta.45。** 13执行成功/2跳过，主会话亲读20142行全部日志、13个checkout及全部步骤，0 error。清单job128545672516的1347行已读，Go 10组/Node 15组通过；Go 1575文件/5873短函数/423 manual，前端configured files/exports/types=2/372/178、ui-inclusive=13/417/180，工具实际exit0。自动42419777489 cancelled的实际日志已读，仅部分执行，不计绿。此结论只验收分析清单，不是全部A5/A6或安全删除授权。
 
 [证据artifact13592982829](https://github.com/ForceMind/MyAPI/actions/runs/42419812845/artifacts/13592982829)为584252 bytes，SHA256 `4400708028dd5f549d2cecd3090f92f0d9894da3c44ea9ecbaa5cda166557677`，到期`2026-11-14T22:17:08Z`，未下载。本轮逐项判断统一见[1033项复核CSV](../cleanup-review-6200959c.csv)：Go 423=422 keep/1 inline；前端610=451 keep/145 unknown/4 modifier/10 wholefile待授权。每项保身份/hash/理由和实际readscope，部分保留项只读定义签名，不能外推未读调用链或间接覆盖；`analysis_only=true`、`deletion_authorized=false`保持。
