@@ -2,6 +2,13 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**2026-11-07当前：UI-M2已完整源码CI通过，进入B5a Desktop，beta.40候选。** dev/`4601139a` / [CI42367969543](https://github.com/ForceMind/MyAPI/actions/runs/42367969543) attempt1 success：10成功/1浏览器真实API跳过，15918行完整执行日志、步骤与10个checkout已亲读，失败/race标记0；前端3452/3452、节点5/5、真实路由13/13及根/独立relaykit/386/race/三库等过。M2模型保存配置展开、0/未知、routing原页及严格返回合同已源码交付；浏览器未验证，非三版本全量完成。R4继续关闭，其余历史BUG没有扩展。
+
+B5a先做[本机服务效果图](../ui-design-v2/screenshots/desktop-service-concept-20261107.png)与既有desktop-tray两SVG，再实现独立本地服务面板/托盘双语/owned-child controller/严格file IPC和构建对齐；旧HTTP preload不加服务权限，旧数据/密钥/显式SQLite路径与LAN/private门禁保留。关窗、仅停止、退出分开，停止未知不得假停/重启第二进程。当前候选未验收，完整CI/Node VM与GHA合成child、macOS再Windows无发布构建都按最终精确SHA读取；不启动Electron GUI或浏览器，不把mock当实机托盘证明。细节、分工、必要文件、严格门禁和剩余项集中于[TASKS最新节](../TASKS.md)。
+
+B5a不等于B5：独立公网向导B5b仍待，当前公网仅未配置/未验证说明，不自动开端口/防火墙/NAT或选择第三方费用；B3/B4/B6/B7及结构/质量仍继续。无本机依赖安装/项目测试构建/lint/typecheck/Docker/浏览器/CI产物下载，无生产/服务器/真实上游/main/tag/GHCR/NPM/部署/签名操作；自动更新保持关闭，已部署beta.36不变。
+
+
 **2026-11-07当前主线：UI-M1源码交付已完整CI通过，续做M2 Full节点工具，beta.39候选。** M1真实源码dev/`de4ee4d2` / [CI42362321291](https://github.com/ForceMind/MyAPI/actions/runs/42362321291) attempt1 success：10成功/1浏览器真实API跳过，16542行完整执行日志/步骤与10个checkout已亲读，失败/race标记0；前端3434/3434、首页44/44、平台流程16/16及根/独立relaykit/386/race/三库等通过。三条新增首页返回场景在专项/全量均明确PASS，先前夹具/误判过程保留在TASKS，不把取消算绿。R4仍关闭，其余历史BUG没有扩展审查。
 
 M2沿同一效果图与overview两张既有线稿，候选增加Full保存模型计数展开、优先级/权重0与未知、同ID routing快捷入口；保筛选/权限/手机和准确返回，旧详情编辑/确认复用，首页没有新API、密钥读取、供应商请求或写入。Lite保持M1，Desktop原生控制仍B5；当前候选未验收，按最终提交精确SHA读取完整CI。线稿仍329视图，仅一个对象/article和两SVG增量；具体文件、验收和剩余范围集中在[TASKS最新节](../TASKS.md)。

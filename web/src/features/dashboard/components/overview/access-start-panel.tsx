@@ -160,7 +160,7 @@ export function AccessStartPanel(props: {
         >
           <p>
             {t(
-              'Closing this window keeps MyAPI running in the tray. Choose Quit from the tray to exit MyAPI and stop its bundled service.'
+              'Manage the bundled service from the tray. Closing this window leaves it running; exiting from the tray stops it and quits MyAPI.'
             )}
           </p>
           <p className='text-muted-foreground'>

@@ -44,7 +44,17 @@
       "icon.png",
       "tray-iconTemplate.png",
       "tray-iconTemplate@2x.png",
-      "tray-icon-windows.png"
+      "tray-icon-windows.png",
+      "service-controller.js",
+      "service-panel-ipc.js",
+      "service-panel-preload.js",
+      "service-panel.html",
+      "service-panel.js",
+      "service-panel.css",
+      "native-i18n.js",
+      "locales/en.json",
+      "locales/zh.json",
+      "service-diagnostics.js"
     ],
     "mac": {
       "category": "public.app-category.developer-tools",

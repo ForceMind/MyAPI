@@ -1,9 +1,10 @@
-const { app, BrowserWindow, dialog, Tray, Menu, shell } = require('electron');
-const { spawn } = require('child_process');
-const crypto = require('crypto');
-const path = require('path');
-const http = require('http');
-const fs = require('fs');
+const { app, BrowserWindow, dialog, Tray, Menu, shell, ipcMain, clipboard } = require("electron");
+const { spawn } = require("child_process");
+const crypto = require("crypto");
+const path = require("path");
+const { pathToFileURL } = require("url");
+const http = require("http");
+const fs = require("fs");
 const {
   DEFAULT_BIND_ADDRESS,
   isLoopbackAddress,
@@ -15,822 +16,1101 @@ const {
   getHealthCheckAddress,
   isSuccessfulHttpStatus,
   isSuccessfulStatusResponse,
-} = require('./runtime-config');
+} = require("./runtime-config");
+const { createServiceController } = require("./service-controller");
+const { createServicePanelIPC, SERVICE_PANEL_STATE_CHANNEL } = require("./service-panel-ipc");
+const { createNativeI18n, normalizeLanguage } = require("./native-i18n");
+const { createServiceDiagnostics } = require("./service-diagnostics");
 
-const APP_NAME = 'MyAPI';
-const CANONICAL_BINARY_NAME = process.platform === 'win32' ? 'my-api.exe' : 'my-api';
-const LEGACY_BINARY_NAME = process.platform === 'win32' ? 'new-api.exe' : 'new-api';
-const CANONICAL_DATABASE_NAME = 'my-api.db';
-const LEGACY_DATABASE_NAMES = ['new-api.db', 'one-api.db'];
-
+const APP_NAME = "MyAPI";
+const CANONICAL_BINARY_NAME = process.platform === "win32" ? "my-api.exe" : "my-api";
+const LEGACY_BINARY_NAME = process.platform === "win32" ? "new-api.exe" : "new-api";
+const CANONICAL_DATABASE_NAME = "my-api.db";
+const LEGACY_DATABASE_NAMES = ["new-api.db", "one-api.db"];
 const DESKTOP_ARGS = process.argv.slice(1);
-
-let mainWindow;
-let serverProcess;
+const DEV_FRONTEND_PORT = 5173;
+const IS_DEV = process.env.NODE_ENV === "development";
+const PANEL_FILE = path.join(__dirname, "service-panel.html");
+const PANEL_URL = pathToFileURL(PANEL_FILE).href;
+let mainWindow = null;
+let serviceWindow = null;
 let tray = null;
-let serverErrorLogs = [];
-const DEV_FRONTEND_PORT = 5173; // Rsbuild dev server port
-// Desktop/LAN is loopback-only by default. An explicit --allow-lan launch may
-// opt into a private-network bind; the backend receives the validated address.
+let controller = null;
+let actionBusy = false;
+let allowExit = false;
+let notice = null;
+let nativeReason = null;
+let launchDiagnostics = createServiceDiagnostics(0);
+let stateRevision = 0;
+const developmentProbe = new AbortController();
+let translator = createNativeI18n();
+const t = (key, values) => translator.t(key, values);
 let runtimeConfig;
 try {
   runtimeConfig = resolveRuntimeConfig({ args: DESKTOP_ARGS, env: process.env });
 } catch (error) {
-  // Fail before creating a window or spawning a server, making unsafe launch
-  // parameters visible to users and automation alike.
-  console.error(`Invalid MyAPI desktop configuration: ${error.message}`);
-  runtimeConfig = { bindAddress: '127.0.0.1', port: 3000, allowLan: false, isLan: false, error };
+  runtimeConfig = {
+    bindAddress: DEFAULT_BIND_ADDRESS,
+    port: 3000,
+    allowLan: false,
+    isLan: false,
+    error,
+  };
 }
 const PORT = runtimeConfig.port;
 const BIND_ADDRESS = runtimeConfig.bindAddress;
 const ALLOW_LAN = runtimeConfig.allowLan;
 
-const hasSingleInstanceLock = app.requestSingleInstanceLock();
-if (!hasSingleInstanceLock) {
-  app.quit();
-} else {
-  app.on('second-instance', () => {
-    if (!mainWindow) return;
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.show();
-    mainWindow.focus();
-  });
+// Only these product strings enter the local renderer, never process.env,
+// raw backend output, controller identities or session secret values.
+const PANEL_KEYS = [
+  "Application version",
+  "Automatic updates are off.",
+  "Local service",
+  "Language",
+  "Bundled service",
+  "Open console",
+  "Start bundled service",
+  "Stop bundled service",
+  "OpenAI-compatible Base URL",
+  "Copy address",
+  "Access scope",
+  "This is the configured address, not proof of reachability or model availability.",
+  "Public access is not configured by this panel and has not been verified. A separate setup is required.",
+  "LAN status and help",
+  "Public access help",
+  "Change local access scope",
+  "Changing the listener requires confirmation and an application restart.",
+  "Restart with LAN access",
+  "Restart with local access only",
+  "Data and logs",
+  "The data folder is not a complete backup guarantee. Explicit database paths and consistency requirements still apply.",
+  "Save diagnostics and open logs",
+  "Original diagnostic logs may use their original language. They are not displayed in this panel.",
+  "Closing this window keeps MyAPI in the tray. Quitting stops its bundled service first.",
+  "Quit MyAPI",
+  "No configured address is available.",
+  "Application data",
+  "Default data folder",
+  "Database location",
+  "Session secret storage",
+  "Logs folder",
+  "Service detail",
+  "Diagnostic guidance",
+  "Not provided",
+  "The action could not be completed. Reopen the service panel and review its state.",
+  "The service panel bridge is unavailable. Reopen it from the tray.",
+  "Service state unknown",
+  "Saving diagnostics writes bounded original stderr to a private local file. Review it before sharing.",
+];
+
+function locations() {
+  const userDataPath = app.getPath("userData");
+  const dataDir = path.join(userDataPath, "data");
+  const logsDir = path.join(userDataPath, "logs");
+  const legacyDatabasePath = LEGACY_DATABASE_NAMES.map((name) => path.join(dataDir, name)).find(
+    (candidate) => fs.existsSync(candidate),
+  );
+  const databasePath =
+    process.env.MYAPI_SQLITE_PATH ||
+    process.env.SQLITE_PATH ||
+    legacyDatabasePath ||
+    path.join(dataDir, CANONICAL_DATABASE_NAME);
+  return { userDataPath, dataDir, logsDir, databasePath };
+}
+
+function recordNativeReason(code) {
+  nativeReason = code;
+  try {
+    const { logsDir } = locations();
+    fs.mkdirSync(logsDir, { recursive: true });
+    // A fixed category is enough to inspect native startup/stop failures;
+    // raw upstream payloads and environment values are not copied here.
+    fs.appendFileSync(
+      path.join(logsDir, "desktop-service.log"),
+      `${new Date().toISOString()} ${code}\n`,
+      { mode: 0o600 },
+    );
+  } catch {
+    /* The panel still reports the operation result when logging fails. */
+  }
 }
 
 function ensureSessionSecret(userDataPath) {
-  const secretPath = path.join(userDataPath, 'myapi-session-secret');
+  const secretPath = path.join(userDataPath, "myapi-session-secret");
   try {
     if (fs.existsSync(secretPath)) {
-      const existing = fs.readFileSync(secretPath, 'utf8').trim();
+      const existing = fs.readFileSync(secretPath, "utf8").trim();
       if (/^[a-f0-9]{64}$/i.test(existing)) return existing;
     }
-    const generated = crypto.randomBytes(32).toString('hex');
+    const generated = crypto.randomBytes(32).toString("hex");
     fs.writeFileSync(secretPath, `${generated}\n`, { mode: 0o600 });
-    try { fs.chmodSync(secretPath, 0o600); } catch (_) { /* Windows ACLs apply */ }
-    return generated;
-  } catch (error) {
-    throw new Error(`无法保存 MyAPI 会话密钥: ${error.message}`);
-  }
-}
-
-// 保存日志到文件并打开
-function saveAndOpenErrorLog() {
-  try {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const logFileName = `my-api-crash-${timestamp}.log`;
-    const logDir = app.getPath('logs');
-    const logFilePath = path.join(logDir, logFileName);
-    
-    // 确保日志目录存在
-    if (!fs.existsSync(logDir)) {
-      fs.mkdirSync(logDir, { recursive: true });
+    try {
+      fs.chmodSync(secretPath, 0o600);
+    } catch {
+      /* Platform ACLs may apply. */
     }
-    
-    // 写入日志
-    const logContent = `${APP_NAME} 崩溃日志
-生成时间: ${new Date().toLocaleString('zh-CN')}
-平台: ${process.platform}
-架构: ${process.arch}
-应用版本: ${app.getVersion()}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-完整错误日志:
-
-${serverErrorLogs.join('\n')}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-日志文件位置: ${logFilePath}
-`;
-    
-    fs.writeFileSync(logFilePath, logContent, 'utf8');
-    
-    // 打开日志文件
-    shell.openPath(logFilePath).then((error) => {
-      if (error) {
-        console.error('Failed to open log file:', error);
-        // 如果打开文件失败，至少显示文件位置
-        shell.showItemInFolder(logFilePath);
-      }
-    });
-    
-    return logFilePath;
-  } catch (err) {
-    console.error('Failed to save error log:', err);
-    return null;
+    return generated;
+  } catch {
+    recordNativeReason("session-secret-write-failed");
+    throw new Error(t("Unable to save the session secret."));
   }
-}
-
-// 分析错误日志，识别常见错误并提供解决方案
-function analyzeError(errorLogs) {
-  const allLogs = errorLogs.join('\n');
-  
-  // 检测端口占用错误
-  if (allLogs.includes('failed to start HTTP server') || 
-      allLogs.includes('bind: address already in use') ||
-      allLogs.includes('listen tcp') && allLogs.includes('bind: address already in use')) {
-    return {
-      type: '端口被占用',
-      title: '端口 ' + PORT + ' 被占用',
-      message: '无法启动服务器，端口已被其他程序占用',
-      solution: `可能的解决方案：\n\n1. 关闭占用端口 ${PORT} 的其他程序\n2. 检查是否已经运行了另一个 ${APP_NAME} 实例\n3. 使用以下命令查找占用端口的进程：\n   Mac/Linux: lsof -i :${PORT}\n   Windows: netstat -ano | findstr :${PORT}\n4. 重启电脑以释放端口`
-    };
-  }
-  
-  // 检测数据库错误
-  if (allLogs.includes('database is locked') || 
-      allLogs.includes('unable to open database')) {
-    return {
-      type: '数据文件被占用',
-      title: '无法访问数据文件',
-      message: '应用的数据文件正被其他程序占用',
-      solution: `可能的解决方案：\n\n1. 检查是否已经打开了另一个 ${APP_NAME} 窗口\n   - 查看任务栏/Dock 中是否有其他 ${APP_NAME} 图标\n   - 查看系统托盘（Windows）或菜单栏（Mac）中是否有 ${APP_NAME} 图标\n\n2. 如果刚刚关闭过应用，请等待 10 秒后再试\n\n3. 重启电脑以释放被占用的文件\n\n4. 如果问题持续，可以尝试：\n   - 退出所有 ${APP_NAME} 实例\n   - 删除数据目录中的临时文件（.db-shm 和 .db-wal）\n   - 重新启动应用`
-    };
-  }
-  
-  // 检测权限错误
-  if (allLogs.includes('permission denied') || 
-      allLogs.includes('access denied')) {
-    return {
-      type: '权限错误',
-      title: '权限不足',
-      message: '程序没有足够的权限执行操作',
-      solution: '可能的解决方案：\n\n1. 以管理员/root权限运行程序\n2. 检查数据目录的读写权限\n3. 检查可执行文件的权限\n4. 在 Mac 上，检查安全性与隐私设置'
-    };
-  }
-  
-  // 检测网络错误
-  if (allLogs.includes('network is unreachable') || 
-      allLogs.includes('no such host') ||
-      allLogs.includes('connection refused')) {
-    return {
-      type: '网络错误',
-      title: '网络连接失败',
-      message: '无法建立网络连接',
-      solution: '可能的解决方案：\n\n1. 检查网络连接是否正常\n2. 检查防火墙设置\n3. 检查代理配置\n4. 确认目标服务器地址正确'
-    };
-  }
-  
-  // 检测配置文件错误
-  if (allLogs.includes('invalid configuration') || 
-      allLogs.includes('failed to parse config') ||
-      allLogs.includes('yaml') || allLogs.includes('json') && allLogs.includes('parse')) {
-    return {
-      type: '配置错误',
-      title: '配置文件错误',
-      message: '配置文件格式不正确或包含无效配置',
-      solution: '可能的解决方案：\n\n1. 检查配置文件格式是否正确\n2. 恢复默认配置\n3. 删除配置文件让程序重新生成\n4. 查看文档了解正确的配置格式'
-    };
-  }
-  
-  // 检测内存不足
-  if (allLogs.includes('out of memory') || 
-      allLogs.includes('cannot allocate memory')) {
-    return {
-      type: '内存不足',
-      title: '系统内存不足',
-      message: '程序运行时内存不足',
-      solution: '可能的解决方案：\n\n1. 关闭其他占用内存的程序\n2. 增加系统可用内存\n3. 重启电脑释放内存\n4. 检查是否存在内存泄漏'
-    };
-  }
-  
-  // 检测文件不存在错误
-  if (allLogs.includes('no such file or directory') || 
-      allLogs.includes('cannot find the file')) {
-    return {
-      type: '文件缺失',
-      title: '找不到必需的文件',
-      message: '缺少程序运行所需的文件',
-      solution: '可能的解决方案：\n\n1. 重新安装应用程序\n2. 检查安装目录是否完整\n3. 确保所有依赖文件都存在\n4. 检查文件路径是否正确'
-    };
-  }
-  
-  return null;
 }
 
 function getBinaryPath() {
-  const isDev = process.env.NODE_ENV === 'development';
-  const platform = process.platform;
-
-  if (isDev) {
-    const canonicalPath = path.join(__dirname, '..', CANONICAL_BINARY_NAME);
-    const legacyPath = path.join(__dirname, '..', LEGACY_BINARY_NAME);
-    return fs.existsSync(canonicalPath) ? canonicalPath : legacyPath;
+  if (IS_DEV) {
+    const canonicalPath = path.join(__dirname, "..", CANONICAL_BINARY_NAME);
+    return fs.existsSync(canonicalPath)
+      ? canonicalPath
+      : path.join(__dirname, "..", LEGACY_BINARY_NAME);
   }
-
-  const canonicalPath = path.join(process.resourcesPath, 'bin', CANONICAL_BINARY_NAME);
-  const legacyPath = path.join(process.resourcesPath, 'bin', LEGACY_BINARY_NAME);
-  return fs.existsSync(canonicalPath) ? canonicalPath : legacyPath;
+  const canonicalPath = path.join(process.resourcesPath, "bin", CANONICAL_BINARY_NAME);
+  return fs.existsSync(canonicalPath)
+    ? canonicalPath
+    : path.join(process.resourcesPath, "bin", LEGACY_BINARY_NAME);
 }
 
-// Check if a server is available with retry logic
-function checkServerAvailability(port, maxRetries = 30, retryDelay = 1000, hostname = '127.0.0.1', requestPath = '/') {
+// The controller owns cancellation. A late response cannot promote another
+// generation, and an aborted request never schedules another retry.
+function checkServerAvailability(
+  port,
+  maxRetries = 30,
+  retryDelay = 1000,
+  hostname = "127.0.0.1",
+  requestPath = "/",
+  { signal } = {},
+) {
   return new Promise((resolve, reject) => {
-    let currentAttempt = 0;
-    
-    const tryConnect = () => {
-      currentAttempt++;
-      
-      if (currentAttempt % 5 === 1 && currentAttempt > 1) {
-        console.log(`Attempting to connect to port ${port}... (attempt ${currentAttempt}/${maxRetries})`);
-      }
-      
-      const req = http.get({
-        // Probe the effective listener.  A private LAN bind is not necessarily
-        // reachable through loopback, while 0.0.0.0 remains probeable via IPv4
-        // loopback on supported platforms.
-        hostname: getHealthCheckAddress(hostname),
-        port,
-        path: requestPath,
-        timeout: 10000
-      }, (res) => {
-        const statusCode = Number(res.statusCode || 0);
-        let responseBody = '';
-        if (requestPath === '/api/status') {
-          res.setEncoding('utf8');
-          res.on('data', (chunk) => {
-            if (responseBody.length < 65536) responseBody += chunk;
-          });
-        } else {
-          res.resume();
-        }
-        res.on('end', () => {
-          const successful = requestPath === '/api/status'
-            ? isSuccessfulStatusResponse(statusCode, responseBody)
-            : isSuccessfulHttpStatus(statusCode);
-          if (successful) {
-            console.log(`✓ Successfully connected to ${requestPath} on port ${port} (status: ${statusCode})`);
-            resolve();
-            return;
-          }
-          if (currentAttempt >= maxRetries) {
-            reject(new Error(`Unexpected HTTP response from ${requestPath} on port ${port} after ${maxRetries} attempts`));
-          } else {
-            setTimeout(tryConnect, retryDelay);
-          }
-        });
-      });
-
-      req.on('error', (err) => {
-        if (currentAttempt >= maxRetries) {
-          reject(new Error(`Failed to connect to port ${port} after ${maxRetries} attempts: ${err.message}`));
-        } else {
-          setTimeout(tryConnect, retryDelay);
-        }
-      });
-
-      req.on('timeout', () => {
-        req.destroy();
-        if (currentAttempt >= maxRetries) {
-          reject(new Error(`Connection timeout on port ${port} after ${maxRetries} attempts`));
-        } else {
-          setTimeout(tryConnect, retryDelay);
-        }
-      });
+    let attempts = 0;
+    let settled = false;
+    let request = null;
+    let retryTimer = null;
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      if (retryTimer !== null) clearTimeout(retryTimer);
+      signal?.removeEventListener("abort", abort);
+      if (request) request.destroy();
+      if (error) reject(error);
+      else resolve();
     };
-    
+    const abort = () => finish(new Error("Service readiness check cancelled."));
+    const tryConnect = () => {
+      if (settled || signal?.aborted) {
+        abort();
+        return;
+      }
+      attempts++;
+      let completed = false;
+      const retry = (error) => {
+        if (completed || settled) return;
+        completed = true;
+        if (request) request.destroy();
+        if (attempts >= maxRetries) finish(error);
+        else retryTimer = setTimeout(tryConnect, retryDelay);
+      };
+      request = http.get(
+        { hostname: getHealthCheckAddress(hostname), port, path: requestPath, timeout: 10000 },
+        (response) => {
+          const statusCode = Number(response.statusCode || 0);
+          let responseBody = "";
+          if (requestPath === "/api/status") {
+            response.setEncoding("utf8");
+            response.on("data", (chunk) => {
+              if (responseBody.length + chunk.length > 65536) {
+                retry(new Error("Backend status response exceeded its limit."));
+                return;
+              }
+              responseBody += chunk;
+            });
+          } else response.resume();
+          response.on("error", retry);
+          response.on("end", () => {
+            if (completed || settled) return;
+            const successful =
+              requestPath === "/api/status"
+                ? isSuccessfulStatusResponse(statusCode, responseBody)
+                : isSuccessfulHttpStatus(statusCode);
+            if (!successful) {
+              retry(new Error(`Unexpected HTTP response from ${requestPath}`));
+              return;
+            }
+            completed = true;
+            finish();
+          });
+        },
+      );
+      request.on("error", retry);
+      request.on("timeout", () => retry(new Error("Service readiness check timed out.")));
+    };
+    signal?.addEventListener("abort", abort, { once: true });
     tryConnect();
   });
 }
 
-function startServer() {
-  return new Promise((resolve, reject) => {
-    const isDev = process.env.NODE_ENV === 'development';
-
-    if (!isLoopbackAddress(BIND_ADDRESS) && !ALLOW_LAN) {
-      reject(new Error('LAN sharing is disabled by default; restart with --allow-lan and a private bind address.'));
-      return;
-    }
-    if (!isLoopbackAddress(BIND_ADDRESS) && !isPrivateAddress(BIND_ADDRESS)) {
-      reject(new Error('Desktop LAN binding must use a private IPv4 address or 0.0.0.0.'));
-      return;
-    }
-
-    const userDataPath = app.getPath('userData');
-    const dataDir = path.join(userDataPath, 'data');
-    // Packaged apps may run from a read-only resources directory (notably
-    // Windows Program Files). Keep backend and full-content logs under the
-    // per-user writable data root instead of relying on the process cwd.
-    const logsDir = path.join(userDataPath, 'logs');
-    
-    // 设置环境变量供 preload.js 使用
+// This factory preserves existing startup configuration; only the controller
+// retains the returned child and decides whether a generation is still current.
+function startServer({ signal, generation }) {
+  const diagnostics = createServiceDiagnostics(generation);
+  launchDiagnostics = diagnostics;
+  try {
+    if (IS_DEV) throw new Error("External development services are not owned.");
+    if (runtimeConfig.error) throw new Error("Invalid desktop listener configuration.");
+    if (!isLoopbackAddress(BIND_ADDRESS) && (!ALLOW_LAN || !isPrivateAddress(BIND_ADDRESS)))
+      throw new Error("Invalid desktop LAN configuration.");
+    const { userDataPath, dataDir, logsDir, databasePath } = locations();
+    fs.mkdirSync(dataDir, { recursive: true });
+    fs.mkdirSync(logsDir, { recursive: true });
     process.env.ELECTRON_DATA_DIR = dataDir;
-    
-    if (isDev) {
-      // 开发模式：假设开发者手动启动了 Go 后端和前端开发服务器
-      // 只需要等待前端开发服务器就绪
-      console.log('Development mode: skipping server startup');
-      console.log('Please make sure you have started:');
-      console.log('  1. Go backend: go run main.go (port 3000)');
-      console.log('  2. Frontend dev server: make dev-web (port 5173)');
-      console.log('');
-      console.log('Checking if servers are running...');
-      
-      // First check if both servers are accessible
-      // The dev server owns `/`; it may not proxy the backend status endpoint.
-      checkServerAvailability(DEV_FRONTEND_PORT, 30, 1000, '127.0.0.1', '/')
-        .then(() => {
-          console.log('✓ Frontend dev server is accessible on port 5173');
-          resolve();
-        })
-        .catch((err) => {
-          console.error(`✗ Cannot connect to frontend dev server on port ${DEV_FRONTEND_PORT}`);
-          console.error('Please make sure the frontend dev server is running:');
-          console.error('  make dev-web');
-          reject(err);
-        });
-      return;
-    }
-
-    // 生产模式：启动二进制服务器
     const env = {
       ...process.env,
       PORT: PORT.toString(),
       MYAPI_BIND_ADDRESS: BIND_ADDRESS,
-      MYAPI_EDITION: 'lite',
-      SESSION_COOKIE_SECURE: 'false',
-      FULL_CONTENT_LOG_DIR: path.join(logsDir, 'full-content'),
+      MYAPI_EDITION: "lite",
+      SESSION_COOKIE_SECURE: "false",
+      FULL_CONTENT_LOG_DIR: path.join(logsDir, "full-content"),
     };
-
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-    if (!fs.existsSync(logsDir)) {
-      fs.mkdirSync(logsDir, { recursive: true });
-    }
     env.SESSION_SECRET = process.env.SESSION_SECRET || ensureSessionSecret(userDataPath);
-
-    const canonicalDatabasePath = path.join(dataDir, CANONICAL_DATABASE_NAME);
-    const legacyDatabasePath = LEGACY_DATABASE_NAMES
-      .map((name) => path.join(dataDir, name))
-      .find((candidate) => fs.existsSync(candidate));
-    // Keep an explicitly configured path authoritative. Otherwise new data is
-    // written to my-api.db, while an existing legacy database is adopted in
-    // place rather than silently creating an empty account.
-    env.SQLITE_PATH = process.env.MYAPI_SQLITE_PATH || process.env.SQLITE_PATH ||
-      legacyDatabasePath || canonicalDatabasePath;
-    
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📁 您的数据存储位置：');
-    console.log('   ' + dataDir);
-    console.log('   💡 备份提示：复制此目录即可备份所有数据');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-
+    env.SQLITE_PATH = databasePath;
     const binaryPath = getBinaryPath();
-    const workingDir = process.resourcesPath;
-    
-    console.log('Starting server from:', binaryPath);
-
-    serverProcess = spawn(binaryPath, ['--log-dir', logsDir], {
-      env,
-      cwd: workingDir
+    const child = spawn(binaryPath, ["--log-dir", logsDir], { env, cwd: process.resourcesPath });
+    child.stdout?.on("data", (data) => {
+      if (launchDiagnostics === diagnostics) console.log(`Server: ${data}`);
     });
-
-    serverProcess.stdout.on('data', (data) => {
-      console.log(`Server: ${data}`);
+    child.stderr?.on("data", (data) => {
+      if (launchDiagnostics !== diagnostics) return;
+      diagnostics.append(data);
+      console.error(`Server Error: ${data}`);
     });
-
-    serverProcess.stderr.on('data', (data) => {
-      const errorMsg = data.toString();
-      console.error(`Server Error: ${errorMsg}`);
-      serverErrorLogs.push(errorMsg);
-      // 只保留最近的100条错误日志
-      if (serverErrorLogs.length > 100) {
-        serverErrorLogs.shift();
-      }
+    child.on("error", (error) => {
+      if (launchDiagnostics !== diagnostics) return;
+      diagnostics.append(`${error.code || ""}: ${error.message || ""}\n`);
+      recordNativeReason(error.code === "ENOENT" ? "binary-missing" : "spawn-failed");
     });
-
-    serverProcess.on('error', (err) => {
-      console.error('Failed to start server:', err);
-      reject(err);
-    });
-
-    serverProcess.on('close', (code) => {
-      console.log(`Server process exited with code ${code}`);
-      
-      // 如果退出代码不是0，说明服务器异常退出
-      if (code !== 0 && code !== null) {
-        const errorDetails = serverErrorLogs.length > 0 
-          ? serverErrorLogs.slice(-20).join('\n') 
-          : '没有捕获到错误日志';
-        
-        // 分析错误类型
-        const knownError = analyzeError(serverErrorLogs);
-        
-        let dialogOptions;
-        if (knownError) {
-          // 识别到已知错误，显示友好的错误信息和解决方案
-          dialogOptions = {
-            type: 'error',
-            title: knownError.title,
-            message: knownError.message,
-            detail: `${knownError.solution}\n\n━━━━━━━━━━━━━━━━━━━━━━\n\n退出代码: ${code}\n\n错误类型: ${knownError.type}\n\n最近的错误日志:\n${errorDetails}`,
-            buttons: ['退出应用', '查看完整日志'],
-            defaultId: 0,
-            cancelId: 0
-          };
-        } else {
-          // 未识别的错误，显示通用错误信息
-          dialogOptions = {
-            type: 'error',
-            title: '服务器崩溃',
-            message: '服务器进程异常退出',
-            detail: `退出代码: ${code}\n\n最近的错误信息:\n${errorDetails}`,
-            buttons: ['退出应用', '查看完整日志'],
-            defaultId: 0,
-            cancelId: 0
-          };
-        }
-        
-        dialog.showMessageBox(dialogOptions).then((result) => {
-          if (result.response === 1) {
-            // 用户选择查看详情，保存并打开日志文件
-            const logPath = saveAndOpenErrorLog();
-            
-            // 显示确认对话框
-            const confirmMessage = logPath 
-              ? `日志已保存到:\n${logPath}\n\n日志文件已在默认文本编辑器中打开。\n\n点击"退出"关闭应用程序。`
-              : '日志保存失败，但已在控制台输出。\n\n点击"退出"关闭应用程序。';
-            
-            dialog.showMessageBox({
-              type: 'info',
-              title: '日志已保存',
-              message: confirmMessage,
-              buttons: ['退出'],
-              defaultId: 0
-            }).then(() => {
-              app.isQuitting = true;
-              app.quit();
-            });
-            
-            // 同时在控制台输出
-            console.log('=== 完整错误日志 ===');
-            console.log(serverErrorLogs.join('\n'));
-          } else {
-            // 用户选择直接退出
-            app.isQuitting = true;
-            app.quit();
-          }
-        });
-      } else {
-        // 正常退出（code为0或null），直接关闭窗口
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.close();
-        }
-      }
-    });
-
     const healthCheckHost = getHealthCheckAddress(BIND_ADDRESS);
-    // Probe the backend's public status endpoint, not merely an arbitrary
-    // process that happens to occupy the configured port.
-    checkServerAvailability(PORT, 30, 1000, healthCheckHost, '/api/status')
-      .then(() => {
-        console.log(`✓ Backend server is accessible at ${healthCheckHost}:${PORT}`);
-        resolve();
-      })
-      .catch((err) => {
-        console.error('✗ Failed to connect to backend server');
-        reject(err);
-      });
+    const ready = checkServerAvailability(PORT, 30, 1000, healthCheckHost, "/api/status", {
+      signal,
+    }).catch((error) => {
+      if (!signal?.aborted && launchDiagnostics === diagnostics)
+        recordNativeReason("readiness-failed");
+      throw error;
+    });
+    return { child, ready };
+  } catch (error) {
+    diagnostics.append(`${error.code || ""}: ${error.stack || error.message || String(error)}\n`);
+    recordNativeReason("launch-failed");
+    throw error;
+  }
+}
+
+function syncDockVisibility() {
+  if (process.platform !== "darwin" || !app.dock) return;
+  const visible = [serviceWindow, mainWindow].some(
+    (window) => window && !window.isDestroyed() && window.isVisible(),
+  );
+  if (visible) Promise.resolve(app.dock.show()).catch(() => {});
+  else app.dock.hide();
+}
+
+function closeToTray(window) {
+  window.on("close", (event) => {
+    if (allowExit) return;
+    event.preventDefault();
+    window.hide();
+    syncDockVisibility();
   });
+  window.on("show", syncDockVisibility);
+  window.on("hide", syncDockVisibility);
+}
+
+function showServicePanel() {
+  if (!serviceWindow || serviceWindow.isDestroyed()) {
+    serviceWindow = new BrowserWindow({
+      width: 900,
+      height: 760,
+      minWidth: 480,
+      minHeight: 520,
+      title: APP_NAME,
+      icon: path.join(__dirname, "icon.png"),
+      webPreferences: {
+        preload: path.join(__dirname, "service-panel-preload.js"),
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+      },
+    });
+    const window = serviceWindow;
+    closeToTray(window);
+    window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+    window.webContents.on("will-navigate", (event, url) => {
+      if (url !== PANEL_URL) event.preventDefault();
+    });
+    window.webContents.on("will-redirect", (event) => event.preventDefault());
+    window.webContents.on("will-attach-webview", (event) => event.preventDefault());
+    window.webContents.on("did-finish-load", publishState);
+    window.on("closed", () => {
+      if (serviceWindow === window) serviceWindow = null;
+      syncDockVisibility();
+    });
+    void window.loadFile(PANEL_FILE).catch(() => {
+      notice = {
+        key: "The service panel could not be opened. Use the tray controls or inspect local logs.",
+        tone: "warning",
+      };
+      recordNativeReason("panel-load-failed");
+      rebuildTray();
+    });
+  }
+  serviceWindow.show();
+  serviceWindow.focus();
+  syncDockVisibility();
 }
 
 function createWindow() {
-  const isDev = process.env.NODE_ENV === 'development';
-  const loadPort = isDev ? DEV_FRONTEND_PORT : PORT;
-  // In a LAN launch the backend may bind only to its concrete private IPv4
-  // address. Loading the packaged UI through hard-coded loopback would then
-  // fail on both macOS and Windows, even though the health check succeeded.
-  // Development keeps loopback because the separate dev server normally
-  // listens there; packaged builds probe the same effective host as the
-  // backend (with 0.0.0.0 safely mapped to loopback).
-  const loadHost = isDev ? '127.0.0.1' : getHealthCheckAddress(BIND_ADDRESS);
-  
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+    mainWindow.focus();
+    syncDockVisibility();
+    return;
+  }
+  const loadPort = IS_DEV ? DEV_FRONTEND_PORT : PORT;
+  const loadHost = IS_DEV ? "127.0.0.1" : getHealthCheckAddress(BIND_ADDRESS);
   mainWindow = new BrowserWindow({
     width: 1080,
     height: 720,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: false,
-      contextIsolation: true
-    },
     title: APP_NAME,
-    icon: path.join(__dirname, 'icon.png')
+    icon: path.join(__dirname, "icon.png"),
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
   });
-
-  mainWindow.loadURL(`http://${loadHost}:${loadPort}`);
-  
-  console.log(`Loading from: http://${loadHost}:${loadPort}`);
-
-  if (isDev) {
-    mainWindow.webContents.openDevTools();
-  }
-
-  // Close to tray instead of quitting
-  mainWindow.on('close', (event) => {
-    if (!app.isQuitting) {
-      event.preventDefault();
-      mainWindow.hide();
-      if (process.platform === 'darwin') {
-        app.dock.hide();
-      }
-    }
+  const window = mainWindow;
+  closeToTray(window);
+  window.on("closed", () => {
+    if (mainWindow === window) mainWindow = null;
+    syncDockVisibility();
   });
-
-  mainWindow.on('closed', () => {
-    mainWindow = null;
+  void mainWindow.loadURL(`http://${loadHost}:${loadPort}`).catch(() => {
+    notice = {
+      key: "The console could not be opened. The service panel remains available.",
+      tone: "warning",
+    };
+    showServicePanel();
+    publishState();
   });
+  syncDockVisibility();
 }
 
-async function confirmAndRelaunch({ bindAddress, allowLan, title, message, detail }) {
-  // Validate the exact argument set that will be passed to the next process.
-  // The current process is never rebound in place.
-  const relaunchArgs = buildRelaunchArgs(DESKTOP_ARGS, {
-    bindAddress,
-    port: PORT,
-    allowLan,
-  });
-  resolveRuntimeConfig({ args: relaunchArgs, env: {} });
+function stateText(state) {
+  switch (state) {
+    case "starting":
+      return [
+        t("Starting"),
+        t("The bundled process is starting. Its interface is not ready yet."),
+        "neutral",
+      ];
+    case "running":
+      return [
+        t("Running"),
+        t(
+          "The owned bundled process is running and its local status endpoint responded. Model availability is not verified.",
+        ),
+        "success",
+      ];
+    case "stopping":
+      return [t("Stopping"), t("Waiting for the owned bundled process to close."), "neutral"];
+    case "failed":
+      return [
+        t("Needs attention"),
+        t("The bundled service did not start or exited. Review local logs before trying again."),
+        "warning",
+      ];
+    case "stop-unconfirmed":
+      return [
+        t("Stop not confirmed"),
+        t(
+          "The owned process has not confirmed closure. Keep MyAPI open; another process will not be started.",
+        ),
+        "warning",
+      ];
+    case "external":
+      return [
+        t("External development service"),
+        t("Development servers are started outside MyAPI. This panel cannot start or stop them."),
+        "neutral",
+      ];
+    default:
+      return [
+        t("Stopped"),
+        t("The bundled service is stopped. MyAPI remains available in the tray."),
+        "neutral",
+      ];
+  }
+}
 
-  const result = await dialog.showMessageBox({
-    type: 'question',
-    title,
-    message,
-    detail,
-    buttons: ['取消', '退出并重启'],
-    defaultId: 1,
+function reasonLabel(reason) {
+  if (runtimeConfig.error)
+    return t(
+      "Startup settings are invalid. Restore local access or relaunch with valid private-network settings.",
+    );
+  if (nativeReason === "binary-missing")
+    return t("The bundled program could not be found. Check the application package.");
+  if (nativeReason === "session-secret-write-failed")
+    return t(
+      "The persistent session secret could not be saved. Check the application data folder permissions.",
+    );
+  switch (reason) {
+    case "start-unverified":
+      return t("No readiness evidence was returned. Stop the owned process before trying again.");
+    case "start-failed":
+      return t(
+        "The local status check did not confirm readiness. Stop the owned process before trying again.",
+      );
+    case "launch-failed":
+      return t("The bundled program could not be launched. Open local logs for details.");
+    case "process-error":
+      return t("The owned process reported a startup or process error.");
+    case "process-exited":
+      return t("The owned process exited. No automatic restart or request replay was performed.");
+    case "stop-timeout":
+      return t("Closure was not confirmed before the stop deadline. MyAPI will remain open.");
+    case "externally-managed":
+      return t("Development service lifecycle is managed outside MyAPI.");
+    default:
+      break;
+  }
+  return t("No classified service error is available.");
+}
+
+function diagnosticText() {
+  switch (launchDiagnostics.category()) {
+    case "port":
+      return {
+        summary: t("The configured port is unavailable."),
+        guidance: t(
+          "Check whether another instance or application uses the configured port. Do not stop an unrelated process from this panel.",
+        ),
+      };
+    case "database":
+      return {
+        summary: t("The configured database needs attention."),
+        guidance: t(
+          "Check the actual database location and whether another instance is using it. Preserve database, WAL and SHM files and use a consistent backup before recovery.",
+        ),
+      };
+    case "permission":
+      return {
+        summary: t("Application data access needs attention."),
+        guidance: t(
+          "Check the application, database and log folder permissions for your normal account. Ask the administrator if access is required.",
+        ),
+      };
+    case "network":
+      return {
+        summary: t("A service network connection failed."),
+        guidance: t(
+          "Check the configured address, network and firewall. This panel does not change proxy or provider settings.",
+        ),
+      };
+    case "configuration":
+      return {
+        summary: t("The service configuration needs attention."),
+        guidance: t(
+          "Review the original diagnostic log and saved configuration. Preserve existing files rather than deleting or replacing them as a recovery shortcut.",
+        ),
+      };
+    case "memory":
+      return {
+        summary: t("The service reported insufficient memory."),
+        guidance: t(
+          "Review available system memory and other running applications before starting the service again.",
+        ),
+      };
+    case "missing-file":
+      return {
+        summary: t("A required service file could not be found."),
+        guidance: t(
+          "Check the installed application package and configured file locations. Preserve existing data when repairing the installation.",
+        ),
+      };
+    default:
+      return {
+        summary: t("No specific startup error category is available."),
+        guidance: t(
+          "Save and open the original diagnostic log to inspect the failure. Original text may contain private information and may use another language.",
+        ),
+      };
+  }
+}
+
+function snapshot() {
+  const service = controller?.snapshot() || {
+    state: "stopped",
+    generation: 0,
+    owned: false,
+    pending: false,
+    reason: null,
+  };
+  const [stateLabel, stateDescription, stateTone] = runtimeConfig.error
+    ? [
+        t("Needs attention"),
+        t(
+          "Startup settings are invalid. Restore local access or relaunch with valid private-network settings.",
+        ),
+        "warning",
+      ]
+    : stateText(service.state);
+  const { userDataPath, dataDir, logsDir, databasePath } = locations();
+  const addresses = runtimeConfig.error
+    ? []
+    : describeRuntimeConfig(runtimeConfig, process.platform).endpoints.map(
+        (endpoint) => `${endpoint}/v1`,
+      );
+  const explicitDatabase = Boolean(process.env.SQL_DSN && process.env.SQL_DSN !== "local");
+  const diagnostic = diagnosticText();
+  return {
+    revision: stateRevision,
+    applicationVersion: app.getVersion(),
+    state: service.state,
+    generation: service.generation,
+    owned: service.owned,
+    pending: service.pending,
+    stateLabel,
+    stateDescription:
+      service.state === "failed" &&
+      launchDiagnostics.category() !== "unknown" &&
+      !runtimeConfig.error
+        ? diagnostic.summary
+        : stateDescription,
+    stateTone,
+    reasonLabel: reasonLabel(service.reason),
+    diagnostic: {
+      category: launchDiagnostics.category(),
+      summary: diagnostic.summary,
+      guidance: diagnostic.guidance,
+      hasOriginal: launchDiagnostics.hasOriginal(),
+      truncated: launchDiagnostics.isTruncated(),
+    },
+    language: translator.language,
+    scopeLabel: runtimeConfig.error
+      ? t("Access scope unknown")
+      : runtimeConfig.isLan
+        ? t("Private LAN")
+        : t("This computer only"),
+    addresses,
+    canStart:
+      !IS_DEV &&
+      !actionBusy &&
+      !runtimeConfig.error &&
+      !service.owned &&
+      ["stopped", "failed"].includes(service.state),
+    canStop:
+      !IS_DEV &&
+      !actionBusy &&
+      service.owned &&
+      ["starting", "running", "failed"].includes(service.state),
+    canQuit: !actionBusy && !["stopping", "stop-unconfirmed"].includes(service.state),
+    canRestart: !IS_DEV && !actionBusy && !["stopping", "stop-unconfirmed"].includes(service.state),
+    canOpenConsole: !actionBusy && (IS_DEV || service.state === "running"),
+    messages: Object.fromEntries(PANEL_KEYS.map((key) => [key, t(key)])),
+    notice: notice ? { message: t(notice.key, notice.values), tone: notice.tone } : null,
+    locations: {
+      userData: userDataPath,
+      dataDirectory: dataDir,
+      logsDirectory: logsDir,
+      databaseLocationLabel: IS_DEV
+        ? t("Development database configuration is managed outside MyAPI.")
+        : explicitDatabase
+          ? t("An explicit database connection is configured; connection details are hidden.")
+          : databasePath,
+      sessionSecretLabel:
+        IS_DEV || process.env.SESSION_SECRET
+          ? t("Configured outside this panel; value hidden.")
+          : t("Stored in the application data folder; value hidden."),
+    },
+  };
+}
+
+function publishState() {
+  if (allowExit) return;
+  stateRevision++;
+  rebuildTray();
+  if (
+    serviceWindow &&
+    !serviceWindow.isDestroyed() &&
+    !serviceWindow.webContents.isDestroyed() &&
+    serviceWindow.webContents.getURL() === PANEL_URL
+  ) {
+    serviceWindow.webContents.send(SERVICE_PANEL_STATE_CHANNEL, snapshot());
+  }
+}
+
+async function confirmAction(context, key, label, listener) {
+  const identity = controller.identity();
+  const options = {
+    type: "question",
+    title: APP_NAME,
+    message: t(key),
+    detail: [
+      t(
+        "Client requests may be interrupted. Configuration, database files and logs are not deleted or restored by this action.",
+      ),
+      listener ? t("Listener after restart: {{address}}:{{port}}", listener) : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+    buttons: [t("Cancel"), t(label)],
+    defaultId: 0,
     cancelId: 0,
     noLink: true,
-  });
-  if (result.response !== 1) return;
-
-  // Electron relaunch starts a fresh process; quitting then lets the existing
-  // before-quit handler terminate the bundled backend cleanly.
-  app.isQuitting = true;
-  app.relaunch({ args: relaunchArgs });
-  app.quit();
+  };
+  const result =
+    serviceWindow && !serviceWindow.isDestroyed()
+      ? await dialog.showMessageBox(serviceWindow, options)
+      : await dialog.showMessageBox(options);
+  if (result.response !== 1) return false;
+  if (!context.isTrusted() || identity !== controller.identity()) {
+    notice = {
+      key: "The service changed while confirmation was open. Review its current state.",
+      tone: "warning",
+    };
+    return false;
+  }
+  return true;
 }
 
-function restartWithLan() {
+async function selectPrivateAddress(context) {
+  const identity = controller.identity();
   const candidates = getPrivateIPv4Candidates();
   if (candidates.length === 0) {
-    dialog.showMessageBox({
-      type: 'warning',
-      title: '未找到可用的局域网地址',
-      message: 'MyAPI 没有发现可用的私有 IPv4 地址。',
-      detail: '请先连接到 10.x、172.16–31.x 或 192.168.x 的局域网，再重试。不会读取或导入任何本地凭据。',
-      buttons: ['关闭'],
-      defaultId: 0,
-    });
-    return;
+    notice = {
+      key: "No private IPv4 address was found. Connect to a private network and try again.",
+      tone: "warning",
+    };
+    return null;
   }
-
-  const selectedAddress = candidates[0];
-  const addressSummary = candidates.length > 1
-    ? `发现的地址：${candidates.join('、')}\n将使用：${selectedAddress}`
-    : `局域网地址：${selectedAddress}`;
-  confirmAndRelaunch({
-    bindAddress: selectedAddress,
-    allowLan: true,
-    title: '重启并启用局域网共享？',
-    message: 'MyAPI 将退出并重启，然后仅绑定到一个私有局域网 IPv4 地址。',
-    detail: `${addressSummary}\n端口：${PORT}\n\n局域网中的同事需要使用 API Key 访问。监听地址只在启动时确定，不会动态重绑定。`,
-  }).catch((error) => {
-    console.error('Failed to prepare LAN relaunch:', error);
-    dialog.showErrorBox('无法启用局域网共享', error.message);
-  });
+  const options = {
+    type: "question",
+    title: APP_NAME,
+    message: t("Choose a private LAN address."),
+    detail: t(
+      "Only a listed private address can be selected. The listener changes after a separate restart confirmation.",
+    ),
+    buttons: [t("Cancel"), ...candidates],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true,
+  };
+  const result =
+    serviceWindow && !serviceWindow.isDestroyed()
+      ? await dialog.showMessageBox(serviceWindow, options)
+      : await dialog.showMessageBox(options);
+  if (result.response === 0) return null;
+  const selected = Number.isSafeInteger(result.response)
+    ? candidates[result.response - 1]
+    : undefined;
+  if (!selected || !context.isTrusted() || identity !== controller.identity()) {
+    notice = {
+      key: "The service changed while confirmation was open. Review its current state.",
+      tone: "warning",
+    };
+    return null;
+  }
+  if (!getPrivateIPv4Candidates().includes(selected)) {
+    notice = {
+      key: "The selected private address is no longer available. Select it again after checking the network.",
+      tone: "warning",
+    };
+    return null;
+  }
+  return selected;
 }
 
-function restartLoopbackOnly() {
-  confirmAndRelaunch({
-    bindAddress: DEFAULT_BIND_ADDRESS,
-    allowLan: false,
-    title: '恢复仅本机访问？',
-    message: 'MyAPI 将退出并重启，然后仅监听本机回环地址。',
-    detail: `地址：${DEFAULT_BIND_ADDRESS}\n端口：${PORT}\n\n局域网中的其他设备将无法访问此实例。`,
-  }).catch((error) => {
-    console.error('Failed to prepare loopback relaunch:', error);
-    dialog.showErrorBox('无法恢复仅本机访问', error.message);
-  });
+async function runControlledAction(name, context) {
+  if (actionBusy) return snapshot();
+  if (!context.isTrusted()) return snapshot();
+  actionBusy = true;
+  notice = null;
+  publishState();
+  try {
+    await applyConfirmedServiceAction(name, context);
+  } catch {
+    recordNativeReason("action-failed");
+    notice = {
+      key: "The action could not be completed. Reopen the service panel and review its state.",
+      tone: "warning",
+    };
+  } finally {
+    actionBusy = false;
+    publishState();
+  }
+  return snapshot();
+}
+
+async function applyConfirmedServiceAction(name, context) {
+  const current = controller.snapshot();
+  if (current.state === "stop-unconfirmed") {
+    notice = {
+      key: "Stop was not confirmed. MyAPI will stay open and will not start another process.",
+      tone: "warning",
+    };
+    return;
+  }
+  if (name === "start") {
+    if (
+      IS_DEV ||
+      runtimeConfig.error ||
+      current.owned ||
+      !["stopped", "failed"].includes(current.state)
+    )
+      return;
+    if (!(await confirmAction(context, "Start the bundled service?", "Start bundled service")))
+      return;
+    nativeReason = null;
+    void controller.start().catch(() => {
+      recordNativeReason("start-failed");
+      publishState();
+    });
+  } else if (name === "stop") {
+    if (IS_DEV || !current.owned || current.state === "stopping") return;
+    if (
+      !(await confirmAction(
+        context,
+        "Stop only the bundled service and keep MyAPI open?",
+        "Stop bundled service",
+      ))
+    )
+      return;
+    await controller.stop();
+    if (controller.snapshot().owned)
+      notice = {
+        key: "Stop was not confirmed. MyAPI will stay open and will not start another process.",
+        tone: "warning",
+      };
+  } else {
+    const relaunch = name === "restartLAN" || name === "restartLoopback";
+    if (IS_DEV && relaunch) return;
+    let relaunchArgs;
+    let selectedAddress;
+    if (relaunch) {
+      selectedAddress =
+        name === "restartLAN" ? await selectPrivateAddress(context) : DEFAULT_BIND_ADDRESS;
+      if (!selectedAddress) return;
+      relaunchArgs = buildRelaunchArgs(DESKTOP_ARGS, {
+        bindAddress: selectedAddress,
+        port: PORT,
+        allowLan: name === "restartLAN",
+      });
+      resolveRuntimeConfig({ args: relaunchArgs, env: {} });
+    }
+    const message = relaunch
+      ? "Restart MyAPI with the selected private access scope?"
+      : "Quit MyAPI and stop its bundled service?";
+    if (
+      !(await confirmAction(
+        context,
+        message,
+        relaunch ? "Restart MyAPI" : "Quit MyAPI",
+        relaunch ? { address: selectedAddress, port: PORT } : null,
+      ))
+    )
+      return;
+    if (name === "restartLAN" && !getPrivateIPv4Candidates().includes(selectedAddress)) {
+      notice = {
+        key: "The selected private address is no longer available. Select it again after checking the network.",
+        tone: "warning",
+      };
+      return;
+    }
+    await controller.stop();
+    if (!context.isTrusted()) return;
+    const stopped = controller.snapshot();
+    if (stopped.owned || ["starting", "stopping", "stop-unconfirmed"].includes(stopped.state)) {
+      notice = {
+        key: "Stop was not confirmed. MyAPI will stay open and will not start another process.",
+        tone: "warning",
+      };
+      return;
+    }
+    if (name === "restartLAN" && !getPrivateIPv4Candidates().includes(selectedAddress)) {
+      notice = {
+        key: "The selected private address is no longer available. Select it again after checking the network.",
+        tone: "warning",
+      };
+      return;
+    }
+    allowExit = true;
+    app.isQuitting = true;
+    developmentProbe.abort();
+    if (relaunchArgs) app.relaunch({ args: relaunchArgs });
+    app.quit();
+  }
+}
+
+async function dispatch(name, context = { isTrusted: () => true }, argument) {
+  if (!context.isTrusted()) return snapshot();
+  if (["start", "stop", "quit", "restartLAN", "restartLoopback"].includes(name))
+    return runControlledAction(name, context);
+  try {
+    if (name === "openConsole") {
+      if (IS_DEV)
+        await checkServerAvailability(DEV_FRONTEND_PORT, 1, 0, "127.0.0.1", "/", {
+          signal: developmentProbe.signal,
+        });
+      else if (controller.snapshot().state !== "running") return snapshot();
+      if (context.isTrusted() && !allowExit) createWindow();
+    } else if (name === "setLanguage") {
+      if (!["en", "zh"].includes(argument)) return snapshot();
+      translator.setLanguage(argument);
+      try {
+        const preferencePath = path.join(app.getPath("userData"), "myapi-desktop-language.json");
+        const temporary = `${preferencePath}.tmp`;
+        fs.mkdirSync(app.getPath("userData"), { recursive: true });
+        fs.writeFileSync(temporary, JSON.stringify({ language: argument }) + "\n", { mode: 0o600 });
+        fs.renameSync(temporary, preferencePath);
+        notice = null;
+      } catch {
+        notice = {
+          key: "Language changed for this session; saving the preference failed.",
+          tone: "warning",
+        };
+      }
+    } else if (name === "copyKnownAddress") {
+      if (typeof argument !== "string" || !snapshot().addresses.includes(argument)) {
+        notice = {
+          key: "The action could not be completed. Reopen the service panel and review its state.",
+          tone: "warning",
+        };
+        publishState();
+        return snapshot();
+      }
+      clipboard.writeText(argument);
+      notice = { key: "Configured address copied.", tone: "neutral" };
+    } else if (name === "openKnownLogs") {
+      const { logsDir } = locations();
+      const record = launchDiagnostics;
+      fs.mkdirSync(logsDir, { recursive: true });
+      const diagnosticPath = path.join(logsDir, "desktop-service-diagnostic.log");
+      const descriptor = fs.openSync(
+        diagnosticPath,
+        fs.constants.O_WRONLY |
+          fs.constants.O_CREAT |
+          fs.constants.O_TRUNC |
+          (fs.constants.O_NOFOLLOW || 0),
+        0o600,
+      );
+      try {
+        fs.fchmodSync(descriptor, 0o600);
+        fs.writeFileSync(
+          descriptor,
+          `MyAPI Desktop\nLaunch generation: ${record.generation}\nOriginal stderr / startup error (not translated)\nTruncated: ${record.isTruncated()}\n\n${record.originalText() || "No original stderr was captured for this launch."}\n`,
+        );
+      } finally {
+        fs.closeSync(descriptor);
+      }
+      const error = await shell.openPath(diagnosticPath);
+      if (error) notice = { key: "The diagnostic log could not be opened.", tone: "warning" };
+    } else if (name === "showLAN" || name === "showPublicHelp") {
+      const lan = name === "showLAN";
+      await dialog.showMessageBox({
+        type: "info",
+        title: t(lan ? "LAN status and help" : "Public access help"),
+        message: lan
+          ? snapshot().scopeLabel
+          : t(
+              "Public access is not configured by this panel and has not been verified. A separate setup is required.",
+            ),
+        detail: lan
+          ? [
+              snapshot().addresses.join("\n"),
+              t(
+                "LAN access requires a private network, an API Key and the operating system firewall permission. Listener changes require a confirmed restart.",
+              ),
+            ].join("\n\n")
+          : t(
+              "This panel keeps the existing local and private-LAN limits. It does not open a public listener or configure a tunnel.",
+            ),
+        buttons: [t("Close")],
+        defaultId: 0,
+        cancelId: 0,
+      });
+    }
+  } catch {
+    notice = {
+      key: "The action could not be completed. Reopen the service panel and review its state.",
+      tone: "warning",
+    };
+  }
+  publishState();
+  return snapshot();
+}
+
+function rebuildTray() {
+  if (!tray || !controller || allowExit || tray.isDestroyed()) return;
+  const current = snapshot();
+  const nativeAction = (name) => () => {
+    void dispatch(name).catch(() => {});
+  };
+  const menu = Menu.buildFromTemplate([
+    { label: t("Show service panel"), click: showServicePanel },
+    {
+      label: t("Open console"),
+      enabled: current.canOpenConsole,
+      click: nativeAction("openConsole"),
+    },
+    { label: current.stateLabel, enabled: false },
+    { label: current.scopeLabel, enabled: false },
+    { type: "separator" },
+    { label: t("Start bundled service"), enabled: current.canStart, click: nativeAction("start") },
+    { label: t("Stop bundled service"), enabled: current.canStop, click: nativeAction("stop") },
+    { label: t("LAN status and help"), click: nativeAction("showLAN") },
+    {
+      label: t("Restart with LAN access"),
+      enabled: current.canRestart,
+      click: nativeAction("restartLAN"),
+    },
+    {
+      label: t("Restart with local access only"),
+      enabled: current.canRestart,
+      click: nativeAction("restartLoopback"),
+    },
+    { label: t("Public access help"), click: nativeAction("showPublicHelp") },
+    {
+      label: t("Language"),
+      submenu: [
+        {
+          label: "中文",
+          type: "radio",
+          checked: translator.language === "zh",
+          click: () => {
+            void dispatch("setLanguage", { isTrusted: () => true }, "zh").catch(() => {});
+          },
+        },
+        {
+          label: "English",
+          type: "radio",
+          checked: translator.language === "en",
+          click: () => {
+            void dispatch("setLanguage", { isTrusted: () => true }, "en").catch(() => {});
+          },
+        },
+      ],
+    },
+    { type: "separator" },
+    { label: t("Quit MyAPI"), enabled: current.canQuit, click: nativeAction("quit") },
+  ]);
+  tray.setContextMenu(menu);
+  tray.setToolTip(`${APP_NAME} · ${current.stateLabel}`);
 }
 
 function createTray() {
-  // Use template icon for macOS (black with transparency, auto-adapts to theme)
-  // Use colored icon for Windows
-  const trayIconPath = process.platform === 'darwin'
-    ? path.join(__dirname, 'tray-iconTemplate.png')
-    : path.join(__dirname, 'tray-icon-windows.png');
-
+  const trayIconPath =
+    process.platform === "darwin"
+      ? path.join(__dirname, "tray-iconTemplate.png")
+      : path.join(__dirname, "tray-icon-windows.png");
   tray = new Tray(trayIconPath);
-
-  const trayStatus = describeRuntimeConfig(runtimeConfig, process.platform);
-
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: `Show ${APP_NAME}`,
-      click: () => {
-        if (mainWindow === null) {
-          createWindow();
-        } else {
-          mainWindow.show();
-          if (process.platform === 'darwin') {
-            app.dock.show();
-          }
-        }
-      }
-    },
-    {
-      label: `Endpoint: ${trayStatus.endpoint}`,
-      enabled: false,
-    },
-    {
-      label: runtimeConfig.isLan
-        ? 'LAN sharing enabled (private network)'
-        : 'LAN sharing disabled (loopback only)',
-      enabled: false,
-    },
-    {
-      label: 'LAN status and connection help…',
-      click: () => {
-        const status = describeRuntimeConfig(runtimeConfig, process.platform);
-        const mode = status.lanEnabled
-          ? 'LAN sharing is enabled for a private network.'
-          : 'LAN sharing is disabled; this instance is reachable only from this computer.';
-        dialog.showMessageBox({
-          type: 'info',
-          title: 'MyAPI LAN status',
-          message: mode,
-          detail: [
-            `Endpoint: ${status.endpoint}`,
-            `Mode: ${status.mode}`,
-            '',
-            status.firewallHint,
-            status.restartHint,
-          ].join('\n'),
-          buttons: ['Close'],
-          defaultId: 0,
-        });
-      },
-    },
-    { type: 'separator' },
-    {
-      label: '重启并启用 LAN…',
-      click: restartWithLan,
-    },
-    {
-      label: '重启并恢复仅本机',
-      click: restartLoopbackOnly,
-    },
-    { type: 'separator' },
-    {
-      label: 'Quit',
-      click: () => {
-        app.isQuitting = true;
-        app.quit();
-      }
-    }
-  ]);
-
-  tray.setToolTip(APP_NAME);
-  tray.setContextMenu(contextMenu);
-
-  // On macOS, clicking the tray icon shows the window
-  tray.on('click', () => {
-    if (mainWindow === null) {
-      createWindow();
-    } else {
-      mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
-      if (mainWindow.isVisible() && process.platform === 'darwin') {
-        app.dock.show();
-      }
-    }
-  });
+  tray.on("click", showServicePanel);
+  rebuildTray();
 }
 
-app.whenReady().then(async () => {
-  if (!hasSingleInstanceLock) return;
-  if (runtimeConfig.error) {
-    await dialog.showMessageBox({
-      type: 'error',
-      title: '启动参数无效',
-      message: runtimeConfig.error.message,
-      detail: '默认只监听本机回环地址。若要共享给同事，请使用 --allow-lan 并指定私有 IPv4 地址。',
-      buttons: ['退出'],
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) app.quit();
+else
+  app.on("second-instance", () => {
+    if (app.isReady()) showServicePanel();
+  });
+
+app
+  .whenReady()
+  .then(() => {
+    if (!hasSingleInstanceLock) return;
+    let language = normalizeLanguage(app.getLocale());
+    try {
+      const preference = JSON.parse(
+        fs.readFileSync(path.join(app.getPath("userData"), "myapi-desktop-language.json"), "utf8"),
+      );
+      if (["en", "zh"].includes(preference.language)) language = preference.language;
+    } catch {
+      /* Missing preferences keep the operating system language. */
+    }
+    translator.setLanguage(language);
+    process.env.ELECTRON_DATA_DIR = locations().dataDir;
+    controller = createServiceController({
+      launch: startServer,
+      external: IS_DEV,
+      onChange: () => publishState(),
     });
-    app.quit();
-    return;
-  }
-  try {
-    await startServer();
+    const actions = {};
+    for (const name of [
+      "snapshot",
+      "start",
+      "stop",
+      "quit",
+      "openConsole",
+      "setLanguage",
+      "copyKnownAddress",
+      "openKnownLogs",
+      "showLAN",
+      "showPublicHelp",
+      "restartLAN",
+      "restartLoopback",
+    ]) {
+      actions[name] = (context, argument) =>
+        name === "snapshot" ? snapshot() : dispatch(name, context, argument);
+    }
+    createServicePanelIPC({
+      ipcMain,
+      getWindow: () => serviceWindow,
+      panelURL: PANEL_URL,
+      actions,
+    });
     createTray();
-    createWindow();
-  } catch (err) {
-    console.error('Failed to start application:', err);
-    
-    // 分析启动失败的错误
-    const knownError = analyzeError(serverErrorLogs);
-    
-    if (knownError) {
-      dialog.showMessageBox({
-        type: 'error',
-        title: knownError.title,
-        message: `启动失败: ${knownError.message}`,
-        detail: `${knownError.solution}\n\n━━━━━━━━━━━━━━━━━━━━━━\n\n错误信息: ${err.message}\n\n错误类型: ${knownError.type}`,
-        buttons: ['退出', '查看完整日志'],
-        defaultId: 0,
-        cancelId: 0
-      }).then((result) => {
-        if (result.response === 1) {
-          // 用户选择查看日志
-          const logPath = saveAndOpenErrorLog();
-          
-          const confirmMessage = logPath 
-            ? `日志已保存到:\n${logPath}\n\n日志文件已在默认文本编辑器中打开。\n\n点击"退出"关闭应用程序。`
-            : '日志保存失败，但已在控制台输出。\n\n点击"退出"关闭应用程序。';
-          
-          dialog.showMessageBox({
-            type: 'info',
-            title: '日志已保存',
-            message: confirmMessage,
-            buttons: ['退出'],
-            defaultId: 0
-          }).then(() => {
-            app.quit();
-          });
-          
-          console.log('=== 完整错误日志 ===');
-          console.log(serverErrorLogs.join('\n'));
-        } else {
-          app.quit();
-        }
+    showServicePanel();
+    if (runtimeConfig.error) {
+      publishState();
+      return;
+    }
+    if (IS_DEV) {
+      void checkServerAvailability(DEV_FRONTEND_PORT, 30, 1000, "127.0.0.1", "/", {
+        signal: developmentProbe.signal,
+      }).catch(() => {
+        if (allowExit) return;
+        notice = {
+          key: "The external development console is not ready. Start it outside MyAPI, then use Open console.",
+          tone: "neutral",
+        };
+        publishState();
       });
     } else {
-      dialog.showMessageBox({
-        type: 'error',
-        title: '启动失败',
-        message: '无法启动服务器',
-        detail: `错误信息: ${err.message}\n\n请检查日志获取更多信息。`,
-        buttons: ['退出', '查看完整日志'],
-        defaultId: 0,
-        cancelId: 0
-      }).then((result) => {
-        if (result.response === 1) {
-          // 用户选择查看日志
-          const logPath = saveAndOpenErrorLog();
-          
-          const confirmMessage = logPath 
-            ? `日志已保存到:\n${logPath}\n\n日志文件已在默认文本编辑器中打开。\n\n点击"退出"关闭应用程序。`
-            : '日志保存失败，但已在控制台输出。\n\n点击"退出"关闭应用程序。';
-          
-          dialog.showMessageBox({
-            type: 'info',
-            title: '日志已保存',
-            message: confirmMessage,
-            buttons: ['退出'],
-            defaultId: 0
-          }).then(() => {
-            app.quit();
-          });
-          
-          console.log('=== 完整错误日志 ===');
-          console.log(serverErrorLogs.join('\n'));
-        } else {
-          app.quit();
-        }
+      void controller.start().catch(() => {
+        recordNativeReason("start-failed");
+        publishState();
       });
     }
-  }
+  })
+  .catch(() => {
+    notice = {
+      key: "The service panel could not be opened. Use the tray controls or inspect local logs.",
+      tone: "warning",
+    };
+    recordNativeReason("desktop-initialization-failed");
+    publishState();
+  });
+
+app.on("window-all-closed", () => {
+  /* Windows close to the tray; never stop here. */
 });
-
-app.on('window-all-closed', () => {
-  // Don't quit when window is closed, keep running in tray
-  // Only quit when explicitly choosing Quit from tray menu
+app.on("activate", () => {
+  if (hasSingleInstanceLock) showServicePanel();
 });
-
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
+app.on("before-quit", (event) => {
+  if (allowExit || !hasSingleInstanceLock) return;
+  if (!controller) {
+    allowExit = true;
+    return;
   }
-});
-
-app.on('before-quit', (event) => {
-  if (serverProcess) {
-    event.preventDefault();
-
-    console.log('Shutting down server...');
-    serverProcess.kill('SIGTERM');
-
-    setTimeout(() => {
-      if (serverProcess) {
-        serverProcess.kill('SIGKILL');
-      }
-      app.exit();
-    }, 5000);
-
-    serverProcess.on('close', () => {
-      serverProcess = null;
-      app.exit();
-    });
-  }
+  event.preventDefault();
+  void dispatch("quit").catch(() => {});
 });

@@ -1,5 +1,29 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-07 B5a：Desktop本机服务、双语托盘与构建对齐（beta.40候选，完整CI/平台构建为门禁）
+
+上一轮为实质进展：UI-M2源码交付完成。dev/`4601139a48fc875cbd975428f8b1a545b18f4947` / [CI42367969543](https://github.com/ForceMind/MyAPI/actions/runs/42367969543) attempt1 success，10执行作业成功/1浏览器真实API跳过；主会话亲读15918行完整日志、步骤与10个checkout一致，失败/race标记0。前端421文件3452/3452，新增节点5/5与路由13/13在专项和全量均通过；精确0、ID8/旧ID消失、无抢焦点/scroll0等断言保留。首轮2d242099前端4221行/3450过2失败及对应严格测试修正保留；不把失败当绿，不重开R4或其它历史BUG。
+
+本轮基线dev/4601139a干净，fetch后0/0且ff-only最新，基线CI元数据仍success。沿完整Goal进入B5第一个可交付迭代；**B5a不是全部B5**，独立公网向导B5b及其可达性验证继续保留，不为了小范围过测缩减完整计划。旧public-bind拒绝、LAN明确同意及私网约束不放宽。本机服务不等于公网可达，公网第三方/端口/账号/费用仍由用户选择。
+
+成功标准：小白能分清关闭窗口留托盘、仅停止本应用内置服务、确认退出应用；后端失败/停止后本地面板仍可用，控制动作只作用于本应用spawn的child，配置/数据/身份密钥路径保留，不复制旧库、不重放请求。验证方法：实际controller、真实main/IPC/preload/renderer的Node VM合同、GHA临时合成子进程close握手、既有runtime/public/健康探测合同，以及完整CI全部在Actions；再按macOS先Windows后执行无发布的Electron构建，验证源码/版本/minimal/本地资源打包。不会启动Electron GUI或浏览器，不以Node mock合同声称真实托盘/OS交互通过。
+
+本批设计→实现顺序与范围：
+
+- 先制作[Desktop服务效果预览](ui-design-v2/screenshots/desktop-service-concept-20261107.png)，标明示例状态/非实机截图；再仅更新既有desktop-tray一对象/一个article与两SVG。仍329视图，其余328保持；窄窗口SVG只表达排列，不宣称移动App支持。
+- 复用2名gpt-6.1-sol/high代理：运行UI owner负责main、独立file面板/独立preload、固定IPC/native i18n模块；controller/测试 owner负责无Electron依赖的owned-child状态机、Node/VM/合成child及build helper/tools/workflow；主会话集成、资源白名单、规范locale脚本、版本/交接和CI亲读。没有新代理或递归派工。
+- 保持旧网关HTTP `preload.js`只读能力；新本机面板只用固定窗口+主frame+精确本地file URL，确认返回再复核lease/child/generation/身份。仅固定动作，不给任意invoke、命令、PID、路径或URL；DTO不含环境/secret值/正文/原始stderr，DOM按文本渲染，面板禁任意导航和新窗。
+- controller独占child/operation/generation/timer；状态分开stopped/starting/running/stopping/failed/stop-unconfirmed/external。kill返回true不算已停；旧probe/close/timeout不能操作下一generation，停止未确认保child、禁第二个spawn，不假装安全退出。缺ready探测不能默认running；dev外部服务不开始/停止，仍保既有开发前端探测。
+- main先建托盘和本地面板再启动，状态不依赖网关HTTP页面；关窗不退出，停止只停owned child，退出/已确认LAN relaunch等真实关闭后才继续。确认默认取消，控制串行/去重；启动探测可取消，退出不被未完成probe拖住。不自动重启/重发模型、恢复快照或动其它进程。
+- `userData/data`、日志目录、显式MYAPI_SQLITE_PATH/SQLITE_PATH优先级、旧DB原位采用、SESSION_SECRET与Lite后端环境保持；相关备份提示只说准确数据/身份/显式路径范围，不再承诺复制单一目录等于完整备份，不在本批新增备份工具。
+- 托盘/本地面板/相关确认双语，111个en/zh原生键由规范脚本写入，非中文OS语言回退English；语言偏好仅固定本应用userData配置，写失败明确仅本次有效。Web已有Desktop引导新增1键(七locale齐全)同步为不依赖旧Quit英文标签的语义，不往HTTP页面加控制。
+- `electron/build.sh`与`electron-build.yml`对齐root VERSION、实际checkout HEAD、Lite/minimal品牌、Go ldflags和Electron有效extraMetadata.version；私有包1.0与依赖树不另建版本体系。AppId/userData/发布坐标、publish:null、签名/发布门禁及自动更新关闭保持；manual平台选择默认both兼容旧用法，允许先mac后win。Linux旧开发分支保留，不称首发支持。
+
+必要验证资产包括新controller/main/IPC/renderer/合成child Node测试与固定fixture、tools/desktop合同、原runtime-config及desktop-probe合同；生产探测仅多了本次AbortSignal第6参时，静态签名严格要求signal，原status/env/logs/dev断言全部保留，并以真实VM补更强取消/JSON/非2xx行为。Root package白名单追加controller、安全诊断模块、面板/IPC/preload/CSS/i18n及en/zh资源；测试fixture不打包。
+
+候选统一beta.40，仅dev源码与GHA构建产物；本机未安装依赖、运行项目tests/lint/typecheck/build/Docker/浏览器或下载CI产物，只有源码/既有格式器/JSON/XML/语法轻检查。无生产/服务器/真实供应商模型/main/tag/GHCR/NPM/发布或新签名证书。结果须按最终提交精确SHA亲读自己的完整CI与平台构建，不提前称完成；公网B5b、A2–A6/B3/B4/B6/B7及统一质量/七语言/全量验收仍在主Goal。
+
+
 ## 2026-11-07 UI主线M2：Full首页保存模型与路由快捷入口（beta.39候选，完整CI为交付门禁）
 
 上一轮为实质进展：UI-M1的Lite三步接入、有限保存窗口摘要、Full中性核心和准确请求返回已通过非浏览器验证。dev/`de4ee4d2571ce6634796e59d3c57dbcc1718da6c` / [CI42362321291](https://github.com/ForceMind/MyAPI/actions/runs/42362321291) attempt1 success，10作业成功/1浏览器真实API跳过，主会话亲读16542行完整执行日志/步骤，10个checkout一致，失败/race标记0；前端419文件3434/3434、首页44/44、平台流程16/16（新增桌面/手机返回与modified click三场景在专项和全量均明确PASS）。根/独立relaykit、386/race/三库/Redis/ClickHouse/分发/Desktop门禁通过。旧599ee3d2 lint21错误、420da142测试夹具漏capabilities及主会话误判步骤成功已留证并更正，不把取消当完整绿。M1对应源码收口，浏览器未验证，不代表三版本全量完成。

@@ -1,5 +1,7 @@
 # MyAPI 全站低保真线稿 · 2026-10-28
 
+- 2026-11-07 B5a：沿[Desktop服务效果图](../screenshots/desktop-service-concept-20261107.png)，仅更新既有desktop-tray对象/两SVG及一个article，保329视图和其它328对象。区分关窗留托盘、停止内置服务、确认退出；本地面板独立于网关HTTP，状态未知不能当已停或健康，LAN旧门禁保留，公网B5b另迭代，自动更新关闭。仅源码线稿，浏览器/真实托盘未验证。
+
 - 2026-11-07 M2仅Full首页节点工具：沿既有三版本效果图，增量更新overview桌面/手机两SVG、一个catalog对象和一个index article；保存模型计数展开、优先级/权重0与未知、精确routing入口及返回边界。筛选按钮与工具并列，手机与键盘可达；不查供应商、不写入、不读取密钥。其它328视图保持，浏览器未验证，产品以对应完整CI为准。
 
 - 2026-11-07 Full / Lite / Desktop主线设计增量：沿[三版本首页概念图](../screenshots/three-editions-home-concept-20261107.png)，仅细化既有[概览](index.html#overview)、[连接](index.html#connections)、[Key交付](index.html#key-delivery)三视图及六张桌面/手机SVG；仍329视图 / 658 SVG，其他326视图不重画。Full是Key→中性紧凑网关→连接，保完整原统计与样本说明；Lite首屏三步任务与真实Base URL，完整流向/统计可键盘展开，折叠外保所有加载/读取失败/待处理/未知摘要及已存窗口来源、剩余、状态和观察时间。Desktop复用Lite与已有关窗/托盘引导；原生服务健康、停止服务和LAN控制明确为B5待实现，本批没有对应可操作按钮。

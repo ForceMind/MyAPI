@@ -46,6 +46,13 @@ function checkPackage() {
   record('macOS targets include DMG and ZIP', includes(pkg.build?.mac?.target || [], ['dmg', 'zip']))
   record('Windows targets include NSIS and portable', includes(pkg.build?.win?.target || [], ['nsis', 'portable']))
   record('runtime preflight is packaged', (pkg.build?.files || []).includes('runtime-config.js'))
+  record('desktop lifecycle, native translations and local panel are packaged', includes(pkg.build?.files || [], [
+    'service-controller.js', 'service-diagnostics.js', 'service-panel-ipc.js', 'service-panel-preload.js',
+    'service-panel.html', 'service-panel.js', 'service-panel.css',
+    'native-i18n.js', 'locales/en.json', 'locales/zh.json',
+  ]))
+  record('desktop publishing and macOS signing remain disabled by default', pkg.build?.publish === null && pkg.build?.mac?.identity === null)
+  record('desktop does not add an auto-updater dependency', !pkg.dependencies?.['electron-updater'] && !pkg.devDependencies?.['electron-updater'])
   const allResources = [pkg.build?.mac?.extraResources || [], pkg.build?.win?.extraResources || []]
     .flat()
     .map((resource) => resource.from)
@@ -64,6 +71,7 @@ function checkWorkflow() {
   if (!workflow) return
   record('Electron workflow is tag/manual gated', workflow.includes("tags:\n      - 'v*.*.*'") && workflow.includes('workflow_dispatch:'))
   record('workflow matrix covers macOS and Windows', workflow.includes('macos-latest') && workflow.includes('windows-latest'))
+  record('manual builds can select macOS before Windows without changing the default', includes(workflow, ['platform:', 'default: both', 'options: [both, macos, windows]', "inputs.platform == 'macos'", "inputs.platform == 'windows'"]))
   record(
     'workflow validates exact SemVer tag commit and version files',
     includes(workflow, [
@@ -89,13 +97,28 @@ function checkWorkflow() {
   )
 }
 
+function checkBuildInputs() {
+  const helper = read('electron/build.sh')
+  const workflow = read('.github/workflows/electron-build.yml')
+  const version = read('VERSION').trim()
+  const root = JSON.parse(read('package.json'))
+  record('desktop root VERSION matches the root package version', version === root.version)
+  for (const [name, source] of [['local helper', helper], ['Actions', workflow]]) {
+    record(`${name} compiles the Lite minimal frontend and canonical brand`, includes(source, ["VITE_SELF_USE_MINIMAL='true'", "VITE_BRAND_NAME='MyAPI'", "VITE_BRAND_LOGO='/myapi-logo-v1.png'"]))
+    record(`${name} embeds the checked-out source identity`, source.includes('git -c core.fileMode=false rev-parse HEAD') && source.includes('VITE_BUILD_ID=') && !source.includes('VITE_BUILD_ID=${{ github.sha }}'))
+    record(`${name} uses root VERSION for frontend, backend and effective Electron version`, includes(source, ['< VERSION', 'VITE_REACT_APP_VERSION=', '/common.Version=', '--config.extraMetadata.version=']))
+  }
+  record('Actions build identity comes from the resolved checkout, not the trigger event', workflow.includes("VITE_BUILD_ID='${{ steps.source.outputs.sha }}'") && workflow.includes('echo "version=$FILE_VERSION"'))
+  record('Electron packaging does not rewrite package or lock versions', !workflow.includes('npm version ') && helper.includes('MYAPI_DESKTOP_VERSION'))
+}
+
 function checkRuntime() {
   const main = read('electron/main.js')
   const runtime = read('electron/runtime-config.js')
   record(
     'packaged UI follows the effective LAN bind host',
     main.includes('getHealthCheckAddress(BIND_ADDRESS)') &&
-      main.includes('mainWindow.loadURL(`http://${loadHost}:${loadPort}`)'),
+      main.includes('window.loadURL(`http://${loadHost}:${loadPort}`)'),
   )
   record(
     'wildcard LAN status exposes discovered endpoints without placeholders',
@@ -105,7 +128,7 @@ function checkRuntime() {
   )
   record(
     'production startup probes the backend status endpoint and rejects non-2xx or unsuccessful JSON',
-    main.includes("checkServerAvailability(PORT, 30, 1000, healthCheckHost, '/api/status')") &&
+    /checkServerAvailability\(\s*PORT,\s*30,\s*1000,\s*healthCheckHost,\s*['"]\/api\/status['"],\s*\{\s*signal,?\s*\},?\s*\)/.test(main) &&
       main.includes('isSuccessfulHttpStatus(statusCode)') &&
       main.includes('isSuccessfulStatusResponse(statusCode, responseBody)') &&
       runtime.includes('function isSuccessfulHttpStatus(statusCode)') &&
@@ -113,9 +136,9 @@ function checkRuntime() {
   )
   record(
     'production logs stay under the writable Electron userData root',
-    main.includes("const logsDir = path.join(userDataPath, 'logs')") &&
-      main.includes("FULL_CONTENT_LOG_DIR: path.join(logsDir, 'full-content')") &&
-      main.includes("spawn(binaryPath, ['--log-dir', logsDir]"),
+    /const logsDir = path\.join\(userDataPath, ['"]logs['"]\)/.test(main) &&
+      /FULL_CONTENT_LOG_DIR: path\.join\(logsDir, ['"]full-content['"]\)/.test(main) &&
+      /spawn\(binaryPath, \[['"]--log-dir['"], logsDir\]/.test(main),
   )
 }
 
@@ -140,6 +163,7 @@ function checkDocs() {
 
 checkPackage()
 checkWorkflow()
+checkBuildInputs()
 checkRuntime()
 checkDocs()
 

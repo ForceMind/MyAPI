@@ -1198,7 +1198,7 @@ describe('Lite access tasks and optional flow details', () => {
       })
       expect(
         within(guide).getByText(
-          /Closing this window keeps MyAPI running in the tray/
+          /Manage the bundled service from the tray\. Closing this window leaves it running/
         )
       ).toBeVisible()
       expect(

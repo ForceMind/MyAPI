@@ -3721,6 +3721,7 @@
     "Manage subscription plans and pricing.": "Gérer les plans d'abonnement et les tarifs.",
     "Manage Subscriptions": "Gérer les abonnements",
     "Manage the access scope from the tray. This page does not change the local service.": "Manage the access scope from the tray. This page does not change the local service.",
+    "Manage the bundled service from the tray. Closing this window leaves it running; exiting from the tray stops it and quits MyAPI.": "Manage the bundled service from the tray. Closing this window leaves it running; exiting from the tray stops it and quits MyAPI.",
     "Manage upstream connections, model routes and API keys.": "Gérez les connexions amont, les routes de modèles et les clés API.",
     "Manage usage policy": "Gérer la politique d’utilisation",
     "Manage users and their assigned access.": "Gérez les utilisateurs et leurs accès attribués.",

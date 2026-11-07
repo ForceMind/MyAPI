@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>MyAPI</title>
+    <link rel="stylesheet" href="service-panel.css" />
+    <script src="service-panel.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="brand">
+          <img src="icon.png" alt="" />
+          <div>
+            <strong>MyAPI Desktop</strong>
+            <h1 data-i18n="Local service">Local service</h1>
+          </div>
+        </div>
+        <label
+          ><span data-i18n="Language">Language</span
+          ><select id="language">
+            <option value="zh">中文</option>
+            <option value="en">English</option>
+          </select></label
+        >
+      </header>
+      <p id="notice" role="status" aria-live="polite" hidden></p>
+      <section aria-labelledby="service-heading">
+        <div class="heading">
+          <h2 id="service-heading" data-i18n="Bundled service">Bundled service</h2>
+          <span id="state" class="state" data-i18n="Service state unknown"
+            >Service state unknown</span
+          >
+        </div>
+        <p id="state-description"></p>
+        <div class="actions">
+          <button type="button" id="open-console" disabled class="primary" data-i18n="Open console">
+            Open console
+          </button>
+          <button type="button" id="start" disabled data-i18n="Start bundled service">
+            Start bundled service
+          </button>
+          <button type="button" id="stop" disabled data-i18n="Stop bundled service">
+            Stop bundled service
+          </button>
+        </div>
+        <h3 data-i18n="OpenAI-compatible Base URL">OpenAI-compatible Base URL</h3>
+        <div id="addresses"></div>
+        <p
+          class="muted"
+          data-i18n="This is the configured address, not proof of reachability or model availability."
+        >
+          This is the configured address, not proof of reachability or model availability.
+        </p>
+      </section>
+      <section aria-labelledby="scope-heading">
+        <div class="heading">
+          <h2 id="scope-heading" data-i18n="Access scope">Access scope</h2>
+          <span id="scope" class="state neutral"></span>
+        </div>
+        <p
+          data-i18n="Public access is not configured by this panel and has not been verified. A separate setup is required."
+        >
+          Public access is not configured by this panel and has not been verified. A separate setup
+          is required.
+        </p>
+        <div class="actions">
+          <button type="button" id="show-lan" data-i18n="LAN status and help">
+            LAN status and help</button
+          ><button type="button" id="show-public" data-i18n="Public access help">
+            Public access help
+          </button>
+        </div>
+        <details>
+          <summary data-i18n="Change local access scope">Change local access scope</summary>
+          <p
+            class="muted"
+            data-i18n="Changing the listener requires confirmation and an application restart."
+          >
+            Changing the listener requires confirmation and an application restart.
+          </p>
+          <div class="actions">
+            <button type="button" id="restart-lan" disabled data-i18n="Restart with LAN access">
+              Restart with LAN access</button
+            ><button
+              type="button"
+              id="restart-loopback"
+              disabled
+              data-i18n="Restart with local access only"
+            >
+              Restart with local access only
+            </button>
+          </div>
+        </details>
+      </section>
+      <details class="card">
+        <summary data-i18n="Data and logs">Data and logs</summary>
+        <dl id="locations"></dl>
+        <p
+          class="muted"
+          data-i18n="The data folder is not a complete backup guarantee. Explicit database paths and consistency requirements still apply."
+        >
+          The data folder is not a complete backup guarantee. Explicit database paths and
+          consistency requirements still apply.
+        </p>
+        <p
+          class="muted"
+          data-i18n="Saving diagnostics writes bounded original stderr to a private local file. Review it before sharing."
+        >
+          Saving diagnostics writes bounded original stderr to a private local file. Review it
+          before sharing.
+        </p>
+        <button type="button" id="open-logs" data-i18n="Save diagnostics and open logs">
+          Save diagnostics and open logs
+        </button>
+        <p
+          class="muted"
+          data-i18n="Original diagnostic logs may use their original language. They are not displayed in this panel."
+        >
+          Original diagnostic logs may use their original language. They are not displayed in this
+          panel.
+        </p>
+      </details>
+      <footer>
+        <div>
+          <p
+            data-i18n="Closing this window keeps MyAPI in the tray. Quitting stops its bundled service first."
+          >
+            Closing this window keeps MyAPI in the tray. Quitting stops its bundled service first.
+          </p>
+          <p class="muted">
+            <span data-i18n="Application version">Application version</span>:
+            <span id="application-version">Not provided</span>
+            · <span data-i18n="Automatic updates are off.">Automatic updates are off.</span>
+          </p>
+        </div>
+        <button type="button" id="quit" disabled data-i18n="Quit MyAPI">Quit MyAPI</button>
+      </footer>
+    </main>
+  </body>
+</html>

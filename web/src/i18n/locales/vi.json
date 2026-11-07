@@ -3721,6 +3721,7 @@
     "Manage subscription plans and pricing.": "Quản lý gói đăng ký và giá cả.",
     "Manage Subscriptions": "Quản lý đăng ký",
     "Manage the access scope from the tray. This page does not change the local service.": "Manage the access scope from the tray. This page does not change the local service.",
+    "Manage the bundled service from the tray. Closing this window leaves it running; exiting from the tray stops it and quits MyAPI.": "Manage the bundled service from the tray. Closing this window leaves it running; exiting from the tray stops it and quits MyAPI.",
     "Manage upstream connections, model routes and API keys.": "Quản lý kết nối nguồn, tuyến mô hình và khóa API.",
     "Manage usage policy": "Quản lý chính sách sử dụng",
     "Manage users and their assigned access.": "Quản lý người dùng và quyền truy cập được cấp.",

@@ -17,6 +17,12 @@ on:
         required: false
         default: ''
         type: string
+      platform:
+        description: 'Build macOS first, then Windows; both preserves the existing default'
+        required: false
+        default: both
+        type: choice
+        options: [both, macos, windows]
 
 concurrency:
   group: myapi-electron-${{ inputs.tag || github.ref }}
@@ -29,7 +35,7 @@ jobs:
       source_sha: ${{ steps.source.outputs.sha }}
     strategy:
       matrix:
-        os: [macos-latest, windows-latest]
+        os: ${{ fromJSON(inputs.platform == 'macos' && '["macos-latest"]' || inputs.platform == 'windows' && '["windows-latest"]' || '["macos-latest","windows-latest"]') }}
 
     runs-on: ${{ matrix.os }}
     defaults:
@@ -51,7 +57,16 @@ jobs:
 
       - name: Resolve source commit
         id: source
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        run: |
+          SOURCE_SHA="$(git -c core.fileMode=false rev-parse HEAD)"
+          FILE_VERSION="$(tr -d '[:space:]' < VERSION)"
+          PACKAGE_VERSION="$(node -p 'JSON.parse(require("fs").readFileSync("package.json", "utf8")).version')"
+          if [[ "$FILE_VERSION" != "$PACKAGE_VERSION" || ! "$FILE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::VERSION and package.json must match a valid desktop version"
+            exit 1
+          fi
+          echo "sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+          echo "version=$FILE_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Validate desktop distribution contract
         run: node tools/desktop/check.mjs --json
@@ -71,12 +86,12 @@ jobs:
             echo "::error::tag must be an exact semantic version beginning with v"
             exit 1
           fi
-          if ! git rev-parse "refs/tags/$BUILD_TAG^{commit}" >/dev/null 2>&1; then
+          if ! git -c core.fileMode=false rev-parse "refs/tags/$BUILD_TAG^{commit}" >/dev/null 2>&1; then
             echo "::error::tag '$BUILD_TAG' does not exist"
             exit 1
           fi
-          TAG_SHA="$(git rev-parse "refs/tags/$BUILD_TAG^{commit}")"
-          HEAD_SHA="$(git rev-parse HEAD)"
+          TAG_SHA="$(git -c core.fileMode=false rev-parse "refs/tags/$BUILD_TAG^{commit}")"
+          HEAD_SHA="$(git -c core.fileMode=false rev-parse HEAD)"
           if [[ "$HEAD_SHA" != "$TAG_SHA" ]]; then
             echo "::error::checked out commit does not match tag $BUILD_TAG"
             exit 1
@@ -99,6 +114,9 @@ jobs:
         with:
           go-version: '>=1.25.1'
 
+      - name: Verify desktop lifecycle without starting Electron
+        run: node --test electron/test/*.test.mjs
+
       - name: Build frontend
         env:
           CI: ""
@@ -106,7 +124,7 @@ jobs:
         run: |
           cd web
           bun install --frozen-lockfile
-          DISABLE_ESLINT_PLUGIN='true' VITE_SELF_USE_MINIMAL='true' VITE_BRAND_NAME='MyAPI' VITE_BRAND_LOGO='/myapi-logo-v1.png' VITE_REACT_APP_VERSION=$(git describe --tags --always) VITE_BUILD_ID=${{ github.sha }} bun run build
+          DISABLE_ESLINT_PLUGIN='true' VITE_SELF_USE_MINIMAL='true' VITE_BRAND_NAME='MyAPI' VITE_BRAND_LOGO='/myapi-logo-v1.png' VITE_REACT_APP_VERSION='${{ steps.source.outputs.version }}' VITE_BUILD_ID='${{ steps.source.outputs.sha }}' bun run build
           cd ..
 
       - name: Build Go binary (macOS)
@@ -115,7 +133,7 @@ jobs:
           go mod download
           MODULE_PATH="$(go list -m)"
           [[ "$MODULE_PATH" == "github.com/ForceMind/MyAPI" ]] || { echo "::error::unexpected Go module path: $MODULE_PATH"; exit 1; }
-          GOMAXPROCS=2 go build -p 2 -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$(git describe --tags --always)'" -o my-api
+          GOMAXPROCS=2 go build -p 2 -ldflags "-s -w -X '${MODULE_PATH}/common.Version=${{ steps.source.outputs.version }}'" -o my-api
 
       - name: Build Go binary (Windows)
         if: runner.os == 'Windows'
@@ -123,35 +141,7 @@ jobs:
           go mod download
           MODULE_PATH="$(go list -m)"
           [[ "$MODULE_PATH" == "github.com/ForceMind/MyAPI" ]] || { echo "::error::unexpected Go module path: $MODULE_PATH"; exit 1; }
-          GOMAXPROCS=2 go build -p 2 -ldflags "-s -w -X '${MODULE_PATH}/common.Version=$(git describe --tags --always)'" -o my-api.exe
-
-      - name: Update Electron version
-        run: |
-          cd electron
-          VERSION=$(git describe --tags --always)
-          VERSION=${VERSION#v}  # Remove 'v' prefix if present
-          # Convert to valid semver: take first 3 components and convert rest to prerelease format
-          # e.g., 0.9.3-patch.1 -> 0.9.3-patch.1
-          if [[ $VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(.*)$ ]]; then
-            MAJOR=${BASH_REMATCH[1]}
-            MINOR=${BASH_REMATCH[2]}
-            PATCH=${BASH_REMATCH[3]}
-            REST=${BASH_REMATCH[4]}
-          
-            VERSION="$MAJOR.$MINOR.$PATCH"
-          
-            # If there's extra content, append it without adding -dev
-            if [[ -n "$REST" ]]; then
-              VERSION="$VERSION$REST"
-            fi
-          else
-            # A branch without a reachable semver tag yields a raw commit SHA;
-            # npm version rejects that value. Use the distribution version as
-            # a stable base and add a CI-only prerelease suffix.
-            BASE_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('../package.json', 'utf8')).version")
-            VERSION="$BASE_VERSION-dev.${GITHUB_RUN_NUMBER:-0}"
-          fi
-          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          GOMAXPROCS=2 go build -p 2 -ldflags "-s -w -X '${MODULE_PATH}/common.Version=${{ steps.source.outputs.version }}'" -o my-api.exe
 
       - name: Install Electron dependencies
         run: |
@@ -162,7 +152,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           cd electron
-          npm run build:mac
+          npm run build:mac -- --config.extraMetadata.version='${{ steps.source.outputs.version }}'
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
@@ -170,7 +160,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           cd electron
-          npm run build:win
+          npm run build:win -- --config.extraMetadata.version='${{ steps.source.outputs.version }}'
 
       - name: Generate artifact checksums
         run: |
@@ -210,7 +200,7 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: ${{ inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_RELEASE == 'true' && inputs.tag != '' }}
+    if: ${{ inputs.confirm == 'PUBLISH' && vars.MYAPI_ENABLE_RELEASE == 'true' && inputs.tag != '' && (inputs.platform == 'both' || inputs.platform == '') }}
     environment: github-release
     permissions:
       contents: write

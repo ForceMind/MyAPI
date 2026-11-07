@@ -1200,6 +1200,37 @@ for page in pages:
         if page['id'] == 'connections':
             page['information_hierarchy'] = dict(closed=layout['sections'][0][1], open=layout['sections'][1][1], notes=layout['notes'])
 
+# 2026-11-07 Desktop B5a: one existing native view; bulk output remains gated.
+for page in pages:
+    if page['id'] == 'desktop-tray':
+        page['entry_increment'] = '2026-11-07 B5a Desktop本机服务；非实机截图，产品实现另验'
+        page['source_sha'] = '4601139a48fc875cbd975428f8b1a545b18f4947'
+        page['title'] = 'Desktop · 本机服务 / 托盘 / 明确退出'
+        page['kind'] = 'detail'
+        page['stats'] = []
+        page['sections'] = [
+            dict(title='B5a本地面板 · 后端停止仍可用', items=['本机服务状态：停止 / 启动中 / 可连接 / 停止中 / 失败 / 停止未确认 / 外部开发服务', '实际地址 / 本机或LAN范围 / 当前版本；公网可达性未验证', 'A1打开控制台；A2明确启动；A3明确停止；忙状态不重复提交', '数据 / 日志仅展开已知位置和固定入口，不展示凭据或正文']),
+            dict(title='窗口 / 服务 / 应用三个独立动作', items=['关闭窗口：留托盘，服务状态不变', '仅停止：确认后停止本应用创建的child，面板和应用保留', '退出应用：确认后等待owned child实际关闭，再退出', '停止未确认：不标已停止，不允许第二个进程，保留错误与核对入口']),
+            dict(title='停止或退出确认〔默认取消〕', items=['当前请求可能中断；先确认客户端状态，配置、数据库、日志保留', '取消 / 明确停止本机服务；确认返回后复核窗口、generation与child', '仅持有的ChildProcess可被停止，不按端口或任意PID找进程']),
+            dict(title='托盘与访问范围', items=['中英文一致：打开控制台 / 本机服务 / 当前范围 / LAN设置 / 退出MyAPI', '本机默认；LAN沿原明确同意、私网和重启门禁', '公网B5b独立向导待后续；不自动开端口/防火墙/NAT或声称已验证', '自动更新关闭；macOS先、Windows后，不宣称Linux首发支持']),
+            dict(title='可信本地面板边界', items=['面板使用独立preload；网关HTTP页面不获得服务控制能力', '固定窗口+主frame+精确file URL+固定动作，导航/iframe/错误来源拒绝', '无任意invoke、命令、PID、文件路径或URL参数；状态按文本渲染', '开发模式外部服务不由本应用开始/停止；无自动重放或恢复旧快照']),
+        ]
+        page['actions'] = [
+            dict(label='A1 打开控制台',target='overview',effect='服务已由本机探测确认后才打开已有控制台；不自动提交表单或生成请求。'),
+            dict(label='A2 启动本机服务',target='desktop-tray',effect='明确确认，沿原环境/目录/SESSION_SECRET/SQLITE_PATH创建一个owned child；忙或停止未确认时拒绝重复。'),
+            dict(label='A3 停止本机服务',target='desktop-tray',effect='默认取消，确认后仅停止当前owned child；实际close前不宣称已停止，超时仍未知则禁新启动。'),
+            dict(label='A4 退出MyAPI',target='desktop-tray',effect='确认并等待内置child真正关闭后退出；取消无副作用，开发外部服务不控制。'),
+            dict(label='A5 LAN设置',target='desktop-tray',effect='复用原私网候选/明确同意及relaunch参数，先等旧child关闭，保全部数据与配置；不开放公网。'),
+            dict(label='A6 公网配置说明',target='desktop-tray',effect='B5a只说明未验证及独立配置条件；完整B5b向导仍待办，不执行外部网络或供应商动作。'),
+            dict(label='A7 数据与日志',target='desktop-tray',effect='明确展开已知数据/会话身份/显式数据库/日志范围；只打开固定本机位置，不提供任意文件接口。'),
+            dict(label='A8 复制接入地址',target='desktop-tray',effect='仅明确点击复制本应用已知的有效地址，不读取Key、不调用模型。'),
+        ]
+        page['notes'] = ['沿同目录Desktop服务效果图；所有状态示例为结构说明，不是已运行或视觉验收。', '沿用appId/userData/旧DB原位采用、SESSION_SECRET及显式数据库路径，不搬动/删除数据，不回灌或重放。', 'B5a仅当前迭代，完整三版本计划和公网B5b仍在主Goal；界面不得把unknown写成健康或已停止。', 'Node/VM/合成子进程与打包验证在Actions，浏览器/真实托盘/设备交互仍需单独验收。']
+        page['merge'] = '本地服务管理与网关业务控制台各有职责；复用已有托盘、探测、目录和LAN规则，不重搭后台或提供任意宿主控制。'
+        page['actions'] = [dict(action, label=re.sub(r'^A[0-9]+ ', '', action['label'])) for action in page['actions']]
+        page['notes'] += ['mobile SVG仅窄窗口排列参考，不表示移动App或手机支持。']
+        page['status'] = '已批准B5a主线设计；产品与平台验收另验'
+
 catalog=dict(title='MyAPI 全站线稿目录',source_sha=BASE,date='2026-10-28',direction='已确认方向3：流向图 / 顶部导航 / 对象整页',
              evidence='设计源文件；未运行浏览器、产品构建或本机测试。',pages=pages,routes=route_map,tabs=tab_inventory,overlay_inventory=overlay_inventory,
              unconfirmed_overlay_sources=unconfirmed,
@@ -1299,7 +1330,12 @@ class Drawing:
         self.y+=8
     def edition_entry_view(self):
         p=self.page
-        if p['id']=='overview':
+        if p['id']=='desktop-tray':
+            self.banner('本机原生面板：以下均为线稿状态；后端停止/失败时仍保留操作入口')
+            for section in p['sections']:
+                self.y+=self.block(section['title'],section['items'])+16
+            self.buttons()
+        elif p['id']=='overview':
             self.banner('Full · 流向图主视图；Lite / Desktop布局在下方分别定义，不叠成产品中的三个面板')
             self.buttons([p['actions'][0],p['actions'][1],p['actions'][3],p['actions'][5]])
             nodes=[('谁在调用 · API Key',['Key A〔掩码〕 / 请求 —','Key B〔掩码〕 / 状态未知','选择节点：只筛选已存请求']),
@@ -1528,7 +1564,8 @@ class Drawing:
         public=p['kind'] in ['auth','setup'] or p['id'] in ['oauth-legacy','oauth-callback','home','about','pricing','model-price','rankings','privacy','terms','website','shell-auth'] or p['id'].startswith('error-')
         self.rect(0,0,self.width,56,'#f0f0f0','#777777',rx=0)
         self.text(self.margin,34,'MyAPI  [Logo保留]',14,'600')
-        if not self.mobile:self.text(250,34,'文档 / 登录 / 控制台' if public else '概览    上游    API Key    请求    设置    管理 ▾       搜索 / 账户',14)
+        if p['id']=='desktop-tray':self.text(250 if not self.mobile else 180,34,'本机服务 / 语言 / 关闭窗口留托盘',12,width=self.width-(280 if not self.mobile else 196))
+        elif not self.mobile:self.text(250,34,'文档 / 登录 / 控制台' if public else '概览    上游    API Key    请求    设置    管理 ▾       搜索 / 账户',14)
         else:self.text(266,34,'搜索  /  菜单',12)
         self.y=78
         self.y+=self.text(self.margin,self.y+18,p['title'],22 if self.mobile else 26,'600',width=self.cw)+10
@@ -1612,7 +1649,7 @@ class Drawing:
         if p['merge']:
             h=self.block('拟精简 / 合并方式',[p['merge'],'本轮只提交设计，不删除页面、参数、权限或业务功能。']);self.y+=h+18
         if footer_actions:self.buttons(p['actions'][:2] if kind=='calendar' else None)
-        if self.mobile and not public and kind!='overlay':
+        if self.mobile and not public and kind!='overlay' and p['id']!='desktop-tray':
             self.rect(0,self.y,self.width,64,'#eeeeee','#777777',rx=0)
             self.text(20,self.y+38,'概览      上游      Key      请求      更多',13)
             self.y+=80

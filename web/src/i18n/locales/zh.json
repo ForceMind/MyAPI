@@ -3721,6 +3721,7 @@
     "Manage subscription plans and pricing.": "管理订阅计划和定价。",
     "Manage Subscriptions": "管理订阅",
     "Manage the access scope from the tray. This page does not change the local service.": "访问范围请在托盘中设置。本页不会更改本机服务。",
+    "Manage the bundled service from the tray. Closing this window leaves it running; exiting from the tray stops it and quits MyAPI.": "请在托盘菜单中管理本机服务。关闭此窗口后服务继续运行；从托盘退出应用会先停止内置服务。",
     "Manage upstream connections, model routes and API keys.": "管理上游连接、模型路由与 API Key。",
     "Manage usage policy": "管理使用策略",
     "Manage users and their assigned access.": "管理用户及其分配的访问权限。",
