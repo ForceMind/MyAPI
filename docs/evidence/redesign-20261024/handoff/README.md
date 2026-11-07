@@ -3,6 +3,11 @@
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
 
+
+**2026-11-07当前续办：P2-A1第二批异步恢复与任务账务只读审查已落文档，未改产品。** 基线dev/4e42f493干净、同步无分歧，[完整CI42259867386](https://github.com/ForceMind/MyAPI/actions/runs/42259867386) attempt1仍success（上轮全部日志/checkout已亲读）。维护者“好的，继续按照计划”沿原A1授权继续，主代理独立完成本批源码阅读。既有[architecture-review-v2第二批](../architecture-review-v2.md)补17条文件/行号结论、状态/责任图和明确覆盖：真实系统任务调度、意图/预扣/发送CAS、未知不重发退款、终态证据/人工核对、回执/SQL/缓存/日志投影分层；均标“从代码看”，不是新的运行验收。
+
+R1排队后gate复核、R2日志批次success语义、R3人工审核并发回查差异是3个待合成验证点，不是已复现生产故障；最小反例方案见报告，不改产品、不放宽断言或补零。A1账务/任务其余分支及tools/website/deploy覆盖仍待；全量A1未完成。当前只更新本README、TASKS与既有报告，提交后读自身完整CI，CI通过不证明这3点已复现/修复。没有本机依赖/构建测试/浏览器/Docker/产物下载，没有生产/服务器动作、真实模型/供应商、main/tag/GHCR/NPM操作；下方已部署beta.36精确身份保持，不能重标成这次文档SHA。
+
 **2026-11-07最新：beta.36 Full+SQLite已通过Actions打包验证，服务器任务已回报生产更新成功。** 镜像真实source/head `f46f19c71dbf6954620feb43c01b8d8aa87bb1d5`、tree `9f12fcbf1b544736f973dc96f265644eeaf6ac07`；源完整CI42207405306已通过，[Docker smoke42256473767](https://github.com/ForceMind/MyAPI/actions/runs/42256473767) attempt1 success，2成功/1LAN跳过，api_only=true/run_browser=false/personal=false；全部步骤/2份执行日志/实际checkout与完整20项qualification已亲读，20/20全true，browser=not_run。镜像包[13523545793](https://github.com/ForceMind/MyAPI/actions/runs/42256473767/artifacts/13523545793)、报告[13521909250](https://github.com/ForceMind/MyAPI/actions/runs/42256473767/artifacts/13521909250)；精确config ID、manifest/ZIP摘要和有效期集中在[TASKS最新节](../TASKS.md)，部署不得混用旧包或文档SHA。
 
 维护者已明确回复“授权发送并执行部署”；主聊天已向既有服务器任务发送精确包与边界，并亲读其本轮completed/error=null及11条命令全部exit0（含单次deploy.py和最终readback.py）。服务器任务最终回报：`my-api-beta36-f46f19c7-live`健康，版本/首页/7静态资源、双摘要/5层/RootFS/完整配置、SQLite完整性/外键/账务与日志连续性通过，切换约26秒；原配置和开关保留（缓存会话/正文日志开启、诊断关闭），旧容器/镜像/备份保留，未回灌或重放。完整远端记录在`/root/myapi/docs/evidence/beta36-deployment-20261107/README.md`；它由服务器任务负责，不冒充已提交到本仓库的文档。主聊天未独立读取其全部JSON或现场测量，运行结果按来源明确标记；准确任务turn及证据局限见TASKS最新节。
