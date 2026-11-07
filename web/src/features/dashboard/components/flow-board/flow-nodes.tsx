@@ -6,9 +6,11 @@ it under the terms of the GNU Affero General Public License as published by
 the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
+import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { QuotaRing } from '@/components/quota-ring'
+import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { CHANNEL_STATUS } from '@/features/channels/constants'
 import { getChannelTypeLabel } from '@/features/channels/lib/channel-utils'
 import {
@@ -18,6 +20,7 @@ import {
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
 import {
   connectionKind,
+  connectionValues,
   type ConnectionSummary,
 } from '@/features/connections/connection-state'
 import { API_KEY_STATUS, API_KEY_STATUSES } from '@/features/keys/constants'
@@ -26,6 +29,7 @@ import {
   nativeWindowState,
   nativeWindowUsage,
 } from '@/features/personal-upstream/window-state'
+import { linkButtonClassName } from '@/lib/link-button'
 import { cn } from '@/lib/utils'
 
 import type { FlowKeyNode, FlowTraffic } from '../../lib/overview-flow'
@@ -115,6 +119,8 @@ export function ConnectionNode(props: {
   trafficKnown: boolean
   selected: boolean
   onToggle: () => void
+  /** Present only when the parent grants the Full saved-settings tools. */
+  onOpenRouting?: (id: number) => void
 }) {
   const { t } = useTranslation()
   const connection = props.connection
@@ -190,7 +196,7 @@ export function ConnectionNode(props: {
     )
   }
 
-  return (
+  const filterButton = (
     <button
       type='button'
       aria-pressed={props.selected}
@@ -198,8 +204,9 @@ export function ConnectionNode(props: {
       onClick={props.onToggle}
       className={cn(
         nodeClassName,
-        connectionLine,
-        !enabled && 'lg:before:border-dashed'
+        !props.onOpenRouting && connectionLine,
+        !props.onOpenRouting && !enabled && 'lg:before:border-dashed',
+        props.onOpenRouting && 'rounded-b-none border-b-0'
       )}
     >
       <span className='text-body flex min-w-0 items-center gap-2 font-semibold'>
@@ -213,7 +220,7 @@ export function ConnectionNode(props: {
         <span className='truncate'>
           {t(getChannelTypeLabel(connection.type))}
         </span>
-        {connection.priority != null && (
+        {!props.onOpenRouting && connection.priority != null && (
           <span>
             · {t('Priority {{value}}', { value: connection.priority })}
           </span>
@@ -223,5 +230,100 @@ export function ConnectionNode(props: {
         {state}
       </span>
     </button>
+  )
+  if (!props.onOpenRouting) {
+    return filterButton
+  }
+
+  const models = connectionValues(connection.models)
+  let modelSummary = (
+    <p className='text-caption text-muted-foreground'>
+      {t('Models')}: {t('Unknown')}
+    </p>
+  )
+  if (connection.models != null) {
+    if (models.length === 0) {
+      modelSummary = (
+        <div className='text-caption text-muted-foreground flex min-w-0 flex-col gap-1'>
+          <p>{t('Models ({{count}})', { count: 0 })}</p>
+          <p>{t('No model IDs are saved for this connection.')}</p>
+        </div>
+      )
+    } else {
+      modelSummary = (
+        <SummaryDisclosure
+          summary={t('Models ({{count}})', { count: models.length })}
+        >
+          <ul className='text-caption min-w-0 space-y-1 font-mono wrap-anywhere'>
+            {models.map((model) => (
+              <li key={model}>{model}</li>
+            ))}
+          </ul>
+        </SummaryDisclosure>
+      )
+    }
+  }
+  return (
+    <article
+      aria-label={t('Connection #{{id}}', { id: connection.id })}
+      className={cn(
+        'relative min-w-0',
+        connectionLine,
+        !enabled && 'lg:before:border-dashed'
+      )}
+    >
+      {filterButton}
+      <div className='bg-background flex min-w-0 flex-col gap-3 rounded-b-lg border border-t-0 px-3.5 pt-1 pb-3'>
+        <dl className='text-caption flex min-w-0 flex-wrap gap-x-4 gap-y-1'>
+          <div className='flex min-w-0 flex-wrap gap-x-1'>
+            <dt className='text-muted-foreground'>{t('Priority')}</dt>
+            <dd className='tabular-nums'>
+              {connection.priority ?? t('Unknown')}
+            </dd>
+          </div>
+          <div className='flex min-w-0 flex-wrap gap-x-1'>
+            <dt className='text-muted-foreground'>{t('Weight')}</dt>
+            <dd className='tabular-nums'>
+              {connection.weight ?? t('Unknown')}
+            </dd>
+          </div>
+        </dl>
+        <div className='flex min-w-0 flex-wrap items-start gap-x-2 gap-y-1'>
+          <div className='max-w-full min-w-0 has-[[data-slot=collapsible][data-open]]:basis-full'>
+            {modelSummary}
+          </div>
+          <Link
+            to='/connections/$connectionId'
+            params={{ connectionId: String(connection.id) }}
+            search={{ tab: 'routing' }}
+            state={{ inspectorBack: true }}
+            data-overview-routing-link={connection.id}
+            className={linkButtonClassName({
+              variant: 'outline',
+              size: 'sm',
+              className:
+                'h-auto min-h-11 max-w-full self-start whitespace-normal text-left',
+            })}
+            onClick={(event) => {
+              if (
+                event.defaultPrevented ||
+                event.button !== 0 ||
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.altKey ||
+                (event.currentTarget.target !== '' &&
+                  event.currentTarget.target !== '_self')
+              ) {
+                return
+              }
+              props.onOpenRouting?.(connection.id)
+            }}
+          >
+            {t('Routing and models')}
+          </Link>
+        </div>
+      </div>
+    </article>
   )
 }

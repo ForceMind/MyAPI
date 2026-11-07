@@ -1316,7 +1316,10 @@
       "url": "/dashboard/overview",
       "kind": "flow",
       "sources": [
-        "web/src/features/dashboard/index.tsx"
+        "web/src/features/dashboard/index.tsx",
+        "web/src/features/dashboard/components/flow-board/flow-nodes.tsx",
+        "web/src/features/dashboard/components/flow-board/flow-board.tsx",
+        "web/src/features/connections/connection-page.tsx"
       ],
       "sections": [
         {
@@ -1326,6 +1329,16 @@
             "中性紧凑核心卡：真实Base URL及来源 / 复制",
             "24小时请求 / 失败率 / 耗时中位数；未知不补零",
             "每小时请求图及数值替代 / 样本覆盖说明 / 版本与访问摘要"
+          ]
+        },
+        {
+          "title": "Full · 连接节点工具〔M2增量〕",
+          "items": [
+            "原节点按钮仅筛选请求，模型展开与路由链接是并列控件",
+            "已保存模型按去重ID计数，完整名称换行；不查供应商",
+            "优先级 / 权重：已知0保留，缺失显示未知",
+            "A8 → 当前连接的路由与模型页签，编辑仍在原详情任务",
+            "返回原节点 / activity / flow、入口焦点与滚动；身份变化不借旧恢复"
           ]
         },
         {
@@ -1395,6 +1408,11 @@
           "label": "完整流向 / 重试入口〔只读展开〕",
           "target": "overview",
           "effect": "键盘Enter/Space或点击展开已有FlowBoard；展开不新增请求，全部原retry/actions/值和样本说明仍可达。"
+        },
+        {
+          "label": "路由与模型〔只读跳转〕",
+          "target": "connection-routing",
+          "effect": "Full已确认且当前账号可读连接时，直达当前ID的/connections/$connectionId?tab=routing；不写入或读取密钥，修改仍由原详情页的新鲜权限/确认流程处理。仅同tab无修饰点击记入口，返回保节点/activity/flow/焦点，换actor或SID清旧恢复。"
         }
       ],
       "tabs": [],
@@ -1410,7 +1428,10 @@
         "折叠外保OverviewAttention及各类加载/读取失败/未知摘要；已保存窗口的剩余/状态/观察时间常驻，保进入详情重试入口。",
         "加载、无连接、无Key、失败、未知和权限变化分别提示；没有证据不得显示健康或可调用。",
         "当前供应商余额能力按实际连接说明支持/不支持/未获取/失败；可查看已保存账号窗口，不笼统判定全部不支持。",
-        "Desktop原生服务健康、停止、LAN均标B5待实现；本轮只保已有壳及关窗/托盘指引，不承诺已验收。"
+        "Desktop原生服务健康、停止、LAN均标B5待实现；本轮只保已有壳及关窗/托盘指引，不承诺已验收。",
+        "M2仅Full新工具；Lite沿M1既有展开行为。模型0仅表示明确空配置，缺失配置显示未知，不代表供应商支持集合。",
+        "筛选、模型展开和路由跳转各自可用Enter/Space或链接键盘激活，互不误触，不嵌套button。",
+        "路由页继续原权限、确认及写入未知恢复；首页不新增供应商请求、密钥读取或写入。"
       ],
       "merge": "",
       "access": "沿用现有身份、角色和服务端权限",
@@ -1422,7 +1443,8 @@
         "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
       ],
       "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。",
-      "entry_increment": "2026-11-07 Full / Lite / Desktop主线增量；实现与浏览器验收分开"
+      "entry_increment": "2026-11-07 Full / Lite / Desktop主线增量；实现与浏览器验收分开；M2 Full节点保存模型/路由入口增量",
+      "source_sha": "de4ee4d2571ce6634796e59d3c57dbcc1718da6c"
     },
     {
       "id": "analytics-models",

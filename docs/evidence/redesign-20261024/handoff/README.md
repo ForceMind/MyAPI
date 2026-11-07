@@ -2,6 +2,13 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**2026-11-07当前主线：UI-M1源码交付已完整CI通过，续做M2 Full节点工具，beta.39候选。** M1真实源码dev/`de4ee4d2` / [CI42362321291](https://github.com/ForceMind/MyAPI/actions/runs/42362321291) attempt1 success：10成功/1浏览器真实API跳过，16542行完整执行日志/步骤与10个checkout已亲读，失败/race标记0；前端3434/3434、首页44/44、平台流程16/16及根/独立relaykit/386/race/三库等通过。三条新增首页返回场景在专项/全量均明确PASS，先前夹具/误判过程保留在TASKS，不把取消算绿。R4仍关闭，其余历史BUG没有扩展审查。
+
+M2沿同一效果图与overview两张既有线稿，候选增加Full保存模型计数展开、优先级/权重0与未知、同ID routing快捷入口；保筛选/权限/手机和准确返回，旧详情编辑/确认复用，首页没有新API、密钥读取、供应商请求或写入。Lite保持M1，Desktop原生控制仍B5；当前候选未验收，按最终提交精确SHA读取完整CI。线稿仍329视图，仅一个对象/article和两SVG增量；具体文件、验收和剩余范围集中在[TASKS最新节](../TASKS.md)。
+
+构建测试仅Actions，不在本机安装依赖、项目测试/构建/typecheck/lint/Docker/浏览器或下载CI产物；只有源码与格式/JSON/XML轻检查。无生产/服务器/真实上游模型/发布/main，已部署beta.36不变；浏览器未验证。持续Goal仍覆盖完整三版本计划，不能把本批当全部版本完成。
+
+
 **2026-11-07当前主线：R4已通过三库及完整CI，进入三版本首页/接入增量，beta.38候选。** 基线dev/`09be9f7a` / [CI42355744255](https://github.com/ForceMind/MyAPI/actions/runs/42355744255) attempt1 success，全部16517行执行日志、步骤与10个checkout已亲读，10成功/1浏览器真实API跳过，前端3417/3417及根/独立relaykit/386/race/三库门禁过。R4三库12/12/Go exit0，原断言保留，专项关闭；不再追其它历史BUG，持续Goal仍覆盖完整Full/Lite/Desktop计划。
 
 本轮沿已入仓效果图，细化既有overview/connections/key-delivery三视图6SVG，目录329对象与其它326对象保持；候选首页实现Full紧凑中性核心、Lite三任务+真实BaseURL/有限保存窗口摘要/高级统计键盘展开，失败/未知/风险保外显，准确请求返回保URL筛选/滚动/焦点。已有管理/交付页复用，Desktop只已有关窗/托盘引导，原生控制仍属B5；不把设计图当已实现或视觉验证。当前源码/版本/i18n与交接同批提交，完整范围/剩余清单集中于[TASKS最新节](../TASKS.md)，最终按该提交精确SHA读取自己的完整CI，不提前称完成。

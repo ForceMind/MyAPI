@@ -42,6 +42,7 @@ import {
   trafficBy,
   type FlowSelection,
 } from '../../lib/overview-flow'
+import { useOverviewRoutingReturn } from '../../lib/overview-routing-return'
 import { FlowBoard, type FlowColumnState } from '../flow-board/flow-board'
 import {
   GatewayCoreCard,
@@ -92,7 +93,7 @@ function OverviewSession() {
   const navigate = route.useNavigate()
   const data = useOverviewData()
   const edition = useProductEdition()
-  const { status } = useStatus()
+  const { status, confirmed: statusConfirmed, error: statusError } = useStatus()
   const fundingMode = useConfirmedFundingMode()
   const visibility = useDashboardContentVisibility()
   const mobile = useMediaQuery(CONSOLE_MOBILE_QUERY)
@@ -100,6 +101,7 @@ function OverviewSession() {
   const showConnections = useIsSidebarModuleVisible('/connections')
   const showAccounts = useIsSidebarModuleVisible('/upstream-accounts')
   const requestsRef = useRef<HTMLElement>(null)
+  const overviewRef = useRef<HTMLDivElement>(null)
   const selection = selectionFromSearch(search)
   const flowExpanded =
     search.flow === 'expanded' ||
@@ -116,6 +118,22 @@ function OverviewSession() {
     })
   }
   const lite = edition.edition === 'lite'
+  const routingToolsEnabled =
+    !lite && statusConfirmed && data.canReadChannels && showConnections
+  const captureRoutingReturn = useOverviewRoutingReturn({
+    enabled: routingToolsEnabled,
+    pending:
+      !lite &&
+      showConnections &&
+      !statusError &&
+      (!statusConfirmed ||
+        data.upstream.selfQuery.isFetching ||
+        (data.canReadChannels &&
+          (data.connections.isPending || data.connections.isFetching))),
+    failed: data.connections.isError,
+    items: data.connections.data?.items,
+    root: overviewRef,
+  })
   const isAdmin = data.isAdmin
   const canAddConnection =
     showConnections &&
@@ -335,6 +353,9 @@ function OverviewSession() {
               traffic: connectionTraffic,
               state: columnState(data.connections),
               onRetry: () => void data.connections.refetch(),
+              tools: routingToolsEnabled
+                ? { onOpenRouting: captureRoutingReturn }
+                : undefined,
               addAction: canAddConnection && (
                 <Link
                   to='/connections'
@@ -407,7 +428,11 @@ function OverviewSession() {
         )}
       </SectionPageLayout.Actions>
       <SectionPageLayout.Content>
-        <div className='flex min-w-0 flex-col gap-5' data-testid='overview'>
+        <div
+          ref={overviewRef}
+          className='flex min-w-0 flex-col gap-5'
+          data-testid='overview'
+        >
           <OverviewAttention data={data} />
           {lite ? (
             <>

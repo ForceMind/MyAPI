@@ -135,6 +135,8 @@ export type FlowBoardConnections = {
   state: FlowColumnState
   onRetry: () => void
   addAction: ReactNode
+  /** Omitted for Lite or when the parent cannot expose Full settings tools. */
+  tools?: { onOpenRouting: (id: number) => void }
 }
 
 /**
@@ -279,6 +281,11 @@ export function FlowBoard(props: {
                     </Button>
                   </div>
                 )}
+                {connections.tools && connections.items.length > 0 && (
+                  <p className='text-caption text-muted-foreground wrap-anywhere'>
+                    {t('Models shown here are saved connection settings.')}
+                  </p>
+                )}
                 {connections.items.map((connection) => (
                   <ConnectionNode
                     key={connection.id}
@@ -293,6 +300,7 @@ export function FlowBoard(props: {
                     onToggle={() =>
                       toggle({ kind: 'connection', id: connection.id })
                     }
+                    onOpenRouting={connections.tools?.onOpenRouting}
                   />
                 ))}
               </div>

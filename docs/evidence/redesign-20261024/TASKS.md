@@ -1,5 +1,23 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-07 UI主线M2：Full首页保存模型与路由快捷入口（beta.39候选，完整CI为交付门禁）
+
+上一轮为实质进展：UI-M1的Lite三步接入、有限保存窗口摘要、Full中性核心和准确请求返回已通过非浏览器验证。dev/`de4ee4d2571ce6634796e59d3c57dbcc1718da6c` / [CI42362321291](https://github.com/ForceMind/MyAPI/actions/runs/42362321291) attempt1 success，10作业成功/1浏览器真实API跳过，主会话亲读16542行完整执行日志/步骤，10个checkout一致，失败/race标记0；前端419文件3434/3434、首页44/44、平台流程16/16（新增桌面/手机返回与modified click三场景在专项和全量均明确PASS）。根/独立relaykit、386/race/三库/Redis/ClickHouse/分发/Desktop门禁通过。旧599ee3d2 lint21错误、420da142测试夹具漏capabilities及主会话误判步骤成功已留证并更正，不把取消当完整绿。M1对应源码收口，浏览器未验证，不代表三版本全量完成。
+
+本轮dev/de4ee4d2开工干净，fetch后0/0、ff-only已最新，基线CI元数据仍success。沿[同一三版本效果图](ui-design-v2/screenshots/three-editions-home-concept-20261107.png)，只细化既有overview桌面/手机2SVG及一个catalog对象/article；329视图与其它328对象保持。复用2名gpt-6.1-sol/high代理，分别唯一负责FlowNode/FlowBoard与父层返回/真实路由回归，主会话负责线稿/i18n/版本/集成/CI；没有新代理或递归派工。
+
+成功标准：Full首页连接节点可展开完整已保存模型ID，显示优先级/权重且区分明确0与缺失，准确进入同ID的原routing页签；节点筛选、模型展开、路由跳转各自可键盘操作且互不误触、不嵌套button。返回保原节点/activity/flow与准确入口焦点、滚动；换actor/role/SID不套旧恢复，加载/失败不借另一行。验证方法：实际组件/真实路由回归、types/lint/i18n/构建及全部既有门禁仅Actions，推送后按最终提交精确SHA亲读完整CI；本机仅源码/格式/JSON/XML/差异轻检查，浏览器未验证。
+
+本批候选范围：
+
+- 使用现有ConnectionSummary.models/priority/weight与connectionValues，去空白去重；模型缺失为未知、明确空配置可为0，表示保存配置而非供应商实时支持集合。展开不发现模型、不查询供应商、不读取密钥。
+- 原整卡筛选button保留为独立控件；模型展开与路由Link在同一非交互容器中并列，保手机管道/44px目标及完整长名称。Full仅在状态和读取权限/导航可用时启用工具；Lite沿M1行为，不新加编辑器或后台edition。
+- routing Link精确`/connections/$connectionId?tab=routing`，仅跳转只读入口；原页的新鲜权限、字段编辑、确认与写入未知恢复继续复用。首页无新增API或写入，模型工具不更改节点筛选。
+- 入口恢复只保有界的数值ID/坐标和actor/SID归属，不保存正文/凭据；只捕获同tab无修饰点击，等待真实相同ID可见，用户主动操作可取消等待恢复。
+
+统一候选beta.39（既有五个版本/分发示例），新增2键通过t(English key)及规范脚本补en/zh，其他五语言英文回填；同步/构建测试全在Actions。本机无依赖安装、项目测试/typecheck/lint/build/Docker/浏览器或CI产物下载，既有oxfmt仅格式化本批源文件。无生产/服务器/真实供应商模型/main/tag/GHCR/NPM/部署。实际结果须读本提交完整CI，未验证不称完成；后续Lite/Desktop真实版本能力、A2–A6/B3–B7仍按主Goal，历史BUG不单独重开。
+
+
 ## 2026-11-07 UI主线M1：三版本接入入口与首页信息层级（beta.38候选，交付以完整CI为准）
 
 上一轮为实质进展：R4最小产品修复已交付。dev/`09be9f7a8c238657b82171df9f3aea5c74bfbcb3` / [完整CI42355744255](https://github.com/ForceMind/MyAPI/actions/runs/42355744255) attempt1 success，主会话已亲读10份执行日志共16517行、全部步骤与10个实际checkout一致，失败/race标记0；前端419文件3417/3417，根/独立relaykit、386/race/三库等门禁通过，浏览器与真实API按边界跳过。[R4三库专项42354605593](https://github.com/ForceMind/MyAPI/actions/runs/42354605593)原始Go exit0、12case全部pass，原断言未弱化。此BUG关闭，本轮不再追R1–R3/R5–R8或开新BUG审查；持续主Goal保留完整Full/Lite/Desktop版本计划，不以本批代替全部交付。

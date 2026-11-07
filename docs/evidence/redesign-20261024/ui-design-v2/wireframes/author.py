@@ -1132,6 +1132,7 @@ EDITION_ENTRY_LAYOUTS = {
     'overview': {
         'sections': [
             ('Full · 谁在调用 → MyAPI网关 → 连接到哪里', ['Key掩码 / 请求数 / 已保存状态', '中性紧凑核心卡：真实Base URL及来源 / 复制', '24小时请求 / 失败率 / 耗时中位数；未知不补零', '每小时请求图及数值替代 / 样本覆盖说明 / 版本与访问摘要']),
+            ('Full · 连接节点工具〔M2增量〕', ['原节点按钮仅筛选请求，模型展开与路由链接是并列控件', '已保存模型按去重ID计数，完整名称换行；不查供应商', '优先级 / 权重：已知0保留，缺失显示未知', 'A8 → 当前连接的路由与模型页签，编辑仍在原详情任务', '返回原节点 / activity / flow、入口焦点与滚动；身份变化不借旧恢复']),
             ('Lite · 三步接入你的客户端', ['1 添加连接 → /connections；保存仍在原编辑任务', '2 创建或选择API Key → /keys；不自动创建', '3 先选Key → 该Key交付；不自动读取凭据或发送请求', '地址复用配置服务器地址或当前访问地址；明确复制']),
             ('Desktop · Lite桌面壳', ['复用Lite三步、实际地址来源与已保存连接', '已有关窗 / 托盘引导保持；不据此推断服务健康', 'B5待实现：原生健康、停止服务、LAN控制；本轮没有可操作按钮']),
         ],
@@ -1143,6 +1144,7 @@ EDITION_ENTRY_LAYOUTS = {
             A('模型 N 展开〔只读〕', 'overview', '键盘或点击展开当前连接已加载模型；完整ID可达，未知数量不用0；不重新获取模型或供应商测试。'),
             A('查看请求〔只读跳转〕', 'requests', '按原节点及时间筛选已保存请求，返回恢复选择；不重放模型请求。'),
             A('完整流向 / 重试入口〔只读展开〕', 'overview', '键盘Enter/Space或点击展开已有FlowBoard；展开不新增请求，全部原retry/actions/值和样本说明仍可达。'),
+            A('路由与模型〔只读跳转〕', 'connection-routing', 'Full已确认且当前账号可读连接时，直达当前ID的/connections/$connectionId?tab=routing；不写入或读取密钥，修改仍由原详情页的新鲜权限/确认流程处理。仅同tab无修饰点击记入口，返回保节点/activity/flow/焦点，换actor或SID清旧恢复。'),
         ],
         'notes': ['效果图仅作方向参考；Full保原全部统计、图表可访问文字、样本覆盖和meta，不因卡片紧凑删字段。', 'Lite首屏是三步任务与真实地址，完整流向/统计放可键盘展开区；收起保已加载数据，展开不新增HTTP。', '折叠外保OverviewAttention及各类加载/读取失败/未知摘要；已保存窗口的剩余/状态/观察时间常驻，保进入详情重试入口。', '加载、无连接、无Key、失败、未知和权限变化分别提示；没有证据不得显示健康或可调用。', '当前供应商余额能力按实际连接说明支持/不支持/未获取/失败；可查看已保存账号窗口，不笼统判定全部不支持。', 'Desktop原生服务健康、停止、LAN均标B5待实现；本轮只保已有壳及关窗/托盘指引，不承诺已验收。'],
     },
@@ -1190,6 +1192,11 @@ for page in pages:
         page['actions'] = [dict(label=label, target=target, effect=effect) for label, target, effect in layout['actions']]
         page['notes'] = layout['notes']
         page['status'] = '已批准主线设计增量；不代表产品或浏览器验收'
+        if page['id'] == 'overview':
+            page['source_sha'] = 'de4ee4d2571ce6634796e59d3c57dbcc1718da6c'
+            page['entry_increment'] += '；M2 Full节点保存模型/路由入口增量'
+            page['notes'] += ['M2仅Full新工具；Lite沿M1既有展开行为。模型0仅表示明确空配置，缺失配置显示未知，不代表供应商支持集合。', '筛选、模型展开和路由跳转各自可用Enter/Space或链接键盘激活，互不误触，不嵌套button。', '路由页继续原权限、确认及写入未知恢复；首页不新增供应商请求、密钥读取或写入。']
+            page['sources'] += [source for source in ['web/src/features/dashboard/components/flow-board/flow-nodes.tsx', 'web/src/features/dashboard/components/flow-board/flow-board.tsx', 'web/src/features/connections/connection-page.tsx'] if source not in page['sources']]
         if page['id'] == 'connections':
             page['information_hierarchy'] = dict(closed=layout['sections'][0][1], open=layout['sections'][1][1], notes=layout['notes'])
 
@@ -1297,7 +1304,7 @@ class Drawing:
             self.buttons([p['actions'][0],p['actions'][1],p['actions'][3],p['actions'][5]])
             nodes=[('谁在调用 · API Key',['Key A〔掩码〕 / 请求 —','Key B〔掩码〕 / 状态未知','选择节点：只筛选已存请求']),
                    ('MyAPI 网关 · 中性紧凑核心',['真实Base URL〔来源：配置 / 当前访问〕','A4 复制接入地址〔只读〕','24小时请求 — / 失败率 — / 中位耗时 —','每小时请求及数值文字；样本未覆盖不补0','版本 / 访问摘要；完整原meta保留']),
-                   ('连接到哪里 · 原连接',['连接 A / 已保存状态；健康未知','A5 模型 N ▾〔只读展开〕','优先级 / 权重 → 原连接路由任务','窗口剩余 — / 来源 / 观察时间'])]
+                   ('连接到哪里 · 原连接',['连接 A / 已保存状态；健康未知','A5 已保存模型 N ▾〔独立只读展开〕','优先级0 / 权重0；未知单列','A8 路由与模型 → 当前连接routing页签','窗口剩余 — / 来源 / 观察时间'])]
             if self.mobile:
                 for title,items in nodes:
                     self.y+=self.block(title,items)+18
@@ -1308,6 +1315,7 @@ class Drawing:
                     heights.append(self.block(title,items,x=x,w=node_width,y=self.y))
                     if index:self.text(x-22,self.y+66,'→',19,'600')
                 self.y+=max(heights)+18
+            self.y+=self.block('Full · A5展开 / A8详情返回',['模型完整ID逐项换行；已知空配置0与未知分开，不查询供应商','模型按钮、筛选按钮、路由链接并列，键盘可达且不误筛选','A8精确进入当前连接routing页签；原页保存才写入','返回保节点 / activity / flow、入口焦点与滚动；身份变化不套旧位置'])+18
             self.y+=self.block('最近请求 · Full完整保留',['时间 / 模型 / Key / 连接 / 业务结果 / 用量证据','选择节点只筛选；A6 查看请求 → 原调用记录，返回恢复条件'])+18
             self.banner('Lite · 接入你的客户端；默认以三步任务和实际地址为首屏')
             steps=[('1 添加连接',['A1 → /connections〔跳转〕','在原编辑任务保存；不自动创建或测试']),
@@ -1608,7 +1616,7 @@ class Drawing:
             self.rect(0,self.y,self.width,64,'#eeeeee','#777777',rx=0)
             self.text(20,self.y+38,'概览      上游      Key      请求      更多',13)
             self.y+=80
-        self.y+=self.text(self.margin,self.y+14,p['id']+' · '+('手机390' if self.mobile else '桌面1200')+' · 来源 '+BASE[:8]+' · 浏览器未验证',10,color='#666666',width=self.cw)+22
+        self.y+=self.text(self.margin,self.y+14,p['id']+' · '+('手机390' if self.mobile else '桌面1200')+' · 来源 '+p.get('source_sha',BASE)[:8]+' · 浏览器未验证',10,color='#666666',width=self.cw)+22
         height=max(650,self.y)
         title=html.escape(p['title']+' · '+('手机' if self.mobile else '桌面'))
         desc=html.escape(('2026-11-07主线线稿增量，合成数据；不是产品或浏览器验收。' if p.get('entry_increment') else '低保真设计源文件，合成数据，待确认。')+p['access'])
@@ -1637,7 +1645,7 @@ def review_html(catalog):
         actions=''.join(f'<tr><td>A{i+1}</td><td>{html.escape(a["label"])}</td><td><a href="#{a["target"]}">对应线稿</a></td><td>{html.escape(a["effect"])}</td></tr>' for i,a in enumerate(p['actions']))
         tabs=''.join(f'<a href="#{target}">{html.escape(label)}</a>' for target,label in p['tabs'])
         notes=''.join('<li>'+html.escape(note)+'</li>' for note in p['notes']+COMMON_NOTES)
-        sources=''.join(f'<li><a href="https://github.com/ForceMind/MyAPI/blob/{BASE}/{html.escape(s,quote=True)}">{html.escape(s)}</a></li>' for s in p['sources'])
+        sources=''.join(f'<li><a href="https://github.com/ForceMind/MyAPI/blob/{p.get("source_sha",BASE)}/{html.escape(s,quote=True)}">{html.escape(s)}</a></li>' for s in p['sources'])
         articles+=f'''<article id="{p['id']}" data-wireframe><header><p class="eyebrow">{html.escape(p['group'])} · {html.escape('2026-11-07已批准主线设计增量 · 产品实现另验' if p.get('entry_increment') else '设计提案 / 待确认')}</p><h1>{html.escape(p['title'])}</h1><p class="route">{html.escape(p['url'])}</p><p>{html.escape(p['access'])}</p><nav class="tabs">{tabs}</nav></header><div class="figures"><figure class="desktop"><figcaption>桌面 1200px · <a href="svg/{p['id']}-desktop.svg">单独打开SVG</a></figcaption><img loading="lazy" src="svg/{p['id']}-desktop.svg" alt="{html.escape(p['title'],quote=True)} 桌面线稿"></figure><figure class="mobile"><figcaption>手机 390px · <a href="svg/{p['id']}-mobile.svg">单独打开SVG</a></figcaption><img loading="lazy" src="svg/{p['id']}-mobile.svg" alt="{html.escape(p['title'],quote=True)} 手机线稿"></figure></div><section class="spec"><h2>按钮与交互去向</h2><div class="table-wrap"><table><thead><tr><th>编号</th><th>操作</th><th>设计去向</th><th>行为 / 边界</th></tr></thead><tbody>{actions}</tbody></table></div><h2>拟精简 / 合并</h2><p>{html.escape(p['merge'] or '复用方向3外壳与共用控件，保留该页独立业务与权限。')}</p><h2>状态、恢复与权限</h2><ul>{notes}</ul><p><a href="#state-board">共用状态线稿</a> · <a href="#component-rules">按钮与控件规范</a> · <a href="#date-range">日期范围</a> · <a href="#pagination">分页</a></p><h2>源码依据</h2><ul>{sources}</ul><p class="muted">{html.escape(p['variants'])}</p></section></article>'''
     return '''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' file: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; connect-src 'none'"><title>MyAPI 全站低保真线稿</title><style>
 *{box-sizing:border-box}[hidden]{display:none!important}html{color-scheme:light}body{margin:0;background:#eee;color:#222;font:14px/1.65 system-ui,-apple-system,sans-serif}a{color:inherit;text-underline-offset:3px}button,input{font:inherit}button{min-height:44px;background:#fff;border:1px solid #777;border-radius:6px;padding:8px 14px;cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #333;outline-offset:3px}.review-header{position:sticky;top:0;z-index:2;background:#fafafa;border-bottom:1px solid #999;padding:12px 24px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}.review-header strong{font-size:18px}.review-header p{margin:0}.badge{font-size:12px;border:1px dashed #777;padding:3px 7px}.layout{display:grid;grid-template-columns:272px minmax(0,1fr)}aside{position:sticky;top:90px;max-height:calc(100vh - 90px);overflow:auto;background:#fafafa;padding:16px;border-right:1px solid #aaa}input{width:100%;min-height:44px;padding:9px;border:1px solid #999;border-radius:5px}details{margin:16px 0}summary{cursor:pointer;font-weight:650;min-height:36px}aside a{display:block;padding:8px;border-radius:5px;text-decoration:none;overflow-wrap:anywhere}aside a[aria-current=page]{background:#dedede;font-weight:650}aside a:hover{background:#e8e8e8}main{min-width:0;padding:24px}article{display:none}article.active{display:block}article header,.spec{background:#fff;border:1px solid #aaa;padding:20px;margin-bottom:20px;border-radius:8px}.eyebrow,.muted{color:#555;font-size:12px}.route{overflow-wrap:anywhere;font-family:ui-monospace,monospace}h1{font-size:26px;margin:8px 0}h2{font-size:18px;margin-top:24px}.tabs{display:flex;flex-wrap:wrap;gap:8px}.tabs a{border:1px solid #aaa;border-radius:5px;padding:7px 12px}.figures{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,390px);gap:20px;align-items:start}figure{margin:0 0 20px;min-width:0}figcaption{padding:10px;background:#fafafa;border:1px solid #aaa;font-weight:600}img{width:100%;display:block;background:#fff;border:1px solid #aaa;border-top:0}figure.mobile{max-width:390px;width:100%;justify-self:center}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse}td,th{padding:10px;border:1px solid #bbb;text-align:left;vertical-align:top;min-width:80px}td:last-child{min-width:220px}[data-viewport=desktop] .figures{grid-template-columns:1fr}[data-viewport=desktop] .mobile{display:none}[data-viewport=mobile] .figures{grid-template-columns:1fr}[data-viewport=mobile] .desktop{display:none}.not-found{display:none;padding:24px;background:#fff}.footer-note{font-size:12px;color:#555;margin:16px 0;overflow-wrap:anywhere}@media(max-width:1100px){.figures{grid-template-columns:1fr}.layout{grid-template-columns:220px minmax(0,1fr)}}@media(max-width:720px){.review-header{position:static;padding:12px}.layout{display:block}aside{position:static;max-height:320px;border-bottom:1px solid #999}main{padding:12px}article header,.spec{padding:16px}h1{font-size:22px}.figures{gap:10px}}@media print{.review-header,aside{display:none}.layout{display:block}main{padding:0}article{display:block!important;break-before:page}.figures{display:block}figure{break-inside:avoid}img{max-width:100%}}
