@@ -247,10 +247,14 @@ func ensureVendorID(vendorName string, vendorByName map[string]upstreamVendor, v
 		return existing.Id
 	}
 	uv := vendorByName[vendorName]
+	icon := uv.Icon
+	if strings.TrimSpace(icon) == "" {
+		icon = ""
+	}
 	v := &model.Vendor{
 		Name:        vendorName,
 		Description: uv.Description,
-		Icon:        coalesce(uv.Icon, ""),
+		Icon:        icon,
 		Status:      chooseStatus(uv.Status, 1),
 	}
 	if err := v.Insert(); err == nil {
@@ -476,13 +480,6 @@ func containsField(fields []string, key string) bool {
 		}
 	}
 	return false
-}
-
-func coalesce(a, b string) string {
-	if strings.TrimSpace(a) != "" {
-		return a
-	}
-	return b
 }
 
 func chooseStatus(primary, fallback int) int {

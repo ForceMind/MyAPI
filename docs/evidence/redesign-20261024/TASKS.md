@@ -1,5 +1,15 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-08 A5a：controller单调用机械辅助函数（沿用beta.44，完整CI待验）
+
+A4已通过源码与非浏览器验收：dev/`3df6dd05ef16098a2bf6741f1f271829d0eca9a6` / [完整CI42408737566](https://github.com/ForceMind/MyAPI/actions/runs/42408737566) attempt1 success，11执行作业成功，A3可选分析和浏览器真实API两作业跳过。主会话读取18578行全部执行日志，核对全部步骤与11个checkout一致，失败/race标记0。A4原23条相关test在race专项逐名PASS，独立的分析窗口解析test保留于普通controller全量；15条纯测试、分桶三断言与10个保留test/helper的文本映射一致。三库12叶场景全PASS/0skip（B2完整2203行）；根main、根/独立relaykit、386及原有race成功；前端421文件3452/3452、Native105/105/0skip通过。前端lint26 warnings/0 errors，本轮未扩展处理。相同源码的静态网站检查42408737654和打包42408737578成功，382/431行日志、步骤与checkout已核对；未下载产物。浏览器、真实供应商/模型、生产及平台GUI未验证或操作。
+
+本轮dev/3df6dd05干净，fetch后0/0。沿已批准A5按包做小批，不按旧790/396数量删代码，不新开BUG专项。复用两代理只读核对controller/service/common/setting/relay/model的近似机械项；这是窄查，不是全包调用图或旧清单复测。主会话本批只写controller/model_sync.go及两份既有进度文档，不删除文件，不改公开API、JSON、权限、价格、数据库或供应商协议；应用沿用beta.44，无新发布包。
+
+成功标准：只内联唯一生产调用的6行私有coalesce函数，空串与纯空白仍回退为空，带首尾空白的非空图标保留原值；vendor缓存、已有vendor读取、插入及状态回退不变。验证方法：调用/定义与差异文本核对、gofmt；controller与既定根main/全量/独立relaykit/三库/386/race全在Actions，推送后按精确SHA亲读完整CI。此可逆机械展开不新增镜像实现的字符串单测，原测试不改；本机不测试、编译、装依赖、运行分析/Docker/浏览器或下载产物。
+
+保留service参数覆盖审计/最终协议标记、common认证/writer接口/资源初始化、setting快照复制/代际构造、model缓存条件/GORM logger、relay重定向回调/事件类型/请求ID等有实际边界的短函数。relay/helper的单行newStreamResult工厂另记下一同包候选，本批不改。其它方法、多行签名和全部adapter未逐一复核，不能称A5全量完成。A5后续/A6、B3/B4/B5b后续/B6/B7及七语言/统一质量/全量验收仍在同一Goal；R4继续关闭。原生B3沿固定system/XDG路径，Release Manifest本阶段不接线下载/验签/安装的已确认边界保持，不把调用方verified当实际信任证明。
+
 
 ## 2026-11-08 A4：额度历史聚合下沉 service（beta.44候选，三库/完整CI待验）
 

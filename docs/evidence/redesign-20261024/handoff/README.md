@@ -2,6 +2,10 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**2026-11-08当前：A4完整CI已通过，继续A5a controller机械内联；应用仍beta.44。** dev/`3df6dd05ef16098a2bf6741f1f271829d0eca9a6` / [完整CI42408737566](https://github.com/ForceMind/MyAPI/actions/runs/42408737566) attempt1 success：11执行作业成功/2可选作业跳过（A3分析、浏览器真实API），18578行日志、全部步骤与11个checkout已核对，失败/race标记0。三库12场景、23个原test的race逐名PASS、保留分析解析test的普通全量、前端3452、Native105及根main/独立relaykit/386/原有race均通过；前端lint26 warnings/0 errors未扩展处理。两项同SHA静态网站作业也成功，没有浏览器、生产或真实模型/供应商验收。
+
+A5a只内联controller/model_sync.go中单调用coalesce，保空白回退、非空图标原值及原vendor行为；原断言不改，不删文件或公开API，不按旧数量凑清理。两代理窄查保留业务/权限/审计/配置/回调与测试边界，其它同包候选与未覆盖部分集中[TASKS最新节](../TASKS.md)，不能称A5全部完成。本批源码待自身完整CI，beta.44未发布/部署；全部构建测试仍只Actions，本机仅源码与轻检查，无依赖/项目编译测试/Docker/浏览器/产物下载。R4保持关闭，历史BUG最后统一处理；完整三版本Goal及A5后续/A6/B3/B4/B5b后续/B6/B7与收口继续。
+
 
 **2026-11-08当前：A3b完整CI已通过，继续A4额度历史分层；beta.44候选。** dev/`1378d4ac1557aeb36cfd97718db45de8937c68d8` / [manual完整CI42404468288](https://github.com/ForceMind/MyAPI/actions/runs/42404468288) attempt1 success：14执行作业成功/1浏览器真实API跳过，22194行日志、全部步骤和14个checkout亲读；前端3452/Native105、根main/独立relaykit/三库/386/原有race通过。三目标构建与9扫描actual_exit=0，17个private候选已精简、当前private人工候选0（不是公开API删除授权）；同SHA两静态网站工作流也成功，自动CI取消未执行不计绿。证据与边界集中[TASKS最新节](../TASKS.md)。
 
