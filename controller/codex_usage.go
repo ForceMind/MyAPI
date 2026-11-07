@@ -115,7 +115,7 @@ func GetCodexChannelUsageHistory(c *gin.Context) {
 		limit = 2000
 	}
 	filter := model.ChannelQuotaSnapshotQuery{MetricType: "codex_rate_limit", WindowType: strings.TrimSpace(query.Get("window_type"))}
-	candidates, err := model.ListChannelQuotaSnapshotsForHistory(c.Request.Context(), id, start, end, filter, maxQuotaHistoryRawObservations)
+	candidates, err := model.ListChannelQuotaSnapshotsForHistory(c.Request.Context(), id, start, end, filter, service.MaxQuotaHistoryRawObservations)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -253,10 +253,10 @@ func applyCodexUsageHistorySnapshot(point gin.H, snapshot model.ChannelQuotaSnap
 			point["plan_type"] = snapshot.PlanType
 		}
 		if kind != "" {
-			if snapshot.Used != nil && finiteQuotaValue(*snapshot.Used) {
+			if snapshot.Used != nil && service.FiniteQuotaValue(*snapshot.Used) {
 				point[kind+"_used_percent"] = *snapshot.Used
 			}
-			if finiteQuotaValue(snapshot.Available) {
+			if service.FiniteQuotaValue(snapshot.Available) {
 				point[kind+"_available_percent"] = snapshot.Available
 			}
 			if snapshot.ResetAt > 0 {

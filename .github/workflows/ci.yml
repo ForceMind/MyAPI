@@ -228,6 +228,9 @@ jobs:
       - name: Test root and relaykit modules
         run: make test
 
+      - name: Verify quota history layering and shared consumers under race detector
+        run: go test -race -p 1 ./service ./controller ./router -run '^Test(.*QuotaHistory|QuotaChanges|BuildQuotaChange|SortQuotaChange|CodexUsageHistory|ChannelQuotaChangesRoute)' -count=1 -timeout=180s -v
+
       - name: Verify Responses to Chat usage compatibility and single settlement
         run: >-
           go test -race -p 1 ./relay/channel/openai ./router
@@ -511,6 +514,12 @@ jobs:
           go test -p 1 ./model -run '^TestChannelModel(Discovery|Route)ConfiguredDatabases$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestManagementKeyConfiguredDatabases$' -count=1 -timeout=180s -v
           go test -p 1 ./model -run '^TestPostgresRepeatedMigrationPreservesDefaults$' -count=1 -timeout=180s -v
+
+      - name: Verify channel quota history service on disposable databases
+        env:
+          MYAPI_B2_MYSQL_DSN: root:b2-fixture-password@tcp(127.0.0.1:${{ job.services.mysql.ports[3306] }})/myapi_b2_test?charset=utf8mb4&parseTime=true
+          MYAPI_B2_POSTGRES_DSN: host=127.0.0.1 port=${{ job.services.postgres.ports[5432] }} user=postgres password=b2-fixture-password dbname=myapi_b2_test sslmode=disable
+        run: go test -p 1 ./service -run '^TestChannelQuotaHistoryConfiguredDatabases$' -count=1 -timeout=180s -v
 
   b2-clickhouse:
     name: B2 ClickHouse log migration regression

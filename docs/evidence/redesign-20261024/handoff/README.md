@@ -2,6 +2,13 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+
+**2026-11-08当前：A3b完整CI已通过，继续A4额度历史分层；beta.44候选。** dev/`1378d4ac1557aeb36cfd97718db45de8937c68d8` / [manual完整CI42404468288](https://github.com/ForceMind/MyAPI/actions/runs/42404468288) attempt1 success：14执行作业成功/1浏览器真实API跳过，22194行日志、全部步骤和14个checkout亲读；前端3452/Native105、根main/独立relaykit/三库/386/原有race通过。三目标构建与9扫描actual_exit=0，17个private候选已精简、当前private人工候选0（不是公开API删除授权）；同SHA两静态网站工作流也成功，自动CI取消未执行不计绿。证据与边界集中[TASKS最新节](../TASKS.md)。
+
+A4只迁移controller里的额度历史业务到service，不改行为或另开BUG排查。29函数机械迁移、15纯测试及3分桶断言按符号映射原样保留已做主会话文本对照；HTTP权限/参数/错误/返回壳留controller，changes/codex共享符号同步。service无Gin/controller依赖，原完整范围/源预算/点预算/身份/失败不补零/读取只读契约与相邻算法保留。主会话新增三库专项复用B2隔离服务与现有CI，版本五处beta.44；实际受影响包、三库及完整CI按最终SHA待验，当前不提前称完成。
+
+只Actions构建测试，本机仅源码与格式/轻语法，无依赖安装/编译/测试/分析/Docker/浏览器/产物下载。无生产、真实模型/供应商、main或发布；R4保持关闭，历史BUG最后统一处理。完整三版本Goal及A5/A6/B3/B4/B5b后续/B6/B7与收口保留，浏览器未验证；下文旧“候选/待验”按各自历史时点理解。
+
 **2026-11-08当前：A3a当前证据已通过，继续17个私有函数精简；beta.43候选。** dev/`7e6d3fa452aa89462da83903ee690f2dbcb5c9c4` / [manual完整CI42401193288](https://github.com/ForceMind/MyAPI/actions/runs/42401193288) attempt1 success：14执行作业成功/1浏览器真实API跳过，21759行日志、全部步骤和14个checkout亲读，失败/race标记0。三目标root/relaykit构建与9扫描实际exit0，各分类合同17/17，17个private人工复核候选集合与文件hash一致；原有前端3452/Native105/三库/386/race通过。被替代自动CI42401192003取消/未执行已留档，不计绿。证据构件/摘要和完整边界集中[TASKS最新节](../TASKS.md)。
 
 本轮只处理这17个已复核的private函数定义：controller14/model3，另唯一无用time import/失效注释；不删整文件、导出API、response类型、GORM钩子或relaykit API。活动配置快照、Epay quote/严格额度、付款签名-provider-epoch-幂等及退款DB时钟/主体JOIN/提醒传入时钟全部保留，不放宽断言或改价格/表达式。主会话已重新核对当前hash匹配源证据，候选版本按既有5处统一beta.43；实际源码/重新分析和完整CI都按最终SHA验，不提前称完成。

@@ -78,8 +78,8 @@ type quotaChangeItem struct {
 	// Alert is a read-only snapshot of the configured quota threshold state.
 	// It is deliberately derived from the latest normalized observation and
 	// never triggers notification, routing, or channel state changes.
-	Alert       *quotaHistoryAlert     `json:"alert,omitempty"`
-	DataQuality quotaChangeDataQuality `json:"data_quality"`
+	Alert       *service.QuotaHistoryAlert `json:"alert,omitempty"`
+	DataQuality quotaChangeDataQuality     `json:"data_quality"`
 
 	analysisRows []model.ChannelQuotaAggregateRow
 }
@@ -394,7 +394,7 @@ func buildQuotaChangeItem(rows []model.ChannelQuotaAggregateRow) quotaChangeItem
 		MetricType: identity.MetricType, WindowType: identity.WindowType, Source: identity.Source,
 		Unit: identity.Unit, Currency: identity.Currency, PlanType: identity.PlanType,
 		WindowSeconds: identity.WindowSeconds,
-		ObservedAt:    latest.ObservedAt, Status: quotaHistorySnapshotStatus(quotaChangeSnapshot(latest)), Direction: "unavailable",
+		ObservedAt:    latest.ObservedAt, Status: service.QuotaHistorySnapshotStatus(quotaChangeSnapshot(latest)), Direction: "unavailable",
 		Consumption:  consumption.Summary,
 		analysisRows: rows,
 	}
@@ -511,8 +511,8 @@ func quotaChangeSnapshot(row model.ChannelQuotaAggregateRow) model.ChannelQuotaS
 		WindowSeconds: row.WindowSeconds, ResetAt: row.ResetAt, Status: row.Status, ErrorCode: row.ErrorCode}
 }
 
-func quotaChangeAlertForRow(row model.ChannelQuotaAggregateRow) *quotaHistoryAlert {
-	alert := deriveQuotaHistoryAlert(&model.ChannelQuotaSnapshot{
+func quotaChangeAlertForRow(row model.ChannelQuotaAggregateRow) *service.QuotaHistoryAlert {
+	alert := service.DeriveQuotaHistoryAlert(&model.ChannelQuotaSnapshot{
 		Available: row.Available,
 		Total:     row.Total,
 		Status:    row.Status,

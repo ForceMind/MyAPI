@@ -1,5 +1,20 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+
+## 2026-11-08 A4：额度历史聚合下沉 service（beta.44候选，三库/完整CI待验）
+
+上一轮A3b已通过：dev/`1378d4ac1557aeb36cfd97718db45de8937c68d8` / [manual完整CI42404468288](https://github.com/ForceMind/MyAPI/actions/runs/42404468288) attempt1 success，14执行作业成功/1浏览器真实API跳过；主会话亲读22194行全部日志、步骤和14个checkout，失败/race标记0。前端421文件3452/3452、Native105/105/0skip、根main/根模块/独立relaykit/386/三库及原有race全部通过。三目标root/relaykit交叉构建与9次固定工具分析actual_exit=0，合并473条记录（root production377/with-tests45、relaykit115），private人工候选归零；这只证明本批17个private精简及当前分析边界，不声称公开API或其它标签都可删除。同SHA静态网站工作流42404467033/42404467039成功，382/431行日志已读；自动42404467089取消且未执行步骤，不计绿。没有浏览器/部署/发布或CI构件下载。
+
+A4开工dev/1378d4ac干净，fetch后0/0，ff-only最新。复用PLAN_PHASE2与既有报告，不重做页面、不另开BUG专项。成功标准：额度历史聚合下沉到service，HTTP鉴权/参数/JSON字段与省略规则、完整范围读取、原计算和未知状态保持。验证方法：保留并搬移原断言，service/controller/router相邻消费者专项及SQLite/MySQL5.7/PostgreSQL9.6回归、根main/全量/独立relaykit/386/原有race全部Actions；推送后亲读最终SHA完整CI全部作业、步骤与日志。本机仅源码、gofmt和轻语法/差异，不装依赖/编译/测试/分析/Docker/浏览器或下载产物。
+
+复用2名gpt-6.1-sol/high代理：service owner仅新service/channel_quota_history.go与_test.go；controller owner仅channel-billing.go、channel_quota_changes.go、codex_usage.go及原history_test；主会话负责三库回归、既有CI接线、版本/交接和集成。29个业务函数从原controller机械迁移；主会话文本对照确认仅名称导出/命名空间和gin.H→普通map映射。15条完整纯测试、混合首test的3条分桶断言及ptrFloat helper按映射逐字保留；保留的10个controller测试/helper内容同基线，HTTP解析/错误/ID→渠道校验顺序及history区外采样不改。
+
+service只接收已规范化的范围、显示预算、粒度、时区、分析窗口和series筛选，无Gin/controller依赖。复用原Count/List完整范围与消费/分析函数，原150000条源预算、5000显示点上限、先读全范围再压缩、并发Count/List不完整返回空points、不补零和失败外显保留；不改SQL、表/字段、转发、计价、路由权限或通知。共享changes/codex仅切service导出符号，不复制算法或留旧wrapper。
+
+新增三库专项复用B2临时数据库服务，DSN限127.0.0.1与myapi_b2_test；每场景自建独立channel，仅清理自己的fixture记录。覆盖完整范围先于显示上限、分析与粒度无关、读取不改行、最新失败不补零/历史摘要仍在、已解析空身份精确隔离、空范围与数据库错误。普通全量只跑SQLite、跳过关系库；B2显式门禁开启时两DSN缺一即失败，不能把skip算三库已验。原断言不减、不把任何模糊结果改成零；生产未改。
+
+候选版本仅既有五处统一beta.44，无新包或发布；最终CI尚待，不能提前称A4完成。后续A5/A6、B3/B4/B5b后续/B6/B7与七语言/统一质量/全量验收仍在同一Goal；R4保持关闭，历史BUG留到版本功能之后。无main/tag/GHCR/NPM、生产/服务器或真实供应商/模型操作；浏览器未验证。
+
 ## 2026-11-08 A3b：17个私有未使用函数精简（beta.43候选，重新分析/完整CI为门禁）
 
 上一轮为实质进展：A3a当前可达性证据已交付，dev/`7e6d3fa452aa89462da83903ee690f2dbcb5c9c4` / [manual完整CI42401193288](https://github.com/ForceMind/MyAPI/actions/runs/42401193288) attempt1 success，14执行作业成功/1浏览器真实API跳过；主会话亲读21759行全部日志、步骤和14个checkout一致，失败/race标记0。被手动运行替代的自动CI42401192003真实cancelled，仅31行setup已执行，其余未执行/无日志，不计绿。前端3452/3452、Native105/105、A2三库20场景与原有根/独立relaykit/386/race通过。
