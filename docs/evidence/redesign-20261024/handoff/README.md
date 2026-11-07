@@ -2,6 +2,13 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**2026-11-08当前：A2已通过源码/非浏览器验收，继续A3a当前可达性清单；应用仍beta.42。** dev/`77fed01ef38081cdbab1d22a9506f892b2f4e40c` / [完整CI42396095331](https://github.com/ForceMind/MyAPI/actions/runs/42396095331) attempt1 success：11成功/1浏览器真实API跳过；17688行完整日志、步骤和11个checkout已亲读。根main定向5个Test及3状态子场景全部PASS，A2三库20叶场景、CLI181、Native105、前端3452与原有独立relaykit/386/race等门禁通过。首次f308bfcd漏root main覆盖的过程保留，不将其整体绿冒充主程序已验；产品源f308与后继77的产品树一致，77只补CI/交接。真实登录、大库、平台GUI/安装、浏览器和生产未验证/操作。
+
+A3历史37项原始scratchpad名单未保存在主检出或旧c916 Git树，且部分旧“不可达”概括已随当前引用漂移。先在Actions固定版本工具生成当前prod/test/独立relaykit及三Go目标清单，不编造名单，不按根模块分析删除库公开API。当前新增manual-only dev可复用分析工作流与报告工具；为不合main，借既有ci.yml的run_reachability默认false手动输入调用，所有记录analysis_only=true/deletion_authorized=false，关闭遥测；测试引用、导出函数/方法、GORM/JSON接口、init/生成/测试源/独立模块有明确人工保护。详情与分工/门禁见[TASKS最新节](../TASKS.md)。本批不是全部A3清理，也未删除代码。
+
+只在Actions安装分析工具、构建/分析/测试，本机仅代码/轻语法/差异；无本机依赖/编译/测试/分析/Docker/浏览器/CI构件下载，无真实模型/供应商、发布/生产或main。R4保持关闭，历史BUG留到版本功能完成后统一处理，完整三版本Goal继续。下文A2“待验收”等为历史，不覆盖本节。
+
+
 **2026-11-08当前：B5b1源码已完整CI通过，继续A2 Lite配置兼容预检，beta.42候选。** dev/`65325d7926d706fe66aaac3c5e1cdd52c686a40f` / [完整CI42385209689](https://github.com/ForceMind/MyAPI/actions/runs/42385209689) attempt1 success：10成功/1浏览器真实API跳过；17305行全部日志、步骤与10个checkout已亲读。Native105/105/0skip、前端3452/3452、根/独立relaykit/386/三库与全部既有race通过；同SHA两静态网站工作流也已全文核对成功，未浏览器/部署。beta.41无新安装包，beta.40包保原13eedad9身份。完整公网B5b外部验证仍待，不把保存入口或格式校验称公网可用。
 
 A2首产品源`f308bfcd` / [CI42392877229](https://github.com/ForceMind/MyAPI/actions/runs/42392877229)虽整体success（11成功/1浏览器真实API跳过，18414行及11个checkout亲读；A2三库20叶场景、CLI181、Native105、前端3452通过），但最终命令核对发现make test排除root main，新增5个主程序Test尚未执行，故不提前称A2完成。本次仅CI增加根目录定向入口和这两份交接，不改产品/断言、不重升beta.42；按后继精确SHA重读完整CI和主程序专项，详情见TASKS最新节。

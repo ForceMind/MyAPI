@@ -1,5 +1,23 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-08 A3a：当前Go可达性清单（仅分析，非删除授权）
+
+上一轮为实质进展：A2配置兼容检查已源码/非浏览器交付，最终dev/`77fed01ef38081cdbab1d22a9506f892b2f4e40c` / [完整CI42396095331](https://github.com/ForceMind/MyAPI/actions/runs/42396095331) attempt1 success，11执行作业成功/1浏览器真实API跳过。主会话亲读17688行全部日志、步骤与11个checkout一致，失败/race标记0；新增根main定向5个Test全部PASS（含3个状态子场景及实际main子进程/迁移前拒绝），SQLite5/MySQL8/PostgreSQL7共20叶场景通过、CLI181/181、前端421文件3452/3452、Native105/105/0skip，根/独立relaykit/386/全部原有race通过。首次产品源f308bfcd的整体绿但漏root main及后继覆盖修正保留，不把旧make test排除根包当已验。真实登录/认证器、历史大库、浏览器和生产均未验证/操作。
+
+本轮开工dev/77fed01e干净，fetch后0/0、ff-only最新，基线CI仍success。沿PLAN_PHASE2 A3，不重做A1或新开BUG专项。旧报告的`37`只是历史计费相邻数量；主检出scratchpad/out/deadcode.txt、deadspan.txt不存在，旧c916051e Git树也无这些文件。原始逐项名单未归档，不能据此编造剩余函数或删除代码。历史具名的controller.getPayMoney、model.DeltaUpdateUserQuota、service.PostConsumeQuota仍存在；其中导出wrapper/底层活跃实现/真实GORM hooks/relaykit公开API各有保护边界，不能连带清除。旧“7个relay转换wrapper均不可达”已与当前引用不符，不能沿用过期概括。
+
+成功标准：在Actions生成绑定准确源码SHA、工具版本、目标平台和实际命令的当前候选清单，明确prod/test及独立relaykit边界；失败/缺输入/无法解释不得伪报零候选。验证方法：固定工具安装、Go分析/跨目标构建、独立relaykit构建及整理工具合同全部在Actions；本机仅源码/轻语法与差异检查，不装依赖、编译、运行分析/测试/Docker/浏览器或下载CI构件。先清单，后逐项按现有契约处理，不把这批标为全部A3清理完成。
+
+本批新增manual-only dev工作流和`tools/go-reachability`整理工具/合同，复用2名gpt-6.1-sol/high代理分别唯一负责工作流+报告工具、测试+工具说明；主会话负责既有交接、集成和CI日志亲读，没有新代理或递归。工具固定`golang.org/x/tools/cmd/deadcode@v0.38.0`，主会话已读官方tag源码及go.mod（工具要求Go1.24，项目两模块Go1.25.1）；安装/包下载只Runner，关闭Go遥测，不改根模块go.mod/sum。
+
+候选分析范围：Linux/amd64、macOS对应darwin/arm64、Windows/amd64的Go构建目标，均用Ubuntu Runner交叉分析，不运行GUI或宣称平台安装验收。每目标比较根模块production与含测试两次分析，relaykit在自身目录GOWORK=off单独构建/分析；根模块视角绝不能证明库公开API无外部消费者。原始JSON/工具与构建元数据只存Runner并上传7天构件，日志输出安全结构化条目供主会话不下载产物也能核对。
+
+触发接线：新workflow仅dev文件，不能假定已在默认分支注册的独立workflow_dispatch。为不合main，既有ci.yml增加run_reachability布尔输入（默认false），只在manual dispatch且ref=dev时调用同一提交的reusable go-reachability.yml；callee仍强制事件/分支/source_ref为manual/dev/dev。实际入口为`gh workflow run ci.yml --repo ForceMind/MyAPI --ref dev -f run_browser=false -f run_reachability=true`，同时执行全部原完整门禁；默认push的分析job跳过，不加push/cron分析或后台自动化。依据[GitHub手动工作流说明](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)。
+
+报告固定analysis_only=true、deletion_authorized=false；候选记录源码文件hash、声明位置、包/符号、prod/test可达性及保护理由。仅测试可达、导出函数、所有方法（含GORM/JSON/driver接口）、init、生成文件、测试源与relaykit全部先保护/人工复核；不承诺外部消费者、反射或其它构建标签都已覆盖。计费相邻标记只是启发式，不替代逐项业务判断。工具合法null/[]与损坏/空输出区分，未知不补零；源码越界/位置/输入冲突不悄悄猜测。
+
+本批不删除或移动产品文件，不改转发/计费/权限/认证/数据库/版本配置，不发布/部署/main/tag/GHCR/NPM或发模型请求；应用保持beta.42。后续A3实际精简、A4–A6/B3/B4/B5b后续/B6/B7及统一质量/七语言/全量验收仍在同一Goal。
+
 ## 2026-11-08 A2：Lite配置兼容预检与实际部署来源（beta.42候选，三库/完整CI为门禁）
 
 上一轮为实质进展：B5b1源码及非浏览器验证已交付，dev/`65325d7926d706fe66aaac3c5e1cdd52c686a40f` / [完整CI42385209689](https://github.com/ForceMind/MyAPI/actions/runs/42385209689) attempt1 success，10执行作业成功/1浏览器真实API跳过；主会话亲读17305行完整日志、全部步骤与10个checkout一致，失败/race标记0。原生105/105且0skip，前端421文件3452/3452，根/独立relaykit/386/三库/全部既有race通过。同SHA额外[静态打包42385209664](https://github.com/ForceMind/MyAPI/actions/runs/42385209664)和[静态检查42385209663](https://github.com/ForceMind/MyAPI/actions/runs/42385209663)成功，全部431/382行与步骤/checkout已读，没有浏览器或部署。beta.41仅源码交付；beta.40旧安装包仍绑定13eedad9，不重标新源。完整B5b公网外部验证仍在原Goal，不以入口记录向导代替。
