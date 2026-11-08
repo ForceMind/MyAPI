@@ -6,6 +6,8 @@
 
 **B4a首轮 `e18822b8` / CI42436085982未验收。** 主会话已读取21157行完整实际日志，13 checkout均绑定e188，终态9成功/2失败/2取消/4跳过。root合同job128596131466的唯一错误是symlink先被owner/mode归类而未到type拒绝；候选只将type/link检查移到owner/mode之前，原全部断言与权限门禁不变。实际CLI资格job128596131567在backup-plan以HEALTH_BINDING_MISMATCH拒绝，未进入停机/复制；不改现有validateContainer门禁，当前修正候选仅为CI自有normal bridge+固定接口精确DROP规则，新增规则添加/读回/删除、gateway自有canary的异步负向探针及host published健康检查；未知或清理缺证仍非零，未探测外网。此候选还未运行，须后继SHA重验。两项静态网站42436083531/42436083619分别381/430行已核且成功，不能代替B4产品资格。原自动42436083629为12取消/5跳过，metadata证明未checkout；Native作业日志API不可用，未称全部日志已读或已测试。
 
+**B4a修正轮 `487ce8ac` / CI42438501082尚未验收。** Distribution/root合同job128602513332已success；资格job128602513409完整2096行已读，在network-isolation以B4_GATEWAY_INTERFACE_MISMATCH退出、cli_failure和cleanup_failure均null，尚未创建source。依据[libuv接口过滤源码](https://github.com/libuv/libuv/blob/v1.50.0/src/unix/linux.c#L1832-L1844)，从代码看新bridge未有carrier时Node枚举会过滤；候选改用固定iproute2内核地址JSON，精确核iface/index/IPv4与owned gateway，仍在所有容器启动前完成阻断规则，不放宽任何产品/账务断言。待后继SHA实际资格与完整CI。
+
 **本提交为B4a beta.46候选，待自身Actions验收。** 首批交付本地root Docker Full/SQLite的真实`myapi backup/restore`计划与确认：同注册/全局flock/实例锁，确证正常停机、root本地FS和可见FD/shared-writable mmap停写；whole-tree manifest、两阶段COMMITTED、DB/WAL/SHM同盘私有副本完整性校验，保全部bytes/UID/GID/mode。默认keep-all，restore只新隔离目录，先验源自备份后未变，不覆盖、不自动启动、不重放；未知结果保null，失败冻结并留现场。原重启策略另存计划/journal，关闭自动重启后保持停机，恢复服务须另行人工决定；不回灌旧账务。
 
 涉及CLI、tools/operations注册/锁/journal/copy/guard及独立backup引擎、两份新资格workflow/helper、原五处版本与[说明](../../../BACKUP_RESTORE.md)。主会话已亲读关键源码、精确对照legacy三个Python action正文不变；Node/Python/YAML/Bash仅轻语法检查，未运行项目入口或测试。新合同与实际产品CLI Docker往返全部待Actions：source假上游2次/恢复假上游0次、辅助未checkpoint WAL、原始与既有目标拒绝、原数据/备份元数据和账务复读及完整CI；不能用unit或源码代替实际资格。无本机依赖/构建/项目测试/分析/Docker/产物下载，无浏览器/生产/真实模型供应商/发布/main。

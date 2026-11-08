@@ -4,7 +4,6 @@ import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSy
 import path from 'node:path'
 import { createServer } from 'node:http'
 import { isIP } from 'node:net'
-import { networkInterfaces } from 'node:os'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { probeFreshSQLite } from './docker-smoke.mjs'
@@ -367,7 +366,12 @@ export async function runBackupQualification(env = process.env) {
     const addresses = network.IPAM?.Config
     demand(Array.isArray(addresses) && addresses.length === 1 && privateIPv4(addresses[0].Gateway), 'B4_GATEWAY_UNCONFIRMED')
     const gateway = addresses[0].Gateway
-    demand(networkInterfaces()[scope.iface]?.some(address => address.family === 'IPv4' && address.address === gateway), 'B4_GATEWAY_INTERFACE_MISMATCH')
+    // libuv omits interfaces without IFF_RUNNING. Inspect the assigned kernel
+    // address before attaching a container so the deny rules precede startup.
+    const assigned = JSON.parse(command('/usr/sbin/ip', ['-j', 'address', 'show', 'dev', scope.iface]))
+    demand(Array.isArray(assigned) && assigned.length === 1 && assigned[0].ifname === scope.iface &&
+      Number.isSafeInteger(assigned[0].ifindex) && assigned[0].ifindex > 0 && Array.isArray(assigned[0].addr_info) &&
+      assigned[0].addr_info.some(address => address.family === 'inet' && address.local === gateway), 'B4_GATEWAY_INTERFACE_MISMATCH')
     for (const rule of rules) {
       rule.attempted = true
       demand(firewall('-I', rule) === 0 && firewall('-C', rule) === 0, 'B4_ISOLATION_RULE_UNCONFIRMED')
