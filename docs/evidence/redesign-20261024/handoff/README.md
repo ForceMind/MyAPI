@@ -2,6 +2,10 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**当前新候选是Desktop非浏览器原生后端资格，应用仍beta.52。** 新默认false开关run_desktop_backend_qualification；仅五份CI/测试工具及五份已有说明，不改应用功能或版本。各自同SHA真实Lite/Go构建与hash、loopback设置/登录/配置及secret两代复读、owned child停止/退出和自有清理，macOS arm64先于Windows x64，尚待自身完整CI。Electron外壳为夹具，不启动GUI；Windows优雅flush和两版账务明确未验，不把该资格当整个B5或真机安装通过。独立公网检查模块/Main/IPC/UI/原生字典/线稿WIP全部不含本提交；C1主审100键未应用、另41待审，T1与10文件删除的待授权边界不变。
+
+**B4 root Docker Full/Lite已验收：34b47daf2919e0eb4690eaa440f43dbae70d3afe / [CI42465372403](https://github.com/ForceMind/MyAPI/actions/runs/42465372403)。** attempt1 success、14执行成功/6可选跳过，23449行全部实际日志、14 checkout/所有步骤已核，失败/race标记0；前端421文件3452测试及原Root/独立relaykit/386/三库/race门禁通过。Full job128683550466完整2164行、Lite/lan job128683550558完整2150行/各18检查；真实备份/隔离恢复、只删1保2、源新增17单位调整正常停止后保留、业务哈希一致、所有源fake2/恢复0及清理通过。报告身份/摘要/期限集中TASKS，未下载。仅Root Linux amd64 Docker Full/Lite SQLite，非其它形态/在线/灾难/生产资格；完整Goal保持。自动42465369795 cancelled的439行已读、12取消/7跳过且未checkout，不当通过。下方首轮红灯与候选按原时点理解。
+
 **beta.52首轮尚未验收，后继仅修资格夹具。** `977d0a68` / [CI42464782011](https://github.com/ForceMind/MyAPI/actions/runs/42464782011)的Full/Lite均在prune-live-source-marker失败，已停止剩余重复作业、终态cancelled，9成功/2失败/3取消/6跳过，17733行全实际日志与14 checkout已核；两份失败日志2155/2171行已读。从代码看Python业务快照仍绑定旧无edition目录，与JS新目录错配。候选只补full/lan枚举和edition/SHA/run/attempt精确路径绑定、增加重启后的业务快照阶段；原产品/17单位新增账务/不重放/保留源与归档断言均不改。仅Node/Python语法检查，须后继自身完整CI及两种真实往返；不把取消、null错误字段或已构建当资格通过。自动42464753750 cancelled的5297行日志已读，不作全绿。
 
 **当前独立B4 beta.52候选，待自身完整Actions：Linux root Docker Lite/lan SQLite备份专用来源校验与Full/Lite资格矩阵。** 新validateBackupContainer固定用途接受匹配族，旧Full-only运维入口/原错误和全部机械检查不改；engine仅两处backup接线，不改manifest/intent/COMMITTED或旧源恢复/prune边界。六组metadata合同、Full/lan fail-fast:false当前SHA真实build/load矩阵及edition/status/receipt观察已写，原账务/17单位新增调整/fake2+恢复0/精确清理断言保留。主审和独立只读审阅完成，但只有Node/YAML/Python语法及diff轻查，尚无真实Lite资格，不能称完成。BACKUP_RESTORE已对齐旧beta47 Full实证与新Lite候选；不扩其它形态/远端库/非root，不真实数据/生产/供应商/浏览器/发布/本机项目测试构建。

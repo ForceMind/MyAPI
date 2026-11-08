@@ -1,0 +1,431 @@
+name: Native Desktop backend lifecycle qualification
+
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        type: string
+        default: dev
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    name: Native macOS arm64 backend first
+    runs-on: macos-latest
+    timeout-minutes: 40
+    outputs:
+      source_sha: ${{ steps.source.outputs.sha }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      MYAPI_DESKTOP_BACKEND_QUALIFICATION: '1'
+      EXPECTED_PLATFORM: darwin
+      EXPECTED_ARCH: arm64
+    steps:
+      - name: Require an exact-source manual dev qualification
+        env:
+          REQUESTED_SOURCE_REF: ${{ inputs.source_ref }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/dev
+          test "$GITHUB_REPOSITORY" = ForceMind/MyAPI
+          test "$REQUESTED_SOURCE_REF" = dev
+
+      - name: Check out the exact caller source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node 22
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: '>=1.25.1'
+
+      - name: Set up the frozen frontend tool
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: '1.3.14'
+
+      - name: Require the actual native runner and bind source version
+        id: source
+        run: |
+          set -euo pipefail
+          test "$RUNNER_OS" = macOS
+          test "$RUNNER_ARCH" = ARM64
+          test "$(uname -m)" = arm64
+          test "$(go env GOHOSTOS)" = darwin
+          test "$(go env GOHOSTARCH)" = arm64
+          test "$(git -c core.fileMode=false rev-parse HEAD)" = "$GITHUB_SHA"
+          git -c core.fileMode=false diff --exit-code HEAD --
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          assert.equal(process.platform, process.env.EXPECTED_PLATFORM)
+          assert.equal(process.arch, process.env.EXPECTED_ARCH)
+          const version = fs.readFileSync('VERSION', 'utf8').trim()
+          assert.equal(version, JSON.parse(fs.readFileSync('package.json', 'utf8')).version)
+          assert.match(version, /^[0-9]+\.[0-9]+\.[0-9]+(?:[.-][0-9A-Za-z.-]+)?$/)
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'sha=' + process.env.GITHUB_SHA + '\nversion=' + version + '\n')
+          NODE
+
+      - name: Verify lifecycle contracts without starting Electron
+        timeout-minutes: 5
+        run: node --test electron/test/*.test.mjs tools/desktop/qualify-backend.test.mjs
+
+      - name: Build the same-source Lite frontend on the runner
+        env:
+          CI: ''
+          NODE_OPTIONS: --max-old-space-size=4096
+          VITE_REACT_APP_VERSION: ${{ steps.source.outputs.version }}
+          VITE_BUILD_ID: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+          cd web
+          bun install --frozen-lockfile
+          DISABLE_ESLINT_PLUGIN=true VITE_SELF_USE_MINIMAL=true VITE_BRAND_NAME=MyAPI VITE_BRAND_LOGO=/myapi-logo-v1.png bun run build
+
+      - name: Build the actual native Go binary on the runner
+        timeout-minutes: 15
+        env:
+          DESKTOP_BUILD_VERSION: ${{ steps.source.outputs.version }}
+          GOOS: darwin
+          GOARCH: arm64
+        run: |
+          set -euo pipefail
+          test ! -e my-api
+          test ! -L my-api
+          go mod download
+          MODULE_PATH="$(go list -m)"
+          test "$MODULE_PATH" = github.com/ForceMind/MyAPI
+          GOMAXPROCS=2 go build -p 2 -ldflags "-s -w -X '$MODULE_PATH/common.Version=$DESKTOP_BUILD_VERSION'" -o my-api
+
+      - name: Bind the freshly built binary hash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          import { createHash } from 'node:crypto'
+          const binary = process.platform === 'win32' ? 'my-api.exe' : 'my-api'
+          const info = fs.lstatSync(binary)
+          assert.ok(info.isFile() && !info.isSymbolicLink() && info.size > 0)
+          const sha = createHash('sha256').update(fs.readFileSync(binary)).digest('hex')
+          fs.appendFileSync(process.env.GITHUB_ENV, 'MYAPI_DESKTOP_BINARY_SHA256=' + sha + '\n')
+          console.log(JSON.stringify({ source_sha: process.env.GITHUB_SHA, platform: process.platform, architecture: process.arch, binary_sha256: sha }))
+          NODE
+
+      - name: Qualify the actual bundled-backend lifecycle and persistence
+        id: qualify
+        timeout-minutes: 7
+        run: |
+          set -euo pipefail
+          umask 077
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs'
+          import path from 'node:path'
+          import { createHash } from 'node:crypto'
+          import { spawnSync } from 'node:child_process'
+          const check = (ok, code) => { if (!ok) throw new Error(code) }
+          const result = spawnSync(process.execPath, ['tools/desktop/qualify-backend.mjs'], {
+            encoding: 'utf8', timeout: 300000, maxBuffer: 1024 * 1024, shell: false,
+          })
+          let report
+          try { report = JSON.parse(result.stdout) } catch { throw new Error('DESKTOP_SAFE_REPORT_UNAVAILABLE') }
+          const fields = ['schema_version', 'source_sha', 'run_id', 'run_attempt', 'platform', 'architecture', 'binary_sha256',
+            'passed', 'phase', 'error_code', 'checks', 'lifecycle', 'qualified_scope', 'graceful_stop_verified',
+            'termination_semantics', 'accounting_verified', 'cleanup', 'electron_started', 'gui_verified', 'model_requests', 'production_touched']
+          check(report && Object.keys(report).sort().join() === fields.sort().join(), 'DESKTOP_REPORT_SCHEMA_INVALID')
+          check(report.schema_version === 1 && typeof report.passed === 'boolean', 'DESKTOP_REPORT_SCHEMA_INVALID')
+          check(report.source_sha === null || /^[a-f0-9]{40}$/.test(report.source_sha), 'DESKTOP_REPORT_IDENTITY_INVALID')
+          check(report.run_id === null || /^[1-9][0-9]*$/.test(report.run_id), 'DESKTOP_REPORT_IDENTITY_INVALID')
+          check(report.run_attempt === null || /^[1-9][0-9]*$/.test(report.run_attempt), 'DESKTOP_REPORT_IDENTITY_INVALID')
+          check(report.binary_sha256 === null || /^[a-f0-9]{64}$/.test(report.binary_sha256), 'DESKTOP_REPORT_IDENTITY_INVALID')
+          check(report.platform === process.env.EXPECTED_PLATFORM && report.architecture === process.env.EXPECTED_ARCH, 'DESKTOP_REPORT_PLATFORM_INVALID')
+          check(['scope', 'source', 'start', 'configure', 'stop', 'restart', 'quit', 'completed'].includes(report.phase) &&
+            (report.error_code === null || /^[A-Z][A-Z0-9_]{0,79}$/.test(report.error_code)), 'DESKTOP_REPORT_CLASSIFICATION_INVALID')
+          check(report.qualified_scope === 'owned_backend_lifecycle_and_persistence' && report.accounting_verified === false &&
+            report.electron_started === false && report.gui_verified === false && report.model_requests === 0 && report.production_touched === false, 'DESKTOP_REPORT_SCOPE_INVALID')
+          check(typeof report.graceful_stop_verified === 'boolean' &&
+            ['not_verified', 'normal_exit_zero_without_sigkill', 'windows_graceful_flush_not_verified'].includes(report.termination_semantics), 'DESKTOP_REPORT_TERMINATION_INVALID')
+          const required = ['source_and_binary_bound', 'owned_filesystem_bound', 'real_lite_status', 'local_configuration_saved',
+            'close_and_cancel_preserve_process', 'owned_stop_confirmed', 'unrelated_child_preserved',
+            'restart_business_and_secret_preserved', 'quit_waited_for_close']
+          check(report.checks && Object.entries(report.checks).every(([key, value]) => required.includes(key) && typeof value === 'boolean'), 'DESKTOP_REPORT_CHECKS_INVALID')
+          const cleanupKeys = ['confirmed', 'owned_children_closed', 'fixture_removed']
+          check(report.cleanup && Object.keys(report.cleanup).sort().join() === cleanupKeys.sort().join() &&
+            cleanupKeys.every(key => typeof report.cleanup[key] === 'boolean'), 'DESKTOP_REPORT_CLEANUP_INVALID')
+          check(Array.isArray(report.lifecycle), 'DESKTOP_REPORT_LIFECYCLE_INVALID')
+          const lifecycleFields = ['generation', 'pid', 'requested_signals', 'exit_code', 'signal_code', 'closed']
+          for (const item of report.lifecycle) {
+            check(item && Object.keys(item).every(key => lifecycleFields.includes(key)), 'DESKTOP_REPORT_LIFECYCLE_INVALID')
+            check(Number.isSafeInteger(item.generation) && item.generation > 0 && typeof item.closed === 'boolean' &&
+              Array.isArray(item.requested_signals) && item.requested_signals.every(signal => ['SIGTERM', 'SIGKILL'].includes(signal)), 'DESKTOP_REPORT_LIFECYCLE_INVALID')
+            check(item.pid === undefined || Number.isSafeInteger(item.pid) && item.pid > 0, 'DESKTOP_REPORT_LIFECYCLE_INVALID')
+            check(item.exit_code === null || Number.isSafeInteger(item.exit_code) && item.exit_code >= 0, 'DESKTOP_REPORT_LIFECYCLE_INVALID')
+            check(item.signal_code === null || ['SIGTERM', 'SIGINT', 'SIGKILL'].includes(item.signal_code), 'DESKTOP_REPORT_LIFECYCLE_INVALID')
+          }
+          const filename = path.join(process.env.RUNNER_TEMP, 'myapi-desktop-backend-' + process.platform + '-' + process.arch + '-' +
+            process.env.GITHUB_SHA + '-' + process.env.GITHUB_RUN_ID + '-' + process.env.GITHUB_RUN_ATTEMPT + '.json')
+          fs.writeFileSync(filename, JSON.stringify(report, null, 2) + '\n', { flag: 'wx', mode: 0o600 })
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'report_path=' + filename + '\n')
+          process.stdout.write(JSON.stringify(report) + '\n')
+          check(!result.error && result.signal === null && result.status === 0, 'DESKTOP_HARNESS_EXIT_NOT_ZERO')
+          check(report.passed === true && report.phase === 'completed' && report.error_code === null, 'DESKTOP_QUALIFICATION_FAILED')
+          check(report.source_sha === process.env.GITHUB_SHA && report.run_id === process.env.GITHUB_RUN_ID &&
+            report.run_attempt === process.env.GITHUB_RUN_ATTEMPT && report.binary_sha256 === process.env.MYAPI_DESKTOP_BINARY_SHA256, 'DESKTOP_REPORT_IDENTITY_MISMATCH')
+          check(Object.keys(report.checks).length === required.length && required.every(key => report.checks[key] === true) &&
+            cleanupKeys.every(key => report.cleanup[key] === true), 'DESKTOP_QUALIFICATION_INCOMPLETE')
+          check(report.lifecycle.length === 2, 'DESKTOP_GENERATIONS_UNCONFIRMED')
+          for (const [index, item] of report.lifecycle.entries()) {
+            check(item.generation === index + 1 && Number.isSafeInteger(item.pid) && item.pid > 0 && item.closed === true &&
+              item.requested_signals.length === 1 && item.requested_signals[0] === 'SIGTERM' && item.signal_code !== 'SIGKILL', 'DESKTOP_OWNED_CLOSE_UNCONFIRMED')
+          }
+          if (process.platform === 'darwin') {
+            check(report.graceful_stop_verified === true && report.termination_semantics === 'normal_exit_zero_without_sigkill' &&
+              report.lifecycle.every(item => item.exit_code === 0 && item.signal_code === null), 'DESKTOP_MAC_GRACEFUL_STOP_UNCONFIRMED')
+          } else {
+            check(report.graceful_stop_verified === false && report.termination_semantics === 'windows_graceful_flush_not_verified', 'DESKTOP_WINDOWS_EVIDENCE_MISCLASSIFIED')
+          }
+          const binary = process.platform === 'win32' ? 'my-api.exe' : 'my-api'
+          check(createHash('sha256').update(fs.readFileSync(binary)).digest('hex') === process.env.MYAPI_DESKTOP_BINARY_SHA256, 'DESKTOP_SOURCE_BINARY_CHANGED')
+          const limit = process.platform === 'win32'
+            ? 'Windows graceful shutdown/flush and accounting remain unverified.'
+            : 'Native macOS graceful close was observed; accounting remains unverified.'
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, 'Owned backend lifecycle and persistence passed on ' + process.platform + '/' + process.arch +
+            '. ' + limit + ' No Electron launch, GUI, installer, model request, production operation or full B5 acceptance is claimed.\n')
+          NODE
+
+      - name: Require the original tracked source to remain unchanged
+        run: |
+          set -euo pipefail
+          test "$(git -c core.fileMode=false rev-parse HEAD)" = "$GITHUB_SHA"
+          git -c core.fileMode=false diff --exit-code HEAD --
+
+      - name: Retain only the safe qualification JSON for seven days
+        if: ${{ always() && steps.qualify.outputs.report_path != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: myapi-desktop-backend-darwin-arm64-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.qualify.outputs.report_path }}
+          retention-days: 7
+          if-no-files-found: error
+
+  windows:
+    name: Native Windows x64 backend after macOS
+    needs: macos
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    env:
+      MYAPI_DESKTOP_BACKEND_QUALIFICATION: '1'
+      EXPECTED_PLATFORM: win32
+      EXPECTED_ARCH: x64
+    steps:
+      - name: Require an exact-source manual dev qualification
+        env:
+          REQUESTED_SOURCE_REF: ${{ inputs.source_ref }}
+          MAC_SOURCE_SHA: ${{ needs.macos.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/dev
+          test "$GITHUB_REPOSITORY" = ForceMind/MyAPI
+          test "$REQUESTED_SOURCE_REF" = dev
+          test "$MAC_SOURCE_SHA" = "$GITHUB_SHA"
+
+      - name: Check out the exact caller source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node 22
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: '>=1.25.1'
+
+      - name: Set up the frozen frontend tool
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: '1.3.14'
+
+      - name: Require the actual native runner and bind source version
+        id: source
+        run: |
+          set -euo pipefail
+          test "$RUNNER_OS" = Windows
+          test "$RUNNER_ARCH" = X64
+          test "$(go env GOHOSTOS)" = windows
+          test "$(go env GOHOSTARCH)" = amd64
+          test "$(git -c core.fileMode=false rev-parse HEAD)" = "$GITHUB_SHA"
+          git -c core.fileMode=false diff --exit-code HEAD --
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          assert.equal(process.platform, process.env.EXPECTED_PLATFORM)
+          assert.equal(process.arch, process.env.EXPECTED_ARCH)
+          const version = fs.readFileSync('VERSION', 'utf8').trim()
+          assert.equal(version, JSON.parse(fs.readFileSync('package.json', 'utf8')).version)
+          assert.match(version, /^[0-9]+\.[0-9]+\.[0-9]+(?:[.-][0-9A-Za-z.-]+)?$/)
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'sha=' + process.env.GITHUB_SHA + '\nversion=' + version + '\n')
+          NODE
+
+      - name: Verify lifecycle contracts without starting Electron
+        timeout-minutes: 5
+        run: node --test electron/test/*.test.mjs tools/desktop/qualify-backend.test.mjs
+
+      - name: Build the same-source Lite frontend on the runner
+        env:
+          CI: ''
+          NODE_OPTIONS: --max-old-space-size=4096
+          VITE_REACT_APP_VERSION: ${{ steps.source.outputs.version }}
+          VITE_BUILD_ID: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+          cd web
+          bun install --frozen-lockfile
+          DISABLE_ESLINT_PLUGIN=true VITE_SELF_USE_MINIMAL=true VITE_BRAND_NAME=MyAPI VITE_BRAND_LOGO=/myapi-logo-v1.png bun run build
+
+      - name: Build the actual native Go binary on the runner
+        timeout-minutes: 15
+        env:
+          DESKTOP_BUILD_VERSION: ${{ steps.source.outputs.version }}
+          GOOS: windows
+          GOARCH: amd64
+        run: |
+          set -euo pipefail
+          test ! -e my-api.exe
+          test ! -L my-api.exe
+          go mod download
+          MODULE_PATH="$(go list -m)"
+          test "$MODULE_PATH" = github.com/ForceMind/MyAPI
+          GOMAXPROCS=2 go build -p 2 -ldflags "-s -w -X '$MODULE_PATH/common.Version=$DESKTOP_BUILD_VERSION'" -o my-api.exe
+
+      - name: Bind the freshly built binary hash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          import { createHash } from 'node:crypto'
+          const binary = process.platform === 'win32' ? 'my-api.exe' : 'my-api'
+          const info = fs.lstatSync(binary)
+          assert.ok(info.isFile() && !info.isSymbolicLink() && info.size > 0)
+          const sha = createHash('sha256').update(fs.readFileSync(binary)).digest('hex')
+          fs.appendFileSync(process.env.GITHUB_ENV, 'MYAPI_DESKTOP_BINARY_SHA256=' + sha + '\n')
+          console.log(JSON.stringify({ source_sha: process.env.GITHUB_SHA, platform: process.platform, architecture: process.arch, binary_sha256: sha }))
+          NODE
+
+      - name: Qualify the actual bundled-backend lifecycle and persistence
+        id: qualify
+        timeout-minutes: 7
+        run: |
+          set -euo pipefail
+          umask 077
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs'
+          import path from 'node:path'
+          import { createHash } from 'node:crypto'
+          import { spawnSync } from 'node:child_process'
+          const check = (ok, code) => { if (!ok) throw new Error(code) }
+          const result = spawnSync(process.execPath, ['tools/desktop/qualify-backend.mjs'], {
+            encoding: 'utf8', timeout: 300000, maxBuffer: 1024 * 1024, shell: false,
+          })
+          let report
+          try { report = JSON.parse(result.stdout) } catch { throw new Error('DESKTOP_SAFE_REPORT_UNAVAILABLE') }
+          const fields = ['schema_version', 'source_sha', 'run_id', 'run_attempt', 'platform', 'architecture', 'binary_sha256',
+            'passed', 'phase', 'error_code', 'checks', 'lifecycle', 'qualified_scope', 'graceful_stop_verified',
+            'termination_semantics', 'accounting_verified', 'cleanup', 'electron_started', 'gui_verified', 'model_requests', 'production_touched']
+          check(report && Object.keys(report).sort().join() === fields.sort().join(), 'DESKTOP_REPORT_SCHEMA_INVALID')
+          check(report.schema_version === 1 && typeof report.passed === 'boolean', 'DESKTOP_REPORT_SCHEMA_INVALID')
+          check(report.source_sha === null || /^[a-f0-9]{40}$/.test(report.source_sha), 'DESKTOP_REPORT_IDENTITY_INVALID')
+          check(report.run_id === null || /^[1-9][0-9]*$/.test(report.run_id), 'DESKTOP_REPORT_IDENTITY_INVALID')
+          check(report.run_attempt === null || /^[1-9][0-9]*$/.test(report.run_attempt), 'DESKTOP_REPORT_IDENTITY_INVALID')
+          check(report.binary_sha256 === null || /^[a-f0-9]{64}$/.test(report.binary_sha256), 'DESKTOP_REPORT_IDENTITY_INVALID')
+          check(report.platform === process.env.EXPECTED_PLATFORM && report.architecture === process.env.EXPECTED_ARCH, 'DESKTOP_REPORT_PLATFORM_INVALID')
+          check(['scope', 'source', 'start', 'configure', 'stop', 'restart', 'quit', 'completed'].includes(report.phase) &&
+            (report.error_code === null || /^[A-Z][A-Z0-9_]{0,79}$/.test(report.error_code)), 'DESKTOP_REPORT_CLASSIFICATION_INVALID')
+          check(report.qualified_scope === 'owned_backend_lifecycle_and_persistence' && report.accounting_verified === false &&
+            report.electron_started === false && report.gui_verified === false && report.model_requests === 0 && report.production_touched === false, 'DESKTOP_REPORT_SCOPE_INVALID')
+          check(typeof report.graceful_stop_verified === 'boolean' &&
+            ['not_verified', 'normal_exit_zero_without_sigkill', 'windows_graceful_flush_not_verified'].includes(report.termination_semantics), 'DESKTOP_REPORT_TERMINATION_INVALID')
+          const required = ['source_and_binary_bound', 'owned_filesystem_bound', 'real_lite_status', 'local_configuration_saved',
+            'close_and_cancel_preserve_process', 'owned_stop_confirmed', 'unrelated_child_preserved',
+            'restart_business_and_secret_preserved', 'quit_waited_for_close']
+          check(report.checks && Object.entries(report.checks).every(([key, value]) => required.includes(key) && typeof value === 'boolean'), 'DESKTOP_REPORT_CHECKS_INVALID')
+          const cleanupKeys = ['confirmed', 'owned_children_closed', 'fixture_removed']
+          check(report.cleanup && Object.keys(report.cleanup).sort().join() === cleanupKeys.sort().join() &&
+            cleanupKeys.every(key => typeof report.cleanup[key] === 'boolean'), 'DESKTOP_REPORT_CLEANUP_INVALID')
+          check(Array.isArray(report.lifecycle), 'DESKTOP_REPORT_LIFECYCLE_INVALID')
+          const lifecycleFields = ['generation', 'pid', 'requested_signals', 'exit_code', 'signal_code', 'closed']
+          for (const item of report.lifecycle) {
+            check(item && Object.keys(item).every(key => lifecycleFields.includes(key)), 'DESKTOP_REPORT_LIFECYCLE_INVALID')
+            check(Number.isSafeInteger(item.generation) && item.generation > 0 && typeof item.closed === 'boolean' &&
+              Array.isArray(item.requested_signals) && item.requested_signals.every(signal => ['SIGTERM', 'SIGKILL'].includes(signal)), 'DESKTOP_REPORT_LIFECYCLE_INVALID')
+            check(item.pid === undefined || Number.isSafeInteger(item.pid) && item.pid > 0, 'DESKTOP_REPORT_LIFECYCLE_INVALID')
+            check(item.exit_code === null || Number.isSafeInteger(item.exit_code) && item.exit_code >= 0, 'DESKTOP_REPORT_LIFECYCLE_INVALID')
+            check(item.signal_code === null || ['SIGTERM', 'SIGINT', 'SIGKILL'].includes(item.signal_code), 'DESKTOP_REPORT_LIFECYCLE_INVALID')
+          }
+          const filename = path.join(process.env.RUNNER_TEMP, 'myapi-desktop-backend-' + process.platform + '-' + process.arch + '-' +
+            process.env.GITHUB_SHA + '-' + process.env.GITHUB_RUN_ID + '-' + process.env.GITHUB_RUN_ATTEMPT + '.json')
+          fs.writeFileSync(filename, JSON.stringify(report, null, 2) + '\n', { flag: 'wx', mode: 0o600 })
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'report_path=' + filename + '\n')
+          process.stdout.write(JSON.stringify(report) + '\n')
+          check(!result.error && result.signal === null && result.status === 0, 'DESKTOP_HARNESS_EXIT_NOT_ZERO')
+          check(report.passed === true && report.phase === 'completed' && report.error_code === null, 'DESKTOP_QUALIFICATION_FAILED')
+          check(report.source_sha === process.env.GITHUB_SHA && report.run_id === process.env.GITHUB_RUN_ID &&
+            report.run_attempt === process.env.GITHUB_RUN_ATTEMPT && report.binary_sha256 === process.env.MYAPI_DESKTOP_BINARY_SHA256, 'DESKTOP_REPORT_IDENTITY_MISMATCH')
+          check(Object.keys(report.checks).length === required.length && required.every(key => report.checks[key] === true) &&
+            cleanupKeys.every(key => report.cleanup[key] === true), 'DESKTOP_QUALIFICATION_INCOMPLETE')
+          check(report.lifecycle.length === 2, 'DESKTOP_GENERATIONS_UNCONFIRMED')
+          for (const [index, item] of report.lifecycle.entries()) {
+            check(item.generation === index + 1 && Number.isSafeInteger(item.pid) && item.pid > 0 && item.closed === true &&
+              item.requested_signals.length === 1 && item.requested_signals[0] === 'SIGTERM' && item.signal_code !== 'SIGKILL', 'DESKTOP_OWNED_CLOSE_UNCONFIRMED')
+          }
+          if (process.platform === 'darwin') {
+            check(report.graceful_stop_verified === true && report.termination_semantics === 'normal_exit_zero_without_sigkill' &&
+              report.lifecycle.every(item => item.exit_code === 0 && item.signal_code === null), 'DESKTOP_MAC_GRACEFUL_STOP_UNCONFIRMED')
+          } else {
+            check(report.graceful_stop_verified === false && report.termination_semantics === 'windows_graceful_flush_not_verified', 'DESKTOP_WINDOWS_EVIDENCE_MISCLASSIFIED')
+          }
+          const binary = process.platform === 'win32' ? 'my-api.exe' : 'my-api'
+          check(createHash('sha256').update(fs.readFileSync(binary)).digest('hex') === process.env.MYAPI_DESKTOP_BINARY_SHA256, 'DESKTOP_SOURCE_BINARY_CHANGED')
+          const limit = process.platform === 'win32'
+            ? 'Windows graceful shutdown/flush and accounting remain unverified.'
+            : 'Native macOS graceful close was observed; accounting remains unverified.'
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, 'Owned backend lifecycle and persistence passed on ' + process.platform + '/' + process.arch +
+            '. ' + limit + ' No Electron launch, GUI, installer, model request, production operation or full B5 acceptance is claimed.\n')
+          NODE
+
+      - name: Require the original tracked source to remain unchanged
+        run: |
+          set -euo pipefail
+          test "$(git -c core.fileMode=false rev-parse HEAD)" = "$GITHUB_SHA"
+          git -c core.fileMode=false diff --exit-code HEAD --
+
+      - name: Retain only the safe qualification JSON for seven days
+        if: ${{ always() && steps.qualify.outputs.report_path != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: myapi-desktop-backend-win32-x64-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.qualify.outputs.report_path }}
+          retention-days: 7
+          if-no-files-found: error

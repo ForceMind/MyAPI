@@ -27,6 +27,10 @@ on:
         description: 'Qualify local backup and isolated restore on disposable dev Docker SQLite fixtures'
         type: boolean
         default: false
+      run_desktop_backend_qualification:
+        description: 'Qualify native macOS then Windows bundled-backend lifecycle without starting a GUI'
+        type: boolean
+        default: false
       run_deployment_tutorials:
         description: 'Execute source-bound deployment tutorial commands on owned dev fixtures'
         type: boolean
@@ -124,6 +128,13 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/backup-qualification.yml
+
+  desktop-backend-qualification:
+    name: Native Desktop owned backend lifecycle without GUI
+    if: github.event_name == 'workflow_dispatch' && inputs.run_desktop_backend_qualification && github.ref == 'refs/heads/dev'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/desktop-qualification.yml
 
   container-assessment:
     name: Container user and old-volume compatibility assessment

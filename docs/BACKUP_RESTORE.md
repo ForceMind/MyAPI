@@ -1,6 +1,6 @@
 # 本地备份与隔离恢复 / Local backup and isolated restore
 
-状态：Root Linux amd64 Docker Full + SQLite 的备份、隔离恢复和确认保留策略已在 beta.47 `81ab6c4867ad1247800928727f0aaf7324dc6df3` / [CI42442205783](https://github.com/ForceMind/MyAPI/actions/runs/42442205783) 通过资格（job128613625850）。beta.46 / CI42439207854 是更早的备份恢复证据。当前新增 Linux root Docker Lite/lan SQLite 路径仅为源码候选，尚待自身 Full/Lite 矩阵 CI。均未发布或生产验收，不代表完整 B4 已交付。
+状态：已登记的 Root Linux amd64 Docker Full 与独立 Lite/lan + SQLite 的备份、隔离恢复和确认保留策略，已在 beta.52 `34b47daf2919e0eb4690eaa440f43dbae70d3afe` / [CI42465372403](https://github.com/ForceMind/MyAPI/actions/runs/42465372403) 通过独立矩阵及完整CI（Full job128683550466 / Lite job128683550558，各18项检查）。beta.47 / CI42442205783 是更早的 Full 保留策略证据。未发布或生产验收，不代表完整 B4 或其它形态已交付。
 
 ## 先看操作影响
 
@@ -13,7 +13,7 @@
 ## 本批支持范围
 
 - Linux amd64 宿主、Node.js 22 或更新、Python 3 标准库、root 权限，以及本机 `/var/run/docker.sock`。
-- 已验证范围是注册的 Docker Full + SQLite 实例。新候选另支持已独立运行且登记的 Lite/lan + SQLite，尚待真实资格；不是 Full→Lite 切换。真实 Env 与不可变镜像标签必须属于同一明确版本族，Full/Lite 交叉、未知或缺失标签继续拒绝。`/data` 必须为明确的本地 bind mount；远端数据库、个人模式或未核对身份的镜像仍拒绝。
+- 已验证范围是注册且各自独立运行的 Docker Full 或 Lite/lan + SQLite 实例；不是 Full→Lite 切换。真实 Env 与不可变镜像标签必须属于同一明确版本族，Full/Lite 交叉、未知或缺失标签继续拒绝。`/data` 必须为明确的本地 bind mount；远端数据库、个人模式或未核对身份的镜像仍拒绝。
 - 原数据目录及其祖先必须有可解释的 root 归属。允许 root 的 `0755` 或 `0700` 数据目录，但拒绝组或其他用户可写的目录、非 root 数据条目、链接、特殊文件、子挂载和不支持的文件系统。私有状态、备份及恢复父目录须为 root `0700`；root sticky `/tmp` 下的 root 私有子目录可用。
 - 拒绝无法保全的 ACL、扩展属性和缺失的挂载、PID 或文件证据，不自动修改 owner、权限或原数据来绕过检查。
 
@@ -21,15 +21,15 @@
 
 当前只复制注册的完整数据目录，包括实际存在的 SQLite DB、WAL、SHM 及目录内其他文件。外部 `.env`、Docker 配置、其他挂载和外部对象存储不在复制范围；自动重启的原策略另存于计划与 journal，其他运行配置只绑定摘要并保持原实例配置。恢复原策略和服务须另行人工确认，本命令不会自动执行。正常停机会 checkpoint，主库 WAL 是否仍存在按停机后实际情况记录，不能补造缺失文件。
 
-本入口不是跨宿主灾难恢复工具。Lite/lan 的真实资格是当前候选；原生服务、Desktop、非 root 数据、其它架构、在线备份及跨注册恢复仍未获本入口资格。数量/天数清理已在上述 Root Full 路径验证，不能据此套用其它形态。
+本入口不是跨宿主灾难恢复工具。原生服务、Desktop、非 root 数据、其它架构、在线备份及跨注册恢复仍未获本入口资格。上述两版确认清理流程已验证，数量/天数保护仍由共享选择器合同约束，不能据此套用其它形态。
 
-## 新 Lite/lan 候选怎样验收
+## Full/Lite 已验证范围与方法
 
 备份专用来源校验接受匹配的 Full 或 Lite/lan Env 与镜像版本族；原 Full-only 运维升级校验器保持原有限制，不增加可传入的 edition allowlist 或 verified 绕过。原 manifest/intent/COMMITTED 结构不变，真实 Env、不可变 image ID 与来源配置仍由摘要绑定；恢复仍核停止源和未变数据，新账务出现时拒绝旧恢复。
 
-资格矩阵使用当前 SHA 各自构建的 Full 与 lan 镜像，`push:false`、`fail-fast:false`。两组各核真实 status 的 full/lite 标识、版本、setup/self-use 模式及收据；完整备份与隔离恢复读回、精确保留/删除、源新增17单位合成账务保全、所有源 fake 合计2与恢复0、停机/未知/引用/占用与自有清理的原断言均保留。没有真实运行结果之前，只能称源码候选。
+资格矩阵使用当前 SHA 各自构建的 Full 与 lan 镜像，`push:false`、`fail-fast:false`。两组各核真实 status 的 full/lite 标识、版本、setup/self-use 模式及收据；完整备份与隔离恢复读回、精确保留/删除、源新增17单位合成账务保全、所有源 fake 合计2与恢复0、停机/未知/引用/占用与自有清理的原断言均保留。上述beta.52两组已实际通过；只删指定1份保2份，源新增17单位调整在正常停止后精确保留。后继源码变更仍须按自身SHA重验，不能沿用旧绿灯。
 
-The candidate uses a fixed backup-only source verifier; it does not widen the Full-only upgrade validator or alter existing manifest/intent formats. Current-SHA Full and lan images must independently pass the original business, accounting, writer, retention, no-replay and cleanup assertions. Only safe edition/source/run-bound reports are retained. A matrix declaration, metadata mock or successful syntax check is not qualification.
+The qualified Full/Lite paths use a fixed backup-only source verifier; it does not widen the Full-only upgrade validator or alter existing manifest/intent formats. Current-SHA Full and lan images must independently pass the original business, accounting, writer, retention, no-replay and cleanup assertions. Only safe edition/source/run-bound reports are retained. A matrix declaration, metadata mock or successful syntax check is not qualification.
 
 ## 配置与命令格式
 
@@ -50,7 +50,7 @@ The candidate uses a fixed backup-only source verifier; it does not widen the Fu
 }
 ```
 
-以下仅为命令格式，尖括号是占位符，不能原样复制执行。已通过的 Root Full 资格使用同一源码 CLI 和参数，在全新临时目录操作合成实例；新候选必须在其自身 SHA 的 Full/Lite 独立矩阵中重验，不能借旧 Full 绿灯宣称 Lite 已通过。
+以下仅为命令格式，尖括号是占位符，不能原样复制执行。已通过的 Root Full/Lite 资格使用同一源码 CLI 和参数，在各自全新临时目录操作合成实例；真实现场仍须核对自己的来源、计划与确认，不能复制CI实例身份。
 
 ```text
 node <checkout>/cli/myapi.mjs backup --config <CONFIG> --instance primary --json
@@ -70,7 +70,7 @@ node <checkout>/cli/myapi.mjs restore --config <CONFIG> --instance primary --bac
 
 停机、权限、写入者或复制结果不明时，记录进入 `recovery_required` 并保留现场及实例锁。不要直接重试、重启旧容器或回灌旧数据；先人工核对实例、数据和 journal。新目标的 partial 目录不算恢复成功，工具不会自动删除它或启动它。
 
-默认保留策略仍为 **全部保留**，不会新建定时任务。以下清理入口已在上述 Root Full 合成资格中验证，Lite/lan 的同一流程仍待候选矩阵证明；不代表已发布或授权删除真实备份。现场删除必须由操作者确认具体计划、ID/digest、引用及占用。
+默认保留策略仍为 **全部保留**，不会新建定时任务。以下确认清理入口已在上述 Root Full/Lite 合成资格中验证；不代表已发布或授权删除真实备份。现场删除必须由操作者确认具体计划、ID/digest、引用及占用。
 
 ```text
 node <checkout>/cli/myapi.mjs backup-prune --config <CONFIG> --instance primary --after-backup <NEW_BACKUP_ID> --keep-count <N> --keep-days <D> --json
@@ -85,7 +85,7 @@ node <checkout>/cli/myapi.mjs backup-prune --config <CONFIG> --instance primary 
 
 ## English
 
-Registered Linux amd64 root Docker Full + SQLite backup, isolated restore and confirmed retention passed at beta.47 source 81ab6c4867ad1247800928727f0aaf7324dc6df3 / CI42442205783, job128613625850. Beta.46 / CI42439207854 is earlier backup/restore evidence. The new Lite/lan SQLite path is a source candidate awaiting its own Full/Lite matrix; it is not an edition switch or proof for Desktop/native data. Neither scope is a production qualification or publication. All builds and runtime checks run in GitHub Actions; browser and real provider traffic are not authorized.
+Registered Linux amd64 root Docker Full and independently running Lite/lan + SQLite backup, isolated restore and confirmed retention passed at beta.52 source 34b47daf2919e0eb4690eaa440f43dbae70d3afe / CI42465372403, Full job128683550466 and Lite job128683550558. Each passed 18 checks; the exact archive deletion, retained references, new 17-unit synthetic adjustment and no-replay evidence were verified. This is not an edition switch, proof for Desktop/native data, a production qualification or publication. All builds and runtime checks run in GitHub Actions; browser and real provider traffic are not authorized.
 
 The local root command reuses the instance registry and storage locks. It does not require the operations daemon, TLS keys, bridge token, or GitHub credentials. The four storage fields and command formats above are shared with the existing registration format; all placeholders must be replaced for the actual installation.
 
@@ -95,4 +95,4 @@ The local root command reuses the instance registry and storage locks. It does n
 
 The bundle covers the registered data directory, including present DB/WAL/SHM files. External environment files, other mounts, Docker configuration and object storage are not copied. This is not cross-host disaster recovery. Visible FD and shared writable mmap observations require a trusted maintenance window; they do not exclude malicious root or future writers.
 
-Retention defaults to keep-all, with no scheduling. The confirmed `backup-prune` path, qualified only for Root Full so far, requires a fresh successful backup, explicit count/day policy, a concrete plan and exact confirmation. Count and rolling-day protections form a union; the latest timestamp ties, trigger, restore references and active readers remain protected. Unknown or corrupt directories are retained. An uncertain or partial deletion freezes the operation without retries; logical byte totals are not measured reclaimed disk space. Other installation types, online backup and disaster recovery remain future B4 work. Production deployment requires separate authorization.
+Retention defaults to keep-all, with no scheduling. The confirmed `backup-prune` path, qualified for the registered Root Full/Lite paths, requires a fresh successful backup, explicit count/day policy, a concrete plan and exact confirmation. Count and rolling-day protections form a union; the latest timestamp ties, trigger, restore references and active readers remain protected. Unknown or corrupt directories are retained. An uncertain or partial deletion freezes the operation without retries; logical byte totals are not measured reclaimed disk space. Other installation types, online backup and disaster recovery remain future B4 work. Production deployment requires separate authorization.

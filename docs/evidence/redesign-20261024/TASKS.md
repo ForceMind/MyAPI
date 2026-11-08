@@ -1,6 +1,22 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
-## 2026-11-08 B4 Lite备份：beta.52候选，真实资格待自身Actions
+## 2026-11-08 B5原生后端生命周期资格候选，应用仍beta.52
+
+本批仅五个CI/测试工具文件：ci.yml默认关闭的run_desktop_backend_qualification、desktop-qualification.yml、tools/desktop/qualify-backend.mjs及其4组合同、electron/test/fixtures/native-host.mjs；加本清单/交接、Desktop/备份/发行说明五份已有文档，共10文件。仅工具与说明，不重复升级应用版本。macOS arm64先于Windows x64；各自当前SHA构建Lite前端与真实Go二进制，hash/版本绑定，实际loopback设置/登录/标记、owned stop/restart/quit、配置与会话secret复读、无关child保全及自有目录清理，仍待本批自身Actions运行。
+
+窗口/托盘由Electron边界夹具代替，不安装或启动Electron/Chromium，不做GUI、安装器、跨机、防火墙、模型或生产验收。Mac须正常exit0且无SIGKILL；Windows明确graceful_stop_verified=false、优雅flush未验，两版accounting_verified=false，不能用简单配置往返充当账务/在途flush证明。模块只源审/Node与YAML/内嵌JS语法检查，原Node/VM合同不替代此原生平台资格。提交后完整CI及macOS→Windows两个真实后端作业都通过才验收这一窄范围，整个B5及完整Goal保持。
+
+另有独立公网入口检查WIP：沿旧效果图细化原desktop-tray一个视图，模块/Main/IPC/renderer及其测试、原生字典均未包含本提交，尚未Actions验收；只显式点击读固定公共状态、不读Key/发模型，外部verification仍unknown。主审100键C1机器稿未应用，另41键仍待主审。T1只读验签接线及10个旧UI整文件删除仍待明确授权，不自行实施；不重开BUG专项，最终质量阶段顺序保持。
+
+## 2026-11-08 B4 Full/Lite root Docker SQLite已验收：34b47daf / CI42465372403
+
+`34b47daf2919e0eb4690eaa440f43dbae70d3afe` / [CI42465372403](https://github.com/ForceMind/MyAPI/actions/runs/42465372403) attempt1 success，14执行成功/6可选跳过；23449行全部实际日志、14 checkout及全部步骤已核，失败/race标记0。前端421文件/3452测试及Root/独立relaykit/386/三库/race/分发/Root合同通过。Full job128683550466完整2164行、Lite/lan job128683550558完整2150行及两份安全回执已核；各18项真实检查全部通过，版本beta.52、实际full/lite状态与来源镜像匹配。
+
+两版均完成真实CLI备份/新隔离恢复/三份归档与精确确认清理：只删指定1份，保恢复引用及最新触发两份；源新增17单位合成调整在正常停止后精确保留，live/final业务哈希相同、源进程/配置/UID/GID在prune期间保持。所有源netns fake合计2、恢复0、无额外请求，host防火墙/自有canary与清理证据全过，不调用真实供应商。仅资格Root Linux amd64 Docker Full与独立Lite/lan SQLite，不扩展Native/Desktop、非root、其它架构、远端库、在线或灾难恢复；仍非生产或完整三版本验收。
+
+安全报告：[Full 13611438286](https://github.com/ForceMind/MyAPI/actions/runs/42465372403/artifacts/13611438286)，3183 bytes、SHA256 141d003f4f3596f2684667772d5e5d7b64174c0eeb2dedc23a4c26bf56f5c574、到期2026-11-15T09:05:12Z；[Lite 13611721555](https://github.com/ForceMind/MyAPI/actions/runs/42465372403/artifacts/13611721555)，3181 bytes、SHA256 49585b0ab88b5389a4226a55a8db3613120f5dbb5cf3abab277af5df07a91b62、到期2026-11-15T09:04:55Z。未下载产物。自动42465369795 cancelled的439行可用日志已读，12取消/7跳过且未checkout，不作测试通过；首轮977红灯保留如下，不回写为绿。
+
+## 2026-11-08 B4 beta.52候选与首轮失败历史（以下按当时记录理解）
 
 首轮`977d0a686c30cc94f99fe88077af143c46a1c5a6` / [CI42464782011](https://github.com/ForceMind/MyAPI/actions/runs/42464782011)未验收，Full/Lite资格均失败，随后停止剩余重复作业，终态cancelled；9成功/2失败/3取消/6跳过，17733行全部实际日志与14 checkout已核。失败job128681708343完整2155行、128681708462完整2171行已读；安全报告均为B4_FIXTURE_COMMAND_FAILED/prune-live-source-marker，cli_failure与cleanup_failure为null，不据此宣称整轮保全或资格成功。从代码看存在确定夹具错配：JS自有目录已加入edition，内嵌Python业务快照仍断言旧无edition路径。
 

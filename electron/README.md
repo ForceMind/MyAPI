@@ -5,9 +5,9 @@ This directory contains the Lite desktop wrapper for MyAPI. Initial platforms ar
 
 ## Desktop 使用教程 / Desktop task guide
 
-**先看身份：** 当前源码候选是 `0.2.0-beta.52`，尚待自身 CI；最近已验教程与源码合同为 **beta.51 / `2fb61146`**（[Actions 42460806192](https://github.com/ForceMind/MyAPI/actions/runs/42460806192)）。已有安装构件绑定 **beta.40 / `13eedad9`**：macOS arm64 DMG/ZIP（[Actions 42379249054](https://github.com/ForceMind/MyAPI/actions/runs/42379249054)）和 Windows x64 NSIS/portable（[Actions 42379624002](https://github.com/ForceMind/MyAPI/actions/runs/42379624002)）。它们不是 beta.52；旧包不包含后来源码的全部能力。未正式发布或确认签名，未做真实 GUI、安装、托盘、系统防火墙或跨机验收。不要把 Actions 测试构件当作已受信任的正式安装包。Linux Desktop 不纳入首发。
+**先看身份：** 当前应用源码为 `0.2.0-beta.52`，`34b47daf` 的完整CI及Docker Full/Lite备份资格已通过（[CI42465372403](https://github.com/ForceMind/MyAPI/actions/runs/42465372403)）；本批新增Desktop原生后端资格仍待自身Actions，不升级应用版本。最近已验教程为 **beta.51 / `2fb61146`**（[Actions 42460806192](https://github.com/ForceMind/MyAPI/actions/runs/42460806192)）。已有安装构件绑定 **beta.40 / `13eedad9`**：macOS arm64 DMG/ZIP（[Actions 42379249054](https://github.com/ForceMind/MyAPI/actions/runs/42379249054)）和 Windows x64 NSIS/portable（[Actions 42379624002](https://github.com/ForceMind/MyAPI/actions/runs/42379624002)）。它们不是 beta.52；旧包不包含后来源码的全部能力。未正式发布或确认签名，未做真实 GUI、安装、托盘、系统防火墙或跨机验收。不要把 Actions 测试构件当作已受信任的正式安装包。Linux Desktop 不纳入首发。
 
-**Identity first:** the current source candidate is `0.2.0-beta.52`, pending its own CI. The latest qualified tutorial commands and source contracts are **beta.51 / `2fb61146`**, linked above. Existing macOS arm64 DMG/ZIP and Windows x64 NSIS/portable artifacts are **beta.40 / `13eedad9`**. They are not beta.52 and do not include every later source feature. Publication, signing, real GUI/install/tray, firewall and second-device acceptance are unverified. Linux Desktop is not a first-release platform.
+**Identity first:** the application remains `0.2.0-beta.52`; source `34b47daf` passed full CI and Docker Full/Lite backup qualification. The new native Desktop backend qualification awaits its own Actions run and does not bump the app version. The latest qualified tutorial commands are **beta.51 / `2fb61146`**, linked above. Existing macOS arm64 DMG/ZIP and Windows x64 NSIS/portable artifacts are **beta.40 / `13eedad9`**. They are not beta.52 and do not include every later source feature. Publication, signing, real GUI/install/tray, firewall and second-device acceptance are unverified. Linux Desktop is not a first-release platform.
 
 下面说明的是**当前源码行为**，供维护者审核和后续受控包验收；没有与目标源码匹配并审核过的包时，不提供猜测下载链接、绕过 Gatekeeper/SmartScreen 的命令或自动安装步骤。源码构建只在明确的构建任务中执行，不代表已安装到你的电脑。
 
@@ -61,15 +61,15 @@ These actions do not kill by port, control external development servers, automat
 
 Expand data/log locations to inspect actual paths. Database selection prefers explicit `MYAPI_SQLITE_PATH`, then `SQLITE_PATH`, then the preserved legacy/canonical file under `userData/data`. An external database path is not automatically included in an app-folder copy. Preserve the configured session secret or private app identity file; regenerating it is not a recovery procedure. Never delete DB/WAL/SHM or identity files to bypass a failure.
 
-只复制一个目录不保证一致或完整备份。先停止并确认服务，再由操作者核对全部真实数据、配置、密钥和外部路径。当前 [备份与恢复 CLI](../docs/BACKUP_RESTORE.md) 的资格范围是 root Linux amd64 Docker Full/SQLite，不能当作 Desktop 的恢复工具；Desktop 自动备份/恢复、更新器和公网外部验证尚未交付。日志只在明确打开时写出原始诊断，可能含敏感细节，分享前应脱敏。
+只复制一个目录不保证一致或完整备份。先停止并确认服务，再由操作者核对全部真实数据、配置、密钥和外部路径。当前 [备份与恢复 CLI](../docs/BACKUP_RESTORE.md) 的资格范围是 root Linux amd64 Docker Full/Lite SQLite，不能当作 Desktop 的恢复工具；Desktop 自动备份/恢复、更新器和公网外部验证尚未交付。日志只在明确打开时写出原始诊断，可能含敏感细节，分享前应脱敏。
 
-Copying one directory alone does not guarantee a complete consistent backup. Confirm the service stopped and account for all actual data/configuration/identity paths. The linked backup CLI is qualified for root Linux amd64 Docker Full/SQLite, not Desktop recovery. Automatic Desktop backup/restore, updater and external public verification are not delivered. Explicitly opened local diagnostics can contain sensitive details; redact before sharing.
+Copying one directory alone does not guarantee a complete consistent backup. Confirm the service stopped and account for all actual data/configuration/identity paths. The linked backup CLI is qualified for root Linux amd64 Docker Full/Lite SQLite, not Desktop recovery. Automatic Desktop backup/restore, updater and external public verification are not delivered. Explicitly opened local diagnostics can contain sensitive details; redact before sharing.
 
 ### 5. 当前可在 CI 执行的合同 / Current CI command boundaries
 
-以下从仓库根运行，不安装或启动 GUI。第一条检查资源/打包合同，第二条执行 Node/VM/合成 child 合同；它们不能证明托盘显示、真实安装、签名或防火墙访问。本批 exact 命令仍待 Actions 记录。
+以下从仓库根运行，不安装或启动 GUI。第一条检查资源/打包合同，第二条执行 Node/VM/合成 child 合同；它们不能证明托盘显示、真实安装、签名或防火墙访问。这两条原命令已有上文beta.51教程记录；新原生后端资格是独立待验候选。
 
-Run from the repository root. The first command checks packaging/resource contracts; the second exercises Node/VM/synthetic-child contracts without launching Electron GUI. Neither verifies a real tray, installation, signing or firewall. This tutorial's exact command evidence is still pending Actions.
+Run from the repository root. The first command checks packaging/resource contracts; the second exercises Node/VM/synthetic-child contracts without launching Electron GUI. Neither verifies a real tray, installation, signing or firewall. The two exact commands were recorded in the beta.51 tutorial run above; native-backend qualification is a separate pending candidate.
 
 <!-- tutorial-command: desktop-source-contract -->
 ```bash
@@ -80,6 +80,10 @@ node tools/desktop/check.mjs --json
 ```bash
 node --test electron/test/*.test.mjs
 ```
+
+新增维护者专用 Actions 资格入口 `run_desktop_backend_qualification` 默认关闭，仅 manual/dev 使用。它从当前源码分别构建 macOS arm64、再 Windows x64 的真实 Lite 后端，在无 Electron GUI 的夹具中核 owned child 启停、配置标记与会话身份重启复读；只保留安全 JSON，不上传数据库、密钥、原始日志或二进制。本批仍待实际运行。Windows 的进程关闭不会被称为已验证优雅 flush，两版均不宣称账务或在途恢复通过。
+
+The new maintainer-only Actions input is off by default and limited to manual dev runs. It builds same-source native Lite backends, macOS arm64 before Windows x64, then checks owned-process lifecycle, configuration and session-identity persistence through an Electron facade. Only safe JSON is retained. The candidate is not yet qualified; Windows graceful flush and accounting remain unverified. No Electron/GUI, installer or public-entry test is performed.
 
 以下开发与打包内容继续保留为维护参考。只有匹配源码的 Actions 构建、平台签名和真实主机步骤分别完成后，才可扩大支持声明；未标记为 `tutorial-command` 的构建/GUI例子不属于本批待验的教程命令集合。
 The following development and packaging references remain available. Source-matched Actions builds, signing and real-host acceptance are separate gates; reference examples are not current qualified installation steps.
