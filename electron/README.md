@@ -5,9 +5,9 @@ This directory contains the Lite desktop wrapper for MyAPI. Initial platforms ar
 
 ## Desktop 使用教程 / Desktop task guide
 
-**先看身份：** 当前源码候选是 `0.2.0-beta.48`，尚待自身 CI；最近已验教程与源码合同为 **beta.47 / `5b05eea4`**（[Actions 42446080862](https://github.com/ForceMind/MyAPI/actions/runs/42446080862)）。已有安装构件绑定 **beta.40 / `13eedad9`**：macOS arm64 DMG/ZIP（[Actions 42379249054](https://github.com/ForceMind/MyAPI/actions/runs/42379249054)）和 Windows x64 NSIS/portable（[Actions 42379624002](https://github.com/ForceMind/MyAPI/actions/runs/42379624002)）。它们不是 beta.48；旧包不包含后来源码的全部能力。未正式发布或确认签名，未做真实 GUI、安装、托盘、系统防火墙或跨机验收。不要把 Actions 测试构件当作已受信任的正式安装包。Linux Desktop 不纳入首发。
+**先看身份：** 当前源码候选是 `0.2.0-beta.49`，尚待自身 CI；最近已验教程与源码合同为 **beta.48 / `46eadb53`**（[Actions 42451649080](https://github.com/ForceMind/MyAPI/actions/runs/42451649080)）。已有安装构件绑定 **beta.40 / `13eedad9`**：macOS arm64 DMG/ZIP（[Actions 42379249054](https://github.com/ForceMind/MyAPI/actions/runs/42379249054)）和 Windows x64 NSIS/portable（[Actions 42379624002](https://github.com/ForceMind/MyAPI/actions/runs/42379624002)）。它们不是 beta.49；旧包不包含后来源码的全部能力。未正式发布或确认签名，未做真实 GUI、安装、托盘、系统防火墙或跨机验收。不要把 Actions 测试构件当作已受信任的正式安装包。Linux Desktop 不纳入首发。
 
-**Identity first:** the current source candidate is `0.2.0-beta.48`, pending its own CI. The latest qualified tutorial commands and source contracts are **beta.47 / `5b05eea4`**, linked above. Existing macOS arm64 DMG/ZIP and Windows x64 NSIS/portable artifacts are **beta.40 / `13eedad9`**. They are not beta.48 and do not include every later source feature. Publication, signing, real GUI/install/tray, firewall and second-device acceptance are unverified. Linux Desktop is not a first-release platform.
+**Identity first:** the current source candidate is `0.2.0-beta.49`, pending its own CI. The latest qualified tutorial commands and source contracts are **beta.48 / `46eadb53`**, linked above. Existing macOS arm64 DMG/ZIP and Windows x64 NSIS/portable artifacts are **beta.40 / `13eedad9`**. They are not beta.49 and do not include every later source feature. Publication, signing, real GUI/install/tray, firewall and second-device acceptance are unverified. Linux Desktop is not a first-release platform.
 
 下面说明的是**当前源码行为**，供维护者审核和后续受控包验收；没有与目标源码匹配并审核过的包时，不提供猜测下载链接、绕过 Gatekeeper/SmartScreen 的命令或自动安装步骤。源码构建只在明确的构建任务中执行，不代表已安装到你的电脑。
 
