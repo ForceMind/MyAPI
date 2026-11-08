@@ -162,13 +162,38 @@ export async function createNativeHost({ electronDirectory, resources, userData,
             }
             let category = categories[classifyServiceError(evidence)] ?? 'UNKNOWN'
             if (category === 'UNKNOWN' && fatalOffset >= 0) {
-              if (/Lite configuration check (?:blocked|unverifiable) \(/.test(evidence)) category = 'LITE_CONFIGURATION_CHECK'
-              else if (/failed to initialize database:/.test(evidence)) category = 'DATABASE_INITIALIZATION'
+              if (/failed to initialize database:/.test(evidence)) category = 'DATABASE_INITIALIZATION'
               else if (/failed to initialize authorization:/.test(evidence)) category = 'AUTHORIZATION_INITIALIZATION'
               else if (/failed to initialize resources:/.test(evidence)) category = 'RESOURCE_INITIALIZATION'
             }
-            if (value.state === 'stop-unconfirmed') category = 'STOP_UNCONFIRMED'
-            finish(new Error('NATIVE_HOST_SERVICE_UNREADY_' + category))
+            let failure = 'NATIVE_HOST_SERVICE_UNREADY_' + category
+            if (fatalOffset >= 0 && evidence.includes('Lite configuration check')) {
+              failure = 'NATIVE_HOST_LITE_UNKNOWN'
+              const fatalLine = evidence.split(/\r?\n/, 1)[0]
+              const gate = /^\[FATAL\] \d{4}\/\d{2}\/\d{2} - \d{2}:\d{2}:\d{2} \| \[failed to initialize resources: Lite configuration check (blocked|unverifiable) \(([a-z-]+(?:, [a-z-]+)*)\); run my-api --edition-check=lite --json and resolve the listed conditions in Full before retrying\] $/.exec(fatalLine)
+              // Never turn arbitrary captured text into an error message. The
+              // two states and nine issue codes define a fixed finite set.
+              const states = { blocked: 'BLOCKED', unverifiable: 'UNVERIFIABLE' }
+              const issues = {
+                'pending-top-ups': 'PENDING_TOP_UPS',
+                'pending-subscription-orders': 'PENDING_SUBSCRIPTION_ORDERS',
+                'missing-local-login': 'MISSING_LOCAL_LOGIN',
+                'database-unavailable': 'DATABASE_UNAVAILABLE',
+                'schema-unverifiable': 'SCHEMA_UNVERIFIABLE',
+                'order-status-unverifiable': 'ORDER_STATUS_UNVERIFIABLE',
+                'authentication-unverifiable': 'AUTHENTICATION_UNVERIFIABLE',
+                'invalid-source-edition': 'INVALID_SOURCE_EDITION',
+                'invalid-target-edition': 'INVALID_TARGET_EDITION',
+              }
+              if (gate) {
+                const codes = gate[2].split(', ')
+                if (codes.every(code => Object.hasOwn(issues, code)) && new Set(codes).size === codes.length) {
+                  failure = 'NATIVE_HOST_LITE_' + states[gate[1]] + '_' + (codes.length === 1 ? issues[codes[0]] : 'MULTIPLE')
+                }
+              }
+            }
+            if (value.state === 'stop-unconfirmed') failure = 'NATIVE_HOST_SERVICE_UNREADY_STOP_UNCONFIRMED'
+            finish(new Error(failure))
           }
         }
         updates.on('state', receive)

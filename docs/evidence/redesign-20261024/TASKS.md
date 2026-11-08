@@ -2,6 +2,12 @@
 
 ## 2026-11-08 B5原生后端生命周期资格候选，应用仍beta.52
 
+分类轮`ea876331fc2d013858b0a397a448b2605db1ed89` / [CI42472594609](https://github.com/ForceMind/MyAPI/actions/runs/42472594609)未整体验收，终态cancelled，11成功/1失败/2取消/7跳过；17479行全部实际日志与14 checkout已核（Win原始git.exe输出补核）。Mac成功，Win job128707267321完整1640行明确第二代命中NATIVE_HOST_SERVICE_UNREADY_LITE_CONFIGURATION_CHECK，7checks通过后仍在restart退出1；此时仍不能判断blocked/unverifiable或具体issue，不能据此修URI/WAL、删库、切Full或跳过门禁。
+
+只读源码定位已核main固定输出包含State与Blockers/Unknowns的9个固定code，没有底层driver reason。后继仅让native-host严格解析最后完整FATAL固定格式及白名单，投射NATIVE_HOST_LITE_<STATE>_<ISSUE>固定uppercase枚举；多码MULTIPLE、未知/重复/截断或坏格式UNKNOWN，无raw text/路径/env/密钥，无schema变更和产品逻辑变化，仍须自身CI取证。Node语法轻查通过。本机未运行Go/入口/测试/依赖/浏览器。自动42472591867 cancelled：273行全部可用日志已读，12取消/8跳过；7个无steps的取消作业日志API404，保持日志不可用，不说全部已执行或通过。
+
+公网检查的源码、33条原生文案/229键、单视图线稿和说明仍是另一WIP，未提交/未验；C1后继141键仅已主审机器草稿未应用，母语/浏览器未验。完整Goal与T1待授权边界保持，R4不重开。
+
 隔离轮`3a5b9c3ce01b24f41c428653276c8856aff68f98` / [CI42471098431](https://github.com/ForceMind/MyAPI/actions/runs/42471098431)仍未整体验收，终态cancelled，12成功/1失败/1取消/7跳过；20140行全部实际日志已读，14个实际checkout已核（Windows git.exe原始log行另行精确核对）。macOS job128701792048完整1623行：109合同/0skip、原检出clean、9项真实资格及清理全过，两代Go child exit0/signal null，无SIGKILL，配置/secret复读通过；仍electron/gui/accounting=false。
 
 Windows job128702241733完整1638行：109合同、临时前端构建/复制、原检出clean、原生Go构建及首次运行/配置/停止/无关child保全均过，phase=restart第二代Go进程exit1，NATIVE_HOST_SERVICE_UNREADY，7项检查已过但重启/退出未完成。第一代SIGTERM close不称优雅flush；该Windows失败不被Mac成功或Linux合同代替。现有报告吞掉了原Go启动日志，原因仍未确定；后继仅在native-host夹具按代收有界stdout/stderr，复用现有安全分类，优先最后Go FATAL，仅投射固定uppercase类别到原error_code，不输出原文/正文/路径/环境/密钥，不改schema、端口、等待、重试、停止流程或9项断言。Node语法通过，尚待下一轮GHA实证，不称已修产品启动。自动42471095728 cancelled的459行已读，12取消/8跳过/未checkout，不当通过。公网产品WIP仍全部排除。
