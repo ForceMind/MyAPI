@@ -243,6 +243,28 @@ type ChannelEditorNavItem = {
 }
 
 // Helper functions
+// Keep full-sized controls separate from compact visuals with reserved hit areas.
+const CHANNEL_EDITOR_CONTROL_CLASS_NAME = cn(
+  'sm:max-w-5xl',
+  '[&_button:not([role=switch]):not([data-channel-editor-compact]):not(.channel-editor-multiselect_button)]:min-h-11 [&_button:not([role=switch]):not([data-channel-editor-compact]):not(.channel-editor-multiselect_button)]:min-w-11',
+  '[&_input:not([type=hidden]):not([aria-hidden=true])]:min-h-11',
+  '[&_fieldset]:min-w-0 [&_[data-slot=form-item]]:min-w-0 [&_[data-slot=form-item]]:content-start',
+  '[&_[data-slot=form-label]]:min-w-0 [&_[data-slot=form-label]]:whitespace-normal [&_[data-slot=form-label]]:break-words [&_[data-slot=form-description]]:break-words [&_[data-slot=form-message]]:break-words',
+  // Default switches remain 32 × 18.4; 13px above/below gives a 44.4px target.
+  '[&_[role=switch]]:mx-3 [&_[role=switch]]:after:-inset-y-[13px]',
+  '[&_[data-slot=form-item]:has([role=switch]):not(.min-h-16)]:min-h-12 [&_[data-slot=form-item]:has([role=switch])]:gap-3 [&_[data-slot=form-item]:has([role=switch])>div]:min-w-0'
+)
+
+const CHANNEL_EDITOR_MULTISELECT_CLASS_NAME = cn(
+  'channel-editor-multiselect min-w-0',
+  // A compact 21px chip reserves 45px vertically; adjacent actions never share a target.
+  '[&_[data-slot=combobox-chip]]:my-3 [&_[data-slot=combobox-chip]]:min-w-0 [&_[data-slot=combobox-chip]]:max-w-full',
+  '[&_button:not([data-slot])]:relative [&_button:not([data-slot])]:min-w-11 [&_button:not([data-slot])]:after:absolute [&_button:not([data-slot])]:after:inset-x-0 [&_button:not([data-slot])]:after:top-1/2 [&_button:not([data-slot])]:after:h-11 [&_button:not([data-slot])]:after:-translate-y-1/2',
+  '[&_button:not([data-slot]):not([data-slot=combobox-chip]_button)]:my-3',
+  '[&_[data-slot=combobox-chip]>button:not([data-slot])]:min-h-11',
+  '[&_[data-slot=combobox-chip-remove]]:relative [&_[data-slot=combobox-chip-remove]]:mx-2.5 [&_[data-slot=combobox-chip-remove]]:after:absolute [&_[data-slot=combobox-chip-remove]]:after:left-1/2 [&_[data-slot=combobox-chip-remove]]:after:top-1/2 [&_[data-slot=combobox-chip-remove]]:after:size-11 [&_[data-slot=combobox-chip-remove]]:after:-translate-x-1/2 [&_[data-slot=combobox-chip-remove]]:after:-translate-y-1/2'
+)
+
 const createEmptyModelMappingGuardrail = (): ModelMappingGuardrail => ({
   invalidJson: false,
   entries: [],
@@ -2012,7 +2034,7 @@ export function ChannelMutateDrawer({
   return (
     <>
       <Sheet open={open} onOpenChange={handleOpenChange}>
-        <SheetContent showCloseButton={!isSubmitting} finalFocus={returnFocus} className={sideDrawerContentClassName('sm:max-w-5xl [&_button]:min-h-11 [&_button]:min-w-11 [&_input]:min-h-11')}>
+        <SheetContent showCloseButton={!isSubmitting} finalFocus={returnFocus} className={sideDrawerContentClassName(CHANNEL_EDITOR_CONTROL_CLASS_NAME)}>
           <SheetHeader className={sideDrawerHeaderClassName()}>
             <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
               <div className='min-w-0'>
@@ -2125,7 +2147,7 @@ export function ChannelMutateDrawer({
                       className='scroll-mt-4'
                     >
                       <ChannelBasicSection>
-                        <div className='grid gap-4 sm:grid-cols-2'>
+                        <div className='grid min-w-0 items-start gap-4 sm:grid-cols-2'>
                           <fieldset
                             disabled={sensitiveLocked}
                             className='min-w-0 disabled:opacity-60'
@@ -3620,6 +3642,7 @@ export function ChannelMutateDrawer({
                                   </div>
                                   <FormControl>
                                     <MultiSelect
+                                      className={CHANNEL_EDITOR_MULTISELECT_CLASS_NAME}
                                       options={modelOptions}
                                       selected={currentModelsArray}
                                       onChange={handleModelsChange}
@@ -3779,24 +3802,27 @@ export function ChannelMutateDrawer({
                                           {t('Model Mapping')}
                                         </FormLabel>
                                         <Tooltip>
-                                          <TooltipTrigger
-                                            render={
-                                              <Button
-                                                type='button'
-                                                variant='ghost'
-                                                size='icon-sm'
-                                                className='text-muted-foreground hover:text-foreground size-auto p-0'
-                                                aria-label={t(
-                                                  'How model mapping works'
-                                                )}
+                                          <span className='inline-flex size-11 shrink-0 items-center justify-center'>
+                                            <TooltipTrigger
+                                              render={
+                                                <Button
+                                                  type='button'
+                                                  variant='ghost'
+                                                  size='icon-sm'
+                                                  data-channel-editor-compact=''
+                                                  className='text-muted-foreground hover:text-foreground relative size-4 min-h-0 min-w-0 p-0 after:absolute after:top-1/2 after:left-1/2 after:size-11 after:-translate-x-1/2 after:-translate-y-1/2'
+                                                  aria-label={t(
+                                                    'How model mapping works'
+                                                  )}
+                                                />
+                                              }
+                                            >
+                                              <HelpCircle
+                                                className='h-4 w-4'
+                                                aria-hidden='true'
                                               />
-                                            }
-                                          >
-                                            <HelpCircle
-                                              className='h-4 w-4'
-                                              aria-hidden='true'
-                                            />
-                                          </TooltipTrigger>
+                                            </TooltipTrigger>
+                                          </span>
                                           <TooltipContent
                                             side='top'
                                             align='start'
@@ -3920,6 +3946,7 @@ export function ChannelMutateDrawer({
                                       <Skeleton className='h-10 w-full' />
                                     ) : (
                                       <MultiSelect
+                                        className={CHANNEL_EDITOR_MULTISELECT_CLASS_NAME}
                                         options={groupOptions}
                                         selected={field.value}
                                         onChange={field.onChange}
@@ -3979,7 +4006,7 @@ export function ChannelMutateDrawer({
                               icon={<Route className='h-3.5 w-3.5' />}
                               iconTone='info'
                             />
-                            <div className='grid gap-4 sm:grid-cols-2'>
+                            <div className='grid min-w-0 items-start gap-4 sm:grid-cols-2'>
                               <FormField
                                 control={form.control}
                                 name='priority'
@@ -4091,7 +4118,7 @@ export function ChannelMutateDrawer({
                               icon={<FileText className='h-3.5 w-3.5' />}
                               iconTone='chart-3'
                             />
-                            <div className='grid gap-4 sm:grid-cols-2'>
+                            <div className='grid min-w-0 items-start gap-4 sm:grid-cols-2'>
                               <FormField
                                 control={form.control}
                                 name='tag'
