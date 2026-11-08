@@ -19,6 +19,10 @@ on:
         description: 'Collect current cleanup candidates on dev without changing product code'
         type: boolean
         default: false
+      run_container_assessment:
+        description: 'Assess container user and existing-volume compatibility on dev without changing deployment defaults'
+        type: boolean
+        default: false
       baseline_red:
         description: 'Reproduce the personal Key handoff regression on the fixed pre-fix source before testing the candidate'
         type: boolean
@@ -36,6 +40,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  container-assessment:
+    name: Container user and old-volume compatibility assessment
+    if: github.event_name == 'workflow_dispatch' && inputs.run_container_assessment && github.ref == 'refs/heads/dev'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/container-hardening.yml
+
   cleanup-inventory:
     name: Current private-function and frontend cleanup inventory
     if: github.event_name == 'workflow_dispatch' && inputs.run_cleanup_inventory && github.ref == 'refs/heads/dev'

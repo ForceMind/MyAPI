@@ -1,0 +1,134 @@
+name: Container hardening assessment
+
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        type: string
+        default: dev
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  assessment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      MYAPI_B6_ASSESSMENT: '1'
+      MYAPI_SMOKE_API_ONLY: '1'
+      MYAPI_SMOKE_BROWSER: '0'
+      MYAPI_SMOKE_PERSONAL: '0'
+    steps:
+      - name: Require a manual dev assessment
+        env:
+          REQUESTED_SOURCE_REF: ${{ inputs.source_ref }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/dev
+          test "$REQUESTED_SOURCE_REF" = dev
+
+      - name: Check out the exact caller source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify source identity
+        run: |
+          set -euo pipefail
+          test "$(git -c core.fileMode=false rev-parse HEAD)" = "$GITHUB_SHA"
+          git -c core.fileMode=false diff --exit-code HEAD --
+
+      - name: Set up Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+
+      - name: Verify guard and preservation contracts without Docker
+        run: node --test tools/runtime/container-hardening.test.mjs
+
+      - name: Set up bounded Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        with:
+          driver: docker-container
+          driver-opts: |
+            memory=4g
+            memory-swap=4g
+            cpu-period=100000
+            cpu-quota=200000
+
+      - name: Build the unchanged Full image on Actions runner
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        timeout-minutes: 20
+        with:
+          context: .
+          load: true
+          push: false
+          platforms: linux/amd64
+          tags: myapi:b6-app-${{ github.sha }}
+          labels: |
+            io.myapi.smoke.source=${{ github.sha }}
+          build-args: |
+            MYAPI_EDITION=full
+            MYAPI_BRAND_NAME=MyAPI
+            MYAPI_BRAND_LOGO=/myapi-logo-v1.png
+            MYAPI_BUILD_ID=${{ github.sha }}
+            MYAPI_BUILD_PARALLELISM=2
+          cache-from: type=gha,scope=smoke-full
+          cache-to: type=gha,mode=min,scope=smoke-full
+
+      - name: Prepare the source-bound existing fake upstream image
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/myapi-b6-fixture.Dockerfile" <<'DOCKERFILE'
+          FROM oven/bun:1@sha256:0733e50325078969732ebe3b15ce4c4be5082f18c4ac1a0f0ca4839c2e4e42a7
+          COPY tools/runtime/fake-openai.mjs /fixture/fake-openai.mjs
+          DOCKERFILE
+
+      - name: Build the fixed fake upstream image on Actions runner
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        timeout-minutes: 8
+        with:
+          context: .
+          file: ${{ runner.temp }}/myapi-b6-fixture.Dockerfile
+          load: true
+          push: false
+          platforms: linux/amd64
+          tags: myapi:b6-fixture-${{ github.sha }}
+          labels: |
+            io.myapi.smoke.source=${{ github.sha }}
+
+      - name: Bind immutable loaded image identities
+        run: |
+          set -euo pipefail
+          app_id="$(docker image inspect --format '{{.Id}}' "myapi:b6-app-$GITHUB_SHA")"
+          bun_id="$(docker image inspect --format '{{.Id}}' "myapi:b6-fixture-$GITHUB_SHA")"
+          [[ "$app_id" =~ ^sha256:[a-f0-9]{64}$ ]]
+          [[ "$bun_id" =~ ^sha256:[a-f0-9]{64}$ ]]
+          echo "SMOKE_APP_IMAGE_ID=$app_id" >> "$GITHUB_ENV"
+          echo "SMOKE_BUN_IMAGE_ID=$bun_id" >> "$GITHUB_ENV"
+
+      - name: Assess root-owned old volumes without changing image USER
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          umask 077
+          node tools/runtime/container-hardening.mjs | tee "$RUNNER_TEMP/myapi-b6-report.json"
+          node --input-type=module <<'JS'
+          import { readFileSync, appendFileSync } from 'node:fs'
+          const result = JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/myapi-b6-report.json', 'utf8'))
+          if (result.assessment_completed !== true || result.compatibility !== false || result.default_user_changed !== false || result.default_user_change_authorized !== false || result.cleanup_verified !== true || result.cases?.length !== 2 || result.cases[0].tested_data_mode !== '0755' || result.cases[1].tested_data_mode !== '0700' || result.cases.some(item => item.fake_upstream_requests?.additional !== 0)) throw new Error('B6_ASSESSMENT_INCOMPLETE')
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY, 'B6 assessment completed for root-owned 0755 and 0700 data layouts: nonroot refusal preserved the old volumes and original-root business recovery succeeded without replay. Compatibility is false; the Dockerfile USER remains unchanged. Browser and production were not tested.\n')
+          JS
+
+      - name: Preserve only the safe assessment report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: myapi-b6-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/myapi-b6-report.json
+          if-no-files-found: warn
+          retention-days: 7

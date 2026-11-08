@@ -1,5 +1,21 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-08 当前：A6a与重绑清单已验收，B6容器评估候选待CI（仍beta.45）
+
+`b7abb2bf88e2d2bb39e732c9f4e4f1d06563c436` / [手动完整CI42425121214](https://github.com/ForceMind/MyAPI/actions/runs/42425121214) attempt1 success：13个执行作业成功、2个可选作业跳过。主会话已亲读19568行全部日志，核对13个checkout及所有步骤，0 error；前端3452与根Go、独立relaykit、386、三库等原门禁通过。自动CI42425102725 cancelled，但主会话尚未全读其实际日志，不能写成已亲读完或计入成功证据。本节优先于下文A6a“候选/待自身CI”等历史时点记录。
+
+最新清单job128561699305共1346行已读：Go 1576 files / 5872 short functions / 422 manual；前端configured为2 files / 372 exports / 174 types，ui-inclusive为13 / 417 / 176。相对6200959c恰少1个Go私有wrapper和4个type导出修饰符，与本批范围一致；其余计数不表示全部已使用、可删或已逐项验收。[cleanup-review-6200959c.csv](cleanup-review-6200959c.csv)仍是6200959c旧基线的1033项复核记录，不重标为b7abb2bf；145个未知项继续保留，10个UI整文件删除仍在等待具体授权，尚无回复，禁止删除。
+
+当前新source batch仅做已批准B6的容器用户/体积兼容性评估：既有`ci.yml`增加默认false的`run_container_assessment`，调用新`.github/workflows/container-hardening.yml`及`tools/runtime/container-hardening.mjs` / `.test.mjs`。callee仅manual/dev并绑定精确SHA；两个source-bound镜像只在Runner build/load，`push=false`，不打包发布。主会话已亲读helper/callee/test，node --check、YAML与内嵌Bash轻检查完成；10组Node合同及真实Docker评估尚未CI运行，应用保持beta.45，不升版本。
+
+成功标准是取得可分类、可保全的评估证据，不是将默认USER改成非root。独立Runner仅用Full/SQLite与fake上游：分别从0755和0700的root旧卷克隆真实合成账务及metadata，不修clone的owner/mode；在预期权限拒绝之后，要求拒绝阶段字节完整保全，再以root精确复读原业务身份/账务，fake调用计数维持2→2，不能重放请求。0755必须出现真实UID marker再exec；0700若在OCI预执行阶段已拒绝，则UID应为null，不能补0或冒充已执行应用。缺少必要metadata、误分拒绝阶段或保全失败均非零，不能用任意失败制造评估成功。
+
+source/root和Recovery保留实际/proc UID证据；拒绝阶段按已执行UID marker或OCI预执行拒绝如实分类，未产生应用进程时保留null。拒绝阶段要求全字节保全；后续root业务复读可能合法写会话，必须分阶段说明，不把整个流程说成字节完全不变。有效评估完成后明确报告`compatibility=false`、`default_user_changed=false`，仍不能据此宣布可安全切换USER或完成权限迁移；当前仅候选，尚无本批运行结论。
+
+镜像体积仅将image.Size记为精确bytes；history大小只作human显示，diffids是标识符而非大小，tar/registry压缩体积未测时为null，不补0、不据此比较发布包。验证全部在Actions：10组Node合同、两个镜像来源/加载身份、实际非root拒绝与root业务复读、metadata/数据/调用计数保全，再按本source batch自身SHA亲读完整CI。轻语法检查不替代这些运行证明。
+
+完整Goal继续保留B3余项、B4、B5b后续、B6/B7及C1/C2/C3，A5/A6的未知和未授权项不因计数减少自动关闭。B4 writer边界只读方案已保存，不等于backup/restore已接线或获准操作现有实例。不新开BUG专项，不做本机测试、依赖安装、构建、Docker或artifact下载；生产、真实模型/供应商、浏览器、发布和main保持不动。下文旧记录完整保留，按各自源码和时点解释。
+
 ## 2026-11-08 当前：A5b common已验，A6a内部类型修饰符候选（仍beta.45）
 
 common小批`05088cbbd70b2fc13c6b8c74342bbed381d8551a` / [完整CI42422805505](https://github.com/ForceMind/MyAPI/actions/runs/42422805505) attempt1 success：12执行作业成功/3可选作业跳过。主会话读取18111行全部日志，核对12个checkout与所有步骤，失败/race标记0。`make test`的真实common包输出`ok .../common 0.524s`，新公共Render表驱动6场景包含于该包全量执行；该命令不逐例打印，不能写成逐例日志PASS。根main/根与独立relaykit/386/三库/原有race及前端3452等原门禁均成功。清单与复核基线仍绑定6200959c，不重标为当前源码；只删除一个已核对的私有转交，SSE帧算法与MIT版权头完整保留，没有扩展BUG专项。

@@ -2,6 +2,16 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**2026-11-08最新已验收：A6a及重绑清单，`b7abb2bf88e2d2bb39e732c9f4e4f1d06563c436` / [手动完整CI42425121214](https://github.com/ForceMind/MyAPI/actions/runs/42425121214) attempt1 success。** 13执行成功/2跳过，主会话亲读19568行全部日志、13checkout及所有步骤，0 error；前端3452、Go/独立relaykit/386/三库等原门禁通过。自动42425102725 cancelled的日志尚未全读，不称亲读完或成功。scan job128561699305的1346行已读：Go1576 files/5872 short/422 manual；configured files/exports/types=2/372/174、ui-inclusive=13/417/176，恰少1个私有wrapper及4处type修饰符，其余计数不冒充全已用。
+
+[6200959c复核CSV](../cleanup-review-6200959c.csv)仍绑定旧baseline，不重标b7abb2bf。145未知项保留，10个UI整文件授权尚无回复，禁止删除。以下A6a/common“候选/待CI”等按原历史时点理解，不覆盖本段最新验收；应用仍beta.45，没有新发布。
+
+**当前新候选是B6容器评估，不是切换默认USER。** 仅既有ci.yml的默认false `run_container_assessment`、新container-hardening callee及helper/test；manual/dev/精确SHA，两个source-bound镜像只Runner build/load、push=false、不打包发布。主会话已读源码并做node --check/YAML/内嵌Bash轻检查；10组Node和真实Docker尚未CI跑，仍须本批自身完整CI，beta.45不升。
+
+成功标准：独立Full/SQLite/fake上游中，0755及0700 root旧卷的账务/metadata原样clone，不修owner/mode；预期权限拒绝后无损，root精确业务复读，fake计数2→2、无请求重放。0755须真实UID marker→exec；0700若OCI预执行拒绝，UID=null而非0；metadata缺失、误分类或保全失败必须非零。source/root与Recovery保实际/proc UID证，拒绝阶段按marker或OCI拒绝证分类：拒绝阶段全字节保持，root复读可能写会话，不能外推整流程字节不变。有效完成也只报告compatibility=false/default_user_changed=false，不构成可切USER结论。image.Size为精确bytes，history仅human、diffids非大小，未测tar/registry压缩量为null。
+
+完整Goal保B3余项、B4、B5b后续、B6/B7和C1/C2/C3，A5/A6未知/待授权项不自动关闭；B4只读writer方案不代表备份恢复已实现。所有运行验证只Actions，本机不测、不装依赖、不构建、不跑Docker或下载artifact；不新开BUG专项，不操作生产、真实模型/供应商、浏览器、发布或main。详情集中[TASKS当前节](../TASKS.md)。**原历史记录保留，以本段解释当前状态。**
+
 **2026-11-08最新已验：A5b common `05088cbbd70b2fc13c6b8c74342bbed381d8551a` / [完整CI42422805505](https://github.com/ForceMind/MyAPI/actions/runs/42422805505) attempt1 success。** 12成功/3可选跳过，18111行全部日志、12checkout和所有步骤已核，失败/race标记0。新公共Render6场景包含于实际common包全量通过，未打印逐例日志；原根main/独立relaykit/386/三库/race及前端3452门禁过。仅去私有encode转交，帧算法和版权头不变；旧清单/CSV仍绑定6200959c，不重标新源。
 
 **当前A6a候选：三内部工具文件仅去四处类型export，待自身CI，仍beta.45。** SavedSseMarker/Event、SuccessRateLevel、JsonParseResult只收修饰符，定义/字段/运行逻辑/原测试未变；主会话文本核对除四处外字节一致。推送后在Actions重读typecheck/lint/test/build及两模式当前清单，不在本机执行。10整文件授权仍未回复，禁止删除；145未知项保留。B6独立评估的workflow/helper WIP不含此次提交，不改默认USER；完整主Goal剩余及边界见TASKS最新节，历史候选按当时源码解释。无生产/模型/浏览器/发布/main或本机依赖/构建测试/产物下载。
