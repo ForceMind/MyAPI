@@ -242,12 +242,14 @@ def snapshot_tree(path, expected):
         if root_identity(os.fstat(root_fd)) != expected:
             unknown("SOURCE_ROOT_CHANGED")
         root_info = os.fstat(root_fd)
+        inodes.add((os.major(root_info.st_dev), os.minor(root_info.st_dev), root_info.st_ino))
         entries.append(["", expected["dev"], expected["ino"], root_info.st_uid, root_info.st_gid,
                         stat.S_IMODE(root_info.st_mode), root_info.st_size, root_info.st_mtime_ns, root_info.st_ctime_ns])
 
         def visit(directory, relative):
             before = os.fstat(directory)
-            names = sorted(entry.name for entry in os.scandir(directory))
+            with os.scandir(directory) as iterator:
+                names = sorted(entry.name for entry in iterator)
             for name in names:
                 if len(entries) >= MAX_TREE_ENTRIES:
                     unknown("TREE_LIMIT")
@@ -314,8 +316,52 @@ def descriptor_gone(path):
     return False
 
 
-def scan_task(pid, tid, starttime, source_inodes, counts):
+def task_without_fs_reference(pid, tid, starttime):
+    # Kernel tasks and exited userspace tasks may legitimately have no fs.
+    # Require two same-generation stat observations, never a blanket ENOENT.
+    base = f"{PROC}/{pid}/task/{tid}/stat"
+    observations = []
+    for _ in range(2):
+        text = read_proc(base)
+        observed_start = parse_process_stat(text, tid)
+        fields = text[text.rfind(")") + 1:].split()
+        if len(fields) < 20 or not fields[6].isdigit() or observed_start != starttime:
+            unknown("PROC_SCAN_RACE")
+        observations.append(fields[0] in ("Z", "X", "x") or bool(int(fields[6]) & 0x00200000))
+    return all(observations)
+
+
+def archive_task_references(pid, tid, starttime, archive_inodes, counts):
     base = f"{PROC}/{pid}/task/{tid}"
+    for field, counter, code in (("root", "archive_root_refs", "ARCHIVE_ROOT_PRESENT"),
+                                 ("cwd", "archive_cwd_refs", "ARCHIVE_CWD_PRESENT")):
+        counts[field + "_checks"] += 1
+        try:
+            info = os.stat(base + "/" + field)
+        except FileNotFoundError:
+            if confirm_process_gone(pid, starttime, tid):
+                counts["disappeared_tasks"] += 1
+                return False
+            if task_without_fs_reference(pid, tid, starttime):
+                counts["non_userspace_fs_refs"] += 1
+                continue
+            unknown("PROC_SCAN_RACE")
+        if not stat.S_ISDIR(info.st_mode):
+            unknown("PROC_SCAN_RACE")
+        identity = (os.major(info.st_dev), os.minor(info.st_dev), info.st_ino)
+        if identity in archive_inodes:
+            after = os.stat(base + "/" + field)
+            if (after.st_dev, after.st_ino) != (info.st_dev, info.st_ino):
+                unknown("PROC_SCAN_RACE")
+            counts[counter] += 1
+            reject(code)
+    return True
+
+
+def scan_task(pid, tid, starttime, source_inodes, counts, archive=False):
+    base = f"{PROC}/{pid}/task/{tid}"
+    if archive and not archive_task_references(pid, tid, starttime, source_inodes, counts):
+        return
     try:
         with os.scandir(base + "/fd") as iterator:
             descriptors = sorted(int(entry.name) for entry in iterator if entry.name.isdigit())
@@ -332,21 +378,30 @@ def scan_task(pid, tid, starttime, source_inodes, counts):
         info_path = base + f"/fdinfo/{descriptor}"
         try:
             info = os.stat(target)
-            # A socket, pipe, anonymous descriptor or directory cannot be one
-            # of the regular payload files. Do not classify by link-name text.
-            if not stat.S_ISREG(info.st_mode):
+            is_directory = stat.S_ISDIR(info.st_mode)
+            is_regular = stat.S_ISREG(info.st_mode)
+            # Source mode still ignores directory descriptors; archive mode
+            # protects their identities too. Sockets/pipes are not tree files.
+            if not is_regular:
                 counts["non_regular_fds"] += 1
-                continue
-            counts["regular_fds"] += 1
+                if not (archive and is_directory):
+                    continue
+                counts["directory_fds"] += 1
+            else:
+                counts["regular_fds"] += 1
             identity = (os.major(info.st_dev), os.minor(info.st_dev), info.st_ino)
             if identity not in source_inodes:
                 continue
-            counts["source_regular_fds"] += 1
+            if is_regular:
+                counts["source_regular_fds"] += 1
             first = parse_fdinfo(read_proc(info_path))
             after = os.stat(target)
             second = parse_fdinfo(read_proc(info_path))
             if first != second or first[2] != info.st_ino or (after.st_dev, after.st_ino) != (info.st_dev, info.st_ino):
                 unknown("PROC_SCAN_RACE")
+            if archive:
+                counts["archive_directory_fds" if is_directory else "archive_file_fds"] += 1
+                reject("ARCHIVE_DIRECTORY_FD_PRESENT" if is_directory else "ARCHIVE_FILE_FD_PRESENT")
             if (first[0] & os.O_ACCMODE) in (os.O_WRONLY, os.O_RDWR):
                 counts["fd_writers"] += 1
                 reject("WRITABLE_FD_PRESENT")
@@ -366,6 +421,9 @@ def scan_task(pid, tid, starttime, source_inodes, counts):
     if counts["mapping_regions"] > MAX_MAP_LINES:
         unknown("PROC_LIMIT")
     for major, minor, inode, permissions in mappings:
+        if archive and (major, minor, inode) in source_inodes:
+            counts["archive_mappings"] += 1
+            reject("ARCHIVE_MMAP_PRESENT")
         if (major, minor, inode) in source_inodes and permissions[1] == "w" and permissions[3] == "s":
             counts["shared_writable_mappings"] += 1
             reject("WRITABLE_MMAP_PRESENT")
@@ -373,9 +431,13 @@ def scan_task(pid, tid, starttime, source_inodes, counts):
         counts["disappeared_tasks"] += 1
 
 
-def scan_writers(source_inodes):
+def scan_writers(source_inodes, archive=False):
     counts = {key: 0 for key in ("processes", "tasks", "fds", "regular_fds", "non_regular_fds", "source_regular_fds", "fd_writers", "shared_writable_mappings",
                                 "mapping_regions", "disappeared_processes", "disappeared_tasks", "disappeared_fds")}
+    if archive:
+        counts.update({key: 0 for key in ("directory_fds", "cwd_checks", "root_checks", "archive_file_fds",
+                                        "archive_directory_fds", "archive_cwd_refs", "archive_root_refs", "archive_mappings",
+                                        "non_userspace_fs_refs")})
     pids = visible_ids(PROC)
     if not pids or os.getpid() not in pids or len(pids) > MAX_PROCESSES:
         unknown("PROC_VISIBILITY_UNKNOWN")
@@ -411,7 +473,7 @@ def scan_writers(source_inodes):
                     counts["disappeared_tasks"] += 1
                     continue
                 unknown("PROC_SCAN_RACE")
-            scan_task(pid, tid, task_start, source_inodes, counts)
+            scan_task(pid, tid, task_start, source_inodes, counts, archive=archive)
         if confirm_process_gone(pid, starttime):
             counts["disappeared_processes"] += 1
     return counts
@@ -439,6 +501,30 @@ def validate_binding(binding, path):
     return binding
 
 
+def observe_archive(path, mounts, view):
+    root, filesystem = source_root(path, mounts)
+    if root["mode"] != "0700":
+        reject("ARCHIVE_ROOT_NOT_PRIVATE")
+    # snapshot_tree closes every tree descriptor before the process census.
+    # Do not exclude our PID: a future caller retaining a reader must block.
+    tree_before, inodes = snapshot_tree(path, root)
+    counts = scan_writers(inodes, archive=True)
+    tree_after, _ = snapshot_tree(path, root)
+    if tree_before != tree_after:
+        unknown("ARCHIVE_TREE_CHANGED")
+    after_mounts = parse_mountinfo(read_proc(PROC + "/self/mountinfo"))
+    after_root, after_filesystem = source_root(path, after_mounts)
+    if after_root != root or after_filesystem != filesystem or proc_view(after_mounts) != view:
+        unknown("ARCHIVE_BOUNDARY_CHANGED")
+    binding = {"schema_version": 1, "kind": "archive", "path_sha256": hashlib.sha256(os.fsencode(path)).hexdigest(),
+               "archive_root": root, "proc_view": view, "filesystem": filesystem}
+    binding["fingerprint"] = fingerprint(binding)
+    evidence = {**counts, "tree_entries": tree_after["entries"], "tree_metadata_sha256": tree_after["metadata_sha256"],
+                "manifest_verified": False}
+    evidence["fingerprint"] = fingerprint(evidence)
+    return {"binding": binding, "evidence": evidence}
+
+
 def observe(request):
     if sys.platform != "linux" or platform.machine().lower() not in ("x86_64", "amd64") or os.geteuid() != 0:
         reject("ROOT_LINUX_AMD64_REQUIRED")
@@ -449,11 +535,15 @@ def observe(request):
             reject("INVALID_REQUEST")
     elif action == "stopped_scan":
         exact_keys(request, ("action", "data_dir", "binding"))
+    elif action == "archive_scan":
+        exact_keys(request, ("action", "archive_dir"))
     else:
         reject("INVALID_REQUEST")
-    path = request["data_dir"]
     mounts = parse_mountinfo(read_proc(PROC + "/self/mountinfo"))
     view = proc_view(mounts)
+    if action == "archive_scan":
+        return observe_archive(request["archive_dir"], mounts, view)
+    path = request["data_dir"]
     root, filesystem = source_root(path, mounts)
     tree_before, inodes = snapshot_tree(path, root)
     if action == "bind_running":
@@ -499,7 +589,7 @@ def main():
         if len(raw) > 16384:
             reject("INVALID_REQUEST")
         request = json.loads(raw)
-        if isinstance(request, dict) and request.get("action") in ("bind_running", "stopped_scan"):
+        if isinstance(request, dict) and request.get("action") in ("bind_running", "stopped_scan", "archive_scan"):
             action = request["action"]
         result = observe(request)
         reply = {"schema_version": 1, "action": action, "status": "observed", "code": None, **result}
@@ -513,6 +603,8 @@ def main():
     except Exception:
         reply = {"schema_version": 1, "action": action, "status": "unknown", "code": "OBSERVATION_UNCONFIRMED"}
         exit_code = 2
+    if action == "archive_scan":
+        reply["deletion_authorized"] = False
     print(json.dumps(reply, separators=(",", ":")))
     return exit_code
 

@@ -1,7 +1,10 @@
 """Registered-directory copier and isolated bundles; callers prove quiescence."""
 import hashlib
+import importlib.util
+import io
 import json
 import os
+import platform
 import shutil
 import sqlite3
 import stat
@@ -112,7 +115,7 @@ def bundle_no_extra_metadata(fd):
     bundle_check(not os.listxattr(fd), 'BUNDLE_EXTENDED_METADATA_UNSUPPORTED')
 
 
-def bundle_tree(source, maximum, max_entries):
+def bundle_tree(source, maximum, max_entries, with_inodes=False):
     bundle_path(source, True)
     bundle_mount_guard(source)
     entries, total = [], 0
@@ -131,6 +134,9 @@ def bundle_tree(source, maximum, max_entries):
         row = {'path': relative, 'type': 'directory' if directory else 'file',
                'uid': info.st_uid, 'gid': info.st_gid, 'mode': stat.S_IMODE(info.st_mode),
                'size': None, 'sha256': None}
+        if with_inodes:
+            row.update(dev=str(info.st_dev), ino=str(info.st_ino),
+                       mtime_ns=info.st_mtime_ns, ctime_ns=info.st_ctime_ns)
         entries.append(row)
         if directory:
             names = bundle_names(fd)
@@ -457,18 +463,247 @@ def bundle_write(filename, content):
         os.fsync(writer.fileno())
 
 
+def bundle_prune_root(info):
+    return {'dev': str(info.st_dev), 'ino': str(info.st_ino), 'uid': info.st_uid,
+            'gid': info.st_gid, 'mode': format(stat.S_IMODE(info.st_mode), '04o')}
+
+
+def bundle_prune_expected(value):
+    bundle_check(isinstance(value, dict) and set(value) == {'dev', 'ino', 'uid', 'gid', 'mode'}, 'BUNDLE_PRUNE_ROOT_INVALID')
+    for key in ('dev', 'ino'):
+        text = value[key]
+        bundle_check(isinstance(text, str) and 1 <= len(text) <= 20 and text.isascii() and text.isdecimal() and str(int(text)) == text
+                     and 0 <= int(text) <= 18446744073709551615, 'BUNDLE_PRUNE_ROOT_INVALID')
+    bundle_check(value['ino'] != '0' and type(value['uid']) is int and value['uid'] == 0
+                 and type(value['gid']) is int and 0 <= value['gid'] <= 4294967295
+                 and value['mode'] == '0700', 'BUNDLE_PRUNE_ROOT_INVALID')
+
+
+def bundle_prune_guard_module():
+    filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'writer_guard.py')
+    bundle_path(filename, True)
+    info = os.lstat(filename)
+    bundle_check(stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_size <= 1024 * 1024, 'BUNDLE_ARCHIVE_GUARD_UNAVAILABLE')
+    fd = os.open(filename, os.O_RDONLY | os.O_NOFOLLOW)
+    try:
+        bundle_check(bundle_signature(info) == bundle_signature(os.fstat(fd)), 'BUNDLE_ARCHIVE_GUARD_CHANGED')
+        with os.fdopen(fd, 'rb', closefd=False) as reader:
+            code = reader.read(1024 * 1024 + 1)
+        bundle_check(len(code) <= 1024 * 1024 and bundle_signature(info) == bundle_signature(os.fstat(fd)), 'BUNDLE_ARCHIVE_GUARD_CHANGED')
+    finally:
+        os.close(fd)
+    spec = importlib.util.spec_from_file_location('_myapi_fixed_archive_guard', filename)
+    bundle_check(spec is not None, 'BUNDLE_ARCHIVE_GUARD_UNAVAILABLE')
+    module = importlib.util.module_from_spec(spec)
+    # Compile the fixed source directly: no caller script, search path or .pyc.
+    exec(compile(code, filename, 'exec'), module.__dict__)
+    bundle_check(module.PROC == '/proc', 'BUNDLE_ARCHIVE_GUARD_UNAVAILABLE')
+    return module
+
+
+def bundle_prune_scan(module, root, expected):
+    old_input, old_output = sys.stdin, sys.stdout
+    captured = io.StringIO()
+    try:
+        sys.stdin = io.TextIOWrapper(io.BytesIO(bundle_canonical({'action': 'archive_scan', 'archive_dir': root})))
+        sys.stdout = captured
+        status = module.main()
+    finally:
+        sys.stdin, sys.stdout = old_input, old_output
+    reply = bundle_json(captured.getvalue())
+    if status != 0 or reply.get('status') != 'observed':
+        code = reply.get('code')
+        safe = isinstance(code, str) and code and all(c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ_' for c in code)
+        raise BundleFailure('BUNDLE_ARCHIVE_' + code if safe else 'BUNDLE_ARCHIVE_OBSERVATION_UNAVAILABLE')
+    bundle_check(type(reply.get('schema_version')) is int and reply['schema_version'] == 1
+                 and reply.get('action') == 'archive_scan' and reply.get('deletion_authorized') is False
+                 and reply.get('evidence', {}).get('manifest_verified') is False
+                 and reply.get('binding', {}).get('kind') == 'archive'
+                 and reply['binding'].get('archive_root') == expected
+                 and reply['binding'].get('path_sha256') == hashlib.sha256(os.fsencode(root)).hexdigest(), 'BUNDLE_ARCHIVE_OBSERVATION_UNAVAILABLE')
+
+
+def bundle_prune_locations(module, paths):
+    mounts = module.parse_mountinfo(module.read_proc('/proc/self/mountinfo'))
+    result = []
+    for path in paths:
+        mount = module.select_mount(mounts, path)
+        bundle_check(os.path.isabs(mount['root']), 'BUNDLE_PRUNE_BOUNDARY_UNKNOWN')
+        relative = os.path.relpath(path, mount['point'])
+        result.append((mount['device'], os.path.normpath(os.path.join(mount['root'], '' if relative == '.' else relative))))
+    return result
+
+
+def bundle_prune(request):
+    """Execute one parent-confirmed ID in a trusted maintenance window.
+
+    The kernel scan is point-in-time evidence, not exclusion of future root
+    readers. Policy, restore references, Docker mounts and locks belong to the
+    parent. No source database is opened, stopped, restarted or restored here.
+    """
+    bundle_check(sys.platform == 'linux' and platform.machine().lower() in ('x86_64', 'amd64')
+                 and os.geteuid() == 0, 'BUNDLE_PRUNE_ROOT_LINUX_REQUIRED')
+    bundle_check(bundle_sha(request['bundle_id']), 'BUNDLE_PRUNE_ID_INVALID')
+    expected = request['expected_root']
+    bundle_prune_expected(expected)
+    source, relative, maximum, max_entries, root = bundle_context(request)
+    parent = request['backups_dir']
+    parent_before = bundle_prune_root(os.lstat(parent))
+    bundle_check(bundle_prune_root(os.lstat(root)) == expected, 'BUNDLE_PRUNE_ROOT_CHANGED')
+    module = bundle_prune_guard_module()
+
+    def boundary():
+        bundle_path(parent, True)
+        bundle_path(root, True)
+        bundle_check(bundle_prune_root(os.lstat(parent)) == parent_before
+                     and bundle_prune_root(os.lstat(root)) == expected, 'BUNDLE_PRUNE_ROOT_CHANGED')
+        locations = bundle_prune_locations(module, (root, parent, source, request['state_dir']))
+        target, backup_parent, source_location, state_location = locations
+        bundle_check(target == (backup_parent[0], os.path.join(backup_parent[1], request['bundle_id'])), 'BUNDLE_PRUNE_BOUNDARY_UNKNOWN')
+        for protected in (source_location, state_location):
+            bundle_check(not (target[0] == protected[0] and bundle_overlap(target[1], protected[1]))
+                         and not (backup_parent[0] == protected[0] and bundle_overlap(backup_parent[1], protected[1])), 'BUNDLE_PATH_OVERLAP')
+
+    boundary()
+    root, value, manifest_sha, _, relative, maximum, max_entries = bundle_load(request, True)
+    bundle_integrity(os.path.join(root, 'data'), relative, maximum, max_entries)
+    bundle_load(request, True)
+    # Include envelope metadata and every inode. Every traversal closes its
+    # descriptors before archive_scan; our own file/dir FDs are not exempted.
+    before = bundle_tree(root, maximum + 128 * 1024 ** 2, max_entries + 3, with_inodes=True)
+    bundle_prune_scan(module, root, expected)
+    boundary()
+    bundle_check(bundle_tree(root, maximum + 128 * 1024 ** 2, max_entries + 3, with_inodes=True) == before, 'BUNDLE_PRUNE_ARCHIVE_CHANGED')
+    rows = {row['path']: row for row in before}
+    children = {row['path']: [] for row in before if row['type'] == 'directory'}
+    for name in rows:
+        if name != '.':
+            container, _, leaf = name.rpartition('/')
+            children[container or '.'].append(leaf or name)
+    for names in children.values():
+        names.sort()
+
+    def match(info, row, file=False):
+        bundle_check(str(info.st_dev) == row['dev'] and str(info.st_ino) == row['ino']
+                     and info.st_uid == row['uid'] and info.st_gid == row['gid']
+                     and stat.S_IMODE(info.st_mode) == row['mode'], 'BUNDLE_PRUNE_ENTRY_CHANGED')
+        if file:
+            bundle_check(stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_size == row['size']
+                         and info.st_mtime_ns == row['mtime_ns'] and info.st_ctime_ns == row['ctime_ns'], 'BUNDLE_PRUNE_ENTRY_CHANGED')
+        else:
+            bundle_check(stat.S_ISDIR(info.st_mode), 'BUNDLE_PRUNE_ENTRY_CHANGED')
+
+    def unlink_file(directory, name, row):
+        info = os.stat(name, dir_fd=directory, follow_symlinks=False)
+        match(info, row, True)
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory)
+        try:
+            bundle_check(bundle_signature(info) == bundle_signature(os.fstat(fd)), 'BUNDLE_PRUNE_ENTRY_CHANGED')
+            checksum, size = hashlib.sha256(), 0
+            while True:
+                chunk = os.read(fd, 1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                bundle_check(size <= row['size'], 'BUNDLE_PRUNE_ENTRY_CHANGED')
+                checksum.update(chunk)
+            bundle_check(size == row['size'] and checksum.hexdigest() == row['sha256']
+                         and bundle_signature(info) == bundle_signature(os.fstat(fd))
+                         and bundle_signature(info) == bundle_signature(os.stat(name, dir_fd=directory, follow_symlinks=False)), 'BUNDLE_PRUNE_ENTRY_CHANGED')
+            os.unlink(name, dir_fd=directory)
+            bundle_check(os.fstat(fd).st_nlink == 0, 'BUNDLE_PRUNE_UNLINK_UNCONFIRMED')
+        finally:
+            os.close(fd)
+
+    def remove_directory(directory, relative):
+        match(os.fstat(directory), rows[relative])
+        bundle_check(bundle_names(directory) == children[relative], 'BUNDLE_PRUNE_EXTRA_ENTRIES')
+        for name in children[relative]:
+            path = name if relative == '.' else relative + '/' + name
+            row = rows[path]
+            if row['type'] == 'file':
+                unlink_file(directory, name, row)
+            else:
+                info = os.stat(name, dir_fd=directory, follow_symlinks=False)
+                match(info, row)
+                child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+                try:
+                    match(os.fstat(child), row)
+                    remove_directory(child, path)
+                    match(os.stat(name, dir_fd=directory, follow_symlinks=False), row)
+                    os.rmdir(name, dir_fd=directory)
+                finally:
+                    os.close(child)
+            os.fsync(directory)
+        bundle_check(bundle_names(directory) == [], 'BUNDLE_PRUNE_EXTRA_ENTRIES')
+
+    parent_fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    root_fd = None
+    try:
+        bundle_check(bundle_prune_root(os.fstat(parent_fd)) == parent_before, 'BUNDLE_PRUNE_PARENT_CHANGED')
+        root_fd = os.open(request['bundle_id'], os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent_fd)
+        bundle_check(bundle_prune_root(os.fstat(root_fd)) == expected, 'BUNDLE_PRUNE_ROOT_CHANGED')
+        boundary()
+        # Complete final revalidation before the first destructive syscall.
+        bundle_check(bundle_tree(root, maximum + 128 * 1024 ** 2, max_entries + 3, with_inodes=True) == before, 'BUNDLE_PRUNE_ARCHIVE_CHANGED')
+        bundle_check(bundle_names(root_fd) == ['COMMITTED', 'data', 'manifest.json'], 'BUNDLE_PRUNE_EXTRA_ENTRIES')
+        unlink_file(root_fd, 'COMMITTED', rows['COMMITTED'])
+        os.fsync(root_fd)
+        # Any later error leaves the marker absent. There is no retry or
+        # rollback path that recreates COMMITTED on a partially deleted tree.
+        data_fd = os.open('data', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=root_fd)
+        try:
+            match(os.fstat(data_fd), rows['data'])
+            remove_directory(data_fd, 'data')
+            match(os.stat('data', dir_fd=root_fd, follow_symlinks=False), rows['data'])
+            os.rmdir('data', dir_fd=root_fd)
+        finally:
+            os.close(data_fd)
+        os.fsync(root_fd)
+        bundle_check(bundle_names(root_fd) == ['manifest.json'], 'BUNDLE_PRUNE_EXTRA_ENTRIES')
+        unlink_file(root_fd, 'manifest.json', rows['manifest.json'])
+        os.fsync(root_fd)
+        bundle_check(bundle_names(root_fd) == [] and bundle_prune_root(os.fstat(root_fd)) == expected
+                     and bundle_prune_root(os.stat(request['bundle_id'], dir_fd=parent_fd, follow_symlinks=False)) == expected
+                     and bundle_prune_root(os.fstat(parent_fd)) == parent_before
+                     and bundle_prune_root(os.lstat(parent)) == parent_before, 'BUNDLE_PRUNE_ROOT_CHANGED')
+        os.rmdir(request['bundle_id'], dir_fd=parent_fd)
+        os.fsync(parent_fd)
+        bundle_check(os.fstat(root_fd).st_nlink == 0 and bundle_prune_root(os.fstat(parent_fd)) == parent_before
+                     and bundle_prune_root(os.lstat(parent)) == parent_before, 'BUNDLE_PRUNE_REMOVAL_UNCONFIRMED')
+        try:
+            os.stat(request['bundle_id'], dir_fd=parent_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            pass
+        else:
+            raise BundleFailure('BUNDLE_PRUNE_REMOVAL_UNCONFIRMED')
+    finally:
+        if root_fd is not None:
+            os.close(root_fd)
+        os.close(parent_fd)
+    return {'schema_version': 1, 'bundle_id': request['bundle_id'], 'manifest_sha256': manifest_sha,
+            'identity_sha256': value['identity_sha256'], 'tree_sha256': value['tree_sha256'],
+            'deleted': True, 'logical_bytes': bundle_counts(value['entries'])['total_bytes'],
+            'verified_before_delete': True, 'archive_scan_observed': True,
+            'deletion_authorized': False, 'external_mutual_exclusion_verified': False}
+
+
 def bundle_request(request):
     action = request['action']
     keys = {'action', 'data_dir', 'sqlite_file', 'max_bytes', 'max_entries'}
     if action != 'stopped_scan':
         keys |= {'backups_dir', 'state_dir', 'bundle_id', 'identity_sha256'}
-    if action in ('bundle_commit', 'bundle_verify', 'bundle_restore'):
+    if action in ('bundle_commit', 'bundle_verify', 'bundle_restore', 'bundle_prune'):
         keys.add('expected_manifest_sha256')
     if action == 'bundle_commit':
         keys.add('expected_tree_sha256')
     if action == 'bundle_restore':
         keys.add('destination')
+    if action == 'bundle_prune':
+        keys.add('expected_root')
     bundle_check(set(request) == keys, 'BUNDLE_REQUEST_INVALID')
+    if action == 'bundle_prune':
+        return bundle_prune(request)
     source, relative, maximum, max_entries, root = bundle_context(request)
     if action in ('stopped_scan', 'bundle_prepare'):
         before = bundle_tree(source, maximum, max_entries)
@@ -605,7 +840,7 @@ def live_summary(source, database):
 
 def main():
     request = json.load(sys.stdin)
-    if request.get('action') in ('stopped_scan', 'bundle_prepare', 'bundle_commit', 'bundle_verify', 'bundle_restore'):
+    if request.get('action') in ('stopped_scan', 'bundle_prepare', 'bundle_commit', 'bundle_verify', 'bundle_restore', 'bundle_prune'):
         try:
             print(json.dumps(bundle_request(request), separators=(',', ':')))
         except Exception as error:

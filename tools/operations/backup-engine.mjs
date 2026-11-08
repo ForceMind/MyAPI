@@ -1,7 +1,8 @@
 import { randomBytes } from 'node:crypto'
-import { lstat, realpath } from 'node:fs/promises'
+import { lstat, readdir, realpath } from 'node:fs/promises'
 import path from 'node:path'
-import { absolute, check, digest, safeCode } from './safety.mjs'
+import { absolute, check, digest, protectedRead, safeCode } from './safety.mjs'
+import { selectBackupRetention } from './backup-retention.mjs'
 import { backupPrivateDirectory } from './config.mjs'
 import { JournalStore } from './store.mjs'
 import { DockerClient, containerDigest, validateContainer } from './docker.mjs'
@@ -189,6 +190,198 @@ export class BackupEngine {
     const result = await this.bundle({ action: 'stopped_scan', data_dir: instance.data_dir, sqlite_file: instance.sqlite_file, max_bytes: maxBackupBytes, max_entries: 10000 })
     check(result?.schema_version === 1 && typeof result.tree_sha256 === 'string' && /^[a-f0-9]{64}$/.test(result.tree_sha256), 'SOURCE_MANIFEST_UNCONFIRMED', 503)
     return result
+  }
+
+  async archiveMounted(directory, manifest, containers) {
+    const identities = new Set()
+    // Ancestors catch an alias of the backup root; payload identities catch
+    // aliases of individual files/subdirectories. Include stopped containers
+    // and read-only mounts: their future readers must remain protected.
+    const paths = [directory, path.join(directory, 'manifest.json'), path.join(directory, 'COMMITTED'),
+      ...manifest.entries.map(entry => path.join(directory, 'data', entry.path))]
+    let ancestor = path.dirname(directory)
+    while (true) {
+      paths.push(ancestor)
+      if (ancestor === path.dirname(ancestor)) break
+      ancestor = path.dirname(ancestor)
+    }
+    for (const filename of paths) {
+      const stat = await lstat(filename, { bigint: true })
+      check(!stat.isSymbolicLink(), 'RETENTION_MOUNT_STATE_UNKNOWN', 409)
+      identities.add(`${stat.dev}:${stat.ino}`)
+    }
+    let used = false
+    for (const container of containers) {
+      check(isId(container.Id) && Array.isArray(container.Mounts), 'RETENTION_MOUNT_STATE_UNKNOWN', 409)
+      for (const mount of container.Mounts) {
+        if (mount.Type === 'tmpfs') continue
+        check(['bind', 'volume'].includes(mount.Type) && absolute(mount.Source), 'RETENTION_MOUNT_STATE_UNKNOWN', 409)
+        const filename = await realpath(mount.Source)
+        const stat = await lstat(filename, { bigint: true })
+        if (overlap(filename, directory) || identities.has(`${stat.dev}:${stat.ino}`)) used = true
+      }
+    }
+    return used
+  }
+
+  async retentionCatalog(instanceId) {
+    const instance = this.instance(instanceId)
+    await backupPrivateDirectory(this.config.backups_dir)
+    const names = (await readdir(this.config.backups_dir)).sort()
+    check(names.length <= 10000, 'RETENTION_CATALOG_LIMIT', 409)
+    const listed = await this.docker.listContainers()
+    check(Array.isArray(listed) && listed.length <= 10000 && new Set(listed.map(item => item.Id)).size === listed.length,
+      'RETENTION_MOUNT_STATE_UNKNOWN', 409)
+    const containers = []
+    for (const item of listed) {
+      check(isId(item.Id), 'RETENTION_MOUNT_STATE_UNKNOWN', 409)
+      const info = await this.docker.inspectContainer(item.Id)
+      check(info?.Id === item.Id, 'RETENTION_MOUNT_STATE_UNKNOWN', 409)
+      containers.push(info)
+    }
+    const references = [...this.store.plans.values()].filter(plan => plan.kind === 'restore').map(plan => {
+      this.assertPlan(plan)
+      check(isId(plan.intent.backup_id), 'RETENTION_REFERENCE_UNKNOWN', 409)
+      return { id: plan.id, backup_id: plan.intent.backup_id, state: plan.state, digest: plan.digest }
+    }).sort((left, right) => left.id.localeCompare(right.id))
+    const archives = [], protectedIds = [], retainedUnknown = []
+    const backups = [...this.store.plans.values()].filter(plan => plan.kind === 'backup' && plan.instance_id === instance.id)
+    for (const id of names) {
+      const backup = backups.find(plan => plan.id === id && plan.state === 'succeeded')
+      if (!backup) { retainedUnknown.push({ name_sha256: digest(id), reason: 'unrecognized-or-uncommitted' }); continue }
+      try {
+        const verified = await this.verifyBackup(backup)
+        const directory = path.join(this.config.backups_dir, id)
+        const raw = await protectedRead(path.join(directory, 'manifest.json'), { max: 64 * 1024 * 1024 })
+        check(digest(raw) === verified.manifest_sha256, 'RETENTION_MANIFEST_CHANGED', 409)
+        const manifest = JSON.parse(raw)
+        const root = await lstat(directory, { bigint: true })
+        check(root.isDirectory() && root.uid === 0n && (root.mode & 0o7777n) === 0o700n && Array.isArray(manifest.entries), 'RETENTION_ARCHIVE_UNCONFIRMED', 409)
+        archives.push({ id, instanceId, manifestSha256: verified.manifest_sha256, treeSha256: verified.tree_sha256,
+          identitySha256: verified.identity_sha256, rootDev: root.dev.toString(), rootIno: root.ino.toString(),
+          createdUnixSeconds: manifest.created_unix_seconds, logicalBytes: verified.total_bytes })
+        let protectedArchive = references.some(reference => reference.backup_id === id)
+        if (await this.archiveMounted(directory, manifest, containers)) protectedArchive = true
+        try {
+          const observed = await this.writer({ action: 'archive_scan', archive_dir: directory })
+          check(observed?.status === 'observed' && observed.action === 'archive_scan' && observed.deletion_authorized === false &&
+            observed.evidence?.manifest_verified === false && observed.binding?.archive_root?.dev === root.dev.toString() &&
+            observed.binding.archive_root.ino === root.ino.toString(), 'RETENTION_ARCHIVE_USAGE_UNKNOWN', 409)
+        } catch { protectedArchive = true }
+        if (protectedArchive) protectedIds.push(id)
+      } catch (error) {
+        // Verification failure never makes an old or damaged directory a
+        // deletion candidate. Do not infer missing sizes or timestamps.
+        retainedUnknown.push({ name_sha256: digest(id), reason: safeCode(error) })
+        const index = archives.findIndex(archive => archive.id === id)
+        if (index !== -1) archives.splice(index, 1)
+      }
+    }
+    const observedIds = new Set(archives.map(archive => archive.id))
+    for (const reference of references) {
+      const restore = this.store.plans.get(reference.id)
+      if (restore.instance_id === instanceId) check(observedIds.has(reference.backup_id), 'RETENTION_REFERENCE_UNCONFIRMED', 409)
+    }
+    return { archives, protectedIds, retainedUnknown, references,
+      registry_digest: this.registryDigest(instance), backup_journals: backups.map(plan => ({ id: plan.id, digest: plan.digest,
+        state: plan.state, consumed_by: plan.prune_consumed_by ?? null })).sort((left, right) => left.id.localeCompare(right.id)) }
+  }
+
+  async preparePrune(instanceId, triggerId, policy) {
+    check(!this.store.frozen.has(instanceId), 'INSTANCE_FROZEN', 409)
+    const instance = this.instance(instanceId)
+    const trigger = this.get(triggerId, 'backup')
+    check(trigger.instance_id === instanceId && trigger.state === 'succeeded' && trigger.prune_consumed_by === undefined,
+      'RETENTION_TRIGGER_UNAVAILABLE', 409)
+    check(Number.isSafeInteger(trigger.created_at) && [...this.store.plans.values()].filter(plan =>
+      plan.kind === 'backup' && plan.instance_id === instanceId && plan.state === 'succeeded').every(plan =>
+      Number.isSafeInteger(plan.created_at) && plan.created_at <= trigger.created_at), 'RETENTION_TRIGGER_NOT_LATEST', 409)
+    const catalog = await this.retentionCatalog(instanceId)
+    const selection = selectBackupRetention({ instanceId, archives: catalog.archives, protectedIds: catalog.protectedIds,
+      triggerId, asOf: this.clock(), ...policy })
+    if (selection.policy.mode === 'keep-all' || selection.candidates.length === 0) return { schema_version: 1, kind: 'backup-prune',
+      instance_id: instanceId, state: 'no_changes', selection, retained_unknown: catalog.retainedUnknown, deletion_authorized: false }
+    const id = randomBytes(32).toString('hex'), now = this.clock()
+    const intent = { id, kind: 'backup-prune', instance_id: instanceId, registry_digest: this.registryDigest(instance),
+      created_at: now, expires_at: now + 600, trigger_id: triggerId, selection, catalog_digest: digest(catalog) }
+    const plan = { id, kind: 'backup-prune', instance_id: instanceId, state: 'prepared', created_at: now, expires_at: intent.expires_at,
+      intent, digest: digest(intent), results: [] }
+    await this.capacity(this.config.state_dir, 4 * 1024 * 1024)
+    await this.store.save(plan)
+    return { schema_version: 1, id, digest: plan.digest, kind: plan.kind, instance_id: instanceId, state: plan.state,
+      selection, expires_at: intent.expires_at, retained_unknown: catalog.retainedUnknown, deletion_authorized: false }
+  }
+
+  async executePrune(id, suppliedDigest, instanceId, triggerId, policy) {
+    const plan = this.get(id, 'backup-prune')
+    this.assertPlan(plan)
+    const selectedPolicy = plan.intent.selection.policy
+    check(plan.instance_id === instanceId && plan.intent.trigger_id === triggerId && plan.digest === suppliedDigest &&
+      plan.state === 'prepared' && this.clock() < plan.intent.expires_at && !this.store.frozen.has(instanceId) &&
+      (policy.keepCount ?? null) === selectedPolicy.keepCount && (policy.keepDays ?? null) === selectedPolicy.keepDays,
+      'PLAN_CONFIRMATION_INVALID', 409)
+    await this.store.lock(instanceId)
+    let deletionAttempted = false
+    try {
+      plan.state = 'queued'; await this.store.save(plan)
+      const catalog = await this.retentionCatalog(instanceId)
+      check(digest(catalog) === plan.intent.catalog_digest, 'RETENTION_CATALOG_CHANGED', 409)
+      const current = selectBackupRetention({ instanceId, archives: catalog.archives, protectedIds: catalog.protectedIds,
+        triggerId, asOf: plan.intent.selection.asOf, ...policy })
+      check(current.selectionDigest === plan.intent.selection.selectionDigest, 'RETENTION_SELECTION_CHANGED', 409)
+      const trigger = this.get(triggerId, 'backup')
+      check(trigger.prune_consumed_by === undefined && trigger.state === 'succeeded', 'RETENTION_TRIGGER_UNAVAILABLE', 409)
+      check(this.clock() < plan.intent.expires_at, 'PLAN_EXPIRED', 409)
+      // Consume the fresh-backup trigger before the first irreversible step.
+      // A crash cannot turn it into an authorization to expand/retry deletion.
+      trigger.prune_consumed_by = id
+      await this.store.save(trigger)
+      plan.state = 'pruning'; await this.store.save(plan)
+      for (const candidate of current.candidates) {
+        check(![...this.store.plans.values()].some(value => value.kind === 'restore' && value.intent?.backup_id === candidate.id),
+          'RETENTION_REFERENCE_CHANGED', 409)
+        const backup = this.get(candidate.id, 'backup')
+        await this.verifyBackup(backup)
+        const directory = path.join(this.config.backups_dir, candidate.id)
+        const raw = await protectedRead(path.join(directory, 'manifest.json'), { max: 64 * 1024 * 1024 })
+        check(digest(raw) === candidate.manifestSha256, 'RETENTION_MANIFEST_CHANGED', 409)
+        const manifest = JSON.parse(raw)
+        const listed = await this.docker.listContainers()
+        check(Array.isArray(listed) && listed.length <= 10000, 'RETENTION_MOUNT_STATE_UNKNOWN', 409)
+        const containers = []
+        for (const item of listed) {
+          check(isId(item.Id), 'RETENTION_MOUNT_STATE_UNKNOWN', 409)
+          const info = await this.docker.inspectContainer(item.Id)
+          check(info?.Id === item.Id, 'RETENTION_MOUNT_STATE_UNKNOWN', 409)
+          containers.push(info)
+        }
+        check(!await this.archiveMounted(directory, manifest, containers), 'RETENTION_ARCHIVE_MOUNTED', 409)
+        const root = await lstat(directory, { bigint: true })
+        check(root.dev.toString() === candidate.rootDev && root.ino.toString() === candidate.rootIno && root.uid === 0n &&
+          (root.mode & 0o7777n) === 0o700n, 'RETENTION_ROOT_CHANGED', 409)
+        deletionAttempted = true
+        plan.results.push({ id: candidate.id, state: 'unconfirmed' })
+        await this.store.save(plan)
+        const result = await this.bundle({ action: 'bundle_prune', ...this.bundleInput(backup), expected_manifest_sha256: candidate.manifestSha256,
+          expected_root: { dev: candidate.rootDev, ino: candidate.rootIno, uid: 0, gid: Number(root.gid), mode: '0700' } })
+        check(result?.deleted === true && result.bundle_id === candidate.id && result.manifest_sha256 === candidate.manifestSha256 &&
+          result.logical_bytes === candidate.logicalBytes, 'RETENTION_DELETE_UNCONFIRMED', 503)
+        plan.results[plan.results.length - 1] = { id: candidate.id, state: 'deleted', logical_bytes: result.logical_bytes }
+        backup.state = 'pruned'; backup.pruned_by = id; backup.backup_created = false
+        await this.store.save(backup)
+        await this.store.save(plan)
+      }
+      plan.state = 'succeeded'; await this.store.save(plan)
+      await this.store.unlock(instanceId)
+    } catch (error) {
+      plan.code = safeCode(error)
+      plan.state = deletionAttempted ? 'recovery_required' : 'failed_before_start'
+      if (deletionAttempted) this.store.frozen.add(instanceId)
+      await this.store.save(plan)
+      if (!deletionAttempted) await this.store.unlock(instanceId)
+    }
+    return { schema_version: 1, id, digest: plan.digest, kind: 'backup-prune', instance_id: instanceId, state: plan.state,
+      results: plan.results, code: plan.code ?? null, source_changed: false, automatic_retry: false }
   }
 
   async prepareRestore(instanceId, backupId, target) {

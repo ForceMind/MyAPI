@@ -9,7 +9,8 @@ import { fileURLToPath } from 'node:url'
 import { probeFreshSQLite } from './docker-smoke.mjs'
 import { verifySQLiteRestore } from './sqlite-restore-smoke.mjs'
 import { assessmentTransportTarget } from './container-hardening.mjs'
-import { containerDigest } from '../operations/docker.mjs'
+import { containerDigest, DockerClient } from '../operations/docker.mjs'
+import { BackupEngine } from '../operations/backup-engine.mjs'
 
 function demand(value, code) { if (!value) throw new Error(code) }
 const hash = value => createHash('sha256').update(value).digest('hex')
@@ -31,7 +32,7 @@ function scopeOf(env) {
     sha: env.GITHUB_SHA, run: env.GITHUB_RUN_ID, attempt: env.GITHUB_RUN_ATTEMPT,
     root: `/tmp/myapi-b4-${suffix}`, network: `myapi-b4-network-${suffix}`,
     iface: `b4${hash(suffix).slice(0, 12)}`, ruleComment: `myapi-b4:${env.GITHUB_SHA}:${env.GITHUB_RUN_ID}:${env.GITHUB_RUN_ATTEMPT}`,
-    names: Object.fromEntries(['source', 'fake', 'recovery', 'recovery-fake', 'reader'].map(role => [role, `myapi-b4-${role}-${suffix}`])),
+    names: Object.fromEntries(['source', 'fake', 'recovery', 'recovery-fake', 'reader', 'prune-fake-2', 'prune-fake-3', 'prune-fake-4'].map(role => [role, `myapi-b4-${role}-${suffix}`])),
     appImage: env.SMOKE_APP_IMAGE_ID, bunImage: env.SMOKE_BUN_IMAGE_ID,
   }
 }
@@ -173,6 +174,40 @@ db.close()
 print('{"verified":true}')
 `
 
+// Copy a coherent SQLite snapshot using a read-only source connection. Only
+// the disposable copy is queried; raw business values remain in memory.
+const businessSnapshotProgram = String.raw`
+import json, os, pathlib, sqlite3, stat, sys
+root, destination = sys.argv[1:3]
+assert os.getuid() == 0 and os.environ.get("GITHUB_ACTIONS") == "true"
+assert root == "/tmp/myapi-b4-" + os.environ["GITHUB_SHA"] + "-" + os.environ["GITHUB_RUN_ID"] + "-" + os.environ["GITHUB_RUN_ATTEMPT"]
+assert os.path.realpath(root) == root and stat.S_IMODE(os.stat(root).st_mode) == 0o700
+assert os.path.dirname(destination) == os.path.join(root, "business-validation") and not os.path.lexists(destination)
+source = os.path.join(root, "source", "my-api.db")
+assert os.path.realpath(source) == source and stat.S_ISREG(os.lstat(source).st_mode)
+original = sqlite3.connect(pathlib.Path(source).as_uri() + "?mode=ro", uri=True, timeout=10)
+original.execute("PRAGMA query_only=ON")
+copy = sqlite3.connect(destination)
+try:
+    original.backup(copy)
+finally:
+    original.close()
+copy.row_factory = sqlite3.Row
+copy.execute("PRAGMA query_only=ON")
+assert copy.execute("PRAGMA quick_check").fetchall()[0][0] == "ok"
+def rows(statement):
+    return [dict(row) for row in copy.execute(statement)]
+value = {
+    "users": rows("SELECT id,username,role,status,quota,quota_version,used_quota,request_count,self_use_no_balance,usage_policy_revision FROM users WHERE username IN ('smokeadmin','smokeuser') ORDER BY id"),
+    "tokens": rows('SELECT id,user_id,name,status,remain_quota,used_quota,quota_version,credential_version,unlimited_quota,model_limits_enabled,model_limits,"group",expired_time FROM tokens ORDER BY id'),
+    "logs": rows("SELECT id,user_id,request_id,token_id,channel_id,quota,prompt_tokens,completion_tokens,type FROM logs WHERE type=2 ORDER BY id"),
+    "adjustments": rows("SELECT id,admin_user_id,target_user_id,request_id,operation,delta,target_quota,applied_quota_before,applied_quota_after,status,created_at,updated_at FROM admin_quota_adjustments ORDER BY id"),
+}
+copy.close()
+assert len(value["users"]) == 2 and len(value["tokens"]) == 2 and len(value["logs"]) == 2
+print(json.dumps(value, separators=(",", ":")))
+`
+
 export async function runBackupQualification(env = process.env) {
   const scope = scopeOf(env)
   process.umask(0o077)
@@ -220,6 +255,8 @@ export async function runBackupQualification(env = process.env) {
   let checks = null
   let backupReceipt = null
   let restoreReceipt = null
+  let pruneEvidence = null
+  const sourceFakeRoles = ['fake']
   let stoppedSourceHash = null
   let bundleHash = null
   let auxSHA = null
@@ -335,6 +372,12 @@ export async function runBackupQualification(env = process.env) {
       throw new Error('B4_PRODUCTION_CLI_FAILED')
     }
     const value = JSON.parse(result.stdout)
+    if (kind === 'backup-prune') {
+      demand(value.schema_version === 1 && value.kind === 'backup-prune' && value.instance_id === 'primary' &&
+        ['prepared', 'no_changes', 'succeeded'].includes(value.state) &&
+        (value.state === 'no_changes' || idPattern.test(value.id) && idPattern.test(value.digest)), 'B4_PRUNE_RECEIPT_INVALID')
+      return value
+    }
     demand(value.schema_version === 1 && idPattern.test(value.id) && idPattern.test(value.digest) &&
       value.kind === kind && value.instance_id === 'primary' && value.source_image_id === scope.appImage &&
       value.source_container_id === descriptors.get('source').id && value.retention?.policy === 'keep-all' &&
@@ -488,7 +531,199 @@ export async function runBackupQualification(env = process.env) {
             readFileSync(path.join(restored, 'config/my-api.env'), 'utf8') === configBytes, 'B4_ORIGINAL_OR_BACKUP_CHANGED')
           stopped()
         } })
-        return { name: 'production CLI plan-confirm backup and isolated restore preserve exact synthetic business state without replay', ok: true }
+        // B4b is a separate phase: CI explicitly restarts only its owned source.
+        // The frozen-source B4a assertions above remain unchanged and complete.
+        const firstId = backupReceipt.backup_id
+        const sourceConfig = containerDigest(stopped())
+        const namespace = role => {
+          const info = inspect(role)
+          demand(info.State.Running === true && Number.isSafeInteger(info.State.Pid) && info.State.Pid > 0, 'B4_NAMESPACE_PROCESS_MISSING')
+          return statSync(`/proc/${info.State.Pid}/ns/net`, { bigint: true }).ino.toString()
+        }
+        let activeFake = 'fake'
+        const restartSource = async generation => {
+          const before = stopped()
+          demand(containerDigest(before) === sourceConfig && before.Id === descriptors.get('source').id &&
+            before.Image === scope.appImage && before.HostConfig.RestartPolicy.Name === 'no', 'B4_RESTART_BINDING_MISMATCH')
+          docker(['start', before.Id])
+          const running = inspect('source')
+          demand(running.State.Running === true && containerDigest(running) === sourceConfig &&
+            running.HostConfig.RestartPolicy.Name === 'no', 'B4_RESTART_CONFIG_CHANGED')
+          processIdentity(running, data)
+          if (namespace('source') !== namespace(activeFake)) {
+            activeFake = `prune-fake-${generation}`
+            demand([2, 3, 4].includes(generation) && !descriptors.has(activeFake), 'B4_NAMESPACE_ROLE_REUSED')
+            sidecar(activeFake, running.Id, true)
+            sourceFakeRoles.push(activeFake)
+          }
+          demand(namespace('source') === namespace(activeFake), 'B4_FAKE_NAMESPACE_MISMATCH')
+          await ready(activeFake, 'http://127.0.0.1:19090/__smoke__/health')
+          await ready(activeFake, 'http://127.0.0.1:18080/api/status')
+          await hostHealth('http://127.0.0.1:18080')
+          rulesPresent()
+        }
+        const counters = async () => {
+          const values = []
+          for (const role of sourceFakeRoles) {
+            const value = await count(role)
+            demand(value === (role === 'fake' ? 2 : 0), 'B4_PRUNE_REQUEST_REPLAYED')
+            values.push({ role, container_id: descriptors.get(role).id, count: value })
+          }
+          demand(await count('recovery-fake') === 0 && values.reduce((sum, item) => sum + item.count, 0) === 2, 'B4_PRUNE_REQUEST_REPLAYED')
+          return values
+        }
+        const manifestTime = id => {
+          const value = JSON.parse(readFileSync(path.join(backups, id, 'manifest.json'), 'utf8')).created_unix_seconds
+          demand(Number.isSafeInteger(value) && value > 0, 'B4_MANIFEST_TIME_UNKNOWN')
+          return value
+        }
+        const nextBackup = async (generation, previousId) => {
+          stage = `prune-backup-${generation}`
+          await restartSource(generation)
+          const previousTime = manifestTime(previousId)
+          const deadline = Date.now() + 10000
+          while (Math.floor(Date.now() / 1000) <= previousTime) {
+            demand(Date.now() < deadline, 'B4_MANIFEST_TIME_DEADLINE')
+            await delay(100)
+          }
+          const configBefore = containerDigest(inspect('source')), pidBefore = inspect('source').State.Pid
+          const configFilesBefore = treeDigest(path.join(data, 'config'))
+          const plan = cli('backup')
+          demand(plan.state === 'prepared' && treeDigest(path.join(data, 'config')) === configFilesBefore &&
+            inspect('source').State.Pid === pidBefore && containerDigest(inspect('source')) === configBefore,
+            'B4_PRUNE_BACKUP_PLAN_CHANGED_SOURCE')
+          const receipt = cli('backup', ['--confirm', plan.id + ':' + plan.digest])
+          demand(receipt.state === 'succeeded' && receipt.backup_created === true, 'B4_PRUNE_BACKUP_UNCONFIRMED')
+          stopped()
+          demand(containerDigest(inspect('source')) === sourceConfig && manifestTime(receipt.backup_id) > previousTime,
+            'B4_PRUNE_BACKUP_GENERATION_INVALID')
+          await counters()
+          return receipt.backup_id
+        }
+        const secondId = await nextBackup(2, firstId)
+        const thirdId = await nextBackup(3, secondId)
+        stage = 'prune-live-source-marker'
+        await restartSource(4)
+        const validation = path.join(scope.root, 'business-validation')
+        mkdirSync(validation, { mode: 0o700 })
+        const business = label => JSON.parse(command('/usr/bin/python3', ['-I', '-c', businessSnapshotProgram, scope.root, path.join(validation, label + '.db')]))
+        const beforeMarker = business('before-marker')
+        const ordinary = beforeMarker.users.find(value => value.username === 'smokeuser')
+        const rootUser = beforeMarker.users.find(value => value.username === args.username)
+        demand(ordinary?.quota === 999985 && ordinary.used_quota === 15 && ordinary.request_count === 1 &&
+          rootUser?.quota === 0 && rootUser.used_quota === 15 && rootUser.request_count === 1 &&
+          beforeMarker.tokens.every(value => value.used_quota === 15) && beforeMarker.logs.every(value => value.quota === 15 &&
+            value.prompt_tokens === 10 && value.completion_tokens === 5), 'B4_PRUNE_BASELINE_BUSINESS_MISMATCH')
+        const request = async (pathname, options = {}) => {
+          const response = await fetchIn(activeFake, 'http://127.0.0.1:18080' + pathname, options)
+          const body = await response.json()
+          demand(response.status === 200 && body?.success === true, 'B4_PRUNE_MARKER_API_FAILED')
+          return body
+        }
+        const login = await request('/api/user/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: args.username, password: args.password }) })
+        demand(typeof login.data?.access_token === 'string' && login.data.access_token.length > 0, 'B4_PRUNE_MARKER_AUTH_FAILED')
+        const markerRequest = 'b4-prune-' + hash(scope.sha + ':' + scope.run + ':' + scope.attempt).slice(0, 40)
+        await request('/api/user/manage', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${login.data.access_token}` },
+          body: JSON.stringify({ id: ordinary.id, action: 'add_quota', mode: 'add', value: 17, request_id: markerRequest }) })
+        const marked = business('marked')
+        const expectedUsers = structuredClone(beforeMarker.users)
+        const expectedOrdinary = expectedUsers.find(value => value.id === ordinary.id)
+        expectedOrdinary.quota += 17
+        expectedOrdinary.quota_version += 1
+        const newAdjustment = marked.adjustments.filter(value => value.request_id === markerRequest)
+        demand(JSON.stringify(marked.users) === JSON.stringify(expectedUsers) && JSON.stringify(marked.tokens) === JSON.stringify(beforeMarker.tokens) &&
+          JSON.stringify(marked.logs) === JSON.stringify(beforeMarker.logs) && newAdjustment.length === 1 &&
+          JSON.stringify(marked.adjustments.filter(value => value.request_id !== markerRequest)) === JSON.stringify(beforeMarker.adjustments),
+          'B4_PRUNE_MARKER_BUSINESS_MISMATCH')
+        const adjustment = newAdjustment[0]
+        demand(adjustment.admin_user_id === rootUser.id && adjustment.target_user_id === ordinary.id && adjustment.operation === 'add' &&
+          adjustment.delta === 17 && adjustment.target_quota === 0 && adjustment.applied_quota_before === ordinary.quota &&
+          adjustment.applied_quota_after === ordinary.quota + 17 && adjustment.status === 'succeeded' &&
+          Number.isSafeInteger(adjustment.id) && adjustment.id > 0, 'B4_PRUNE_ADJUSTMENT_MISMATCH')
+        const running = inspect('source')
+        const livePid = running.State.Pid
+        const liveStartedAt = running.State.StartedAt
+        const liveRestartCount = running.RestartCount
+        demand(typeof liveStartedAt === 'string' && liveStartedAt.length > 0 && Number.isSafeInteger(liveRestartCount), 'B4_PRUNE_PROCESS_GENERATION_UNKNOWN')
+        const starttime = pid => {
+          const text = readFileSync(`/proc/${pid}/stat`, 'utf8')
+          const value = text.slice(text.lastIndexOf(')') + 1).trim().split(/\s+/)[19]
+          demand(typeof value === 'string' && /^[0-9]+$/.test(value), 'B4_PRUNE_PROCESS_GENERATION_UNKNOWN')
+          return value
+        }
+        const liveStarttime = starttime(livePid)
+        const liveNamespace = namespace('source')
+        const liveConfig = containerDigest(running)
+        const liveProcess = processIdentity(running, data)
+        const configHash = treeDigest(path.join(data, 'config'))
+        const nonDatabase = ['', '-wal', '-shm'].map(suffix => tree(path.join(data, 'aux-wal.db' + suffix)))
+        const ownerIdentity = () => [data, path.join(data, 'my-api.db')].map(filename => {
+          const value = lstatSync(filename, { bigint: true })
+          return { dev: value.dev.toString(), ino: value.ino.toString(), uid: value.uid.toString(), gid: value.gid.toString(), mode: (value.mode & 0o7777n).toString() }
+        })
+        const sourceOwner = ownerIdentity()
+        const archiveState = () => readdirSync(backups).sort().map(id => ({ id, digest: bundleDigest(path.join(backups, id)) }))
+        const allArchives = archiveState()
+        demand(JSON.stringify(allArchives.map(value => value.id)) === JSON.stringify([firstId, secondId, thirdId].sort()), 'B4_PRUNE_ARCHIVES_UNEXPECTED')
+        const registryHash = hash(readFileSync(configFile))
+        stage = 'prune-default-keep-all'
+        const keepAll = cli('backup-prune', ['--after-backup', thirdId])
+        demand(keepAll.state === 'no_changes' && keepAll.deletion_authorized === false && keepAll.selection.policy.mode === 'keep-all' &&
+          keepAll.selection.candidateIds.length === 0 && JSON.stringify(archiveState()) === JSON.stringify(allArchives), 'B4_PRUNE_DEFAULT_CHANGED_ARCHIVES')
+        stage = 'prune-plan'
+        const prune = cli('backup-prune', ['--after-backup', thirdId, '--keep-count', '1'])
+        demand(prune.state === 'prepared' && prune.deletion_authorized === false && JSON.stringify(prune.selection.candidateIds) === JSON.stringify([secondId]) &&
+          JSON.stringify([...prune.selection.retainedIds].sort()) === JSON.stringify([firstId, thirdId].sort()) &&
+          prune.selection.protectedIds.includes(firstId) && JSON.stringify(archiveState()) === JSON.stringify(allArchives), 'B4_PRUNE_SELECTION_MISMATCH')
+        const wrong = (prune.digest[0] === '0' ? '1' : '0') + prune.digest.slice(1)
+        cli('backup-prune', ['--after-backup', thirdId, '--keep-count', '1', '--confirm', prune.id + ':' + wrong], 'PLAN_CONFIRMATION_INVALID')
+        demand(JSON.stringify(archiveState()) === JSON.stringify(allArchives), 'B4_PRUNE_WRONG_DIGEST_CHANGED_ARCHIVES')
+        stage = 'prune-confirm'
+        const result = cli('backup-prune', ['--after-backup', thirdId, '--keep-count', '1', '--confirm', prune.id + ':' + prune.digest])
+        demand(result.state === 'succeeded' && result.source_changed === false && result.automatic_retry === false && result.results.length === 1 &&
+          result.results[0].id === secondId && result.results[0].state === 'deleted' &&
+          result.results[0].logical_bytes === prune.selection.candidates[0].logicalBytes && !existsSync(path.join(backups, secondId)), 'B4_PRUNE_DELETE_UNCONFIRMED')
+        const retained = archiveState()
+        demand(JSON.stringify(retained) === JSON.stringify(allArchives.filter(value => value.id !== secondId)), 'B4_PRUNE_RETAINED_ARCHIVE_CHANGED')
+        const verifier = await new BackupEngine(JSON.parse(readFileSync(configFile, 'utf8'))).init()
+        for (const id of [firstId, thirdId]) {
+          const verified = await verifier.verifyBackup(verifier.get(id, 'backup'))
+          demand(verified.verified === true && verified.integrity_verified === true, 'B4_PRUNE_RETAINED_NOT_VERIFIED')
+        }
+        cli('backup-prune', ['--after-backup', thirdId, '--keep-count', '1', '--confirm', prune.id + ':' + prune.digest], 'PLAN_CONFIRMATION_INVALID')
+        cli('backup-prune', ['--after-backup', thirdId, '--keep-count', '1'], 'RETENTION_TRIGGER_UNAVAILABLE')
+        const afterPrune = business('after-prune')
+        demand(JSON.stringify(afterPrune) === JSON.stringify(marked) && hash(readFileSync(configFile)) === registryHash &&
+          treeDigest(path.join(data, 'config')) === configHash && JSON.stringify(nonDatabase) === JSON.stringify(['', '-wal', '-shm'].map(suffix =>
+            tree(path.join(data, 'aux-wal.db' + suffix)))) && JSON.stringify(ownerIdentity()) === JSON.stringify(sourceOwner), 'B4_PRUNE_CHANGED_LIVE_SOURCE')
+        const after = inspect('source')
+        demand(after.State.Running === true && after.State.Pid === livePid && after.State.StartedAt === liveStartedAt &&
+          after.RestartCount === liveRestartCount && starttime(livePid) === liveStarttime && namespace('source') === liveNamespace &&
+          containerDigest(after) === liveConfig && JSON.stringify(processIdentity(after, data)) === JSON.stringify(liveProcess), 'B4_PRUNE_CHANGED_SOURCE_PROCESS')
+        const fakeCounts = await counters()
+        stage = 'prune-ci-normal-stop'
+        // CI, not backup-prune, performs this explicitly owned final shutdown.
+        await new DockerClient('/var/run/docker.sock').stopForBackup(after.Id)
+        stopped()
+        const final = business('after-ci-stop')
+        demand(JSON.stringify(final) === JSON.stringify(marked) && treeDigest(path.join(data, 'config')) === configHash &&
+          JSON.stringify(ownerIdentity()) === JSON.stringify(sourceOwner) &&
+          bundleDigest(path.join(backups, firstId)) === bundleHash, 'B4_PRUNE_FINAL_ACCOUNTING_LOST')
+        await counters()
+        pruneEvidence = { production_cli: true, default_keep_all_no_changes: true, confirmed_candidate_count: 1, deleted_count: 1,
+          retained_count: 2, restore_reference_retained: true, latest_trigger_retained: true, retained_integrity_verified: true,
+          candidate_ids: [secondId], retained_ids: [firstId, thirdId], exact_receipt_verified: true, wrong_digest_rejected: true,
+          repeated_confirmation_rejected: true, trigger_reuse_rejected: true, source_changed: false, automatic_retry: false,
+          live_business_preserved: true, source_configuration_preserved: true, source_process_preserved_during_prune: true,
+          source_uid_gid_preserved: true, non_database_markers_preserved: true, new_adjustment_preserved_after_normal_stop: true,
+          accounting_marker: { kind: 'synthetic-admin-add', units: 17, exact_adjustment_verified: true },
+          live_business_sha256: hash(JSON.stringify(marked)), final_business_sha256: hash(JSON.stringify(final)),
+          source_fake_counts: fakeCounts, same_namespace_fake_healthy: true, recovery_fake_id: descriptors.get('recovery-fake').id, recovery_fake_count: 0, combined_upstream_requests: 2,
+          ci_explicit_source_restarts: 3, cli_source_restarts: 0,
+          online_physical_bytes: 'not asserted: SQLite snapshot reads and application logs may change SHM or log bytes',
+          archive_metadata_scope: 'full payload/manifest/commit metadata; outer bundle-directory timestamp excluded as in initial verification' }
+        return { name: 'production CLI backup, isolated restore and exact confirmed retention preserve synthetic accounting without replay', ok: true }
       },
     })
     demand(fixture.passed === true, 'B4_BUSINESS_QUALIFICATION_INCOMPLETE')
@@ -504,7 +739,7 @@ export async function runBackupQualification(env = process.env) {
         (rootInfo.mode & 0o7777) === 0o700 && ownerInfo.isFile() && !ownerInfo.isSymbolicLink() && ownerInfo.nlink === 1 &&
         ownerInfo.uid === 0 && (ownerInfo.mode & 0o7777) === 0o600 &&
         readFileSync(path.join(scope.root, 'ownership.json'), 'utf8') === ownership, 'B4_DIRECTORY_OWNERSHIP_MISMATCH')
-      for (const role of ['reader', 'recovery-fake', 'recovery', 'fake', 'source']) if (descriptors.has(role)) {
+      for (const role of ['reader', 'recovery-fake', 'prune-fake-4', 'prune-fake-3', 'prune-fake-2', 'recovery', 'fake', 'source']) if (descriptors.has(role)) {
         const value = inspect(role)
         docker(['container', 'rm', '--force', value.Id])
         demand(docker(['container', 'ls', '-aq', '--filter', `name=^/${scope.names[role]}$`]) === '', 'B4_CONTAINER_REMOVAL_UNCONFIRMED')
@@ -551,7 +786,7 @@ export async function runBackupQualification(env = process.env) {
     }
   }
   if (failure) throw failure
-  demand(cleanupVerified && backupReceipt?.backup_created === true && restoreReceipt?.restored === true, 'B4_QUALIFICATION_INCOMPLETE')
+  demand(cleanupVerified && backupReceipt?.backup_created === true && restoreReceipt?.restored === true && pruneEvidence?.deleted_count === 1, 'B4_QUALIFICATION_INCOMPLETE')
   return { schema_version: 1, command: 'backup-qualification', source_sha: scope.sha, run_id: scope.run, attempt: scope.attempt,
     qualified: true, source_image_id: scope.appImage, fixture_image_id: scope.bunImage,
     production_cli: true, plan_no_source_effect: true, wrong_digest_rejected: true, repeated_confirmation_rejected: true,
@@ -560,12 +795,13 @@ export async function runBackupQualification(env = process.env) {
     cli_did_not_start_recovery: true,
     source_left_stopped: true, original_data_unchanged_after_stop: true, backup_payload_unchanged: true,
     source_tree_sha256: stoppedSourceHash, backup_immutable_sha256: bundleHash,
+    original_data_unchanged_after_stop_scope: 'initial backup and isolated-restore phase before CI-owned restarts and synthetic adjustment',
     source_process: sourceProcess, recovery_process: recoveryProcess,
     bundle_directory_timestamp: 'integrity-check temporary siblings may change the outer timestamp; payload/manifest/commit remain checked',
     auxiliary_wal: { verified_on_separate_copy: true, sha256: auxSHA, primary_wal_policy: 'actual-post-shutdown-state' },
     upstream_requests: { source: 2, recovery: 0, combined: 2, additional: 0 },
     recovery_session_writes: 'allowed only in isolated recovery after metadata comparison',
-    retention: { policy: 'keep-all', deletions: 0 }, checks, cleanup_verified: true,
+    retention: pruneEvidence, checks, cleanup_verified: true,
     browser: 'not_run', production_touched: false, real_provider_requests: false }
 }
 

@@ -208,6 +208,14 @@ await import(pathToFileURL(filename).href)
   const base = ['--config', local.config, '--instance', 'primary']
   const restore = ['--backup', 'a'.repeat(64), '--target-dir', path.join(local.root, 'restores/proposed')]
   const cases = [
+    { args: ['backup-prune', ...base], error: /--after-backup is required/ },
+    { args: ['backup-prune', ...base, '--after-backup', 'a'.repeat(64), '--unknown'], error: /unknown option --unknown/ },
+    ...['0', '1e2', '10001', 'undefined'].map(value => ({
+      args: ['backup-prune', ...base, '--after-backup', 'a'.repeat(64), '--keep-count', value], error: /RETENTION_POLICY_INVALID/,
+    })),
+    { args: ['backup-prune', ...base, '--after-backup', 'a'.repeat(64), '--keep-count', '-1'], error: /--keep-count requires a value/ },
+    { args: ['backup-prune', ...base, '--after-backup', 'a'.repeat(64), '--keep-days', '36501'], error: /RETENTION_POLICY_INVALID/ },
+    { args: ['backup-prune', ...base, '--after-backup', 'a'.repeat(64), '--confirm', 'invalid'], error: /PLAN_CONFIRMATION_INVALID/ },
     { args: ['backup'], error: /--config is required/ },
     { args: ['backup', '--config', local.config], error: /--instance is required/ },
     { args: ['restore', ...base], error: /--backup is required/ },

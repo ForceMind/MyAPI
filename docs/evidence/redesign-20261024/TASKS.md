@@ -1,5 +1,13 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-08 当前：B4a beta.46已验收，B4b beta.47候选
+
+**最新已验收为B4a beta.46：`b9c4dcd4ce72fea5679b2da0a7d394039a003f23` / [完整CI42439207854](https://github.com/ForceMind/MyAPI/actions/runs/42439207854) attempt1 success。** 13执行成功/4可选跳过，主会话读取20680行全部日志，13 checkout与所有步骤已核、失败标记0；前端421文件/3452测试、Root/独立relaykit/386/三库/race和root合同通过。真实CLI资格job128604632216完整2094行及报告已核：plan/confirm备份、WAL与原目录/权限保全、隔离新目录restore、错摘要/重复确认/原及既有目标拒绝、账务精确复读、原fake2+恢复fake0=2、精确网桥规则/本机canary/host健康与清理全部通过；浏览器/生产/真实供应商未执行。
+
+安全[资格报告](https://github.com/ForceMind/MyAPI/actions/runs/42439207854/artifacts/13600832096)为1585 bytes，SHA256 f90df8a037ead5503820e166aa32d1ed612c65c045c2820c9b9f2a500eccddea，到期2026-11-15T02:39:37Z，未下载。默认keep-all，完成范围仅Root Docker Full/SQLite停机备份与隔离恢复，不是整个B4或全部三版本；旧红灯/取消不当绿。
+
+**本提交为B4b beta.47候选，待自身Actions验收。** 数量/天数并集与最新/引用/占用保护、具体plan-confirm及一次性trigger、完整manifest/root/FD/mmap/cwd/全部容器挂载重验后精确清理；未知/部分失败留现场不重试，默认仍keep-all。新primitive/root合同和真实CLI清理资格源码已集成，实际仍待Actions；必须证明原source新增合成账务+17保留且所有fake累计2、不能靠断开的上游伪证明不重放。现仅源代码/语法检查；未来仅Actions运行，不本机依赖/构建测试/分析/Docker/产物下载，不动生产/浏览器/真实供应商/main/发布。以下历史候选状态按原时点理解，完整Goal与未授权10文件删除仍保留。
+
 ## 2026-11-08 当前：B6完整CI已验收；B4a beta.46候选
 
 **B6已验收，完整CI通过。** dev/`0f7d98260010c0d88bbcdf58c16603a47507aece` / [完整CI42433123893](https://github.com/ForceMind/MyAPI/actions/runs/42433123893)。job128586211061完整2662行与结构化报告已核：0755/0700均为实际UID/GID10001应用拒绝、exit1，无OOM；拒绝阶段全树bytes/owner/mode保持，root业务精确复读、各fake2→2/0新增、停止源不变、cleanup true。镜像image.Size=92005247 bytes；未创建传输tar，registry压缩量未测，两者null。默认USER未改，也无切换授权。attempt1 success，13执行成功/3可选跳过；主会话读取20674行全部日志、13个checkout和所有步骤，失败标记0，前端421文件/3452测试及原Go/独立relaykit/386/三库/race门禁通过。浏览器未运行。安全[报告构件](https://github.com/ForceMind/MyAPI/actions/runs/42433123893/artifacts/13598572847)为2942 bytes、SHA256 eb83621d7cc575589fff954259ddc8235fd805b0bc6b3dacf84a2e3108c5f181，到期2026-11-15T01:15:00Z，未下载。

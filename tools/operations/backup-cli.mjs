@@ -4,7 +4,7 @@ import { BackupEngine } from './backup-engine.mjs'
 import { check } from './safety.mjs'
 
 export async function backupCommand(command, args) {
-  check(['backup', 'restore'].includes(command), 'INVALID_BACKUP_COMMAND')
+  check(['backup', 'restore', 'backup-prune'].includes(command), 'INVALID_BACKUP_COMMAND')
   const value = flag => args[args.indexOf(flag) + 1]
   const config = await loadBackupConfig(value('--config'))
   const guard = await claimDaemon(config)
@@ -12,6 +12,40 @@ export async function backupCommand(command, args) {
   try {
     const engine = await new BackupEngine(config).init()
     let result
+    if (command === 'backup-prune') {
+      const policy = {}
+      for (const [flag, key, maximum] of [['--keep-count', 'keepCount', 10000], ['--keep-days', 'keepDays', 36500]]) {
+        if (!args.includes(flag)) continue
+        const raw = value(flag)
+        check(/^[1-9][0-9]{0,4}$/.test(raw) && Number(raw) <= maximum, 'RETENTION_POLICY_INVALID')
+        policy[key] = Number(raw)
+      }
+      if (args.includes('--confirm')) {
+        const confirmation = /^([a-f0-9]{64}):([a-f0-9]{64})$/.exec(value('--confirm'))
+        check(confirmation, 'PLAN_CONFIRMATION_INVALID')
+        result = await engine.executePrune(confirmation[1], confirmation[2], value('--instance'), value('--after-backup'), policy)
+      } else result = await engine.preparePrune(value('--instance'), value('--after-backup'), policy)
+      if (args.includes('--json')) console.log(JSON.stringify(result))
+      else if (result.state === 'prepared' || result.state === 'no_changes') {
+        console.log(`备份清理：${result.state === 'prepared' ? '等待确认' : '无需删除'}`)
+        if (result.selection.policy.keepCount !== null) console.log(`至少保留最新 ${result.selection.policy.keepCount} 份。`)
+        if (result.selection.policy.keepDays !== null) console.log(`保留最近 ${result.selection.policy.keepDays} × 24 小时内的全部备份。`)
+        console.log(`保留 ${result.selection.retainedIds.length} 份，待清理 ${result.selection.candidateIds.length} 份。`)
+        console.log('保留最新数量与最近天数的并集；至少保留最新备份，有引用或正在使用的备份继续保留。')
+        console.log(`另保留 ${result.retained_unknown.length} 个来源或校验不明的目录。原数据不会停止、恢复或改写。`)
+        if (result.state === 'prepared') {
+          console.log(`待清理 ID：${result.selection.candidateIds.join(', ')}`)
+          console.log(`数据逻辑大小：${result.selection.candidateLogicalBytes} bytes，不代表实测释放空间。`)
+          console.log('确认后会永久删除以上备份副本，不能撤销。计划有效期 10 分钟，执行前会重新核验。')
+          console.log(`核对后在相同命令末尾追加：--confirm ${result.id}:${result.digest}`)
+        } else console.log('没有执行删除；未指定保留策略时全部保留。')
+      } else {
+        console.log(`备份清理：${result.state === 'succeeded' ? '校验通过，清理结束' : '未确认成功，请保留现场，勿直接重试'}`)
+        if (result.code) console.log(`原因：${result.code}`)
+      }
+      if (!['prepared', 'no_changes', 'succeeded'].includes(result.state)) process.exitCode = 1
+      return result
+    }
     if (args.includes('--confirm')) {
       const confirmation = /^([a-f0-9]{64}):([a-f0-9]{64})$/.exec(value('--confirm'))
       check(confirmation, 'PLAN_CONFIRMATION_INVALID')

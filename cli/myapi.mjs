@@ -1535,6 +1535,7 @@ Usage:
   myapi doctor --target-edition full|lite|lan [--project-dir DIR] [--json]
   myapi backup --config FILE --instance ID [--confirm PLAN_ID:DIGEST] [--json]
   myapi restore --config FILE --instance ID --backup ID --target-dir NEW_DIR [--confirm PLAN_ID:DIGEST] [--json]
+  myapi backup-prune --config FILE --instance ID --after-backup ID [--keep-count N] [--keep-days D] [--confirm PLAN_ID:DIGEST] [--json]
   myapi upgrade --version VERSION [--project-dir DIR] [--verify-signature] [--pin-digest] [--dry-run] [--json]
   myapi adopt --project-dir DIR --data-dir DIR --logs-dir DIR
   myapi lan init [directory] [--bind-address ADDRESS] [--port PORT] [--allow-lan]
@@ -1587,6 +1588,13 @@ try {
     }
     if (args.includes('--dry-run')) printUpgradeDryRun(buildUpgradePlan(args), args)
     else upgradeDeployment(args)
+  } else if (command === 'backup-prune') {
+    validateArguments(args, { values: ['--config', '--instance', '--after-backup', '--keep-count', '--keep-days', '--confirm'], flags: ['--json'] })
+    for (const flag of ['--config', '--instance', '--after-backup']) {
+      if (!argumentValue(args, flag)) throw new Error(`${flag} is required`)
+    }
+    const { backupCommand } = await import('../tools/operations/backup-cli.mjs')
+    await backupCommand(command, args)
   } else if (command === 'backup' || command === 'restore') {
     validateArguments(args, { values: command === 'backup' ? ['--config', '--instance', '--confirm'] : ['--config', '--instance', '--backup', '--target-dir', '--confirm'], flags: ['--json'] })
     for (const flag of command === 'backup' ? ['--config', '--instance'] : ['--config', '--instance', '--backup', '--target-dir']) {

@@ -1,6 +1,6 @@
 # 本地备份与隔离恢复 / Local backup and isolated restore
 
-状态：beta.46 源码候选，运行验证待 GitHub Actions。以下行为描述来自代码，不是生产验收或发布记录；尚不能据此操作生产。本批属于 `PLAN_PHASE2.md` 的 B4 首个可运行范围，不代表完整 B4 已交付。
+状态：beta.46 停机备份和隔离恢复已通过 CI42439207854（源码 b9c4dcd4），仅 Root Docker Full + SQLite 合成场景。beta.47 清理入口是未验证的新候选。均未发布或生产验收，不代表完整 B4 已交付。
 
 ## 先看操作影响
 
@@ -62,11 +62,22 @@ node <checkout>/cli/myapi.mjs restore --config <CONFIG> --instance primary --bac
 
 停机、权限、写入者或复制结果不明时，记录进入 `recovery_required` 并保留现场及实例锁。不要直接重试、重启旧容器或回灌旧数据；先人工核对实例、数据和 journal。新目标的 partial 目录不算恢复成功，工具不会自动删除它或启动它。
 
-本批保留策略固定为 **全部保留**。不会自动删除历史备份、未归属文件或有恢复引用的备份；不会新建定时任务。
+默认保留策略仍为 **全部保留**，不会新建定时任务。以下清理入口属于后继源码候选，尚未通过 Actions，不代表已发布或可操作生产。
+
+```text
+node <checkout>/cli/myapi.mjs backup-prune --config <CONFIG> --instance primary --after-backup <NEW_BACKUP_ID> --keep-count <N> --keep-days <D> --json
+# 核对具体计划后，在原命令末尾追加 --confirm <PLAN_ID>:<DIGEST>
+```
+
+数量与天数可只指定一个；两者同时指定时，保留“最新 N 份”和“最近 D × 24 小时”的并集。最新时间并列项、触发本次清理的新备份、全部恢复引用及正在使用的备份也保留。没有指定策略或没有可删项时不会产生可执行删除计划。
+
+计划必须绑定最新成功且尚未用于清理的备份、固定观察时间、保留策略和精确 ID 集合。确认前新增备份、恢复引用或目录变化会使计划失效。来源不明、损坏、未提交、缺字段的目录不进入删除集合；未能确认引用、占用或挂载时保持原样。只读挂载、只读 FD、目录句柄、工作目录及关闭 FD 后仍存在的内存映射也属于使用。
+
+确认后只处理计划中的备份副本，不停止或重启原实例，不回灌数据。清理前再次校验清单、哈希、根目录身份、引用、全部容器挂载及实际占用。触发备份的许可只能用一次；任何部分失败会保留现场和逐 ID 结果，不自动续删或重试。逻辑字节数不等于实际释放的磁盘空间。
 
 ## English
 
-This is an unverified beta.46 source candidate for B4's first Docker Full + SQLite scope. It has not been released, installed, or qualified in production. Build and runtime evidence must come from GitHub Actions; no browser or real provider traffic is authorized.
+The beta.46 stopped-backup and isolated-restore scope passed CI42439207854 at source b9c4dcd4 on disposable root Docker Full + SQLite fixtures. The beta.47 retention cleanup is a new, unverified source candidate. Neither scope has been released, installed, or qualified in production. Build and runtime evidence comes only from GitHub Actions; no browser or real provider traffic is authorized.
 
 The local root command reuses the instance registry and storage locks. It does not require the operations daemon, TLS keys, bridge token, or GitHub credentials. The four storage fields and command formats above are shared with the existing registration format; all placeholders must be replaced for the actual installation.
 
@@ -76,4 +87,4 @@ The local root command reuses the instance registry and storage locks. It does n
 
 The bundle covers the registered data directory, including present DB/WAL/SHM files. External environment files, other mounts, Docker configuration and object storage are not copied. This is not cross-host disaster recovery. Visible FD and shared writable mmap observations require a trusted maintenance window; they do not exclude malicious root or future writers.
 
-Retention is currently keep-all, with no automatic deletion or scheduling. Missing confirmation remains `null`. Count/day retention, other installation types, online backup and disaster recovery remain future B4 work. Production deployment requires separate authorization.
+Retention defaults to keep-all, with no scheduling. The new unverified `backup-prune` candidate requires a fresh successful backup, explicit count/day policy, a concrete plan and exact confirmation. Count and rolling-day protections form a union; the latest timestamp ties, trigger, restore references and active readers remain protected. Unknown or corrupt directories are retained. An uncertain or partial deletion freezes the operation without retries; logical byte totals are not measured reclaimed disk space. Other installation types, online backup and disaster recovery remain future B4 work. Production deployment requires separate authorization.

@@ -23,8 +23,12 @@ export async function python(script, input, timeout = 30_000) {
         // envelope. Legacy failures retain their existing opaque contract.
         try {
           const result = JSON.parse(output)
+          const archiveError = input?.action === 'archive_scan'
+          const writerKeys = archiveError ? 'action,code,deletion_authorized,schema_version,status' : 'action,code,schema_version,status'
           if (script === 'writer_guard.py' && result?.schema_version === 1 && ['blocked', 'unknown'].includes(result.status) &&
-            Object.keys(result).sort().join(',') === 'action,code,schema_version,status' && /^[A-Z][A-Z0-9_]{0,79}$/.test(result.code)) {
+            Object.keys(result).sort().join(',') === writerKeys &&
+            (!archiveError || result.action === 'archive_scan' && result.deletion_authorized === false) &&
+            /^[A-Z][A-Z0-9_]{0,79}$/.test(result.code)) {
             return reject(new OperationsError(result.code, 409))
           }
           if (script === 'backup_data.py' && result?.schema_version === 1 && result.verified === false &&

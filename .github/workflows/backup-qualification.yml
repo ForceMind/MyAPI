@@ -1,4 +1,4 @@
-name: SQLite backup and isolated restore qualification
+name: SQLite backup, isolated restore and confirmed retention qualification
 
 on:
   workflow_call:
@@ -14,7 +14,7 @@ permissions:
 jobs:
   qualification:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
     env:
       MYAPI_B4_QUALIFICATION: '1'
       MYAPI_SMOKE_API_ONLY: '1'
@@ -118,8 +118,8 @@ jobs:
           node --version
           /usr/bin/python3 --version
 
-      - name: Qualify the real root CLI backup and isolated restore
-        timeout-minutes: 20
+      - name: Qualify the real root CLI backup, isolated restore and confirmed retention
+        timeout-minutes: 25
         run: |
           set -euo pipefail
           umask 077
@@ -131,7 +131,7 @@ jobs:
             SMOKE_APP_IMAGE_ID="$SMOKE_APP_IMAGE_ID" SMOKE_BUN_IMAGE_ID="$SMOKE_BUN_IMAGE_ID" \
             "$node_binary" tools/runtime/backup-qualification.mjs | tee "$RUNNER_TEMP/myapi-b4-report.json"
           python3 - <<'PY'
-          import json, os, stat
+          import json, os, re, stat
           filename = os.path.join(os.environ['RUNNER_TEMP'], 'myapi-b4-report.json')
           metadata = os.stat(filename)
           assert metadata.st_uid == os.getuid() and stat.S_IMODE(metadata.st_mode) == 0o600
@@ -148,8 +148,31 @@ jobs:
           assert isolation['host_canary_controls'] == 2 and isolation['container_canary_reached'] is False
           assert isolation['external_network_probe'] == 'not_run' and isolation['dns_loopback_only'] is True
           assert result['host_published_health'] == {'source': True, 'recovery': True}
+          retention = result['retention']
+          assert retention['production_cli'] is True and retention['default_keep_all_no_changes'] is True
+          assert retention['confirmed_candidate_count'] == retention['deleted_count'] == 1
+          assert retention['retained_count'] == 2 and len(retention['candidate_ids']) == 1
+          assert len(retention['retained_ids']) == 2 and not set(retention['candidate_ids']) & set(retention['retained_ids'])
+          for field in ['restore_reference_retained', 'latest_trigger_retained', 'retained_integrity_verified',
+                        'exact_receipt_verified', 'wrong_digest_rejected', 'repeated_confirmation_rejected', 'trigger_reuse_rejected',
+                        'live_business_preserved', 'source_configuration_preserved', 'source_process_preserved_during_prune',
+                        'source_uid_gid_preserved', 'non_database_markers_preserved', 'new_adjustment_preserved_after_normal_stop']:
+              assert retention[field] is True, field
+          assert retention['source_changed'] is False and retention['automatic_retry'] is False
+          assert retention['ci_explicit_source_restarts'] == 3 and retention['cli_source_restarts'] == 0
+          assert retention['accounting_marker'] == {'kind': 'synthetic-admin-add', 'units': 17, 'exact_adjustment_verified': True}
+          assert retention['live_business_sha256'] == retention['final_business_sha256']
+          assert retention['same_namespace_fake_healthy'] is True
+          counts = retention['source_fake_counts']
+          assert len({item['role'] for item in counts}) == len(counts) and counts[0]['role'] == 'fake' and counts[0]['count'] == 2
+          assert all(re.fullmatch(r'[a-f0-9]{64}', item['container_id']) for item in counts)
+          assert len({item['container_id'] for item in counts}) == len(counts)
+          assert re.fullmatch(r'[a-f0-9]{64}', retention['recovery_fake_id'])
+          assert retention['recovery_fake_id'] not in {item['container_id'] for item in counts}
+          assert all(item['count'] == 0 for item in counts[1:])
+          assert retention['recovery_fake_count'] == 0 and retention['combined_upstream_requests'] == sum(item['count'] for item in counts) == 2
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
-              summary.write('B4 production CLI qualification completed on owned bridge Full/SQLite fixtures with exact interface firewall rules, a refused owned-host canary and healthy published endpoints. Plan-confirm backup, unchanged stopped source, verified new-directory restore and exact business readback passed; synthetic upstream counts remained 2+0=2. Only the safe report is retained. The canary is not an external-network test; browser, production and external providers were not tested.\n')
+              summary.write('B4 production CLI qualification completed on owned bridge Full/SQLite fixtures with exact interface firewall rules, a refused owned-host canary and healthy published endpoints. Plan-confirm backup, unchanged stopped source, verified new-directory restore and exact business readback passed; synthetic upstream counts remained 2+0=2. A separate phase created three real backups, retained the restore-referenced and newest backups, deleted only the exact confirmed middle backup, and preserved a new 17-unit synthetic adjustment in the live source and after a CI-owned normal stop. Every current or retained source-network fake was observed; their total remained 2 and recovery stayed 0. Only the safe report is retained. The canary is not an external-network test; browser, production and external providers were not tested.\n')
           PY
 
       - name: Retain only the safe qualification report for seven days
