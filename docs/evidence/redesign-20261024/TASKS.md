@@ -1,5 +1,13 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-09 A6授权清理候选：仅10个旧UI文件，待自身Actions
+
+维护者本轮明确批准两项：T1仅做只读验签前置，以及仅删除原清单10个旧UI文件。产品下载/安装、创建签名/Secret、生产/真实模型/浏览器仍不授权。本批只含A6清理和本清单/交接；独立T1工具/CI改动不进入此提交。
+
+已删除`web/src/components/ui/`下aspect-ratio.tsx、button-group.tsx、carousel.tsx、context-menu.tsx、direction.tsx、item.tsx、menubar.tsx、navigation-menu.tsx、pagination.tsx、resizable.tsx，合1665行。删除前10个SHA256均匹配cleanup-review-6200959c.csv；当前导入、重导出、动态和配置未识别有效消费者。实际DirectionProvider走context/direction-provider，分页仍走LogPagination/DataTablePagination，均保留；没有借此删除依赖、锁、翻译键、权限、字段或断言，其余145未知项不动。
+
+仅做源码/引用/哈希及差异轻查，尚不称完成。验证仅Actions：本提交完整CI加run_cleanup_inventory=true、run_browser=false，实际typecheck/lint/全量测试/build及两模式Knip清单重新绑定自身SHA。工具清单仍analysis_only/deletion_authorized=false；用户授权来自本轮明确批准，不把工具报告改成执行许可。不新增测试来镜像删除，也不放宽既有断言。此为内部未消费模块清理，没有新增应用能力，沿用beta.55；现有候选构件仍严格绑定202d01c9，不重标为清理提交。上轮文档90d6d921 / CI42494134078已12执行成功/8可选skip、20083行全日志及checkout/步骤核证。
+
 ## 2026-11-08 beta.55技术验收与三版本候选构件：202d01c9，全计划未结束
 
 应用源码固定为 `202d01c9cfc6f0b4045955ad726879114f3677bf` / `0.2.0-beta.55`。后继仅更新8份现有说明，不升版本、不重标构件为文档提交。全部构建、测试、打包在Actions；本机未安装依赖、构建测试、Docker、浏览器或下载产物，未生产、真实供应商请求、NPM/GHCR/tag发布或合main。Docker合成调用仅访问自有fake上游。

@@ -1,6 +1,8 @@
-# 接手文档（2026-11-08 更新）
+# 接手文档（2026-11-09 更新）
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
+
+**2026-11-09两项已获明确授权，当前先验A6清理。** 维护者批准T1仅只读验签前置及清单10个旧UI文件删除；不接产品下载/安装，不新增签名或Secret，全部构建测试仅Actions，不浏览器/生产/真实模型/本机依赖或产物下载。A6候选仅删除ui/下aspect-ratio、button-group、carousel、context-menu、direction、item、menubar、navigation-menu、pagination、resizable十个tsx及两份现有交接；1665行，删除前SHA均匹配旧CSV，当前无已识别消费，活跃方向管理和分页保留。依赖/锁/locale/权限/断言未改，145未知项不动。须自身完整CI和cleanup inventory通过才验收，T1独立WIP不混入。内部清理仍beta.55，应用与既有候选构件继续绑定202d01c9；上一交接90d6d921 / CI42494134078已完整12成功/8可选skip、20083行日志核证。下文待准描述为历史，本轮产品安装接线仍未授权。
 
 **最新已验应用为beta.55 / `202d01c9cfc6f0b4045955ad726879114f3677bf`，完整计划尚未结束。** [完整CI42487543625](https://github.com/ForceMind/MyAPI/actions/runs/42487543625) attempt1 success，14执行成功/6可选skip，21202行全实际日志、14 checkout/全部步骤已核；前端421文件3452测试、Root/独立relaykit/386/三库/race/分发等过。清单359行/8合同：七语7890键、缺键/extra/占位符/词法缺键0，动态未知388、母语未验；教程754行/24原命令及后置检查全过。Go/模块自4a9d4b6d未变，原金额三库证据不重标源码。
 
