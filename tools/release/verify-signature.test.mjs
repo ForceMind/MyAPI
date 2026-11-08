@@ -174,6 +174,8 @@ test('rejected execution scope leaves a complete unknown report without fake cos
   assert.equal(result.tool_unchanged, false)
   assert.equal(result.inputs_unchanged, false)
   assert.equal(result.historical_certificate_accepted, false)
+  assert.equal(result.artifact_digest_bound, false)
+  assert.equal(result.tampered_digest_differs, false)
   assert.deepEqual(result.tested_counts, { cosign_invocations: 0, positive_accepts: 0, negative_rejections: 0 })
   assert.deepEqual(result.inputs.map(item => item.id), [
     'trusted-root.json', 'artifact.txt', 'message.bundle.json', 'intoto-artifact.txt', 'intoto.bundle.json',

@@ -230,7 +230,8 @@ export async function runQualification(env = process.env, args = process.argv.sl
     inputs: [...INPUT_PINS.map(item => item.id), 'ownership.json', ...controlIDs].map(id => ({ id, bytes: null, before_sha256: null, after_sha256: null, pin_verified: false, unchanged: false })),
     cases: targets.map((id, index) => ({ id, expected: index < 2 ? 'accept' : 'reject', passed: false, cosign_exit_code: null, outcome: 'not-run', rejection: null })),
     tested_counts: { cosign_invocations: 0, positive_accepts: 0, negative_rejections: 0 },
-    inputs_unchanged: false, tool_unchanged: false, historical_certificate_accepted: false }
+    inputs_unchanged: false, tool_unchanged: false, historical_certificate_accepted: false,
+    artifact_digest_bound: false, tampered_digest_differs: false }
   let inputDirectory = null, reportDirectory = null, inputIdentity = null, reportIdentity = null, controlIdentity = null, toolBefore = null, scope = null
   const snapshots = new Map()
   const git = (...parts) => execFileSync('git', ['-c', 'core.fileMode=false', ...parts], { cwd: repository, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 10000 }).trim()
@@ -299,6 +300,11 @@ export async function runQualification(env = process.env, args = process.argv.sl
     }
     const file = id => path.join(inputDirectory, id)
     await invoke(0, file('artifact.txt'), file('message.bundle.json'), file('trusted-root.json'), 'official', [])
+    // This digest is only a hint until the raw-byte positive signature succeeds.
+    // cosign's WithArtifact route verifies the signature before its digest sanity check.
+    const declaredDigest = base64(JSON.parse(message.toString('utf8')).messageSignature.messageDigest.digest).toString('hex')
+    report.artifact_digest_bound = snapshots.get('artifact.txt').sha256 === declaredDigest
+    requireThat(report.artifact_digest_bound, 'SIGSTORE_ARTIFACT_DIGEST_NOT_BOUND')
     report.historical_certificate_accepted = expiredNow
     requireThat(expiredNow, 'SIGSTORE_HISTORICAL_BOUNDARY_NOT_EXERCISED')
     await invoke(1, file('intoto-artifact.txt'), file('intoto.bundle.json'), file('fixture-trusted-root.json'), 'official', [])
@@ -320,10 +326,14 @@ export async function runQualification(env = process.env, args = process.argv.sl
       snapshots.set(id, snapshot)
       const item = report.inputs.find(value => value.id === id)
       Object.assign(item, { bytes: snapshot.byte_length, before_sha256: snapshot.sha256, pin_verified: true })
+      if (id === controlIDs[0]) {
+        report.tampered_digest_differs = snapshot.sha256 !== declaredDigest
+        requireThat(report.tampered_digest_differs, 'SIGSTORE_TAMPER_DIGEST_NOT_DIFFERENT')
+      }
     }
     inspectBundleStructure(Buffer.from(JSON.stringify(changed)))
     controlIdentity = identity(await lstat(reportDirectory, { bigint: true }))
-    await invoke(2, alteredArtifact, file('message.bundle.json'), file('trusted-root.json'), 'official', ['artifact-digest'])
+    await invoke(2, alteredArtifact, file('message.bundle.json'), file('trusted-root.json'), 'official', ['signature'])
     await invoke(3, file('artifact.txt'), alteredBundle, file('trusted-root.json'), 'official', ['signature'])
     await invoke(4, file('artifact.txt'), file('message.bundle.json'), file('trusted-root.json'), 'wrong-subject', ['subject'])
     await invoke(5, file('artifact.txt'), file('message.bundle.json'), file('trusted-root.json'), 'wrong-issuer', ['issuer'])
@@ -364,6 +374,7 @@ export async function runQualification(env = process.env, args = process.argv.sl
     }
   }
   report.passed = report.error_code === null && report.inputs_unchanged && report.tool_unchanged && report.historical_certificate_accepted &&
+    report.artifact_digest_bound && report.tampered_digest_differs &&
     report.cases.every(row => row.passed) && report.tested_counts.cosign_invocations === 7 &&
     report.tested_counts.positive_accepts === 2 && report.tested_counts.negative_rejections === 5
   if (report.passed) report.phase = 'completed'

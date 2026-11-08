@@ -106,7 +106,8 @@ jobs:
           const report = JSON.parse(result.stdout)
           const fields = ['schema_version', 'scope', 'source_sha', 'run_id', 'run_attempt', 'passed', 'phase', 'error_code',
             'read_only', 'offline', 'myapi_artifact_trusted', 'installer_connected', 'tool', 'inputs', 'cases',
-            'tested_counts', 'inputs_unchanged', 'tool_unchanged', 'historical_certificate_accepted']
+            'tested_counts', 'inputs_unchanged', 'tool_unchanged', 'historical_certificate_accepted',
+            'artifact_digest_bound', 'tampered_digest_differs']
           assert.deepEqual(Object.keys(report).sort(), fields.sort(), 'SIGNATURE_REPORT_SCHEMA_INVALID')
           assert.equal(report.schema_version, 1)
           assert.equal(report.scope, 'official-vector-only')
@@ -118,7 +119,7 @@ jobs:
           assert.equal(report.myapi_artifact_trusted, false)
           assert.equal(report.installer_connected, false)
           assert.equal(typeof report.passed, 'boolean')
-          for (const field of ['inputs_unchanged', 'tool_unchanged', 'historical_certificate_accepted']) assert.equal(typeof report[field], 'boolean')
+          for (const field of ['inputs_unchanged', 'tool_unchanged', 'historical_certificate_accepted', 'artifact_digest_bound', 'tampered_digest_differs']) assert.equal(typeof report[field], 'boolean')
           assert.ok(['scope', 'inputs', 'verification', 'preservation', 'completed'].includes(report.phase))
           assert.ok(report.error_code === null || /^SIGSTORE_[A-Z0-9_]{1,80}$/.test(report.error_code))
           const root = path.join(process.env.RUNNER_TEMP, `myapi-signature-report-${process.env.GITHUB_SHA}-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`)
@@ -178,7 +179,9 @@ jobs:
           assert.equal(report.inputs_unchanged, true)
           assert.equal(report.tool_unchanged, true)
           assert.equal(report.historical_certificate_accepted, true)
-          const rejected = ['artifact-digest', 'signature', 'subject', 'issuer', 'certificate-time']
+          assert.equal(report.artifact_digest_bound, true)
+          assert.equal(report.tampered_digest_differs, true)
+          const rejected = ['signature', 'signature', 'subject', 'issuer', 'certificate-time']
           for (const [index, item] of report.cases.entries()) {
             assert.equal(item.passed, true)
             assert.equal(item.expected, index < 2 ? 'accept' : 'reject')

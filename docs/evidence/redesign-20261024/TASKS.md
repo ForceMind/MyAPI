@@ -4,6 +4,8 @@
 
 首轮`d7cb50b9172199a7680f4b4c712e88b09fd91c5e` / [CI42504894358](https://github.com/ForceMind/MyAPI/actions/runs/42504894358)已取红证并正常取消剩余运行：8成功/2失败/3取消/8可选skip，11361行全部实际日志与13 checkout/步骤已核。专项job128805330825完整345行，10合同9过1失败；分发job128805330829为同一合同失败。原因是超时拒绝正则把“time outside certificate validity”的time out前缀误当超时，结果未进入下载/真实验签。后继仅给timed out/time out/timeout加词边界，保原时间/工具故障断言及全部分类门禁，不把证书拒绝改为空值或泛化非0。自动42504891114的取消日志也已读。后继自身10合同、真实7场景和完整CI仍待验证。
 
+第二轮80b0f440 / [CI42505420014](https://github.com/ForceMind/MyAPI/actions/runs/42505420014)取证后终态cancelled：6成功/1失败/6取消/8可选skip，11365行全实际日志/13 checkout已核。专项job128808174672完整500行：10合同全过，全部固定下载/hash过；真实cosign调用3次、两个正例exit0，历史短期证书可接受，工具/10输入前后保全。篡改原文真exit1并被精确分类signature，因先验要求artifact-digest而失败，后四例未运行，不计通过。主会话已亲读[cosign3.1.4原始字节入口](https://github.com/sigstore/cosign/blob/v3.1.4/cmd/cosign/cli/verify/verify_blob.go)和[sigstore-go1.3.0实现](https://github.com/sigstore/sigstore-go/blob/v1.3.0/pkg/verify/signature.go)：WithArtifact先验证原始字节签名，再做digest sanity比较，声明digest本身是未认证hint。后继保持原始字节路径，篡改例只锁单一特定signature拒绝，同时新增artifact_digest_bound/tampered_digest_differs两个硬门禁：基准真实验签后原始SHA256必须等于bundle声明digest，实际篡改文件SHA256必须不同。摘要绑定不替代真验签，不切换digest-only、不接受任意非0；Scope拒绝时两项保持false。新门禁与原10合同/七场景全部仍待自身Actions。自动42505417039的587行取消日志已读、1个无steps job日志404，不造执行。
+
 本轮批准仅解冻隔离的验签前置工具。新增tools/release/verify-signature.mjs及10组普通合同、release-trust-qualification.yml，ci.yml增加默认false的run_release_trust_qualification；仅manual/dev/本仓库Linux x64执行。产品cli/lib/release-manifest及untrusted byte evidence、下载/安装、部署与更新器完全未接入，也不新增签名、Secret或透明日志写入。版本仍beta.55，不把工具进度当作B3实际安装器完成。
 
 官方cosign v3.1.4的immutable release资产SHA256已由主会话亲读GitHub API核实为424e2c97d0b45fd7a6b608a87f090f35633f4c23ece5f092d48bba11aaf4bbfa；public root固定root-signing c9bda74ad2221f938f7d2e0295ca3aad2da710a8和SHA256 6494e21ea73fa7ee769f85f57d5a3e6a08725eae1e38c755fc3517c9e6bc0b66。公开静态向量固定sigstore-conformance 9611941d54398f2e3f6383b6f744442a56d2fb2a及各Git blob/size；Git blob pin只绑定来源字节，不当作签名证明。校验器、root与向量只在Actions下载；不调用公开OIDC beacon或签发流程。
@@ -12,7 +14,7 @@
 
 原始固定输入及校验器前后哈希/元数据保全；另外两个仅在Runner生成的无效控制拷贝也独立保全，不产生新有效签名。缺失/未观测字段保null，真实spawn才计调用次数。report始终official-vector-only、myapi_artifact_trusted=false、installer_connected=false；公开向量成功不证明MyAPI制品已受信。callee仅打印/上传通过完整固定shape与10个输入ID校验的safe副本，失败但安全的回执可保留；不输出原文、证书、路径或任意issuer。现阶段仅源码审阅和Node/YAML轻语法检查，10合同、七个真实crypto场景及完整CI均待自身SHA的Actions验证（run_browser=false、run_release_trust_qualification=true），不称完成。
 
-主审与独立限定审查已做；审查发现的原报告直传/ID未锁安全缺口已改为安全副本和完整固定ID门禁，异常解析/断言仅抛固定码。原文篡改一例的模块/工作流拒绝类别已统一为严格artifact-digest，不使用宽泛签名失败或任意非0退出凑绿；实际类别若不符合必须由Actions实证解释。未更改既有断言或产品行为。
+主审与独立限定审查已做；审查发现的原报告直传/ID未锁安全缺口已改为安全副本和完整固定ID门禁，异常解析/断言仅抛固定码。原文篡改的单一类别依上方真实CLI与官方语义收口，并补独立原始摘要绑定门禁；不使用泛化失败凑绿。既有artifact-digest合同保留，产品行为未改。
 
 ### 已验收前批A6：7f79a1cf / CI42502209064
 
