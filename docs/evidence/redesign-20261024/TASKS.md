@@ -1,5 +1,23 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-09 T1只读验签前置候选：不接产品，待自身Actions
+
+本轮批准仅解冻隔离的验签前置工具。新增tools/release/verify-signature.mjs及10组普通合同、release-trust-qualification.yml，ci.yml增加默认false的run_release_trust_qualification；仅manual/dev/本仓库Linux x64执行。产品cli/lib/release-manifest及untrusted byte evidence、下载/安装、部署与更新器完全未接入，也不新增签名、Secret或透明日志写入。版本仍beta.55，不把工具进度当作B3实际安装器完成。
+
+官方cosign v3.1.4的immutable release资产SHA256已由主会话亲读GitHub API核实为424e2c97d0b45fd7a6b608a87f090f35633f4c23ece5f092d48bba11aaf4bbfa；public root固定root-signing c9bda74ad2221f938f7d2e0295ca3aad2da710a8和SHA256 6494e21ea73fa7ee769f85f57d5a3e6a08725eae1e38c755fc3517c9e6bc0b66。公开静态向量固定sigstore-conformance 9611941d54398f2e3f6383b6f744442a56d2fb2a及各Git blob/size；Git blob pin只绑定来源字节，不当作签名证明。校验器、root与向量只在Actions下载；不调用公开OIDC beacon或签发流程。
+
+真实验签必须用固定cosign、offline与显式local trusted root、精确subject/issuer，保tlog/SCT，不允许ignore或caller verified覆盖。预期七次真实调用：public message/custom in-toto两个接受，原文篡改、签名篡改、主体错误、签发者错误、证书时间边界五个明确安全拒绝；先过正例，工具/IO/超时/未知失败不算拒绝成功。历史短期证书按可信签名/日志时刻处理；历史证书现在过期仍可被正例实际接受，不能强行按现在失效拒绝它。
+
+原始固定输入及校验器前后哈希/元数据保全；另外两个仅在Runner生成的无效控制拷贝也独立保全，不产生新有效签名。缺失/未观测字段保null，真实spawn才计调用次数。report始终official-vector-only、myapi_artifact_trusted=false、installer_connected=false；公开向量成功不证明MyAPI制品已受信。callee仅打印/上传通过完整固定shape与10个输入ID校验的safe副本，失败但安全的回执可保留；不输出原文、证书、路径或任意issuer。现阶段仅源码审阅和Node/YAML轻语法检查，10合同、七个真实crypto场景及完整CI均待自身SHA的Actions验证（run_browser=false、run_release_trust_qualification=true），不称完成。
+
+主审与独立限定审查已做；审查发现的原报告直传/ID未锁安全缺口已改为安全副本和完整固定ID门禁，异常解析/断言仅抛固定码。原文篡改一例的模块/工作流拒绝类别已统一为严格artifact-digest，不使用宽泛签名失败或任意非0退出凑绿；实际类别若不符合必须由Actions实证解释。未更改既有断言或产品行为。
+
+### 已验收前批A6：7f79a1cf / CI42502209064
+
+`7f79a1cf43c9713b56f2caef6f75f6a60fc195d9` / [完整CI42502209064](https://github.com/ForceMind/MyAPI/actions/runs/42502209064) attempt1 success：13执行成功/7可选skip，21459行全部实际日志、13 checkout/全部步骤已核、失败/race标记0。前端421文件3452测试，typecheck/lint/build及原Root/独立relaykit/386/三库/race/分发等过；没有放宽断言。清单job128797237737完整1356行、Node15合同/0skip与AST合同通过，实际Knip6.27.0两模式exit0：configured files/exports/types=4/372/174，ui-inclusive=5/417/176，10个删除路径均不在记录中。Go语法1577 files/5872 short/422 manual；只报告实数，不据其它候选继续删除。工具analysis_only/deletion_authorized=false保留，执行授权来自维护者。已删除的10个文件合1665行，活跃方向管理/分页和全部依赖、锁、locale、权限、断言保留。T1独立WIP不含此提交；下节候选范围按当时记录理解。
+
+清单[13626435442](https://github.com/ForceMind/MyAPI/actions/runs/42502209064/artifacts/13626435442)为583513 bytes、GitHub归档SHA256 `ae5573722ba0b72acbcd2e40f49652c1a156852c1b5386e2b5e270e79c78f519`、到期UTC2026-11-15T16:54:45Z，未下载。自动CI42502205876 cancelled的实际日志也已读，不计成功或替代本批完整CI。
+
 ## 2026-11-09 A6授权清理候选：仅10个旧UI文件，待自身Actions
 
 维护者本轮明确批准两项：T1仅做只读验签前置，以及仅删除原清单10个旧UI文件。产品下载/安装、创建签名/Secret、生产/真实模型/浏览器仍不授权。本批只含A6清理和本清单/交接；独立T1工具/CI改动不进入此提交。

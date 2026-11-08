@@ -39,6 +39,10 @@ on:
         description: 'Collect source-bound seven-language translation candidates without changing locale files'
         type: boolean
         default: false
+      run_release_trust_qualification:
+        description: 'Verify fixed public Sigstore vectors offline without signing or connecting product installation'
+        type: boolean
+        default: false
       baseline_red:
         description: 'Reproduce the personal Key handoff regression on the fixed pre-fix source before testing the candidate'
         type: boolean
@@ -56,6 +60,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  release-trust-qualification:
+    name: Read-only public signature verification
+    if: github.event_name == 'workflow_dispatch' && inputs.run_release_trust_qualification && github.ref == 'refs/heads/dev'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/release-trust-qualification.yml
+
   i18n-inventory:
     name: Current seven-language translation inventory
     if: github.event_name == 'workflow_dispatch' && inputs.run_i18n_inventory && github.ref == 'refs/heads/dev'

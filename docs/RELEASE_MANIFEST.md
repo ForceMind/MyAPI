@@ -6,6 +6,8 @@
 
 ## 当前实现进度与教程 / Current implementation and guides
 
+2026-11-09维护者仅批准T1只读验签前置工具，未批准产品下载/安装接线。独立manual/dev Actions入口使用固定官方cosign、root和公开向量；预期真实2接受/5安全拒绝及前后保全，当前仍待自身CI，不能以源码/普通合同称验签完成。输出始终official-vector-only，myapi_artifact_trusted=false、installer_connected=false；公开向量通过也不授予MyAPI制品安装信任，不创建签名/Secret或写透明日志。产品schema-1结构选择与untrusted byte evidence保持原状。The authorized T1 prerequisite is an isolated read-only verifier qualification, not a product installer connection. Its official public vectors cannot grant trust to a MyAPI artifact; actual cryptographic and full CI qualification remain pending. Pins, gates and current evidence are recorded in [TASKS](evidence/redesign-20261024/TASKS.md).
+
 本文下方保留原发行与信任合同；其中“未来”“待决定”和目标矩阵属于其原设计语境。当前实施沿已批准的五项决定：Lite OCI 保持 `myapi-lan`；T1 采用 GitHub OIDC / Sigstore keyless 合同但不接线下载、验签或安装；Linux system 专用用户与 XDG user 路径分开；Desktop 先 macOS、再 Windows，不宣称 Linux 首发；自动更新全部关闭且本阶段不实现更新器。本文没有重新征求这些决定，也没有建立新签名 Secret 或制品坐标。
 
 | 当前入口 / Current entry | 已有证据与限制 / Evidence and limits |
