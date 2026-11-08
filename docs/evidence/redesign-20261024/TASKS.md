@@ -1,5 +1,15 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-09本轮两项已验收：A6十文件清理、T1只读验签前置
+
+维护者本轮批准的两项按独立批次交付。A6为7f79a1cf / [CI42502209064](https://github.com/ForceMind/MyAPI/actions/runs/42502209064)：13执行成功/7可选skip，21459行全日志、13 checkout/全部步骤已核；10文件1665行删除，当前方向管理/分页、依赖/锁/locale/权限/字段/断言保留，前端421文件3452测试及原有后端门禁通过。清单来源、两模式实际数及未扩大删除的边界见下文，不重标旧CSV或继续删145未知项。
+
+T1最终工具源码为 `44ccb88c3d04ebc86de79f7d559d4f25d1c6691d` / [完整CI42506496493](https://github.com/ForceMind/MyAPI/actions/runs/42506496493)，attempt1 success：13执行成功/8可选skip，20758行全部实际日志、13 checkout及全部步骤已核，失败/race标记0；前端421文件3452测试、Root/独立relaykit/386/三库/race/分发等原门禁过。专项job128811420118完整490行：10合同/0skip，真实cosign调用7次，两个正例exit0、五个按类安全拒绝exit1；不是非0即成功。原文篡改/签名篡改均为特定signature拒绝，主体/签发者/证书时间分别为subject/issuer/certificate-time；原始字节路径、artifact_digest_bound和tampered_digest_differs均真，历史短期证书在可信签名时刻的正例接受、SET在有效期外的负例拒绝均已实证。工具与10个原始/控制输入前后哈希及metadata保全通过。
+
+安全[报告13628066038](https://github.com/ForceMind/MyAPI/actions/runs/42506496493/artifacts/13628066038)为1296 bytes、GitHub归档SHA256 `a3052b526fea18c45247a3cdc419a4e079c2248d55086d8ed8521d08fa7e4a02`、到期UTC2026-11-15T17:50:16Z，未下载。只上传固定字段和10个ID验证后的safe副本，不含正文/证书/任意路径。myapi_artifact_trusted=false、installer_connected=false保持；成功仅属于固定官方公开向量，不授予MyAPI包安装信任。自动42506494219取消日志350行已读，1个无steps job日志404，不造测试或通过。
+
+本轮没有新增签名、Secret、透明日志写入或真实模型请求；没有产品下载/安装/更新器接线、生产/浏览器、main或发布/tag。应用仍beta.55，已有候选镜像/安装包来源仍是202d01c9，不重标为工具或后继文档SHA。后继仅三份现有说明，必须读其自身CI；本轮授权范围内无剩余实质改动。完整项目的原生实际安装和最终统一质量等仍在原计划中，不能把只读前置验收当作B3全部完成，也不在本轮启动新BUG专项。下方候选和两轮红证保留历史。
+
 ## 2026-11-09 T1只读验签前置候选：不接产品，待自身Actions
 
 首轮`d7cb50b9172199a7680f4b4c712e88b09fd91c5e` / [CI42504894358](https://github.com/ForceMind/MyAPI/actions/runs/42504894358)已取红证并正常取消剩余运行：8成功/2失败/3取消/8可选skip，11361行全部实际日志与13 checkout/步骤已核。专项job128805330825完整345行，10合同9过1失败；分发job128805330829为同一合同失败。原因是超时拒绝正则把“time outside certificate validity”的time out前缀误当超时，结果未进入下载/真实验签。后继仅给timed out/time out/timeout加词边界，保原时间/工具故障断言及全部分类门禁，不把证书拒绝改为空值或泛化非0。自动42504891114的取消日志也已读。后继自身10合同、真实7场景和完整CI仍待验证。
