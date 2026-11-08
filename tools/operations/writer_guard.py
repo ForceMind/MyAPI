@@ -254,11 +254,11 @@ def snapshot_tree(path, expected):
                 info = os.stat(name, dir_fd=directory, follow_symlinks=False)
                 if info.st_dev != int(expected["dev"]):
                     reject("NESTED_SOURCE_FILESYSTEM")
-                if info.st_uid != 0 or info.st_mode & 0o022:
-                    reject("UNSAFE_SOURCE_OWNER_OR_MODE")
                 is_directory = stat.S_ISDIR(info.st_mode)
                 if not is_directory and (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1):
                     reject("UNSAFE_SOURCE_ENTRY")
+                if info.st_uid != 0 or info.st_mode & 0o022:
+                    reject("UNSAFE_SOURCE_OWNER_OR_MODE")
                 child = (relative + "/" if relative else "") + name
                 entries.append([child, str(info.st_dev), str(info.st_ino), info.st_uid, info.st_gid,
                                 stat.S_IMODE(info.st_mode), info.st_size, info.st_mtime_ns, info.st_ctime_ns])

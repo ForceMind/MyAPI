@@ -47,6 +47,12 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Verify the fixed host firewall utility is available
+        run: |
+          set -euo pipefail
+          test -x /usr/sbin/iptables
+          /usr/sbin/iptables --version
+
       - name: Set up bounded Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
         with:
@@ -135,8 +141,13 @@ jobs:
           assert result['backup_committed_verified'] is True and result['isolated_restore_verified'] is True
           assert result['source_left_stopped'] is True and result['original_data_unchanged_after_stop'] is True
           assert result['production_touched'] is False and result['real_provider_requests'] is False
+          isolation = result['network_isolation']
+          assert isolation['forward_rule_verified'] is True and isolation['input_rule_verified'] is True
+          assert isolation['host_canary_controls'] == 2 and isolation['container_canary_reached'] is False
+          assert isolation['external_network_probe'] == 'not_run' and isolation['dns_loopback_only'] is True
+          assert result['host_published_health'] == {'source': True, 'recovery': True}
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
-              summary.write('B4 production CLI qualification completed on isolated Full/SQLite fixtures: plan-confirm backup, unchanged stopped source, verified new-directory restore and exact business readback. Synthetic upstream counts remained 2+0=2. Only a safe report is retained; browser, production and external providers were not tested.\n')
+              summary.write('B4 production CLI qualification completed on owned bridge Full/SQLite fixtures with exact interface firewall rules, a refused owned-host canary and healthy published endpoints. Plan-confirm backup, unchanged stopped source, verified new-directory restore and exact business readback passed; synthetic upstream counts remained 2+0=2. Only the safe report is retained. The canary is not an external-network test; browser, production and external providers were not tested.\n')
           PY
 
       - name: Retain only the safe qualification report for seven days
