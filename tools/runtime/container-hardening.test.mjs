@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import path from 'node:path'
 import test from 'node:test'
-import { assessPreservedClone, hardeningScope, runContainerHardening, validateRootManifest } from './container-hardening.mjs'
+import { assessPreservedClone, assessmentTransportTarget, hardeningScope, runContainerHardening, validateRootManifest } from './container-hardening.mjs'
 
 function environment() {
   return { GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REF: 'refs/heads/dev',
@@ -47,6 +47,17 @@ test('manual dev scope derives only owned names and keeps archive size distinct 
   assert.equal(scope.archiveBytes, null, 'no archive was created by this assessment')
   assert.equal(hardeningScope({ ...env, SMOKE_BUNDLE_TAR_BYTES: '123456' }).archiveBytes, 123456)
   assert.equal(Object.values(scope.names).includes('production'), false)
+})
+
+test('isolated transport maps only fixed fixture origins and preserves each request path and query', () => {
+  assert.deepEqual(assessmentTransportTarget('http://127.0.0.1:18080/api/status'), { role: 'fake', url: 'http://127.0.0.1:3000/api/status' })
+  assert.deepEqual(assessmentTransportTarget('http://127.0.0.1:18081/api/log/?p=1'), { role: 'reader', url: 'http://127.0.0.1:3000/api/log/?p=1' })
+  assert.deepEqual(assessmentTransportTarget('http://127.0.0.1:19090/__smoke__/control'), { role: 'fake', url: 'http://127.0.0.1:19090/__smoke__/control' })
+  for (const url of ['https://provider.invalid/v1/chat/completions', 'http://127.0.0.1:3000/api/status',
+    'http://localhost:18080/api/status', 'http://user:secret@127.0.0.1:18080/api/status',
+    'http://127.0.0.1:18080/api/status#fragment', 'http://127.0.0.1:18080/other']) {
+    assert.throws(() => assessmentTransportTarget(url), /B6_TRANSPORT_SCOPE_REJECTED/)
+  }
 })
 
 test('missing gates, foreign branches, mutable identities and unsafe paths fail before any runner action', async () => {

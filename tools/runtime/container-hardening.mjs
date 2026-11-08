@@ -27,10 +27,33 @@ export function hardeningScope(env) {
   return {
     sha: env.GITHUB_SHA, run: `${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT}`,
     root: path.join(env.RUNNER_TEMP, `myapi-b6-${suffix}`), network: `myapi-b6-network-${suffix}`,
-    names: Object.fromEntries(['source', 'fake', 'candidate', 'recovery', 'fs'].map(role => [role, `myapi-b6-${role}-${suffix}`])),
+    names: Object.fromEntries(['source', 'fake', 'candidate', 'recovery', 'reader', 'fs'].map(role => [role, `myapi-b6-${role}-${suffix}`])),
     appImage: env.SMOKE_APP_IMAGE_ID, bunImage: env.SMOKE_BUN_IMAGE_ID, archiveBytes,
   }
 }
+
+export function assessmentTransportTarget(value) {
+  const url = new URL(value)
+  demand(url.protocol === 'http:' && url.hostname === '127.0.0.1' && !url.username && !url.password && !url.hash &&
+    ['18080', '18081', '19090'].includes(url.port) && /^\/(api|v1|__smoke__)\//.test(url.pathname), 'B6_TRANSPORT_SCOPE_REJECTED')
+  const role = url.port === '18081' ? 'reader' : 'fake'
+  url.port = url.port === '19090' ? '19090' : '3000'
+  return { role, url: url.href }
+}
+
+const requestProgram = `
+try {
+  const input = JSON.parse(await Bun.stdin.text());
+  const url = new URL(input.url);
+  if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !['3000','19090'].includes(url.port) || url.username || url.password || url.hash || !/^\\/(api|v1|__smoke__)\\//.test(url.pathname)) process.exit(1);
+  const response = await fetch(url, {method: input.method, headers: input.headers, body: input.body, redirect: 'error', signal: AbortSignal.timeout(10000)});
+  const body = Buffer.from(await response.arrayBuffer());
+  if (body.length > 2 * 1024 * 1024) process.exit(1);
+  const headers = [...response.headers].filter(([key]) => key.toLowerCase() !== 'set-cookie');
+  for (const cookie of response.headers.getSetCookie()) headers.push(['set-cookie', cookie]);
+  console.log(JSON.stringify({status: response.status, headers, body: body.toString('base64')}));
+} catch { process.exit(1); }
+`
 
 export function validateRootManifest(entries, { dataMode = 0o755 } = {}) {
   demand(dataMode === 0o755 || dataMode === 0o700, 'B6_DATA_LAYOUT_REJECTED')
@@ -217,7 +240,7 @@ async function runLayout(env, testedDataMode) {
       Array.isArray(value.mounts), 'B6_CONTAINER_BINDING_MISMATCH')
     const binds = value.mounts.filter(mount => mount.Type === 'bind')
     const otherMounts = value.mounts.filter(mount => mount.Type !== 'bind')
-    demand(binds.length === descriptor.mounts.length && (role === 'fake'
+    demand(binds.length === descriptor.mounts.length && (role === 'fake' || role === 'reader'
       ? otherMounts.length <= 1 && otherMounts.every(mount => mount.Type === 'tmpfs' && mount.Destination === '/tmp' && mount.RW === true)
       : otherMounts.length === 0), 'B6_CONTAINER_BINDING_MISMATCH')
     for (const expected of descriptor.mounts) {
@@ -237,6 +260,25 @@ async function runLayout(env, testedDataMode) {
     const container = inspect(role)
     docker(['container', 'rm', '--force', container.id])
     demand(docker(['container', 'ls', '-a', '--filter', `name=^/${scope.names[role]}$`, '--format', '{{.ID}}']) === '', 'B6_CONTAINER_REMOVAL_UNCONFIRMED')
+  }
+  // The internal bridge intentionally has no host-published-port path. A
+  // source-bound Bun process transports each single request inside the exact
+  // owned network namespace; it cannot reach arbitrary destinations.
+  const isolatedFetch = async (value, options = {}) => {
+    const target = assessmentTransportTarget(value)
+    options.signal?.throwIfAborted()
+    demand(options.body === undefined || options.body === null || typeof options.body === 'string', 'B6_TRANSPORT_BODY_REJECTED')
+    const container = inspect(target.role)
+    demand(container.running === true, 'B6_TRANSPORT_NOT_RUNNING')
+    const request = { url: target.url, method: options.method || 'GET', headers: [...new Headers(options.headers)], body: options.body }
+    const result = spawnSync('docker', ['exec', '-i', container.id, 'bun', '-e', requestProgram],
+      { input: JSON.stringify(request), encoding: 'utf8', timeout: 15000, maxBuffer: 4 * 1024 * 1024 })
+    demand(!result.error && result.status === 0, 'B6_TRANSPORT_FAILED')
+    const response = JSON.parse(result.stdout)
+    demand(Number.isInteger(response.status) && response.status >= 100 && response.status <= 599 && Array.isArray(response.headers) &&
+      typeof response.body === 'string' && /^[A-Za-z0-9+/]*={0,2}$/.test(response.body), 'B6_TRANSPORT_RESPONSE_INVALID')
+    const body = Buffer.from(response.body, 'base64')
+    return new Response([101, 204, 205, 304].includes(response.status) ? null : body, { status: response.status, headers: response.headers })
   }
   const filesystem = action => {
     demand(realpathSync(scope.root) === scope.root && readFileSync(path.join(scope.root, 'ownership.json'), 'utf8') === ownership, 'B6_DIRECTORY_OWNERSHIP_MISMATCH')
@@ -294,7 +336,7 @@ async function runLayout(env, testedDataMode) {
     let transportCode = null
     for (let attempt = 0; attempt < 60; attempt++) {
       try {
-        const response = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(2000) })
+        const response = await isolatedFetch(url, { redirect: 'error', signal: AbortSignal.timeout(2000) })
         httpStatus = response.status
         const body = await response.json()
         if (response.status === 200 && body?.success === true) return
@@ -329,10 +371,6 @@ async function runLayout(env, testedDataMode) {
     demand(filesystem('initialize').initialized === true, 'B6_FIXTURE_INITIALIZATION_FAILED')
     sourceHostOwner = hostOwner('source')
     const sourceId = createApp('source', 'source', '0:0', 18080)
-    await ready('http://127.0.0.1:18080/api/status', 'source')
-    const identity = docker(['exec', sourceId, '/bin/sh', '-c', 'awk \'/^Uid:/{print "uid=" $3} /^Gid:/{print "gid=" $3}\' /proc/1/status; stat -c "mode=%a" /my-api'])
-    demand(identity === 'uid=0\ngid=0\nmode=755', 'B6_SOURCE_PROCESS_UID_UNVERIFIED')
-    sourceUID = { uid: 0, gid: 0, application_mode: '0755' }
     descriptors.set('fake', { image: scope.bunImage, user: '1000:1000', network: `container:${sourceId}`, mounts: [] })
     created.add('fake')
     const fakeId = docker(['run', '--pull=never', '--detach', '--name', scope.names.fake, ...labels('fake'), '--network', `container:${sourceId}`,
@@ -341,16 +379,20 @@ async function runLayout(env, testedDataMode) {
       '--entrypoint', 'bun', scope.bunImage, '/fixture/fake-openai.mjs'])
     demand(/^[a-f0-9]{64}$/.test(fakeId) && inspect('fake').id === fakeId, 'B6_CREATE_UNCONFIRMED')
     descriptors.get('fake').id = fakeId
+    await ready('http://127.0.0.1:18080/api/status', 'source')
+    const identity = docker(['exec', sourceId, '/bin/sh', '-c', 'awk \'/^Uid:/{print "uid=" $3} /^Gid:/{print "gid=" $3}\' /proc/1/status; stat -c "mode=%a" /my-api'])
+    demand(identity === 'uid=0\ngid=0\nmode=755', 'B6_SOURCE_PROCESS_UID_UNVERIFIED')
+    sourceUID = { uid: 0, gid: 0, application_mode: '0755' }
     for (let attempt = 0; attempt < 30; attempt++) {
       try {
-        const response = await fetch('http://127.0.0.1:19090/__smoke__/health', { signal: AbortSignal.timeout(2000) })
+        const response = await isolatedFetch('http://127.0.0.1:19090/__smoke__/health', { signal: AbortSignal.timeout(2000) })
         if (response.ok) break
       } catch { /* Fixed synthetic upstream readiness only. */ }
       demand(attempt < 29, 'B6_FAKE_UPSTREAM_UNAVAILABLE')
       await delay(1000)
     }
     const fixture = await probeFreshSQLite({ baseUrl: 'http://127.0.0.1:18080', edition: 'full', sha: scope.sha, isolated: true,
-      relayFixture: true, upstreamBaseUrl: 'http://127.0.0.1:19090', writer: 'legacy',
+      relayFixture: true, upstreamBaseUrl: 'http://127.0.0.1:19090', writer: 'legacy', fetchImpl: isolatedFetch,
       restoreFixture: async args => {
         await verifySQLiteRestore({ ...args, restore: async verify => {
           stop('source')
@@ -389,7 +431,17 @@ async function runLayout(env, testedDataMode) {
                 reason: /failed to open log file|permission denied/i.test(logs) ? 'permission-denied-startup' : 'unknown' }
             },
             removeNonroot: () => remove('candidate'),
-            startRoot: () => createApp('recovery', 'clone', '0:0', 18081),
+            startRoot: () => {
+              const recoveryId = createApp('recovery', 'clone', '0:0', 18081)
+              descriptors.set('reader', { image: scope.bunImage, user: '1000:1000', network: `container:${recoveryId}`, mounts: [] })
+              created.add('reader')
+              const readerId = docker(['run', '--pull=never', '--detach', '--name', scope.names.reader, ...labels('reader'), '--network', `container:${recoveryId}`,
+                '--user', '1000:1000', '--read-only', '--tmpfs', '/tmp:rw,noexec,nodev,nosuid,size=32m', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
+                '--cpus', '0.25', '--memory', '128m', '--pids-limit', '64', '--env', 'BUN_RUNTIME_TRANSPILER_CACHE_PATH=0',
+                '--entrypoint', 'bun', scope.bunImage, '-e', 'setInterval(() => {}, 1000)'])
+              demand(/^[a-f0-9]{64}$/.test(readerId) && inspect('reader').id === readerId, 'B6_CREATE_UNCONFIRMED')
+              descriptors.get('reader').id = readerId
+            },
             verifyRoot: async () => {
               await ready('http://127.0.0.1:18081/api/status', 'recovery')
               const recovery = inspect('recovery')
@@ -407,7 +459,7 @@ async function runLayout(env, testedDataMode) {
     failure = error
   } finally {
     try {
-      for (const role of ['candidate', 'recovery', 'fake', 'source', 'fs']) if (created.has(role)) remove(role)
+      for (const role of ['reader', 'candidate', 'recovery', 'fake', 'source', 'fs']) if (created.has(role)) remove(role)
       if (networkId) {
         const network = JSON.parse(docker(['network', 'inspect', '--format', networkFormat, networkId]))
         demand(network.id === networkId && network.labels?.['io.myapi.b6.sha'] === scope.sha && network.labels?.['io.myapi.b6.run'] === scope.run && network.labels?.['io.myapi.b6.layout'] === testedDataMode, 'B6_NETWORK_OWNERSHIP_UNKNOWN')
