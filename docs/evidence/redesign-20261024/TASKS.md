@@ -1,5 +1,13 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-08 C1首批补译：beta.48源码候选，78键待Actions
+
+沿已批准C1主线合并首批78键：连接余额/账号窗口/WHAM保存证据、路由读取与保存未知、模型来源及Key交付/客户端端点/模型限制/预算说明。源于当前en/zh值与实际组件，主会话已审稿，通过技能规定的临时`add-missing-keys.mjs`仅写字典源码，共382处语种条目更新：en4/zh4/zh-TW74/fr74/ja77/ru74/vi75；临时自有脚本已删除。70个已有键补五语、4个已登记能力/Range缺键补全七语，另修日语3处`__ PH_0 __`与越南语误插`{{LinuxDO}}`。既有en/zh值保持，预期7890键、原4占位符差异归零及4缺英文键归零仍须Actions证明；英文同值含合法品牌，不能据此称全七语完成。
+
+本批只七字典、`VERSION`/根package及三个分发模板版本标识、既有Desktop/发行说明和本清单/交接，共16文件；beta.48未发布。未改应用逻辑、请求、费用计算、权限、确认、返回上下文或实际服务器配置。copy保留无模型限制vs全部模型禁止、失败vs不支持查询vs未知、历史恢复未确认、保存/缓存发布/未知后先读等含义及原变量。母语和浏览器未验。后续自身CI开启`run_i18n_inventory`和`run_deployment_tutorials`，在Actions同步/类型/lint/全部测试/构建并实跑Full与Lite教程；本机没有同步/测试/构建/依赖或产物下载，只有源码编辑及轻检查。
+
+工具提交`313f2c0c5f5abe713bcd6d361b0d86d29a28447b` / [CI42449299756](https://github.com/ForceMind/MyAPI/actions/runs/42449299756) attempt1完整通过：13执行成功/6可选跳过，19573行全部实际日志已读，13 checkout/全部步骤已核、失败/race标记0；前端421文件/3452测试，Root/独立relaykit/386/三库/race/分发及Root合同通过。清单job128634883496完整381行、8合同/0skip、原始七语各7886键和真实副本sync/source保持receipt通过，`translation_accepted=false`。安全[报告13604654116](https://github.com/ForceMind/MyAPI/actions/runs/42449299756/artifacts/13604654116)为428277 bytes、SHA256 `74715d6601ed84bdcf9a0dccc2e68284de036b1a4a5ba049fb4a690747076de1`、到期2026-11-15T05:07:37Z，未下载。原字典/页面从ec至313未变化的Git差异已核，草稿基于该实际清单；本候选写入后不把313的结果当作beta.48验收。第二轮0ce/CI42448678659最终cancelled，12490行全部可用日志与13 checkout已读：10成功/1失败/2取消、6可选跳过，取消不当绿。其余C1、版本能力及最后统一质量阶段仍在同一Goal；本轮不另开BUG专项。从en文件阅读还见Codex提示值为中文，留C1后继原文语言复核，不在本批顺改。
+
 ## 2026-11-08 C1：当前七语言清单候选；不提前进行统一BUG审查
 
 第二轮`0ceacc6539a51357c31c4e8ed6a881e3dbc7bd4a` / [CI42448678659](https://github.com/ForceMind/MyAPI/actions/runs/42448678659) 仍未完整通过：前端job128633935395完整333行与annotations已读、checkout匹配，原4个lint错误消除，新增字符码检查的`Array.from()`触发`unicorn/prefer-spread`，26警告/1错误。后继仅改为等价字符串迭代`[...value]`，不改字符范围、合同或规则，待自身完整门禁。清单job128633935386已success，具体回执仍须读取，不以API单项状态代替完整验收。首轮ec9156d4最终cancelled，13份执行日志共11113行已读、13 checkout匹配，7成功/1失败/5取消、6可选跳过，取消不当绿。
