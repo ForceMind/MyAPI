@@ -61,7 +61,7 @@ async function fixture(t) {
   const data = path.join(root, 'data'), database = path.join(data, 'my-api.db')
   await writeFile(path.join(data, 'private-config'), secret, { mode: 0o600 })
   await writeFile(path.join(root, 'state/existing-journal'), 'existing operator state', { mode: 0o600 })
-  await execute('/usr/bin/python3', ['-I', '-c', 'import sqlite3,sys;db=sqlite3.connect(sys.argv[1]);db.execute("CREATE TABLE ledger(id INTEGER PRIMARY KEY,value TEXT)");db.execute("INSERT INTO ledger VALUES(1,\"old committed state\")");db.commit();db.close()', database])
+  await execute('/usr/bin/python3', ['-I', '-c', 'import sqlite3,sys;db=sqlite3.connect(sys.argv[1]);db.execute("CREATE TABLE ledger(id INTEGER PRIMARY KEY,value TEXT)");db.execute("INSERT INTO ledger VALUES(1,?)",(sys.argv[2],));db.commit();db.close()', database, 'old committed state'])
   const common = { data_dir: data, sqlite_file: database, backups_dir: path.join(root, 'backups'), state_dir: path.join(root, 'state'),
     bundle_id: id, identity_sha256: 'a'.repeat(64), max_bytes: 16 * 1024 * 1024, max_entries: 10000 }
   async function backup(bundleId) {
@@ -214,7 +214,7 @@ os.fsync=sync;os.unlink=unlink;sys.stdin=io.StringIO(json.dumps(request));space[
 
 test('natural source SQLite writes and its open connection do not turn into archive usage or source rollback', async t => {
   const local = await fixture(t)
-  const program = 'import sqlite3,sys;db=sqlite3.connect(sys.argv[1]);db.execute("INSERT INTO ledger VALUES(2,\"new live source state\")");db.commit();print("ready",flush=True);sys.stdin.read();db.close()'
+  const program = 'import sqlite3,sys;db=sqlite3.connect(sys.argv[1]);db.execute("INSERT INTO ledger VALUES(2,?)",("new live source state",));db.commit();print("ready",flush=True);sys.stdin.read();db.close()'
   const child = spawn('/usr/bin/python3', ['-I', '-u', '-c', program, local.database], { stdio: ['pipe', 'pipe', 'pipe'] })
   child.stderr.resume()
   const lines = createInterface({ input: child.stdout })
