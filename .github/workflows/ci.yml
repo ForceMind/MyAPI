@@ -1388,7 +1388,9 @@ jobs:
         run: node --test tools/operations/*.test.mjs
 
       - name: Verify local backup host guards with real Linux root privileges
-        run: sudo "$(command -v node)" --test tools/operations/writer-guard.root-test.mjs tools/operations/backup-bundle.test.mjs tools/operations/backup-engine.test.mjs tools/operations/backup-cli.root-test.mjs tools/operations/archive-usage.root-test.mjs tools/operations/backup-helper.test.mjs tools/operations/backup-retention-engine.root-test.mjs tools/operations/backup-prune.root-test.mjs
+        # These guards inspect the runner's entire /proc tree. Run fixture
+        # files serially so unrelated test files do not race their scans.
+        run: sudo "$(command -v node)" --test --test-concurrency=1 tools/operations/writer-guard.root-test.mjs tools/operations/backup-bundle.test.mjs tools/operations/backup-engine.test.mjs tools/operations/backup-cli.root-test.mjs tools/operations/archive-usage.root-test.mjs tools/operations/backup-helper.test.mjs tools/operations/backup-retention-engine.root-test.mjs tools/operations/backup-prune.root-test.mjs
 
   credential-maintenance:
     name: Isolated credential maintenance browser and real API

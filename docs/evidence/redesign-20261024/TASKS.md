@@ -1,5 +1,11 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-08 B7：首轮镜像后置检查失败；Actions 加载设置候选
+
+首轮 `3c8a8dfeced8a01b7512a235c77e4b82eb01293f` / [CI42444890601](https://github.com/ForceMind/MyAPI/actions/runs/42444890601) 未通过，不能作为教程验收。教程 job128621644090 完整746行已读：Full build 原命令 exit0，但随后的镜像读取未通过，前4条命令及自有资源清理已核。分发 job128621644137 完整3748行已读：Root归档合同 private-map 关闭占用后的扫描 status=unknown，期望仍为 observed；83项81通过/2失败（含父项），未知错误码原日志未带出，不能确定其原因。已请求停止该轮剩余重复作业，取消不算通过。
+
+从 helper/CLI 调用链看，原 `docker build` 没有显式输出选项，而 docker-container builder 默认不自动导入 Engine；教程工作流增加 `default-load=true`，不改产品 CLI、命令文本或镜像身份断言。[Docker 官方加载说明](https://docs.docker.com/build/builders/drivers/#load-by-default)。另将全局 `/proc` Root合同的测试文件串行执行，减少不同文件同时起停fixture的干扰；原 private-map 关闭后 observed 断言只附安全错误码消息，期望、未知时拒绝、无重试及产品逻辑均不变。跨文件竞态只是猜测，不据此声称根因已确定；后续原命令与完整 CI 仍待本候选实跑。本机仅Node/YAML语法及diff检查，未执行测试或构建。
+
 ## 2026-11-08 当前：beta.47门禁已核；B7教程待CI
 
 **最新beta.47实际门禁已核：81ab6c4867ad1247800928727f0aaf7324dc6df3 / [CI42442205783](https://github.com/ForceMind/MyAPI/actions/runs/42442205783) attempt1 terminal success。** 13执行作业success/4可选skip，21466行全部实际日志已读，13 checkout匹配、失败/race标记0；前端421文件/3452测试，Root/独立relaykit/386/三库/race、Root合同与真实backup/restore/prune作业均过。真实资格精确删1/保2、restore引用/latest保护、一次性确认和trigger、原source新增17单位调整保留、每个实际netns fake累计2且recovery0、清理均已核。步骤API曾滞后，不能写“步骤元数据全部同步”：后端全部原run命令与无continue-on-error、S1和A2实际PASS日志已逐项复核；A2三库20叶场景PASS/0skip，job终态success且日志已完成清理，API仍可能显示旧in_progress/pending，保留该异常。未重跑成功作业，不把浏览器/生产/真实供应商或发布算验收。

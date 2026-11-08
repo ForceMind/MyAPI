@@ -220,7 +220,8 @@ test('closed-FD private readonly and shared writable libc mappings remain archiv
       assert.equal(response.status, 'blocked')
       assert.equal(response.code, 'ARCHIVE_MMAP_PRESENT')
       await child.close()
-      assert.equal(guard({ action: 'archive_scan', archive_dir: value.archive }).status, 'observed')
+      const afterClose = guard({ action: 'archive_scan', archive_dir: value.archive })
+      assert.equal(afterClose.status, 'observed', afterClose.code)
     })
   }
 })

@@ -66,6 +66,7 @@ jobs:
         with:
           driver: docker-container
           driver-opts: |
+            default-load=true
             memory=4g
             memory-swap=4g
             cpu-period=100000

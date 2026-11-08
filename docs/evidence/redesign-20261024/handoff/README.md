@@ -2,6 +2,8 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**B7首轮未通过；当前为Actions门禁修正候选。** `3c8a8dfeced8a01b7512a235c77e4b82eb01293f` / [CI42444890601](https://github.com/ForceMind/MyAPI/actions/runs/42444890601)：教程job128621644090完整746行已读，Full build原命令exit0、后置镜像读取失败，前4命令及清理已核；后续命令没有执行到。分发job128621644137完整3748行已读，private-map关闭后的扫描返回unknown而非observed，原日志没有安全错误码，尚不能确定原因。候选为教程builder加`default-load=true`，Root全局`/proc`合同文件改串行，关闭后原断言仅附安全错误码，保留产品逻辑、未知时拒绝、无重试及全部镜像/状态断言。跨文件竞态只是猜测；等本提交实跑，不称B7完成。已请求取消旧轮剩余作业，取消不是绿。只处理当前验收阻塞，不重开历史BUG专项；版本主Goal及生产/浏览器/发布授权边界保持。
+
 **最新beta.47实际门禁已核：81ab6c4867ad1247800928727f0aaf7324dc6df3 / [CI42442205783](https://github.com/ForceMind/MyAPI/actions/runs/42442205783) attempt1 terminal success。** 13执行作业success/4可选skip，21466行全部实际日志已读，13 checkout匹配、失败/race标记0；前端421文件/3452测试，Root/独立relaykit/386/三库/race、Root合同与真实backup/restore/prune作业均过。真实资格精确删1/保2、restore引用/latest保护、一次性确认和trigger、原source新增17单位调整保留、每个实际netns fake累计2且recovery0、清理均已核。步骤API曾滞后，不能写“步骤元数据全部同步”：后端全部原run命令与无continue-on-error、S1和A2实际PASS日志已逐项复核；A2三库20叶场景PASS/0skip，job终态success且日志已完成清理，API仍可能显示旧in_progress/pending，保留该异常。未重跑成功作业，不把浏览器/生产/真实供应商或发布算验收。
 
 **本提交为B7教程候选，待自身Actions。** 沿现文档增量补Full/Lite/Native预览/个人电脑/Desktop中英任务教程，24个唯一marker绑定原Bash文本/source行/含LF哈希；GHA helper只manual/dev/精确SHA，真实CLI两次local image build和串行固定my-api启停/状态、临时私网绑定，保持镜像ID/项目labels/bind/secret内存一致性。私网参数当前会改写myapi-lan坐标，CI临时local alias仅本daemon，无pull/push/发布、不替换生产镜像。Native只有plan/render/help、Desktop只有Node合同，本批不宣称实际安装/GUI/HTTPS ingress/真实跨机LAN。仅safe报告7天artifact，构建/env/DB不上传，fixture只留一次性Runner。新入口run_deployment_tutorials默认false，未在本机执行命令，语法检查不是实际资格。完整Goal的其余范围与未授权删除/浏览器/生产边界仍保留。
