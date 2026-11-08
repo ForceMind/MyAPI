@@ -13,10 +13,16 @@ permissions:
 
 jobs:
   qualification:
+    name: Root Docker ${{ matrix.edition }} SQLite backup, restore and retention
     runs-on: ubuntu-latest
     timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        edition: [full, lan]
     env:
       MYAPI_B4_QUALIFICATION: '1'
+      MYAPI_B4_EDITION: ${{ matrix.edition }}
       MYAPI_SMOKE_API_ONLY: '1'
       MYAPI_SMOKE_BROWSER: '0'
       MYAPI_SMOKE_PERSONAL: '0'
@@ -29,6 +35,7 @@ jobs:
           test "$GITHUB_EVENT_NAME" = workflow_dispatch
           test "$GITHUB_REF" = refs/heads/dev
           test "$REQUESTED_SOURCE_REF" = dev
+          case "$MYAPI_B4_EDITION" in full|lan) ;; *) exit 1 ;; esac
 
       - name: Check out the caller source
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -65,7 +72,7 @@ jobs:
             cpu-period=100000
             cpu-quota=200000
 
-      - name: Build and load the current Full image without publishing
+      - name: Build and load the current edition image without publishing
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         timeout-minutes: 20
         with:
@@ -73,22 +80,22 @@ jobs:
           load: true
           push: false
           platforms: linux/amd64
-          tags: myapi:b4-app-${{ github.sha }}
+          tags: myapi:b4-app-${{ matrix.edition }}-${{ github.sha }}
           labels: |
             io.myapi.smoke.source=${{ github.sha }}
           build-args: |
-            MYAPI_EDITION=full
+            MYAPI_EDITION=${{ matrix.edition }}
             MYAPI_BRAND_NAME=MyAPI
             MYAPI_BRAND_LOGO=/myapi-logo-v1.png
             MYAPI_BUILD_ID=${{ github.sha }}
             MYAPI_BUILD_PARALLELISM=2
-          cache-from: type=gha,scope=smoke-full
-          cache-to: type=gha,mode=min,scope=smoke-full
+          cache-from: type=gha,scope=smoke-${{ matrix.edition }}
+          cache-to: type=gha,mode=min,scope=smoke-${{ matrix.edition }}
 
       - name: Prepare the pinned source-bound synthetic transport image
         run: |
           set -euo pipefail
-          cat > "$RUNNER_TEMP/myapi-b4-fixture.Dockerfile" <<'DOCKERFILE'
+          cat > "$RUNNER_TEMP/myapi-b4-$MYAPI_B4_EDITION-fixture.Dockerfile" <<'DOCKERFILE'
           FROM oven/bun:1@sha256:0733e50325078969732ebe3b15ce4c4be5082f18c4ac1a0f0ca4839c2e4e42a7
           COPY tools/runtime/fake-openai.mjs /fixture/fake-openai.mjs
           DOCKERFILE
@@ -98,19 +105,19 @@ jobs:
         timeout-minutes: 8
         with:
           context: .
-          file: ${{ runner.temp }}/myapi-b4-fixture.Dockerfile
+          file: ${{ runner.temp }}/myapi-b4-${{ matrix.edition }}-fixture.Dockerfile
           load: true
           push: false
           platforms: linux/amd64
-          tags: myapi:b4-fixture-${{ github.sha }}
+          tags: myapi:b4-fixture-${{ matrix.edition }}-${{ github.sha }}
           labels: |
             io.myapi.smoke.source=${{ github.sha }}
 
       - name: Bind the two immutable loaded images
         run: |
           set -euo pipefail
-          app_id="$(docker --host unix:///var/run/docker.sock image inspect --format '{{.Id}}' "myapi:b4-app-$GITHUB_SHA")"
-          bun_id="$(docker --host unix:///var/run/docker.sock image inspect --format '{{.Id}}' "myapi:b4-fixture-$GITHUB_SHA")"
+          app_id="$(docker --host unix:///var/run/docker.sock image inspect --format '{{.Id}}' "myapi:b4-app-$MYAPI_B4_EDITION-$GITHUB_SHA")"
+          bun_id="$(docker --host unix:///var/run/docker.sock image inspect --format '{{.Id}}' "myapi:b4-fixture-$MYAPI_B4_EDITION-$GITHUB_SHA")"
           [[ "$app_id" =~ ^sha256:[a-f0-9]{64}$ ]]
           [[ "$bun_id" =~ ^sha256:[a-f0-9]{64}$ ]]
           echo "SMOKE_APP_IMAGE_ID=$app_id" >> "$GITHUB_ENV"
@@ -127,18 +134,45 @@ jobs:
           sudo -n env -i PATH=/usr/bin:/bin LANG=C.UTF-8 \
             GITHUB_ACTIONS="$GITHUB_ACTIONS" GITHUB_EVENT_NAME="$GITHUB_EVENT_NAME" GITHUB_REF="$GITHUB_REF" \
             GITHUB_SHA="$GITHUB_SHA" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" \
-            MYAPI_B4_QUALIFICATION=1 MYAPI_SMOKE_API_ONLY=1 MYAPI_SMOKE_BROWSER=0 MYAPI_SMOKE_PERSONAL=0 \
+            MYAPI_B4_QUALIFICATION=1 MYAPI_B4_EDITION="$MYAPI_B4_EDITION" MYAPI_SMOKE_API_ONLY=1 MYAPI_SMOKE_BROWSER=0 MYAPI_SMOKE_PERSONAL=0 \
             SMOKE_APP_IMAGE_ID="$SMOKE_APP_IMAGE_ID" SMOKE_BUN_IMAGE_ID="$SMOKE_BUN_IMAGE_ID" \
-            "$node_binary" tools/runtime/backup-qualification.mjs | tee "$RUNNER_TEMP/myapi-b4-report.json"
+            "$node_binary" tools/runtime/backup-qualification.mjs | tee "$RUNNER_TEMP/myapi-b4-$MYAPI_B4_EDITION-report.json"
           python3 - <<'PY'
           import json, os, re, stat
-          filename = os.path.join(os.environ['RUNNER_TEMP'], 'myapi-b4-report.json')
+          edition = os.environ['MYAPI_B4_EDITION']
+          assert edition in ('full', 'lan')
+          product_edition = 'full' if edition == 'full' else 'lite'
+          filename = os.path.join(os.environ['RUNNER_TEMP'], 'myapi-b4-' + edition + '-report.json')
           metadata = os.stat(filename)
           assert metadata.st_uid == os.getuid() and stat.S_IMODE(metadata.st_mode) == 0o600
           with open(filename) as source:
               result = json.load(source)
           assert result['qualified'] is True and result['cleanup_verified'] is True
           assert result['source_sha'] == os.environ['GITHUB_SHA']
+          assert result['edition'] == edition and result['product_edition'] == product_edition
+          assert result['run_id'] == os.environ['GITHUB_RUN_ID'] and result['attempt'] == os.environ['GITHUB_RUN_ATTEMPT']
+          with open('VERSION') as source:
+              version = source.read().strip()
+          assert result['expected_version'] == version
+          observations = result['runtime_observations']
+          assert observations and {item['role'] for item in observations} == {'source', 'recovery'}
+          for role in ['source', 'recovery']:
+              assert any(item['role'] == role and item['setup'] is True for item in observations)
+          for item in observations:
+              assert item['configured_edition'] == edition and item['product_edition'] == product_edition and item['version'] == version
+              assert type(item['setup']) is bool and re.fullmatch(r'[a-f0-9]{64}', item['container_id'])
+              assert item['image_id'] == result['source_image_id']
+          receipts = result['receipt_observations']
+          assert receipts and {item['kind'] for item in receipts} == {'backup', 'restore', 'backup-prune'}
+          for item in receipts:
+              assert item['edition'] == edition and item['source_sha'] == os.environ['GITHUB_SHA']
+              assert item['run_id'] == os.environ['GITHUB_RUN_ID'] and item['attempt'] == os.environ['GITHUB_RUN_ATTEMPT']
+              assert item['source_image_id'] == result['source_image_id'] and re.fullmatch(r'[a-f0-9]{64}', item['source_container_id'])
+              if item['state'] == 'no_changes':
+                  assert item['kind'] == 'backup-prune' and item['id'] is None and item['digest'] is None
+              else:
+                  assert item['state'] in ('prepared', 'succeeded')
+                  assert re.fullmatch(r'[a-f0-9]{64}', item['id']) and re.fullmatch(r'[a-f0-9]{64}', item['digest'])
           assert result['upstream_requests'] == {'source': 2, 'recovery': 0, 'combined': 2, 'additional': 0}
           assert result['backup_committed_verified'] is True and result['isolated_restore_verified'] is True
           assert result['source_left_stopped'] is True and result['original_data_unchanged_after_stop'] is True
@@ -172,14 +206,14 @@ jobs:
           assert all(item['count'] == 0 for item in counts[1:])
           assert retention['recovery_fake_count'] == 0 and retention['combined_upstream_requests'] == sum(item['count'] for item in counts) == 2
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
-              summary.write('B4 production CLI qualification completed on owned bridge Full/SQLite fixtures with exact interface firewall rules, a refused owned-host canary and healthy published endpoints. Plan-confirm backup, unchanged stopped source, verified new-directory restore and exact business readback passed; synthetic upstream counts remained 2+0=2. A separate phase created three real backups, retained the restore-referenced and newest backups, deleted only the exact confirmed middle backup, and preserved a new 17-unit synthetic adjustment in the live source and after a CI-owned normal stop. Every current or retained source-network fake was observed; their total remained 2 and recovery stayed 0. Only the safe report is retained. The canary is not an external-network test; browser, production and external providers were not tested.\n')
+              summary.write(f'B4 production CLI qualification completed for edition={edition} / product={product_edition} on owned bridge SQLite fixtures with exact interface firewall rules, a refused owned-host canary and healthy published endpoints. Runtime edition/version and CLI receipt observations match this source and run. Plan-confirm backup, unchanged stopped source, verified new-directory restore and exact business readback passed; synthetic upstream counts remained 2+0=2. A separate phase created three real backups, retained the restore-referenced and newest backups, deleted only the exact confirmed middle backup, and preserved a new 17-unit synthetic adjustment in the live source and after a CI-owned normal stop. Every current or retained source-network fake was observed; their total remained 2 and recovery stayed 0. Only the safe report is retained. The canary is not an external-network test; browser, production and external providers were not tested.\n')
           PY
 
       - name: Retain only the safe qualification report for seven days
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: myapi-b4-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/myapi-b4-report.json
+          name: myapi-b4-${{ matrix.edition }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/myapi-b4-${{ matrix.edition }}-report.json
           retention-days: 7
           if-no-files-found: warn

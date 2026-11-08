@@ -1,6 +1,22 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
-## 2026-11-08 C1第四批：beta.51候选，渠道/总览/运维状态101键待CI
+## 2026-11-08 B4 Lite备份：beta.52候选，真实资格待自身Actions
+
+沿已批准B4补已登记Linux root Docker Lite/lan + SQLite，现只源码候选。`docker.mjs`新固定用途validateBackupContainer接受匹配Full/Lite/lan族，私有复用机械安全校验；旧validateContainer三参数/Full-only接受拒绝及运维调用保持。backup-engine只在prepare与execute两处改接；实际Env/image/配置摘要、停止源/新恢复目录、COMMITTED/manifest/intent结构和prune仅删归档不写回源均不改。新增六组确定性metadata合同覆盖别名、原Full拒绝、错配/unknown/远端DB/personal/路径/挂载/health/平台与摘要保全；它不是实际Docker资格。
+
+`.github/workflows/backup-qualification.yml`改Full/lan独立matrix、fail-fast:false、当前SHA build/load/push:false，owned目录/容器/网络/报告含edition；helper核真实Env/raw image label及status product_edition/version/setup/self-use、记录收据观察绑定。原Full精确业务读回/三份真实备份/精确删1保2/源新增17单位调整/各实际netns fake合计2+recovery0/停止和清理原断言全部保留，不用空值或开启Full特性迁就Lite。来源检查/engine/callee/helper已主会话审阅，另代理只读审阅未见新增可操作问题；均非运行资格。只node--check、YAML、内嵌Python compile和diff轻查；禁止本机入口/tests/lint/build/Docker/依赖/产物下载。
+
+本批预期16文件：六个B4代码/测试/CI文件、五个版本文件，以及BACKUP_RESTORE/RELEASE_MANIFEST/Desktop README/TASKS/handoff README五份说明，以最终路径清单为准；无Node运行依赖、无新daemon/远程API/库表或字段删除。不扩非root/其它架构/DockerDesktop/Native/Desktop/外部DB/在线或灾难恢复，不接管/切版/操作真实数据，不放宽旧Full门禁。实际现场backup/prune仍须操作者按具体plan/digest确认，不能由源码CI授权生产。
+
+上游beta.51 `2fb6114631838a42268a34a53591271f1b8b3d7b` / CI42460806192已完整通过，证据见下一节；它只含C1文本，不含本B4候选，不拿该绿灯替代新功能资格。本候选须run_backup_qualification=true、run_browser=false的自身完整CI及Full/Lite真实往返均通过才验收。整个Full/Lite/Desktop Goal仍含其余B3/B4/B5/C1及最终质量阶段，不将单一路径当全B4或三版本完成。T1只读验签新前置方案仍等维护者答复，未默认解冻。
+
+独立Desktop后继WIP仅四个新文件：desktop-qualification.yml、qualify-backend.mjs及其test、electron/test/fixtures/native-host.mjs；不含本批提交。计划macOS arm64先于Windows x64，在真实Go子进程/本地HTTP/文件上检查启停、配置与secret保留；Electron外壳为夹具，不启动GUI。源码复核已修夹具display_name超出20字符限制，只Node/YAML轻查，尚无真实平台资格；Windows优雅flush与账务明确未验。C1后继70键是未应用已审机器草稿，不写入此批字典。
+
+## 2026-11-08 C1第四批beta.51已验收：2fb61146 / CI42460806192
+
+`2fb6114631838a42268a34a53591271f1b8b3d7b` / [CI42460806192](https://github.com/ForceMind/MyAPI/actions/runs/42460806192) attempt1 success：14执行成功/5可选跳过，20487行全部实际日志、14 checkout与全部步骤已核，失败/race标记0；前端421文件/3452测试及Root/独立relaykit/386/三库/race/分发/Root合同通过。清单job128669485567完整364行，8合同/0skip、七语各7890键，缺键/extra/占位符差异及词法缺英文键0，动态未知388保留、translation_accepted=false。教程job128669485727完整749行与回执已核，24命令/全部后置检查、Full/Lite实际beta.51构建启停/status与清理均过，不发布GHCR。Native仅预览、Desktop仅Node合同，真实GUI/安装/TLS/跨机/浏览器/母语仍未验。
+
+安全报告：翻译[13608868809](https://github.com/ForceMind/MyAPI/actions/runs/42460806192/artifacts/13608868809)，377431 bytes、SHA256 550b513ff3fcc05ee0f9cb518caf003c039ff566ba59c52abc7c7a1cfaf82c3f、到期2026-11-15T08:00:38Z；教程[13609348680](https://github.com/ForceMind/MyAPI/actions/runs/42460806192/artifacts/13609348680)，1982 bytes、SHA256 675f284235233b38923ad936939d60f9759900b72b02ade833fbf67f7287ebba、到期2026-11-15T08:09:31Z。未下载产物，无发布/生产动作；备份专项为skip，不能称已验证beta.52的新Lite路径。以下候选范围按当时记录理解。
 
 合并渠道34及首页/系统信息/个人上游67键，五语各101，共505处源条目，中英文保持、无键增删，预期仍7890键。已逐项对照现en/zh/五语与实际代码，经规定临时脚本只写源码并删除自有脚本。渠道遵循既有Channel/渠道与Connection/连接词表；保模型列表/预设非支持或额度证明、旧草稿/待保存/来源变化、参数JSON全对象、删除确认。运维保计划准备/过期/已批准、批准非执行、只读状态查询不重发、实例/镜像ID/digest精确绑定；总览保本次返回范围、记录可能缺失、近期观测非实时可用、from/to/count/shown/sources原变量。
 

@@ -27,11 +27,13 @@ function scopeOf(env) {
     /^[1-9][0-9]{0,19}$/.test(env.GITHUB_RUN_ATTEMPT || ''), 'B4_IDENTITY_REJECTED')
   demand(imagePattern.test(env.SMOKE_APP_IMAGE_ID || '') && imagePattern.test(env.SMOKE_BUN_IMAGE_ID || '') &&
     env.SMOKE_APP_IMAGE_ID !== env.SMOKE_BUN_IMAGE_ID, 'B4_IMAGE_REJECTED')
-  const suffix = `${env.GITHUB_SHA}-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT}`
+  const edition = env.MYAPI_B4_EDITION === undefined ? 'full' : env.MYAPI_B4_EDITION
+  demand(edition === 'full' || edition === 'lan', 'B4_EDITION_REJECTED')
+  const suffix = `${edition}-${env.GITHUB_SHA}-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT}`
   return {
-    sha: env.GITHUB_SHA, run: env.GITHUB_RUN_ID, attempt: env.GITHUB_RUN_ATTEMPT,
+    sha: env.GITHUB_SHA, run: env.GITHUB_RUN_ID, attempt: env.GITHUB_RUN_ATTEMPT, edition, productEdition: edition === 'full' ? 'full' : 'lite',
     root: `/tmp/myapi-b4-${suffix}`, network: `myapi-b4-network-${suffix}`,
-    iface: `b4${hash(suffix).slice(0, 12)}`, ruleComment: `myapi-b4:${env.GITHUB_SHA}:${env.GITHUB_RUN_ID}:${env.GITHUB_RUN_ATTEMPT}`,
+    iface: `b4${hash(suffix).slice(0, 12)}`, ruleComment: `myapi-b4:${edition}:${env.GITHUB_SHA}:${env.GITHUB_RUN_ID}:${env.GITHUB_RUN_ATTEMPT}`,
     names: Object.fromEntries(['source', 'fake', 'recovery', 'recovery-fake', 'reader', 'prune-fake-2', 'prune-fake-3', 'prune-fake-4'].map(role => [role, `myapi-b4-${role}-${suffix}`])),
     appImage: env.SMOKE_APP_IMAGE_ID, bunImage: env.SMOKE_BUN_IMAGE_ID,
   }
@@ -210,6 +212,8 @@ print(json.dumps(value, separators=(",", ":")))
 
 export async function runBackupQualification(env = process.env) {
   const scope = scopeOf(env)
+  const version = readFileSync(path.join(repository, 'VERSION'), 'utf8').trim()
+  demand(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version), 'B4_VERSION_REJECTED')
   process.umask(0o077)
   const git = command('git', ['-c', 'core.fileMode=false', '-c', `safe.directory=${repository}`, '-C', repository, 'rev-parse', 'HEAD'],
     { env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } })
@@ -218,7 +222,7 @@ export async function runBackupQualification(env = process.env) {
     const image = JSON.parse(docker(['image', 'inspect', id]))[0]
     demand(image.Id === id && image.Os === 'linux' && image.Architecture === 'amd64' &&
       image.Config?.Labels?.['io.myapi.smoke.source'] === scope.sha, 'B4_IMAGE_IDENTITY_MISMATCH')
-    if (id === scope.appImage) demand(image.Config.Labels['io.myapi.edition'] === 'full', 'B4_EDITION_MISMATCH')
+    if (id === scope.appImage) demand(image.Config.Labels['io.myapi.edition'] === scope.edition, 'B4_EDITION_MISMATCH')
   }
   demand(!existsSync(scope.root), 'B4_EXISTING_FIXTURE_REJECTED')
   demand(/^b4[a-f0-9]{12}$/.test(scope.iface) && scope.iface.length <= 15 && !existsSync(`/sys/class/net/${scope.iface}`), 'B4_EXISTING_INTERFACE_REJECTED')
@@ -230,7 +234,7 @@ export async function runBackupQualification(env = process.env) {
   for (const name of Object.values(scope.names)) demand(docker(['container', 'ls', '-aq', '--filter', `name=^/${name}$`]) === '', 'B4_EXISTING_CONTAINER_REJECTED')
   demand(docker(['network', 'ls', '-q', '--filter', `name=^${scope.network}$`]) === '', 'B4_EXISTING_NETWORK_REJECTED')
   mkdirSync(scope.root, { mode: 0o700 })
-  const ownership = JSON.stringify({ schema_version: 1, source_sha: scope.sha, run_id: scope.run, attempt: scope.attempt, app_image: scope.appImage, bun_image: scope.bunImage })
+  const ownership = JSON.stringify({ schema_version: 1, source_sha: scope.sha, run_id: scope.run, attempt: scope.attempt, edition: scope.edition, app_image: scope.appImage, bun_image: scope.bunImage })
   writeFileSync(path.join(scope.root, 'ownership.json'), ownership, { flag: 'wx', mode: 0o600 })
   const data = path.join(scope.root, 'source')
   const state = path.join(scope.root, 'state')
@@ -241,7 +245,7 @@ export async function runBackupQualification(env = process.env) {
   for (const directory of [data, state, backups, isolated, existingTarget, path.join(data, 'config'), path.join(data, 'logs')]) mkdirSync(directory, { mode: 0o700 })
   const secret = randomBytes(32).toString('hex')
   const applicationEnvironment = {
-    MYAPI_EDITION: 'full', SESSION_SECRET: secret, MEMORY_CACHE_ENABLED: 'false', BATCH_UPDATE_ENABLED: 'false',
+    MYAPI_EDITION: scope.edition, SESSION_SECRET: secret, MEMORY_CACHE_ENABLED: 'false', BATCH_UPDATE_ENABLED: 'false',
     SESSION_COOKIE_SECURE: 'false', TRUSTED_PROXIES: 'none', FULL_CONTENT_LOG_ENABLED: 'false', CHANNEL_QUOTA_SYNC_ENABLED: 'false',
     SQL_MAX_OPEN_CONNS: '1', SQL_MAX_IDLE_CONNS: '1', GOMEMLIMIT: '512MiB',
   }
@@ -270,16 +274,17 @@ export async function runBackupQualification(env = process.env) {
   let canaryConnections = 0
   let isolationEvidence = null
   let expectedCanaryConnections = null
+  const runtimeObservations = [], receiptObservations = []
   const rulesPresent = () => { for (const rule of rules) demand(rule.verified && firewall('-C', rule) === 0, 'B4_ISOLATION_RULE_MISSING') }
   const labels = role => ['--label', `io.myapi.b4.sha=${scope.sha}`, '--label', `io.myapi.b4.run=${scope.run}`,
-    '--label', `io.myapi.b4.attempt=${scope.attempt}`, '--label', `io.myapi.b4.role=${role}`]
+    '--label', `io.myapi.b4.attempt=${scope.attempt}`, '--label', `io.myapi.b4.edition=${scope.edition}`, '--label', `io.myapi.b4.role=${role}`]
   const inspect = role => {
     const expected = descriptors.get(role)
     demand(expected, 'B4_CONTAINER_OWNERSHIP_UNKNOWN')
     const info = JSON.parse(docker(['container', 'inspect', expected.id || scope.names[role]]))[0]
     demand(idPattern.test(info.Id) && (!expected.id || info.Id === expected.id) && info.Image === expected.image &&
       info.Config?.Labels?.['io.myapi.b4.sha'] === scope.sha && info.Config.Labels['io.myapi.b4.run'] === scope.run &&
-      info.Config.Labels['io.myapi.b4.attempt'] === scope.attempt && info.Config.Labels['io.myapi.b4.role'] === role &&
+      info.Config.Labels['io.myapi.b4.attempt'] === scope.attempt && info.Config.Labels['io.myapi.b4.edition'] === scope.edition && info.Config.Labels['io.myapi.b4.role'] === role &&
       info.HostConfig.NetworkMode === expected.network && info.Config.User === expected.user &&
       (!['source', 'recovery'].includes(role) || info.Config.WorkingDir === '/data' &&
         JSON.stringify(info.HostConfig.Dns) === JSON.stringify(['127.0.0.1'])), 'B4_CONTAINER_BINDING_MISMATCH')
@@ -287,6 +292,9 @@ export async function runBackupQualification(env = process.env) {
     demand(binds.length === expected.mounts.length && expected.mounts.every(item => binds.some(mount =>
       mount.Source === item.source && mount.Destination === item.destination && mount.RW === true)), 'B4_CONTAINER_MOUNT_MISMATCH')
     demand(info.Mounts.filter(item => item.Type !== 'bind').every(item => item.Type === 'tmpfs' && item.Destination === '/tmp'), 'B4_CONTAINER_MOUNT_MISMATCH')
+    if (role === 'source' || role === 'recovery') {
+      demand(Array.isArray(info.Config.Env) && info.Config.Env.filter(value => typeof value === 'string' && value.startsWith('MYAPI_EDITION=')).join('\n') === `MYAPI_EDITION=${scope.edition}`, 'B4_EDITION_MISMATCH')
+    }
     return info
   }
   const create = (role, image, network, mounts, args, childEnv = process.env) => {
@@ -345,6 +353,12 @@ export async function runBackupQualification(env = process.env) {
     const response = await fetch(origin + '/api/status', { redirect: 'error', signal: AbortSignal.timeout(5000) })
     const body = await response.json()
     demand(response.status === 200 && body?.success === true, 'B4_HOST_PUBLISHED_HEALTH_UNCONFIRMED')
+    const role = origin === 'http://127.0.0.1:18080' ? 'source' : 'recovery'
+    const info = inspect(role)
+    demand(body.data?.product_edition === scope.productEdition && body.data.version === version && typeof body.data.setup === 'boolean', 'B4_RUNTIME_IDENTITY_MISMATCH')
+    if (body.data.setup) demand(body.data.self_use_mode_enabled === (scope.edition === 'lan'), 'B4_RUNTIME_MODE_MISMATCH')
+    runtimeObservations.push({ role, stage, container_id: info.Id, image_id: info.Image, configured_edition: scope.edition,
+      product_edition: body.data.product_edition, version: body.data.version, setup: body.data.setup })
   }
   const cli = (kind, extra = [], expectedFailure = null) => {
     const result = spawnSync(process.execPath, ['cli/myapi.mjs', kind, '--config', configFile, '--instance', 'primary', ...extra, '--json'], {
@@ -376,6 +390,9 @@ export async function runBackupQualification(env = process.env) {
       demand(value.schema_version === 1 && value.kind === 'backup-prune' && value.instance_id === 'primary' &&
         ['prepared', 'no_changes', 'succeeded'].includes(value.state) &&
         (value.state === 'no_changes' || idPattern.test(value.id) && idPattern.test(value.digest)), 'B4_PRUNE_RECEIPT_INVALID')
+      const source = inspect('source')
+      receiptObservations.push({ kind, id: value.id ?? null, digest: value.digest ?? null, state: value.state, edition: scope.edition,
+        source_sha: scope.sha, run_id: scope.run, attempt: scope.attempt, source_image_id: source.Image, source_container_id: source.Id })
       return value
     }
     demand(value.schema_version === 1 && idPattern.test(value.id) && idPattern.test(value.digest) &&
@@ -383,6 +400,10 @@ export async function runBackupQualification(env = process.env) {
       value.source_container_id === descriptors.get('source').id && value.retention?.policy === 'keep-all' &&
       value.retention.deletions === 0 && value.restarts_instance === false && value.starts_recovery_instance === false &&
       value.overwrites_directory === false, 'B4_CLI_RECEIPT_INVALID')
+    const source = inspect('source')
+    demand(source.Id === value.source_container_id && source.Image === value.source_image_id, 'B4_CLI_RECEIPT_INVALID')
+    receiptObservations.push({ kind, id: value.id, digest: value.digest, state: value.state, edition: scope.edition,
+      source_sha: scope.sha, run_id: scope.run, attempt: scope.attempt, source_image_id: source.Image, source_container_id: source.Id })
     return value
   }
   const stopped = () => {
@@ -405,7 +426,7 @@ export async function runBackupQualification(env = process.env) {
     demand(network.Id === networkId && network.Internal === false && network.Driver === 'bridge' && network.EnableIPv6 === false &&
       network.Options?.['com.docker.network.bridge.name'] === scope.iface && existsSync(`/sys/class/net/${scope.iface}`) && network.Name === scope.network &&
       network.Labels['io.myapi.b4.sha'] === scope.sha && network.Labels['io.myapi.b4.run'] === scope.run &&
-      network.Labels['io.myapi.b4.attempt'] === scope.attempt && network.Labels['io.myapi.b4.role'] === 'network', 'B4_NETWORK_IDENTITY_MISMATCH')
+      network.Labels['io.myapi.b4.attempt'] === scope.attempt && network.Labels['io.myapi.b4.edition'] === scope.edition && network.Labels['io.myapi.b4.role'] === 'network', 'B4_NETWORK_IDENTITY_MISMATCH')
     const addresses = network.IPAM?.Config
     demand(Array.isArray(addresses) && addresses.length === 1 && privateIPv4(addresses[0].Gateway), 'B4_GATEWAY_UNCONFIRMED')
     const gateway = addresses[0].Gateway
@@ -459,9 +480,11 @@ export async function runBackupQualification(env = process.env) {
     sourceProcess = processIdentity(inspect('source'), data)
     stage = 'synthetic-business-fixture'
     const fixture = await probeFreshSQLite({
-      baseUrl: 'http://127.0.0.1:18080', edition: 'full', sha: scope.sha, isolated: true, relayFixture: true,
+      baseUrl: 'http://127.0.0.1:18080', edition: scope.edition, sha: scope.sha, isolated: true, relayFixture: true,
       upstreamBaseUrl: 'http://127.0.0.1:19090', writer: 'legacy', fetchImpl: isolatedFetch,
       restoreFixture: async args => {
+        demand(args.edition === scope.edition && args.sha === scope.sha, 'B4_RESTORE_FIXTURE_IDENTITY_MISMATCH')
+        await hostHealth('http://127.0.0.1:18080')
         await verifySQLiteRestore({ ...args, restore: async verify => {
           demand(await count('fake') === 2, 'B4_SEED_REQUEST_COUNT_MISMATCH')
           command('/usr/bin/python3', ['-I', '-c', auxProgram, data])
@@ -753,7 +776,7 @@ export async function runBackupQualification(env = process.env) {
         demand(value.Id === networkId && value.Name === scope.network && value.Internal === false && value.Driver === 'bridge' &&
           value.EnableIPv6 === false && value.Options?.['com.docker.network.bridge.name'] === scope.iface &&
           value.Labels['io.myapi.b4.sha'] === scope.sha && value.Labels['io.myapi.b4.run'] === scope.run &&
-          value.Labels['io.myapi.b4.attempt'] === scope.attempt && value.Labels['io.myapi.b4.role'] === 'network', 'B4_NETWORK_OWNERSHIP_UNKNOWN')
+          value.Labels['io.myapi.b4.attempt'] === scope.attempt && value.Labels['io.myapi.b4.edition'] === scope.edition && value.Labels['io.myapi.b4.role'] === 'network', 'B4_NETWORK_OWNERSHIP_UNKNOWN')
         docker(['network', 'rm', networkId])
         demand(docker(['network', 'ls', '-q', '--filter', `name=^${scope.network}$`]) === '', 'B4_NETWORK_REMOVAL_UNCONFIRMED')
         for (let attempt = 0; attempt < 20 && existsSync(`/sys/class/net/${scope.iface}`); attempt++) await delay(100)
@@ -788,7 +811,9 @@ export async function runBackupQualification(env = process.env) {
   if (failure) throw failure
   demand(cleanupVerified && backupReceipt?.backup_created === true && restoreReceipt?.restored === true && pruneEvidence?.deleted_count === 1, 'B4_QUALIFICATION_INCOMPLETE')
   return { schema_version: 1, command: 'backup-qualification', source_sha: scope.sha, run_id: scope.run, attempt: scope.attempt,
+    edition: scope.edition, product_edition: scope.productEdition, expected_version: version,
     qualified: true, source_image_id: scope.appImage, fixture_image_id: scope.bunImage,
+    runtime_observations: runtimeObservations, receipt_observations: receiptObservations,
     production_cli: true, plan_no_source_effect: true, wrong_digest_rejected: true, repeated_confirmation_rejected: true,
     network_isolation: isolationEvidence, host_published_health: { source: true, recovery: true },
     existing_target_rejected: true, original_target_rejected: true, backup_committed_verified: true, isolated_restore_verified: true,
@@ -811,7 +836,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     console.log(JSON.stringify(await runBackupQualification()))
   } catch (error) {
     const code = error instanceof Error && /^(B4|SMOKE)_[A-Z_]+$/.test(error.message) ? error.message : 'B4_QUALIFICATION_FAILED'
-    console.log(JSON.stringify({ schema_version: 1, command: 'backup-qualification', source_sha: process.env.GITHUB_SHA ?? null,
+    const edition = process.env.MYAPI_B4_EDITION === undefined ? 'full' : process.env.MYAPI_B4_EDITION
+    console.log(JSON.stringify({ schema_version: 1, command: 'backup-qualification', source_sha: /^[a-f0-9]{40}$/.test(process.env.GITHUB_SHA || '') ? process.env.GITHUB_SHA : null,
+      run_id: /^[1-9][0-9]{0,19}$/.test(process.env.GITHUB_RUN_ID || '') ? process.env.GITHUB_RUN_ID : null,
+      attempt: /^[1-9][0-9]{0,19}$/.test(process.env.GITHUB_RUN_ATTEMPT || '') ? process.env.GITHUB_RUN_ATTEMPT : null,
+      edition: ['full', 'lan'].includes(edition) ? edition : null,
       qualified: false, code, stage: error?.qualificationStage ?? null, cli_failure: error?.cliFailure ?? null,
       cleanup_failure: error?.cleanupFailure ?? null }))
     process.exitCode = 1

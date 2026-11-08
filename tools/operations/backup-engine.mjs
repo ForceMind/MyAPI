@@ -5,7 +5,7 @@ import { absolute, check, digest, protectedRead, safeCode } from './safety.mjs'
 import { selectBackupRetention } from './backup-retention.mjs'
 import { backupPrivateDirectory } from './config.mjs'
 import { JournalStore } from './store.mjs'
-import { DockerClient, containerDigest, validateContainer } from './docker.mjs'
+import { DockerClient, containerDigest, validateBackupContainer } from './docker.mjs'
 import { maxBackupBytes, requireCapacity, treeBytes } from './capacity.mjs'
 import { python } from './python.mjs'
 
@@ -142,7 +142,7 @@ export class BackupEngine {
   async prepareBackup(instanceId) {
     const instance = this.instance(instanceId)
     check(!this.store.frozen.has(instanceId), 'INSTANCE_FROZEN', 409)
-    const source = await validateContainer(await this.docker.inspectContainer(this.sourceReference(instance)), instance, this.docker)
+    const source = await validateBackupContainer(await this.docker.inspectContainer(this.sourceReference(instance)), instance, this.docker)
     check(Number.isSafeInteger(source.info.State?.Pid) && source.info.State.Pid > 0 && source.info.State.Paused === false && source.info.State.Restarting === false,
       'SOURCE_PROCESS_UNCONFIRMED', 409)
     const restart = source.info.HostConfig.RestartPolicy
@@ -414,7 +414,7 @@ export class BackupEngine {
     try {
       await transition('queued')
       if (kind === 'backup') {
-        const source = await validateContainer(await this.docker.inspectContainer(plan.intent.source_container_id), instance, this.docker)
+        const source = await validateBackupContainer(await this.docker.inspectContainer(plan.intent.source_container_id), instance, this.docker)
         check(source.digest === plan.intent.source_config_digest && await this.sourceReferenceMatches(instance, source.info.Id), 'SOURCE_CONFIG_CHANGED', 409)
         const binding = await this.writer({ action: 'bind_running', data_dir: instance.data_dir, host_pid: source.info.State.Pid })
         check(binding?.status === 'observed' && digest(binding.binding) === digest(plan.intent.binding), 'SOURCE_PROCESS_CHANGED', 409)

@@ -65,6 +65,15 @@ export function configuredHostConfig(info) {
 }
 export function containerDigest(info) { return digest({ id: info.Id, image: info.Image, Config: info.Config, HostConfig: configuredHostConfig(info), Mounts: configuredMounts(info), networks: configuredNetworks(info) }) }
 export async function validateContainer(info, instance, docker) {
+  return validateRegisteredContainer(info, instance, docker, false)
+}
+
+// Backup is a separate fixed-purpose entry; it cannot widen upgrade policy.
+export async function validateBackupContainer(info, instance, docker) {
+  return validateRegisteredContainer(info, instance, docker, true)
+}
+
+async function validateRegisteredContainer(info, instance, docker, backup) {
   check(info && /^[a-f0-9]{64}$/.test(info.Id) && /^sha256:[a-f0-9]{64}$/.test(info.Image) && info.State?.Running === true, 'SOURCE_NOT_RUNNING', 409)
   check(info.HostConfig && info.Config && !info.HostConfig.AutoRemove && !info.HostConfig.VolumesFrom?.length && !info.HostConfig.Privileged &&
     !info.HostConfig.PidMode?.startsWith('container:') && !info.HostConfig.NetworkMode?.startsWith('container:') && !info.HostConfig.IpcMode?.startsWith('container:') &&
@@ -87,10 +96,14 @@ export async function validateContainer(info, instance, docker) {
   }
   check(Array.isArray(info.Config.Env) && new Set(info.Config.Env.map(v => v.split('=')[0])).size === info.Config.Env.length, 'INVALID_ENV')
   const env = Object.fromEntries(info.Config.Env.map(value => { const i = value.indexOf('='); return [value.slice(0, i), value.slice(i + 1)] }))
-  check(!env.SQL_DSN?.trim() && !env.LOG_SQL_DSN?.trim() && (!env.MYAPI_EDITION || env.MYAPI_EDITION.trim().toLowerCase() === 'full') &&
+  const edition = env.MYAPI_EDITION ? env.MYAPI_EDITION.trim().toLowerCase() : 'full'
+  const family = edition === 'lite' || edition === 'lan' ? 'lite' : edition
+  check(!env.SQL_DSN?.trim() && !env.LOG_SQL_DSN?.trim() && (edition === 'full' || backup && family === 'lite') &&
     !['1', 'true'].includes(env.MYAPI_PERSONAL_MODE?.trim().toLowerCase()), 'UNSUPPORTED_DATABASE_OR_EDITION')
   const image = await docker.inspectImage(info.Image)
-  check(image.Id === info.Image && image.Os === 'linux' && image.Architecture === 'amd64' && !image.Variant && image.Config?.Labels?.['io.myapi.edition'] === 'full', 'UNSUPPORTED_IMAGE')
+  const imageEdition = image.Config?.Labels?.['io.myapi.edition']
+  const imageFamily = backup && (imageEdition === 'lite' || imageEdition === 'lan') ? 'lite' : imageEdition
+  check(image.Id === info.Image && image.Os === 'linux' && image.Architecture === 'amd64' && !image.Variant && imageFamily === family, 'UNSUPPORTED_IMAGE')
   check(Array.isArray(info.Mounts) && info.Mounts.filter(m => m.Source === instance.data_dir && m.Destination === '/data' && m.Type === 'bind' && m.RW === true).length === 1 &&
     !info.Mounts.some(m => m.Destination.startsWith('/data/')), 'DATA_MOUNT_MISMATCH')
   const configuredSQLite = env.SQLITE_PATH?.trim()

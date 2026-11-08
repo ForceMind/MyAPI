@@ -2,7 +2,13 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
-**当前C1第四批beta.51候选，101键/505处五语条目待自身Actions。** 渠道34+总览/系统信息/个人上游67，en/zh不变无键增删；遵循渠道/连接现词表，保模型配置非支持证据、保存/草稿/删除确认、运维批准≠执行/不重放/精确身份、总览只本次返回/近期非实时/未知及全部变量。仅五字典/必要版本与已有说明交接14文件；不改功能权限/价格/真实配置，不本机依赖/同步/lint/test/build或产物下载，不浏览器/生产/真实模型/发布。另有B4 Lite备份source verifier/engine/test与资格矩阵独立WIP，全部排除本提交，尚无真实Lite备份资格；Native/T1真实验签新增前置方案仍等维护者答复，不自行解冻。完整三版本Goal与最终统一质量阶段保持。
+**当前独立B4 beta.52候选，待自身完整Actions：Linux root Docker Lite/lan SQLite备份专用来源校验与Full/Lite资格矩阵。** 新validateBackupContainer固定用途接受匹配族，旧Full-only运维入口/原错误和全部机械检查不改；engine仅两处backup接线，不改manifest/intent/COMMITTED或旧源恢复/prune边界。六组metadata合同、Full/lan fail-fast:false当前SHA真实build/load矩阵及edition/status/receipt观察已写，原账务/17单位新增调整/fake2+恢复0/精确清理断言保留。主审和独立只读审阅完成，但只有Node/YAML/Python语法及diff轻查，尚无真实Lite资格，不能称完成。BACKUP_RESTORE已对齐旧beta47 Full实证与新Lite候选；不扩其它形态/远端库/非root，不真实数据/生产/供应商/浏览器/发布/本机项目测试构建。
+
+**最近已验beta.51：2fb6114631838a42268a34a53591271f1b8b3d7b / [CI42460806192](https://github.com/ForceMind/MyAPI/actions/runs/42460806192)。** attempt1 success，14执行成功/5可选跳过，20487行全实际日志、14 checkout与全部步骤已核，失败/race标记0；前端421文件/3452测试及原Root/独立relaykit/386/三库/race门禁通过。清单job128669485567完整364行/8合同，七语7890键、缺键/extra/占位符/词法缺键0、动态未知388、translation_accepted=false；教程job128669485727完整749行/24命令，实际Full/Lite beta.51启停/status/清理通过。报告身份/摘要/期限集中TASKS，未下载。它只含C1，不含B4候选；备份专项skip，不拿其绿灯作新备份资格。Native/真机GUI/TLS/跨机/浏览器/母语未验，完整Goal不关闭。
+
+**独立后继WIP不含本B4提交。** Desktop四个新资格文件仅源码候选，macOS先于Windows；真实Go后端的配置/secret往返待Actions，不启动Electron/GUI，Windows优雅flush及账务未验。C1后继70键仅已审未应用机器草稿。Native/T1新增真实只读验签前置仍等维护者明确答复，不自行解冻。下方beta51候选与已验beta50按各自SHA理解。
+
+**以下为C1第四批beta.51候选时范围，现已通过上方完整CI。** 渠道34+总览/系统信息/个人上游67，en/zh不变无键增删；遵循渠道/连接现词表，保模型配置非支持证据、保存/草稿/删除确认、运维批准≠执行/不重放/精确身份、总览只本次返回/近期非实时/未知及全部变量。仅五字典/必要版本与已有说明交接14文件；不改功能权限/价格/真实配置，不本机依赖/同步/lint/test/build或产物下载，不浏览器/生产/真实模型/发布。另有B4 Lite备份source verifier/engine/test与资格矩阵独立WIP，全部排除本提交，尚无真实Lite备份资格；Native/T1真实验签新增前置方案仍等维护者答复，不自行解冻。完整三版本Goal与最终统一质量阶段保持。
 
 **最近已验收beta.50：c550ea73487f93b1972608a6512bc73cce9833aa / [CI42457619159](https://github.com/ForceMind/MyAPI/actions/runs/42457619159)。** attempt1 success，14执行成功/5可选跳过、20053行全日志/14 checkout/全部步骤已核、失败/race标记0；前端421文件/3452测试及全部Root/独立relaykit/386/三库/race/分发门禁通过。清单job128659912284完整369行/8合同，7890键/缺键/extra/占位符0、动态未知388；教程job128659912295完整749行，24原命令/后置检查、Full/Lite实际beta.50启停/status/清理过，不发布GHCR。报告artifact13608641667/13609015337大小/digest/到期见TASKS本节，未下载。备份专项skip，不能称新备份重验；Native/桌面真机/TLS/跨机/浏览器/母语仍未验。以下旧候选按原时点记录解释。
 
