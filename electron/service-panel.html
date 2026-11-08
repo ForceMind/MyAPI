@@ -339,6 +339,35 @@
             Configure your client with the saved entry
           </h3>
           <div id="public-saved-entry"></div>
+          <details id="public-entry-check" class="public-entry-check">
+            <summary data-i18n="Check from this computer">Check from this computer</summary>
+            <p data-i18n="This check uses the saved HTTPS entry. It sends no Key or model request.">
+              This check uses the saved HTTPS entry. It sends no Key or model request.
+            </p>
+            <dl class="public-check-source">
+              <dt data-i18n="Checked entry">Checked entry</dt>
+              <dd><code id="public-check-origin"></code></dd>
+              <dt data-i18n="Observed at">Observed at</dt>
+              <dd id="public-check-time"></dd>
+            </dl>
+            <dl class="public-check-stages">
+              <dt id="public-check-dns-label" data-i18n="DNS resolution">DNS resolution</dt>
+              <dd id="public-check-dns"></dd>
+              <dt data-i18n="TLS certificate">TLS certificate</dt>
+              <dd id="public-check-tls"></dd>
+              <dt data-i18n="Public status response">Public status response</dt>
+              <dd id="public-check-status"></dd>
+            </dl>
+            <div class="actions">
+              <button type="button" id="public-check-start" disabled data-i18n="Check saved entry">Check saved entry</button>
+              <button type="button" id="public-check-cancel" disabled data-i18n="Cancel check">Cancel check</button>
+            </div>
+            <p id="public-check-feedback" role="status" aria-live="polite"></p>
+            <p class="muted" data-i18n="Results describe this computer only. Public inbound access, this local instance, authentication, models and quota remain unverified.">
+              Results describe this computer only. Public inbound access, this local instance,
+              authentication, models and quota remain unverified.
+            </p>
+          </details>
           <button
             type="button"
             id="public-open-console"
@@ -348,10 +377,10 @@
             Open local console to choose an API Key
           </button>
           <p
-            data-i18n="Choose an API Key in the local console. This guide does not read credentials or send a test request."
+            data-i18n="Choose an API Key in the local console. Entry checks do not read credentials or send model requests."
           >
-            Choose an API Key in the local console. This guide does not read credentials or send a
-            test request.
+            Choose an API Key in the local console. Entry checks do not read credentials or send
+            model requests.
           </p>
           <p
             data-i18n="Clearing removes only this application's saved entry. Revoke or change the external reverse proxy yourself."

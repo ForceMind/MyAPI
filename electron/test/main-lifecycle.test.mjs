@@ -41,7 +41,8 @@ async function boot(options = {}) {
   const fileOptions = new Map()
   const descriptors = new Map()
   let nextDescriptor = 10
-  const children = [], windows = [], probes = [], dialogs = [], answers = [], menus = [], copied = [], openedPaths = [], removedPaths = []
+  const children = [], windows = [], probes = [], dialogs = [], answers = [], menus = [], copied = [], openedPaths = [], removedPaths = [], publicChecks = []
+  let publicCheckerFactories = 0
   const timers = new Map()
   const handlers = new Map()
   const updates = new EventEmitter()
@@ -151,6 +152,19 @@ async function boot(options = {}) {
     './runtime-config': runtime,
     './service-controller': { createServiceController: (config) => service.createServiceController({ ...config, timers: clock }) },
     './service-panel-ipc': ipc, './native-i18n': native, './service-diagnostics': diagnostics, './public-access-config': publicConfig,
+    './public-access-check': { createPublicAccessCheck(...args) {
+      assert.deepEqual(args, [], 'production main cannot supply transport or trust overrides')
+      publicCheckerFactories++
+      if (options.failPublicCheckerFactory) throw new Error('private factory error')
+      return { check(origin, config) {
+        const result = deferred()
+        publicChecks.push({ origin, config, resolve: result.resolve })
+        updates.emit('check')
+        if (options.failPublicCheck) throw new Error('private transport error')
+        if (options.rejectPublicCheck) return Promise.reject(new Error('PRIVATE-ASYNC-TRANSPORT-ERROR'))
+        return result.promise
+      } }
+    } },
   }
   vm.runInNewContext(source, { require(name) { assert.ok(Object.hasOwn(modules, name), `unexpected main module ${name}`); return modules[name] }, process: fakeProcess, __dirname: directory, console: { log() {}, error() {} }, AbortController, ...clock })
   ready.resolve(); await ready.promise
@@ -161,7 +175,16 @@ async function boot(options = {}) {
     return handlers.get(ipc.SERVICE_PANEL_CHANNELS[name])({ sender: current.webContents, senderFrame: current.webContents.mainFrame }, ...args)
   }
   return {
-    app, children, windows, probes, dialogs, answers, menus, copied, openedPaths, removedPaths, files, fileOptions, timers, panel, invoke,
+    app, children, windows, probes, dialogs, answers, menus, copied, openedPaths, removedPaths, files, fileOptions, timers, panel, invoke, publicChecks,
+    get publicCheckerFactories() { return publicCheckerFactories },
+    waitForPublicCheck(predicate) {
+      if (predicate(lastState?.publicAccess?.localCheck)) return Promise.resolve(lastState.publicAccess.localCheck)
+      return new Promise(resolve => { const receive = state => { if (predicate(state.publicAccess.localCheck)) { updates.removeListener('state', receive); resolve(state.publicAccess.localCheck) } }; updates.on('state', receive) })
+    },
+    waitForCheckCalls(count) {
+      if (publicChecks.length >= count) return Promise.resolve()
+      return new Promise(resolve => { const receive = () => { if (publicChecks.length >= count) { updates.removeListener('check', receive); resolve() } }; updates.on('check', receive) })
+    },
     setCandidates(value) { privateCandidates = value },
     setPublicReadFailure(value) { publicReadFailure = value },
     get quits() { return quits }, get exits() { return exits },
@@ -516,7 +539,7 @@ test('public guide saves only an unverified private entry and keeps client, prox
   const f = await boot()
   await running(f)
   const initial = await f.invoke('snapshot')
-  assert.deepEqual(JSON.parse(JSON.stringify(initial.publicAccess)), { recordRevision: 0, savedOrigin: null, savedBaseURL: null, status: 'not-configured', verification: 'unknown', busy: false, listenerScope: 'local', proxyTargets: ['http://127.0.0.1:3000'] })
+  assert.deepEqual(JSON.parse(JSON.stringify(initial.publicAccess)), { recordRevision: 0, savedOrigin: null, savedBaseURL: null, status: 'not-configured', verification: 'unknown', localCheck: null, busy: false, listenerScope: 'local', proxyTargets: ['http://127.0.0.1:3000'] })
   const requested = await f.invoke('showPublicHelp')
   assert.equal(requested.publicGuideRequest, initial.publicGuideRequest + 1)
   assert.equal(f.dialogs.length, 0)
@@ -717,4 +740,217 @@ test('listener scope is a runtime fact while every saved public entry remains un
   assert.equal(rejected.publicAccess.listenerScope, 'unavailable')
   assert.deepEqual(Array.from(rejected.publicAccess.proxyTargets), [])
   assert.equal(invalid.children.length, 0)
+})
+
+
+const CHECK_ORIGIN = 'https://public.example.test'
+const CHECK_RECORD = JSON.stringify({ schemaVersion: 1, origin: CHECK_ORIGIN })
+function checkReport(progress = false) {
+  return {
+    schemaVersion: 1, origin: CHECK_ORIGIN, outcome: progress ? 'unknown' : 'passed',
+    code: progress ? 'checking' : 'ok', checkedAt: progress ? null : 1700000000000,
+    source: 'this-computer', externalVerification: 'unknown', sameInstanceVerified: false,
+    modelVerified: false, quotaVerified: false,
+    dns: { state: progress ? 'checking' : 'passed', source: 'lookup' },
+    tls: { state: progress ? 'not-run' : 'passed' },
+    status: { state: progress ? 'not-run' : 'passed', version: progress ? null : '0.2.0-fixture', productEdition: progress ? null : 'lite' },
+  }
+}
+
+test('public checks are explicit, record-bound, nonblocking and safely project real progress and completion', async () => {
+  const f = await boot({ publicRecordText: CHECK_RECORD })
+  await running(f)
+  assert.equal(f.publicCheckerFactories, 0)
+  assert.equal((await f.invoke('snapshot')).publicAccess.localCheck, null)
+  assert.equal(f.publicChecks.length, 0)
+  for (const [origin, revision] of [[CHECK_ORIGIN, 1], [CHECK_ORIGIN + '/', 0], ['https://other.example.test', 0], ['https://user:PRIVATE-SECRET@public.example.test', 0]]) {
+    const refused = await f.invoke('checkPublicEntry', origin, revision)
+    assert.equal(refused.publicCheckControlResult.outcome, 'stale')
+    assert.equal(f.publicChecks.length, 0)
+    assert.ok(!JSON.stringify(refused).includes('PRIVATE-SECRET'))
+  }
+  const started = await f.invoke('checkPublicEntry', CHECK_ORIGIN, 0)
+  const id = started.publicAccess.localCheck.id
+  assert.match(id, /^[a-f0-9]{32}$/)
+  assert.equal(started.publicAccess.localCheck.state, 'checking')
+  assert.equal(started.publicAccess.localCheck.generation, started.generation)
+  assert.equal(started.publicAccess.localCheck.result, null)
+  assert.equal(started.publicAccess.busy, false)
+  assert.equal(started.canStop, true)
+  assert.deepEqual(JSON.parse(JSON.stringify(started.publicCheckControlResult)), { action: 'start', outcome: 'started', expectedRevision: 0, origin: CHECK_ORIGIN, checkId: id })
+  await f.waitForCheckCalls(1)
+  assert.equal(f.publicCheckerFactories, 1)
+  assert.equal(f.publicChecks[0].origin, CHECK_ORIGIN)
+  assert.deepEqual(Object.keys(f.publicChecks[0].config).sort(), ['onProgress', 'signal'])
+  const busy = await f.invoke('checkPublicEntry', CHECK_ORIGIN, 0)
+  assert.equal(busy.publicCheckControlResult.outcome, 'busy')
+  assert.equal(busy.publicCheckControlResult.checkId, id)
+  assert.equal(f.publicChecks.length, 1)
+  const report = checkReport(true)
+  report.rawBody = 'PRIVATE-BODY'
+  report.dns.address = 'PRIVATE-IP'
+  f.publicChecks[0].config.onProgress(report)
+  const progress = (await f.invoke('snapshot')).publicAccess.localCheck
+  assert.equal(progress.result.checkedAt, null)
+  assert.equal(progress.result.dns.state, 'checking')
+  assert.ok(!JSON.stringify(progress).includes('PRIVATE-'))
+  report.dns.state = 'failed'
+  progress.result.dns.state = 'failed'
+  assert.equal((await f.invoke('snapshot')).publicAccess.localCheck.result.dns.state, 'checking', 'neither observer nor reply can mutate owned state')
+  const completed = f.waitForPublicCheck(value => value?.state === 'completed')
+  f.publicChecks[0].resolve(checkReport())
+  const final = await completed
+  assert.equal(final.id, id)
+  assert.equal(final.result.outcome, 'passed')
+  assert.equal(final.result.status.version, '0.2.0-fixture')
+  assert.equal((await f.invoke('snapshot')).publicAccess.verification, 'unknown')
+  assert.equal(Object.hasOwn(await f.invoke('snapshot'), 'publicCheckControlResult'), false)
+  assert.equal(f.files.get(PUBLIC_ENTRY_PATH), CHECK_RECORD)
+  assert.equal(f.probes.length, 1, 'the dedicated checker never becomes a local readiness or model probe')
+})
+
+test('public cancellation is exact-ID only and late completion cannot overwrite a new check', async () => {
+  const f = await boot({ publicRecordText: CHECK_RECORD })
+  await running(f)
+  const first = await f.invoke('checkPublicEntry', CHECK_ORIGIN, 0)
+  await f.waitForCheckCalls(1)
+  const firstId = first.publicAccess.localCheck.id
+  const wrongId = firstId === '0'.repeat(32) ? '1'.repeat(32) : '0'.repeat(32)
+  const wrong = await f.invoke('cancelPublicEntryCheck', wrongId)
+  assert.equal(wrong.publicCheckControlResult.outcome, 'stale')
+  assert.equal(f.publicChecks[0].config.signal.aborted, false)
+  const cancelled = await f.invoke('cancelPublicEntryCheck', firstId)
+  assert.equal(cancelled.publicAccess.localCheck.state, 'cancelled')
+  assert.equal(f.publicChecks[0].config.signal.aborted, true)
+  assert.deepEqual(JSON.parse(JSON.stringify(cancelled.publicCheckControlResult)), { action: 'cancel', outcome: 'cancelled', expectedRevision: null, origin: CHECK_ORIGIN, checkId: firstId })
+  assert.equal((await f.invoke('cancelPublicEntryCheck', firstId)).publicCheckControlResult.outcome, 'unchanged')
+  const second = await f.invoke('checkPublicEntry', CHECK_ORIGIN, 0)
+  await f.waitForCheckCalls(2)
+  assert.notEqual(second.publicAccess.localCheck.id, firstId)
+  f.publicChecks[0].config.onProgress(checkReport(true))
+  f.publicChecks[0].resolve(checkReport())
+  // A real later task's terminal event is the synchronization boundary; no
+  // arbitrary Promise-flush count or timing assumption proves late rejection.
+  const complete = f.waitForPublicCheck(value => value?.id === second.publicAccess.localCheck.id && value.state === 'completed')
+  const failed = checkReport(); failed.outcome = 'failed'; failed.code = 'http-auth-required'; failed.status = { state: 'failed', version: null, productEdition: null }
+  f.publicChecks[1].resolve(failed)
+  const current = await complete
+  assert.equal(current.result.code, 'http-auth-required')
+  assert.equal((await f.invoke('cancelPublicEntryCheck', firstId)).publicCheckControlResult.outcome, 'stale')
+  assert.equal((await f.invoke('snapshot')).publicAccess.localCheck.id, current.id)
+})
+
+for (const change of ['same-origin-file', 'clear', 'save', 'service', 'frame']) {
+  test(`a public check becomes stale on ${change} and cannot publish old success`, async () => {
+    const f = await boot({ publicRecordText: CHECK_RECORD })
+    await running(f)
+    const started = await f.invoke('checkPublicEntry', CHECK_ORIGIN, 0)
+    await f.waitForCheckCalls(1)
+    const check = f.publicChecks[0]
+    if (change === 'same-origin-file') f.files.set(PUBLIC_ENTRY_PATH, CHECK_RECORD + '\n')
+    if (change === 'clear' || change === 'save') {
+      f.answers.push({ response: 1 })
+      const result = await f.invoke(change === 'clear' ? 'clearPublicEntry' : 'savePublicEntry', CHECK_ORIGIN, 0)
+      assert.equal(result[change === 'clear' ? 'publicClearResult' : 'publicSaveResult'].outcome, change === 'clear' ? 'cleared' : 'saved')
+    }
+    if (change === 'service') f.children[0].child.emit('close', 0)
+    if (change === 'frame') {
+      const oldFrame = f.panel().webContents.mainFrame
+      f.panel().webContents.mainFrame = { url: oldFrame.url }
+    }
+    const stale = (await f.invoke('snapshot')).publicAccess.localCheck
+    assert.equal(stale.state, 'stale')
+    assert.equal(stale.id, started.publicAccess.localCheck.id)
+    assert.equal(check.config.signal.aborted, true)
+    check.config.onProgress(checkReport(true))
+    check.resolve(checkReport())
+    assert.equal((await f.invoke('snapshot')).publicAccess.localCheck.state, 'stale')
+    if (['same-origin-file', 'save'].includes(change)) {
+      const next = await f.invoke('checkPublicEntry', CHECK_ORIGIN, 1)
+      assert.equal(next.publicCheckControlResult.outcome, 'started')
+      assert.equal(next.publicAccess.localCheck.recordRevision, 1)
+      assert.notEqual(next.publicAccess.localCheck.id, stale.id)
+      await f.waitForCheckCalls(2)
+      const complete = f.waitForPublicCheck(value => value?.id === next.publicAccess.localCheck.id && value.state === 'completed')
+      f.publicChecks[1].resolve(checkReport())
+      assert.equal((await complete).recordRevision, 1)
+    }
+    if (change === 'service') {
+      f.answers.push({ response: 1 })
+      await f.invoke('start')
+      await running(f)
+      const next = await f.invoke('checkPublicEntry', CHECK_ORIGIN, 0)
+      assert.equal(next.publicAccess.localCheck.generation, started.generation + 1)
+      assert.equal(next.publicCheckControlResult.outcome, 'started')
+    }
+  })
+}
+
+test('stop and quit cancel public IO only after confirmation and never wait for a network promise', async () => {
+  const f = await boot({ publicRecordText: CHECK_RECORD })
+  await running(f)
+  await f.invoke('checkPublicEntry', CHECK_ORIGIN, 0)
+  await f.waitForCheckCalls(1)
+  const check = f.publicChecks[0]
+  f.answers.push({ response: 0 })
+  await f.invoke('stop')
+  assert.equal(check.config.signal.aborted, false)
+  assert.deepEqual(f.children[0].child.signals, [])
+  f.answers.push({ response: 0 })
+  await f.invoke('quit')
+  assert.equal(check.config.signal.aborted, false)
+  assert.equal(f.exits, 0)
+  f.answers.push({ response: 1 })
+  const stop = f.invoke('stop')
+  await f.waitForState('stopping')
+  assert.equal(check.config.signal.aborted, true)
+  assert.deepEqual(f.children[0].child.signals, ['SIGTERM'])
+  f.children[0].child.emit('close', 0)
+  assert.equal((await stop).state, 'stopped', 'an unresolved network check cannot block owned close')
+  f.answers.push({ response: 1 })
+  await f.invoke('start')
+  await running(f)
+  await f.invoke('checkPublicEntry', CHECK_ORIGIN, 0)
+  await f.waitForCheckCalls(2)
+  f.answers.push({ response: 1 })
+  const quit = f.invoke('quit')
+  await f.waitForState('stopping')
+  assert.equal(f.publicChecks[1].config.signal.aborted, true)
+  assert.equal(f.exits, 0)
+  f.children[1].child.emit('close', 0)
+  await quit
+  assert.equal(f.exits, 1)
+  assert.equal(f.files.get(PUBLIC_ENTRY_PATH), CHECK_RECORD)
+})
+
+test('missing or unreadable public entries cannot launch any checker or disclose their bytes', async () => {
+  for (const options of [{}, { publicRecordText: 'PRIVATE-BROKEN-RECORD' }, { publicRecordText: CHECK_RECORD, publicSymlink: true }, { publicRecordText: CHECK_RECORD, failPublicRead: true }]) {
+    const f = await boot(options)
+    await running(f)
+    const result = await f.invoke('checkPublicEntry', CHECK_ORIGIN, 0)
+    assert.equal(result.publicCheckControlResult.outcome, 'stale')
+    assert.equal(result.publicAccess.localCheck, null)
+    assert.equal(f.publicCheckerFactories, 0)
+    assert.ok(!JSON.stringify(result).includes('PRIVATE-BROKEN-RECORD'))
+  }
+})
+
+test('checker construction, transport and malformed report failures stay unknown without raw detail', async () => {
+  for (const options of [{ failPublicCheckerFactory: true }, { failPublicCheck: true }, { rejectPublicCheck: true }, {}]) {
+    const f = await boot({ publicRecordText: CHECK_RECORD, ...options })
+    await running(f)
+    const unknown = f.waitForPublicCheck(value => value?.state === 'unknown')
+    const started = await f.invoke('checkPublicEntry', CHECK_ORIGIN, 0)
+    assert.equal(started.publicCheckControlResult.outcome, 'started')
+    if (!options.failPublicCheckerFactory && !options.failPublicCheck && !options.rejectPublicCheck) {
+      await f.waitForCheckCalls(1)
+      const malicious = checkReport(); malicious.status.version = 'PRIVATE-RAW-ERROR'; malicious.rawError = 'PRIVATE-DETAIL'
+      f.publicChecks[0].resolve(malicious)
+    }
+    const result = await unknown
+    assert.equal(result.result, null)
+    assert.ok(!JSON.stringify(await f.invoke('snapshot')).includes('PRIVATE-'))
+    assert.equal(f.files.get(PUBLIC_ENTRY_PATH), CHECK_RECORD)
+    assert.deepEqual(f.children[0].child.signals, [])
+  }
 })

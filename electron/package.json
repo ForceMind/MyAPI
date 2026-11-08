@@ -41,6 +41,7 @@
       "main.js",
       "runtime-config.js",
       "public-access-config.js",
+      "public-access-check.js",
       "preload.js",
       "icon.png",
       "tray-iconTemplate.png",

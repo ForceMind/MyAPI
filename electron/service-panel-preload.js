@@ -21,6 +21,10 @@ contextBridge.exposeInMainWorld("myapiService", {
     ipcRenderer.invoke("myapi:service:clear-public-entry", expectedOrigin, expectedRevision),
   copyPublicBaseURL: (baseURL, expectedRevision) =>
     ipcRenderer.invoke("myapi:service:copy-public-base-url", baseURL, expectedRevision),
+  checkPublicEntry: (origin, expectedRevision) =>
+    ipcRenderer.invoke("myapi:service:check-public-entry", origin, expectedRevision),
+  cancelPublicEntryCheck: (checkId) =>
+    ipcRenderer.invoke("myapi:service:cancel-public-entry-check", checkId),
   copyProxyTarget: (rootURL) => ipcRenderer.invoke("myapi:service:copy-proxy-target", rootURL),
   onState: (listener) => {
     if (typeof listener !== "function") return () => {};

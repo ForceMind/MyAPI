@@ -22,6 +22,7 @@ const { createServicePanelIPC, SERVICE_PANEL_STATE_CHANNEL } = require("./servic
 const { createNativeI18n, normalizeLanguage } = require("./native-i18n");
 const { createServiceDiagnostics } = require("./service-diagnostics");
 const { validatePublicEntry, validateProxyTarget } = require("./public-access-config");
+const { createPublicAccessCheck } = require("./public-access-check");
 
 const APP_NAME = "MyAPI";
 const CANONICAL_BINARY_NAME = process.platform === "win32" ? "my-api.exe" : "my-api";
@@ -47,6 +48,8 @@ let publicGuideRequest = 0;
 let publicFile = null;
 let publicEntry = { recordRevision: 0, savedOrigin: null, status: "not-configured" };
 let publicWriteUnconfirmed = false;
+let publicChecker = null;
+let publicCheckSession = null;
 const developmentProbe = new AbortController();
 let translator = createNativeI18n();
 const t = (key, values) => translator.t(key, values);
@@ -192,6 +195,39 @@ const PANEL_KEYS = [
   "The unverified public Base URL was copied.",
   "The write result could not be confirmed. Read the saved entry again before taking another action.",
   "This saved entry cannot be safely changed. Check its file type and permissions; no external configuration was changed.",
+  "Check from this computer",
+  "Check saved entry",
+  "Cancel check",
+  "This check uses the saved HTTPS entry. It sends no Key or model request.",
+  "Results describe this computer only. Public inbound access, this local instance, authentication, models and quota remain unverified.",
+  "Checked entry",
+  "Observed at",
+  "DNS resolution",
+  "TLS certificate",
+  "Public status response",
+  "Not checked",
+  "In progress",
+  "Passed",
+  "Failed",
+  "Unknown",
+  "Cancelled",
+  "No saved entry is available to check.",
+  "The check could not be completed. Its result is unknown.",
+  "This result belongs to an earlier saved entry or service state. Run a new check.",
+  "Address check",
+  "Entry checks are unavailable in this version.",
+  "Some checks failed. External access remains unverified.",
+  "Checks completed from this computer. External access remains unverified.",
+  "The check response could not be matched. Review the current entry.",
+  "The check request was not accepted. Review the current entry.",
+  "Choose an API Key in the local console. Entry checks do not read credentials or send model requests.",
+  "This address is private or special-use. This check supports only ordinary public addresses.",
+  "Check the entry domain and its HTTPS certificate trust, hostname and validity.",
+  "The entry requires sign-in. This check sent no credentials.",
+  "The entry returned a redirect. This check did not follow it.",
+  "The entry did not return a recognizable gateway status.",
+  "The response exceeded the check limit.",
+  "The check timed out. Review the entry before retrying.",
 ];
 
 function locations() {
@@ -705,6 +741,136 @@ function refreshPublicEntry(forceRead = false) {
   return true;
 }
 
+// Only safe module fields cross the native renderer boundary. A successful
+// observation never changes the saved entry's external verification status.
+function projectPublicCheckReport(value, origin, progress) {
+  const stages = ["not-run", "checking", "passed", "failed", "unknown"];
+  const codes = [
+    "checking", "ok", "invalid-entry", "invalid-options", "address-type-unsupported",
+    "dns-unavailable", "tls-untrusted", "tls-hostname", "tls-validity", "tls-unverified",
+    "network-unavailable", "response-unavailable", "http-redirect", "http-auth-required",
+    "http-status", "invalid-status", "response-too-large", "timeout", "cancelled",
+    "progress-unavailable", "clock-unavailable",
+  ];
+  if (!value || value.schemaVersion !== 1 || value.origin !== origin ||
+      !["passed", "failed", "unknown", "cancelled"].includes(value.outcome) || !codes.includes(value.code) ||
+      value.source !== "this-computer" || value.externalVerification !== "unknown" ||
+      value.sameInstanceVerified !== false || value.modelVerified !== false || value.quotaVerified !== false ||
+      (value.checkedAt !== null && (!Number.isSafeInteger(value.checkedAt) || value.checkedAt < 0 || value.checkedAt > 8640000000000000)) ||
+      !value.dns || !value.tls || !value.status ||
+      ![value.dns, value.tls, value.status].every(part => stages.includes(part.state)) ||
+      ![null, "lookup", "literal"].includes(value.dns.source) ||
+      ![null, "full", "lite"].includes(value.status.productEdition) ||
+      (value.status.version !== null && (typeof value.status.version !== "string" || value.status.version.length > 96 ||
+        !/^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(value.status.version))) ||
+      (progress && (value.checkedAt !== null || value.outcome !== "unknown" || value.code !== "checking")) ||
+      (!progress && (value.code === "checking" || [value.dns, value.tls, value.status].some(part => part.state === "checking"))) ||
+      (value.outcome === "passed" && (value.code !== "ok" || value.checkedAt === null ||
+        value.status.version === null || value.status.productEdition === null ||
+        ![value.dns, value.tls, value.status].every(part => part.state === "passed")))) return null;
+  return {
+    schemaVersion: 1, origin, outcome: value.outcome, code: value.code, checkedAt: value.checkedAt,
+    source: "this-computer", externalVerification: "unknown", sameInstanceVerified: false,
+    modelVerified: false, quotaVerified: false,
+    dns: { state: value.dns.state, source: value.dns.source }, tls: { state: value.tls.state },
+    status: { state: value.status.state, version: value.status.version, productEdition: value.status.productEdition },
+  };
+}
+
+function invalidatePublicCheck() {
+  const session = publicCheckSession;
+  if (!session || session.view.state === "stale") return;
+  session.view = { ...session.view, state: "stale" };
+  session.abort.abort();
+  stateRevision++;
+}
+
+function revalidatePublicCheck() {
+  const session = publicCheckSession;
+  if (!session || session.view.state === "stale") return;
+  refreshPublicEntry();
+  if (!session.context.isTrusted() || allowExit || controller?.identity() !== session.identity ||
+      publicFile !== session.file || publicEntry.status !== "unverified" ||
+      publicEntry.recordRevision !== session.view.recordRevision || publicEntry.savedOrigin !== session.view.origin) {
+    invalidatePublicCheck();
+  }
+}
+
+function runPublicCheckAction(name, context, value, expectedRevision) {
+  refreshPublicEntry();
+  revalidatePublicCheck();
+  const start = name === "checkPublicEntry";
+  const validated = start ? validatePublicEntry(value) : null;
+  const origin = validated?.ok && validated.origin === value ? value : null;
+  const revision = start && Number.isSafeInteger(expectedRevision) && expectedRevision >= 0 ? expectedRevision : null;
+  const reply = (outcome, id = start ? null : value) => ({
+    ...snapshot(),
+    publicCheckControlResult: {
+      action: start ? "start" : "cancel",
+      outcome,
+      expectedRevision: revision,
+      origin: start ? origin : publicCheckSession?.view.id === value ? publicCheckSession.view.origin : null,
+      checkId: id,
+    },
+  });
+  if (!context.isTrusted()) return reply("unavailable");
+  if (!start) {
+    const session = publicCheckSession;
+    if (!session || session.view.id !== value) return reply("stale");
+    if (session.view.state === "stale") return reply("stale");
+    if (session.view.state !== "checking") return reply("unchanged");
+    session.view = { ...session.view, state: "cancelled" };
+    session.abort.abort();
+    publishState();
+    return reply("cancelled");
+  }
+  if (origin === null || revision === null || publicEntry.status !== "unverified" ||
+      origin !== publicEntry.savedOrigin || revision !== publicEntry.recordRevision) return reply("stale");
+  if (publicCheckSession?.view.state === "checking") return reply("busy", publicCheckSession.view.id);
+  if (actionBusy || runtimeConfig.error || allowExit || !controller) return reply("unavailable");
+  const service = controller.snapshot();
+  const startedAt = Date.now();
+  if (!Number.isSafeInteger(startedAt) || startedAt < 0 || startedAt > 8640000000000000 ||
+      !Number.isSafeInteger(service.generation) || service.generation < 0) return reply("unavailable");
+  const session = {
+    context,
+    file: publicFile,
+    identity: controller.identity(),
+    abort: new AbortController(),
+    view: {
+      id: crypto.randomBytes(16).toString("hex"),
+      origin,
+      recordRevision: revision,
+      generation: service.generation,
+      state: "checking",
+      startedAt,
+      result: null,
+    },
+  };
+  publicCheckSession = session;
+  const receive = (value, progress) => {
+    if (publicCheckSession !== session || session.view.state !== "checking") return;
+    revalidatePublicCheck();
+    if (session.view.state !== "checking") { publishState(); return; }
+    let report = null;
+    try { report = projectPublicCheckReport(value, origin, progress); } catch { /* no raw module errors */ }
+    session.view = { ...session.view, state: report ? progress ? "checking" : "completed" : "unknown", result: report };
+    if (!report) session.abort.abort();
+    publishState();
+  };
+  publishState();
+  // Schedule work after the immediate control receipt; never hold the service
+  // action lock or wait for DNS/TLS before stop/quit can be confirmed.
+  void Promise.resolve().then(() => {
+    if (publicCheckSession !== session || session.view.state !== "checking") return;
+    revalidatePublicCheck();
+    if (session.view.state !== "checking") { publishState(); return; }
+    if (!publicChecker) publicChecker = createPublicAccessCheck();
+    return publicChecker.check(origin, { signal: session.abort.signal, onProgress: value => receive(value, true) });
+  }).then(value => receive(value, false), () => receive(null, false));
+  return reply("started", session.view.id);
+}
+
 function proxyTargets() {
   if (runtimeConfig.error) return [];
   return describeRuntimeConfig(runtimeConfig, process.platform).endpoints.filter(
@@ -950,6 +1116,7 @@ async function runPublicEntryAction(name, context, value, expectedRevision) {
 }
 
 function snapshot() {
+  revalidatePublicCheck();
   const service = controller?.snapshot() || {
     state: "stopped",
     generation: 0,
@@ -972,6 +1139,16 @@ function snapshot() {
     : describeRuntimeConfig(runtimeConfig, process.platform).endpoints.map(
         (endpoint) => `${endpoint}/v1`,
       );
+  const check = publicCheckSession?.view;
+  const localCheck = check ? {
+    ...check,
+    result: check.result ? {
+      ...check.result,
+      dns: { ...check.result.dns },
+      tls: { ...check.result.tls },
+      status: { ...check.result.status },
+    } : null,
+  } : null;
   const explicitDatabase = Boolean(process.env.SQL_DSN && process.env.SQL_DSN !== "local");
   const diagnostic = diagnosticText();
   return {
@@ -983,6 +1160,7 @@ function snapshot() {
       savedBaseURL: publicEntry.savedOrigin ? `${publicEntry.savedOrigin}/v1` : null,
       status: publicEntry.status,
       verification: "unknown",
+      localCheck,
       busy: actionBusy,
       listenerScope: runtimeConfig.error
         ? "unavailable"
@@ -1054,6 +1232,7 @@ function snapshot() {
 
 function publishState() {
   if (allowExit) return;
+  revalidatePublicCheck();
   stateRevision++;
   rebuildTray();
   if (
@@ -1202,6 +1381,7 @@ async function applyConfirmedServiceAction(name, context) {
       ))
     )
       return;
+    invalidatePublicCheck();
     await controller.stop();
     if (controller.snapshot().owned)
       notice = {
@@ -1243,6 +1423,7 @@ async function applyConfirmedServiceAction(name, context) {
       };
       return;
     }
+    invalidatePublicCheck();
     await controller.stop();
     if (!context.isTrusted()) return;
     const stopped = controller.snapshot();
@@ -1270,6 +1451,8 @@ async function applyConfirmedServiceAction(name, context) {
 
 async function dispatch(name, context = { isTrusted: () => true }, argument, expectedRevision) {
   if (!context.isTrusted()) return snapshot();
+  if (name === "checkPublicEntry" || name === "cancelPublicEntryCheck")
+    return runPublicCheckAction(name, context, argument, expectedRevision);
   if (name === "savePublicEntry" || name === "clearPublicEntry")
     return runPublicEntryAction(name, context, argument, expectedRevision);
   if (["start", "stop", "quit", "restartLAN", "restartLoopback"].includes(name))
@@ -1511,6 +1694,8 @@ app
       "clearPublicEntry",
       "copyPublicBaseURL",
       "copyProxyTarget",
+      "checkPublicEntry",
+      "cancelPublicEntryCheck",
     ]) {
       actions[name] = (context, ...args) => {
         if (name === "snapshot") {

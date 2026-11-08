@@ -113,7 +113,7 @@ export async function createNativeHost({ electronDirectory, resources, userData,
     },
   }
   const modules = new Set(['crypto', 'path', 'url', 'http', 'fs', './runtime-config', './service-controller',
-    './service-panel-ipc', './native-i18n', './service-diagnostics', './public-access-config'])
+    './service-panel-ipc', './native-i18n', './service-diagnostics', './public-access-config', './public-access-check'])
   const source = await readFile(path.join(electronDirectory, 'main.js'), 'utf8')
   vm.runInNewContext(source, {
     require(name) {

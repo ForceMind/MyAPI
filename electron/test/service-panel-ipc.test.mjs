@@ -56,6 +56,9 @@ test('panel methods reject arbitrary argument payloads and language or address c
     ['savePublicEntry', ['https://public.example.test']], ['savePublicEntry', ['https://public.example.test', -1]], ['savePublicEntry', ['a'.repeat(2049), 0]],
     ['clearPublicEntry', [null]], ['clearPublicEntry', [{}, 0]], ['clearPublicEntry', [null, NaN]],
     ['copyPublicBaseURL', ['a'.repeat(2052), 0]], ['copyPublicBaseURL', ['https://public.example.test/v1', '0']],
+    ['checkPublicEntry', ['https://public.example.test']], ['checkPublicEntry', ['https://public.example.test', -1]], ['checkPublicEntry', ['https://public.example.test', 0, { rejectUnauthorized: false }]],
+    ['checkPublicEntry', ['a'.repeat(2049), 0]], ['checkPublicEntry', [null, 0]], ['checkPublicEntry', ['https://public.example.test', Number.MAX_SAFE_INTEGER + 1]], ['checkPublicEntry', ['https://public.example.test', 0.5]], ['checkPublicEntry', ['https://public.example.test', NaN]], ['checkPublicEntry', ['https://public.example.test', Infinity]], ['checkPublicEntry', ['https://public.example.test', '0']],
+    ['cancelPublicEntryCheck', []], ['cancelPublicEntryCheck', ['A'.repeat(32)]], ['cancelPublicEntryCheck', ['0'.repeat(31)]], ['cancelPublicEntryCheck', ['0'.repeat(32), 0]], ['cancelPublicEntryCheck', [0]],
     ['copyProxyTarget', [0]], ['copyProxyTarget', ['http://127.0.0.1:3000', 'extra']],
   ]) {
     await assert.rejects(f.handlers.get(ipc.SERVICE_PANEL_CHANNELS[name])(f.event(), ...args), /Invalid|Unexpected/)
@@ -98,6 +101,8 @@ test('the real preload exposes only named operations and a removable state subsc
   await bridge.clearPublicEntry(null, 1)
   await bridge.copyPublicBaseURL('https://public.example.test/v1', 2)
   await bridge.copyProxyTarget('http://127.0.0.1:3000')
+  await bridge.checkPublicEntry('https://public.example.test', 2)
+  await bridge.cancelPublicEntryCheck('a'.repeat(32))
   assert.deepEqual(invoked, [
     { channel: ipc.SERVICE_PANEL_CHANNELS.stop, args: [] },
     { channel: ipc.SERVICE_PANEL_CHANNELS.copyKnownAddress, args: ['http://127.0.0.1:3000/v1'] },
@@ -105,6 +110,8 @@ test('the real preload exposes only named operations and a removable state subsc
     { channel: ipc.SERVICE_PANEL_CHANNELS.clearPublicEntry, args: [null, 1] },
     { channel: ipc.SERVICE_PANEL_CHANNELS.copyPublicBaseURL, args: ['https://public.example.test/v1', 2] },
     { channel: ipc.SERVICE_PANEL_CHANNELS.copyProxyTarget, args: ['http://127.0.0.1:3000'] },
+    { channel: ipc.SERVICE_PANEL_CHANNELS.checkPublicEntry, args: ['https://public.example.test', 2] },
+    { channel: ipc.SERVICE_PANEL_CHANNELS.cancelPublicEntryCheck, args: ['a'.repeat(32)] },
   ])
   const values = []
   const unsubscribe = bridge.onState((value) => values.push(value))
@@ -114,4 +121,26 @@ test('the real preload exposes only named operations and a removable state subsc
   renderer.emit(ipc.SERVICE_PANEL_STATE_CHANNEL, {}, { state: 'running' })
   assert.deepEqual(values, [state])
   assert.equal(renderer.listenerCount(ipc.SERVICE_PANEL_STATE_CHANNEL), 0)
+})
+
+
+test('public check methods retain captured frame trust and forward only fixed origin/revision or exact ID', async () => {
+  const f = fixture()
+  const start = f.handlers.get(ipc.SERVICE_PANEL_CHANNELS.checkPublicEntry)
+  const cancel = f.handlers.get(ipc.SERVICE_PANEL_CHANNELS.cancelPublicEntryCheck)
+  const trusted = f.event()
+  await start(trusted, 'https://public.example.test', 0)
+  await cancel(trusted, 'b'.repeat(32))
+  assert.deepEqual(f.calls.map(({ name, args }) => ({ name, args })), [
+    { name: 'checkPublicEntry', args: ['https://public.example.test', 0] },
+    { name: 'cancelPublicEntryCheck', args: ['b'.repeat(32)] },
+  ])
+  assert.equal(f.calls[0].context.isTrusted(), true)
+  f.current = f.window()
+  assert.equal(f.calls[0].context.isTrusted(), false)
+  assert.equal(f.calls[1].context.isTrusted(), false)
+  await assert.rejects(start(trusted, 'https://public.example.test', 0), /Untrusted/)
+  await assert.rejects(cancel(trusted, 'b'.repeat(32)), /Untrusted/)
+  await assert.rejects(start({ ...f.event(), senderFrame: null }, 'https://public.example.test', 0), /Untrusted/)
+  assert.equal(f.calls.length, 2)
 })

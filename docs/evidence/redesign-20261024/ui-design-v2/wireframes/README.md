@@ -1,5 +1,7 @@
 # MyAPI 全站低保真线稿 · 2026-10-28
 
+**2026-11-08 B5入口检查线稿增量。** 复用已有[公网向导效果图](../screenshots/desktop-public-access-concept-20261107.png)，仅更新desktop-tray一个对象/article及桌面、窄窗口两SVG，仍329视图；第4步已保存入口下默认折叠“从此电脑检查”，展开后才见检查/取消、实际观察时间、DNS〔直接IP为地址检查〕/TLS/公共状态三行，只有明确点击才请求。外部verification保持unknown；不把此电脑观测说成公网入站、本机实例、鉴权、模型或额度已验，stop/quit仍可用，旧origin/revision/generation结果失效。原四步、复制/保存/清除、服务管理与LAN规则保留；原source_sha不重标实现，新增设计未验字段。直接增量编辑并做JSON/XML/AST及保持性轻查，未执行author.py或其函数、未全量生成/删除，浏览器与渲染未验证；产品源码/Actions另验。
+
 **2026-11-07 B5b1已有HTTPS反代向导增量。** 先出[效果图](../screenshots/desktop-public-access-concept-20261107.png)，再仅更新原desktop-tray一对象/article及两SVG，作者源同步，仍329视图，其余328未动。四步分开反代位置、外部条件、已有HTTPS根入口及客户端配置；真实监听与用户声明分区，确认仅存本地记录，已存仍未验证；清除不撤销外部设施。B5a服务/托盘/确认/数据与LAN门禁保留，公网验证目标继续待办。只选择生成这两张SVG文本，JSON/XML/AST轻检查通过；无浏览器渲染，不作视觉验收。源码、严格测试/CI及余项集中TASKS最新节。
 
 

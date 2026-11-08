@@ -9182,7 +9182,7 @@
           "items": [
             "待配置 / 当前不支持 / 外部状态无法判断 / 已保存未验证分开；文件无法读取不得装成从未配置",
             "保存失败保旧记录与草稿；旧revision不盖新结果，定时状态不重置输入/步骤或抢焦点",
-            "公网DNS/TLS/反代/鉴权与外部可达性验证仍属完整B5b后续，不以格式、本机健康或LAN启动作证明"
+            "此电脑DNS/地址、TLS及公共状态仅点击后检查；公网入站、本机实例、鉴权、模型与额度仍未验证"
           ]
         }
       ],
@@ -9252,6 +9252,16 @@
           "label": "返回上一步",
           "target": "desktop-tray",
           "effect": "保当前草稿，不保存、不重启；键盘焦点回当前步骤。"
+        },
+        {
+          "label": "从此电脑检查",
+          "target": "desktop-tray",
+          "effect": "仅明确点击后检查所见已保存origin/revision；呈现DNS〔直接IP为地址检查〕、TLS及公共状态和实际观察时间，不读取Key或调用模型。"
+        },
+        {
+          "label": "取消入口检查",
+          "target": "desktop-tray",
+          "effect": "仅取消所见检查ID；不清除入口、重启或停止服务。检查中原停止/退出仍可用，旧origin/revision/generation的结果不得贴到新入口。"
         }
       ],
       "tabs": [],
@@ -9263,11 +9273,12 @@
         "Node/VM/合成子进程与打包验证在Actions，浏览器/真实托盘/设备交互仍需单独验收。",
         "mobile SVG仅窄窗口排列参考，不表示移动App或手机支持。",
         "沿desktop-public-access-concept-20261107.png；本批B5b1是已有反代交付，不取代完整B5b公网验证目标。",
-        "所有公网示例均未验证；原B5a停止未知/owned-child、可信file IPC、明确LAN和数据保护规则不放宽。"
+        "所有公网示例均未验证；原B5a停止未知/owned-child、可信file IPC、明确LAN和数据保护规则不放宽。",
+        "2026-11-08入口检查仅线稿增量：默认折叠、明确点击、分项来源/时间；此电脑观测不等于公网或本机实例验收，源码与Actions另验。"
       ],
       "merge": "公网入口引导收在原本机面板内，分步只展当前任务；真实监听与用户声明各有来源，原服务管理/网关控制台继续复用。",
       "access": "沿用现有身份、角色和服务端权限",
-      "status": "已批准主线B5b1增量设计；源码与Actions结果另验，公网未验证",
+      "status": "已批准主线B5入口检查线稿增量；源码与Actions另验，外部verification保持unknown",
       "common_notes": [
         "所有数值和内容均为合成占位；未知值显示“— / 未知”，不补零。",
         "线稿只定义布局和交互意图，不证明产品已实现或浏览器已验收。",
@@ -9275,9 +9286,32 @@
         "手机高频触控目标至少44px；桌面保留键盘焦点、可访问名称及清晰的禁用状态。"
       ],
       "variants": "桌面1200px、手机390px；320/768/1024/1280/1440与亮暗/英文的实际渲染仍待获批CI浏览器验收。",
-      "entry_increment": "2026-11-07 B5a Desktop本机服务；非实机截图，产品实现另验；B5b1已有HTTPS反代向导",
+      "entry_increment": "2026-11-07 B5a Desktop本机服务；非实机截图，产品实现另验；B5b1已有HTTPS反代向导；2026-11-08 B5入口检查设计",
       "source_sha": "13eedad93b365f1a00f45da27faf05e18409af9d",
-      "desktop_public_guide": true
+      "desktop_public_guide": true,
+      "desktop_public_check": {
+        "title": "从此电脑检查",
+        "step": 4,
+        "default_collapsed": true,
+        "implementation_verified": false,
+        "browser_verified": false,
+        "external_verification": "unknown",
+        "result_binding": [
+          "origin",
+          "recordRevision",
+          "generation"
+        ],
+        "items": [
+          "默认只显示折叠摘要；展开不发请求，仅明确点击检查所见已保存入口",
+          "检查入口 https://gateway.example.com〔合成〕；实际观察时间：尚未检查，完成后显示该次时间",
+          "DNS解析〔直接IP时为地址检查〕：尚未检查",
+          "TLS证书：尚未检查",
+          "公共状态响应：尚未检查",
+          "检查 / 取消；检查中停止与退出仍可用，不读取Key或发模型请求",
+          "仅此电脑观测；外部verification保持unknown，不证明公网入站、本机实例、鉴权、模型或额度",
+          "origin/revision/generation改变则旧结果失效；保草稿、步骤、焦点，旧回复不盖新结果"
+        ]
+      }
     },
     {
       "id": "key-edit",

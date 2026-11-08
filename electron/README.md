@@ -5,9 +5,9 @@ This directory contains the Lite desktop wrapper for MyAPI. Initial platforms ar
 
 ## Desktop 使用教程 / Desktop task guide
 
-**先看身份：** 当前应用源码为 `0.2.0-beta.52`，`34b47daf` 的完整CI及Docker Full/Lite备份资格已通过（[CI42465372403](https://github.com/ForceMind/MyAPI/actions/runs/42465372403)）；本批新增Desktop原生后端资格仍待自身Actions，不升级应用版本。最近已验教程为 **beta.51 / `2fb61146`**（[Actions 42460806192](https://github.com/ForceMind/MyAPI/actions/runs/42460806192)）。已有安装构件绑定 **beta.40 / `13eedad9`**：macOS arm64 DMG/ZIP（[Actions 42379249054](https://github.com/ForceMind/MyAPI/actions/runs/42379249054)）和 Windows x64 NSIS/portable（[Actions 42379624002](https://github.com/ForceMind/MyAPI/actions/runs/42379624002)）。它们不是 beta.52；旧包不包含后来源码的全部能力。未正式发布或确认签名，未做真实 GUI、安装、托盘、系统防火墙或跨机验收。不要把 Actions 测试构件当作已受信任的正式安装包。Linux Desktop 不纳入首发。
+**先看身份：** 当前功能源码候选为 `0.2.0-beta.53`（此电脑分层入口检查），尚待自身 Actions；上游 beta.52 / `34b47daf` 的完整CI及Docker Full/Lite备份资格已通过（[CI42465372403](https://github.com/ForceMind/MyAPI/actions/runs/42465372403)）；`4a9d4b6d` 的 Mac/Windows 后端专项与完整 CI 已通过（[CI42476571858](https://github.com/ForceMind/MyAPI/actions/runs/42476571858)），金额三库12叶亦通过；不代表本候选或 GUI 已验。最近已验教程为 **beta.51 / `2fb61146`**（[Actions 42460806192](https://github.com/ForceMind/MyAPI/actions/runs/42460806192)）。已有安装构件绑定 **beta.40 / `13eedad9`**：macOS arm64 DMG/ZIP（[Actions 42379249054](https://github.com/ForceMind/MyAPI/actions/runs/42379249054)）和 Windows x64 NSIS/portable（[Actions 42379624002](https://github.com/ForceMind/MyAPI/actions/runs/42379624002)）。它们不是 beta.53；旧包不包含后来源码的全部能力。未正式发布或确认签名，未做真实 GUI、安装、托盘、系统防火墙或跨机验收。不要把 Actions 测试构件当作已受信任的正式安装包。Linux Desktop 不纳入首发。
 
-**Identity first:** the application remains `0.2.0-beta.52`; source `34b47daf` passed full CI and Docker Full/Lite backup qualification. The new native Desktop backend qualification awaits its own Actions run and does not bump the app version. The latest qualified tutorial commands are **beta.51 / `2fb61146`**, linked above. Existing macOS arm64 DMG/ZIP and Windows x64 NSIS/portable artifacts are **beta.40 / `13eedad9`**. They are not beta.52 and do not include every later source feature. Publication, signing, real GUI/install/tray, firewall and second-device acceptance are unverified. Linux Desktop is not a first-release platform.
+**Identity first:** the feature candidate is `0.2.0-beta.53` (layered entry checks from this computer), awaiting its own Actions validation. Upstream beta.52 source `34b47daf` passed full CI and Docker Full/Lite backup qualification. Source `4a9d4b6d` passed full CI, both native backend jobs and the 12-case amount-preflight database regression. Those results do not qualify this candidate or any GUI. The latest qualified tutorial commands are **beta.51 / `2fb61146`**, linked above. Existing macOS arm64 DMG/ZIP and Windows x64 NSIS/portable artifacts are **beta.40 / `13eedad9`**. They are not beta.53 and do not include every later source feature. Publication, signing, real GUI/install/tray, firewall and second-device acceptance are unverified. Linux Desktop is not a first-release platform.
 
 下面说明的是**当前源码行为**，供维护者审核和后续受控包验收；没有与目标源码匹配并审核过的包时，不提供猜测下载链接、绕过 Gatekeeper/SmartScreen 的命令或自动安装步骤。源码构建只在明确的构建任务中执行，不代表已安装到你的电脑。
 
@@ -33,15 +33,23 @@ Tray, panel and confirmations support Chinese and English. Select the language e
 | --- | --- |
 | 本机 / Local | 默认回环监听；复制面板显示的 OpenAI-compatible Base URL（含 `/v1`），在控制台选择 Key 后配置客户端。控制台根地址不是 API Base URL。 / Loopback is default. Copy the displayed `/v1` Base URL and select a Key in the console; the console root is a different URL. |
 | 私网 / LAN | 从 LAN 帮助选择当前可用私网地址，阅读并确认受控重启。它先确认旧 owned child 已关，再重启本应用，不热切换、不配置防火墙。停止未确认则保留现场，不继续创建第二个服务。 / Select an available private address and confirm the controlled relaunch. The owned child must close first; no hot rebind or firewall configuration is performed. An unconfirmed stop blocks another launch. |
-| 已有 HTTPS 反代 / Existing HTTPS reverse proxy | 在本地公网引导里选择反代位置、核对外部条件、输入 HTTPS 根 origin，再明确保存。保存只是本机入口记录，状态始终未验证；不是 DNS/TLS/鉴权/可达性或模型成功证据。 / Choose the proxy location, review prerequisites, enter an HTTPS root origin and explicitly save. This records a user-provided entry on this computer; verification remains unknown. |
+| 已有 HTTPS 反代 / Existing HTTPS reverse proxy | 在本地公网引导里选择反代位置、核对外部条件、输入 HTTPS 根 origin，再明确保存。保存只是本机入口记录，外部验证状态始终未知；下方的此电脑分层检查是尚待自身 CI 的源码候选。 / Choose the proxy location, review prerequisites, enter an HTTPS root origin and explicitly save. Saving creates a local entry record; external verification remains unknown. The layered check below is a source candidate awaiting its own CI. |
 
 已有 HTTPS 向导不会创建域名、监听公网、开端口、安装隧道、修改 LAN 或替用户选择收费厂商。输入不带 `/v1`、路径前缀、凭据、query 或 fragment；当前只接受 HTTPS 根 origin，本机/私网地址应回到对应分支。客户端复制的是所见已保存地址对应的 `/v1`，不会混入本机地址列表。保存失败、旧记录不可读或确认已过期时保留草稿并显示未知，不假称已保存；不可读旧记录须先明确确认清除，再重新填写。清除只解除这台电脑的记录，外部反代、DNS、隧道和权限必须由操作者另行撤销。
 
 The guide does not create DNS, a public listener, port mappings or tunnels, change LAN scope, or choose a paid vendor. Enter an HTTPS root origin without `/v1`, a prefix path, credentials, query or fragment. Local/LAN inputs belong in their own branches. Copy uses the displayed saved entry plus `/v1`, separately from local addresses. Failed or stale actions preserve the draft and report uncertainty. An unreadable record must be explicitly cleared before saving another. Clearing changes only this computer's record; revoke external DNS/proxy/tunnel/access separately.
 
-个人电脑休眠、合盖、关机、断网、退出、地址变化都会影响访问；面板不承诺后台永远在线、不自动补发请求。上行带宽、资源与额度消耗由使用者控制。公网能力的外部验证和自动更新仍属于后续范围，保存记录不代表已完成它们。
+**从此电脑检查〔源码候选，尚待自身 CI〕：** 原向导第4步的已保存入口下新增默认折叠检查区。展开、轮询或保存不会自动发起请求；只有明确点击“检查已保存入口”才检查当前所见的已保存 origin 及版本，不检查输入草稿，可单独取消。DNS（直填 IP 时为地址检查）、TLS 证书、公共状态响应分别显示未执行、进行中、通过、失败或未知，并保留实际观察时间和此电脑来源。保存、清除、入口文件变化或服务身份变化会使旧结果过时；旧回复不能覆盖新结果，草稿、步骤和焦点保留，检查不会阻塞停止服务或退出。
 
-Sleep, closing a laptop, power loss, disconnection, quitting or address changes can interrupt access. The panel promises neither permanent availability nor request replay. Consider upstream bandwidth, resources and quota. External public-access verification and automatic updates remain future work.
+**Check from this computer — source candidate, awaiting its own CI:** the existing guide adds a collapsed check area beneath the saved entry in step 4. Expanding it, receiving snapshots or saving an entry sends no check automatically. Only **Check saved entry** checks the displayed saved origin and record revision, not the draft; cancellation is separate. DNS (an address check for literal IPs), TLS certificate and public status response have separate not-run, checking, passed, failed or unknown states, with actual observation time and this-computer provenance. Saving, clearing, file changes or service-identity changes invalidate old results. Late replies cannot replace newer results; drafts, steps and focus are preserved, and stop/quit remain available during a check.
+
+检查只读取入口的公共状态，不发送 Key、登录凭据或模型请求，不修改反代或监听。失败提示只给安全且可操作的原因：核对普通公网地址、域名与证书；入口要求登录时说明未发送凭据，遇跳转不继续；无法识别状态、响应过大或超时均如实说明，未知不装成成功。即使三行都通过，也只代表此电脑当时的分层观测；`verification` 仍为 `unknown`，不能证明外网入站可达、是否为本机实例、鉴权、模型或额度可用。真正外部视点的验证仍未交付，当前工作稿也未因旧 CI 或旧安装包而获验收。
+
+The check reads only the entry's public status. It sends no Key, sign-in credentials or model request and changes neither proxy nor listener. Fixed safe hints explain unsupported private/special addresses, domain/certificate problems, sign-in requirements without credentials, unfollowed redirects, unrecognizable status, response limits or timeouts. Unknown results stay unknown. Even if all three stages pass, this is only a layered observation from this computer at that time. `verification` remains `unknown`; it proves neither inbound Internet reachability, identity as this local instance, authentication, model availability nor quota. Verification from a genuinely external viewpoint is not delivered, and old CI or packages do not qualify this work in progress.
+
+个人电脑休眠、合盖、关机、断网、退出、地址变化都会影响访问；面板不承诺后台永远在线、不自动补发请求。上行带宽、资源与额度消耗由使用者控制。此电脑检查不能替代外部视点验证；自动更新仍关闭，保存记录也不代表它们已完成。
+
+Sleep, closing a laptop, power loss, disconnection, quitting or address changes can interrupt access. The panel promises neither permanent availability nor request replay. Consider upstream bandwidth, resources and quota. This-computer checks do not replace external-viewpoint verification. Automatic updates remain off; saving an entry completes neither.
 
 ### 3. 关窗、停服务、退出 / Close, stop or quit
 
@@ -61,9 +69,9 @@ These actions do not kill by port, control external development servers, automat
 
 Expand data/log locations to inspect actual paths. Database selection prefers explicit `MYAPI_SQLITE_PATH`, then `SQLITE_PATH`, then the preserved legacy/canonical file under `userData/data`. An external database path is not automatically included in an app-folder copy. Preserve the configured session secret or private app identity file; regenerating it is not a recovery procedure. Never delete DB/WAL/SHM or identity files to bypass a failure.
 
-只复制一个目录不保证一致或完整备份。先停止并确认服务，再由操作者核对全部真实数据、配置、密钥和外部路径。当前 [备份与恢复 CLI](../docs/BACKUP_RESTORE.md) 的资格范围是 root Linux amd64 Docker Full/Lite SQLite，不能当作 Desktop 的恢复工具；Desktop 自动备份/恢复、更新器和公网外部验证尚未交付。日志只在明确打开时写出原始诊断，可能含敏感细节，分享前应脱敏。
+只复制一个目录不保证一致或完整备份。先停止并确认服务，再由操作者核对全部真实数据、配置、密钥和外部路径。当前 [备份与恢复 CLI](../docs/BACKUP_RESTORE.md) 的资格范围是 root Linux amd64 Docker Full/Lite SQLite，不能当作 Desktop 的恢复工具；Desktop 自动备份/恢复、更新器和真正外部视点验证尚未交付，本机分层入口检查仍为待自身 CI 的源码候选。日志只在明确打开时写出原始诊断，可能含敏感细节，分享前应脱敏。
 
-Copying one directory alone does not guarantee a complete consistent backup. Confirm the service stopped and account for all actual data/configuration/identity paths. The linked backup CLI is qualified for root Linux amd64 Docker Full/Lite SQLite, not Desktop recovery. Automatic Desktop backup/restore, updater and external public verification are not delivered. Explicitly opened local diagnostics can contain sensitive details; redact before sharing.
+Copying one directory alone does not guarantee a complete consistent backup. Confirm the service stopped and account for all actual data/configuration/identity paths. The linked backup CLI is qualified for root Linux amd64 Docker Full/Lite SQLite, not Desktop recovery. Automatic Desktop backup/restore, updater and verification from an external viewpoint are not delivered; the local layered entry check remains a source candidate awaiting its own CI. Explicitly opened local diagnostics can contain sensitive details; redact before sharing.
 
 ### 5. 当前可在 CI 执行的合同 / Current CI command boundaries
 
@@ -81,9 +89,9 @@ node tools/desktop/check.mjs --json
 node --test electron/test/*.test.mjs
 ```
 
-新增维护者专用 Actions 资格入口 `run_desktop_backend_qualification` 默认关闭，仅 manual/dev 使用。它从当前源码分别构建 macOS arm64、再 Windows x64 的真实 Lite 后端，在无 Electron GUI 的夹具中核 owned child 启停、配置标记与会话身份重启复读；只保留安全 JSON，不上传数据库、密钥、原始日志或二进制。本批仍待实际运行。Windows 的进程关闭不会被称为已验证优雅 flush，两版均不宣称账务或在途恢复通过。
+新增维护者专用 Actions 资格入口 `run_desktop_backend_qualification` 默认关闭，仅 manual/dev 使用。它从当前源码分别构建 macOS arm64、再 Windows x64 的真实 Lite 后端，在无 Electron GUI 的夹具中核 owned child 启停、配置标记与会话身份重启复读；只保留安全 JSON，不上传数据库、密钥、原始日志或二进制。该限定资格已在beta.52 / 4a9d4b6d真实通过，beta.53功能候选仍须同SHA重验。Windows 的进程关闭不会被称为已验证优雅 flush，两版均不宣称账务或在途恢复通过。
 
-The new maintainer-only Actions input is off by default and limited to manual dev runs. It builds same-source native Lite backends, macOS arm64 before Windows x64, then checks owned-process lifecycle, configuration and session-identity persistence through an Electron facade. Only safe JSON is retained. The candidate is not yet qualified; Windows graceful flush and accounting remain unverified. No Electron/GUI, installer or public-entry test is performed.
+The new maintainer-only Actions input is off by default and limited to manual dev runs. It builds same-source native Lite backends, macOS arm64 before Windows x64, then checks owned-process lifecycle, configuration and session-identity persistence through an Electron facade. Only safe JSON is retained. The limited backend qualification passed at beta.52 / 4a9d4b6d; this beta.53 feature candidate must be revalidated. Windows graceful flush and accounting remain unverified. No Electron/GUI, installer or public-entry test is performed.
 
 以下开发与打包内容继续保留为维护参考。只有匹配源码的 Actions 构建、平台签名和真实主机步骤分别完成后，才可扩大支持声明；未标记为 `tutorial-command` 的构建/GUI例子不属于本批待验的教程命令集合。
 The following development and packaging references remain available. Source-matched Actions builds, signing and real-host acceptance are separate gates; reference examples are not current qualified installation steps.

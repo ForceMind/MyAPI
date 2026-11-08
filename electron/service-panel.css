@@ -271,6 +271,35 @@ footer {
 .public-guide .actions {
   margin-top: 12px;
 }
+.public-entry-check {
+  border: 1px solid #cbd1db;
+  border-radius: 8px;
+  margin-block: 12px;
+  padding: 0 12px 8px;
+  min-width: 0;
+}
+.public-entry-check code,
+.public-entry-check dd,
+.public-entry-check p {
+  overflow-wrap: anywhere;
+}
+.public-entry-check button {
+  min-height: 44px;
+}
+.public-check-stages dd[data-tone="warning"] {
+  font-weight: 600;
+}
+@media (max-width: 480px) {
+  .public-check-source,
+  .public-check-stages {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  .public-check-source dd,
+  .public-check-stages dd {
+    margin-bottom: 8px;
+  }
+}
 @media (max-width: 600px) {
   main {
     padding: 14px;

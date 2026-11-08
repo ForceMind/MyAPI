@@ -7,6 +7,7 @@ class Element {
   constructor(tag = 'div') { this.tag = tag; this.dataset = {}; this.textContent = ''; this.children = []; this.listeners = new Map(); this.attributes = new Map(); this.disabled = false; this.hidden = false; this.value = ''; this.checked = false; this.open = false }
   set innerHTML(_value) { throw new Error('Panel content must use text, not HTML interpolation') }
   addEventListener(name, listener) { const listeners = this.listeners.get(name) || []; listeners.push(listener); this.listeners.set(name, listeners) }
+  removeEventListener(name, listener) { this.listeners.set(name, (this.listeners.get(name) || []).filter((value) => value !== listener)) }
   append(...children) { this.children.push(...children) }
   replaceChildren(...children) { this.children = children; this.onChildrenReplaced?.() }
   setAttribute(name, value) { this.attributes.set(name, String(value)); if (name === 'value') this.value = String(value) }
@@ -19,13 +20,13 @@ class Element {
 
 const publicAccess = (overrides = {}) => ({ recordRevision: 0, savedOrigin: null, savedBaseURL: null, status: 'not-configured', verification: 'unknown', busy: false, listenerScope: 'local', proxyTargets: ['http://127.0.0.1:3000'], ...overrides })
 const state = (overrides = {}) => ({
-  revision: 1, applicationVersion: '0.2.0-synthetic', language: 'en', messages: {}, state: 'running', stateLabel: 'Running', stateTone: 'success', stateDescription: 'The owned service passed its startup probe.', scopeLabel: 'Local only',
+  revision: 1, generation: 1, applicationVersion: '0.2.0-synthetic', language: 'en', messages: {}, state: 'running', stateLabel: 'Running', stateTone: 'success', stateDescription: 'The owned service passed its startup probe.', scopeLabel: 'Local only',
   canStart: false, canStop: true, canQuit: true, canOpenConsole: true, canRestart: true,
   addresses: ['http://127.0.0.1:3000/v1'], locations: { userData: '/synthetic/app', dataDirectory: '/synthetic/app/data', databaseLocationLabel: 'Default database', sessionSecretLabel: 'Stored locally; value not shown', logsDirectory: '/synthetic/app/logs' },
   reasonLabel: 'No error reported', notice: null, publicGuideRequest: 0, publicAccess: publicAccess(), ...overrides,
 })
 
-async function mount({ available = true, initial = state(), actionResponse, expectInitialRender = true, validationAvailable = true, responses = {} } = {}) {
+async function mount({ available = true, initial = state(), actionResponse, expectInitialRender = true, validationAvailable = true, responses = {}, checkBridgeAvailable = true } = {}) {
   const source = await readFile(new URL('../service-panel.js', import.meta.url), 'utf8')
   const validationSource = await readFile(new URL('../public-access-config.js', import.meta.url), 'utf8')
   const html = await readFile(new URL('../service-panel.html', import.meta.url), 'utf8')
@@ -74,6 +75,11 @@ async function mount({ available = true, initial = state(), actionResponse, expe
   }
   for (const name of ['start', 'stop', 'quit', 'openConsole', 'setLanguage', 'copyKnownAddress', 'openKnownLogs', 'showLAN', 'showPublicHelp', 'restartLAN', 'restartLoopback', 'savePublicEntry', 'clearPublicEntry', 'copyPublicBaseURL', 'copyProxyTarget']) {
     bridge[name] = (...args) => { calls.push({ name, args }); return fail ? Promise.reject(new Error('private native error')) : (responses[name] ? responses[name](...args) : actionResponse || Promise.resolve(initial)) }
+  }
+  if (checkBridgeAvailable) {
+    for (const name of ['checkPublicEntry', 'cancelPublicEntryCheck']) {
+      bridge[name] = (...args) => { calls.push({ name, args }); return fail ? Promise.reject(new Error('private native error')) : (responses[name] ? responses[name](...args) : actionResponse || Promise.resolve(initial)) }
+    }
   }
   const unload = []
   const context = vm.createContext({ document, URL, window: { myapiService: available ? bridge : undefined, addEventListener(name, callback) { assert.equal(name, 'unload'); unload.push(callback) } } })
@@ -178,6 +184,8 @@ test('missing native bridge disables every real HTML action instead of presentin
   }
   assert.match(f.ids.get('state-description').textContent, /unavailable/)
   assert.equal(f.calls.length, 0)
+  assert.equal(f.ids.get('public-check-start').disabled, true)
+  assert.equal(f.ids.get('public-check-cancel').disabled, true)
 })
 
 async function enterPublicDraft(f, origin) {
@@ -468,4 +476,255 @@ test('missing shared validation keeps the public guide disabled without replacin
   assert.equal(f.ids.get('public-origin').disabled, true)
   assert.equal(f.ids.get('public-save').disabled, true)
   assert.equal(f.ids.get('public-record-status').textContent, 'Public entry status is unknown.')
+})
+
+const checkedOrigin = 'https://public.example.test'
+const entryCheck = (overrides = {}) => ({ id: 'a'.repeat(32), origin: checkedOrigin, recordRevision: 4,
+  generation: 1, state: 'checking', startedAt: 1700000000000, result: null, ...overrides })
+const entryReport = (overrides = {}) => ({ schemaVersion: 1, origin: checkedOrigin, outcome: 'passed', code: 'CHECK_PASSED',
+  checkedAt: 1700000001000, source: 'this-computer', externalVerification: 'unknown', sameInstanceVerified: false,
+  modelVerified: false, quotaVerified: false, dns: { state: 'passed', source: 'lookup' }, tls: { state: 'passed' },
+  status: { state: 'passed', version: null, productEdition: null }, ...overrides })
+const checkSnapshot = (revision, localCheck, overrides = {}) => state({ revision,
+  publicAccess: publicAccess({ status: 'unverified', savedOrigin: checkedOrigin, savedBaseURL: checkedOrigin + '/v1',
+    recordRevision: 4, localCheck }), ...overrides })
+
+test('the entry check is collapsed and inert until a click binds the displayed saved origin and revision', async () => {
+  const response = checkSnapshot(2, entryCheck())
+  response.publicCheckControlResult = { action: 'start', outcome: 'started', expectedRevision: 4, origin: checkedOrigin, checkId: 'a'.repeat(32) }
+  const f = await mount({ initial: checkSnapshot(1, null), responses: { checkPublicEntry: () => Promise.resolve(response) } })
+  assert.equal(f.ids.get('public-entry-check').open, false)
+  assert.equal(f.ids.get('public-check-start').disabled, false)
+  assert.equal(f.ids.get('public-check-cancel').disabled, true)
+  assert.equal(f.ids.get('public-check-time').textContent, 'Not provided')
+  for (const id of ['dns', 'tls', 'status']) assert.equal(f.ids.get('public-check-' + id).textContent, 'Not checked')
+  f.ids.get('public-entry-check').open = true
+  f.publish(checkSnapshot(1, null))
+  assert.deepEqual(f.calls, [{ name: 'snapshot', args: [] }])
+  await f.ids.get('public-check-start').fire('click')
+  assert.deepEqual(f.calls.at(-1), { name: 'checkPublicEntry', args: [checkedOrigin, 4] })
+  assert.equal(f.ids.get('public-check-feedback').textContent, 'In progress')
+  assert.equal(f.ids.get('public-check-start').disabled, true)
+  assert.equal(f.ids.get('public-check-cancel').disabled, false)
+  assert.equal(f.ids.get('stop').disabled, false)
+  assert.equal(f.ids.get('quit').disabled, false)
+  assert.equal(f.ids.get('public-record-status').textContent, 'Saved on this computer · unverified')
+})
+
+test('real observation fields distinguish a literal-address check, unrun phases and a completed local result', async () => {
+  const progress = entryReport({ outcome: 'unknown', code: 'TLS_CHECKING', checkedAt: null,
+    dns: { state: 'passed', source: 'literal' }, tls: { state: 'checking' }, status: { state: 'not-run', version: null, productEdition: null } })
+  // Public literal IPs are valid entry syntax; this fixture makes no connection.
+  const origin = 'https://203.0.113.20'
+  const view = (revision, report, stateValue) => checkSnapshot(revision, entryCheck({ origin, state: stateValue,
+    result: { ...report, origin } }), { publicAccess: publicAccess({ status: 'unverified', savedOrigin: origin,
+      savedBaseURL: origin + '/v1', recordRevision: 4, localCheck: entryCheck({ origin, state: stateValue, result: { ...report, origin } }) }) })
+  const f = await mount({ initial: view(1, progress, 'checking') })
+  assert.equal(f.ids.get('public-check-origin').textContent, origin)
+  assert.equal(f.ids.get('public-check-dns-label').textContent, 'Address check')
+  assert.equal(f.ids.get('public-check-dns').textContent, 'Passed')
+  assert.equal(f.ids.get('public-check-tls').textContent, 'In progress')
+  assert.equal(f.ids.get('public-check-status').textContent, 'Not checked')
+  assert.equal(f.ids.get('public-check-time').textContent, 'Not provided')
+  f.publish(view(2, entryReport({ dns: { state: 'passed', source: 'literal' } }), 'completed'))
+  assert.equal(f.ids.get('public-check-time').textContent, new Date(1700000001000).toLocaleString('en'))
+  assert.equal(f.ids.get('public-check-feedback').textContent, 'Checks completed from this computer. External access remains unverified.')
+  for (const id of ['dns', 'tls', 'status']) assert.equal(f.ids.get('public-check-' + id).textContent, 'Passed')
+  assert.equal(f.ids.get('public-record-status').textContent, 'Saved on this computer · unverified')
+  assert.deepEqual(f.calls, [{ name: 'snapshot', args: [] }])
+})
+
+test('cancel binds the visible check ID and preserves the draft, step, focus and original stop and quit actions', async () => {
+  const cancelled = checkSnapshot(2, entryCheck({ state: 'cancelled', result: entryReport({ outcome: 'cancelled', code: 'CANCELLED',
+    tls: { state: 'unknown' }, status: { state: 'not-run', version: null, productEdition: null } }) }))
+  cancelled.publicCheckControlResult = { action: 'cancel', outcome: 'cancelled', expectedRevision: null, origin: checkedOrigin, checkId: 'a'.repeat(32) }
+  const f = await mount({ initial: checkSnapshot(1, entryCheck()), responses: { cancelPublicEntryCheck: () => Promise.resolve(cancelled) } })
+  await enterPublicDraft(f, 'https://draft.example.test')
+  await f.ids.get('public-step-4').fire('click')
+  f.ids.get('public-check-cancel').focus()
+  await f.ids.get('public-check-cancel').fire('click')
+  assert.deepEqual(f.calls.at(-1), { name: 'cancelPublicEntryCheck', args: ['a'.repeat(32)] })
+  assert.equal(f.ids.get('public-origin').value, 'https://draft.example.test')
+  assert.equal(f.ids.get('public-page-4').hidden, false)
+  assert.equal(f.document.activeElement, f.ids.get('public-check-cancel'))
+  assert.equal(f.ids.get('public-check-feedback').textContent, 'Cancelled')
+  assert.equal(f.ids.get('public-check-status').textContent, 'Not checked')
+  assert.equal(f.ids.get('stop').disabled, false)
+  assert.equal(f.ids.get('quit').disabled, false)
+  await f.ids.get('stop').fire('click')
+  await f.ids.get('quit').fire('click')
+  assert.deepEqual(f.calls.slice(-2).map(value => value.name), ['stop', 'quit'])
+  assert.equal(f.calls.some(value => ['savePublicEntry', 'clearPublicEntry'].includes(value.name)), false)
+})
+
+test('a delayed start reply cannot replace a newer entry or check, advance steps or discard an edited draft', async () => {
+  let release
+  const pending = new Promise(resolve => { release = resolve })
+  const f = await mount({ initial: checkSnapshot(1, null), responses: { checkPublicEntry: () => pending } })
+  await enterPublicDraft(f, 'https://unsaved.example.test')
+  await f.ids.get('public-step-4').fire('click')
+  const click = f.ids.get('public-check-start').fire('click')
+  await f.ids.get('public-back-4').fire('click')
+  f.ids.get('public-origin').focus()
+  const nextOrigin = 'https://replacement.example.test'
+  f.publish(checkSnapshot(10, null, { publicAccess: publicAccess({ status: 'unverified', savedOrigin: nextOrigin,
+    savedBaseURL: nextOrigin + '/v1', recordRevision: 5, localCheck: entryCheck({ id: 'b'.repeat(32), origin: nextOrigin,
+      recordRevision: 5, state: 'completed', result: entryReport({ origin: nextOrigin }) }) }) }))
+  const old = checkSnapshot(2, entryCheck())
+  old.publicCheckControlResult = { action: 'start', outcome: 'started', expectedRevision: 4, origin: checkedOrigin, checkId: 'a'.repeat(32) }
+  release(old)
+  await click
+  assert.equal(f.ids.get('public-check-origin').textContent, nextOrigin)
+  assert.equal(f.ids.get('public-origin').value, 'https://unsaved.example.test')
+  assert.equal(f.ids.get('public-page-3').hidden, false)
+  assert.equal(f.document.activeElement, f.ids.get('public-origin'))
+  assert.equal(f.ids.get('public-check-dns').textContent, 'Passed')
+  assert.equal(f.ids.get('public-check-feedback').textContent, 'The check response could not be matched. Review the current entry.')
+})
+
+test('old cancel handlers do not cancel a replacement check and same-origin revision or generation changes invalidate old observations', async () => {
+  const done = entryCheck({ state: 'completed', result: entryReport() })
+  const f = await mount({ initial: checkSnapshot(1, entryCheck()) })
+  const oldCancel = f.ids.get('public-check-cancel').listeners.get('click')[0]
+  f.publish(checkSnapshot(2, entryCheck({ id: 'b'.repeat(32) })))
+  await oldCancel()
+  assert.deepEqual(f.calls, [{ name: 'snapshot', args: [] }])
+  f.publish(checkSnapshot(3, done, { generation: 2 }))
+  for (const id of ['dns', 'tls', 'status']) assert.equal(f.ids.get('public-check-' + id).textContent, 'Unknown')
+  assert.equal(f.ids.get('public-check-feedback').textContent, 'This result belongs to an earlier saved entry or service state. Run a new check.')
+  f.publish(checkSnapshot(4, done, { publicAccess: publicAccess({ status: 'unverified', savedOrigin: checkedOrigin,
+    savedBaseURL: checkedOrigin + '/v1', recordRevision: 5, localCheck: done }) }))
+  assert.equal(f.ids.get('public-check-status').textContent, 'Unknown')
+  assert.equal(f.ids.get('public-check-time').textContent, new Date(1700000001000).toLocaleString('en'))
+  assert.equal(f.ids.get('public-entry-check').open, false)
+})
+
+test('old snapshots or a missing check bridge disable only the new check area', async () => {
+  for (const options of [
+    { initial: checkSnapshot(1, null, { publicAccess: publicAccess({ status: 'unverified', savedOrigin: checkedOrigin,
+      savedBaseURL: checkedOrigin + '/v1', recordRevision: 4 }) }) },
+    { initial: checkSnapshot(1, null), checkBridgeAvailable: false },
+  ]) {
+    const f = await mount(options)
+    assert.equal(f.ids.get('public-check-start').disabled, true)
+    assert.equal(f.ids.get('public-check-cancel').disabled, true)
+    assert.equal(f.ids.get('public-check-feedback').textContent, 'Entry checks are unavailable in this version.')
+    assert.equal(f.ids.get('public-step-4').disabled, false)
+    assert.equal(f.ids.get('stop').disabled, false)
+    await f.ids.get('public-saved-entry').children[0].children[1].fire('click')
+    assert.deepEqual(f.calls.at(-1), { name: 'copyPublicBaseURL', args: [checkedOrigin + '/v1', 4] })
+  }
+})
+
+test('malformed or overclaiming check results stay unknown without disabling the existing guide', async () => {
+  const malformed = [
+    entryCheck({ id: 'not-an-id' }),
+    entryCheck({ result: entryReport({ source: 'another-computer' }) }),
+    entryCheck({ result: entryReport({ sameInstanceVerified: true }) }),
+    entryCheck({ result: entryReport({ externalVerification: 'passed' }) }),
+    entryCheck({ result: entryReport({ checkedAt: 'unknown' }) }),
+    entryCheck({ state: 'completed', result: entryReport({ status: { state: 'not-run', version: null, productEdition: null } }) }),
+  ]
+  for (const value of malformed) {
+    const f = await mount({ initial: checkSnapshot(1, value) })
+    assert.equal(f.ids.get('public-check-start').disabled, true)
+    assert.equal(f.ids.get('public-check-feedback').textContent, 'The check could not be completed. Its result is unknown.')
+    for (const id of ['dns', 'tls', 'status']) assert.equal(f.ids.get('public-check-' + id).textContent, 'Unknown')
+    assert.equal(f.ids.get('public-step-4').disabled, false)
+    assert.equal(f.ids.get('stop').disabled, false)
+    assert.deepEqual(f.calls, [{ name: 'snapshot', args: [] }])
+  }
+})
+
+test('a reply with a mismatched control acknowledgement cannot invent a started check', async () => {
+  const response = checkSnapshot(2, entryCheck())
+  response.publicCheckControlResult = { action: 'start', outcome: 'started', expectedRevision: 999, origin: checkedOrigin, checkId: 'a'.repeat(32) }
+  const f = await mount({ initial: checkSnapshot(1, null), responses: { checkPublicEntry: () => Promise.resolve(response) } })
+  await f.ids.get('public-check-start').fire('click')
+  assert.equal(f.ids.get('public-check-feedback').textContent, 'The check response could not be matched. Review the current entry.')
+  assert.equal(f.ids.get('public-check-cancel').disabled, true)
+  assert.equal(f.ids.get('public-check-status').textContent, 'Not checked')
+  assert.equal(f.ids.get('public-check-start').disabled, false)
+})
+
+test('a bound older control receipt accepts newer progress or completion of that same check without rendering the old snapshot', async t => {
+  const progress = entryReport({ outcome: 'unknown', code: 'TLS_CHECKING', checkedAt: null,
+    tls: { state: 'checking' }, status: { state: 'not-run', version: null, productEdition: null } })
+  const cancelled = entryReport({ outcome: 'cancelled', code: 'CANCELLED', checkedAt: 1700000004000,
+    tls: { state: 'unknown' }, status: { state: 'not-run', version: null, productEdition: null } })
+  for (const scenario of [
+    { name: 'started receipt after progress', action: 'start', latest: entryCheck({ result: progress }), feedback: 'In progress', tls: 'In progress', time: 'Not provided' },
+    { name: 'started receipt after completion', action: 'start', latest: entryCheck({ state: 'completed', result: entryReport({ checkedAt: 1700000004000 }) }),
+      feedback: 'Checks completed from this computer. External access remains unverified.', tls: 'Passed', time: new Date(1700000004000).toLocaleString('en') },
+    { name: 'cancelled receipt after newer cancelled state', action: 'cancel', latest: entryCheck({ state: 'cancelled', result: cancelled }),
+      feedback: 'Cancelled', tls: 'Unknown', time: new Date(1700000004000).toLocaleString('en') },
+  ]) {
+    await t.test(scenario.name, async () => {
+      let release
+      const pending = new Promise(resolve => { release = resolve })
+      const method = scenario.action === 'start' ? 'checkPublicEntry' : 'cancelPublicEntryCheck'
+      const f = await mount({ initial: checkSnapshot(1, scenario.action === 'start' ? null : entryCheck()), responses: { [method]: () => pending } })
+      const button = f.ids.get(scenario.action === 'start' ? 'public-check-start' : 'public-check-cancel')
+      button.focus()
+      const click = button.fire('click')
+      f.publish(checkSnapshot(10, scenario.latest))
+      const oldCheck = scenario.action === 'start' ? entryCheck() : entryCheck({ state: 'cancelled',
+        result: entryReport({ outcome: 'cancelled', code: 'CANCELLED', dns: { state: 'unknown', source: 'lookup' },
+          tls: { state: 'not-run' }, status: { state: 'not-run', version: null, productEdition: null } }) })
+      const old = checkSnapshot(2, oldCheck)
+      old.publicCheckControlResult = { action: scenario.action, outcome: scenario.action === 'start' ? 'started' : 'cancelled',
+        expectedRevision: scenario.action === 'start' ? 4 : null, origin: checkedOrigin, checkId: 'a'.repeat(32) }
+      release(old)
+      await click
+      assert.equal(f.ids.get('public-check-feedback').textContent, scenario.feedback)
+      assert.equal(f.ids.get('public-check-dns').textContent, 'Passed')
+      assert.equal(f.ids.get('public-check-tls').textContent, scenario.tls)
+      assert.equal(f.ids.get('public-check-time').textContent, scenario.time)
+      assert.equal(f.document.activeElement, button)
+      assert.equal(f.ids.get('public-entry-check').open, false)
+      assert.deepEqual(f.calls.at(-1), { name: method, args: scenario.action === 'start' ? [checkedOrigin, 4] : ['a'.repeat(32)] })
+    })
+  }
+})
+
+test('current final check failures show only fixed actionable hints, while stale, cancelled and in-progress states keep their own meaning', async t => {
+  const cases = [
+    { code: 'address-type-unsupported', phase: 'dns', hint: 'This address is private or special-use. This check supports only ordinary public addresses.' },
+    ...['tls-untrusted', 'tls-hostname', 'tls-validity'].map(code => ({ code, phase: 'tls', hint: 'Check the entry domain and its HTTPS certificate trust, hostname and validity.' })),
+    { code: 'http-auth-required', phase: 'status', hint: 'The entry requires sign-in. This check sent no credentials.' },
+    { code: 'http-redirect', phase: 'status', hint: 'The entry returned a redirect. This check did not follow it.' },
+    ...['invalid-status', 'http-status'].map(code => ({ code, phase: 'status', hint: 'The entry did not return a recognizable gateway status.' })),
+    { code: 'response-too-large', phase: 'status', hint: 'The response exceeded the check limit.', unknown: true },
+    { code: 'timeout', phase: 'tls', hint: 'The check timed out. Review the entry before retrying.', unknown: true },
+  ]
+  for (const item of cases) {
+    await t.test(item.code, async () => {
+      const report = entryReport({ outcome: item.unknown ? 'unknown' : 'failed', code: item.code })
+      for (const phase of ['dns', 'tls', 'status']) {
+        if (phase === item.phase) report[phase].state = item.unknown ? 'unknown' : 'failed'
+        else if (['dns', 'tls', 'status'].indexOf(phase) > ['dns', 'tls', 'status'].indexOf(item.phase)) report[phase].state = 'not-run'
+      }
+      const f = await mount({ initial: checkSnapshot(1, entryCheck({ state: 'completed', result: report })) })
+      const summary = item.unknown ? 'The check could not be completed. Its result is unknown.' : 'Some checks failed. External access remains unverified.'
+      assert.equal(f.ids.get('public-check-feedback').textContent, summary + ' ' + item.hint)
+      assert.equal(f.ids.get('public-check-' + item.phase).textContent, item.unknown ? 'Unknown' : 'Failed')
+      assert.equal(f.ids.get('public-record-status').textContent, 'Saved on this computer · unverified')
+      assert.deepEqual(f.calls, [{ name: 'snapshot', args: [] }])
+    })
+  }
+  for (const item of [
+    { state: 'stale', outcome: 'failed', checkedAt: 1700000001000, feedback: 'This result belongs to an earlier saved entry or service state. Run a new check.' },
+    { state: 'cancelled', outcome: 'cancelled', checkedAt: 1700000001000, feedback: 'Cancelled' },
+    { state: 'checking', outcome: 'unknown', checkedAt: null, feedback: 'In progress' },
+  ]) {
+    const f = await mount({ initial: checkSnapshot(1, entryCheck({ state: item.state, result: entryReport({ code: 'timeout',
+      outcome: item.outcome, checkedAt: item.checkedAt, tls: { state: item.state === 'checking' ? 'checking' : 'unknown' },
+      status: { state: 'not-run', version: null, productEdition: null } }) })) })
+    assert.equal(f.ids.get('public-check-feedback').textContent, item.feedback)
+  }
+  for (const code of ['UNRECOGNIZED_SAFE_CODE', 'constructor']) {
+    const unknown = await mount({ initial: checkSnapshot(1, entryCheck({ state: 'unknown', result: entryReport({ outcome: 'unknown',
+      code, status: { state: 'unknown', version: null, productEdition: null } }) })) })
+    assert.equal(unknown.ids.get('public-check-feedback').textContent, 'The check could not be completed. Its result is unknown.')
+  }
 })

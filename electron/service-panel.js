@@ -21,6 +21,11 @@
   let proxyCopyButtons = [];
   let savedButtons = [];
   let recoveryButton = null;
+  let checkPending = false;
+  let checkFeedback = "";
+  let checkSignature = "";
+  let checkStartListener = null;
+  let checkCancelListener = null;
   const element = (id) => document.getElementById(id);
   const t = (key) => snapshot?.messages?.[key] || key;
 
@@ -395,6 +400,143 @@
     }
   }
 
+  function publicEntryCheck(next, view = publicView) {
+    if (!view || !Object.prototype.hasOwnProperty.call(view, "localCheck") ||
+        typeof bridge?.checkPublicEntry !== "function" || typeof bridge?.cancelPublicEntryCheck !== "function")
+      return { supported: false, valid: false, value: null, current: false };
+    const value = view.localCheck;
+    if (value === null) return { supported: true, valid: true, value: null, current: false };
+    const integer = (number) => Number.isSafeInteger(number) && number >= 0;
+    const timestamp = (number) => integer(number) && number <= 8640000000000000;
+    const stage = (part) => part && ["not-run", "checking", "passed", "failed", "unknown"].includes(part.state);
+    const saved = publicConfig.validatePublicEntry(value?.origin);
+    if (!value || !/^[a-f0-9]{32}$/.test(value.id) || !saved.ok || saved.origin !== value.origin ||
+        !integer(value.recordRevision) || !integer(value.generation) || !timestamp(value.startedAt) ||
+        !["checking", "completed", "cancelled", "stale", "unknown"].includes(value.state))
+      return { supported: true, valid: false, value: null, current: false };
+    const result = value.result;
+    if (result !== null && (!result || result.schemaVersion !== 1 || result.origin !== value.origin ||
+        !["passed", "failed", "unknown", "cancelled"].includes(result.outcome) ||
+        typeof result.code !== "string" || !/^[a-zA-Z0-9_-]{1,80}$/.test(result.code) ||
+        (result.checkedAt !== null && !timestamp(result.checkedAt)) || result.source !== "this-computer" ||
+        result.externalVerification !== "unknown" || result.sameInstanceVerified !== false ||
+        result.modelVerified !== false || result.quotaVerified !== false || !stage(result.dns) ||
+        !["lookup", "literal", null].includes(result.dns.source) || !stage(result.tls) || !stage(result.status) ||
+        (result.status.version !== null && (typeof result.status.version !== "string" || result.status.version.length > 128 || /[\u0000-\u001f\u007f]/.test(result.status.version))) ||
+        !["full", "lite", null].includes(result.status.productEdition) ||
+        (result.outcome === "passed" && ![result.dns, result.tls, result.status].every((part) => part.state === "passed")) ||
+        (value.state === "checking" && (result.checkedAt !== null || result.outcome !== "unknown"))))
+      return { supported: true, valid: false, value: null, current: false };
+    if (value.state === "completed" && result === null)
+      return { supported: true, valid: false, value: null, current: false };
+    return { supported: true, valid: true, value, current: value.state !== "stale" &&
+      view.status === "unverified" && value.origin === view.savedOrigin &&
+      value.recordRevision === view.recordRevision && value.generation === next.generation };
+  }
+
+  function renderPublicEntryCheck(next) {
+    const check = publicEntryCheck(next);
+    const value = check.value;
+    const result = value?.result;
+    const signature = JSON.stringify([check.supported, check.valid, value?.id, value?.state, check.current]);
+    if (signature !== checkSignature) { checkSignature = signature; checkFeedback = ""; }
+    element("public-check-origin").textContent = value?.origin || publicView?.savedOrigin || t("Not provided");
+    element("public-check-time").textContent = result?.checkedAt == null ? t("Not provided") :
+      new Date(result.checkedAt).toLocaleString(next.language === "zh" ? "zh-CN" : "en");
+    element("public-check-dns-label").textContent = t(result?.dns.source === "literal" ? "Address check" : "DNS resolution");
+    const labels = { "not-run": "Not checked", checking: "In progress", passed: "Passed", failed: "Failed", unknown: "Unknown" };
+    for (const name of ["dns", "tls", "status"]) {
+      const state = (check.supported && !check.valid) || (value && !check.current) ? "unknown" : result?.[name].state || "not-run";
+      const node = element(`public-check-${name}`);
+      node.textContent = t(labels[state]);
+      node.dataset.tone = state === "failed" ? "warning" : "neutral";
+    }
+    let feedback = "Not checked";
+    if (!check.supported) feedback = "Entry checks are unavailable in this version.";
+    else if (!check.valid) feedback = "The check could not be completed. Its result is unknown.";
+    else if (publicView.status !== "unverified" && !value) feedback = "No saved entry is available to check.";
+    else if (value && !check.current) feedback = "This result belongs to an earlier saved entry or service state. Run a new check.";
+    else if (value?.state === "checking") feedback = "In progress";
+    else if (value?.state === "cancelled") feedback = "Cancelled";
+    else if (value?.state === "unknown" || result?.outcome === "unknown") feedback = "The check could not be completed. Its result is unknown.";
+    else if (result?.outcome === "cancelled") feedback = "Cancelled";
+    else if (result?.outcome === "failed") feedback = "Some checks failed. External access remains unverified.";
+    else if (result?.outcome === "passed") feedback = "Checks completed from this computer. External access remains unverified.";
+    const hints = {
+      "address-type-unsupported": "This address is private or special-use. This check supports only ordinary public addresses.",
+      "tls-untrusted": "Check the entry domain and its HTTPS certificate trust, hostname and validity.",
+      "tls-hostname": "Check the entry domain and its HTTPS certificate trust, hostname and validity.",
+      "tls-validity": "Check the entry domain and its HTTPS certificate trust, hostname and validity.",
+      "http-auth-required": "The entry requires sign-in. This check sent no credentials.",
+      "http-redirect": "The entry returned a redirect. This check did not follow it.",
+      "invalid-status": "The entry did not return a recognizable gateway status.",
+      "http-status": "The entry did not return a recognizable gateway status.",
+      "response-too-large": "The response exceeded the check limit.",
+      timeout: "The check timed out. Review the entry before retrying.",
+    };
+    const hint = !checkFeedback && check.current && ["completed", "unknown"].includes(value?.state) &&
+      ["failed", "unknown"].includes(result?.outcome) && Object.prototype.hasOwnProperty.call(hints, result.code) ? hints[result.code] : null;
+    element("public-check-feedback").textContent = t(checkFeedback || feedback) + (hint ? " " + t(hint) : "");
+    const start = element("public-check-start"), cancel = element("public-check-cancel");
+    start.disabled = !check.supported || !check.valid || checkPending || !publicReady() ||
+      publicView.status !== "unverified" || value?.state === "checking" || !Number.isSafeInteger(next.generation) || next.generation < 0;
+    cancel.disabled = checkPending || !check.current || value?.state !== "checking";
+    if (checkStartListener) start.removeEventListener("click", checkStartListener);
+    if (checkCancelListener) cancel.removeEventListener("click", checkCancelListener);
+    const target = { origin: publicView?.savedOrigin, revision: publicView?.recordRevision, generation: next.generation };
+    checkStartListener = () => {
+      if (!start.disabled && target.origin === publicView?.savedOrigin && target.revision === publicView?.recordRevision && target.generation === snapshot?.generation)
+        return runPublicEntryCheck("start", target);
+    };
+    const cancellation = { ...target, origin: value?.origin, id: value?.id };
+    checkCancelListener = () => {
+      if (!cancel.disabled && publicView?.localCheck?.id === cancellation.id)
+        return runPublicEntryCheck("cancel", cancellation);
+    };
+    start.addEventListener("click", checkStartListener);
+    cancel.addEventListener("click", checkCancelListener);
+  }
+
+  async function runPublicEntryCheck(action, target) {
+    if (checkPending) return;
+    checkPending = true;
+    checkFeedback = "";
+    renderPublicEntryCheck(snapshot);
+    try {
+      const response = await (action === "start" ? bridge.checkPublicEntry(target.origin, target.revision) : bridge.cancelPublicEntryCheck(target.id));
+      const result = response?.publicCheckControlResult;
+      const wrapper = response?.publicAccess?.localCheck;
+      const bound = result && result.action === action &&
+        ["started", "cancelled", "busy", "stale", "unavailable", "unchanged"].includes(result.outcome) &&
+        (result.checkId === null || typeof result.checkId === "string" && /^[a-f0-9]{32}$/.test(result.checkId)) &&
+        result.expectedRevision === (action === "start" ? target.revision : null) &&
+        (result.origin === target.origin || result.origin === null) &&
+        (action !== "cancel" || result.checkId === target.id) &&
+        (result.outcome !== "started" || (action === "start" && result.origin === target.origin && /^[a-f0-9]{32}$/.test(result.checkId) &&
+          wrapper?.id === result.checkId && wrapper.origin === target.origin && wrapper.recordRevision === target.revision && wrapper.generation === target.generation)) &&
+        (result.outcome !== "cancelled" || (action === "cancel" && wrapper?.id === target.id && wrapper.state === "cancelled" &&
+          wrapper.origin === target.origin && wrapper.recordRevision === target.revision && wrapper.generation === target.generation));
+      const current = publicEntryCheck(snapshot);
+      const previous = bound ? publicEntryCheck(response, publicRecord(response)) : null;
+      // Progress can arrive before its own control reply. Accept only the
+      // complete receipt for this still-current identity, never its old view.
+      const newerSameCheck = bound && Number.isSafeInteger(response.revision) && response.revision >= 0 &&
+        response.revision < snapshot.revision && ["started", "cancelled"].includes(result.outcome) &&
+        result.origin === target.origin && previous?.valid && previous.current &&
+        current.valid && current.current && current.value?.id === result.checkId &&
+        current.value.origin === target.origin && current.value.recordRevision === target.revision &&
+        current.value.generation === target.generation &&
+        (action !== "cancel" || current.value.state === "cancelled");
+      if (!bound || !(newerSameCheck || render(response))) checkFeedback = "The check response could not be matched. Review the current entry.";
+      else if (!["started", "cancelled"].includes(result.outcome)) checkFeedback = "The check request was not accepted. Review the current entry.";
+    } catch {
+      checkFeedback = "The check could not be completed. Its result is unknown.";
+    } finally {
+      checkPending = false;
+      renderPublicEntryCheck(snapshot);
+    }
+  }
+
   function render(next) {
     if (
       !next ||
@@ -468,6 +610,7 @@
       element("addresses").replaceChildren(...rows);
     }
     renderPublicGuide(next);
+    renderPublicEntryCheck(next);
     const locations = [
       ["Application data", next.locations?.userData],
       ["Default data folder", next.locations?.dataDirectory],

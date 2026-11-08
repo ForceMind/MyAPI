@@ -1,6 +1,30 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
-## 2026-11-08 B5原生后端生命周期资格候选，应用仍beta.52
+## 2026-11-08 B5公网入口分层检查：beta.53源码候选，待自身Actions
+
+沿已批准B5b后继，先看并复用原desktop-public-access-concept-20261107.png，再仅细化原desktop-tray一个catalog/article及桌面/窄窗口两SVG；仍329视图，其他328对象/article、canonical其它656SVG及目录其它1322SVG保持，未删原额外666文件。不执行author.py，不本机渲染；线稿与实际视觉仍未验。原四步与全部入口保留，已保存入口下只新增默认折叠检查区，展开不请求，明确点击才检查，可单独取消。
+
+新public-access-check模块仅对固定HTTPS根origin的公共/api/status做有界DNS/地址→可信TLS→状态读取：总10s/64KiB、无Key/cookie/Bearer/代理继承/重定向/重试，所有解析地址均须普通公网且固定连接目标，直接IP明确为地址检查。只投射安全版本/edition与阶段、时间、this-computer来源，externalVerification恒unknown，不把本机观测当外部入站、同一实例、鉴权、模型或额度证明。内部测试DI不跨IPC，无私网/CA/verified生产绕过。
+
+Main/固定IPC/preload只允许当前已存canonical origin+recordRevision启动、精确checkId取消，默认惰性，无自动探测。私有状态不占原actionBusy，stop/quit保原默认取消确认且不等网络；每次progress/final/snapshot复核trusted frame、文件指纹与服务identity，变更stale并abort，旧任务不盖新任务。renderer保草稿/步骤/焦点/原typed save-clear，严格绑定typed start/cancel回执；合法同check晚回执保较新展示，缺证/跨identity仍拒绝。三行只显真实阶段与安全原因，缺/未知不补0，不上raw body/error/IP。
+
+新增与扩展的Node/真实Main-IPC-renderer路径合同尚未执行：DNS mixed/special/mapped/rebind、TLS可信/hostname/validity、401/redirect/格式/大小/超时/取消/晚到、observer异常、无自动调用、生命周期不阻塞与跨记录保护；GHA-only真实owned TLS和显式代理正控证明不继承代理/不带三类凭据头，均非真实公网或GUI。打包白名单/checker与NativeHost require表同步新模块。原生新增33English key以规范临时脚本写en/zh各229键，临时自有脚本已删；其他系统语言沿既有英文fallback，Web七语字典未改。
+
+本批版本五标识beta.53及必要已有说明同步，不发布tag/NPM/GHCR，不生产/供应商/真实模型/浏览器，不本机依赖/项目入口/lint/test/build或下载产物。仅Node/YAML/JSON/XML/AST与diff轻查，需自身完整CI（run_browser=false、run_desktop_backend_qualification=true）含两平台实际后端及新增全部合同通过才验收；不能拿上游4a9绿灯代替。本批精确路径以提交清单为准，C1主审188键仍只机器稿未应用，T1验签/安装接线及10旧UI整文件删除待授权，完整Goal不关闭。
+
+后继主线顺序：C1补已主审188键→B5真实Go经owned HTTPS反代的非GUI链路资格→其余B3/B4形态能力与最终C2/C3。A2–A4主题与A5已验机械精简不重做，A6未知/待准保留；B6评估保root是合格结论，不强切USER；B7只随新增真实能力增量维护。T1冻结项、浏览器/真机/外部视点/发布/生产缺口分开保留，不以它们为由停掉可独立的已准源码工作。
+
+## 2026-11-08 Windows原生只读URI与Desktop后端限定资格已验：4a9d4b6d
+
+`4a9d4b6d90ff1f548ccfdc7edceb2f958709e869` / [完整CI42476571858](https://github.com/ForceMind/MyAPI/actions/runs/42476571858) attempt1 success，14执行成功/7可选跳过；23056行全部实际日志、14 checkout与全部步骤已核，失败/race标记0。前端421文件/3452测试及Root/独立relaykit/386/原三库/race/分发/Root合同通过。相同四叶原c820 Win全部在reader.Conn红，现Linux/Mac/Win四叶全绿，原有效UPDATE/CREATE拒写SQLite码8、全部目录/模式/字节保全断言不改。改动仅原共享函数6行Windows drive URI规范化，无门禁放宽或数据修改。
+
+Mac job128719161399完整1599行、Win job128719601964完整1651行及安全回执已核，各9项真实Go后端资格全true：同SHA/binary hash/实际Lite初始化、loopback配置与secret复读、两代owned child/无关canary保全/关闭前等待和自有清理。Mac两代exit0，Windows明确graceful_stop_verified=false/windows_graceful_flush_not_verified；两版accounting_verified=false、electron/gui=false，不把配置往返当账务、在途flush、安装或GUI证明。
+
+writer三库job128719161486完整2291行已核，原SQLite模式/异常/历史/live-WAL/clean-WAL/拒写与真实MySQL/Postgres配置库均PASS。原金额[CI42476575996](https://github.com/ForceMind/MyAPI/actions/runs/42476575996)同SHA success、完整1420行/checkout和步骤已核；原Go exit=0，SQLite/MySQL5.7/PG9.6各4叶共12PASS/0skip/0fail，非只看证据分类器绿。edition原真实三库保持通过。
+
+安全报告：Mac [13615727596](https://github.com/ForceMind/MyAPI/actions/runs/42476571858/artifacts/13615727596)，932 bytes、SHA256 76bb11314eed3a069781a2e02537e3bcc6ef7f69dde998095991e2517b388e7b、到期2026-11-15T11:39:22Z；Win [13615397910](https://github.com/ForceMind/MyAPI/actions/runs/42476571858/artifacts/13615397910)，921 bytes、SHA256 6ac05df43356e9d8f29edc222c0decf4a8b05f60b2a42d6238d584c83e546112、到期2026-11-15T11:44:59Z；金额 [13615324060](https://github.com/ForceMind/MyAPI/actions/runs/42476575996/artifacts/13615324060)，5390 bytes、SHA256 6a8c242ab8e585c0bb392074d8a4b5e899735e34a26b5dd18ec802d50e072321、到期2026-11-15T11:41:27Z。均未下载。自动42476570056 cancelled：31行可用日志已读，12取消/8跳过，11个无steps取消job日志404，不编造执行/通过。以下beta.52候选与红灯按各自历史时点理解。
+
+## 2026-11-08 beta.52原生资格候选与红绿过程（历史）
 
 四叶原实现红证据：`c820f60f607a1e381ea22e4198191e2245588a27` / [CI42475202656](https://github.com/ForceMind/MyAPI/actions/runs/42475202656)终态cancelled，11成功/1失败/2取消/7跳过，16153行全部实际日志/14 checkout已核。Linux job128716080997四叶实际PASS已逐名核；Mac job128716080706完整1644行四叶PASS且9项Native通过。Windows job128716848932完整488行编译和独立原生建库成功，4叶均在reader.Conn第117行报SQLite逻辑错误out of memory (1)，不是fixture/setup或编译红；原文件保全无额外失败，后续Native尚未运行。此对照支持检查Windows URI边界，仍须修正后同断言绿及原Native重启证明最终效果。自动42475200431取消186行可用日志已读、12取消/8跳过，6个无steps取消job日志404明确不可用，不造通过。
 

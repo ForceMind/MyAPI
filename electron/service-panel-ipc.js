@@ -17,6 +17,8 @@ const SERVICE_PANEL_CHANNELS = Object.freeze({
   clearPublicEntry: "myapi:service:clear-public-entry",
   copyPublicBaseURL: "myapi:service:copy-public-base-url",
   copyProxyTarget: "myapi:service:copy-proxy-target",
+  checkPublicEntry: "myapi:service:check-public-entry",
+  cancelPublicEntryCheck: "myapi:service:cancel-public-entry-check",
 });
 const SERVICE_PANEL_STATE_CHANNEL = "myapi:service:state";
 
@@ -57,7 +59,7 @@ function createServicePanelIPC({ ipcMain, getWindow, panelURL, actions }) {
           args[0].length > 2048
         )
           throw new Error("Invalid configured address selection.");
-      } else if (["savePublicEntry", "clearPublicEntry", "copyPublicBaseURL"].includes(name)) {
+      } else if (["savePublicEntry", "clearPublicEntry", "copyPublicBaseURL", "checkPublicEntry"].includes(name)) {
         const limit =
           name === "copyPublicBaseURL" ? MAX_PUBLIC_BASE_URL_LENGTH : MAX_PUBLIC_ORIGIN_LENGTH;
         const validValue =
@@ -66,6 +68,9 @@ function createServicePanelIPC({ ipcMain, getWindow, panelURL, actions }) {
         if (args.length !== 2 || !validValue || !Number.isSafeInteger(args[1]) || args[1] < 0) {
           throw new Error("Invalid public declaration arguments.");
         }
+      } else if (name === "cancelPublicEntryCheck") {
+        if (args.length !== 1 || typeof args[0] !== "string" || !/^[a-f0-9]{32}$/.test(args[0]))
+          throw new Error("Invalid public entry check identifier.");
       } else if (name === "copyProxyTarget") {
         if (
           args.length !== 1 ||
