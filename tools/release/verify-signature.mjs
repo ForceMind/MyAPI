@@ -171,7 +171,7 @@ export function cosignArguments(options) {
 // generic "verification failed" or a caller-supplied success boolean.
 export function classifyCosignRejection(text) {
   if (typeof text !== 'string' || text.length > 256 * 1024 ||
-      /no such file|permission denied|access denied|unknown (?:flag|command)|usage:|panic:|runtime error|out of memory|fatal error|deadline exceeded|input\/output error|exec format error|timed? out|timeout|connection refused|network is unreachable|unexpected end of json|failed to load|loading trusted root/i.test(text)) return 'unclassified'
+      /no such file|permission denied|access denied|unknown (?:flag|command)|usage:|panic:|runtime error|out of memory|fatal error|deadline exceeded|input\/output error|exec format error|\btimed? out\b|\btimeout\b|connection refused|network is unreachable|unexpected end of json|failed to load|loading trusted root/i.test(text)) return 'unclassified'
   if (/integrated time outside certificate validity/.test(text)) return 'certificate-time'
   if (/no matching CertificateIdentity found[^\n]*expected SAN value /.test(text)) return 'subject'
   if (/no matching CertificateIdentity found[^\n]*expected issuer value /.test(text)) return 'issuer'

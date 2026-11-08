@@ -2,6 +2,8 @@
 
 ## 2026-11-09 T1只读验签前置候选：不接产品，待自身Actions
 
+首轮`d7cb50b9172199a7680f4b4c712e88b09fd91c5e` / [CI42504894358](https://github.com/ForceMind/MyAPI/actions/runs/42504894358)已取红证并正常取消剩余运行：8成功/2失败/3取消/8可选skip，11361行全部实际日志与13 checkout/步骤已核。专项job128805330825完整345行，10合同9过1失败；分发job128805330829为同一合同失败。原因是超时拒绝正则把“time outside certificate validity”的time out前缀误当超时，结果未进入下载/真实验签。后继仅给timed out/time out/timeout加词边界，保原时间/工具故障断言及全部分类门禁，不把证书拒绝改为空值或泛化非0。自动42504891114的取消日志也已读。后继自身10合同、真实7场景和完整CI仍待验证。
+
 本轮批准仅解冻隔离的验签前置工具。新增tools/release/verify-signature.mjs及10组普通合同、release-trust-qualification.yml，ci.yml增加默认false的run_release_trust_qualification；仅manual/dev/本仓库Linux x64执行。产品cli/lib/release-manifest及untrusted byte evidence、下载/安装、部署与更新器完全未接入，也不新增签名、Secret或透明日志写入。版本仍beta.55，不把工具进度当作B3实际安装器完成。
 
 官方cosign v3.1.4的immutable release资产SHA256已由主会话亲读GitHub API核实为424e2c97d0b45fd7a6b608a87f090f35633f4c23ece5f092d48bba11aaf4bbfa；public root固定root-signing c9bda74ad2221f938f7d2e0295ca3aad2da710a8和SHA256 6494e21ea73fa7ee769f85f57d5a3e6a08725eae1e38c755fc3517c9e6bc0b66。公开静态向量固定sigstore-conformance 9611941d54398f2e3f6383b6f744442a56d2fb2a及各Git blob/size；Git blob pin只绑定来源字节，不当作签名证明。校验器、root与向量只在Actions下载；不调用公开OIDC beacon或签发流程。
