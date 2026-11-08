@@ -8,7 +8,10 @@ import path from 'node:path'
 import vm from 'node:vm'
 import * as childProcess from 'node:child_process'
 
-export async function createNativeHost({ electronDirectory, resources, userData, env, version, port }) {
+export async function createNativeHost({ electronDirectory, resources, userData, env, version, port, publicAccessCheckFactory }) {
+  if (publicAccessCheckFactory !== undefined && typeof publicAccessCheckFactory !== 'function') {
+    throw new Error('NATIVE_HOST_CHECK_FACTORY_REJECTED')
+  }
   const require = createRequire(path.join(electronDirectory, 'main.js'))
   const { SERVICE_PANEL_CHANNELS, SERVICE_PANEL_STATE_CHANNEL } = require('./service-panel-ipc')
   const { createServiceDiagnostics, classifyServiceError } = require('./service-diagnostics')
@@ -119,6 +122,14 @@ export async function createNativeHost({ electronDirectory, resources, userData,
     require(name) {
       if (name === 'electron') return electron
       if (name === 'child_process') return instrumentedChildren
+      if (name === './public-access-check' && publicAccessCheckFactory !== undefined) {
+        // This test-only seam delegates to the real checker. Main still calls
+        // its factory without arguments; renderer/IPC cannot select services.
+        return { createPublicAccessCheck(...args) {
+          if (args.length !== 0) throw new Error('NATIVE_HOST_CHECK_FACTORY_REJECTED')
+          return publicAccessCheckFactory()
+        } }
+      }
       if (!modules.has(name)) throw new Error('NATIVE_HOST_MODULE_REJECTED')
       return require(name)
     },
@@ -130,6 +141,27 @@ export async function createNativeHost({ electronDirectory, resources, userData,
   const panel = () => windows.findLast(window => !window.destroyed)
   return {
     children, panel, answers,
+    onSnapshot(listener) {
+      updates.on('state', listener)
+      return () => updates.off('state', listener)
+    },
+    waitForSnapshot(predicate, timeout = 15000) {
+      return new Promise((resolve, reject) => {
+        const finish = (error, value) => {
+          clearTimeout(timer)
+          updates.off('state', receive)
+          if (error) reject(error)
+          else resolve(value)
+        }
+        const receive = value => {
+          try { if (predicate(value)) finish(null, value) }
+          catch { finish(new Error('NATIVE_HOST_OBSERVATION_REJECTED')) }
+        }
+        const timer = setTimeout(() => finish(new Error('NATIVE_HOST_OBSERVATION_TIMEOUT')), timeout)
+        updates.on('state', receive)
+        if (latest) receive(latest)
+      })
+    },
     get exits() { return exits },
     invoke(name, ...args) {
       const window = panel()

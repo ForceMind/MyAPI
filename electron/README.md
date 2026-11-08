@@ -5,9 +5,9 @@ This directory contains the Lite desktop wrapper for MyAPI. Initial platforms ar
 
 ## Desktop 使用教程 / Desktop task guide
 
-**先看身份：** 当前补译源码候选为 `0.2.0-beta.54`，尚待自身 Actions。最近已验功能与教程是 **beta.53 / `7b781ac8`**（[完整CI42479152318](https://github.com/ForceMind/MyAPI/actions/runs/42479152318)）：此电脑分层入口检查、Mac/Windows限定后端资格及24条教程命令通过；不代表 GUI、账务或外部视点已验。Docker Full/Lite备份资格见 `34b47daf` / [CI42465372403](https://github.com/ForceMind/MyAPI/actions/runs/42465372403)。已有安装构件仍绑定 **beta.40 / `13eedad9`**：macOS arm64 DMG/ZIP（[Actions42379249054](https://github.com/ForceMind/MyAPI/actions/runs/42379249054)）和 Windows x64 NSIS/portable（[Actions42379624002](https://github.com/ForceMind/MyAPI/actions/runs/42379624002)）；旧包不包含后来源码的全部能力，不重标版本。未正式发布或确认签名，真实GUI、安装、托盘、防火墙和跨机验收未做；Linux Desktop不纳入首发。
+**先看身份：** 当前补译源码为 `0.2.0-beta.54` / `0d170518`，已通过[完整CI42482319377](https://github.com/ForceMind/MyAPI/actions/runs/42482319377)及24条教程命令。最近已验入口功能与限定后端资格是 **beta.53 / `7b781ac8`**（[完整CI42479152318](https://github.com/ForceMind/MyAPI/actions/runs/42479152318)）：此电脑分层入口检查、Mac/Windows限定后端资格及24条教程命令通过；不代表 GUI、账务或外部视点已验。Docker Full/Lite备份资格见 `34b47daf` / [CI42465372403](https://github.com/ForceMind/MyAPI/actions/runs/42465372403)。已有安装构件仍绑定 **beta.40 / `13eedad9`**：macOS arm64 DMG/ZIP（[Actions42379249054](https://github.com/ForceMind/MyAPI/actions/runs/42379249054)）和 Windows x64 NSIS/portable（[Actions42379624002](https://github.com/ForceMind/MyAPI/actions/runs/42379624002)）；旧包不包含后来源码的全部能力，不重标版本。未正式发布或确认签名，真实GUI、安装、托盘、防火墙和跨机验收未做；Linux Desktop不纳入首发。
 
-**Identity first:** the translation source candidate is `0.2.0-beta.54`, awaiting its own Actions validation. The latest qualified feature and tutorial source is **beta.53 / `7b781ac8`**, linked above: local layered entry checks, limited macOS/Windows backend qualification and all 24 tutorial commands passed. GUI, accounting and external-viewpoint acceptance remain unverified. Docker Full/Lite backup qualification is bound to `34b47daf`. Existing macOS arm64 DMG/ZIP and Windows x64 NSIS/portable artifacts remain **beta.40 / `13eedad9`** and do not include every later source feature. Publication, signing, real GUI/install/tray, firewall and second-device acceptance are unverified. Linux Desktop is not a first-release platform.
+**Identity first:** the translation source is `0.2.0-beta.54` / `0d170518`, which passed its full CI and all 24 tutorial commands. The latest qualified entry feature and limited backend source is **beta.53 / `7b781ac8`**, linked above: local layered entry checks, limited macOS/Windows backend qualification and all 24 tutorial commands passed. GUI, accounting and external-viewpoint acceptance remain unverified. Docker Full/Lite backup qualification is bound to `34b47daf`. Existing macOS arm64 DMG/ZIP and Windows x64 NSIS/portable artifacts remain **beta.40 / `13eedad9`** and do not include every later source feature. Publication, signing, real GUI/install/tray, firewall and second-device acceptance are unverified. Linux Desktop is not a first-release platform.
 
 下面说明的是**当前源码行为**，供维护者审核和后续受控包验收；没有与目标源码匹配并审核过的包时，不提供猜测下载链接、绕过 Gatekeeper/SmartScreen 的命令或自动安装步骤。源码构建只在明确的构建任务中执行，不代表已安装到你的电脑。
 
@@ -75,9 +75,9 @@ Copying one directory alone does not guarantee a complete consistent backup. Con
 
 ### 5. 当前可在 CI 执行的合同 / Current CI command boundaries
 
-以下从仓库根运行，不安装或启动 GUI。第一条检查资源/打包合同，第二条执行 Node/VM/合成 child 合同；它们不能证明托盘显示、真实安装、签名或防火墙访问。这两条原命令已在上文beta.53教程复现，限定原生后端资格也已在该SHA通过。
+以下从仓库根运行，不安装或启动 GUI。第一条检查资源/打包合同，第二条执行 Node/VM/合成 child 合同；它们不能证明托盘显示、真实安装、签名或防火墙访问。这两条原命令已在上文beta.54教程复现；限定原生后端资格仍绑定beta.53 / 7b781ac8。
 
-Run from the repository root. The first command checks packaging/resource contracts; the second exercises Node/VM/synthetic-child contracts without launching Electron GUI. Neither verifies a real tray, installation, signing or firewall. The two exact commands passed in the beta.53 tutorial run above; the limited native-backend qualification passed at the same source.
+Run from the repository root. The first command checks packaging/resource contracts; the second exercises Node/VM/synthetic-child contracts without launching Electron GUI. Neither verifies a real tray, installation, signing or firewall. The two exact commands passed in the beta.54 tutorial run above; the limited native-backend qualification remains bound to beta.53 / 7b781ac8.
 
 <!-- tutorial-command: desktop-source-contract -->
 ```bash
@@ -89,9 +89,9 @@ node tools/desktop/check.mjs --json
 node --test electron/test/*.test.mjs
 ```
 
-新增维护者专用 Actions 资格入口 `run_desktop_backend_qualification` 默认关闭，仅 manual/dev 使用。它从当前源码分别构建 macOS arm64、再 Windows x64 的真实 Lite 后端，在无 Electron GUI 的夹具中核 owned child 启停、配置标记与会话身份重启复读；只保留安全 JSON，不上传数据库、密钥、原始日志或二进制。该限定资格已在beta.53 / 7b781ac8同SHA真实通过；真实Go经owned HTTPS反代的后继联动资格尚待验证。Windows 的进程关闭不会被称为已验证优雅 flush，两版均不宣称账务或在途恢复通过。
+新增维护者专用 Actions 资格入口 `run_desktop_backend_qualification` 默认关闭，仅 manual/dev 使用。它从当前源码分别构建 macOS arm64、再 Windows x64 的真实 Lite 后端，在无 Electron GUI 的夹具中核 owned child 启停、配置标记与会话身份重启复读；只保留安全 JSON，不上传数据库、密钥、原始日志或二进制。该限定资格已在beta.53 / 7b781ac8同SHA真实通过；真实Go经owned HTTPS反代的后继联动资格已补源码：严格核保存入口、真实响应、进度、取消及旧结果失效，原9项保留；8个新增检查与各4次实际proxy/backend GET均须当前SHA的Actions通过。Windows 的进程关闭不会被称为已验证优雅 flush，两版均不宣称账务或在途恢复通过。
 
-The new maintainer-only Actions input is off by default and limited to manual dev runs. It builds same-source native Lite backends, macOS arm64 before Windows x64, then checks owned-process lifecycle, configuration and session-identity persistence through an Electron facade. Only safe JSON is retained. The limited backend qualification passed at beta.53 / 7b781ac8. The subsequent real-Go-through-owned-HTTPS integration qualification remains pending. Windows graceful flush and accounting remain unverified. No Electron/GUI, installer or public-entry test is performed.
+The new maintainer-only Actions input is off by default and limited to manual dev runs. It builds same-source native Lite backends, macOS arm64 before Windows x64, then checks owned-process lifecycle, configuration and session-identity persistence through an Electron facade. Only safe JSON is retained. The limited backend qualification passed at beta.53 / 7b781ac8. The subsequent real-Go-through-owned-HTTPS integration fixture is source-only pending its own Actions run: all original nine checks remain, with eight additional checks and exactly four observed proxy/backend GETs required. Windows graceful flush and accounting remain unverified. No Electron/GUI, installer or real public-network entry test is performed.
 
 以下开发与打包内容继续保留为维护参考。只有匹配源码的 Actions 构建、平台签名和真实主机步骤分别完成后，才可扩大支持声明；未标记为 `tutorial-command` 的构建/GUI例子不属于本批待验的教程命令集合。
 The following development and packaging references remain available. Source-matched Actions builds, signing and real-host acceptance are separate gates; reference examples are not current qualified installation steps.

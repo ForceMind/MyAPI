@@ -232,7 +232,7 @@ jobs:
           try { report = JSON.parse(result.stdout) } catch { throw new Error('DESKTOP_SAFE_REPORT_UNAVAILABLE') }
           const fields = ['schema_version', 'source_sha', 'run_id', 'run_attempt', 'platform', 'architecture', 'binary_sha256',
             'passed', 'phase', 'error_code', 'checks', 'lifecycle', 'qualified_scope', 'graceful_stop_verified',
-            'termination_semantics', 'accounting_verified', 'cleanup', 'electron_started', 'gui_verified', 'model_requests', 'production_touched']
+            'termination_semantics', 'accounting_verified', 'cleanup', 'electron_started', 'gui_verified', 'model_requests', 'production_touched', 'public_entry_check']
           check(report && Object.keys(report).sort().join() === fields.sort().join(), 'DESKTOP_REPORT_SCHEMA_INVALID')
           check(report.schema_version === 1 && typeof report.passed === 'boolean', 'DESKTOP_REPORT_SCHEMA_INVALID')
           check(report.source_sha === null || /^[a-f0-9]{40}$/.test(report.source_sha), 'DESKTOP_REPORT_IDENTITY_INVALID')
@@ -240,7 +240,7 @@ jobs:
           check(report.run_attempt === null || /^[1-9][0-9]*$/.test(report.run_attempt), 'DESKTOP_REPORT_IDENTITY_INVALID')
           check(report.binary_sha256 === null || /^[a-f0-9]{64}$/.test(report.binary_sha256), 'DESKTOP_REPORT_IDENTITY_INVALID')
           check(report.platform === process.env.EXPECTED_PLATFORM && report.architecture === process.env.EXPECTED_ARCH, 'DESKTOP_REPORT_PLATFORM_INVALID')
-          check(['scope', 'source', 'start', 'configure', 'stop', 'restart', 'quit', 'completed'].includes(report.phase) &&
+          check(['scope', 'source', 'start', 'configure', 'public-entry', 'stop', 'restart', 'quit', 'completed'].includes(report.phase) &&
             (report.error_code === null || /^[A-Z][A-Z0-9_]{0,79}$/.test(report.error_code)), 'DESKTOP_REPORT_CLASSIFICATION_INVALID')
           check(report.qualified_scope === 'owned_backend_lifecycle_and_persistence' && report.accounting_verified === false &&
             report.electron_started === false && report.gui_verified === false && report.model_requests === 0 && report.production_touched === false, 'DESKTOP_REPORT_SCOPE_INVALID')
@@ -253,6 +253,20 @@ jobs:
           const cleanupKeys = ['confirmed', 'owned_children_closed', 'fixture_removed']
           check(report.cleanup && Object.keys(report.cleanup).sort().join() === cleanupKeys.sort().join() &&
             cleanupKeys.every(key => typeof report.cleanup[key] === 'boolean'), 'DESKTOP_REPORT_CLEANUP_INVALID')
+          const entry = report.public_entry_check
+          const entryFields = ['scope', 'transport', 'external_verification', 'same_instance_verified', 'model_requests',
+            'proxy_get_count', 'backend_status_get_count', 'checks']
+          check(entry && Object.keys(entry).sort().join() === entryFields.sort().join() &&
+            entry.scope === 'owned_go_https_reverse_proxy_main_controls' && entry.transport === 'controlled-dns-ca-loopback' &&
+            entry.external_verification === 'unknown' && entry.same_instance_verified === false && entry.model_requests === 0,
+            'DESKTOP_PUBLIC_ENTRY_SCOPE_INVALID')
+          for (const key of ['proxy_get_count', 'backend_status_get_count']) {
+            check(entry[key] === null || Number.isSafeInteger(entry[key]) && entry[key] >= 0, 'DESKTOP_PUBLIC_ENTRY_COUNT_INVALID')
+          }
+          const entryChecks = ['saved_record_bound', 'real_go_status_forwarded', 'progress_observed', 'explicit_cancel_confirmed',
+            'stale_entry_ignored', 'credential_free_get_only', 'declaration_unverified', 'owned_proxy_closed']
+          check(entry.checks && Object.keys(entry.checks).sort().join() === [...entryChecks].sort().join() &&
+            entryChecks.every(key => typeof entry.checks[key] === 'boolean'), 'DESKTOP_PUBLIC_ENTRY_CHECKS_INVALID')
           check(Array.isArray(report.lifecycle), 'DESKTOP_REPORT_LIFECYCLE_INVALID')
           const lifecycleFields = ['generation', 'pid', 'requested_signals', 'exit_code', 'signal_code', 'closed']
           for (const item of report.lifecycle) {
@@ -274,6 +288,8 @@ jobs:
             report.run_attempt === process.env.GITHUB_RUN_ATTEMPT && report.binary_sha256 === process.env.MYAPI_DESKTOP_BINARY_SHA256, 'DESKTOP_REPORT_IDENTITY_MISMATCH')
           check(Object.keys(report.checks).length === required.length && required.every(key => report.checks[key] === true) &&
             cleanupKeys.every(key => report.cleanup[key] === true), 'DESKTOP_QUALIFICATION_INCOMPLETE')
+          check(entryChecks.every(key => entry.checks[key] === true) && entry.proxy_get_count === 4 &&
+            entry.backend_status_get_count === 4, 'DESKTOP_PUBLIC_ENTRY_INCOMPLETE')
           check(report.lifecycle.length === 2, 'DESKTOP_GENERATIONS_UNCONFIRMED')
           for (const [index, item] of report.lifecycle.entries()) {
             check(item.generation === index + 1 && Number.isSafeInteger(item.pid) && item.pid > 0 && item.closed === true &&
@@ -291,7 +307,7 @@ jobs:
             ? 'Windows graceful shutdown/flush and accounting remain unverified.'
             : 'Native macOS graceful close was observed; accounting remains unverified.'
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, 'Owned backend lifecycle and persistence passed on ' + process.platform + '/' + process.arch +
-            '. ' + limit + ' No Electron launch, GUI, installer, model request, production operation or full B5 acceptance is claimed.\n')
+            '. Owned Go/HTTPS entry checks passed with controlled DNS/CA/loopback; external verification remains unknown. ' + limit + ' No Electron launch, GUI, installer, model request, production operation or full B5 acceptance is claimed.\n')
           NODE
 
       - name: Require the original tracked source to remain unchanged
@@ -531,7 +547,7 @@ jobs:
           try { report = JSON.parse(result.stdout) } catch { throw new Error('DESKTOP_SAFE_REPORT_UNAVAILABLE') }
           const fields = ['schema_version', 'source_sha', 'run_id', 'run_attempt', 'platform', 'architecture', 'binary_sha256',
             'passed', 'phase', 'error_code', 'checks', 'lifecycle', 'qualified_scope', 'graceful_stop_verified',
-            'termination_semantics', 'accounting_verified', 'cleanup', 'electron_started', 'gui_verified', 'model_requests', 'production_touched']
+            'termination_semantics', 'accounting_verified', 'cleanup', 'electron_started', 'gui_verified', 'model_requests', 'production_touched', 'public_entry_check']
           check(report && Object.keys(report).sort().join() === fields.sort().join(), 'DESKTOP_REPORT_SCHEMA_INVALID')
           check(report.schema_version === 1 && typeof report.passed === 'boolean', 'DESKTOP_REPORT_SCHEMA_INVALID')
           check(report.source_sha === null || /^[a-f0-9]{40}$/.test(report.source_sha), 'DESKTOP_REPORT_IDENTITY_INVALID')
@@ -539,7 +555,7 @@ jobs:
           check(report.run_attempt === null || /^[1-9][0-9]*$/.test(report.run_attempt), 'DESKTOP_REPORT_IDENTITY_INVALID')
           check(report.binary_sha256 === null || /^[a-f0-9]{64}$/.test(report.binary_sha256), 'DESKTOP_REPORT_IDENTITY_INVALID')
           check(report.platform === process.env.EXPECTED_PLATFORM && report.architecture === process.env.EXPECTED_ARCH, 'DESKTOP_REPORT_PLATFORM_INVALID')
-          check(['scope', 'source', 'start', 'configure', 'stop', 'restart', 'quit', 'completed'].includes(report.phase) &&
+          check(['scope', 'source', 'start', 'configure', 'public-entry', 'stop', 'restart', 'quit', 'completed'].includes(report.phase) &&
             (report.error_code === null || /^[A-Z][A-Z0-9_]{0,79}$/.test(report.error_code)), 'DESKTOP_REPORT_CLASSIFICATION_INVALID')
           check(report.qualified_scope === 'owned_backend_lifecycle_and_persistence' && report.accounting_verified === false &&
             report.electron_started === false && report.gui_verified === false && report.model_requests === 0 && report.production_touched === false, 'DESKTOP_REPORT_SCOPE_INVALID')
@@ -552,6 +568,20 @@ jobs:
           const cleanupKeys = ['confirmed', 'owned_children_closed', 'fixture_removed']
           check(report.cleanup && Object.keys(report.cleanup).sort().join() === cleanupKeys.sort().join() &&
             cleanupKeys.every(key => typeof report.cleanup[key] === 'boolean'), 'DESKTOP_REPORT_CLEANUP_INVALID')
+          const entry = report.public_entry_check
+          const entryFields = ['scope', 'transport', 'external_verification', 'same_instance_verified', 'model_requests',
+            'proxy_get_count', 'backend_status_get_count', 'checks']
+          check(entry && Object.keys(entry).sort().join() === entryFields.sort().join() &&
+            entry.scope === 'owned_go_https_reverse_proxy_main_controls' && entry.transport === 'controlled-dns-ca-loopback' &&
+            entry.external_verification === 'unknown' && entry.same_instance_verified === false && entry.model_requests === 0,
+            'DESKTOP_PUBLIC_ENTRY_SCOPE_INVALID')
+          for (const key of ['proxy_get_count', 'backend_status_get_count']) {
+            check(entry[key] === null || Number.isSafeInteger(entry[key]) && entry[key] >= 0, 'DESKTOP_PUBLIC_ENTRY_COUNT_INVALID')
+          }
+          const entryChecks = ['saved_record_bound', 'real_go_status_forwarded', 'progress_observed', 'explicit_cancel_confirmed',
+            'stale_entry_ignored', 'credential_free_get_only', 'declaration_unverified', 'owned_proxy_closed']
+          check(entry.checks && Object.keys(entry.checks).sort().join() === [...entryChecks].sort().join() &&
+            entryChecks.every(key => typeof entry.checks[key] === 'boolean'), 'DESKTOP_PUBLIC_ENTRY_CHECKS_INVALID')
           check(Array.isArray(report.lifecycle), 'DESKTOP_REPORT_LIFECYCLE_INVALID')
           const lifecycleFields = ['generation', 'pid', 'requested_signals', 'exit_code', 'signal_code', 'closed']
           for (const item of report.lifecycle) {
@@ -573,6 +603,8 @@ jobs:
             report.run_attempt === process.env.GITHUB_RUN_ATTEMPT && report.binary_sha256 === process.env.MYAPI_DESKTOP_BINARY_SHA256, 'DESKTOP_REPORT_IDENTITY_MISMATCH')
           check(Object.keys(report.checks).length === required.length && required.every(key => report.checks[key] === true) &&
             cleanupKeys.every(key => report.cleanup[key] === true), 'DESKTOP_QUALIFICATION_INCOMPLETE')
+          check(entryChecks.every(key => entry.checks[key] === true) && entry.proxy_get_count === 4 &&
+            entry.backend_status_get_count === 4, 'DESKTOP_PUBLIC_ENTRY_INCOMPLETE')
           check(report.lifecycle.length === 2, 'DESKTOP_GENERATIONS_UNCONFIRMED')
           for (const [index, item] of report.lifecycle.entries()) {
             check(item.generation === index + 1 && Number.isSafeInteger(item.pid) && item.pid > 0 && item.closed === true &&
@@ -590,7 +622,7 @@ jobs:
             ? 'Windows graceful shutdown/flush and accounting remain unverified.'
             : 'Native macOS graceful close was observed; accounting remains unverified.'
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, 'Owned backend lifecycle and persistence passed on ' + process.platform + '/' + process.arch +
-            '. ' + limit + ' No Electron launch, GUI, installer, model request, production operation or full B5 acceptance is claimed.\n')
+            '. Owned Go/HTTPS entry checks passed with controlled DNS/CA/loopback; external verification remains unknown. ' + limit + ' No Electron launch, GUI, installer, model request, production operation or full B5 acceptance is claimed.\n')
           NODE
 
       - name: Require the original tracked source to remain unchanged

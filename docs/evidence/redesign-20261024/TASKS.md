@@ -1,6 +1,18 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
-## 2026-11-08 C1第五批：beta.54补译候选，待自身Actions
+## 2026-11-08 B5真实Go/HTTPS联动资格候选：待自身Actions
+
+沿beta.53入口检查的后继，仅扩三份既有工具：qualify-backend.mjs、NativeHost夹具、desktop-qualification.yml；加四份现有说明/交接，不改产品源码、功能、版本或字典。复用原同SHA/binary hash的真实Lite Go、私有数据、配置/secret及两代生命周期；原9检查和全部关闭/数据断言保留。新自有HTTPS反代固定无凭据GET /api/status并转发实际Go正文，不合成成功用量或状态。DNS/CA及loopback连接替换仅在夹具，生产模块与IPC无绕过选项。
+
+新增public_entry_check严格投影8项检查、实际proxy/backend计数、固定来源与未知外部验证：保存记录绑定；真实Go响应与分层progress；精确ID取消及socket关闭；换入口使旧请求失效、旧响应不覆盖新结果；无凭据GET；外部/同一实例仍未知；自有代理已关闭。成功要求两计数各4、8项全true、原9与cleanup全true。清理失败仍分别关闭所有持有child，保首个安全错误；网络或child关闭未知则保留fixture并失败，不以空值冒充零或清理成功。
+
+主审与独立只读复核未发现阻塞项；Node/YAML语法及差异轻查已过，真实TLS/OpenSSL/取消时序仍须自身SHA的完整CI与Mac→Win资格（run_desktop_backend_qualification=true、run_browser=false）。不启动Electron/GUI，不真实公网/生产/模型请求，不下载产物或发布。Windows优雅flush及两版账务仍未验，本批不证明全部B5或完整三版本Goal完成。
+
+## 2026-11-08 C1第五批beta.54已验收：0d170518 / CI42482319377
+
+`0d1705189a7186f1b861143a5e9c41faeb717bd5` / [完整CI42482319377](https://github.com/ForceMind/MyAPI/actions/runs/42482319377) attempt1 success：14执行成功/6可选跳过，21072行全部实际日志、14 checkout与全部步骤已核，失败/race标记0。前端421文件3452测试、Root/独立relaykit/386/三库/race/分发与原有合同通过。清单job128736769507完整367行、8合同/0skip：七语各7890键、缺键/extra/占位符/词法缺键0、动态未知388、translation_accepted=false。教程job128736769851完整750行：24原命令及后置检查全过，Full/Lite实际beta.54启停/status与自有清理通过；Native仅预览，Desktop仅Node，不冒称GUI/真实安装/TLS入站/母语验收。
+
+安全报告：[清单13617599254](https://github.com/ForceMind/MyAPI/actions/runs/42482319377/artifacts/13617599254)，374298 bytes、SHA256 18608551eaa47c97f837b1cf153939564e22f8e75cb13a3c7d54ad277004904d、到期2026-11-15T12:53:37Z；[教程13618222235](https://github.com/ForceMind/MyAPI/actions/runs/42482319377/artifacts/13618222235)，1981 bytes、SHA256 07a1de0f3e41e1a9c5539e1c437a1362abbfda2f712596554ec542077ce9c53d、到期2026-11-15T12:57:30Z。未下载。静态网站42482316416/42482316427也成功，全部430/381行日志、同SHA及步骤已核；自动CI42482316359 cancelled的896行可用日志已读，不作绿灯。以下为本批提交时范围，现已通过上述自身CI。
 
 本批只更新五份Web字典中各188个已有值（共940处），七语均保留7890键；en/zh字节不变，无增删键，占位符源码核对无变化。范围覆盖Key客户端配置、连接能力/额度状态、登录与首次引导、钱包/日志/分页及模型同步说明。保留缺失/未知/零、只读刷新与请求重放的区别、付款未知时不重付、单文件内删除范围、管理Key创建未知先查列表，以及全部模型来源、权限和确认含义。五语言为已主审机器稿，尚无母语或浏览器验收。
 
