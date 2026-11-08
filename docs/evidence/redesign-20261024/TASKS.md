@@ -1,6 +1,39 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
-## 2026-11-08 C1剩余确定文案：beta.55源码候选，待自身Actions
+## 2026-11-08 beta.55技术验收与三版本候选构件：202d01c9，全计划未结束
+
+应用源码固定为 `202d01c9cfc6f0b4045955ad726879114f3677bf` / `0.2.0-beta.55`。后继仅更新8份现有说明，不升版本、不重标构件为文档提交。全部构建、测试、打包在Actions；本机未安装依赖、构建测试、Docker、浏览器或下载产物，未生产、真实供应商请求、NPM/GHCR/tag发布或合main。Docker合成调用仅访问自有fake上游。
+
+| 已结束运行 | 已亲核结果及范围 |
+| --- | --- |
+| [完整CI42487543625](https://github.com/ForceMind/MyAPI/actions/runs/42487543625) | attempt1 success，14执行成功/6可选skip，21202行全部实际日志、14 checkout/全部步骤已核、失败/race标记0；前端421文件3452测试，Root/独立relaykit/386/三库/race/分发等过。Go源码/模块相对4a9d4b6d无差异，原金额三库12叶证据按原SHA保留。 |
+| 同CI清单与教程 | 清单job128753918257完整359行、8合同/0skip：七语7890键，缺键/extra/占位符/词法缺键0，动态未知388，translation_accepted=false。教程job128753918302完整754行，24原命令exit0及后置检查全true，Full/Lite报告beta.55，启停/status/自有清理通过；Native仍只预览、Desktop仍只Node。 |
+| [Docker42489190681](https://github.com/ForceMind/MyAPI/actions/runs/42489190681) | 5/5作业success，6867行全实际日志/5 checkout/步骤已核。Full/Lite fresh各19项、LAN源码安装器8项、71277bf6→202d01c9 handoff8项过；browser=not_run，所有浏览器安装/个人浏览器证据步骤skip。安装器另建f434c966测试镜像，不是Lite交付包。 |
+| [Mac42489194257](https://github.com/ForceMind/MyAPI/actions/runs/42489194257) | 1构建成功/1发布skip，1993行全日志及checkout/步骤已核；151合同/0skip，resolved/VITE_BUILD_ID完整匹配202d、beta.55及arm64 DMG/ZIP目标已核。 |
+| [Windows42489929687](https://github.com/ForceMind/MyAPI/actions/runs/42489929687) | Mac结束并核证后触发；1构建成功/1发布skip，1975行全日志及checkout/步骤已核；151合同/0skip，resolved/VITE_BUILD_ID完整匹配202d、beta.55及x64 NSIS/portable目标已核。 |
+
+范围限制：handoff通过包含“历史结算意图/事实阻止新进程启动，原DB/WAL字节不变，未变旧镜像副本保持账务”，以及无该历史的旧SQLite迁移后再放行。不能写成任意旧版平滑升级。Fresh验证包括独立同镜像SQLite/WAL恢复、身份/有限额度/状态/结算证明及精确用量；不是当前生产升级或灾难恢复。Desktop只有构建日志、GitHub构件摘要及SHA256SUMS生成步骤，没有独立source manifest；未下载、安装或启动真实GUI，不宣称开发者签名/公证通过。Native Go/HTTPS限定资格仍绑定e06c252a / CI42485203085，Windows优雅flush、两版账务和真正外部视点仍未验。
+
+### beta.55候选构件索引
+
+下列SHA256是GitHub artifact归档摘要，不是DMG/EXE/TAR逐文件摘要；所有构件均未下载到本机。
+
+| 构件 | GitHub artifact / bytes / 到期UTC | 归档SHA256 / 实际镜像ID |
+| --- | --- | --- |
+| Full Linux amd64 | [13620611900](https://github.com/ForceMind/MyAPI/actions/runs/42489190681/artifacts/13620611900) / 315400411 / 2026-12-08T14:21:26Z | `0adb69e899a0b7e1183e0a9a0debfeb4b261e8d9755a1f0d3f4a779e8e9e9d11`；image `sha256:693db9d926ba5ceb01f50d24805231f345580356424ce413710dc8b7e4a08c91` |
+| Lite/lan Linux amd64 | [13620651963](https://github.com/ForceMind/MyAPI/actions/runs/42489190681/artifacts/13620651963) / 314904792 / 2026-12-08T14:23:16Z | `ed37cc404fdd6748242718eb7482874ec2a3a3e241b33f31d0abbafc3dcb57b5`；image `sha256:8fc0ff238df8ff7432aee4aaa16f0fb314710efa2295b014fad5b0705d9da27e` |
+| macOS arm64 DMG/ZIP及SHA256SUMS | [13620767707](https://github.com/ForceMind/MyAPI/actions/runs/42489194257/artifacts/13620767707) / 276573050 / 2027-02-06T14:18:57Z | `5ccb92a170f2a62aab98369563c665dc2ec7d189611f7e3b547e219ca9cb2351` |
+| Windows x64 NSIS/portable及SHA256SUMS | [13621485445](https://github.com/ForceMind/MyAPI/actions/runs/42489929687/artifacts/13621485445) / 228245054 / 2027-02-06T14:27:55Z | `d79189f37985d2e5bf3b99825d84c57af5fe9ae11bc07b9872b02bd86b867fd3` |
+
+安全报告：[Full fresh13620563807](https://github.com/ForceMind/MyAPI/actions/runs/42489190681/artifacts/13620563807)、[Lite fresh13621077364](https://github.com/ForceMind/MyAPI/actions/runs/42489190681/artifacts/13621077364)、[handoff13621475270](https://github.com/ForceMind/MyAPI/actions/runs/42489190681/artifacts/13621475270)、[LAN安装器13620384487](https://github.com/ForceMind/MyAPI/actions/runs/42489190681/artifacts/13620384487)，均至2026-12-08相应UTC时刻。清单[13620078520](https://github.com/ForceMind/MyAPI/actions/runs/42487543625/artifacts/13620078520)为368696 bytes、SHA256 `e31cb4a70858d6d985b47f34a72baee03b4039da327e7db3694c464ca7bafc10`、至2026-11-15T14:04:39Z；教程[13620620849](https://github.com/ForceMind/MyAPI/actions/runs/42487543625/artifacts/13620620849)为1983 bytes、SHA256 `26c1958ed2e2c0741c583d6d200a670bac35bbb310501a2f3e243c686791959a`、至2026-11-15T14:11:34Z。
+
+静态网站42487540861/42487540965的435/384行全日志、同SHA与步骤已核。自动CI42487540911终态cancelled，497行可用日志已读，1个无steps取消job日志404。手动验收起初排队，正常取消同SHA自动运行后原手动运行继续，未重跑或强制取消。
+
+### 剩余主线与授权边界
+
+A2–A5按原证据保留，不重做精简/分层；A6四个内部type修饰符已交，145未知项保留、10个UI整文件删除仍待具体授权，不删翻译键。B3仅路径预览/unit合同已交，实际安装/升级/回退/保数据卸载与manager生命周期仍缺；PLAN_PHASE2第2项明确“本阶段只写合同与合成测试，不接线下载、验签、安装”，T1前置方案待答复，不自行解冻。B4已验Root Linux amd64 Docker Full/Lite SQLite备份/隔离恢复/保留策略；额外Desktop备份布局不是原计划必做项，不扩范围。B5源码/限定非GUI资格已交，真实GUI/外部网络、Win flush及账务不冒称已验。B6旧卷不兼容时保留Root是合格评估结论，不强迁USER。B7五篇24条原命令已证；C1只收技术补译/同步，母语、动态引用和两歧义旧词保留。C2统一质量审查尚未启动，遵循先完成版本功能再集中找BUG；C3上述非浏览器门禁与构件不替代原生未完成项、C2或未授权的真实环境/浏览器验收。完整Goal仍未完成。
+
+## 2026-11-08 C1剩余确定文案：beta.55已通过自身技术CI（原候选范围）
 
 复用beta.54清单，675个至少一语同en的键经语义分类，375个确定应译候选中373个已形成主审机器稿；另对29个待判断项定点核对并处理23键。实际396个已有键、1827处值更新：en2、zh3、zh-TW353/fr365/ja359/ru360/vi385；无增删键、七语仍7890，变量源码核对无漂移。fr的“{{section}} sections”是合法同形值，保留不强改。271个技术/品牌/同形词保留项不机械替换；Inventory view、Underground两个旧键因上下文不足与en/zh歧义保留原值，不假称全语言母语验收。
 

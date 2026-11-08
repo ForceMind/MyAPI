@@ -1,12 +1,12 @@
 # MyAPI Docker Full、源码分发与统一入口
 
-My API 是面向自建部署的发行品牌，提供可审计的完整源码、部署模板和
+MyAPI 是面向自建部署的发行品牌，提供可审计的完整源码、部署模板和
 `@forcemind/myapi` CLI。源码仓库：
-<https://github.com/ForceMind/MyAPI>（当前为私有仓库）。本文只描述发行层
+<https://github.com/ForceMind/MyAPI>（2026-11-08 API回读为公开仓库）。本文只描述发行层
 的命名和迁移边界；OpenAI、Anthropic、Google 等第三方协议名称仍按其官方
 名称保留。
 
-**发行状态：** 当前源码为 `0.2.0-beta.47`（`90cb0f6c`），自身 CI 与本批教程验收尚待完成；对应 NPM/GHCR 发行未发布。Full/Lite Docker CLI、Desktop 本机服务面板和已有 HTTPS 反代记录向导已有源码，实际验收边界见下文及当前 TASKS；统一 Release Manifest 的下载/验签/安装、原生生命周期执行器、Desktop updater 和自动形态切换仍未接线。现有 `cli/lib/release-manifest.mjs` 与 `installation-state.mjs` 仅为未接线的 schema-1 结构选择和内存安装状态/cleanup plan；`legacy-installation-profile.mjs` 仅对显式旧 Docker 配置作 fail-closed 的 Full/Lite/local/LAN/needs_manual 画像映射。三者都不能获取或验签资产、读写文件、安装、更新、切换或回退。源码检出时，旧示例中的全局 `myapi ...` 命令应替换为从源码根运行的 `node cli/myapi.mjs ...`，或使用维护者
+**发行状态：** 当前已验源码为 `0.2.0-beta.55`（`202d01c9`），[完整CI42487543625](https://github.com/ForceMind/MyAPI/actions/runs/42487543625)与24条教程命令已通过，[Full/Lite镜像候选及隔离SQLite验证](https://github.com/ForceMind/MyAPI/actions/runs/42489190681)也已通过。准确构件身份见[TASKS](evidence/redesign-20261024/TASKS.md)；对应NPM/GHCR发行仍未发布，测试构件不是受信任正式安装来源。Full/Lite Docker CLI、Desktop 本机服务面板和已有 HTTPS 反代记录向导已有源码，实际验收边界见下文及当前 TASKS；统一 Release Manifest 的下载/验签/安装、原生生命周期执行器、Desktop updater 和自动形态切换仍未接线。现有 `cli/lib/release-manifest.mjs` 与 `installation-state.mjs` 仅为未接线的 schema-1 结构选择和内存安装状态/cleanup plan；`legacy-installation-profile.mjs` 仅对显式旧 Docker 配置作 fail-closed 的 Full/Lite/local/LAN/needs_manual 画像映射。三者都不能获取或验签资产、读写文件、安装、更新、切换或回退。源码检出时，旧示例中的全局 `myapi ...` 命令应替换为从源码根运行的 `node cli/myapi.mjs ...`，或使用维护者
 审核过的本地 tarball；正式发布后再按版本和 registry 复核 `npx` 示例。
 
 产品定位、制品关系、更新状态机和验收见 [发行制品、安装与更新合同](RELEASE_MANIFEST.md)；提示词学习数据与 Codex 应用备份的保留规则见 [S5-P 专题](PROMPT_LEARNING.md)。本文保留当前可用 Legacy CLI/Docker 事实，不能把未来命令写成当前可执行命令。

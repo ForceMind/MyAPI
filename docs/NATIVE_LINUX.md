@@ -4,7 +4,7 @@
 
 You can preview the intended directories and print a systemd unit for review. The current entry does not install, adopt, start, update or remove a service. Keep existing installations unchanged.
 
-本文对应 B3a 的只读入口 `deploy/install-native.sh`。源码 `34ad42ac` / [CI42415882062](https://github.com/ForceMind/MyAPI/actions/runs/42415882062) 的证据包括六组合同和 systemd 解析检查；合成可执行文件的参数、环境与 PID 转交检查不等于真实 MyAPI 服务生命周期验收。本文新增的教程命令仍待 B7 Actions 按原命令执行，文稿本身不是验收证据。
+本文对应B3a的只读入口 `deploy/install-native.sh`。源码 `34ad42ac` / [CI42415882062](https://github.com/ForceMind/MyAPI/actions/runs/42415882062)包括六组合同和systemd解析；合成可执行文件的参数/环境/PID转交不等于真实MyAPI服务生命周期验收。本文原教程命令已在beta.55 / 202d01c9 / [CI42487543625](https://github.com/ForceMind/MyAPI/actions/runs/42487543625)逐条通过，仍只证明预览，不是安装、真实EnvironmentFile加载或manager生命周期验收。 Preview commands passed at the stated source; real installation and manager lifecycle remain unverified.
 
 ## 1. 查看帮助 / Read the help
 

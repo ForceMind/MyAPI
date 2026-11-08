@@ -4,7 +4,7 @@
 
 Use the Lite container workflow if you already use Docker Desktop. Use the Desktop guide for the bundled local service and tray controls. Their data locations and update paths differ; neither is an automatic migration into the other.
 
-当前教程基于 beta.47 源码，教程命令仍待 B7 Actions 执行；它不是 beta.47 安装包或正式发行证明。beta.40 的历史测试安装包仍属于其原 SHA/版本，不是重标后的 beta.47。未发布的 NPM 包、镜像 tag 或 Desktop 包不能作为本页的下载承诺。
+当前教程原命令已在beta.55 / 202d01c9 / [CI42487543625](https://github.com/ForceMind/MyAPI/actions/runs/42487543625)通过。该SHA的Docker Full/Lite及Mac→Win候选包已在Actions构建；准确链接、摘要和范围见[electron教程](../electron/README.md)与[TASKS](evidence/redesign-20261024/TASKS.md)。安装/GUI/开发者签名公证未验，不是正式发行；beta.40旧包仍属原来源，未发布NPM/GHCR tag不提供伪下载承诺。 Exact commands passed at beta.55 / 202d01c9; candidate artifacts do not imply trusted publication, installation or GUI acceptance.
 
 ## 1. 先选一条路 / Choose your route
 
@@ -13,7 +13,7 @@ Use the Lite container workflow if you already use Docker Desktop. Use the Deskt
 | 在已有 Docker Desktop 上运行个人 Lite | [Lite / Legacy LAN](LAN_LITE.md) | 源码 CLI 已有 init/start/status/stop；启动仍需实际可用、已审阅的镜像和 Docker 权限 |
 | 查看托盘、本地服务面板和桌面打包 | [electron/README.md](../electron/README.md) 及下文 Desktop 步骤 | 已有源码与合成合同；平台包、真实 GUI/设备另行验收 |
 | 查看 Linux system/XDG 目录与 unit | [Linux 原生预览](NATIVE_LINUX.md) | 只有 help/plan/render-unit，尚不能安装服务 |
-| 备份或恢复数据 | [备份与隔离恢复](BACKUP_RESTORE.md) | beta.46 仅 Root Docker Full + SQLite 已证；不是个人 Lite/Desktop 备份工具 |
+| 备份或恢复数据 | [备份与隔离恢复](BACKUP_RESTORE.md) | Root Linux amd64 Docker Full/Lite + SQLite已证；不是Docker Desktop或Desktop备份资格 |
 
 Desktop 首发顺序为 macOS、再 Windows，Linux Desktop 不纳入首发支持。`electron/README.md` 中仍有 Linux 开发构建项和旧 LAN 说明；这些不能当作 Linux 发行或当前所有面板动作已经实机验收。本文的能力边界用于阅读现有源码，不新增平台承诺。
 
@@ -100,6 +100,6 @@ Clearing the local entry does not disable external infrastructure. Unknown write
 
 Shutting down, sleeping, losing connectivity or quitting the service can interrupt access. Sleep/resume, continuous availability, external reachability and real updates are not qualified here. Automatic updates remain off.
 
-beta.46 的 [备份与隔离恢复](BACKUP_RESTORE.md) 已由源码 `b9c4dcd4` / CI42439207854 证明限定的 Root Docker Full + SQLite 合成路径。beta.47 保留策略清理仍是待验证候选。两者都不能直接用于个人 Lite 或 Desktop，也不能把拷贝正在写入的 SQLite 目录当作已验证备份。不要删旧数据、secret 或安装目录来解决启动失败。
+[备份与隔离恢复](BACKUP_RESTORE.md)已由 `34b47daf` / [CI42465372403](https://github.com/ForceMind/MyAPI/actions/runs/42465372403)证明限定的Root Linux amd64 Docker Full/Lite + SQLite真实备份、隔离恢复与保留策略。该范围不包括Docker Desktop、非root、原生服务或Desktop，不能把拷贝正在写入的SQLite目录当作已验证备份。不要删旧数据、secret或安装目录来解决启动失败。
 
 This is task guidance for existing source capabilities, not GUI, real-provider, cross-device, release or production acceptance. B7 command execution is still pending; no browser, real model request, installation or update was performed while writing this page.

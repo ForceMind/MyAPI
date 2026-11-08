@@ -2,6 +2,12 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**最新已验应用为beta.55 / `202d01c9cfc6f0b4045955ad726879114f3677bf`，完整计划尚未结束。** [完整CI42487543625](https://github.com/ForceMind/MyAPI/actions/runs/42487543625) attempt1 success，14执行成功/6可选skip，21202行全实际日志、14 checkout/全部步骤已核；前端421文件3452测试、Root/独立relaykit/386/三库/race/分发等过。清单359行/8合同：七语7890键、缺键/extra/占位符/词法缺键0，动态未知388、母语未验；教程754行/24原命令及后置检查全过。Go/模块自4a9d4b6d未变，原金额三库证据不重标源码。
+
+**同SHA三版本候选构件已在Actions打包验证，未下载到本机。** [Docker42489190681](https://github.com/ForceMind/MyAPI/actions/runs/42489190681)5作业成功/6867行，Full/Lite各19项、LAN安装器8项、历史handoff8项过；保护性拒绝有结算历史的旧库不等于任意旧版可平滑升级。Full包[13620611900](https://github.com/ForceMind/MyAPI/actions/runs/42489190681/artifacts/13620611900)、Lite包[13620651963](https://github.com/ForceMind/MyAPI/actions/runs/42489190681/artifacts/13620651963)，实际image ID、GitHub归档摘要、大小及UTC期限集中[TASKS](../TASKS.md)，不得用安装器另建的f434镜像代替Lite交付包。[Mac42489194257](https://github.com/ForceMind/MyAPI/actions/runs/42489194257)1993行、[Windows42489929687](https://github.com/ForceMind/MyAPI/actions/runs/42489929687)1975行，各151合同，均1构建成功/1发布skip，按Mac→Win顺序；实际checkout/VITE_BUILD_ID完整匹配202d、beta.55及arm64/x64目标已核。Mac包[13620767707](https://github.com/ForceMind/MyAPI/actions/runs/42489194257/artifacts/13620767707)、Win包[13621485445](https://github.com/ForceMind/MyAPI/actions/runs/42489929687/artifacts/13621485445)没有独立source manifest，安装/GUI/开发者签名公证未验，不是受信任正式发行。Native Go/HTTPS限定资格仍绑定e06c252a，Win优雅flush、两版账务和真正外部视点仍未验。
+
+**下一步不能越过待准项。** A6的10个UI整文件删除、B3/T1执行接线仍未获具体授权；原生实际安装/升级/回退/卸载尚缺。不新开BUG专项，C2统一质量审查留在版本功能之后。当前仅更新既有说明，应用与构件仍绑定202d；接手须读文档提交自己的CI，不拿文档SHA当镜像/安装包来源。Root Docker Full/Lite备份、B6评估、A2–A5按原证据保留，不因旧数量重做删除或新架构。浏览器未验证；未生产、真实供应商请求、main/发布/tag或默认开关改动。下文“候选”和“旧包beta.40”按历史时点理解，最新构件以上述beta.55为准。
+
 
 **beta.55补译仅源码候选；B5 e06c252a / [CI42485203085](https://github.com/ForceMind/MyAPI/actions/runs/42485203085)已验收。** B5 attempt1 success、14执行成功/7可选skip，24000行全实际日志、14 checkout/全部步骤已核；前端421文件3452测试及原Root/独立relaykit/386/三库/race/分发过。Mac1947/Win1949行各155合同，原9+新增8检查及实际proxy/backend各4次、自有清理均通过；Windows flush/两版账务/GUI及真实外部视点仍未验。报告摘要/期限与严格范围集中TASKS，未下载。当前C1候选396已有键、1827处值，16文件、无键增删或变量漂移；规定writer已删除，两项旧词保留待判断，尚须自身完整CI/清单/24教程，不借B5绿灯。T1接线/10整文件删除待准、完整三版本Goal保持，不新开BUG专项；浏览器/母语未验。下文候选为各自历史时点。
 

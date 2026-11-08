@@ -1,6 +1,6 @@
 # MyAPI Docker Lite 与 Legacy LAN 兼容
 
-> 当前源码已有 Full/Lite Docker CLI、Desktop 本机服务面板与已有 HTTPS 反代记录向导；`lan`/`myapi-lan` 兼容身份保持。统一下载/验签/原生安装、自动更新、自动形态切换和真实公网验证仍未接线或未验收。当前 beta.47 及本批教程命令待自身 Actions，详见下文。
+> 当前源码已有 Full/Lite Docker CLI、Desktop 本机服务面板与已有 HTTPS 反代记录向导；`lan`/`myapi-lan`兼容身份保持。beta.55 / 202d01c9完整CI、24条教程及Full/Lite隔离镜像验证已过；统一下载/验签/原生安装、自动更新、自动形态切换及真实公网仍未接线或未验收，详见下文。
 
 Lite 是面向个人和小规模使用的 MyAPI 功能版，可部署在个人服务器、云服务器、VPS 或个人电脑。轻量化意味着 SQLite-first、低依赖、低资源和精简默认流程；它不意味着只能在局域网使用。Desktop 是 Lite 的桌面安装和管理形态，业务核心和数据模型必须与 Lite 一致。
 
@@ -10,9 +10,9 @@ Lite 是面向个人和小规模使用的 MyAPI 功能版，可部署在个人�
 
 ## Docker Lite 源码教程 / Docker Lite from source
 
-**当前边界：** `0.2.0-beta.47`、源码 `90cb0f6c` 的完整 CI 与本批教程命令尚待验收；对应 NPM/GHCR 发行未发布。Lite 的 Docker 启停和版本门禁已有实现；`lan` 是兼容别名，不是另一个产品。以下从源码运行，不使用 `npx`、`latest` 或尚未发布的版本 tag。
+**当前边界：** `0.2.0-beta.55`、源码 `202d01c9` 的[完整CI与教程](https://github.com/ForceMind/MyAPI/actions/runs/42487543625)、[Full/Lite镜像验证](https://github.com/ForceMind/MyAPI/actions/runs/42489190681)已通过；准确构件与限制见[TASKS](evidence/redesign-20261024/TASKS.md)，对应NPM/GHCR发行仍未发布。Lite的Docker启停和版本门禁已有实现；`lan`是兼容别名，不是另一个产品。以下从源码运行，不使用`npx`、`latest`或未发布tag。
 
-**Current boundary:** full CI for `0.2.0-beta.47` / `90cb0f6c` and this tutorial's exact commands are pending. Corresponding NPM/GHCR releases are unpublished. Docker lifecycle and edition gates exist; `lan` remains the compatibility alias of Lite. Use reviewed source, not `npx`, `latest`, or an unpublished tag.
+**Current boundary:** full CI, exact tutorial commands and Full/Lite image checks passed at `0.2.0-beta.55` / `202d01c9`. TASKS records exact candidate artifacts and limits. Corresponding NPM/GHCR releases remain unpublished. Docker lifecycle and edition gates exist; `lan` remains the compatibility alias of Lite. Use reviewed source, not `npx`, `latest`, or an unpublished tag.
 
 ### 1. 选择本机或私网 / Choose local or private LAN
 
@@ -90,7 +90,7 @@ Give each user a separate revocable Key with the required model, quota and rate 
 node cli/myapi.mjs lan stop --project-dir "${MYAPI_PROJECT_DIR:?}"
 ```
 
-停止不删除挂载目录，仍不是已验证备份。保留项目配置、会话密钥、数据和日志；不要用全新配置覆盖已有身份，不回灌旧账务。当前[备份/恢复 CLI](BACKUP_RESTORE.md)的已验范围为 root Linux amd64 Docker **Full/SQLite**，不能直接当作 Lite、个人电脑或 Desktop 的恢复工具；beta.47 清理仍待 CI。
+停止不删除挂载目录，仍不是已验证备份。保留项目配置、会话密钥、数据和日志；不要用全新配置覆盖已有身份，不回灌旧账务。当前[备份/恢复CLI](BACKUP_RESTORE.md)已在34b47daf / CI42465372403通过Root Linux amd64 Docker **Full/Lite + SQLite**真实备份、隔离恢复及保留策略；这不等于Docker Desktop、非root、原生或Desktop恢复资格。
 
 Stopping retains mounted data, but is not a verified backup. Preserve configuration, session identity, data and logs; do not replace existing identities or roll accounting back. The linked backup CLI is qualified for root Linux amd64 Docker **Full/SQLite**, not as a general Lite/Desktop recovery tool. Beta.47 retention qualification is pending.
 
