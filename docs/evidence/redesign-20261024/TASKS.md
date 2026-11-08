@@ -1,6 +1,18 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
-## 2026-11-08 B5真实Go/HTTPS联动资格候选：待自身Actions
+## 2026-11-08 C1剩余确定文案：beta.55源码候选，待自身Actions
+
+复用beta.54清单，675个至少一语同en的键经语义分类，375个确定应译候选中373个已形成主审机器稿；另对29个待判断项定点核对并处理23键。实际396个已有键、1827处值更新：en2、zh3、zh-TW353/fr365/ja359/ru360/vi385；无增删键、七语仍7890，变量源码核对无漂移。fr的“{{section}} sections”是合法同形值，保留不强改。271个技术/品牌/同形词保留项不机械替换；Inventory view、Underground两个旧键因上下文不足与en/zh歧义保留原值，不假称全语言母语验收。
+
+两份五语稿由原两代理并行负责，主会话核全部重点TW/fr及长句跨语义；补充23键另经只读复核。Reset time四语改为时间标签而非重置命令；日志清除按实际deleteAllFullContentLogFiles语义，保原删除确认与范围。1M/1W仅兑换码有效期t键、m为分钟，价格中的原始1M不变；生成凭据只填渠道表单、不代表保存；Open task只是导航。en两项原中文值恢复已有英文key；zh仅补ChatGPT订阅、Query查询参数、Quota额度标签，品牌/协议与底层枚举不改。
+
+规定临时writer仅写字典源码，已删除；五版本与四已有说明合为16文件候选，不改产品逻辑、字段/价格/权限或请求。全部sync/lint/typecheck/test/build和报告只在Actions，须本SHA完整CI+清单+24教程（run_browser=false）通过才验收。浏览器、母语与动态388仍明确未验；不是最终C2质量审查，不新开BUG专项。上游B5工具e06c252a / CI42485203085完整CI及两平台联动已通过，证据见下一节；本C1候选仍须自身CI，不借上游绿灯；T1接线和10整文件删除授权边界保持，完整Goal不关闭。
+
+## 2026-11-08 B5真实Go/HTTPS联动资格已验收：e06c252a / CI42485203085
+
+`e06c252ae2649b5403458e7ef6e3a1c4dcf2dcf0` / [完整CI42485203085](https://github.com/ForceMind/MyAPI/actions/runs/42485203085) attempt1 success：14执行成功/7可选跳过，24000行全部实际日志、14 checkout与全部步骤已核，失败/race标记0。前端421文件3452测试及原Root/独立relaykit/386/三库/race/分发等门禁通过。Mac job128745500379完整1947行、Win job128746273875完整1949行；各155合同/0skip，原9与新增8检查均true，实际proxy/backend各4次、owned cleanup全true，原配置/secret和两代生命周期保留。Mac正常exit0；Windows graceful flush与两版accounting/GUI仍false，external_verification仍unknown，不称真实公网或同一实例已验。
+
+安全报告：[Mac13619436660](https://github.com/ForceMind/MyAPI/actions/runs/42485203085/artifacts/13619436660)，1138 bytes、SHA256 bb70115de8c601f97d1cfdfad827e99f1ab998d74e29eddb9031cd69ce4138cc、到期2026-11-15T13:32:36Z；[Win13619168842](https://github.com/ForceMind/MyAPI/actions/runs/42485203085/artifacts/13619168842)，1132 bytes、SHA256 26b3c3355b419ef83723c3e0372a21f19c66cb84b05107a3513f96f3312671f7、到期2026-11-15T13:37:43Z。均未下载。自动42485200374 cancelled的711行可用取消日志已读，不作绿灯。以下为本批候选时实现范围，现已通过上述自身限定资格；应用仍beta.54，没有发布新安装包。
 
 沿beta.53入口检查的后继，仅扩三份既有工具：qualify-backend.mjs、NativeHost夹具、desktop-qualification.yml；加四份现有说明/交接，不改产品源码、功能、版本或字典。复用原同SHA/binary hash的真实Lite Go、私有数据、配置/secret及两代生命周期；原9检查和全部关闭/数据断言保留。新自有HTTPS反代固定无凭据GET /api/status并转发实际Go正文，不合成成功用量或状态。DNS/CA及loopback连接替换仅在夹具，生产模块与IPC无绕过选项。
 
