@@ -6,6 +6,8 @@
 
 ## 当前实现进度与教程 / Current implementation and guides
 
+最新已验应用源码为beta.56 / `84c76ee9` / [CI42513976744](https://github.com/ForceMind/MyAPI/actions/runs/42513976744)，本批仅渠道编辑抽屉局部布局与尺寸作用域；12作业成功、前端3452测试及原门禁通过，浏览器/实际触控与线上对齐未验。未新打包或发布，以下beta.55镜像/Desktop候选仍绑定202d01c9，不含此修复。The beta.56 source passed non-browser CI for the local channel-editor layout change. It has no new image or desktop package; visual, touch and production acceptance remain unverified. Existing beta.55 artifacts retain their original source identity.
+
 T1只读前置已在 `44ccb88c` / [完整CI42506496493](https://github.com/ForceMind/MyAPI/actions/runs/42506496493)限定验收：10合同及7次真实离线cosign（2接受/5按类拒绝）、原始摘要绑定、历史可信时间和前后保全通过；安全报告和pin见[TASKS](evidence/redesign-20261024/TASKS.md)。这只验证固定官方公开向量，myapi_artifact_trusted=false、installer_connected=false；不是MyAPI发行包的真实授信，没有产品下载/安装、签名/Secret或透明日志写入。后继仅文档，不改应用beta.55或已有202d01c9构件来源。The isolated prerequisite passed its own complete CI and real official-vector verification; it does not trust a MyAPI release or connect product installation. The earlier candidate paragraph below records its original scope.
 
 2026-11-09维护者仅批准T1只读验签前置工具，未批准产品下载/安装接线。独立manual/dev Actions入口使用固定官方cosign、root和公开向量；预期真实2接受/5安全拒绝及前后保全，当前仍待自身CI，不能以源码/普通合同称验签完成。输出始终official-vector-only，myapi_artifact_trusted=false、installer_connected=false；公开向量通过也不授予MyAPI制品安装信任，不创建签名/Secret或写透明日志。产品schema-1结构选择与untrusted byte evidence保持原状。The authorized T1 prerequisite is an isolated read-only verifier qualification, not a product installer connection. Its official public vectors cannot grant trust to a MyAPI artifact; actual cryptographic and full CI qualification remain pending. Pins, gates and current evidence are recorded in [TASKS](evidence/redesign-20261024/TASKS.md).
