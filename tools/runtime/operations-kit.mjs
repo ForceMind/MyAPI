@@ -10,10 +10,10 @@ import { pathToFileURL } from 'node:url'
 const execute = promisify(execFile)
 export const kitFiles = Object.freeze([
   'VERSION', 'LICENSE', 'NOTICE',
-  'tools/operations/auth.mjs', 'tools/operations/backup_data.py', 'tools/operations/capacity.mjs',
+  'tools/operations/auth.mjs', 'tools/operations/backup_data.py', 'tools/operations/backup-engine.mjs', 'tools/operations/backup-cli.mjs', 'tools/operations/capacity.mjs',
   'tools/operations/config.mjs', 'tools/operations/daemon.mjs', 'tools/operations/docker.mjs',
   'tools/operations/engine.mjs', 'tools/operations/extract_bundle.py', 'tools/operations/github.mjs',
-  'tools/operations/health.mjs', 'tools/operations/lock_guard.py', 'tools/operations/python.mjs',
+  'tools/operations/health.mjs', 'tools/operations/lock_guard.py', 'tools/operations/writer_guard.py', 'tools/operations/python.mjs',
   'tools/operations/safety.mjs', 'tools/operations/service.mjs', 'tools/operations/sqlite_read.py', 'tools/operations/store.mjs',
   'tools/runtime/smoke-image-bundle.mjs',
   'tools/management/catalog.mjs', 'tools/management/client.mjs', 'tools/management/mcp.mjs',

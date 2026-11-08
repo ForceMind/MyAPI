@@ -37,6 +37,10 @@ export class DockerClient {
   inspectImage(id) { check(/^sha256:[a-f0-9]{64}$/.test(id) || /^myapi(?:-smoke-fixture)?:[A-Za-z0-9_.-]+$/.test(id), 'INVALID_IMAGE'); return this.request('GET', `/images/${encodeURIComponent(id)}/json`) }
   disableRestart(id) { check(/^[a-f0-9]{64}$/.test(id), 'INVALID_CONTAINER'); return this.request('POST', `/containers/${id}/update`, { json: { RestartPolicy: { Name: 'no', MaximumRetryCount: 0 } } }) }
   stop(id) { check(/^[a-f0-9]{64}$/.test(id), 'INVALID_CONTAINER'); return this.request('POST', `/containers/${id}/stop?t=30`, { timeout: 45_000 }) }
+  // Backup never escalates to SIGKILL. A client deadline leaves the operation
+  // unconfirmed; the caller freezes it instead of copying or restarting.
+  stopForBackup(id) { check(/^[a-f0-9]{64}$/.test(id), 'INVALID_CONTAINER'); return this.request('POST', `/containers/${id}/stop?t=-1&signal=SIGTERM`, { timeout: 180_000 }) }
+  listContainers() { return this.request('GET', '/containers/json?all=1&size=0') }
   start(id) { check(/^[a-f0-9]{64}$/.test(id), 'INVALID_CONTAINER'); return this.request('POST', `/containers/${id}/start`) }
   create(name, config) { check(/^myapi-operations-[a-z0-9-]+$/.test(name), 'INVALID_CONTAINER'); return this.request('POST', `/containers/create?name=${name}`, { json: config }) }
   async load(filename) { return this.request('POST', '/images/load?quiet=1&platform=linux%2Famd64', { stream: createReadStream(filename), timeout: 15 * 60_000, max: 8 * 1024 * 1024 }) }

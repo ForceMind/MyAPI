@@ -7,12 +7,20 @@ export async function validateConfig(config, { uid = process.getuid() } = {}) {
   exactKeys(config.listen, ['host', 'port', 'tls_cert_file', 'tls_key_file'], 'INVALID_CONFIG')
   check(typeof config.listen.host === 'string' && /^(127\.0\.0\.1|0\.0\.0\.0|::1|::)$/.test(config.listen.host) &&
     Number.isInteger(config.listen.port) && config.listen.port >= 1024 && config.listen.port <= 65535, 'INVALID_LISTENER')
+  check(absolute(config.unix_socket), 'INVALID_CONFIG')
+  await validateStorage(config, uid, [path.dirname(config.unix_socket)])
+  return structuredClone(config)
+}
+
+// Local backup shares the same instance registry and storage guards. It does
+// not need the daemon's listener, bridge token, TLS key or GitHub credential.
+async function validateStorage(config, uid, additionalDirectories = []) {
   check(config.docker_socket === '/var/run/docker.sock', 'INVALID_DOCKER_SOCKET')
-  check([config.unix_socket, config.state_dir, config.backups_dir].every(absolute) && config.state_dir !== config.backups_dir &&
+  check([config.state_dir, config.backups_dir].every(absolute) && config.state_dir !== config.backups_dir &&
     !config.state_dir.startsWith(config.backups_dir + path.sep) && !config.backups_dir.startsWith(config.state_dir + path.sep), 'INVALID_CONFIG')
   await privateDirectory(config.state_dir, uid)
   await privateDirectory(config.backups_dir, uid)
-  await privateDirectory(path.dirname(config.unix_socket), uid)
+  for (const directory of additionalDirectories) await privateDirectory(directory, uid)
   check(Array.isArray(config.instances) && config.instances.length > 0 && config.instances.length <= 32, 'INVALID_INSTANCES')
   const ids = new Set(), containers = new Set(), data = new Set()
   for (const instance of config.instances) {
@@ -24,7 +32,7 @@ export async function validateConfig(config, { uid = process.getuid() } = {}) {
     await noSymlinks(instance.sqlite_file)
     const st = await lstat(instance.sqlite_file)
     check(st.isFile() && st.nlink === 1, 'UNSAFE_SQLITE')
-    for (const directory of [config.state_dir, config.backups_dir, path.dirname(config.unix_socket)]) {
+    for (const directory of [config.state_dir, config.backups_dir, ...additionalDirectories]) {
       check(directory !== instance.data_dir && !directory.startsWith(instance.data_dir + path.sep) && !instance.data_dir.startsWith(directory + path.sep), 'DATA_OVERLAP')
     }
     let url
@@ -34,7 +42,37 @@ export async function validateConfig(config, { uid = process.getuid() } = {}) {
       !url.username && !url.password && url.pathname === '/' && !url.search && !url.hash, 'INVALID_HEALTH_URL')
     ids.add(instance.id); containers.add(instance.container); data.add(instance.data_dir)
   }
+}
+
+export async function loadBackupConfig(filename) {
+  check(Number(process.versions.node.split('.')[0]) >= 22, 'NODE_22_REQUIRED')
+  check(process.platform === 'linux' && process.arch === 'x64' && process.getuid() === 0, 'ROOT_LINUX_AMD64_REQUIRED')
+  let value
+  try { value = JSON.parse(await protectedRead(filename)) } catch { check(false, 'INVALID_CONFIG') }
+  const storageKeys = ['docker_socket', 'state_dir', 'backups_dir', 'instances']
+  const daemonKeys = ['listen', 'unix_socket', 'bridge_token_file', 'github_token_file', ...storageKeys]
+  exactKeys(value, value?.listen === undefined ? storageKeys : daemonKeys, 'INVALID_CONFIG')
+  const config = Object.fromEntries(storageKeys.map(key => [key, value[key]]))
+  await validateStorage(config, 0)
+  await backupPrivateDirectory(config.state_dir)
+  await backupPrivateDirectory(config.backups_dir)
   return structuredClone(config)
+}
+
+// The local root command also protects against a non-root ancestor owner
+// renaming an otherwise private leaf. A root-owned sticky /tmp protects its
+// root-owned child and remains usable for isolated Actions fixtures.
+export async function backupPrivateDirectory(directory) {
+  await privateDirectory(directory, 0)
+  let current = '/', previous
+  for (const part of ['', ...directory.slice(1).split('/')]) {
+    if (part) current = path.join(current, part)
+    const stat = await lstat(current)
+    check(stat.isDirectory() && !stat.isSymbolicLink() && stat.uid === 0, 'UNSAFE_BACKUP_ANCESTOR')
+    if (current === directory) check((stat.mode & 0o7777) === 0o700, 'UNSAFE_DIRECTORY')
+    if (previous && (previous.mode & 0o022) !== 0) check((previous.mode & 0o1000) !== 0 && previous.uid === 0, 'UNSAFE_BACKUP_ANCESTOR')
+    previous = stat
+  }
 }
 
 export async function loadConfig(filename) {

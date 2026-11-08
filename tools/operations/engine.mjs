@@ -28,12 +28,12 @@ export class OperationsEngine {
   }
   async init() { await this.store.init(); return this }
   instance(id) { const value = this.config.instances.find(instance => instance.id === id); check(value, 'INSTANCE_NOT_FOUND', 404); return value }
-  get(id) { check(typeof id === 'string' && /^[a-f0-9]{64}$/.test(id), 'PLAN_NOT_FOUND', 404); const value = this.store.plans.get(id); check(value, 'PLAN_NOT_FOUND', 404); return structuredClone(value) }
+  get(id) { check(typeof id === 'string' && /^[a-f0-9]{64}$/.test(id), 'PLAN_NOT_FOUND', 404); const value = this.store.plans.get(id); check(value && (value.kind ?? 'upgrade') === 'upgrade', 'PLAN_NOT_FOUND', 404); return structuredClone(value) }
   authorizePlan(plan, identity, instanceId) {
     check(plan.owner_id === identity.owner_id && (!identity.key_id || plan.key_id === identity.key_id) && (!instanceId || plan.instance_id === instanceId), 'PLAN_NOT_FOUND', 404)
   }
   list(identity, instanceId) {
-    const plans = [...this.store.plans.values()].filter(p => p.owner_id === identity.owner_id && (!identity.key_id || p.key_id === identity.key_id) && p.instance_id === instanceId)
+    const plans = [...this.store.plans.values()].filter(p => (p.kind ?? 'upgrade') === 'upgrade' && p.owner_id === identity.owner_id && (!identity.key_id || p.key_id === identity.key_id) && p.instance_id === instanceId)
       .sort((a, b) => b.created_at - a.created_at)
     const terminal = new Set(['succeeded', 'failed_before_start'])
     return [...plans.filter(p => !terminal.has(p.state)), ...plans.filter(p => terminal.has(p.state)).slice(0, 100)].map(publicPlan)
@@ -51,7 +51,7 @@ export class OperationsEngine {
   assertIntegrity(plan) {
     const bound = { id: plan.id, instance_id: plan.instance_id, owner_id: plan.owner_id, key_id: plan.key_id, created_at: plan.created_at, expires_at: plan.expires_at,
       source_container_id: plan.source_container_id, source_config_digest: plan.source_config_digest, source_version: plan.source_version, artifact: plan.artifact, verified_artifact: plan.verified_artifact, registry_digest: plan.registry_digest, platform: plan.platform }
-    check(plan.registry_digest === digest(this.instance(plan.instance_id)) && plan.digest === digest(bound) && plan.platform === 'linux/amd64' && plan.source_snapshot?.Id === plan.source_container_id &&
+    check((plan.kind ?? 'upgrade') === 'upgrade' && plan.registry_digest === digest(this.instance(plan.instance_id)) && plan.digest === digest(bound) && plan.platform === 'linux/amd64' && plan.source_snapshot?.Id === plan.source_container_id &&
       plan.source_snapshot?.Image === plan.source_image_id && containerDigest(plan.source_snapshot) === plan.source_config_digest &&
       plan.target_image_id === plan.artifact.image_id && ['source_sha', 'tree_sha', 'run_id', 'producer_attempt', 'artifact_id', 'manifest_sha256', 'version'].every(key => plan[key] === plan.artifact[key]), 'PLAN_INTEGRITY_FAILED', 409)
     artifactInput(plan.artifact)

@@ -1,14 +1,18 @@
 # 接手文档（2026-11-08 更新）
 
-**B6第三轮 `776d33d0` / CI42432457165整体尚未验收。** job128584167839完整2145行已读：0755旧卷已证明UID/GID10001应用拒绝、拒绝阶段全树不变、root业务复读、fake2→2及清理；0700停在`B6_OCI_REFUSAL_UNVERIFIED`，不能把它写成已证OCI拒绝或UID=0。候选保全部原OCI/UID/账务/metadata/不重放断言，去掉“0700必在OCI阶段拒绝”的未证预判；仅按实际Docker启动状态、UID marker与permission证据区分应用/OCI拒绝，未知仍失败，新增逐项反例合同。待后继SHA实际两卷及完整CI。
-
-**B6第二轮 `3f38e0a4` / CI42431898229仍未验收。** job128582469717完整2138行已读：source running/无OOM，容器内status已就绪，宿主发布端口ECONNREFUSED；因此首个差异在隔离bridge的宿主访问路径，尚未进入nonroot旧卷判定。候选保留internal网络与全部旧断言，仅用source-bound Bun在对应固定网络命名空间转运一次合成请求，URL限3个既有loopback fixture origin，正文/凭据仅stdin和内存、不输出；保多Set-Cookie与不重试写入。新增transport边界合同，11组及两实际旧卷待后继Actions，不提前称评估通过。
-
-**B6首轮 `7a3eb2ff` / CI42431111672尚未验收。** 镜像构建与10组Node合同通过，容器评估job128580047634完整2131行日志已读：首个报告错误为`B6_READINESS_FAILED`，completed_cases为空，尚不能归因或称旧卷兼容。当前仅在新评估helper增加无正文/凭据的分阶段就绪证据，保全部原断言；不改产品、Dockerfile或默认USER，仍beta.45。后继SHA须自身完整CI。B4文件是独立未验WIP，不含本次B6提交。
-
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
-**2026-11-08最新已验收：A6a及重绑清单，`b7abb2bf88e2d2bb39e732c9f4e4f1d06563c436` / [手动完整CI42425121214](https://github.com/ForceMind/MyAPI/actions/runs/42425121214) attempt1 success。** 13执行成功/2跳过，主会话亲读19568行全部日志、13checkout及所有步骤，0 error；前端3452、Go/独立relaykit/386/三库等原门禁通过。自动42425102725 cancelled的日志尚未全读，不称亲读完或成功。scan job128561699305的1346行已读：Go1576 files/5872 short/422 manual；configured files/exports/types=2/372/174、ui-inclusive=13/417/176，恰少1个私有wrapper及4处type修饰符，其余计数不冒充全已用。
+**B6已验收，完整CI通过。** dev/`0f7d98260010c0d88bbcdf58c16603a47507aece` / [完整CI42433123893](https://github.com/ForceMind/MyAPI/actions/runs/42433123893)。job128586211061完整2662行与结构化报告已核：0755/0700均为实际UID/GID10001应用拒绝、exit1，无OOM；拒绝阶段全树bytes/owner/mode保持，root业务精确复读、各fake2→2/0新增、停止源不变、cleanup true。镜像image.Size=92005247 bytes；未创建传输tar，registry压缩量未测，两者null。默认USER未改，也无切换授权。attempt1 success，13执行成功/3可选跳过；主会话读取20674行全部日志、13个checkout和所有步骤，失败标记0，前端421文件/3452测试及原Go/独立relaykit/386/三库/race门禁通过。浏览器未运行。安全[报告构件](https://github.com/ForceMind/MyAPI/actions/runs/42433123893/artifacts/13598572847)为2942 bytes、SHA256 eb83621d7cc575589fff954259ddc8235fd805b0bc6b3dacf84a2e3108c5f181，到期2026-11-15T01:15:00Z，未下载。
+
+**本提交为B4a beta.46候选，待自身Actions验收。** 首批交付本地root Docker Full/SQLite的真实`myapi backup/restore`计划与确认：同注册/全局flock/实例锁，确证正常停机、root本地FS和可见FD/shared-writable mmap停写；whole-tree manifest、两阶段COMMITTED、DB/WAL/SHM同盘私有副本完整性校验，保全部bytes/UID/GID/mode。默认keep-all，restore只新隔离目录，先验源自备份后未变，不覆盖、不自动启动、不重放；未知结果保null，失败冻结并留现场。原重启策略另存计划/journal，关闭自动重启后保持停机，恢复服务须另行人工决定；不回灌旧账务。
+
+涉及CLI、tools/operations注册/锁/journal/copy/guard及独立backup引擎、两份新资格workflow/helper、原五处版本与[说明](../../../BACKUP_RESTORE.md)。主会话已亲读关键源码、精确对照legacy三个Python action正文不变；Node/Python/YAML/Bash仅轻语法检查，未运行项目入口或测试。新合同与实际产品CLI Docker往返全部待Actions：source假上游2次/恢复假上游0次、辅助未checkpoint WAL、原始与既有目标拒绝、原数据/备份元数据和账务复读及完整CI；不能用unit或源码代替实际资格。无本机依赖/构建/项目测试/分析/Docker/产物下载，无浏览器/生产/真实模型供应商/发布/main。
+
+完整主Goal仍保B3余项、B4后续（数量/天数保留、恢复/安装形态扩展）、B5b后续、B7及C1/C2/C3；A5/A6原已验片段不重做，145未知保留、10整文件删除仍待明确授权。R4保持关闭，不另开BUG专项，历史问题最后统一质量阶段处理。
+
+B6红灯过程已保留证据：7a3eb2ff / CI42431111672为就绪失败（16182行实际日志已读）；3f38e0a4 / CI42431898229为同一宿主端口路径差异（14819行已读）；776d33d0 / CI42432457165的0755通过、0700阶段预判不符（15459行已读）。这三轮均因后继候选替代而最终cancelled，各10成功/1失败/2取消/3跳过，不当全绿；自动42431094719/42431895654/42432454726/42433120963也已回读，分别3167/0/0/0行，后三次未执行任何作业，不能称已测试。b7自动42425102725补读4199行，2成功/10取消/3跳过，仍不当绿。
+
+**2026-11-08最新已验收：A6a及重绑清单，`b7abb2bf88e2d2bb39e732c9f4e4f1d06563c436` / [手动完整CI42425121214](https://github.com/ForceMind/MyAPI/actions/runs/42425121214) attempt1 success。** 13执行成功/2跳过，主会话亲读19568行全部日志、13checkout及所有步骤，0 error；前端3452、Go/独立relaykit/386/三库等原门禁通过。自动42425102725 cancelled已补读4199行，2成功/10取消/3跳过，不当全绿。scan job128561699305的1346行已读：Go1576 files/5872 short/422 manual；configured files/exports/types=2/372/174、ui-inclusive=13/417/176，恰少1个私有wrapper及4处type修饰符，其余计数不冒充全已用。
 
 [6200959c复核CSV](../cleanup-review-6200959c.csv)仍绑定旧baseline，不重标b7abb2bf。145未知项保留，10个UI整文件授权尚无回复，禁止删除。以下A6a/common“候选/待CI”等按原历史时点理解，不覆盖本段最新验收；应用仍beta.45，没有新发布。
 

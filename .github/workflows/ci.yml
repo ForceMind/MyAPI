@@ -23,6 +23,10 @@ on:
         description: 'Assess container user and existing-volume compatibility on dev without changing deployment defaults'
         type: boolean
         default: false
+      run_backup_qualification:
+        description: 'Qualify local backup and isolated restore on disposable dev Docker SQLite fixtures'
+        type: boolean
+        default: false
       baseline_red:
         description: 'Reproduce the personal Key handoff regression on the fixed pre-fix source before testing the candidate'
         type: boolean
@@ -40,6 +44,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  backup-qualification:
+    name: Docker Full SQLite backup and isolated restore qualification
+    if: github.event_name == 'workflow_dispatch' && inputs.run_backup_qualification && github.ref == 'refs/heads/dev'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/backup-qualification.yml
+
   container-assessment:
     name: Container user and old-volume compatibility assessment
     if: github.event_name == 'workflow_dispatch' && inputs.run_container_assessment && github.ref == 'refs/heads/dev'
@@ -1364,6 +1375,9 @@ jobs:
 
       - name: Verify independent operations boundaries without Docker or providers
         run: node --test tools/operations/*.test.mjs
+
+      - name: Verify local backup host guards with real Linux root privileges
+        run: sudo "$(command -v node)" --test tools/operations/writer-guard.root-test.mjs tools/operations/backup-bundle.test.mjs tools/operations/backup-engine.test.mjs tools/operations/backup-cli.root-test.mjs
 
   credential-maintenance:
     name: Isolated credential maintenance browser and real API

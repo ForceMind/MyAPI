@@ -4,7 +4,7 @@ import path from 'node:path'
 import { check, privateDirectory, protectedRead } from './safety.mjs'
 
 export const activeStates = new Set(['queued', 'verifying_artifact', 'stopping', 'backing_up', 'creating', 'starting', 'verifying'])
-const visible = ['id', 'digest', 'instance_id', 'owner_id', 'key_id', 'state', 'created_at', 'expires_at', 'approved_at', 'approval_expires_at', 'approved_by',
+const visible = ['id', 'kind', 'digest', 'instance_id', 'owner_id', 'key_id', 'state', 'created_at', 'expires_at', 'approved_at', 'approval_expires_at', 'approved_by',
   'source_image_id', 'target_image_id', 'source_container_id', 'target_container_id', 'source_config_digest', 'source_version', 'source_sha', 'tree_sha', 'run_id',
   'producer_attempt', 'artifact_id', 'manifest_sha256', 'version', 'platform', 'backup_created', 'target_start_attempted', 'source_mutation_attempted', 'source_restart_disabled', 'code', 'checks']
 export function publicPlan(plan) { return Object.fromEntries(visible.filter(k => plan[k] !== undefined).map(k => [k, structuredClone(plan[k])])) }
@@ -19,13 +19,15 @@ export class JournalStore {
       let plan
       try { plan = JSON.parse(await protectedRead(path.join(this.directory, name), { uid: process.getuid(), max: 4 * 1024 * 1024 })) } catch { check(false, 'JOURNAL_CORRUPT', 503) }
       check(plan.id + '.json' === name && typeof plan.instance_id === 'string', 'JOURNAL_CORRUPT', 503)
+      check(plan.kind === undefined || ['upgrade', 'backup', 'restore'].includes(plan.kind), 'JOURNAL_CORRUPT', 503)
       if (activeStates.has(plan.state)) { plan.state = 'interrupted'; plan.code = 'EXECUTION_INTERRUPTED'; await this.save(plan) }
       this.plans.set(plan.id, plan)
       if (['interrupted', 'recovery_required'].includes(plan.state)) this.frozen.add(plan.instance_id)
     }
-    const instances = new Set([...this.plans.values()].filter(plan => plan.state === 'succeeded').map(plan => plan.instance_id))
+    const upgrades = [...this.plans.values()].filter(plan => plan.state === 'succeeded' && (plan.kind ?? 'upgrade') === 'upgrade')
+    const instances = new Set(upgrades.map(plan => plan.instance_id))
     for (const instance of instances) {
-      const succeeded = [...this.plans.values()].filter(plan => plan.state === 'succeeded' && plan.instance_id === instance)
+      const succeeded = upgrades.filter(plan => plan.instance_id === instance)
       const outgoing = new Map(), incoming = new Map()
       let valid = true
       for (const plan of succeeded) {
