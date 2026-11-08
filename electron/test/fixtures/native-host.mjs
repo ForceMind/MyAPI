@@ -11,6 +11,8 @@ import * as childProcess from 'node:child_process'
 export async function createNativeHost({ electronDirectory, resources, userData, env, version, port }) {
   const require = createRequire(path.join(electronDirectory, 'main.js'))
   const { SERVICE_PANEL_CHANNELS, SERVICE_PANEL_STATE_CHANNEL } = require('./service-panel-ipc')
+  const { createServiceDiagnostics, classifyServiceError } = require('./service-diagnostics')
+  const childDiagnostics = new WeakMap()
   const windows = [], children = [], answers = [], handlers = new Map(), updates = new EventEmitter()
   let latest = null, exits = 0
   const app = new EventEmitter()
@@ -91,6 +93,13 @@ export async function createNativeHost({ electronDirectory, resources, userData,
       const child = childProcess.spawn(binary, args, options)
       const record = { child, generation: children.length + 1, pid: child.pid ?? null,
         requested_signals: [], exit_code: null, signal_code: null, closed: false }
+      // Capture both Go writer streams independently of the presentation
+      // console. Each owned generation has its own bounded private buffer;
+      // neither original text nor paths enter the qualification report.
+      const diagnostics = createServiceDiagnostics(record.generation)
+      childDiagnostics.set(record, diagnostics)
+      child.stdout?.on('data', value => diagnostics.append(value))
+      child.stderr?.on('data', value => diagnostics.append(value))
       const originalKill = child.kill.bind(child)
       child.kill = signal => { record.requested_signals.push(signal ?? 'SIGTERM'); return originalKill(signal) }
       record.closedPromise = new Promise(resolve => child.once('close', (code, signal) => {
@@ -139,7 +148,28 @@ export async function createNativeHost({ electronDirectory, resources, userData,
         }
         const receive = value => {
           if (value.state === expected) finish(null, value)
-          else if (['failed', 'stop-unconfirmed'].includes(value.state)) finish(new Error('NATIVE_HOST_SERVICE_UNREADY'))
+          else if (['failed', 'stop-unconfirmed'].includes(value.state)) {
+            const record = children.findLast(child => child.generation === value.generation)
+            const original = childDiagnostics.get(record)?.originalText() ?? ''
+            // Go FatalLog emits this fixed marker before exiting. Prefer its
+            // last bounded evidence over an earlier nonfatal startup warning.
+            const fatalOffset = original.lastIndexOf('[FATAL]')
+            const evidence = fatalOffset < 0 ? original : original.slice(fatalOffset)
+            const categories = {
+              port: 'HTTP_START_OR_BIND', database: 'DATABASE', permission: 'PERMISSION',
+              network: 'NETWORK', configuration: 'CONFIGURATION', memory: 'MEMORY',
+              'missing-file': 'MISSING_FILE', unknown: 'UNKNOWN',
+            }
+            let category = categories[classifyServiceError(evidence)] ?? 'UNKNOWN'
+            if (category === 'UNKNOWN' && fatalOffset >= 0) {
+              if (/Lite configuration check (?:blocked|unverifiable) \(/.test(evidence)) category = 'LITE_CONFIGURATION_CHECK'
+              else if (/failed to initialize database:/.test(evidence)) category = 'DATABASE_INITIALIZATION'
+              else if (/failed to initialize authorization:/.test(evidence)) category = 'AUTHORIZATION_INITIALIZATION'
+              else if (/failed to initialize resources:/.test(evidence)) category = 'RESOURCE_INITIALIZATION'
+            }
+            if (value.state === 'stop-unconfirmed') category = 'STOP_UNCONFIRMED'
+            finish(new Error('NATIVE_HOST_SERVICE_UNREADY_' + category))
+          }
         }
         updates.on('state', receive)
         timer = setTimeout(() => finish(new Error('NATIVE_HOST_STATE_TIMEOUT')), timeout)

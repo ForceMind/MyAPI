@@ -2,6 +2,8 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**Desktop隔离构建已过源码关，macOS真实资格通过，Windows重启仍失败。** `3a5b9c3c` / [CI42471098431](https://github.com/ForceMind/MyAPI/actions/runs/42471098431)终态cancelled，12成功/1失败/1取消/7跳过，20140行全实际日志和14 checkout已核（Win git.exe另核）。Mac job128701792048完整1623行、109合同/0skip及9项资格通过，2代Go正常exit0、配置/secret保留、cleanup全true；不证明GUI/账务。Win job128702241733完整1638行，首次运行/配置/停止等7项过，第二代Go exit1，phase restart、原因未知，不能算资格成功。后继仅为native-host加有界按代输出分类，只报固定安全error_code，不输出原日志，不改产品/等待/停止/9checks；须下一GHA取证。自动42471095728的459行取消日志已读，不作绿灯。公网产品WIP排除，B4有效完整绿灯仍34b47daf。
+
 **Desktop源码身份首个差异已取证；后继隔离前端构建，资格仍待验。** `63bad881` / [CI42469536540](https://github.com/ForceMind/MyAPI/actions/runs/42469536540)终态cancelled，10成功/1失败/2取消/8跳过，18055行全实际日志/13 checkout已核；macOS job128696888520完整1460行明确唯一改动`web/src/routeTree.gen.ts`，source gate仍拒绝、未启动后端、Windows跳过。从配置看是路由生成文件；候选把前端放在仅Actions的同SHA detached临时工作树，原Lite参数不变，只复制生成dist回原检出，再原位Go构建/资格，原检出前后tracked clean断言全保留。无忽略/还原/放宽、无本机worktree/构建。仅语法轻查，后继必须自身完整CI和mac→win真实资格。自动42469533957取消的497行日志已读，不当通过。公网产品WIP继续排除；B4有效绿灯仍34b47daf，下方未知原因按原历史时点理解。
 
 **Desktop原生资格首轮未通过；当前后继仅补失败取证。** `42f0b84f` / [CI42468386156](https://github.com/ForceMind/MyAPI/actions/runs/42468386156)终态cancelled，10成功/1失败/2取消/8跳过，16273行全实际日志/13 checkout已核。macOS job128693160000完整1506行：真实ARM64/Node合同/Lite前端/Go编译成功，source阶段DESKTOP_SOURCE_IDENTITY_MISMATCH，尚未启动后端，Windows跳过。报告无具体改动路径，原因未定；后继仅让原源码检查在失败时仍输出tracked状态和路径，保差异非零拒绝，不清理、不忽略、不放宽helper断言。自动42468383376的703行取消日志已读，不作绿灯；公网检查Main/界面/字典/线稿WIP不纳入本提交。B4最新有效绿灯仍为下方34b47daf，整个Goal保持。

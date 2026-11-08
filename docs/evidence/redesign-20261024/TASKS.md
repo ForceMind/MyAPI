@@ -2,6 +2,10 @@
 
 ## 2026-11-08 B5原生后端生命周期资格候选，应用仍beta.52
 
+隔离轮`3a5b9c3ce01b24f41c428653276c8856aff68f98` / [CI42471098431](https://github.com/ForceMind/MyAPI/actions/runs/42471098431)仍未整体验收，终态cancelled，12成功/1失败/1取消/7跳过；20140行全部实际日志已读，14个实际checkout已核（Windows git.exe原始log行另行精确核对）。macOS job128701792048完整1623行：109合同/0skip、原检出clean、9项真实资格及清理全过，两代Go child exit0/signal null，无SIGKILL，配置/secret复读通过；仍electron/gui/accounting=false。
+
+Windows job128702241733完整1638行：109合同、临时前端构建/复制、原检出clean、原生Go构建及首次运行/配置/停止/无关child保全均过，phase=restart第二代Go进程exit1，NATIVE_HOST_SERVICE_UNREADY，7项检查已过但重启/退出未完成。第一代SIGTERM close不称优雅flush；该Windows失败不被Mac成功或Linux合同代替。现有报告吞掉了原Go启动日志，原因仍未确定；后继仅在native-host夹具按代收有界stdout/stderr，复用现有安全分类，优先最后Go FATAL，仅投射固定uppercase类别到原error_code，不输出原文/正文/路径/环境/密钥，不改schema、端口、等待、重试、停止流程或9项断言。Node语法通过，尚待下一轮GHA实证，不称已修产品启动。自动42471095728 cancelled的459行已读，12取消/8跳过/未checkout，不当通过。公网产品WIP仍全部排除。
+
 取证轮`63bad881c42fa5456b581d4fdf488480fba454c5` / [CI42469536540](https://github.com/ForceMind/MyAPI/actions/runs/42469536540)仍未验收，终态cancelled，10成功/1失败/2取消/8跳过，18055行全部实际日志与13 checkout已核。macOS job128696888520完整1460行后置检查明确唯一改动为`web/src/routeTree.gen.ts`；资格仍在source阶段拒绝、未启动后端、Windows skip。从构建配置看该文件由前端路由生成器写出，不应靠忽略或还原它让源码身份门禁通过。
 
 后继只隔离前端生成过程：两平台在Actions RUNNER_TEMP中新建同SHA detached worktree，保原Lite/版本/BUILD_ID参数，安装和构建在该副本；仅把非符号/普通文件的dist复制到原本不存在的原检出dist。Go编译/哈希/资格仍在原检出，原检出在前后均须同SHA且tracked clean；不新建分支、不恢复/忽略源文件、不改变helper断言，临时工作树留一次性Runner回收。本机未执行任何worktree/安装/构建/测试，只有YAML与20段Bash/10段内嵌Node语法轻查，真实运行仍待自身Actions。自动42469533957的497行取消日志已读、12取消/8跳过/1checkout，不作通过。
