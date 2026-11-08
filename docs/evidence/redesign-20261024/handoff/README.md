@@ -2,6 +2,8 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**Windows精确问题码已取证；当前仅新增四叶只读合同，不修产品。** `322697d1` / [CI42474117810](https://github.com/ForceMind/MyAPI/actions/runs/42474117810)终态cancelled，10成功/1失败/3取消/7跳过，15752行全实际日志/14 checkout已核。Win job128711821941完整1637行：NATIVE_HOST_LITE_UNVERIFIABLE_DATABASE_UNAVAILABLE，phase restart二代exit1，原因尚不能分到URI/WAL；Mac成功。后继5文件只新model/sqlite_readonly_uri_test.go、2workflow及2交接：原生独立DELETE小库、普通/中文空格#%路径×两immutable值，验实际共享URI精确读取、SQLITE_READONLY拒写、全目录字节/模式/类型不变。生产代码/门禁不动，Linux/Mac/Win同入口，真实红绿待GHA；不能把编译失败当URI红，不强开immutable/切Full/删WAL/跳过。自动42474115399全部12取消job无steps且日志404，明确日志不可用、不造测试。公网产品/C1主审141键仍未提交未验，T1授权边界及完整Goal保持，B4有效绿灯仍34b47daf。
+
 **Windows已定位为Lite配置门禁拒绝，具体state/issue仍待下一轮。** `ea876331` / [CI42472594609](https://github.com/ForceMind/MyAPI/actions/runs/42472594609)终态cancelled，11成功/1失败/2取消/7跳过，17479行全实际日志/14 checkout已核。Mac成功，Win job128707267321完整1640行：第二代NATIVE_HOST_SERVICE_UNREADY_LITE_CONFIGURATION_CHECK、phase restart退出1，7checks过；不是完成资格。后继仅fixture按main最后完整FATAL严格提取固定state及9issue白名单，输出安全枚举/MULTIPLE/UNKNOWN，不输出原文、不改产品/门禁/生命周期/9checks，尚待GHA。自动42472591867的273行可用日志已读，7个无steps取消job的日志404明确不可用，不造测试结果。公网Main/UI/33条原生文案/单视图线稿及C1主审141键稿仍独立未提交；B4有效完整绿灯34b47daf、T1待授权与完整Goal保持。
 
 **Desktop隔离构建已过源码关，macOS真实资格通过，Windows重启仍失败。** `3a5b9c3c` / [CI42471098431](https://github.com/ForceMind/MyAPI/actions/runs/42471098431)终态cancelled，12成功/1失败/1取消/7跳过，20140行全实际日志和14 checkout已核（Win git.exe另核）。Mac job128701792048完整1623行、109合同/0skip及9项资格通过，2代Go正常exit0、配置/secret保留、cleanup全true；不证明GUI/账务。Win job128702241733完整1638行，首次运行/配置/停止等7项过，第二代Go exit1，phase restart、原因未知，不能算资格成功。后继仅为native-host加有界按代输出分类，只报固定安全error_code，不输出原日志，不改产品/等待/停止/9checks；须下一GHA取证。自动42471095728的459行取消日志已读，不作绿灯。公网产品WIP排除，B4有效完整绿灯仍34b47daf。

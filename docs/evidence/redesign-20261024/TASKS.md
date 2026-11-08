@@ -2,6 +2,12 @@
 
 ## 2026-11-08 B5原生后端生命周期资格候选，应用仍beta.52
 
+精确码轮`322697d1120bb11a5fe821969a7822f9cc39deea` / [CI42474117810](https://github.com/ForceMind/MyAPI/actions/runs/42474117810)终态cancelled，10成功/1失败/3取消/7跳过，15752行全部实际日志、14 checkout已核。Mac成功；Win job128711821941完整1637行明确NATIVE_HOST_LITE_UNVERIFIABLE_DATABASE_UNAVAILABLE，第二代仍phase restart退出1、7checks过。证据只证明已有数据库检查无法确认，不证明URI、WAL或数据损坏，不改门禁来通过。自动42474115399 cancelled的12个作业均无steps且日志API404，日志不可用；8可选skip，不编造已执行或通过。
+
+当前后继仅测试/CI候选5文件：新增model/sqlite_readonly_uri_test.go、两份既有workflow及本清单/交接；生产函数与判定全不改。四叶为原生普通/中文空格#%路径×immutable false/true，用原生filename独立写DELETE小库并关闭后，再经实际共享sqliteReadOnlyURI读取精确marker；有效UPDATE/CREATE必须SQLITE_READONLY低8位8，重读marker、新表不存在与整目录名称/类型/模式/全部字节保持。无query_only/ReadOnly tx/OS只读权限来遮住URI行为，无环境/全局DB/cwd改动，无skip/parallel。Linux backend及Mac/Win真实native校验后显式同一-v入口，保mac→win顺序和所有既有门禁。
+
+本机只源代码/JSON/YAML/命令语法与diff轻查，没有Go/gofmt/编译/测试；四叶真实红/绿均待自身Actions。若Windows测试包不能编译，只记录编译阻塞，不称URI红；若四叶本来通过，不改预期制造修复。只有真实独立夹具已建立、URI首次连接/读取失败才构成该合同红；后续共享函数修正另按实证最小范围处理，不能切Full/删WAL/强制immutable/补sleep/放宽文件保全。公网产品WIP、C1主审141键未应用与T1待授权不变。
+
 分类轮`ea876331fc2d013858b0a397a448b2605db1ed89` / [CI42472594609](https://github.com/ForceMind/MyAPI/actions/runs/42472594609)未整体验收，终态cancelled，11成功/1失败/2取消/7跳过；17479行全部实际日志与14 checkout已核（Win原始git.exe输出补核）。Mac成功，Win job128707267321完整1640行明确第二代命中NATIVE_HOST_SERVICE_UNREADY_LITE_CONFIGURATION_CHECK，7checks通过后仍在restart退出1；此时仍不能判断blocked/unverifiable或具体issue，不能据此修URI/WAL、删库、切Full或跳过门禁。
 
 只读源码定位已核main固定输出包含State与Blockers/Unknowns的9个固定code，没有底层driver reason。后继仅让native-host严格解析最后完整FATAL固定格式及白名单，投射NATIVE_HOST_LITE_<STATE>_<ISSUE>固定uppercase枚举；多码MULTIPLE、未知/重复/截断或坏格式UNKNOWN，无raw text/路径/env/密钥，无schema变更和产品逻辑变化，仍须自身CI取证。Node语法轻查通过。本机未运行Go/入口/测试/依赖/浏览器。自动42472591867 cancelled：273行全部可用日志已读，12取消/8跳过；7个无steps的取消作业日志API404，保持日志不可用，不说全部已执行或通过。

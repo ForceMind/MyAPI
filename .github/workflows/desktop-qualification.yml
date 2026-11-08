@@ -79,6 +79,9 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_OUTPUT, 'sha=' + process.env.GITHUB_SHA + '\nversion=' + version + '\n')
           NODE
 
+      - name: Verify existing-file SQLite read-only URI contract on the native runner
+        run: go test -p 1 ./model -run '^TestSQLiteReadOnlyURIExistingFileContract$' -count=1 -timeout=120s -v
+
       - name: Verify lifecycle contracts without starting Electron
         timeout-minutes: 5
         run: node --test electron/test/*.test.mjs tools/desktop/qualify-backend.test.mjs
@@ -374,6 +377,9 @@ jobs:
           assert.match(version, /^[0-9]+\.[0-9]+\.[0-9]+(?:[.-][0-9A-Za-z.-]+)?$/)
           fs.appendFileSync(process.env.GITHUB_OUTPUT, 'sha=' + process.env.GITHUB_SHA + '\nversion=' + version + '\n')
           NODE
+
+      - name: Verify existing-file SQLite read-only URI contract on the native runner
+        run: go test -p 1 ./model -run '^TestSQLiteReadOnlyURIExistingFileContract$' -count=1 -timeout=120s -v
 
       - name: Verify lifecycle contracts without starting Electron
         timeout-minutes: 5

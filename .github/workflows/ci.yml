@@ -196,6 +196,9 @@ jobs:
           mkdir -p web/dist
           touch web/dist/index.html
 
+      - name: Verify existing-file SQLite read-only URI contract on Linux
+        run: go test -p 1 ./model -run '^TestSQLiteReadOnlyURIExistingFileContract$' -count=1 -timeout=120s -v
+
       - name: Verify connection relationship Go formatting
         run: |
           files=(controller/token.go controller/token_creation_identity_test.go controller/full_content_log.go controller/full_content_log_test.go controller/subscription_share.go controller/subscription_share_connections_test.go model/subscription_share_connections.go model/subscription_share_connections_test.go model/subscription_share_database_test.go router/api-router.go router/full_content_log_segments_test.go)
