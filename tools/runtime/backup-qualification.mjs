@@ -182,7 +182,9 @@ const businessSnapshotProgram = String.raw`
 import json, os, pathlib, sqlite3, stat, sys
 root, destination = sys.argv[1:3]
 assert os.getuid() == 0 and os.environ.get("GITHUB_ACTIONS") == "true"
-assert root == "/tmp/myapi-b4-" + os.environ["GITHUB_SHA"] + "-" + os.environ["GITHUB_RUN_ID"] + "-" + os.environ["GITHUB_RUN_ATTEMPT"]
+edition = os.environ.get("MYAPI_B4_EDITION", "full")
+assert edition in ("full", "lan")
+assert root == "/tmp/myapi-b4-" + edition + "-" + os.environ["GITHUB_SHA"] + "-" + os.environ["GITHUB_RUN_ID"] + "-" + os.environ["GITHUB_RUN_ATTEMPT"]
 assert os.path.realpath(root) == root and stat.S_IMODE(os.stat(root).st_mode) == 0o700
 assert os.path.dirname(destination) == os.path.join(root, "business-validation") and not os.path.lexists(destination)
 source = os.path.join(root, "source", "my-api.db")
@@ -627,6 +629,7 @@ export async function runBackupQualification(env = process.env) {
         const thirdId = await nextBackup(3, secondId)
         stage = 'prune-live-source-marker'
         await restartSource(4)
+        stage = 'prune-live-business-snapshot'
         const validation = path.join(scope.root, 'business-validation')
         mkdirSync(validation, { mode: 0o700 })
         const business = label => JSON.parse(command('/usr/bin/python3', ['-I', '-c', businessSnapshotProgram, scope.root, path.join(validation, label + '.db')]))

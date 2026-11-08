@@ -2,6 +2,8 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**beta.52首轮尚未验收，后继仅修资格夹具。** `977d0a68` / [CI42464782011](https://github.com/ForceMind/MyAPI/actions/runs/42464782011)的Full/Lite均在prune-live-source-marker失败，已停止剩余重复作业、终态cancelled，9成功/2失败/3取消/6跳过，17733行全实际日志与14 checkout已核；两份失败日志2155/2171行已读。从代码看Python业务快照仍绑定旧无edition目录，与JS新目录错配。候选只补full/lan枚举和edition/SHA/run/attempt精确路径绑定、增加重启后的业务快照阶段；原产品/17单位新增账务/不重放/保留源与归档断言均不改。仅Node/Python语法检查，须后继自身完整CI及两种真实往返；不把取消、null错误字段或已构建当资格通过。自动42464753750 cancelled的5297行日志已读，不作全绿。
+
 **当前独立B4 beta.52候选，待自身完整Actions：Linux root Docker Lite/lan SQLite备份专用来源校验与Full/Lite资格矩阵。** 新validateBackupContainer固定用途接受匹配族，旧Full-only运维入口/原错误和全部机械检查不改；engine仅两处backup接线，不改manifest/intent/COMMITTED或旧源恢复/prune边界。六组metadata合同、Full/lan fail-fast:false当前SHA真实build/load矩阵及edition/status/receipt观察已写，原账务/17单位新增调整/fake2+恢复0/精确清理断言保留。主审和独立只读审阅完成，但只有Node/YAML/Python语法及diff轻查，尚无真实Lite资格，不能称完成。BACKUP_RESTORE已对齐旧beta47 Full实证与新Lite候选；不扩其它形态/远端库/非root，不真实数据/生产/供应商/浏览器/发布/本机项目测试构建。
 
 **最近已验beta.51：2fb6114631838a42268a34a53591271f1b8b3d7b / [CI42460806192](https://github.com/ForceMind/MyAPI/actions/runs/42460806192)。** attempt1 success，14执行成功/5可选跳过，20487行全实际日志、14 checkout与全部步骤已核，失败/race标记0；前端421文件/3452测试及原Root/独立relaykit/386/三库/race门禁通过。清单job128669485567完整364行/8合同，七语7890键、缺键/extra/占位符/词法缺键0、动态未知388、translation_accepted=false；教程job128669485727完整749行/24命令，实际Full/Lite beta.51启停/status/清理通过。报告身份/摘要/期限集中TASKS，未下载。它只含C1，不含B4候选；备份专项skip，不拿其绿灯作新备份资格。Native/真机GUI/TLS/跨机/浏览器/母语未验，完整Goal不关闭。

@@ -2,6 +2,10 @@
 
 ## 2026-11-08 B4 Lite备份：beta.52候选，真实资格待自身Actions
 
+首轮`977d0a686c30cc94f99fe88077af143c46a1c5a6` / [CI42464782011](https://github.com/ForceMind/MyAPI/actions/runs/42464782011)未验收，Full/Lite资格均失败，随后停止剩余重复作业，终态cancelled；9成功/2失败/3取消/6跳过，17733行全部实际日志与14 checkout已核。失败job128681708343完整2155行、128681708462完整2171行已读；安全报告均为B4_FIXTURE_COMMAND_FAILED/prune-live-source-marker，cli_failure与cleanup_failure为null，不据此宣称整轮保全或资格成功。从代码看存在确定夹具错配：JS自有目录已加入edition，内嵌Python业务快照仍断言旧无edition路径。
+
+后继最小候选只同步Python路径绑定：独立检查full/lan枚举，目录精确绑定edition/SHA/run/attempt，未设置时默认Full与JS一致，空值或unknown仍拒绝；重启后业务快照另记阶段以区分失败位置。没有改产品、业务值、17单位新增调整/不重放/源保留/归档删除断言或旧Full-only运维门禁。Node/Python仅语法解析通过，没有本机执行资格；仍须后继SHA的两种真实往返及完整CI通过。被手动运行替代的自动CI42464753750也为cancelled，5297行全部可用日志已读，2成功/10取消/7跳过，不作绿灯。
+
 沿已批准B4补已登记Linux root Docker Lite/lan + SQLite，现只源码候选。`docker.mjs`新固定用途validateBackupContainer接受匹配Full/Lite/lan族，私有复用机械安全校验；旧validateContainer三参数/Full-only接受拒绝及运维调用保持。backup-engine只在prepare与execute两处改接；实际Env/image/配置摘要、停止源/新恢复目录、COMMITTED/manifest/intent结构和prune仅删归档不写回源均不改。新增六组确定性metadata合同覆盖别名、原Full拒绝、错配/unknown/远端DB/personal/路径/挂载/health/平台与摘要保全；它不是实际Docker资格。
 
 `.github/workflows/backup-qualification.yml`改Full/lan独立matrix、fail-fast:false、当前SHA build/load/push:false，owned目录/容器/网络/报告含edition；helper核真实Env/raw image label及status product_edition/version/setup/self-use、记录收据观察绑定。原Full精确业务读回/三份真实备份/精确删1保2/源新增17单位调整/各实际netns fake合计2+recovery0/停止和清理原断言全部保留，不用空值或开启Full特性迁就Lite。来源检查/engine/callee/helper已主会话审阅，另代理只读审阅未见新增可操作问题；均非运行资格。只node--check、YAML、内嵌Python compile和diff轻查；禁止本机入口/tests/lint/build/Docker/依赖/产物下载。
