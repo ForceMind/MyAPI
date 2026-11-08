@@ -2,6 +2,10 @@
 
 ## 2026-11-08 B5原生后端生命周期资格候选，应用仍beta.52
 
+取证轮`63bad881c42fa5456b581d4fdf488480fba454c5` / [CI42469536540](https://github.com/ForceMind/MyAPI/actions/runs/42469536540)仍未验收，终态cancelled，10成功/1失败/2取消/8跳过，18055行全部实际日志与13 checkout已核。macOS job128696888520完整1460行后置检查明确唯一改动为`web/src/routeTree.gen.ts`；资格仍在source阶段拒绝、未启动后端、Windows skip。从构建配置看该文件由前端路由生成器写出，不应靠忽略或还原它让源码身份门禁通过。
+
+后继只隔离前端生成过程：两平台在Actions RUNNER_TEMP中新建同SHA detached worktree，保原Lite/版本/BUILD_ID参数，安装和构建在该副本；仅把非符号/普通文件的dist复制到原本不存在的原检出dist。Go编译/哈希/资格仍在原检出，原检出在前后均须同SHA且tracked clean；不新建分支、不恢复/忽略源文件、不改变helper断言，临时工作树留一次性Runner回收。本机未执行任何worktree/安装/构建/测试，只有YAML与20段Bash/10段内嵌Node语法轻查，真实运行仍待自身Actions。自动42469533957的497行取消日志已读、12取消/8跳过/1checkout，不作通过。
+
 首轮`42f0b84f2a21037c5030cf8e29417308f0077fd3` / [CI42468386156](https://github.com/ForceMind/MyAPI/actions/runs/42468386156)未验收，终态cancelled，10成功/1失败/2取消/8跳过；16273行全部实际日志与13 checkout已核。macOS job128693160000完整1506行已读：真实macos-26-arm64身份、Node合同、Lite前端和Go原生编译成功，资格在source阶段报DESKTOP_SOURCE_IDENTITY_MISMATCH，lifecycle为空，尚未启动后端，Windows按依赖规则skip。不能把编译或Node通过当原生运行资格。
 
 现有安全报告没有具体Git改动路径，尚不能确认原因；不猜测为go.sum或路由生成，也不清理/忽略差异。后继只把原post-build源码检查改为在失败时仍执行，输出tracked status/name-status并保留同SHA/差异非零拒绝，既有helper全部断言不改。仅YAML与差异轻查，仍须后继Actions。自动42468383376 cancelled的703行已读、12取消/8跳过、1checkout，不当通过。公网检查产品WIP和33条原生文案不含本资格后继提交。

@@ -83,7 +83,43 @@ jobs:
         timeout-minutes: 5
         run: node --test electron/test/*.test.mjs tools/desktop/qualify-backend.test.mjs
 
-      - name: Build the same-source Lite frontend on the runner
+      - name: Prepare a same-source detached frontend build worktree
+        id: frontend_source
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          import path from 'node:path'
+          import { execFileSync } from 'node:child_process'
+          const repository = fs.realpathSync(process.cwd())
+          const git = (...args) => execFileSync('git', ['-c', 'core.fileMode=false',
+            ...(process.platform === 'win32' ? ['-c', 'core.longpaths=true'] : []), ...args],
+            { cwd: repository, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+          assert.match(process.env.GITHUB_SHA, /^[a-f0-9]{40}$/)
+          assert.match(process.env.GITHUB_RUN_ID, /^[1-9][0-9]*$/)
+          assert.match(process.env.GITHUB_RUN_ATTEMPT, /^[1-9][0-9]*$/)
+          assert.equal(git('rev-parse', 'HEAD'), process.env.GITHUB_SHA)
+          assert.equal(git('status', '--porcelain', '--untracked-files=no'), '')
+          const temporary = fs.realpathSync(process.env.RUNNER_TEMP)
+          assert.ok(fs.lstatSync(temporary).isDirectory() && temporary !== path.parse(temporary).root)
+          const target = path.join(temporary, 'mdfe-' + process.env.GITHUB_RUN_ID + '-' + process.env.GITHUB_RUN_ATTEMPT)
+          try { fs.lstatSync(target); throw new Error('DESKTOP_FRONTEND_WORKTREE_EXISTS') }
+          catch (error) { if (error.code !== 'ENOENT') throw error }
+          git('worktree', 'add', '--detach', target, process.env.GITHUB_SHA)
+          assert.ok(fs.lstatSync(target).isDirectory() && !fs.lstatSync(target).isSymbolicLink())
+          assert.equal(fs.realpathSync(target), target)
+          assert.equal(git('-C', target, 'rev-parse', 'HEAD'), process.env.GITHUB_SHA)
+          assert.equal(git('-C', target, 'rev-parse', '--abbrev-ref', 'HEAD'), 'HEAD')
+          assert.equal(git('rev-parse', 'HEAD'), process.env.GITHUB_SHA)
+          assert.equal(git('status', '--porcelain', '--untracked-files=no'), '')
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'path=' + target + '\n')
+          console.log(JSON.stringify({ source_sha: process.env.GITHUB_SHA, detached_frontend_worktree: true,
+            original_tracked_source_clean: true }))
+          NODE
+
+      - name: Build the same-source Lite frontend in its detached worktree
+        working-directory: ${{ steps.frontend_source.outputs.path }}/web
         env:
           CI: ''
           NODE_OPTIONS: --max-old-space-size=4096
@@ -91,9 +127,58 @@ jobs:
           VITE_BUILD_ID: ${{ steps.source.outputs.sha }}
         run: |
           set -euo pipefail
-          cd web
           bun install --frozen-lockfile
           DISABLE_ESLINT_PLUGIN=true VITE_SELF_USE_MINIMAL=true VITE_BRAND_NAME=MyAPI VITE_BRAND_LOGO=/myapi-logo-v1.png bun run build
+
+      - name: Copy only the owned frontend dist and retain strict source guards
+        env:
+          FRONTEND_WORKTREE: ${{ steps.frontend_source.outputs.path }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          import path from 'node:path'
+          import { execFileSync } from 'node:child_process'
+          const repository = fs.realpathSync(process.cwd())
+          const git = (...args) => execFileSync('git', ['-c', 'core.fileMode=false',
+            ...(process.platform === 'win32' ? ['-c', 'core.longpaths=true'] : []), ...args],
+            { cwd: repository, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+          assert.equal(git('rev-parse', 'HEAD'), process.env.GITHUB_SHA)
+          assert.equal(git('status', '--porcelain', '--untracked-files=no'), '')
+          const temporary = fs.realpathSync(process.env.RUNNER_TEMP)
+          const expected = path.join(temporary, 'mdfe-' + process.env.GITHUB_RUN_ID + '-' + process.env.GITHUB_RUN_ATTEMPT)
+          const worktree = process.env.FRONTEND_WORKTREE
+          assert.equal(worktree, expected)
+          assert.ok(fs.lstatSync(worktree).isDirectory() && !fs.lstatSync(worktree).isSymbolicLink())
+          assert.equal(fs.realpathSync(worktree), expected)
+          assert.equal(git('-C', worktree, 'rev-parse', 'HEAD'), process.env.GITHUB_SHA)
+          assert.equal(git('-C', worktree, 'rev-parse', '--abbrev-ref', 'HEAD'), 'HEAD')
+          const source = path.join(worktree, 'web', 'dist')
+          assert.ok(fs.lstatSync(source).isDirectory() && !fs.lstatSync(source).isSymbolicLink())
+          assert.equal(fs.realpathSync(source), source)
+          const web = path.join(repository, 'web')
+          assert.ok(fs.lstatSync(web).isDirectory() && !fs.lstatSync(web).isSymbolicLink())
+          assert.equal(fs.realpathSync(web), web)
+          const destination = path.join(web, 'dist')
+          try { fs.lstatSync(destination); throw new Error('DESKTOP_FRONTEND_DIST_EXISTS') }
+          catch (error) { if (error.code !== 'ENOENT') throw error }
+          fs.cpSync(source, destination, { recursive: true, force: false, errorOnExist: true, dereference: false,
+            filter(filename) {
+              const relative = path.relative(source, filename)
+              assert.ok(!path.isAbsolute(relative) && relative !== '..' && !relative.startsWith('..' + path.sep))
+              const info = fs.lstatSync(filename)
+              assert.ok(!info.isSymbolicLink() && (info.isDirectory() || info.isFile()))
+              return true
+            },
+          })
+          assert.ok(fs.lstatSync(destination).isDirectory() && !fs.lstatSync(destination).isSymbolicLink())
+          assert.ok(fs.lstatSync(path.join(destination, 'index.html')).isFile())
+          assert.equal(git('rev-parse', 'HEAD'), process.env.GITHUB_SHA)
+          assert.equal(git('status', '--porcelain', '--untracked-files=no'), '')
+          console.log(JSON.stringify({ source_sha: process.env.GITHUB_SHA, copied_frontend_dist_only: true,
+            original_tracked_source_clean: true }))
+          NODE
 
       - name: Build the actual native Go binary on the runner
         timeout-minutes: 15
@@ -294,7 +379,43 @@ jobs:
         timeout-minutes: 5
         run: node --test electron/test/*.test.mjs tools/desktop/qualify-backend.test.mjs
 
-      - name: Build the same-source Lite frontend on the runner
+      - name: Prepare a same-source detached frontend build worktree
+        id: frontend_source
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          import path from 'node:path'
+          import { execFileSync } from 'node:child_process'
+          const repository = fs.realpathSync(process.cwd())
+          const git = (...args) => execFileSync('git', ['-c', 'core.fileMode=false',
+            ...(process.platform === 'win32' ? ['-c', 'core.longpaths=true'] : []), ...args],
+            { cwd: repository, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+          assert.match(process.env.GITHUB_SHA, /^[a-f0-9]{40}$/)
+          assert.match(process.env.GITHUB_RUN_ID, /^[1-9][0-9]*$/)
+          assert.match(process.env.GITHUB_RUN_ATTEMPT, /^[1-9][0-9]*$/)
+          assert.equal(git('rev-parse', 'HEAD'), process.env.GITHUB_SHA)
+          assert.equal(git('status', '--porcelain', '--untracked-files=no'), '')
+          const temporary = fs.realpathSync(process.env.RUNNER_TEMP)
+          assert.ok(fs.lstatSync(temporary).isDirectory() && temporary !== path.parse(temporary).root)
+          const target = path.join(temporary, 'mdfe-' + process.env.GITHUB_RUN_ID + '-' + process.env.GITHUB_RUN_ATTEMPT)
+          try { fs.lstatSync(target); throw new Error('DESKTOP_FRONTEND_WORKTREE_EXISTS') }
+          catch (error) { if (error.code !== 'ENOENT') throw error }
+          git('worktree', 'add', '--detach', target, process.env.GITHUB_SHA)
+          assert.ok(fs.lstatSync(target).isDirectory() && !fs.lstatSync(target).isSymbolicLink())
+          assert.equal(fs.realpathSync(target), target)
+          assert.equal(git('-C', target, 'rev-parse', 'HEAD'), process.env.GITHUB_SHA)
+          assert.equal(git('-C', target, 'rev-parse', '--abbrev-ref', 'HEAD'), 'HEAD')
+          assert.equal(git('rev-parse', 'HEAD'), process.env.GITHUB_SHA)
+          assert.equal(git('status', '--porcelain', '--untracked-files=no'), '')
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'path=' + target + '\n')
+          console.log(JSON.stringify({ source_sha: process.env.GITHUB_SHA, detached_frontend_worktree: true,
+            original_tracked_source_clean: true }))
+          NODE
+
+      - name: Build the same-source Lite frontend in its detached worktree
+        working-directory: ${{ steps.frontend_source.outputs.path }}/web
         env:
           CI: ''
           NODE_OPTIONS: --max-old-space-size=4096
@@ -302,9 +423,58 @@ jobs:
           VITE_BUILD_ID: ${{ steps.source.outputs.sha }}
         run: |
           set -euo pipefail
-          cd web
           bun install --frozen-lockfile
           DISABLE_ESLINT_PLUGIN=true VITE_SELF_USE_MINIMAL=true VITE_BRAND_NAME=MyAPI VITE_BRAND_LOGO=/myapi-logo-v1.png bun run build
+
+      - name: Copy only the owned frontend dist and retain strict source guards
+        env:
+          FRONTEND_WORKTREE: ${{ steps.frontend_source.outputs.path }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          import fs from 'node:fs'
+          import path from 'node:path'
+          import { execFileSync } from 'node:child_process'
+          const repository = fs.realpathSync(process.cwd())
+          const git = (...args) => execFileSync('git', ['-c', 'core.fileMode=false',
+            ...(process.platform === 'win32' ? ['-c', 'core.longpaths=true'] : []), ...args],
+            { cwd: repository, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+          assert.equal(git('rev-parse', 'HEAD'), process.env.GITHUB_SHA)
+          assert.equal(git('status', '--porcelain', '--untracked-files=no'), '')
+          const temporary = fs.realpathSync(process.env.RUNNER_TEMP)
+          const expected = path.join(temporary, 'mdfe-' + process.env.GITHUB_RUN_ID + '-' + process.env.GITHUB_RUN_ATTEMPT)
+          const worktree = process.env.FRONTEND_WORKTREE
+          assert.equal(worktree, expected)
+          assert.ok(fs.lstatSync(worktree).isDirectory() && !fs.lstatSync(worktree).isSymbolicLink())
+          assert.equal(fs.realpathSync(worktree), expected)
+          assert.equal(git('-C', worktree, 'rev-parse', 'HEAD'), process.env.GITHUB_SHA)
+          assert.equal(git('-C', worktree, 'rev-parse', '--abbrev-ref', 'HEAD'), 'HEAD')
+          const source = path.join(worktree, 'web', 'dist')
+          assert.ok(fs.lstatSync(source).isDirectory() && !fs.lstatSync(source).isSymbolicLink())
+          assert.equal(fs.realpathSync(source), source)
+          const web = path.join(repository, 'web')
+          assert.ok(fs.lstatSync(web).isDirectory() && !fs.lstatSync(web).isSymbolicLink())
+          assert.equal(fs.realpathSync(web), web)
+          const destination = path.join(web, 'dist')
+          try { fs.lstatSync(destination); throw new Error('DESKTOP_FRONTEND_DIST_EXISTS') }
+          catch (error) { if (error.code !== 'ENOENT') throw error }
+          fs.cpSync(source, destination, { recursive: true, force: false, errorOnExist: true, dereference: false,
+            filter(filename) {
+              const relative = path.relative(source, filename)
+              assert.ok(!path.isAbsolute(relative) && relative !== '..' && !relative.startsWith('..' + path.sep))
+              const info = fs.lstatSync(filename)
+              assert.ok(!info.isSymbolicLink() && (info.isDirectory() || info.isFile()))
+              return true
+            },
+          })
+          assert.ok(fs.lstatSync(destination).isDirectory() && !fs.lstatSync(destination).isSymbolicLink())
+          assert.ok(fs.lstatSync(path.join(destination, 'index.html')).isFile())
+          assert.equal(git('rev-parse', 'HEAD'), process.env.GITHUB_SHA)
+          assert.equal(git('status', '--porcelain', '--untracked-files=no'), '')
+          console.log(JSON.stringify({ source_sha: process.env.GITHUB_SHA, copied_frontend_dist_only: true,
+            original_tracked_source_clean: true }))
+          NODE
 
       - name: Build the actual native Go binary on the runner
         timeout-minutes: 15

@@ -2,6 +2,8 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**Desktop源码身份首个差异已取证；后继隔离前端构建，资格仍待验。** `63bad881` / [CI42469536540](https://github.com/ForceMind/MyAPI/actions/runs/42469536540)终态cancelled，10成功/1失败/2取消/8跳过，18055行全实际日志/13 checkout已核；macOS job128696888520完整1460行明确唯一改动`web/src/routeTree.gen.ts`，source gate仍拒绝、未启动后端、Windows跳过。从配置看是路由生成文件；候选把前端放在仅Actions的同SHA detached临时工作树，原Lite参数不变，只复制生成dist回原检出，再原位Go构建/资格，原检出前后tracked clean断言全保留。无忽略/还原/放宽、无本机worktree/构建。仅语法轻查，后继必须自身完整CI和mac→win真实资格。自动42469533957取消的497行日志已读，不当通过。公网产品WIP继续排除；B4有效绿灯仍34b47daf，下方未知原因按原历史时点理解。
+
 **Desktop原生资格首轮未通过；当前后继仅补失败取证。** `42f0b84f` / [CI42468386156](https://github.com/ForceMind/MyAPI/actions/runs/42468386156)终态cancelled，10成功/1失败/2取消/8跳过，16273行全实际日志/13 checkout已核。macOS job128693160000完整1506行：真实ARM64/Node合同/Lite前端/Go编译成功，source阶段DESKTOP_SOURCE_IDENTITY_MISMATCH，尚未启动后端，Windows跳过。报告无具体改动路径，原因未定；后继仅让原源码检查在失败时仍输出tracked状态和路径，保差异非零拒绝，不清理、不忽略、不放宽helper断言。自动42468383376的703行取消日志已读，不作绿灯；公网检查Main/界面/字典/线稿WIP不纳入本提交。B4最新有效绿灯仍为下方34b47daf，整个Goal保持。
 
 **当前新候选是Desktop非浏览器原生后端资格，应用仍beta.52。** 新默认false开关run_desktop_backend_qualification；仅五份CI/测试工具及五份已有说明，不改应用功能或版本。各自同SHA真实Lite/Go构建与hash、loopback设置/登录/配置及secret两代复读、owned child停止/退出和自有清理，macOS arm64先于Windows x64，尚待自身完整CI。Electron外壳为夹具，不启动GUI；Windows优雅flush和两版账务明确未验，不把该资格当整个B5或真机安装通过。独立公网检查模块/Main/IPC/UI/原生字典/线稿WIP全部不含本提交；C1主审100键未应用、另41待审，T1与10文件删除的待授权边界不变。
