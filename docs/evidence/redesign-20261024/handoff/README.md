@@ -2,6 +2,9 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+
+**beta.53已验收；当前beta.54仅补译候选。** `7b781ac8` / [完整CI42479152318](https://github.com/ForceMind/MyAPI/actions/runs/42479152318) attempt1 success：15执行成功/6可选skip，23973行全实际日志、checkout/全部步骤已核，无失败/race标记；前端421文件3452测试、Desktop151合同、Mac/Win各155合同及原9项真实Go资格通过。教程24命令、Full/Lite beta.53真实启停/status/清理通过。Windows优雅flush、两版账务、GUI/外部视点仍未验；报告与范围集中TASKS。当前C1只改五语言各188已有值（940处）、五版本与四已有说明14文件，en/zh不变/无键增删，须自身完整CI+清单+教程通过，母语/浏览器未验。另三文件Desktop真实Go→owned HTTPS联动资格为独立WIP，不含本提交。T1接线/10整文件删除仍待准，不重做已验收部分、不新开BUG专项，完整三版本Goal保持。下段及更早“候选”均为历史时点。
+
 **当前新候选是beta.53公网入口分层检查，尚待自身Actions，不是已验收。** 复用既有效果图，只细化desktop-tray原单视图及两SVG；原四步保留，已保存入口下默认折叠，明确点击后固定无凭据公共状态检查，可取消，DNS/地址、TLS、响应分别有来源/时间/未知。Main/专用IPC严格绑定origin/revision/checkId/服务身份，旧结果失效，不占服务操作锁、保stop/quit确认与全部草稿/焦点。新安全模块/真实Main-IPC-renderer合同、owned TLS/代理正控、33条原生中英文案/229键与资源白名单已写，仅源审/语法轻查，新增测试和Native两平台均待自身SHA验证。Web字典未动，C1主审188键仍机器稿未应用；T1与10整文件删除待准、完整Goal保持。
 
 **Windows URI兼容与限定Native资格已验收：4a9d4b6d / [完整CI42476571858](https://github.com/ForceMind/MyAPI/actions/runs/42476571858)。** attempt1 success，14执行成功/7可选skip，23056行全实际日志、14 checkout/全部步骤、失败/race0已核；前端421文件3452测试及Root/独立relaykit/386/三库/race/分发等过。相同四叶Win从c820全部连接红到4a9四绿，Mac/Linux也全绿；Mac1599/Win1651行与各9check真实Go配置/secret/owned lifecycle/cleanup回执已核。Windows graceful flush与两版accounting/GUI仍false，不扩大范围。原writer真实三库2291行通过；原金额[CI42476575996](https://github.com/ForceMind/MyAPI/actions/runs/42476575996)1420行、Go exit0、三库12PASS/0skip/0fail及源码身份已核。报告digest/期限和全部红绿集中TASKS，未下载。自动42476570056只有31行可用取消日志，11无steps job日志404，不造测试。以下旧候选/失败按原时点理解，不覆盖最新状态。

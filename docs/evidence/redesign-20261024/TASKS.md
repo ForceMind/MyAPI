@@ -1,5 +1,17 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-08 C1第五批：beta.54补译候选，待自身Actions
+
+本批只更新五份Web字典中各188个已有值（共940处），七语均保留7890键；en/zh字节不变，无增删键，占位符源码核对无变化。范围覆盖Key客户端配置、连接能力/额度状态、登录与首次引导、钱包/日志/分页及模型同步说明。保留缺失/未知/零、只读刷新与请求重放的区别、付款未知时不重付、单文件内删除范围、管理Key创建未知先查列表，以及全部模型来源、权限和确认含义。五语言为已主审机器稿，尚无母语或浏览器验收。
+
+字典源值已由技能规定的临时脚本写入，该自有脚本已删除；本批五版本标识与四份已有说明同步，共14文件。Desktop真实Go→owned HTTPS联动资格的三个工具文件继续独立WIP，不含本提交。全部同步/构建/测试只在Actions：本SHA完整CI、run_i18n_inventory=true、run_deployment_tutorials=true、run_browser=false；自身结果通过前不称本批完成。不下载产物、不发布/合main/生产/真实供应商请求。完整三版本Goal与最终统一质量阶段保持；T1接线和10个旧UI整文件删除仍待授权。
+
+## 2026-11-08 beta.53已验收：7b781ac8 / CI42479152318
+
+`7b781ac8929c82a358c2501d8a497bd1b0124f14` / [完整CI42479152318](https://github.com/ForceMind/MyAPI/actions/runs/42479152318) attempt1 success：15执行成功、6可选跳过，23973行全部实际日志、15 checkout与全部步骤已核，失败/race标记0。前端421文件3452测试；Desktop151合同/0skip，macOS与Windows各155合同/0skip及原9项真实Go后端资格全部通过，原Root/独立relaykit/386/三库/race/分发门禁通过。Mac两代正常exit0；Windows关闭仍不作优雅flush证明，两版账务、GUI和外部视点未验。
+
+教程job128727099588完整750行：24条原命令及后置检查通过，Full/Lite beta.53实际构建/启停/status和自有清理通过。安全报告：[教程13617305988](https://github.com/ForceMind/MyAPI/actions/runs/42479152318/artifacts/13617305988)、[Mac13616801738](https://github.com/ForceMind/MyAPI/actions/runs/42479152318/artifacts/13616801738)、[Win13616614258](https://github.com/ForceMind/MyAPI/actions/runs/42479152318/artifacts/13616614258)；未下载。该资格覆盖真实owned TLS及代理正控、真实Main/IPC/renderer合同与后端生命周期，尚未覆盖真实Go经HTTPS反代的联动后继；不等同浏览器、GUI、真实公网、安装包或发布验收。自动42479149201 cancelled，可用626行取消日志已读，不作绿灯。以下候选说明为提交时历史。
+
 ## 2026-11-08 B5公网入口分层检查：beta.53源码候选，待自身Actions
 
 沿已批准B5b后继，先看并复用原desktop-public-access-concept-20261107.png，再仅细化原desktop-tray一个catalog/article及桌面/窄窗口两SVG；仍329视图，其他328对象/article、canonical其它656SVG及目录其它1322SVG保持，未删原额外666文件。不执行author.py，不本机渲染；线稿与实际视觉仍未验。原四步与全部入口保留，已保存入口下只新增默认折叠检查区，展开不请求，明确点击才检查，可单独取消。
