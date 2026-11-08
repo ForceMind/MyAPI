@@ -2,6 +2,8 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**Desktop原生资格首轮未通过；当前后继仅补失败取证。** `42f0b84f` / [CI42468386156](https://github.com/ForceMind/MyAPI/actions/runs/42468386156)终态cancelled，10成功/1失败/2取消/8跳过，16273行全实际日志/13 checkout已核。macOS job128693160000完整1506行：真实ARM64/Node合同/Lite前端/Go编译成功，source阶段DESKTOP_SOURCE_IDENTITY_MISMATCH，尚未启动后端，Windows跳过。报告无具体改动路径，原因未定；后继仅让原源码检查在失败时仍输出tracked状态和路径，保差异非零拒绝，不清理、不忽略、不放宽helper断言。自动42468383376的703行取消日志已读，不作绿灯；公网检查Main/界面/字典/线稿WIP不纳入本提交。B4最新有效绿灯仍为下方34b47daf，整个Goal保持。
+
 **当前新候选是Desktop非浏览器原生后端资格，应用仍beta.52。** 新默认false开关run_desktop_backend_qualification；仅五份CI/测试工具及五份已有说明，不改应用功能或版本。各自同SHA真实Lite/Go构建与hash、loopback设置/登录/配置及secret两代复读、owned child停止/退出和自有清理，macOS arm64先于Windows x64，尚待自身完整CI。Electron外壳为夹具，不启动GUI；Windows优雅flush和两版账务明确未验，不把该资格当整个B5或真机安装通过。独立公网检查模块/Main/IPC/UI/原生字典/线稿WIP全部不含本提交；C1主审100键未应用、另41待审，T1与10文件删除的待授权边界不变。
 
 **B4 root Docker Full/Lite已验收：34b47daf2919e0eb4690eaa440f43dbae70d3afe / [CI42465372403](https://github.com/ForceMind/MyAPI/actions/runs/42465372403)。** attempt1 success、14执行成功/6可选跳过，23449行全部实际日志、14 checkout/所有步骤已核，失败/race标记0；前端421文件3452测试及原Root/独立relaykit/386/三库/race门禁通过。Full job128683550466完整2164行、Lite/lan job128683550558完整2150行/各18检查；真实备份/隔离恢复、只删1保2、源新增17单位调整正常停止后保留、业务哈希一致、所有源fake2/恢复0及清理通过。报告身份/摘要/期限集中TASKS，未下载。仅Root Linux amd64 Docker Full/Lite SQLite，非其它形态/在线/灾难/生产资格；完整Goal保持。自动42465369795 cancelled的439行已读、12取消/7跳过且未checkout，不当通过。下方首轮红灯与候选按原时点理解。

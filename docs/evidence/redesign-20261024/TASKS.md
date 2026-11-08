@@ -2,6 +2,10 @@
 
 ## 2026-11-08 B5原生后端生命周期资格候选，应用仍beta.52
 
+首轮`42f0b84f2a21037c5030cf8e29417308f0077fd3` / [CI42468386156](https://github.com/ForceMind/MyAPI/actions/runs/42468386156)未验收，终态cancelled，10成功/1失败/2取消/8跳过；16273行全部实际日志与13 checkout已核。macOS job128693160000完整1506行已读：真实macos-26-arm64身份、Node合同、Lite前端和Go原生编译成功，资格在source阶段报DESKTOP_SOURCE_IDENTITY_MISMATCH，lifecycle为空，尚未启动后端，Windows按依赖规则skip。不能把编译或Node通过当原生运行资格。
+
+现有安全报告没有具体Git改动路径，尚不能确认原因；不猜测为go.sum或路由生成，也不清理/忽略差异。后继只把原post-build源码检查改为在失败时仍执行，输出tracked status/name-status并保留同SHA/差异非零拒绝，既有helper全部断言不改。仅YAML与差异轻查，仍须后继Actions。自动42468383376 cancelled的703行已读、12取消/8跳过、1checkout，不当通过。公网检查产品WIP和33条原生文案不含本资格后继提交。
+
 本批仅五个CI/测试工具文件：ci.yml默认关闭的run_desktop_backend_qualification、desktop-qualification.yml、tools/desktop/qualify-backend.mjs及其4组合同、electron/test/fixtures/native-host.mjs；加本清单/交接、Desktop/备份/发行说明五份已有文档，共10文件。仅工具与说明，不重复升级应用版本。macOS arm64先于Windows x64；各自当前SHA构建Lite前端与真实Go二进制，hash/版本绑定，实际loopback设置/登录/标记、owned stop/restart/quit、配置与会话secret复读、无关child保全及自有目录清理，仍待本批自身Actions运行。
 
 窗口/托盘由Electron边界夹具代替，不安装或启动Electron/Chromium，不做GUI、安装器、跨机、防火墙、模型或生产验收。Mac须正常exit0且无SIGKILL；Windows明确graceful_stop_verified=false、优雅flush未验，两版accounting_verified=false，不能用简单配置往返充当账务/在途flush证明。模块只源审/Node与YAML/内嵌JS语法检查，原Node/VM合同不替代此原生平台资格。提交后完整CI及macOS→Windows两个真实后端作业都通过才验收这一窄范围，整个B5及完整Goal保持。

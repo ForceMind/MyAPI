@@ -207,10 +207,12 @@ jobs:
           NODE
 
       - name: Require the original tracked source to remain unchanged
+        if: ${{ always() && steps.source.outcome == 'success' }}
         run: |
           set -euo pipefail
           test "$(git -c core.fileMode=false rev-parse HEAD)" = "$GITHUB_SHA"
-          git -c core.fileMode=false diff --exit-code HEAD --
+          git -c core.fileMode=false status --porcelain --untracked-files=no
+          git -c core.fileMode=false diff --name-status --exit-code HEAD --
 
       - name: Retain only the safe qualification JSON for seven days
         if: ${{ always() && steps.qualify.outputs.report_path != '' }}
@@ -416,10 +418,12 @@ jobs:
           NODE
 
       - name: Require the original tracked source to remain unchanged
+        if: ${{ always() && steps.source.outcome == 'success' }}
         run: |
           set -euo pipefail
           test "$(git -c core.fileMode=false rev-parse HEAD)" = "$GITHUB_SHA"
-          git -c core.fileMode=false diff --exit-code HEAD --
+          git -c core.fileMode=false status --porcelain --untracked-files=no
+          git -c core.fileMode=false diff --name-status --exit-code HEAD --
 
       - name: Retain only the safe qualification JSON for seven days
         if: ${{ always() && steps.qualify.outputs.report_path != '' }}
