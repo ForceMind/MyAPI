@@ -2,6 +2,8 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**C1第二轮仍因自身lint失败，当前仅一行等价修正候选。** `0ceacc6539a51357c31c4e8ed6a881e3dbc7bd4a` / [CI42448678659](https://github.com/ForceMind/MyAPI/actions/runs/42448678659)：前端job128633935395完整333行及annotations/checkout已核，4个旧lint错误消除，`Array.from()`触发prefer-spread（26警告/1错误）；候选仅换成同样字符串迭代的`[...value]`，不改范围、断言或规则。清单job128633935386已success但回执仍待读；最终完整CI须重跑，不提前验收。首轮ec取消后11113行/13 checkout已核，7成功/1失败/5取消、6可选跳过，不能当绿。原版本主线与历史BUG统一审查边界保持。
+
 **C1首轮清单通过但完整CI未通过，当前为自身lint最小修正候选。** `ec9156d4b35b38c3f407ebb195cd1b1978498b81` / [CI42448319640](https://github.com/ForceMind/MyAPI/actions/runs/42448319640)：清单job128631936078完整382行、8合同/0skip与真实canonical副本/原源码保持回执已核；七语各7886键，静态登记4个缺英文键候选、日语3/越南语1个占位符差异，英文同值只是候选，不作翻译验收。前端job128631936031完整341行及4条lint annotation已核，新脚本两嵌套三元/两控制字符正则违规，已请求取消剩余作业，不称绿。候选改为等价显式排序和字符码拒绝，保C0/DEL/C1范围并增加拒绝边界合同，不改规则/字典/产品。自身完整CI待重跑，历史BUG仍留最后统一阶段；下方C1初始“尚待”按当时记录理解。
 
 **最新已验为B7源码教程命令与完整门禁。** `5b05eea42edc15ba6a9d87a1e704e0827efaa87a` / [CI42446080862](https://github.com/ForceMind/MyAPI/actions/runs/42446080862) attempt1 success：13执行成功/5可选跳过、19908行全部实际日志已读，13 checkout/全部步骤已核，失败/race标记0；前端421文件/3452测试及Root/独立relaykit/386/三库/race/分发/串行Root合同通过。教程job128625189803完整748行与安全回执已核，24原命令exit0且全部后置检查true，Full/Lite真实build、启停、状态与精确自有清理均过；临时local别名使用但未GHCR发布。Native仅help/plan/render、Desktop仅Node合同，HTTPS入口/真机GUI/真实跨机LAN/浏览器仍未验。安全报告artifact13603359096（1979 bytes、SHA256 9783b07498983125430dc326be2cbb4abaebb7231dd54d8aabea382f422d57c2、到期2026-11-15T04:23:44Z）未下载。旧首轮最终cancelled，14571行可用日志全读，取消不是绿；Root串行通过不代表已确定旧unknown原因。完整Goal/B3B4B5后续能力与授权边界不变，下方早前候选按历史时点理解。

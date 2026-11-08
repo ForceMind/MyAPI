@@ -13,7 +13,7 @@ const digest = value => createHash('sha256').update(value).digest('hex')
 function demand(condition, code) { if (!condition) throw new Error(code) }
 
 function hasControlCharacter(value, includeC1 = false) {
-  return Array.from(value).some(character => {
+  return [...value].some(character => {
     const code = character.codePointAt(0)
     return code <= 0x1f || code === 0x7f || includeC1 && code >= 0x80 && code <= 0x9f
   })
