@@ -1,5 +1,7 @@
 # 接手文档（2026-11-08 更新）
 
+**B6首轮 `7a3eb2ff` / CI42431111672尚未验收。** 镜像构建与10组Node合同通过，容器评估job128580047634完整2131行日志已读：首个报告错误为`B6_READINESS_FAILED`，completed_cases为空，尚不能归因或称旧卷兼容。当前仅在新评估helper增加无正文/凭据的分阶段就绪证据，保全部原断言；不改产品、Dockerfile或默认USER，仍beta.45。后继SHA须自身完整CI。B4文件是独立未验WIP，不含本次B6提交。
+
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
 **2026-11-08最新已验收：A6a及重绑清单，`b7abb2bf88e2d2bb39e732c9f4e4f1d06563c436` / [手动完整CI42425121214](https://github.com/ForceMind/MyAPI/actions/runs/42425121214) attempt1 success。** 13执行成功/2跳过，主会话亲读19568行全部日志、13checkout及所有步骤，0 error；前端3452、Go/独立relaykit/386/三库等原门禁通过。自动42425102725 cancelled的日志尚未全读，不称亲读完或成功。scan job128561699305的1346行已读：Go1576 files/5872 short/422 manual；configured files/exports/types=2/372/174、ui-inclusive=13/417/176，恰少1个私有wrapper及4处type修饰符，其余计数不冒充全已用。

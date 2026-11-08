@@ -289,15 +289,36 @@ async function runLayout(env, testedDataMode) {
     demand(stopped.status === 'exited' && stopped.running === false && stopped.exitCode === 0 && stopped.oomKilled === false, 'B6_STOP_UNCONFIRMED')
     return stopped
   }
-  const ready = async url => {
+  const ready = async (url, role) => {
+    let httpStatus = null
+    let transportCode = null
     for (let attempt = 0; attempt < 60; attempt++) {
       try {
         const response = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(2000) })
+        httpStatus = response.status
         const body = await response.json()
         if (response.status === 200 && body?.success === true) return
-      } catch { /* Fixed loopback readiness cannot replay setup or billing. */ }
+      } catch (error) {
+        const code = error?.cause?.code
+        transportCode = ['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EHOSTUNREACH', 'ENETUNREACH'].includes(code) ? code : 'unknown'
+      }
       await delay(1000)
     }
+    // Readiness evidence contains no application output, environment values or
+    // response payload. An independent in-container read separates startup
+    // failure from the host's published-port path without changing assertions.
+    const state = inspect(role)
+    let insideReady = null
+    if (state.running === true) {
+      const observed = spawnSync('docker', ['exec', state.id, '/bin/sh', '-c', 'wget -q -T 3 -O - http://127.0.0.1:3000/api/status'],
+        { encoding: 'utf8', timeout: 5000, maxBuffer: 1024 * 1024 })
+      if (!observed.error && observed.status === 0) {
+        try { insideReady = JSON.parse(observed.stdout)?.success === true } catch { /* Unknown remains null. */ }
+      }
+    }
+    process.stderr.write(JSON.stringify({ stage: 'readiness', role, http_status: httpStatus, transport_code: transportCode,
+      container_status: state.status, running: state.running, exit_code: state.exitCode, oom_killed: state.oomKilled,
+      inside_container_ready: insideReady, internal_network: true }) + '\n')
     throw new Error('B6_READINESS_FAILED')
   }
 
@@ -308,7 +329,7 @@ async function runLayout(env, testedDataMode) {
     demand(filesystem('initialize').initialized === true, 'B6_FIXTURE_INITIALIZATION_FAILED')
     sourceHostOwner = hostOwner('source')
     const sourceId = createApp('source', 'source', '0:0', 18080)
-    await ready('http://127.0.0.1:18080/api/status')
+    await ready('http://127.0.0.1:18080/api/status', 'source')
     const identity = docker(['exec', sourceId, '/bin/sh', '-c', 'awk \'/^Uid:/{print "uid=" $3} /^Gid:/{print "gid=" $3}\' /proc/1/status; stat -c "mode=%a" /my-api'])
     demand(identity === 'uid=0\ngid=0\nmode=755', 'B6_SOURCE_PROCESS_UID_UNVERIFIED')
     sourceUID = { uid: 0, gid: 0, application_mode: '0755' }
@@ -370,7 +391,7 @@ async function runLayout(env, testedDataMode) {
             removeNonroot: () => remove('candidate'),
             startRoot: () => createApp('recovery', 'clone', '0:0', 18081),
             verifyRoot: async () => {
-              await ready('http://127.0.0.1:18081/api/status')
+              await ready('http://127.0.0.1:18081/api/status', 'recovery')
               const recovery = inspect('recovery')
               demand(recovery.running === true && docker(['exec', recovery.id, '/bin/sh', '-c', 'awk \'/^Uid:/{print "uid=" $3} /^Gid:/{print "gid=" $3}\' /proc/1/status']) === 'uid=0\ngid=0', 'B6_RECOVERY_PROCESS_UID_UNVERIFIED')
               await verify('http://127.0.0.1:18081')

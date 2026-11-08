@@ -1,5 +1,7 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+**B6首轮 `7a3eb2ff` / CI42431111672尚未验收。** 镜像构建与10组Node合同通过，容器评估job128580047634完整2131行日志已读：首个报告错误为`B6_READINESS_FAILED`，completed_cases为空，尚不能归因或称旧卷兼容。当前仅在新评估helper增加无正文/凭据的分阶段就绪证据，保全部原断言；不改产品、Dockerfile或默认USER，仍beta.45。后继SHA须自身完整CI。B4文件是独立未验WIP，不含本次B6提交。
+
 ## 2026-11-08 当前：A6a与重绑清单已验收，B6容器评估候选待CI（仍beta.45）
 
 `b7abb2bf88e2d2bb39e732c9f4e4f1d06563c436` / [手动完整CI42425121214](https://github.com/ForceMind/MyAPI/actions/runs/42425121214) attempt1 success：13个执行作业成功、2个可选作业跳过。主会话已亲读19568行全部日志，核对13个checkout及所有步骤，0 error；前端3452与根Go、独立relaykit、386、三库等原门禁通过。自动CI42425102725 cancelled，但主会话尚未全读其实际日志，不能写成已亲读完或计入成功证据。本节优先于下文A6a“候选/待自身CI”等历史时点记录。
