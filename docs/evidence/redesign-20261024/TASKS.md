@@ -1,6 +1,18 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
-## 2026-11-08 B7：首轮镜像后置检查失败；Actions 加载设置候选
+## 2026-11-08 C1：当前七语言清单候选；不提前进行统一BUG审查
+
+按已批准顺序继续C1，不重做页面、效果图或既有线稿。新增`web/scripts/report-i18n.mjs`和8组纯合同，`ci.yml`新增默认关闭的`run_i18n_inventory`。从代码看，入口仅允许Actions/manual/dev/本仓库精确SHA，在原始字典上先记录缺键/额外键/英文同值候选/占位符差异及词法源码位置；动态和绑定未确定的引用保留未知，不构成删键依据。canonical sync只在Runner自有副本实际执行，7字典、原同步脚本与扫描源码哈希及Git身份在前后重核，安全报告绑定run/attempt。`passed`仅代表清单执行成功，`translation_accepted=false`、`analysis_only=true`、`deletion_authorized=false`始终明确；不把旧报告或英文同值当本轮语言验收。
+
+本候选尚待自身完整CI和清单作业，当前只有源码审阅、Node/YAML/Python语法与diff检查。没有修改locale、执行本机入口/测试/sync、下载产物或浏览器/生产/真实供应商动作。应用版本仍beta.47。连接/Key首批12键已有上下文补译草稿，尚未应用或验收；后续通过技能规定的脚本批量写入并由Actions同步验证，不直接编辑字典。历史BUG仍留版本能力后的统一阶段，完整Goal及所有剩余范围保留。
+
+## 2026-11-08 B7：源码教程命令与完整CI已验收
+
+`5b05eea42edc15ba6a9d87a1e704e0827efaa87a` / [CI42446080862](https://github.com/ForceMind/MyAPI/actions/runs/42446080862) attempt1 success：13执行成功/5可选跳过，19908行全部实际日志已读，13 checkout和全部步骤已核，失败/race标记0。前端421文件/3452测试通过；Root/独立relaykit/386/三库/race、分发及串行Root合同通过。教程job128625189803完整748行及原始安全回执已读：24个唯一marker原命令均exit0、executed/exit_zero/postcondition_verified全true，Full与Lite均实际构建、启停和读取状态，版本beta.47、setup=false；自有容器/网络/tag清理全true，fixture仅留一次性Runner。Lite私网临时别名实际使用，`ghcr_published=false`。私网仅Runner自有网络，Full只核secure cookie配置，`tls_ingress_verified=false`；Native仍仅help/plan/render，Desktop仅Node合同，不是实际安装、真机GUI或跨机/浏览器验收。
+
+安全[报告artifact13603359096](https://github.com/ForceMind/MyAPI/actions/runs/42446080862/artifacts/13603359096)：1979 bytes、SHA256 `9783b07498983125430dc326be2cbb4abaebb7231dd54d8aabea382f422d57c2`、到期2026-11-15T04:23:44Z，未下载。首轮42444890601最终cancelled，13份可用执行日志共14571行已读：7成功/2失败/4取消，另5可选跳过，13 checkout匹配；取消不当绿。串行Root合同通过不能反推首轮unknown的确切原因，不降低未知时拒绝或原observed断言。本批没有改产品CLI、发布或生产动作，B3/B4/B5后续范围和完整Goal仍保留。
+
+## 2026-11-08 B7：首轮镜像后置检查失败；后继最小修正（历史时点）
 
 首轮 `3c8a8dfeced8a01b7512a235c77e4b82eb01293f` / [CI42444890601](https://github.com/ForceMind/MyAPI/actions/runs/42444890601) 未通过，不能作为教程验收。教程 job128621644090 完整746行已读：Full build 原命令 exit0，但随后的镜像读取未通过，前4条命令及自有资源清理已核。分发 job128621644137 完整3748行已读：Root归档合同 private-map 关闭占用后的扫描 status=unknown，期望仍为 observed；83项81通过/2失败（含父项），未知错误码原日志未带出，不能确定其原因。已请求停止该轮剩余重复作业，取消不算通过。
 

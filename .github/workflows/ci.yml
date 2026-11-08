@@ -31,6 +31,10 @@ on:
         description: 'Execute source-bound deployment tutorial commands on owned dev fixtures'
         type: boolean
         default: false
+      run_i18n_inventory:
+        description: 'Collect source-bound seven-language translation candidates without changing locale files'
+        type: boolean
+        default: false
       baseline_red:
         description: 'Reproduce the personal Key handoff regression on the fixed pre-fix source before testing the candidate'
         type: boolean
@@ -48,6 +52,65 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  i18n-inventory:
+    name: Current seven-language translation inventory
+    if: github.event_name == 'workflow_dispatch' && inputs.run_i18n_inventory && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MYAPI_I18N_INVENTORY: '1'
+    steps:
+      - name: Checkout exact inventory source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+      - name: Verify inventory contracts
+        working-directory: web
+        run: node --test scripts/report-i18n.test.mjs
+      - name: Collect translation candidates and run canonical sync on a copy
+        working-directory: web
+        run: |
+          set -euo pipefail
+          test "$(git -c core.fileMode=false rev-parse HEAD 2>&1 | sed '/non-monotonic/d')" = "$GITHUB_SHA"
+          node scripts/report-i18n.mjs
+          git -c core.fileMode=false diff --exit-code HEAD -- src/i18n scripts/sync-i18n.mjs 2>&1 | sed '/non-monotonic/d'
+      - name: Verify source-bound inventory receipt
+        run: |
+          python3 - <<'PY'
+          import json, os, stat
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP']).resolve() / ('myapi-i18n-inventory-' + os.environ['GITHUB_SHA'] + '-' + os.environ['GITHUB_RUN_ID'] + '-' + os.environ['GITHUB_RUN_ATTEMPT'])
+          filename = root / 'report.json'
+          assert root.resolve() == root and filename.resolve() == filename
+          directory = root.lstat()
+          assert stat.S_ISDIR(directory.st_mode) and directory.st_uid == os.getuid() and stat.S_IMODE(directory.st_mode) == 0o700
+          metadata = filename.lstat()
+          assert stat.S_ISREG(metadata.st_mode) and metadata.st_uid == os.getuid()
+          assert stat.S_IMODE(metadata.st_mode) == 0o600
+          with filename.open() as source:
+              report = json.load(source)
+          assert report['schema_version'] == 1 and report['passed'] is True
+          assert report['source_sha'] == os.environ['GITHUB_SHA']
+          assert report['run_id'] == os.environ['GITHUB_RUN_ID']
+          assert report['run_attempt'] == os.environ['GITHUB_RUN_ATTEMPT']
+          assert report['analysis_only'] is True and report['deletion_authorized'] is False
+          assert report['translation_accepted'] is False
+          assert report['source_files_unchanged'] is True
+          assert type(report['canonical_sync']['exit_code']) is int and report['canonical_sync']['exit_code'] == 0
+          PY
+      - name: Upload source-only translation inventory
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: myapi-i18n-inventory-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/myapi-i18n-inventory-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}/report.json
+          retention-days: 7
+          if-no-files-found: error
+
   deployment-tutorials:
     name: Exact deployment tutorial command qualification
     if: github.event_name == 'workflow_dispatch' && inputs.run_deployment_tutorials && github.ref == 'refs/heads/dev'
