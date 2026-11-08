@@ -2,6 +2,12 @@
 
 ## 2026-11-08 B5原生后端生命周期资格候选，应用仍beta.52
 
+四叶原实现红证据：`c820f60f607a1e381ea22e4198191e2245588a27` / [CI42475202656](https://github.com/ForceMind/MyAPI/actions/runs/42475202656)终态cancelled，11成功/1失败/2取消/7跳过，16153行全部实际日志/14 checkout已核。Linux job128716080997四叶实际PASS已逐名核；Mac job128716080706完整1644行四叶PASS且9项Native通过。Windows job128716848932完整488行编译和独立原生建库成功，4叶均在reader.Conn第117行报SQLite逻辑错误out of memory (1)，不是fixture/setup或编译红；原文件保全无额外失败，后续Native尚未运行。此对照支持检查Windows URI边界，仍须修正后同断言绿及原Native重启证明最终效果。自动42475200431取消186行可用日志已读、12取消/8跳过，6个无steps取消job日志404明确不可用，不造通过。
+
+后继最小产品候选仅model/quota_writer_preflight.go中6行：filepath.VolumeName限定ASCII盘符且IsAbs后，ToSlash并给URI Path前置/；仍由原net/url编码，mode=ro与原immutable bool及调用者不改，非Windows/非drive/UNC/相对或设备路径保持原逻辑。不新增import/helper/依赖，不改任何测试/判定、WAL/源指纹/金额/库表或数据，不切Full、不删sidecar、不补sleep/retry。此为未发布beta.52 Native资格迭代中的必要兼容候选，不反复升级应用号，尚未验证实际修复。
+
+因该URI由writer/amount/edition共享，现ci.yml复用原b2-databases隔离services、固定loopback两DSN加原writer配置库+SQLite专项，不改原命令/断言、无新服务或caller DSN。另须同SHA手动复用r4-quota-preflight-probe.yml原金额三库12叶，亲核原Go exit0/12PASS/0skip，不能把其“证据分类工作流绿”当产品绿；默认CI已有edition真实三库及原SQLite/root/独立relaykit/386/race。最终需四叶三平台、旧writer/amount/edition、Native Mac→Win9checks与完整CI均过。本批4路径只共享函数、CI与两交接，公网产品WIP/C1机器稿全部排除。本机只源文本/差异/YAML轻查，没跑Go/gofmt/test/build或下载产物。
+
 精确码轮`322697d1120bb11a5fe821969a7822f9cc39deea` / [CI42474117810](https://github.com/ForceMind/MyAPI/actions/runs/42474117810)终态cancelled，10成功/1失败/3取消/7跳过，15752行全部实际日志、14 checkout已核。Mac成功；Win job128711821941完整1637行明确NATIVE_HOST_LITE_UNVERIFIABLE_DATABASE_UNAVAILABLE，第二代仍phase restart退出1、7checks过。证据只证明已有数据库检查无法确认，不证明URI、WAL或数据损坏，不改门禁来通过。自动42474115399 cancelled的12个作业均无steps且日志API404，日志不可用；8可选skip，不编造已执行或通过。
 
 当前后继仅测试/CI候选5文件：新增model/sqlite_readonly_uri_test.go、两份既有workflow及本清单/交接；生产函数与判定全不改。四叶为原生普通/中文空格#%路径×immutable false/true，用原生filename独立写DELETE小库并关闭后，再经实际共享sqliteReadOnlyURI读取精确marker；有效UPDATE/CREATE必须SQLITE_READONLY低8位8，重读marker、新表不存在与整目录名称/类型/模式/全部字节保持。无query_only/ReadOnly tx/OS只读权限来遮住URI行为，无环境/全局DB/cwd改动，无skip/parallel。Linux backend及Mac/Win真实native校验后显式同一-v入口，保mac→win顺序和所有既有门禁。

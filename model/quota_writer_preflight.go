@@ -351,6 +351,12 @@ func inspectSQLiteQuotaWriter(ctx context.Context, dsn string) (QuotaWriterMode,
 }
 
 func sqliteReadOnlyURI(absolutePath string, immutable bool) string {
+	// VolumeName is empty off Windows; leave non-drive and UNC inputs unchanged.
+	if volume := filepath.VolumeName(absolutePath); len(volume) == 2 &&
+		((volume[0] >= 'A' && volume[0] <= 'Z') || (volume[0] >= 'a' && volume[0] <= 'z')) &&
+		volume[1] == ':' && filepath.IsAbs(absolutePath) {
+		absolutePath = "/" + filepath.ToSlash(absolutePath)
+	}
 	query := url.Values{"mode": []string{"ro"}}
 	if immutable {
 		query.Set("immutable", "1")
