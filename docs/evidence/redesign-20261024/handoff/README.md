@@ -2,6 +2,8 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**C1首轮清单通过但完整CI未通过，当前为自身lint最小修正候选。** `ec9156d4b35b38c3f407ebb195cd1b1978498b81` / [CI42448319640](https://github.com/ForceMind/MyAPI/actions/runs/42448319640)：清单job128631936078完整382行、8合同/0skip与真实canonical副本/原源码保持回执已核；七语各7886键，静态登记4个缺英文键候选、日语3/越南语1个占位符差异，英文同值只是候选，不作翻译验收。前端job128631936031完整341行及4条lint annotation已核，新脚本两嵌套三元/两控制字符正则违规，已请求取消剩余作业，不称绿。候选改为等价显式排序和字符码拒绝，保C0/DEL/C1范围并增加拒绝边界合同，不改规则/字典/产品。自身完整CI待重跑，历史BUG仍留最后统一阶段；下方C1初始“尚待”按当时记录理解。
+
 **最新已验为B7源码教程命令与完整门禁。** `5b05eea42edc15ba6a9d87a1e704e0827efaa87a` / [CI42446080862](https://github.com/ForceMind/MyAPI/actions/runs/42446080862) attempt1 success：13执行成功/5可选跳过、19908行全部实际日志已读，13 checkout/全部步骤已核，失败/race标记0；前端421文件/3452测试及Root/独立relaykit/386/三库/race/分发/串行Root合同通过。教程job128625189803完整748行与安全回执已核，24原命令exit0且全部后置检查true，Full/Lite真实build、启停、状态与精确自有清理均过；临时local别名使用但未GHCR发布。Native仅help/plan/render、Desktop仅Node合同，HTTPS入口/真机GUI/真实跨机LAN/浏览器仍未验。安全报告artifact13603359096（1979 bytes、SHA256 9783b07498983125430dc326be2cbb4abaebb7231dd54d8aabea382f422d57c2、到期2026-11-15T04:23:44Z）未下载。旧首轮最终cancelled，14571行可用日志全读，取消不是绿；Root串行通过不代表已确定旧unknown原因。完整Goal/B3B4B5后续能力与授权边界不变，下方早前候选按历史时点理解。
 
 **当前继续C1七语言清单候选，尚待自身Actions。** 新增只读`report-i18n.mjs`/8组纯合同与默认关闭的`run_i18n_inventory`：仅manual/dev/本仓库精确SHA，先读取原始字典和词法引用，再在Runner私有副本执行canonical sync，核对原7字典/脚本/源码及Git身份保持；动态引用未知，英文同值只列候选。清单`passed`不代表翻译验收，固定`translation_accepted=false`/`analysis_only=true`/`deletion_authorized=false`；不删键、不写locale、不用旧报告冒充当前数量。连接/Key12键补译仍是未应用草稿。版本beta.47不变，全部执行只Actions，无本机依赖/测试/构建/sync/产物下载，无浏览器/生产/发布/模型动作；历史BUG留最后统一阶段，不缩小完整Goal。

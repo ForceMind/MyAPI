@@ -12,6 +12,13 @@ const locales = ['en', 'zh', 'zh-TW', 'fr', 'ja', 'ru', 'vi']
 const digest = value => createHash('sha256').update(value).digest('hex')
 function demand(condition, code) { if (!condition) throw new Error(code) }
 
+function hasControlCharacter(value, includeC1 = false) {
+  return Array.from(value).some(character => {
+    const code = character.codePointAt(0)
+    return code <= 0x1f || code === 0x7f || includeC1 && code >= 0x80 && code <= 0x9f
+  })
+}
+
 function dictionary(raw) {
   demand(typeof raw === 'string' && Buffer.byteLength(raw) <= 16 * 1024 * 1024, 'I18N_DICTIONARY_INVALID')
   let value
@@ -43,7 +50,11 @@ export function interpolationSignature(value) {
     const key = JSON.stringify({ name, unescaped: Boolean(match[1]), format })
     tokens.set(key, (tokens.get(key) || 0) + 1)
   }
-  return [...tokens].sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+  return [...tokens].sort(([left], [right]) => {
+    if (left < right) return -1
+    if (left > right) return 1
+    return 0
+  })
     .map(([token, count]) => ({ ...JSON.parse(token), count }))
 }
 
@@ -82,7 +93,7 @@ function sourceTokens(source) {
       const simple = { n: '\n', r: '\r', t: '\t', b: '\b', f: '\f', v: '\v', '0': '\0' }
       if (Object.hasOwn(simple, escaped)) value += simple[escaped]
       else if (escaped === 'x' || escaped === 'u') {
-        let length = escaped === 'x' ? 2 : 4
+        const length = escaped === 'x' ? 2 : 4
         if (escaped === 'u' && source[cursor] === '{') {
           const end = source.indexOf('}', cursor + 1)
           demand(end >= 0 && /^[a-fA-F0-9]{1,6}$/.test(source.slice(cursor + 1, end)), 'I18N_SOURCE_STRING_INVALID')
@@ -143,7 +154,7 @@ function sourceTokens(source) {
 
 export function inventoryI18nSource({ file, source }) {
   demand(typeof file === 'string' && /^src\/.+\.(?:[jt]sx?)$/.test(file) && !file.split('/').some(part => !part || part === '.' || part === '..') &&
-    !/[\\\u0000-\u001f\u007f]/u.test(file) && typeof source === 'string', 'I18N_SOURCE_INVALID')
+    !file.includes('\\') && !hasControlCharacter(file) && typeof source === 'string', 'I18N_SOURCE_INVALID')
   const fileSha = digest(source), tokens = sourceTokens(source), literal = [], unknown = []
   const location = token => ({ file, line: token.line, file_sha256: fileSha, source_role: /(?:__tests__|\.(?:test|spec)\.)/.test(file) ? 'test' : 'production' })
   for (let index = 0; index < tokens.length; index++) {
@@ -184,14 +195,18 @@ export function inventoryI18nSource({ file, source }) {
 
 export function analyzeI18nSnapshot({ locales: raw, sources }) {
   demand(raw && typeof raw === 'object' && !Array.isArray(raw) && Object.keys(raw).sort().join() === [...locales].sort().join() &&
-    Array.isArray(sources) && sources.length > 0 && sources.some(item => item?.file === 'src/i18n/static-keys.ts'), 'I18N_INPUT_SET_INVALID')
+    Array.isArray(sources) && sources.some(item => item?.file === 'src/i18n/static-keys.ts'), 'I18N_INPUT_SET_INVALID')
   const dictionaries = Object.fromEntries(locales.map(locale => [locale, dictionary(raw[locale])]))
   const base = dictionaries.en, baseKeys = Object.keys(base).sort(), seen = new Set()
   const references = sources.map(item => {
     demand(item && !seen.has(item.file), 'I18N_DUPLICATE_SOURCE')
     seen.add(item.file)
     return inventoryI18nSource(item)
-  }).sort((left, right) => left.file < right.file ? -1 : left.file > right.file ? 1 : 0)
+  }).sort((left, right) => {
+    if (left.file < right.file) return -1
+    if (left.file > right.file) return 1
+    return 0
+  })
   const localeReports = Object.fromEntries(locales.map(locale => {
     const target = dictionaries[locale], keys = Object.keys(target).sort()
     return [locale, { input_sha256: digest(raw[locale]), key_count: keys.length,
@@ -218,7 +233,7 @@ export function i18nReportScope(env) {
   demand(typeof env.GITHUB_SHA === 'string' && /^[a-f0-9]{40}$/.test(env.GITHUB_SHA) && typeof env.GITHUB_RUN_ID === 'string' && /^[1-9][0-9]{0,19}$/.test(env.GITHUB_RUN_ID) &&
     typeof env.GITHUB_RUN_ATTEMPT === 'string' && /^[1-9][0-9]{0,19}$/.test(env.GITHUB_RUN_ATTEMPT), 'I18N_IDENTITY_REJECTED')
   demand(typeof env.RUNNER_TEMP === 'string' && path.isAbsolute(env.RUNNER_TEMP) && path.normalize(env.RUNNER_TEMP) === env.RUNNER_TEMP && env.RUNNER_TEMP !== '/' &&
-    !/[\u0000-\u001f\u007f-\u009f]/u.test(env.RUNNER_TEMP), 'I18N_TEMP_REJECTED')
+    !hasControlCharacter(env.RUNNER_TEMP, true), 'I18N_TEMP_REJECTED')
   return { source_sha: env.GITHUB_SHA, run_id: env.GITHUB_RUN_ID, run_attempt: env.GITHUB_RUN_ATTEMPT,
     directory: path.join(env.RUNNER_TEMP, `myapi-i18n-inventory-${env.GITHUB_SHA}-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT}`) }
 }
@@ -272,7 +287,7 @@ async function main() {
     const tracked = git(['ls-files', '-z', '--', 'web/src', 'web/scripts/sync-i18n.mjs']).split('\0').filter(Boolean)
     const sourceFiles = tracked.filter(file => /^web\/src\/.+\.[jt]sx?$/.test(file)).map(file => file.slice(4)).sort()
     const localeFiles = locales.map(locale => `src/i18n/locales/${locale}.json`), canonicalFile = 'scripts/sync-i18n.mjs'
-    demand([canonicalFile, ...localeFiles, ...sourceFiles].every(file => tracked.includes('web/' + file)), 'I18N_SOURCE_INCOMPLETE')
+    demand([canonicalFile, ...localeFiles, ...sourceFiles].every(file => tracked.includes(`web/${file}`)), 'I18N_SOURCE_INCOMPLETE')
     original = Object.fromEntries([canonicalFile, ...localeFiles, ...sourceFiles].map(file => [file, readSource(file)]))
     const snapshot = analyzeI18nSnapshot({ locales: Object.fromEntries(locales.map((locale, index) => [locale, original[localeFiles[index]]])), sources: sourceFiles.map(file => ({ file, source: original[file] })) })
     const temp = lstatSync(process.env.RUNNER_TEMP)
@@ -282,7 +297,7 @@ async function main() {
     const directoryInfo = lstatSync(scope.directory, { bigint: true })
     outputBinding = `${directoryInfo.dev}:${directoryInfo.ino}`
     const owner = JSON.stringify({ source_sha: scope.source_sha, run_id: scope.run_id, run_attempt: scope.run_attempt })
-    writeFileSync(path.join(scope.directory, 'ownership.json'), owner + '\n', { flag: 'wx', mode: 0o600 })
+    writeFileSync(path.join(scope.directory, 'ownership.json'), `${owner}\n`, { flag: 'wx', mode: 0o600 })
     reportFile = path.join(scope.directory, 'report.json')
     Object.assign(report, snapshot, { input_files: Object.entries(original).map(([file, source]) => ({ file, sha256: digest(source) })) })
     const copy = path.join(scope.directory, 'canonical-copy')
@@ -312,7 +327,7 @@ async function main() {
         const info = lstatSync(scope.directory, { bigint: true })
         demand(info.isDirectory() && !info.isSymbolicLink() && info.uid === BigInt(process.getuid()) && (info.mode & 0o777n) === 0o700n &&
           `${info.dev}:${info.ino}` === outputBinding && realpathSync(scope.directory) === scope.directory, 'I18N_REPORT_DIRECTORY_CHANGED')
-        writeFileSync(reportFile, JSON.stringify(report, null, 2) + '\n', { flag: 'wx', mode: 0o600 })
+        writeFileSync(reportFile, `${JSON.stringify(report, null, 2)}\n`, { flag: 'wx', mode: 0o600 })
       } catch { report.passed = false; report.error_code ||= 'I18N_REPORT_WRITE_FAILED'; reportFile = null }
     }
     process.umask(oldUmask)

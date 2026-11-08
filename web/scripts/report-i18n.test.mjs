@@ -88,7 +88,7 @@ test('missing inputs, malformed flat dictionaries, duplicate keys and unsafe sou
   assert.throws(() => analyzeI18nSnapshot({ ...fixture(), sources: [] }), /INPUT_SET_INVALID/)
   const duplicate = fixture(); duplicate.sources.push(duplicate.sources[0])
   assert.throws(() => analyzeI18nSnapshot(duplicate), /DUPLICATE_SOURCE/)
-  for (const file of ['/outside.ts', '../outside.ts', 'src/../outside.ts', 'src/a\\b.ts', 'src/label.json']) assert.throws(() => inventoryI18nSource({ file, source: "t('Hello')" }), /SOURCE_INVALID/)
+  for (const file of ['/outside.ts', '../outside.ts', 'src/../outside.ts', 'src/a\\b.ts', 'src/label.json', `src/invalid${String.fromCodePoint(0)}.ts`, `src/invalid${String.fromCodePoint(0x7f)}.ts`]) assert.throws(() => inventoryI18nSource({ file, source: "t('Hello')" }), /SOURCE_INVALID/)
 })
 
 const env = { GITHUB_ACTIONS: 'true', MYAPI_I18N_INVENTORY: '1', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REF: 'refs/heads/dev', GITHUB_REPOSITORY: 'ForceMind/MyAPI',
@@ -102,6 +102,7 @@ test('manual dev scope binds a deterministic private destination and rejects mis
   assert.notEqual(i18nReportScope({ ...env, GITHUB_RUN_ATTEMPT: '3' }).directory, scope.directory)
   for (const [key, value] of [['GITHUB_ACTIONS', 'false'], ['MYAPI_I18N_INVENTORY', undefined], ['GITHUB_EVENT_NAME', 'push'], ['GITHUB_REF', 'refs/heads/main'],
     ['GITHUB_REPOSITORY', 'someone/MyAPI'], ['GITHUB_SHA', null], ['GITHUB_SHA', 'a'.repeat(39)], ['GITHUB_RUN_ID', 123], ['GITHUB_RUN_ATTEMPT', '0'],
-    ['RUNNER_TEMP', null], ['RUNNER_TEMP', 'relative'], ['RUNNER_TEMP', '/'], ['RUNNER_TEMP', '/tmp/../etc'], ['RUNNER_TEMP', '/tmp/unsafe\npath']]) assert.throws(() => i18nReportScope({ ...env, [key]: value }))
+    ['RUNNER_TEMP', null], ['RUNNER_TEMP', 'relative'], ['RUNNER_TEMP', '/'], ['RUNNER_TEMP', '/tmp/../etc'], ['RUNNER_TEMP', '/tmp/unsafe\npath'],
+    ['RUNNER_TEMP', `/tmp/unsafe${String.fromCodePoint(0x80)}path`], ['RUNNER_TEMP', `/tmp/unsafe${String.fromCodePoint(0x9f)}path`]]) assert.throws(() => i18nReportScope({ ...env, [key]: value }))
   assert.equal(JSON.stringify(env), before)
 })

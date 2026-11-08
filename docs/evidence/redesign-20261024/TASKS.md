@@ -2,6 +2,10 @@
 
 ## 2026-11-08 C1：当前七语言清单候选；不提前进行统一BUG审查
 
+首轮`ec9156d4b35b38c3f407ebb195cd1b1978498b81` / [CI42448319640](https://github.com/ForceMind/MyAPI/actions/runs/42448319640) 不能验收为完整绿，已请求取消剩余重复作业。清单job128631936078完整382行已读，8合同全部通过/0skip，raw字典每语7886键、相对英文均0缺键/0extras；英文同值候选zh178/zh-TW1077/fr1191/ja1085/ru1085/vi1123，包含品牌与同形词，不作为漏译数量。词法1617文件/10381引用/388未知；静态登记4个缺英文键候选，日本语3/越南语1个占位符差异仍待上下文确认。canonical真实副本运行、源码保持及safe receipt均过，`translation_accepted=false`。前端job128631936031完整341行及4条准确lint annotations已读：新reporter两处嵌套三元、两处控制字符正则违反门禁，前端回归尚未执行。
+
+后继最小候选改为原顺序的显式比较分支和字符码拒绝检查，控制范围保持C0/DEL及临时路径额外C1；对应拒绝边界加合同，预期未放宽。只清理本脚本冗余检查/const/字符串拼接，不改规则、字典或产品。修正后仅Node语法/diff已查，完整CI仍待新提交；首轮技术清单通过不替代完整门禁。
+
 按已批准顺序继续C1，不重做页面、效果图或既有线稿。新增`web/scripts/report-i18n.mjs`和8组纯合同，`ci.yml`新增默认关闭的`run_i18n_inventory`。从代码看，入口仅允许Actions/manual/dev/本仓库精确SHA，在原始字典上先记录缺键/额外键/英文同值候选/占位符差异及词法源码位置；动态和绑定未确定的引用保留未知，不构成删键依据。canonical sync只在Runner自有副本实际执行，7字典、原同步脚本与扫描源码哈希及Git身份在前后重核，安全报告绑定run/attempt。`passed`仅代表清单执行成功，`translation_accepted=false`、`analysis_only=true`、`deletion_authorized=false`始终明确；不把旧报告或英文同值当本轮语言验收。
 
 本候选尚待自身完整CI和清单作业，当前只有源码审阅、Node/YAML/Python语法与diff检查。没有修改locale、执行本机入口/测试/sync、下载产物或浏览器/生产/真实供应商动作。应用版本仍beta.47。连接/Key首批12键已有上下文补译草稿，尚未应用或验收；后续通过技能规定的脚本批量写入并由Actions同步验证，不直接编辑字典。历史BUG仍留版本能力后的统一阶段，完整Goal及所有剩余范围保留。
