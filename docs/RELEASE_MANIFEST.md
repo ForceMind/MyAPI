@@ -11,10 +11,10 @@
 | 当前入口 / Current entry | 已有证据与限制 / Evidence and limits |
 | --- | --- |
 | [Linux 原生预览 / Native Linux](NATIVE_LINUX.md) | B3a 只有 `--help`、`plan`、`render-unit`。`34ad42ac` / [CI42415882062](https://github.com/ForceMind/MyAPI/actions/runs/42415882062) 包含六组合同、systemd 解析及合成参数/PID 转交；没有服务安装、真实 `EnvironmentFile` 加载或 manager 生命周期证据。 |
-| [个人电脑分流 / Personal computer](PERSONAL_COMPUTER.md) | 区分 Docker Desktop Lite 与 Desktop 本地面板源码能力，继续链接 [Lite / Legacy LAN](LAN_LITE.md) 和 [Electron](../electron/README.md)。GUI、睡眠恢复、跨机公网可达及真实更新仍未验；beta.40 旧包不重标为当前候选 beta.49。 |
+| [个人电脑分流 / Personal computer](PERSONAL_COMPUTER.md) | 区分 Docker Desktop Lite 与 Desktop 本地面板源码能力，继续链接 [Lite / Legacy LAN](LAN_LITE.md) 和 [Electron](../electron/README.md)。GUI、睡眠恢复、跨机公网可达及真实更新仍未验；beta.40 旧包不重标为当前候选 beta.50。 |
 | [备份与隔离恢复 / Backup and restore](BACKUP_RESTORE.md) | beta.46 `b9c4dcd4` / CI42439207854 已证备份与隔离恢复；beta.47 `81ab6c48` / [CI42442205783](https://github.com/ForceMind/MyAPI/actions/runs/42442205783) 已证保留策略清理及新增合成账务保全。范围仅注册的 Root Docker Full + SQLite 路径，不适用于原生或 Desktop 数据。 |
 
-B7 的24条 marker 原命令已在 `46eadb53` / [CI42451649080](https://github.com/ForceMind/MyAPI/actions/runs/42451649080) 的自有 fixture 中逐条通过，包含 Full/Lite 实际构建和启停、Native 预览与 Desktop Node 合同；不代表真实安装、GUI、HTTPS入口或跨机验收。当前 beta.49 补译候选仍待自身 CI。没有发布的包、tag 或运行制品不提供伪可复制下载命令。The beta.48 source tutorial rehearsal passed; the beta.49 candidate awaits its own validation. Neither is an installed, signed or published release.
+B7 的24条 marker 原命令已在 `cf7d4336` / [CI42455126920](https://github.com/ForceMind/MyAPI/actions/runs/42455126920) 的自有 fixture 中逐条通过，包含 Full/Lite 实际构建和启停、Native 预览与 Desktop Node 合同；不代表真实安装、GUI、HTTPS入口或跨机验收。当前 beta.50 补译候选仍待自身 CI。没有发布的包、tag 或运行制品不提供伪可复制下载命令。The beta.49 source tutorial rehearsal passed; the beta.50 candidate awaits its own validation. Neither is an installed, signed or published release.
 
 当前 `cli/lib/release-manifest.mjs` 只在合成定向测试中使用：它对**已由未来受信边界获得**的 manifest
 做有界字段、URL/OCI、平台和 fresh-install-only 选择校验，并返回冻结快照。它与
