@@ -1,5 +1,7 @@
 # 接手文档（2026-11-08 更新）
 
+**B6第三轮 `776d33d0` / CI42432457165整体尚未验收。** job128584167839完整2145行已读：0755旧卷已证明UID/GID10001应用拒绝、拒绝阶段全树不变、root业务复读、fake2→2及清理；0700停在`B6_OCI_REFUSAL_UNVERIFIED`，不能把它写成已证OCI拒绝或UID=0。候选保全部原OCI/UID/账务/metadata/不重放断言，去掉“0700必在OCI阶段拒绝”的未证预判；仅按实际Docker启动状态、UID marker与permission证据区分应用/OCI拒绝，未知仍失败，新增逐项反例合同。待后继SHA实际两卷及完整CI。
+
 **B6第二轮 `3f38e0a4` / CI42431898229仍未验收。** job128582469717完整2138行已读：source running/无OOM，容器内status已就绪，宿主发布端口ECONNREFUSED；因此首个差异在隔离bridge的宿主访问路径，尚未进入nonroot旧卷判定。候选保留internal网络与全部旧断言，仅用source-bound Bun在对应固定网络命名空间转运一次合成请求，URL限3个既有loopback fixture origin，正文/凭据仅stdin和内存、不输出；保多Set-Cookie与不重试写入。新增transport边界合同，11组及两实际旧卷待后继Actions，不提前称评估通过。
 
 **B6首轮 `7a3eb2ff` / CI42431111672尚未验收。** 镜像构建与10组Node合同通过，容器评估job128580047634完整2131行日志已读：首个报告错误为`B6_READINESS_FAILED`，completed_cases为空，尚不能归因或称旧卷兼容。当前仅在新评估helper增加无正文/凭据的分阶段就绪证据，保全部原断言；不改产品、Dockerfile或默认USER，仍beta.45。后继SHA须自身完整CI。B4文件是独立未验WIP，不含本次B6提交。

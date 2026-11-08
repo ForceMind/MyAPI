@@ -85,12 +85,17 @@ function manifestDigest(entries) {
 // contracts exercise the evidence transitions without Docker or a database.
 export async function assessPreservedClone({ original, dataMode = 0o755, rejectionStage = 'application', snapshot, upstreamCount, startNonroot, outcome, removeNonroot, startRoot, verifyRoot, stopRoot }) {
   demand([snapshot, upstreamCount, startNonroot, outcome, removeNonroot, startRoot, verifyRoot, stopRoot].every(callback => typeof callback === 'function'), 'B6_EVIDENCE_CALLBACK_MISSING')
-  demand(dataMode === 0o755 && rejectionStage === 'application' || dataMode === 0o700 && rejectionStage === 'oci_workdir', 'B6_DATA_LAYOUT_REJECTED')
+  demand(dataMode === 0o755 && rejectionStage === 'application' || dataMode === 0o700 && ['application', 'oci_workdir', 'observed'].includes(rejectionStage), 'B6_DATA_LAYOUT_REJECTED')
   const before = validateRootManifest(original, { dataMode })
   demand(JSON.stringify(validateRootManifest(await snapshot(), { dataMode })) === JSON.stringify(before), 'B6_CLONE_NOT_PRESERVED')
   demand(await upstreamCount() === 2, 'B6_INITIAL_UPSTREAM_EVIDENCE_MISSING')
   await startNonroot()
   const rejected = await outcome()
+  if (rejectionStage === 'observed') {
+    if (rejected?.reason === 'permission-denied-startup') rejectionStage = 'application'
+    else if (rejected?.reason === 'oci-workdir-permission-denied') rejectionStage = 'oci_workdir'
+    else throw new Error('B6_REFUSAL_STAGE_UNVERIFIED')
+  }
   if (rejectionStage === 'application') {
     demand(rejected?.status === 'exited' && rejected.running === false && rejected.exitCode === 1 && rejected.oomKilled === false &&
       rejected.uid === 10001 && rejected.gid === 10001 && rejected.processStarted === true && rejected.startExitCode === 0 &&
@@ -399,7 +404,7 @@ async function runLayout(env, testedDataMode) {
           const original = validateRootManifest(filesystem('snapshot-source'), { dataMode })
           demand(filesystem('clone').copied === true, 'B6_CLONE_FAILED')
           cloneHostOwner = hostOwner('clone')
-          assessment = await assessPreservedClone({ original, dataMode, rejectionStage: testedDataMode === '0755' ? 'application' : 'oci_workdir', snapshot: () => filesystem('snapshot-clone'),
+          assessment = await assessPreservedClone({ original, dataMode, rejectionStage: testedDataMode === '0755' ? 'application' : 'observed', snapshot: () => filesystem('snapshot-clone'),
             upstreamCount: () => {
               const fake = inspect('fake')
               demand(fake.running === true, 'B6_FAKE_UPSTREAM_UNAVAILABLE')
@@ -420,8 +425,12 @@ async function runLayout(env, testedDataMode) {
               demand(!raw.error && raw.status === 0, 'B6_REFUSAL_LOG_UNAVAILABLE')
               const logs = `${raw.stdout}${raw.stderr}`
               const markers = [...logs.matchAll(/^MYAPI_B6_UID=(\d+):GID=(\d+)$/gm)]
-              if (testedDataMode === '0700') {
-                demand(candidateStart && candidateStart.status !== 0 && markers.length === 0, 'B6_OCI_REFUSAL_UNVERIFIED')
+              process.stderr.write(JSON.stringify({ stage: 'refusal', data_mode: testedDataMode, docker_start_exit_code: candidateStart?.status ?? null,
+                status: state.status, running: state.running, pid: state.pid, exit_code: state.exitCode, oom_killed: state.oomKilled,
+                marker_count: markers.length, marker_uid: markers.length === 1 ? Number(markers[0][1]) : null,
+                marker_gid: markers.length === 1 ? Number(markers[0][2]) : null, permission_log: /failed to open log file|permission denied/i.test(logs) }) + '\n')
+              if (candidateStart?.status !== 0) {
+                demand(testedDataMode === '0700' && candidateStart && markers.length === 0, 'B6_OCI_REFUSAL_UNVERIFIED')
                 const diagnostic = `${candidateStart.stderr}${state.runtimeError}`
                 return { ...state, uid: null, gid: null, processStarted: false, startExitCode: candidateStart.status,
                   reason: /permission denied/i.test(diagnostic) && /chdir|cwd|working directory/i.test(diagnostic) && diagnostic.includes('/data') ? 'oci-workdir-permission-denied' : 'unknown' }

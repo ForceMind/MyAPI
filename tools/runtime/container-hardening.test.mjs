@@ -181,3 +181,25 @@ test('the separate root 0700 layout records a proved OCI refusal without inventi
     assert.equal(invalid.events.includes('root-start'), false)
   }
 })
+
+test('0700 refusal is classified from observed evidence while preserving every application and OCI guard', async () => {
+  const original = manifest(0o700)
+  const local = lifecycle({ original, dataMode: 0o700, rejectionStage: 'observed', snapshot: () => structuredClone(original) })
+  const result = await assessPreservedClone(local.callbacks)
+  assert.equal(result.rejection_stage, 'application')
+  assert.equal(result.nonroot_process_uid, 10001)
+  assert.equal(result.nonroot_process_gid, 10001)
+  assert.equal(result.process_started, true)
+  assert.equal(result.nonroot_container_exit_code, 1)
+  assert.equal(result.docker_start_exit_code, 0)
+  assert.equal(result.refusal_bytes_owner_mode_preserved, true)
+  assert.equal(result.original_root_business_state_verified, true)
+  assert.equal(result.compatibility, false)
+  assert.deepEqual(result.fake_upstream_requests, { before_nonroot: 2, after_root_recovery: 2, additional: 0 })
+  for (const change of [{ reason: 'unknown' }, { uid: null }, { uid: 0 }, { exitCode: 0 }, { processStarted: false }, { startExitCode: 1 }, { oomKilled: true }]) {
+    const invalid = lifecycle({ original, dataMode: 0o700, rejectionStage: 'observed', snapshot: () => structuredClone(original),
+      outcome: () => ({ status: 'exited', running: false, exitCode: 1, startExitCode: 0, oomKilled: false, uid: 10001, gid: 10001, processStarted: true, reason: 'permission-denied-startup', ...change }) })
+    await assert.rejects(assessPreservedClone(invalid.callbacks), /B6_(REFUSAL_STAGE|NONROOT_OUTCOME)_UNVERIFIED/)
+    assert.equal(invalid.events.includes('root-start'), false)
+  }
+})
