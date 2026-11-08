@@ -2,6 +2,10 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+**最新beta.47实际门禁已核：81ab6c4867ad1247800928727f0aaf7324dc6df3 / [CI42442205783](https://github.com/ForceMind/MyAPI/actions/runs/42442205783) attempt1 terminal success。** 13执行作业success/4可选skip，21466行全部实际日志已读，13 checkout匹配、失败/race标记0；前端421文件/3452测试，Root/独立relaykit/386/三库/race、Root合同与真实backup/restore/prune作业均过。真实资格精确删1/保2、restore引用/latest保护、一次性确认和trigger、原source新增17单位调整保留、每个实际netns fake累计2且recovery0、清理均已核。步骤API曾滞后，不能写“步骤元数据全部同步”：后端全部原run命令与无continue-on-error、S1和A2实际PASS日志已逐项复核；A2三库20叶场景PASS/0skip，job终态success且日志已完成清理，API仍可能显示旧in_progress/pending，保留该异常。未重跑成功作业，不把浏览器/生产/真实供应商或发布算验收。
+
+**本提交为B7教程候选，待自身Actions。** 沿现文档增量补Full/Lite/Native预览/个人电脑/Desktop中英任务教程，24个唯一marker绑定原Bash文本/source行/含LF哈希；GHA helper只manual/dev/精确SHA，真实CLI两次local image build和串行固定my-api启停/状态、临时私网绑定，保持镜像ID/项目labels/bind/secret内存一致性。私网参数当前会改写myapi-lan坐标，CI临时local alias仅本daemon，无pull/push/发布、不替换生产镜像。Native只有plan/render/help、Desktop只有Node合同，本批不宣称实际安装/GUI/HTTPS ingress/真实跨机LAN。仅safe报告7天artifact，构建/env/DB不上传，fixture只留一次性Runner。新入口run_deployment_tutorials默认false，未在本机执行命令，语法检查不是实际资格。完整Goal的其余范围与未授权删除/浏览器/生产边界仍保留。
+
 **最新已验收为B4a beta.46：`b9c4dcd4ce72fea5679b2da0a7d394039a003f23` / [完整CI42439207854](https://github.com/ForceMind/MyAPI/actions/runs/42439207854) attempt1 success。** 13执行成功/4可选跳过，主会话读取20680行全部日志，13 checkout与所有步骤已核、失败标记0；前端421文件/3452测试、Root/独立relaykit/386/三库/race和root合同通过。真实CLI资格job128604632216完整2094行及报告已核：plan/confirm备份、WAL与原目录/权限保全、隔离新目录restore、错摘要/重复确认/原及既有目标拒绝、账务精确复读、原fake2+恢复fake0=2、精确网桥规则/本机canary/host健康与清理全部通过；浏览器/生产/真实供应商未执行。
 
 安全[资格报告](https://github.com/ForceMind/MyAPI/actions/runs/42439207854/artifacts/13600832096)为1585 bytes，SHA256 f90df8a037ead5503820e166aa32d1ed612c65c045c2820c9b9f2a500eccddea，到期2026-11-15T02:39:37Z，未下载。默认keep-all，完成范围仅Root Docker Full/SQLite停机备份与隔离恢复，不是整个B4或全部三版本；旧红灯/取消不当绿。

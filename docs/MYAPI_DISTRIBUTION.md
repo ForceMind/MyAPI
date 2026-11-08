@@ -1,4 +1,4 @@
-# My API 自建发行版、统一入口与 NPM 包
+# MyAPI Docker Full、源码分发与统一入口
 
 My API 是面向自建部署的发行品牌，提供可审计的完整源码、部署模板和
 `@forcemind/myapi` CLI。源码仓库：
@@ -6,11 +6,105 @@ My API 是面向自建部署的发行品牌，提供可审计的完整源码、�
 的命名和迁移边界；OpenAI、Anthropic、Google 等第三方协议名称仍按其官方
 名称保留。
 
-**发行状态：** `@forcemind/myapi` 当前尚未正式发布到 NPM；统一 Release Manifest、服务器 Lite、个人电脑 Lite、Desktop updater 和形态切换仍未实现。现有 `cli/lib/release-manifest.mjs` 与 `installation-state.mjs` 仅为未接线的 schema-1 结构选择和内存安装状态/cleanup plan；`legacy-installation-profile.mjs` 仅对显式旧 Docker 配置作 fail-closed 的 Full/Lite/local/LAN/needs_manual 画像映射。三者都不能获取或验签资产、读写文件、安装、更新、切换或回退。源码检出状态下请将
-文中的 `npx @forcemind/myapi ...` 替换为 `node cli/myapi.mjs ...`，或使用维护者
+**发行状态：** 当前源码为 `0.2.0-beta.47`（`90cb0f6c`），自身 CI 与本批教程验收尚待完成；对应 NPM/GHCR 发行未发布。Full/Lite Docker CLI、Desktop 本机服务面板和已有 HTTPS 反代记录向导已有源码，实际验收边界见下文及当前 TASKS；统一 Release Manifest 的下载/验签/安装、原生生命周期执行器、Desktop updater 和自动形态切换仍未接线。现有 `cli/lib/release-manifest.mjs` 与 `installation-state.mjs` 仅为未接线的 schema-1 结构选择和内存安装状态/cleanup plan；`legacy-installation-profile.mjs` 仅对显式旧 Docker 配置作 fail-closed 的 Full/Lite/local/LAN/needs_manual 画像映射。三者都不能获取或验签资产、读写文件、安装、更新、切换或回退。源码检出时，旧示例中的全局 `myapi ...` 命令应替换为从源码根运行的 `node cli/myapi.mjs ...`，或使用维护者
 审核过的本地 tarball；正式发布后再按版本和 registry 复核 `npx` 示例。
 
 产品定位、制品关系、更新状态机和验收见 [发行制品、安装与更新合同](RELEASE_MANIFEST.md)；提示词学习数据与 Codex 应用备份的保留规则见 [S5-P 专题](PROMPT_LEARNING.md)。本文保留当前可用 Legacy CLI/Docker 事实，不能把未来命令写成当前可执行命令。
+
+## Docker Full 源码教程 / Docker Full from source
+
+**当前身份：** 本教程按 `0.2.0-beta.47`、源码 `90cb0f6c` 编写，该源码的完整 CI `42441559549` 尚待验收；本次教程命令也待独立 Actions 验证。NPM 包和对应 GHCR 镜像尚未发布，不能用 `npx`、`latest` 或猜测的版本 tag 代替源码。已有 B4a 资格只证明隔离 Runner 的 root Docker Full/SQLite 备份恢复，不代表你的服务器已安装或可上线。
+
+**Current identity:** these instructions describe `0.2.0-beta.47` at source `90cb0f6c`. Its full CI `42441559549` and this tutorial's command qualification are pending. The NPM package and corresponding GHCR images are unpublished. Use an explicitly reviewed source checkout; do not substitute `npx`, `latest`, or an invented release tag. Existing isolated Full/SQLite qualification is not acceptance of your server.
+
+### 1. 选择与准备 / Choose and prepare
+
+Full 适合需要完整管理、计费和服务端功能的部署。只需个人接入时，先看 [Docker Lite](LAN_LITE.md)；个人电脑和原生服务分别见 [个人电脑](PERSONAL_COMPUTER.md)、[Linux 原生预览](NATIVE_LINUX.md)，Desktop 见 [桌面说明](../electron/README.md)。这不是数据库或版本形态迁移教程，已有数据不能当全新目录初始化。
+
+Full provides the complete server feature set. For a personal gateway, consider Lite. The linked guides distinguish personal Docker, native preview and Desktop. Do not use fresh initialization to migrate an existing database or change editions.
+
+以下命令从审核过的**源码根目录**运行，使用 Node.js 22、可用的 Docker Engine 和 Compose v2.17+。先为当前终端明确设置下列变量；没有隐式默认值，不要使用已有项目、Home 根目录或生产路径。CI 会把它们绑定到一次性私有夹具。
+
+Run the marked commands from the reviewed **repository root**, with Node.js 22, Docker Engine and Compose v2.17+. Set these variables explicitly in the current shell; CI supplies disposable fixture values. Never point them at an existing installation or a production directory.
+
+| 变量 / Variable | 含义 / Meaning |
+| --- | --- |
+| `MYAPI_PROJECT_DIR` | 将创建的新项目绝对路径；不得含已有配置或数据库。 / An absolute new project path without existing configuration or data. |
+| `MYAPI_TUTORIAL_PUBLIC_URL` | 操作者选定的精确 HTTPS origin，例如你管理的域名；格式通过不证明 DNS、TLS 或公网可达。 / Your chosen exact HTTPS origin; syntax validation does not verify DNS, TLS or reachability. |
+| `MYAPI_TUTORIAL_IMAGE` | 维护者审核、对应目标源码的 `local/...` 本地镜像名；不是下载地址。 / A reviewed `local/...` image name for the selected source, not a download location. |
+
+先确认 CLI 的源码版本。版本输出不能替代源码 SHA 或镜像身份核对。
+Check the CLI version first; a version string alone does not establish source or image identity.
+
+<!-- tutorial-command: full-source-version -->
+```bash
+node cli/myapi.mjs version --json
+```
+
+### 2. 创建与配置 / Initialize and configure
+
+第一条只复制源码，第二条为全新项目生成 `deploy/.env`、随机会话密钥和数据/日志目录。密钥不应出现在终端、截图或版本库中；已有 `.env` 会被保留并拒绝覆盖，`--force` 也不是绕过。
+The first command copies source. The second creates the fresh project's private `deploy/.env`, random session secret and data/log folders. Existing configuration is not overwritten, including with `--force`.
+
+<!-- tutorial-command: full-source-init -->
+```bash
+node cli/myapi.mjs init "${MYAPI_PROJECT_DIR:?}"
+```
+
+<!-- tutorial-command: full-source-configure -->
+```bash
+node cli/myapi.mjs configure --project-dir "${MYAPI_PROJECT_DIR:?}" --public-url "${MYAPI_TUTORIAL_PUBLIC_URL:?}"
+```
+
+用文本编辑器检查该项目的 `deploy/.env`：保持 `MYAPI_EDITION=full`、回环绑定和生成的密钥/账务设置；将 `MYAPI_IMAGE` 设为前述 `MYAPI_TUTORIAL_IMAGE` 的实际 `local/...` 值，并设置 `MYAPI_BUILD_LOCAL=true`。CLI 没有 `--image` 参数，不要把变量名原样写入 `.env`。不要公开或重建已有 `SESSION_SECRET`。现有外部数据库、权限、路径和高级参数仍由 `.env.example`、Compose 和后文合同说明，本 SQLite-first 新项目例子不覆盖它们。
+
+Review `deploy/.env` in an editor: preserve `full`, loopback binding, the generated secret and accounting settings. Set `MYAPI_IMAGE` to the actual reviewed `local/...` value and `MYAPI_BUILD_LOCAL=true`. There is no CLI `--image` flag, and `.env` does not expand shell variables. Keep existing secrets and advanced storage settings intact; this fresh SQLite-first example is not an external-database migration.
+
+<!-- tutorial-command: full-source-doctor -->
+```bash
+node cli/myapi.mjs doctor --project-dir "${MYAPI_PROJECT_DIR:?}"
+```
+
+失败时先处理具体 `fix:` 提示；警告不代表检查了真实公网或供应商。不要通过改权限为全局可写、删除数据库或重置身份来跳过检查。
+Resolve reported failures before starting. Warnings do not establish public access or provider readiness; do not erase data or weaken permissions to bypass a check.
+
+### 3. 构建、启动、核对 / Build, start and inspect
+
+以下操作仅用于明确选择的本地源码项目。`build` 会构建镜像；`up` 会启动或重建该项目的容器。没有审核过的本地镜像配置时不要执行，以免落入尚未发布的默认 GHCR tag。
+These commands build and start the selected local-source project. Do not run them until the local-image configuration is reviewed; otherwise the default unpublished GHCR reference is not a usable release.
+
+<!-- tutorial-command: full-source-build -->
+```bash
+node cli/myapi.mjs build --project-dir "${MYAPI_PROJECT_DIR:?}"
+```
+
+<!-- tutorial-command: full-source-up -->
+```bash
+node cli/myapi.mjs up --project-dir "${MYAPI_PROJECT_DIR:?}"
+```
+
+<!-- tutorial-command: full-source-status -->
+```bash
+node cli/myapi.mjs status --project-dir "${MYAPI_PROJECT_DIR:?}"
+```
+
+`up` 使用有界健康等待，失败不能写成成功；`status` 显示部署状态，不证明 TLS、公网或模型成功。首次管理员设置在所选实例的控制台完成；随后明确添加连接、创建 Key，再把所见 API Base URL 和该 Key 交给客户端。不要在教程验收中调用真实供应商。控制台与真实浏览器操作另行验证。
+
+Startup waits for health and fails if it cannot confirm readiness. Status is not a TLS, public-network or model test. Complete first-admin setup in the selected console, then add a connection, create a Key and configure a client with the displayed API Base URL. Real browser and provider acceptance are separate.
+
+### 4. 停止与保留数据 / Stop and preserve data
+
+<!-- tutorial-command: full-source-down -->
+```bash
+node cli/myapi.mjs down --project-dir "${MYAPI_PROJECT_DIR:?}"
+```
+
+`down` 不附带删除 volume 的参数，但停止和保留挂载目录不等于已做备份。独立 root Docker Full/SQLite 的备份/隔离恢复请严格按 [备份与恢复](BACKUP_RESTORE.md) 的登记、维护窗口和确认要求执行；该 CLI 会自行正常停机，不要先用本段停止流程替代它的停写证据。beta.47 清理候选尚待自身 CI，不在本教程中承诺可用。原生、Desktop、其他数据库、跨机器恢复以及自动回灌旧账务均不属于这条路径。
+
+`down` does not request volume deletion, but retained folders are not a verified backup. Follow the linked root Docker Full/SQLite backup/restore guide, including registration, maintenance and confirmation. Let that command establish its own normal-stop evidence. The beta.47 prune candidate is still pending CI. Native/Desktop recovery, other databases and cross-host restoration are not covered here; never roll live accounting back to an old snapshot.
+
+以下章节保留发行、高级配置和维护合同；未标记为 `tutorial-command` 的发布、迁移及平台参考不属于本批待验的教程命令集合。
+The remaining sections retain advanced distribution and maintenance contracts. Release, migration and platform references are not qualified installation steps unless explicitly marked and subsequently verified.
 
 ## 品牌与兼容性边界
 
@@ -77,9 +171,11 @@ Footer = 留空
 About = 留空
 ```
 
-默认部署会拉取 GitHub Actions 生成的 GHCR 镜像。私有 GHCR 包需要先登录：
+远端镜像模式会尝试拉取配置中的 GHCR 镜像；只有维护者确认该精确版本已发布且可访问时才适用。当前 beta.47 没有对应发行，请走上面的本地源码路径。以下保留历史私有仓库认证语法，执行需另行确认：
 
-```bash
+<!-- tutorial-reference: full-advanced-1 -->
+以下为维护参考，未纳入本批可执行教程验证；须先核对适用版本、权限和授权。 / Maintenance reference, not a qualified installation step.
+```text
 echo "$GHCR_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
 ```
 
@@ -118,8 +214,10 @@ MYAPI_ALLOW_LAN=false
 
 当前 Docker 升级只能显式执行：
 
-```bash
-npx @forcemind/myapi upgrade --project-dir ./my-api --version v0.2.0
+<!-- tutorial-reference: full-advanced-2 -->
+以下为维护参考，未纳入本批可执行教程验证；须先核对适用版本、权限和授权。 / Maintenance reference, not a qualified installation step.
+```text
+node cli/myapi.mjs upgrade --project-dir ./my-api --version v0.2.0
 ```
 
 该命令按 Full/Legacy LAN 发行版选择 GHCR 仓库，备份部署环境文件，等待健康检查，并在
@@ -132,7 +230,9 @@ npx @forcemind/myapi upgrade --project-dir ./my-api --version v0.2.0
 
 本地构建示例（不会发布任何远端镜像）：
 
-```bash
+<!-- tutorial-reference: full-advanced-3 -->
+以下为维护参考，未纳入本批可执行教程验证；须先核对适用版本、权限和授权。 / Maintenance reference, not a qualified installation step.
+```text
 docker build \
   --build-arg MYAPI_BRAND_NAME=MyAPI \
   --build-arg MYAPI_BRAND_LOGO=/myapi-logo-v1.png \
@@ -158,13 +258,15 @@ Dockerfile、部署模板、历史补丁、许可证和零运行时依赖 CLI。
 
 ### 当前源码初始化
 
-```bash
-npx @forcemind/myapi init ./my-api
-npx @forcemind/myapi configure \
+<!-- tutorial-reference: full-advanced-4 -->
+以下为维护参考，未纳入本批可执行教程验证；须先核对适用版本、权限和授权。 / Maintenance reference, not a qualified installation step.
+```text
+node cli/myapi.mjs init ./my-api
+node cli/myapi.mjs configure \
   --project-dir ./my-api \
   --public-url https://myapi.example.com
-npx @forcemind/myapi doctor --project-dir ./my-api
-npx @forcemind/myapi build --project-dir ./my-api
+node cli/myapi.mjs doctor --project-dir ./my-api
+node cli/myapi.mjs build --project-dir ./my-api
 ```
 
 `configure` 会生成随机 `SESSION_SECRET`，并将 `deploy/.env` 权限设为 `0600`。
@@ -180,8 +282,10 @@ npx @forcemind/myapi build --project-dir ./my-api
 
 CLI 不会复制、删除或自动迁移数据，只把用户明确给出的目录写入配置。示例：
 
-```bash
-npx @forcemind/myapi adopt \
+<!-- tutorial-reference: full-advanced-5 -->
+以下为维护参考，未纳入本批可执行教程验证；须先核对适用版本、权限和授权。 / Maintenance reference, not a qualified installation step.
+```text
+node cli/myapi.mjs adopt \
   --project-dir ./my-api \
   --data-dir /srv/previous-instance/data \
   --logs-dir /srv/previous-instance/logs
@@ -190,19 +294,21 @@ npx @forcemind/myapi adopt \
 接管前应停止旧实例、校验备份并确认数据库文件可读；`down` 不附带 `-v`，不会删除
 Docker volume。
 
-## 更新、切换、清理与教程（目标，尚未实现）
+## 统一更新与形态切换（后续目标）
 
 手动检查、下载、安装和自动更新使用同一可恢复流程，但有不同授权：检查不下载/重启，下载不安装，安装只在用户允许的维护窗口和权限下执行。自动检查、自动下载、自动安装默认均关闭。每次操作记录当前/目标版本、说明、下载/校验/备份/排空/切换/健康检查、取消、失败、回退和人工处理状态；单安装锁阻止 UI、CLI、自动任务并发修改。
 
 从 Full 到 Lite、从服务器到个人电脑/桌面、或反向切换时，先检查制品、环境、磁盘、权限、数据库/配置兼容、功能差异和活动订单/任务/订阅；数据不删除，数据库引擎迁移和跨机器迁移单列。旧程序不能安全读取新 schema 时，“回退程序”必须明确显示仍需恢复数据库或人工处理。
 
-正式安装教程将提供中文和英文，并分别覆盖 Linux Full 服务器、Linux Lite 服务器、个人电脑 Lite、Windows/macOS Desktop 和实际宣布支持的其他平台。每个命令须标明系统、目录、权限和已验证版本；未发布包、未实现命令或未验证平台不得伪装为教程。安装/更新 UI 将显示版本、形态、安装方式、访问状态、数据位置、下一次计划、历史、备份/恢复和教程入口。
+本批教程正在按当前实现补齐中文和英文入口，并分别区分 Linux Full 服务器、Linux Lite 服务器、个人电脑 Lite、Windows/macOS Desktop 和实际宣布支持的其他平台。每个命令须标明系统、目录、权限和已验证版本；未发布包、未实现命令或未验证平台不得伪装为教程。安装/更新 UI 将显示版本、形态、安装方式、访问状态、数据位置、下一次计划、历史、备份/恢复和教程入口。
 
 ## 发布检查与人工门禁
 
-发布前先在本地完成所有检查，推荐只做 dry-run：
+发布检查在另行授权的隔离 CI/构建环境完成；下列维护命令仅保留语法参考，不属于本批教程或发布授权：
 
-```bash
+<!-- tutorial-reference: full-advanced-6 -->
+以下为维护参考，未纳入本批可执行教程验证；须先核对适用版本、权限和授权。 / Maintenance reference, not a qualified installation step.
+```text
 npm test
 npm run release:state
 npm run source:manifest
@@ -228,7 +334,7 @@ CLI 会从 `package.json.version` 生成新项目的 Full 默认镜像，安装�
 GitHub Actions 当前只负责生成镜像，不直接连接或重启生产主机；部署端更新
 `MYAPI_IMAGE` 后由 `myapi up` 或 `deploy/install.sh` 拉取新版本。
 
-当前同一版本 tag 也会自动触发 Electron macOS/Windows 构建并上传 Actions artifacts；
+Electron macOS/Windows 构建可按受控 workflow_dispatch/tag 条件生成 Actions artifacts；源码存在或 tag 命名本身不证明本次构件已生成，须按实际 run 与 SHA 核对。
 Electron workflow 同样校验 push/manual tag 对应的提交以及 `VERSION`、
 `package.json.version`，避免桌面安装包与发行版本错配；
 只有在维护者显式填写 `PUBLISH` 且开启 release 环境变量时，才会附加到 GitHub
@@ -259,7 +365,9 @@ tag。下一次正式发布必须先确定新的版本号，创建指向当前�
 自己的文案、图形和发行版说明。它不依赖后台或运行时密钥，可直接用静态文件服务器
 预览：
 
-```bash
+<!-- tutorial-reference: full-advanced-7 -->
+以下为维护参考，未纳入本批可执行教程验证；须先核对适用版本、权限和授权。 / Maintenance reference, not a qualified installation step.
+```text
 python3 -m http.server 4173 --directory website
 ```
 

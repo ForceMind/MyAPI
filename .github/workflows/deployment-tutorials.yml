@@ -1,0 +1,166 @@
+name: Source-bound deployment tutorial qualification
+
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        type: string
+        default: dev
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  tutorials:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      MYAPI_TUTORIAL_QUALIFICATION: '1'
+      MYAPI_B7_TUTORIALS: '1'
+      MYAPI_SMOKE_API_ONLY: '1'
+      MYAPI_SMOKE_BROWSER: '0'
+      MYAPI_SMOKE_PERSONAL: '0'
+      DOCKER_HOST: unix:///var/run/docker.sock
+      DOCKER_BUILDKIT: '1'
+      BUILDKIT_PROGRESS: plain
+    steps:
+      - name: Require a manual dev tutorial request
+        env:
+          REQUESTED_SOURCE_REF: ${{ inputs.source_ref }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/dev
+          test "$GITHUB_REPOSITORY" = ForceMind/MyAPI
+          test "$REQUESTED_SOURCE_REF" = dev
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
+          [[ "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]{0,19}$ ]]
+
+      - name: Check out the exact caller source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify the clean source identity
+        run: |
+          set -euo pipefail
+          test "$(git -c core.fileMode=false rev-parse HEAD)" = "$GITHUB_SHA"
+          git -c core.fileMode=false diff --exit-code HEAD --
+          test -z "$(git -c core.fileMode=false status --porcelain=v1 --untracked-files=all)"
+
+      - name: Set up Node 22
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+
+      - name: Verify tutorial parser and command-result contracts
+        timeout-minutes: 5
+        run: node --test tools/runtime/tutorial-commands.test.mjs
+
+      - name: Set up the bounded tutorial builder
+        id: buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        with:
+          driver: docker-container
+          driver-opts: |
+            memory=4g
+            memory-swap=4g
+            cpu-period=100000
+            cpu-quota=200000
+
+      - name: Record the actual command tools
+        run: |
+          set -euo pipefail
+          node --version
+          bash --version
+          env -u DOCKER_CONTEXT docker version --format '{{.Client.Version}} {{.Server.Version}}'
+          env -u DOCKER_CONTEXT docker compose version --short
+          env -u DOCKER_CONTEXT docker buildx version
+
+      - name: Execute exact tutorial commands on owned fixtures
+        id: qualify
+        timeout-minutes: 80
+        env:
+          BUILDX_BUILDER: ${{ steps.buildx.outputs.name }}
+        run: |
+          set -euo pipefail
+          umask 077
+          [[ "$BUILDX_BUILDER" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$ ]]
+          test "$(git -c core.fileMode=false rev-parse HEAD)" = "$GITHUB_SHA"
+          git -c core.fileMode=false diff --exit-code HEAD --
+          test -z "$(git -c core.fileMode=false status --porcelain=v1 --untracked-files=all)"
+          report="$RUNNER_TEMP/myapi-deployment-tutorials-$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.json"
+          test ! -e "$report"
+          test ! -L "$report"
+          echo "report_path=$report" >> "$GITHUB_OUTPUT"
+          # Keep the inherited HOME/tool paths for Docker's installed plugin
+          # configuration. The builder and socket are fixed by this workflow.
+          # No host dependency install or prebuilt image replaces CLI build.
+          env -u DOCKER_CONTEXT node tools/runtime/tutorial-commands.mjs | tee "$report"
+          python3 - "$report" <<'PY'
+          import hashlib, json, os, re, stat, sys
+          from pathlib import Path
+
+          filename = Path(sys.argv[1])
+          metadata = filename.lstat()
+          assert stat.S_ISREG(metadata.st_mode) and metadata.st_nlink == 1
+          assert metadata.st_uid == os.getuid() and stat.S_IMODE(metadata.st_mode) == 0o600
+          assert filename.resolve() == filename
+          with filename.open() as source:
+              result = json.load(source)
+          assert result['schema_version'] == 1 and result['passed'] is True
+          assert result['source_sha'] == os.environ['GITHUB_SHA']
+          assert result['run_id'] == os.environ['GITHUB_RUN_ID']
+          assert result['run_attempt'] == os.environ['GITHUB_RUN_ATTEMPT']
+          assert result['phase'] == 'completed' and result['error_code'] is None
+          cleanup = result['cleanup']
+          for field in ['confirmed', 'owned_containers_removed', 'owned_networks_removed', 'owned_image_tags_removed', 'fixture_retained']:
+              assert cleanup[field] is True, field
+          alias = result['local_synthetic_alias']
+          assert type(alias['used']) is bool and alias['ghcr_published'] is False
+
+          files = ['docs/MYAPI_DISTRIBUTION.md', 'docs/LAN_LITE.md', 'docs/NATIVE_LINUX.md',
+                   'docs/PERSONAL_COMPUTER.md', 'electron/README.md']
+          pattern = re.compile(r'<!-- tutorial-command: ([a-z0-9]+(?:-[a-z0-9]+)*) -->\n```bash\n(.*?)\n```', re.S)
+          expected = {}
+          for relative in files:
+              text = Path(relative).read_text()
+              for match in pattern.finditer(text):
+                  identifier = match.group(1)
+                  assert identifier not in expected
+                  expected[identifier] = {'source_file': relative, 'source_line': text[:match.start(2)].count('\n') + 1,
+                                          'command_sha256': hashlib.sha256((match.group(2) + '\n').encode()).hexdigest()}
+          commands = result['commands']
+          assert len(expected) == len(commands) == 24
+          assert len({row['id'] for row in commands}) == 24
+          assert {row['id'] for row in commands} == set(expected)
+          editions = set()
+          version = Path('VERSION').read_text().strip()
+          for row in commands:
+              assert all(row[key] == value for key, value in expected[row['id']].items())
+              assert type(row['source_line']) is int and type(row['exit_code']) is int and row['exit_code'] == 0
+              assert row['checks'] == {'executed': True, 'exit_zero': True, 'postcondition_verified': True}
+              runtime = row['runtime']
+              if runtime is not None:
+                  assert runtime['product_edition'] in {'full', 'lite'}
+                  assert runtime['version'] == version and runtime['setup'] is False
+                  assert type(runtime['secure_cookie_configured']) is bool
+                  assert runtime['tls_ingress_verified'] is False
+                  editions.add(runtime['product_edition'])
+          assert editions == {'full', 'lite'}
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('B7 教程命令资格通过：5 份当前文档的 24 个标记均按原 Bash 正文执行，命令哈希、源码位置、退出码和后置检查一致；Full/Lite 由真实 CLI 构建并启动，受控容器、网络和镜像标签已清理。临时项目留在一次性 Runner，上传内容仅安全报告。\n\n')
+              summary.write('这不证明 HTTPS ingress、真实跨机 LAN、Desktop GUI/安装/签名、原生服务安装或生产可用；没有发布 GHCR/NPM、运行浏览器或调用真实供应商。Full 只检查配置的 HTTPS 来源与本机运行；Lite 私网绑定仅使用本次 Runner 自有地址。\n')
+          PY
+
+      - name: Retain only the safe tutorial report for seven days
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: myapi-deployment-tutorials-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.qualify.outputs.report_path }}
+          retention-days: 7
+          if-no-files-found: warn

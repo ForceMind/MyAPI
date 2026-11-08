@@ -1,8 +1,20 @@
-# My API 发行制品、安装、切换与更新合同
+# MyAPI 发行制品、安装、切换与更新合同
 
 > 文档状态：P0 设计合同；已有未接入的 schema-1 纯结构校验/新安装选择、未受信 raw-bytes evidence、安装状态输入硬化和 Legacy 画像解析内核，尚未形成受信发行或安装能力。
 >
 > 本文不授权执行 NPM/GHCR 发布、tag 操作、生产升级、修改防火墙/路由器、安装系统服务或清理现有机器文件。
+
+## 当前实现进度与教程 / Current implementation and guides
+
+本文下方保留原发行与信任合同；其中“未来”“待决定”和目标矩阵属于其原设计语境。当前实施沿已批准的五项决定：Lite OCI 保持 `myapi-lan`；T1 采用 GitHub OIDC / Sigstore keyless 合同但不接线下载、验签或安装；Linux system 专用用户与 XDG user 路径分开；Desktop 先 macOS、再 Windows，不宣称 Linux 首发；自动更新全部关闭且本阶段不实现更新器。本文没有重新征求这些决定，也没有建立新签名 Secret 或制品坐标。
+
+| 当前入口 / Current entry | 已有证据与限制 / Evidence and limits |
+| --- | --- |
+| [Linux 原生预览 / Native Linux](NATIVE_LINUX.md) | B3a 只有 `--help`、`plan`、`render-unit`。`34ad42ac` / [CI42415882062](https://github.com/ForceMind/MyAPI/actions/runs/42415882062) 包含六组合同、systemd 解析及合成参数/PID 转交；没有服务安装、真实 `EnvironmentFile` 加载或 manager 生命周期证据。 |
+| [个人电脑分流 / Personal computer](PERSONAL_COMPUTER.md) | 区分 Docker Desktop Lite 与 Desktop 本地面板源码能力，继续链接 [Lite / Legacy LAN](LAN_LITE.md) 和 [Electron](../electron/README.md)。GUI、睡眠恢复、跨机公网可达及真实更新仍未验；beta.40 旧包不重标为 beta.47。 |
+| [备份与隔离恢复 / Backup and restore](BACKUP_RESTORE.md) | beta.46 `b9c4dcd4` / CI42439207854 仅注册的 Root Docker Full + SQLite 合成路径已证；beta.47 清理入口仍待验证，不适用于原生或 Desktop 数据。 |
+
+B7 新教程命令有稳定 marker，仍须在 Actions 自有 fixture 中逐条执行；文稿新增不等于教程或发行验收。没有发布的包、tag 或运行制品不提供伪可复制下载命令。The guides describe current source behavior and pending validation, not an installed, signed or published release.
 
 当前 `cli/lib/release-manifest.mjs` 只在合成定向测试中使用：它对**已由未来受信边界获得**的 manifest
 做有界字段、URL/OCI、平台和 fresh-install-only 选择校验，并返回冻结快照。它与
