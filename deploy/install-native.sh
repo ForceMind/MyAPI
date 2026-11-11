@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# B3a is a read-only preview. It does not install or manage a native instance.
+# Read-only service preview and local package verification.
 set -euo pipefail
 export LC_ALL=C
 
@@ -15,13 +15,15 @@ print_help() {
     '  bash deploy/install-native.sh --help' \
     '  bash deploy/install-native.sh plan --scope system|user' \
     '  bash deploy/install-native.sh render-unit --scope system|user' \
+    '  bash deploy/install-native.sh verify-package --scope system|user --edition full|lite --tag TAG' \
+    '    --manifest FILE --bundle FILE --package FILE --cosign FILE --root FILE' \
     '' \
-    'Preview only; no installation, configuration, or service state is inspected.' \
+    'Read-only; no installation, configuration, or service state is inspected.' \
     '仅预览，不检查现有安装、配置或服务状态，不可据此接管或安装。' \
     'Use plan to review target folders; render-unit prints a service file for review.' \
     'plan 查看目标目录；render-unit 输出服务文件，供审阅。' \
     'Install, upgrade, rollback, and uninstall are unavailable in B3a.' \
-    '本阶段不提供安装、升级、回滚或卸载；不会下载、验签或控制服务。'
+    'verify-package 核验本地包。安装、升级、回滚和卸载暂未开放。'
 }
 
 validated_base() {
@@ -83,6 +85,10 @@ fi
 command_name="$1"
 shift
 case "$command_name" in
+  verify-package)
+    script_directory="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+    exec node "$script_directory/../cli/lib/native-package-verification.mjs" "$@"
+    ;;
   plan|render-unit) ;;
   install|upgrade|rollback|uninstall)
     fail 'Unavailable in B3a: no installation or lifecycle executor is connected; nothing was changed / 本阶段未接线安装或生命周期执行器，未作任何更改。'

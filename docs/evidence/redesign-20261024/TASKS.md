@@ -1,5 +1,9 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-11 B3b Linux 原生包核验
+
+维护者批准接入只读 `verify-package`。命令复用 schema 1 制品选择，先验证原始 Manifest 的 Sigstore 签名与准确标签身份，再核对版本、架构、制品来源和二进制摘要。固定 `ForceMind/MyAPI` 的 `release.yml@refs/tags/<tag>`，输入由用户提供，安装和服务操作仍由后续批次交付。合成正例验证签名覆盖与包选择，专项 Actions 以真正 Cosign 验证公开向量及拒绝外部签名者。MyAPI 正式签名包正例留待发行链提供对应材料后验收。
+
 ## 2026-11-09 beta.56渠道编辑局部布局已通过非浏览器CI：84c76ee9
 
 应用源码为 `84c76ee90c167ca53e33c54d85b0e1c33cd76432` / `0.2.0-beta.56`，[完整CI42513976744](https://github.com/ForceMind/MyAPI/actions/runs/42513976744) attempt1 success：12执行成功/9可选skip，20141行全部实际日志、12 checkout/全部步骤已核、失败/race标记0。前端421文件3452测试，早期/构建后类型检查、lint、同步与build及原Root/独立relaykit/386/三库/race/分发等门禁过；受影响sensitive-tools-drawer 5例、channel-model-source 8例在专项与全量中通过，不把重复执行算新增覆盖。原测试断言未改。附带静态网站打包42513976660/检查42513976701也成功，430/381行全日志、同SHA/步骤已核，无网站浏览器运行。

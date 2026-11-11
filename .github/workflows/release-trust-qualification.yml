@@ -194,6 +194,25 @@ jobs:
           }
           NODE
 
+      - name: Reject an authentic public signature from a different workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          input="$RUNNER_TEMP/myapi-signature-input-$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          files=("$input/artifact.txt" "$input/message.bundle.json" "$input/cosign-linux-amd64" "$input/trusted-root.json")
+          before="$(sha256sum "${files[@]}")"
+          if result="$(bash deploy/install-native.sh verify-package --scope system --edition full --tag v0.2.0-beta.56 \
+            --manifest "${files[0]}" --bundle "${files[1]}" --package "${files[0]}" \
+            --cosign "${files[2]}" --root "${files[3]}" 2>&1)"; then
+            echo "::error::Product package verification accepted a foreign signer."
+            exit 1
+          else
+            test "$?" -eq 2
+          fi
+          test "$result" = 'MyAPI package verification failed [signer_mismatch]. Manifest signer does not match the release workflow and tag.'
+          test "$(sha256sum "${files[@]}")" = "$before"
+          echo 'Product package command rejected the foreign signer and preserved all inputs.'
+
       - name: Require source tree unchanged
         if: always()
         run: |

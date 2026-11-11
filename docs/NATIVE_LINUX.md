@@ -4,6 +4,14 @@
 
 You can preview the intended directories and print a systemd unit for review. The current entry does not install, adopt, start, update or remove a service. Keep existing installations unchanged.
 
+## 本地包核验 / Local package verification
+
+`deploy/install-native.sh verify-package` 接收明确的 `--scope`、`--edition` 和 `--tag`，以及本地 `--manifest`、`--bundle`、`--package`、`--cosign` 和 `--root` 文件。系统服务支持 Full 或 Lite，用户服务支持 Lite。命令在 Linux amd64 或 arm64 上运行，需要 Node.js 20 或更新版本，并使用对应架构的固定 Cosign v3.1.4 和固定 Sigstore 信任根。
+
+命令离线核验原始 Manifest 的 GitHub OIDC 签名，签名身份绑定 `ForceMind/MyAPI` 的 `release.yml` 与所选标签。签名通过后，按版本、安装形态和 CPU 选择唯一的二进制，核对来源、ELF 架构和 SHA-256。成功时输出 JSON，拒绝时返回错误原因。核验结果只对应读到的文件内容，后续安装需要对实际暂存的字节重新核验。
+
+The command verifies a local package offline. It binds the manifest signature to the MyAPI release workflow and exact tag, then checks the signed target and local binary digest. A future installer must verify the actual staged bytes before using them. A MyAPI-signed release package is still needed to exercise the production signing identity end to end.
+
 本文对应B3a的只读入口 `deploy/install-native.sh`。源码 `34ad42ac` / [CI42415882062](https://github.com/ForceMind/MyAPI/actions/runs/42415882062)包括六组合同和systemd解析；合成可执行文件的参数/环境/PID转交不等于真实MyAPI服务生命周期验收。本文原教程命令已在beta.55 / 202d01c9 / [CI42487543625](https://github.com/ForceMind/MyAPI/actions/runs/42487543625)逐条通过，仍只证明预览，不是安装、真实EnvironmentFile加载或manager生命周期验收。 Preview commands passed at the stated source; real installation and manager lifecycle remain unverified.
 
 ## 1. 查看帮助 / Read the help
