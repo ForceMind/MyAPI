@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 
 import { SummaryDisclosure } from '@/components/summary-disclosure'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
-import { nativeWindowUsage } from '@/features/personal-upstream/window-state'
+import { nativeWindowResetLabel, nativeWindowUsage } from '@/features/personal-upstream/window-state'
 import { formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -55,6 +55,7 @@ export function ConnectionEvidenceSummary(props: {
     <ul aria-label={label} className={cn('flex min-w-0', props.compact ? 'flex-wrap gap-x-3 gap-y-1' : 'flex-col gap-2')}>
       {props.windows.map((item) => {
         const used = nativeWindowUsage(item)
+        const reset = nativeWindowResetLabel(item, props.now, t)
         const balance = savedBalanceAmount(item)
         const state = describeConnectionWindow(item, props.windows, props.now, t)
         const stateLabel = props.compact && isHistoricalConnectionWindow(item, props.windows, props.now)
@@ -87,6 +88,7 @@ export function ConnectionEvidenceSummary(props: {
                 .filter(Boolean)
                 .join(' · ')}
             </span>
+            {reset && <>{' · '}<span className='text-muted-foreground'>{reset}</span></>}
             {!props.compact && (
               <dl className='mt-1 flex min-w-0 flex-col gap-1'>
                 <div>

@@ -567,6 +567,8 @@ export interface ChannelQuotaChangeItem {
   sample_span_seconds?: number | null
   observed_at?: number
   previous_observed_at?: number | null
+  /** Reported reset time of this window's latest usable observation. */
+  reset_at?: number
   status?: 'success' | 'unavailable' | 'unsupported' | 'error' | string
   /** Reason of the latest saved non-success observation, never a raw response. */
   error_code?: string

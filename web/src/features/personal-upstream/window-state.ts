@@ -7,6 +7,7 @@ the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
+import { formatTimestampToDate } from '@/lib/format'
 
 export function nativeWindowUsage(item: ChannelQuotaChangeItem): number | null {
   if (
@@ -41,6 +42,28 @@ export function nativeWindowFreshness(
   }
   // Match the existing subscription-share default sampling validity. A pool can impose a stricter bound.
   return nowSeconds - (item.observed_at as number) > 300 ? 'stale' : 'fresh'
+}
+
+export function nativeWindowResetLabel(
+  item: ChannelQuotaChangeItem,
+  nowSeconds: number,
+  t: (key: string, options?: { time: string }) => string
+): string | null {
+  if (item.metric_type !== 'codex_rate_limit') return null
+  const reset = item.reset_at
+  if (
+    typeof reset !== 'number' ||
+    !Number.isSafeInteger(reset) ||
+    reset <= 0 ||
+    !Number.isFinite(new Date(reset * 1000).getTime())
+  ) {
+    return t('Reset time unknown')
+  }
+  const time = formatTimestampToDate(reset)
+  if (reset <= nowSeconds || nativeWindowState(item, nowSeconds) !== 'available') {
+    return t('Last recorded reset: {{time}}', { time })
+  }
+  return t('Resets {{time}}', { time })
 }
 
 export function nativeWindowState(

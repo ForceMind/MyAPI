@@ -13,7 +13,7 @@ import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { quotaSeriesKey } from '@/features/channels/lib/quota-history'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
-import { nativeWindowUsage } from '@/features/personal-upstream/window-state'
+import { nativeWindowResetLabel, nativeWindowUsage } from '@/features/personal-upstream/window-state'
 import { formatTimestampToDate } from '@/lib/format'
 
 import { windowName } from './connection-format'
@@ -79,6 +79,7 @@ export function ConnectionWindows(props: {
         <ul className='flex min-w-0 flex-col gap-4'>
           {props.query.data?.map((item) => {
             const used = nativeWindowUsage(item)
+            const reset = nativeWindowResetLabel(item, props.now, t)
             const described = describeConnectionWindow(
               item,
               props.query.data ?? [],
@@ -133,6 +134,12 @@ export function ConnectionWindows(props: {
                     className='h-auto min-h-5 whitespace-normal'
                   />
                   <dl className='text-caption text-muted-foreground flex min-w-0 flex-col gap-1'>
+                    {reset && (
+                      <div>
+                        <dt className='sr-only'>{t('Reset time')}</dt>
+                        <dd>{reset}</dd>
+                      </div>
+                    )}
                     <div>
                       <dt className='sr-only'>{t('Observation time')}</dt>
                       <dd>

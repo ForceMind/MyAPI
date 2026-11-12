@@ -67,6 +67,7 @@ type quotaChangeItem struct {
 	Direction              string                          `json:"direction"`
 	SampleSpanSeconds      int64                           `json:"sample_span_seconds"`
 	ObservedAt             int64                           `json:"observed_at"`
+	ResetAt                int64                           `json:"reset_at,omitempty"`
 	Status                 string                          `json:"status"`
 	ErrorCode              string                          `json:"error_code,omitempty"`
 	Consumption            service.QuotaConsumptionSummary `json:"consumption"`
@@ -442,6 +443,9 @@ func buildQuotaChangeItem(rows []model.ChannelQuotaAggregateRow) quotaChangeItem
 	}
 	if service.QuotaSnapshotUsable(quotaChangeSnapshot(latest)) {
 		item.CurrentAvailable = quotaChangeFloatPtr(latest.Available)
+		if latest.MetricType == "codex_rate_limit" && latest.ResetAt > 0 {
+			item.ResetAt = latest.ResetAt
+		}
 		if latest.Total != nil && finiteQuotaChangeValue(*latest.Total) {
 			item.CurrentTotal = quotaChangeFloatPtr(*latest.Total)
 		}

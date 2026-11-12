@@ -11,6 +11,7 @@ import type { AnchorHTMLAttributes } from 'react'
 import { afterEach, expect, test, vi } from 'vitest'
 
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
+import { formatTimestampToDate } from '@/lib/format'
 
 import { WindowCard } from '../components/window-card'
 
@@ -82,11 +83,21 @@ test('a fresh reported zero stays zero and has an available snapshot status', ()
 
 test('a stale numeric observation is labelled as past usage rather than current availability', () => {
   vi.spyOn(Date, 'now').mockReturnValue(1400_000)
-  render(<WindowCard item={sample} />)
+  render(<WindowCard item={{ ...sample, reset_at: 1900 }} />)
   expect(screen.getByText('55%')).toBeInTheDocument()
   expect(screen.getByText('Stale sample')).toBeInTheDocument()
   expect(screen.getByText('Last reported usage')).toBeInTheDocument()
+  expect(screen.getByText(`Last recorded reset: ${formatTimestampToDate(1900)}`)).toBeVisible()
   expect(screen.queryByText('Snapshot available')).not.toBeInTheDocument()
+})
+
+test.each([
+  { reset: 1600, label: `Resets ${formatTimestampToDate(1600)}` },
+  { reset: 1100, label: `Last recorded reset: ${formatTimestampToDate(1100)}` },
+  { reset: undefined, label: 'Reset time unknown' },
+])('shows the recorded reset for the overview window ($reset)', ({ reset, label }) => {
+  render(<WindowCard item={{ ...sample, reset_at: reset }} now={1100} />)
+  expect(screen.getByText(label)).toBeVisible()
 })
 
 test('a missing observation time cannot make a numeric value current', () => {

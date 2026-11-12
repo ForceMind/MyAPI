@@ -59,6 +59,43 @@ func TestBuildQuotaChangeItemsUsesAdjacentSamplesAndSignedRate(t *testing.T) {
 	require.Equal(t, 3, quality.SuccessCount)
 }
 
+func TestBuildQuotaChangeItemReportsOnlyItsLatestUsableWindowReset(t *testing.T) {
+	primary := model.ChannelQuotaAggregateRow{
+		ID: 1, ChannelID: 7, AccountRef: "legacy-test", ObservedAt: 100, Available: 70,
+		Status: "success", MetricType: "codex_rate_limit", WindowType: "five_hour",
+		Source: "codex_wham_usage_primary", Unit: "percent", ResetAt: 200,
+	}
+	secondary := primary
+	secondary.ID = 2
+	secondary.WindowType = "weekly"
+	secondary.Source = "codex_wham_usage_secondary"
+	secondary.ResetAt = 900
+	items, _ := buildQuotaChangeItems(legacyQuotaChangeRows([]model.ChannelQuotaAggregateRow{primary, secondary}))
+	require.Len(t, items, 2)
+	resets := make(map[string]int64)
+	for _, item := range items {
+		resets[item.WindowType] = item.ResetAt
+	}
+	require.Equal(t, map[string]int64{"five_hour": 200, "weekly": 900}, resets)
+
+	for _, status := range []string{"success", "error", "unsupported"} {
+		t.Run(status, func(t *testing.T) {
+			latest := primary
+			latest.ID = 3
+			latest.ObservedAt = 250
+			latest.Status = status
+			latest.ResetAt = 0
+			if status != "success" {
+				latest.ResetAt = 1000
+			}
+			item := buildQuotaChangeItem([]model.ChannelQuotaAggregateRow{primary, latest})
+			response, err := common.Marshal(item)
+			require.NoError(t, err)
+			require.NotContains(t, string(response), `"reset_at"`)
+		})
+	}
+}
+
 func TestBuildQuotaChangeItemsDoesNotCrossResetOrFailure(t *testing.T) {
 	rows := []model.ChannelQuotaAggregateRow{
 		{ID: 1, ChannelID: 1, AccountRef: "legacy-test", ChannelName: "A", ObservedAt: 100, Available: 90, ResetAt: 200, Status: "success", MetricType: "balance", WindowType: "none"},

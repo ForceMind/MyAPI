@@ -12,6 +12,7 @@ import type { AxiosAdapter } from 'axios'
 import { afterEach, expect, test, vi } from 'vitest'
 
 import { api } from '@/lib/api'
+import { formatTimestampToDate } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { mountConnections } from './connections-page-fixture'
@@ -65,6 +66,42 @@ async function mount(options: Parameters<typeof mountConnections>[0]) {
   teardown = fixture.teardown
   return fixture
 }
+
+test.each(['/connections', '/connections/7'])(
+  'each saved window at %s shows only its own reset time',
+  async (entry) => {
+    const upcoming = now + 1800
+    const expired = now - 10
+    await mount({
+      entry,
+      windows: [
+        { ...saved, reset_at: upcoming },
+        {
+          ...saved,
+          series_id: 'b'.repeat(64),
+          source: 'codex_wham_usage_secondary',
+          window_type: 'weekly',
+          window_seconds: 604800,
+          reset_at: expired,
+        },
+        {
+          ...saved,
+          series_id: 'c'.repeat(64),
+          source: 'codex_wham_usage_secondary',
+          window_type: 'daily',
+          window_seconds: 86400,
+        },
+      ],
+    })
+    const windows = entry === '/connections'
+      ? within(await screen.findByRole('list', { name: 'Current account windows' })).getAllByRole('listitem')
+      : await screen.findAllByTestId('connection-window')
+    expect(windows).toHaveLength(3)
+    expect(within(windows[0]).getByText(`Resets ${formatTimestampToDate(upcoming)}`)).toBeVisible()
+    expect(within(windows[1]).getByText(`Last recorded reset: ${formatTimestampToDate(expired)}`)).toBeVisible()
+    expect(within(windows[2]).getByText('Reset time unknown')).toBeVisible()
+  }
+)
 
 test('connection detail retains distinct current WHAM, historical identity error and relay event with each observation time', async () => {
   await mount({

@@ -20,7 +20,7 @@ import type { ChannelQuotaChangeItem } from '@/features/channels/types'
 import { describeConnectionWindow } from '@/features/connections/window-state'
 import { toIntlLocale } from '@/i18n/languages'
 
-import { nativeWindowState, nativeWindowUsage } from '../window-state'
+import { nativeWindowResetLabel, nativeWindowState, nativeWindowUsage } from '../window-state'
 
 export function WindowCard(props: {
   item: ChannelQuotaChangeItem
@@ -33,6 +33,7 @@ export function WindowCard(props: {
   const used = nativeWindowUsage(props.item)
   const now = props.now ?? Date.now() / 1000
   const state = nativeWindowState(props.item, now)
+  const reset = nativeWindowResetLabel(props.item, now, t)
   const observed = props.item.observed_at
   const observedValid = Number.isSafeInteger(observed) && (observed ?? 0) > 0
   const label =
@@ -107,6 +108,12 @@ export function WindowCard(props: {
           />
         ) : null}
         <dl className='text-muted-foreground flex min-w-0 flex-col gap-2 border-t pt-3 text-xs [overflow-wrap:anywhere]'>
+          {reset && (
+            <div>
+              <dt className='sr-only'>{t('Reset time')}</dt>
+              <dd>{reset}</dd>
+            </div>
+          )}
           <div className='flex min-w-0 flex-wrap gap-x-2'>
             <dt>{t('Source')}:</dt>
             <dd className='min-w-0 font-mono'>
