@@ -221,12 +221,13 @@ export function ConnectionCard(props: {
               windowsLoading={props.windowsLoading}
               now={props.now}
               compact
+              showResetTime
             />
             {(props.windowsKnown || props.windowsIncomplete) && props.windows.length > 0 && <SummaryDisclosure
               key={`${identity}:${connection.id}:windows`}
               summary={evidenceDetails}
             >
-              <ConnectionEvidenceSummary windows={props.windows} windowsKnown={props.windowsKnown} windowsIncomplete={props.windowsIncomplete} windowsLoading={props.windowsLoading} now={props.now} />
+              <ConnectionEvidenceSummary windows={props.windows} windowsKnown={props.windowsKnown} windowsIncomplete={props.windowsIncomplete} windowsLoading={props.windowsLoading} now={props.now} showResetTime />
             </SummaryDisclosure>}
           </dd>
         </div>
