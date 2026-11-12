@@ -1477,6 +1477,10 @@ jobs:
             echo 'The qualification account already exists.'
             exit 1
           fi
+          # Hosted runner images may let the runner account write to /opt.
+          # Give this disposable machine the same protected parent as a host install.
+          sudo chown root:root /opt
+          sudo chmod go-w /opt
           sudo mkdir -m 755 "$root"
           for file in VERSION my-api.service deploy/install-native.sh deploy/my-api-user.service cli/lib/native-install.mjs \
             cli/lib/native-package-verification.mjs cli/lib/release-manifest.mjs cli/lib/canonical-artifact-reference.mjs \
