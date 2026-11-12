@@ -4,6 +4,7 @@ import { createHash, generateKeyPairSync, sign, verify } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { mkdir, mkdtemp, readFile, rm, rmdir, stat, unlink, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
+import { userInfo } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { installNative } from '../../cli/lib/native-install.mjs'
@@ -25,6 +26,11 @@ const shellEntry = fileURLToPath(new URL('../../deploy/install-native.sh', impor
 const plan = execFileSync('bash', [shellEntry, 'plan', '--scope', scope], { encoding: 'utf8' })
 const paths = Object.fromEntries([...plan.matchAll(/^(binary|config|state|data|unit): (\/.+)$/gm)].map(match => [match[1], match[2]]))
 assert.equal(Object.keys(paths).length, 5)
+if (scope === 'user') {
+  const { homedir, username } = userInfo()
+  assert.equal(username, 'myapi-ci-personal')
+  assert.ok(Object.values(paths).every(filename => filename.startsWith(homedir + '/')))
+}
 for (const filename of Object.values(paths)) await assert.rejects(stat(filename), { code: 'ENOENT' })
 
 const version = (await readFile(new URL('../../VERSION', import.meta.url), 'utf8')).trim()

@@ -1496,7 +1496,8 @@ jobs:
           uid="$(id -u "$account")"
           sudo loginctl enable-linger "$account"
           sudo systemctl start "user@$uid.service"
-          sudo -H -u "$account" env "${qualification[@]}" "XDG_RUNTIME_DIR=/run/user/$uid" \
+          sudo -H -u "$account" env -u XDG_DATA_HOME -u XDG_CONFIG_HOME -u XDG_STATE_HOME -u XDG_CACHE_HOME \
+            "${qualification[@]}" "XDG_RUNTIME_DIR=/run/user/$uid" \
             "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus" \
             "$node_path" "$root/tools/runtime/native-install-qualification.mjs" user "$root/my-api"
 
