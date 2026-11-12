@@ -16,6 +16,8 @@ The command verifies a local package offline. It binds the manifest signature to
 
 将 `verify-package` 替换为 `install` 并传入相同参数。系统服务需要 root，支持 Full 和 Lite。用户服务需以目标用户运行，支持 Lite，并需要已运行的 systemd 用户管理器。两种方式均需系统提供 `ss`，系统安装还使用 `getent` 和 `useradd` 创建专用账号。
 
+安装目录的上级路径必须由 root 或安装用户拥有，且不可被组内其他用户或其他账号写入。例如，若系统将 `/var/log` 设为组可写，安装器会在写入前报出该路径，供管理员核对宿主权限策略。
+
 新服务监听 `127.0.0.1:3000`。可用 `--port` 选择其他 1024–65535 端口。安装器为新配置生成会话密钥，在独立数据目录初始化 SQLite，并验证启动进程和状态接口。成功后打印访问地址并保存安装记录。开机启动由用户另行决定。
 
 Replace `verify-package` with `install` and pass the same arguments. Use root for a Full or Lite system service. Use the intended account and its running systemd user manager for a Lite user service. The service listens on loopback. The default port is 3000. If installation fails after creating files, review the reported error and retain those files for recovery.
