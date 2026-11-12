@@ -16,6 +16,7 @@ import {
   ReleaseManifestSelectionError,
   ReleaseManifestValidationError,
   selectReleaseArtifact,
+  selectNativeReleaseTransition,
   validateReleaseManifest,
 } from '../lib/release-manifest.mjs'
 
@@ -77,6 +78,104 @@ function manifest(overrides = {}) {
 function assertError(ErrorType, code, action) {
   assert.throws(action, (error) => error instanceof ErrorType && error.code === code)
 }
+
+function nativeTransitionFixture() {
+  const older = manifest()
+  const newer = manifest()
+  newer.schema_version = 2
+  newer.product.version = '1.3.0'
+  newer.product.source_sha = 'c'.repeat(40)
+  newer.artifacts[0].id = 'myapi-lite-linux-amd64-next'
+  newer.artifacts[0].sha256_or_digest = 'd'.repeat(64)
+  newer.compatibility.rollback = 'code_only'
+  newer.native_transitions = [{
+    from: { version: older.product.version, source_sha: older.product.source_sha,
+      artifact_id: older.artifacts[0].id, sha256: older.artifacts[0].sha256_or_digest },
+    to_artifact_id: newer.artifacts[0].id,
+    storage: 'sqlite',
+    allow_code_rollback: true,
+  }]
+  function identity(release) {
+    return { version: release.product.version, sourceSha: release.product.source_sha,
+      artifact: release.artifacts[0].id, sha256: release.artifacts[0].sha256_or_digest,
+      edition: 'lite', scope: 'user', arch: 'amd64' }
+  }
+  return { older, newer, identity, request: { operation: 'upgrade', storage: 'sqlite', bootstrapVersion: '1.5.0' } }
+}
+
+test('plans native SQLite upgrade and explicitly authorized code-only rollback for the same schemas', () => {
+  const { older, newer, identity, request } = nativeTransitionFixture()
+  const plan = selectNativeReleaseTransition(older, newer, identity(older), request)
+  const rollback = selectNativeReleaseTransition(newer, older, identity(newer), { ...request, operation: 'rollback' })
+  assert.equal(plan.configSchema, '2.0.0')
+  assert.equal(plan.dataSchema, '3.0.0')
+  assert.equal(plan.current.sha256, older.artifacts[0].sha256_or_digest)
+  assert.equal(plan.target.sha256, newer.artifacts[0].sha256_or_digest)
+  assert.deepEqual(rollback.current, plan.target)
+  assert.deepEqual(rollback.target, plan.current)
+  assert.equal(rollback.operation, 'rollback')
+  assert.ok(Object.isFrozen(plan) && Object.isFrozen(plan.current) && Object.isFrozen(plan.target))
+})
+
+test('schema 1 supported_from alone never authorizes a native transition', () => {
+  const { older, newer, identity, request } = nativeTransitionFixture()
+  newer.schema_version = 1
+  delete newer.native_transitions
+  assertError(ReleaseManifestCompatibilityError, 'native_transition_missing', () =>
+    selectNativeReleaseTransition(older, newer, identity(older), request))
+  assertError(ReleaseManifestCompatibilityError, 'native_transition_missing', () =>
+    selectNativeReleaseTransition(newer, older, identity(newer), { ...request, operation: 'rollback' }))
+})
+
+test('rejects an installed identity or signed edge that does not match the exact binary', () => {
+  const { older, newer, identity, request } = nativeTransitionFixture()
+  for (const [key, value] of Object.entries({
+    sha256: 'f'.repeat(64), sourceSha: 'e'.repeat(40), artifact: 'other-binary', version: '1.1.0',
+  })) {
+    assertError(ReleaseManifestCompatibilityError, 'installed_identity_mismatch', () =>
+      selectNativeReleaseTransition(older, newer, { ...identity(older), [key]: value }, request))
+  }
+  newer.native_transitions[0].from.sha256 = 'f'.repeat(64)
+  assertError(ReleaseManifestCompatibilityError, 'native_transition_missing', () =>
+    selectNativeReleaseTransition(older, newer, identity(older), request))
+})
+
+test('rejects incompatible config and data schemas, non-SQLite and reversed version direction', () => {
+  const { older, newer, identity, request } = nativeTransitionFixture()
+  assertError(ReleaseManifestCompatibilityError, 'native_storage_unsupported', () =>
+    selectNativeReleaseTransition(older, newer, identity(older), { ...request, storage: 'postgres' }))
+  assertError(ReleaseManifestCompatibilityError, 'native_transition_direction_mismatch', () =>
+    selectNativeReleaseTransition(newer, older, identity(newer), request))
+  for (const key of ['config_schema', 'data_schema']) {
+    const modified = { ...newer, compatibility: { ...newer.compatibility, [key]: '4.0.0' } }
+    assertError(ReleaseManifestCompatibilityError, 'native_schema_mismatch', () =>
+      selectNativeReleaseTransition(older, modified, identity(older), request))
+    assertError(ReleaseManifestCompatibilityError, 'native_schema_mismatch', () =>
+      selectNativeReleaseTransition(modified, older, identity(modified), { ...request, operation: 'rollback' }))
+  }
+})
+
+test('rollback requires both code_only policy and exact transition authorization', () => {
+  const { older, newer, identity, request } = nativeTransitionFixture()
+  const rollback = { ...request, operation: 'rollback' }
+  newer.native_transitions[0].allow_code_rollback = false
+  assertError(ReleaseManifestCompatibilityError, 'native_rollback_forbidden', () =>
+    selectNativeReleaseTransition(newer, older, identity(newer), rollback))
+  newer.native_transitions[0].allow_code_rollback = true
+  newer.compatibility.rollback = 'database_restore'
+  assertError(ReleaseManifestCompatibilityError, 'native_rollback_forbidden', () =>
+    selectNativeReleaseTransition(newer, older, identity(newer), rollback))
+})
+
+test('rejects a malformed or duplicate native transition even when another edge matches', () => {
+  const { older, newer, identity, request } = nativeTransitionFixture()
+  newer.native_transitions.push(structuredClone(newer.native_transitions[0]))
+  assertError(ReleaseManifestValidationError, 'duplicate_native_transition', () =>
+    selectNativeReleaseTransition(older, newer, identity(older), request))
+  newer.native_transitions[1].to_artifact_id = newer.artifacts[1].id
+  assertError(ReleaseManifestValidationError, 'invalid_native_transition', () =>
+    selectNativeReleaseTransition(older, newer, identity(older), request))
+})
 
 test('rejects proxies and accessors without executing caller code', () => {
   assertError(ReleaseManifestValidationError, 'invalid_object', () =>

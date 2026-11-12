@@ -554,3 +554,104 @@ export function selectReleaseArtifact(manifest, target) {
   }
   return matches[0]
 }
+
+function readNativeTransitionManifest(input) {
+  const keys = ['schema_version', 'product', 'bootstrap', 'compatibility', 'artifacts', 'native_transitions']
+  assertDataObject(input, 'native transition manifest', keys, validationError, { requireAll: false })
+  if (input.schema_version !== 2) {
+    return { manifest: validateReleaseManifest(input), transitions: [] }
+  }
+
+  const { native_transitions: transitions, ...fields } = input
+  const manifest = validateReleaseManifest({ ...fields, schema_version: RELEASE_MANIFEST_SCHEMA_VERSION })
+  assertDataArray(transitions, 'manifest.native_transitions', 1, MAX_ARTIFACTS, 'invalid_native_transitions')
+  const identities = new Set()
+  const nativeIDs = new Set(manifest.artifacts
+    .filter(artifact => artifact.os === 'linux' && artifact.kind === 'binary')
+    .map(artifact => artifact.id))
+  for (const [index, edge] of transitions.entries()) {
+    const edgePath = `manifest.native_transitions[${index}]`
+    assertDataObject(edge, edgePath, ['from', 'to_artifact_id', 'storage', 'allow_code_rollback'])
+    assertDataObject(edge.from, `${edgePath}.from`, ['version', 'source_sha', 'artifact_id', 'sha256'])
+    assertSemver(edge.from.version, `${edgePath}.from.version`)
+    assertPortableArtifactID(edge.from.artifact_id, `${edgePath}.from.artifact_id`)
+    if (typeof edge.from.source_sha !== 'string' || !GIT_REVISION_PATTERN.test(edge.from.source_sha) ||
+      typeof edge.from.sha256 !== 'string' || !SHA256_PATTERN.test(edge.from.sha256) ||
+      edge.storage !== 'sqlite' || typeof edge.allow_code_rollback !== 'boolean' ||
+      !nativeIDs.has(edge.to_artifact_id) || compareSemver(edge.from.version, manifest.product.version) >= 0 ||
+      !manifest.compatibility.supported_from.includes(edge.from.version)) {
+      validationError('invalid_native_transition', `${edgePath} must bind an older supported SQLite binary to a Linux artifact`)
+    }
+    const identity = JSON.stringify([edge.from.version, edge.from.source_sha.toLowerCase(),
+      edge.from.artifact_id, edge.from.sha256.toLowerCase(), edge.to_artifact_id])
+    if (identities.has(identity)) validationError('duplicate_native_transition', `${edgePath} duplicates a native transition`)
+    identities.add(identity)
+  }
+  return { manifest, transitions }
+}
+
+/**
+ * Plan a same-schema native SQLite transition from two authenticated manifests.
+ * The caller must authenticate both manifests and inspect the installation and
+ * storage. This pure contract grants no file or service access.
+ */
+export function selectNativeReleaseTransition(currentInput, targetInput, installed, request) {
+  assertDataObject(installed, 'installed native identity', ['version', 'sourceSha', 'artifact', 'sha256', 'edition', 'scope', 'arch'])
+  assertDataObject(request, 'native transition request', ['operation', 'storage', 'bootstrapVersion'])
+  assertOneOf(request.operation, 'request.operation', ['upgrade', 'rollback'])
+  if (request.storage !== 'sqlite') {
+    compatibilityError('native_storage_unsupported', 'the native transition requires inspected SQLite storage')
+  }
+  assertOneOf(installed.scope, 'installed.scope', ['system', 'user'])
+  const current = readNativeTransitionManifest(currentInput)
+  const target = readNativeTransitionManifest(targetInput)
+  const artifactTarget = {
+    operation: 'fresh-install',
+    edition: installed.edition,
+    installationShape: installed.scope === 'system' ? 'server-native' : 'personal-native',
+    os: 'linux',
+    arch: installed.arch,
+    kind: 'binary',
+    bootstrapVersion: request.bootstrapVersion,
+  }
+  const currentArtifact = selectReleaseArtifact(current.manifest, artifactTarget)
+  const targetArtifact = selectReleaseArtifact(target.manifest, artifactTarget)
+  const identify = (manifest, artifact) => Object.freeze({
+    version: manifest.product.version,
+    sourceSha: manifest.product.source_sha.toLowerCase(),
+    artifact: artifact.id,
+    sha256: artifact.sha256_or_digest.toLowerCase(),
+  })
+  const before = identify(current.manifest, currentArtifact)
+  const after = identify(target.manifest, targetArtifact)
+  if (before.version !== installed.version || before.sourceSha !== installed.sourceSha ||
+    before.artifact !== installed.artifact || before.sha256 !== installed.sha256) {
+    compatibilityError('installed_identity_mismatch', 'the current manifest does not match the installed binary identity')
+  }
+  const rollback = request.operation === 'rollback'
+  const direction = compareSemver(before.version, after.version)
+  if (rollback ? direction <= 0 : direction >= 0) {
+    compatibilityError('native_transition_direction_mismatch', 'the requested operation does not match the version direction')
+  }
+  const newer = rollback ? current : target
+  const older = rollback ? after : before
+  const newerArtifact = rollback ? before.artifact : after.artifact
+  const edge = newer.transitions.find(({ from, to_artifact_id }) =>
+    from.version === older.version && from.source_sha.toLowerCase() === older.sourceSha &&
+    from.artifact_id === older.artifact && from.sha256.toLowerCase() === older.sha256 &&
+    to_artifact_id === newerArtifact)
+  if (!edge) {
+    compatibilityError('native_transition_missing', 'the newer manifest does not authorize this exact binary transition')
+  }
+  const { config_schema: configSchema, data_schema: dataSchema } = current.manifest.compatibility
+  if (configSchema !== target.manifest.compatibility.config_schema || dataSchema !== target.manifest.compatibility.data_schema) {
+    compatibilityError('native_schema_mismatch', 'the two manifests must agree on configuration and SQLite schemas')
+  }
+  if (rollback && (!edge.allow_code_rollback || newer.manifest.compatibility.rollback !== 'code_only')) {
+    compatibilityError('native_rollback_forbidden', 'the newer manifest does not authorize a code-only rollback')
+  }
+  return Object.freeze({
+    operation: request.operation, storage: 'sqlite', scope: installed.scope, edition: installed.edition, arch: installed.arch,
+    current: before, target: after, configSchema, dataSchema,
+  })
+}

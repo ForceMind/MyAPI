@@ -191,6 +191,14 @@ inspect → compatibility check → explicit confirmation → download/verify
 
 ## 6. 更新、回退与并发恢复
 
+### Linux 原生 SQLite 迁移声明
+
+后续升级执行器使用两个已验证签名的 Manifest 和当前安装的实际制品身份。较新版本的 Manifest 使用 `schema_version: 2`，在原有字段之外增加 `native_transitions`。每条声明用 `from.version`、`from.source_sha`、`from.artifact_id` 和 `from.sha256` 指定较旧制品，用 `to_artifact_id` 指定较新制品，`storage` 固定为 `sqlite`。`allow_code_rollback` 必须为布尔值。较旧版本仍可使用 schema 1。
+
+只读选择器要求当前安装记录与当前 Manifest 的版本、源码和二进制摘要精确匹配。两边必须匹配同一功能版、安装形态和 CPU，且配置与数据 schema 相等。较新 Manifest 的 `supported_from` 须包含较旧版本，并有与这两个二进制完全匹配的迁移声明。回退还要求 `allow_code_rollback: true` 和较新版本的 `compatibility.rollback: code_only`。重复或缺少的声明、未知存储和不同 schema 均会拒绝。
+
+本批交付内存校验与合成测试。生产入口仍须先按固定身份验证双方原始 Manifest、核对实际运行和暂存的二进制，并确认 SQLite 位置和状态。当前 schema 1 首次安装选择器继续按原合同工作。
+
 检查、下载、安装是分离操作。自动检查、自动下载、自动安装均默认关闭；设置分别包含检查周期、维护时间窗口/时区、稳定/补丁范围、通知与失败恢复。勾选检查不能下载、重启或停止服务，下载不能安装，安装只能在用户允许的维护窗口及适用权限下执行。
 
 所有方式共用持久状态机：
