@@ -1,18 +1,26 @@
-# Linux 原生服务预览 / Native Linux service preview
+# Linux 原生服务 / Native Linux service
 
-现在可以查看 MyAPI 系统服务或用户服务的目录计划，并把对应的 systemd unit 输出到终端供审阅。**当前不会安装或启动服务。** 已有服务继续使用原来的管理方式，不要拿预览模板覆盖它。
+可以预览 MyAPI 系统服务或用户服务的路径和 systemd 单元，也可以从签名包首次安装。首次安装遇到已有配置、目录、服务或占用的端口会停止。
 
-You can preview the intended directories and print a systemd unit for review. The current entry does not install, adopt, start, update or remove a service. Keep existing installations unchanged.
+You can preview the intended directories and systemd unit, then install a fresh service from a signed local package. Existing paths, services or occupied ports cause installation to stop.
 
 ## 本地包核验 / Local package verification
 
 `deploy/install-native.sh verify-package` 接收明确的 `--scope`、`--edition` 和 `--tag`，以及本地 `--manifest`、`--bundle`、`--package`、`--cosign` 和 `--root` 文件。系统服务支持 Full 或 Lite，用户服务支持 Lite。命令在 Linux amd64 或 arm64 上运行，需要 Node.js 20 或更新版本，并使用对应架构的固定 Cosign v3.1.4 和固定 Sigstore 信任根。
 
-命令离线核验原始 Manifest 的 GitHub OIDC 签名，签名身份绑定 `ForceMind/MyAPI` 的 `release.yml` 与所选标签。签名通过后，按版本、安装形态和 CPU 选择唯一的二进制，核对来源、ELF 架构和 SHA-256。成功时输出 JSON，拒绝时返回错误原因。核验结果只对应读到的文件内容，后续安装需要对实际暂存的字节重新核验。
+命令离线核验原始 Manifest 的 GitHub OIDC 签名，签名身份绑定 `ForceMind/MyAPI` 的 `release.yml` 与所选标签。签名通过后，按版本、安装形态和 CPU 选择唯一的二进制，核对来源、ELF 架构和 SHA-256。成功时输出 JSON，拒绝时返回错误原因。安装命令会对自己的暂存副本重新核验。
 
-The command verifies a local package offline. It binds the manifest signature to the MyAPI release workflow and exact tag, then checks the signed target and local binary digest. A future installer must verify the actual staged bytes before using them. A MyAPI-signed release package is still needed to exercise the production signing identity end to end.
+The command verifies a local package offline. It binds the manifest signature to the MyAPI release workflow and exact tag, then checks the signed target and local binary digest. The install command verifies its own staged copy. A MyAPI-signed release package is still needed to exercise the production signing identity end to end.
 
-本文对应B3a的只读入口 `deploy/install-native.sh`。源码 `34ad42ac` / [CI42415882062](https://github.com/ForceMind/MyAPI/actions/runs/42415882062)包括六组合同和systemd解析；合成可执行文件的参数/环境/PID转交不等于真实MyAPI服务生命周期验收。本文原教程命令已在beta.55 / 202d01c9 / [CI42487543625](https://github.com/ForceMind/MyAPI/actions/runs/42487543625)逐条通过，仍只证明预览，不是安装、真实EnvironmentFile加载或manager生命周期验收。 Preview commands passed at the stated source; real installation and manager lifecycle remain unverified.
+## 首次安装 / First installation
+
+将 `verify-package` 替换为 `install` 并传入相同参数。系统服务需要 root，支持 Full 和 Lite。用户服务需以目标用户运行，支持 Lite，并需要已运行的 systemd 用户管理器。两种方式均需系统提供 `ss`，系统安装还使用 `getent` 和 `useradd` 创建专用账号。
+
+新服务监听 `127.0.0.1:3000`。可用 `--port` 选择其他 1024–65535 端口。安装器为新配置生成会话密钥，在独立数据目录初始化 SQLite，并验证启动进程和状态接口。成功后打印访问地址并保存安装记录。开机启动由用户另行决定。
+
+Replace `verify-package` with `install` and pass the same arguments. Use root for a Full or Lite system service. Use the intended account and its running systemd user manager for a Lite user service. The service listens on loopback. The default port is 3000. If installation fails after creating files, review the reported error and retain those files for recovery.
+
+下方预览命令沿用 B3a 的路径和模板。六组预览合同和 systemd 解析见 [CI 42415882062](https://github.com/ForceMind/MyAPI/actions/runs/42415882062)。预览教程命令在 beta.55 [CI 42487543625](https://github.com/ForceMind/MyAPI/actions/runs/42487543625) 逐条执行过。
 
 ## 1. 查看帮助 / Read the help
 
@@ -25,9 +33,9 @@ Run from a reviewed MyAPI source checkout with Bash. These preview commands need
 bash deploy/install-native.sh --help
 ```
 
-成功时会显示 `plan`、`render-unit` 和必须明确指定的 `--scope system|user`。缺参数、未知 scope、重复参数以及 `install`、`upgrade`、`rollback`、`uninstall` 均非零退出，不能用它们执行安装或恢复。
+成功时会显示预览、包核验和首次安装命令。缺参数、未知 scope 或重复参数会被拒绝。升级、回退和卸载安排在后续批次。
 
-The help lists the two preview operations. Missing, duplicate or unknown arguments fail. Installation, upgrade, rollback and uninstall are unavailable rather than partially implemented.
+The help lists preview, verification and first installation commands. Missing, duplicate or unknown arguments fail. Upgrade, rollback and uninstall are planned separately.
 
 ## 2. 系统服务：只看计划 / Preview a system service
 

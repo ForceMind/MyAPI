@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Read-only service preview and local package verification.
+# Service preview, local package verification and first installation.
 set -euo pipefail
 export LC_ALL=C
 
@@ -17,13 +17,15 @@ print_help() {
     '  bash deploy/install-native.sh render-unit --scope system|user' \
     '  bash deploy/install-native.sh verify-package --scope system|user --edition full|lite --tag TAG' \
     '    --manifest FILE --bundle FILE --package FILE --cosign FILE --root FILE' \
+    '  bash deploy/install-native.sh install --scope system|user --edition full|lite --tag TAG' \
+    '    --manifest FILE --bundle FILE --package FILE --cosign FILE --root FILE [--port PORT]' \
     '' \
-    'Read-only; no installation, configuration, or service state is inspected.' \
+    'Preview commands are read-only. Install starts a new service on loopback.' \
     '仅预览，不检查现有安装、配置或服务状态，不可据此接管或安装。' \
     'Use plan to review target folders; render-unit prints a service file for review.' \
     'plan 查看目标目录；render-unit 输出服务文件，供审阅。' \
-    'Install, upgrade, rollback, and uninstall are unavailable in B3a.' \
-    'verify-package 核验本地包。安装、升级、回滚和卸载暂未开放。'
+    'Upgrade, rollback and uninstall are unavailable.' \
+    'verify-package 核验本地包。install 仅用于首次安装。'
 }
 
 validated_base() {
@@ -89,9 +91,13 @@ case "$command_name" in
     script_directory="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
     exec node "$script_directory/../cli/lib/native-package-verification.mjs" "$@"
     ;;
+  install)
+    script_directory="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+    exec node "$script_directory/../cli/lib/native-install.mjs" "$@"
+    ;;
   plan|render-unit) ;;
-  install|upgrade|rollback|uninstall)
-    fail 'Unavailable in B3a: no installation or lifecycle executor is connected; nothing was changed / 本阶段未接线安装或生命周期执行器，未作任何更改。'
+  upgrade|rollback|uninstall)
+    fail 'This lifecycle operation is unavailable / 当前版本暂不支持此操作。'
     ;;
   *) fail 'Unknown command; use --help / 未知命令，请使用 --help。' ;;
 esac
@@ -138,10 +144,8 @@ if [[ "$command_name" == plan ]]; then
   printf 'scope: %s\naccount: %s\nbinary: %s\nreleases: %s\nconfig: %s\ndata: %s\nstate: %s\nbackups: %s\nlogs: %s\ncache: %s\nunit: %s\n' \
     "$scope" "$account" "$binary" "$releases" "$config" "$data" "$state" "$backups" "$logs" "$cache" "$unit"
   printf '%s\n' \
-    'Installation unavailable: artifact trust, ownership checks and lifecycle execution are not connected.' \
-    '安装不可用：制品来源验证、安装归属检查及生命周期执行尚未接线。' \
-    'Automatic installation is not implemented yet. Keep the existing service; do not replace it using this preview.' \
-    '尚未实现自动安装。请保留当前服务，不要直接用此预览替换。' \
+    'This command does not install anything. Use install for a verified first installation.' \
+    '此命令不安装服务。首次安装请使用 install，并提供签名包。' \
     'Paths are intended locations, not proof of existence, permissions or service health. Configuration was not read.' \
     '这些是目标路径，不代表目录存在、权限可用或服务健康；未读取配置。' \
     'The required EnvironmentFile may override the default SQLite path. Keep existing data and secrets unchanged.' \

@@ -1,5 +1,9 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-12 B3c Linux 原生首次安装
+
+新增 `install`，先检查归属、配置与目录、服务和端口，再用 B3b 核验实际暂存的二进制。创建独立配置、SQLite 目录和 systemd 单元，核验新进程及 loopback 状态接口后写安装记录。系统支持 Full/Lite，用户支持 Lite。失败保留已写入文件并报告状态。专项 Actions 使用合成签名和真实 MyAPI 后端验证系统 Full、用户 Lite 以及冲突拒绝。正式签名包、升级、回退和卸载安排在后续批次。
+
 ## 2026-11-11 B3b Linux 原生包核验
 
 维护者批准接入只读 `verify-package`。命令复用 schema 1 制品选择，先验证原始 Manifest 的 Sigstore 签名与准确标签身份，再核对版本、架构、制品来源和二进制摘要。固定 `ForceMind/MyAPI` 的 `release.yml@refs/tags/<tag>`，输入由用户提供，安装和服务操作仍由后续批次交付。合成正例验证签名覆盖与包选择，专项 Actions 以真正 Cosign 验证公开向量及拒绝外部签名者。MyAPI 正式签名包正例留待发行链提供对应材料后验收。

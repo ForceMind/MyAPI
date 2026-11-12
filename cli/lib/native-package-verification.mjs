@@ -166,26 +166,33 @@ export async function verifyNativePackage(inputs, { arch, bootstrapVersion, veri
   return { version, edition, scope, arch, artifact: artifact.id, sourceSha: manifest.product.source_sha, sha256 }
 }
 
-async function main(args) {
+export function parseNativePackageArgs(args, optional = []) {
   const required = ['scope', 'edition', 'tag', 'manifest', 'bundle', 'package', 'cosign', 'root']
+  const allowed = [...required, ...optional]
   const inputs = Object.create(null)
   for (let index = 0; index < args.length; index += 2) {
     const key = args[index].slice(2)
     const value = args[index + 1]
-    if (!args[index].startsWith('--') || !required.includes(key) || Object.hasOwn(inputs, key) || !value) {
+    if (!args[index].startsWith('--') || !allowed.includes(key) || Object.hasOwn(inputs, key) || !value) {
       refuse('invalid_arguments', 'Provide each required option exactly once.')
     }
     inputs[key] = value
   }
   if (required.some(key => !Object.hasOwn(inputs, key))) refuse('invalid_arguments', 'Provide each required option exactly once.')
+  return inputs
+}
+
+export async function verifyReleaseNativePackage(inputs) {
   const arch = process.platform === 'linux' && { x64: 'amd64', arm64: 'arm64' }[process.arch]
   const bootstrapVersion = (await readFile(new URL('../../VERSION', import.meta.url), 'utf8')).trim()
-  const result = await verifyNativePackage(inputs, { arch, bootstrapVersion, verifySignature: verifyManifestSignature })
-  console.log(JSON.stringify(result))
+  return verifyNativePackage(inputs, { arch, bootstrapVersion, verifySignature: verifyManifestSignature })
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main(process.argv.slice(2)).catch(error => {
+  Promise.resolve().then(async () => {
+    const result = await verifyReleaseNativePackage(parseNativePackageArgs(process.argv.slice(2)))
+    console.log(JSON.stringify(result))
+  }).catch(error => {
     const code = error.code || 'verification_failed'
     const reason = /^[a-z_]+$/.test(code) ? error.message : 'Check that the input files are readable.'
     console.error(`MyAPI package verification failed [${code}]. ${reason}`)
