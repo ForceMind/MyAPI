@@ -228,9 +228,22 @@ export async function installNative(inputs, verify = verifyReleaseNativePackage)
         await copyFile(staged, binary, constants.COPYFILE_EXCL)
         await chmod(binary, 0o755)
         await symlink(path.relative(path.dirname(paths.releases), release), path.dirname(paths.binary), 'dir')
-        await writeFile(paths.config, `MYAPI_EDITION=${receipt.edition}\nMYAPI_BIND_ADDRESS=127.0.0.1\nPORT=${port}\nSESSION_SECRET=${randomBytes(48).toString('hex')}\n`, {
-          flag: 'wx', mode: 0o600,
-        })
+        // A new SQLite service must not inherit a manager's database or Redis
+        // connection. In particular, systemd user services inherit its env.
+        const config = [
+          `MYAPI_EDITION=${receipt.edition}`,
+          'MYAPI_BIND_ADDRESS=127.0.0.1',
+          `PORT=${port}`,
+          `SESSION_SECRET=${randomBytes(48).toString('hex')}`,
+          'CRYPTO_SECRET=',
+          'SQL_DSN=',
+          'LOG_SQL_DSN=',
+          'REDIS_CONN_STRING=',
+          'NODE_TYPE=master',
+          'BATCH_UPDATE_ENABLED=false',
+          '',
+        ]
+        await writeFile(paths.config, config.join('\n'), { flag: 'wx', mode: 0o600 })
         const pending = path.join(paths.state, 'installation.pending.json')
         const installed = { ...receipt, port: Number(port), binary: paths.binary, config: paths.config, unit: paths.unit }
         await writeFile(pending, JSON.stringify(installed) + '\n', { flag: 'wx', mode: 0o600 })

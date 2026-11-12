@@ -90,7 +90,15 @@ try {
   for (const filename of Object.values(paths)) await assert.rejects(stat(filename), { code: 'ENOENT' })
   await writeFile(manifest, bytes)
 
-  const installed = await installNative(inputs, verifyFixture)
+  const foreignSettings = ['SQL_DSN=qualification-invalid-database', 'LOG_SQL_DSN=qualification-invalid-log-database',
+    'REDIS_CONN_STRING=qualification-invalid-redis']
+  if (scope === 'user') manager(['set-environment', ...foreignSettings])
+  let installed
+  try {
+    installed = await installNative(inputs, verifyFixture)
+  } finally {
+    if (scope === 'user') manager(['unset-environment', ...foreignSettings.map(setting => setting.split('=')[0])])
+  }
   assert.equal(installed.status, 'healthy')
   assert.equal(installed.sha256, sha256)
   const receipt = JSON.parse(await readFile(path.join(paths.state, 'installation.json'), 'utf8'))
