@@ -12,6 +12,23 @@ You can preview the intended directories and systemd unit, then install a fresh 
 
 The command verifies a local package offline. It binds the manifest signature to the MyAPI release workflow and exact tag, then checks the signed target and local binary digest. The install command verifies its own staged copy. A MyAPI-signed release package is still needed to exercise the production signing identity end to end.
 
+## 检查已运行的服务能否升级 / Check a running installation
+
+在已由 `install` 建立的服务旁运行 `upgrade-plan`。准备当前版本和目标版本各自的原始 Manifest 与签名 bundle、目标二进制以及固定的 Cosign 和信任根。下例中的文件名和标签须替换为所选发行的真实材料。系统服务以 root 运行命令。个人版使用自己的账户，选择 `--scope user --edition lite`。
+
+```bash
+bash deploy/install-native.sh upgrade-plan --scope system --edition full --tag "$TARGET_TAG" \
+  --current-manifest "$CURRENT_MANIFEST" --current-bundle "$CURRENT_BUNDLE" \
+  --manifest "$TARGET_MANIFEST" --bundle "$TARGET_BUNDLE" --package "$TARGET_BINARY" \
+  --cosign "$COSIGN" --root "$TRUSTED_ROOT"
+```
+
+返回 `eligible: true` 时，可查看当前和目标版本、运行服务的 PID、实际 SQLite 路径和未来停服步骤。配置和数据的 schema 版本取自已验签的双方 Manifest。SQLite 的现场证据来自运行进程打开的文件及其格式。预检保留正在服务的进程、配置和数据，Cosign 仅使用并清理自己的临时目录。
+
+拒绝时命令以状态码 2 返回 `code` 和 `reason`。安装记录问题先核对 `state/installation.json`；服务不符时核对当前程序、systemd 单元与运行账户；SQLite 不符时核对服务配置和数据目录。不要用改写收据或替换数据库的方式让预检通过。
+
+Use `upgrade-plan` on a running managed system or user installation. Supply both original release manifests with their respective signature bundles, the target binary and the pinned local trust material. Success identifies the installed and target versions, service PID, actual SQLite file and the steps that would require downtime. The configuration and data schema versions come from the signed declarations. A refusal returns exit code 2 and identifies the record, service, database or release material to inspect. This command leaves the service running.
+
 ## 首次安装 / First installation
 
 将 `verify-package` 替换为 `install` 并传入相同参数。系统服务需要 root，支持 Full 和 Lite。用户服务需以目标用户运行，支持 Lite，并需要已运行的 systemd 用户管理器。两种方式均需系统提供 `ss`，系统安装还使用 `getent` 和 `useradd` 创建专用账号。
@@ -113,12 +130,8 @@ Review the rendered result, not the placeholder template. Paths remain positiona
 
 A successful preview is not a working installation. Artifact trust, configuration, database compatibility, startup, shutdown and recovery still require their own implementation and evidence. An unconfirmed stop is never permission to replace or restore data.
 
-目前没有本教程可用的 `systemctl install/enable/start`、自动下载、签名验证、升级或卸载步骤。T1 的 GitHub OIDC / Sigstore 是已确定的信任合同方向，尚未接线到下载、验签或安装；不需要新建签名 Secret，也不能改用未审阅的坐标或 `latest`。
+首次安装使用上文的 `install`，已运行的服务使用 `upgrade-plan`。当前与目标的生产签名材料须由受信发行提供。程序切换、回退和保数据卸载按后续批次交付。自动更新保持关闭。
 
-There is no installation command to run after this preview. The chosen T1 trust contract is not a connected downloader or signature verifier. It does not authorize creating signing secrets, changing artifact coordinates or fetching an unreviewed latest release.
+Use `install` for a fresh service and `upgrade-plan` to inspect a running service. Production signature materials must come from the trusted release. Program switching, rollback and data-preserving uninstall are subsequent batches. Automatic updates remain off.
 
-继续使用容器可看 [个人电脑分流](PERSONAL_COMPUTER.md) 和 [Lite / Legacy LAN](LAN_LITE.md)。数据保护先看 [备份与隔离恢复](BACKUP_RESTORE.md)：beta.46 的已证范围仅注册的 Root Docker Full + SQLite，不能直接套到原生或 Desktop；beta.47 清理候选仍待验证。
-
-For an existing supported container workflow, use the personal-computer and Lite guides. The current backup qualification is limited to registered root Docker Full + SQLite; native and Desktop recovery are not qualified by it.
-
-**未验 / Not verified:** `EnvironmentFile` 被真实 manager 加载、专用账号和实际权限、服务安装/启动/停止/重启、睡眠恢复、真实 MyAPI 原生运行、更新及回滚。本页不提供这些能力的完成声明。
+容器数据保护另见 [备份与隔离恢复](BACKUP_RESTORE.md)。系统 Full 和非特权用户 Lite 的首次安装已有真实 systemd 证据。[首次安装 CI](https://github.com/ForceMind/MyAPI/actions/runs/43147688471)

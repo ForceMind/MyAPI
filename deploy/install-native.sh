@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Service preview, local package verification and first installation.
+# Service preview, verified first installation and running upgrade inspection.
 set -euo pipefail
 export LC_ALL=C
 
@@ -19,11 +19,14 @@ print_help() {
     '    --manifest FILE --bundle FILE --package FILE --cosign FILE --root FILE' \
     '  bash deploy/install-native.sh install --scope system|user --edition full|lite --tag TAG' \
     '    --manifest FILE --bundle FILE --package FILE --cosign FILE --root FILE [--port PORT]' \
+    '  bash deploy/install-native.sh upgrade-plan --scope system|user --edition full|lite --tag TARGET_TAG' \
+    '    --current-manifest FILE --current-bundle FILE --manifest FILE --bundle FILE --package FILE --cosign FILE --root FILE' \
     '' \
     'Preview commands are read-only. Install starts a new service on loopback.' \
     '仅预览，不检查现有安装、配置或服务状态，不可据此接管或安装。' \
     'Use plan to review target folders; render-unit prints a service file for review.' \
     'plan 查看目标目录；render-unit 输出服务文件，供审阅。' \
+    'upgrade-plan checks the running installation and both signed packages. 升级预检只读核对当前服务和目标包。' \
     'Upgrade, rollback and uninstall are unavailable.' \
     'verify-package 核验本地包。install 仅用于首次安装。'
 }
@@ -94,6 +97,10 @@ case "$command_name" in
   install)
     script_directory="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
     exec node "$script_directory/../cli/lib/native-install.mjs" "$@"
+    ;;
+  upgrade-plan)
+    script_directory="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+    exec node "$script_directory/../cli/lib/native-transition.mjs" "$@"
     ;;
   plan|render-unit) ;;
   upgrade|rollback|uninstall)

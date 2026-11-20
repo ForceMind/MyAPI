@@ -7,7 +7,7 @@ import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
-import { compareSemver, selectReleaseArtifact } from './release-manifest.mjs'
+import { compareSemver, selectNativeReleaseTransition, selectReleaseArtifact } from './release-manifest.mjs'
 
 const run = promisify(execFile)
 const maxDocumentBytes = 4 * 1024 * 1024
@@ -164,6 +164,68 @@ export async function verifyNativePackage(inputs, { arch, bootstrapVersion, veri
   const sha256 = await binaryDigest(inputs.package, arch)
   if (sha256 !== artifact.sha256_or_digest.toLowerCase()) refuse('digest_mismatch', 'Package digest does not match the signed Manifest.')
   return { version, edition, scope, arch, artifact: artifact.id, sourceSha: manifest.product.source_sha, sha256 }
+}
+
+/**
+ * Authenticate both sides of a native transition without changing files or
+ * services. The caller must first prove live SQLite storage and resolve the
+ * actual running service binary; an installation record alone is not proof.
+ * Options are an in-process test seam and are never accepted as CLI options.
+ */
+export async function verifyNativeTransitionPackages(inputs, installed, currentBinary, operation = 'upgrade', options = {}) {
+  const arch = options.arch ?? (process.platform === 'linux' && { x64: 'amd64', arm64: 'arm64' }[process.arch])
+  const bootstrapVersion = options.bootstrapVersion ?? (await readFile(new URL('../../VERSION', import.meta.url), 'utf8')).trim()
+  const verifySignature = options.verifySignature ?? verifyManifestSignature
+  const { tag, scope, edition } = inputs
+  if (!['amd64', 'arm64'].includes(arch) || !['system', 'user'].includes(scope) ||
+    !['full', 'lite'].includes(edition) || (scope === 'user' && edition === 'full')) {
+    refuse('invalid_target', 'Choose system Full/Lite or user Lite on Linux amd64 or arm64.')
+  }
+  if (!installed || installed.scope !== scope || installed.edition !== edition || installed.arch !== arch) {
+    refuse('installed_identity_mismatch', 'The requested target must preserve the installed scope, edition and CPU.')
+  }
+  const currentTag = `v${installed.version}`
+  for (const releaseTag of [currentTag, tag]) {
+    if (typeof releaseTag !== 'string' || releaseTag.length > 257 || !/^v[\da-zA-Z.+-]+$/.test(releaseTag)) {
+      refuse('invalid_tag', 'Provide an exact v-prefixed release tag.')
+    }
+    try {
+      compareSemver(releaseTag.slice(1), releaseTag.slice(1))
+    } catch {
+      refuse('invalid_tag', 'Provide an exact v-prefixed release tag.')
+    }
+  }
+  const releases = [
+    { tag: currentTag, manifest: inputs['current-manifest'], bundle: inputs['current-bundle'], binary: currentBinary },
+    { tag, manifest: inputs.manifest, bundle: inputs.bundle, binary: inputs.package },
+  ]
+  for (const release of releases) {
+    const bytes = await readDocument(release.manifest)
+    await verifySignature(bytes, { ...inputs, tag: release.tag, manifest: release.manifest, bundle: release.bundle }, arch, release.tag)
+    try {
+      release.document = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
+    } catch {
+      refuse('invalid_manifest', 'The signed Manifest must be UTF-8 JSON.')
+    }
+  }
+  const transition = selectNativeReleaseTransition(releases[0].document, releases[1].document, installed, {
+    operation, storage: 'sqlite', bootstrapVersion,
+  })
+  for (const [index, release] of releases.entries()) {
+    const identity = index === 0 ? transition.current : transition.target
+    if (identity.version !== release.tag.slice(1)) {
+      refuse('version_mismatch', 'Signed version does not match the requested tag.')
+    }
+    const artifact = release.document.artifacts.find(candidate => candidate.id === identity.artifact)
+    const prefix = `${releaseBase}/releases/download/${release.tag}/`
+    if (!artifact.location.startsWith(prefix) || !/^[a-zA-Z0-9_-][a-zA-Z0-9._-]*$/.test(artifact.location.slice(prefix.length))) {
+      refuse('source_mismatch', 'The package must be listed under the requested ForceMind/MyAPI release tag.')
+    }
+    if (await binaryDigest(release.binary, arch) !== identity.sha256) {
+      refuse('digest_mismatch', 'Package digest does not match the signed Manifest.')
+    }
+  }
+  return transition
 }
 
 export function parseNativePackageArgs(args, optional = []) {
