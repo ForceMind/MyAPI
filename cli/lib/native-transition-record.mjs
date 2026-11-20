@@ -7,6 +7,7 @@ import { checkNativeDirectory, nativeServiceContext, nativeServiceState } from '
 export const nativeReadFlags = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
 const phases = new Set(['prepared', 'stop_requested', 'stopped', 'backup_requested', 'backed_up',
   'switch_requested', 'switched', 'start_requested', 'started', 'receipt_requested', 'committed'])
+const uninstallPhases = new Set(['prepared', 'stop_requested', 'stopped', 'remove_requested', 'uninstalled'])
 
 export function refuseNative(code, message) {
   throw Object.assign(new Error(message), { code })
@@ -98,13 +99,41 @@ export function requireSettledTransition(record, confirmation) {
   }
 }
 
+export async function readNativeUninstallRecord(context) {
+  const filename = path.join(context.paths.state, 'native-uninstall.json')
+  if (!await nativeEntry(filename)) return null
+  const { text } = await managedFile(filename, context.uid, true, 'native_journal_unknown')
+  let record
+  try { record = JSON.parse(text) } catch { /* Invalid state is handled below. */ }
+  const pathList = value => Array.isArray(value) && value.length > 0 &&
+    value.every(item => typeof item === 'string' && path.isAbsolute(item) && path.normalize(item) === item)
+  if (record?.schema !== 1 || record.operation !== 'uninstall' || record.scope !== context.scope ||
+      !uninstallPhases.has(record.phase) || !/^[a-f0-9]{64}$/.test(record.confirmation ?? '') ||
+      !isNativeReleaseIdentity(record.current) || !pathList(record.remove) || !pathList(record.preserve)) {
+    refuseNative('native_journal_unknown', '无法确认卸载记录，请核对 ' + filename + ' / Review the protected uninstall record.')
+  }
+  return record
+}
+
+export async function requireNoNativeUninstall(context, confirmation) {
+  const record = await readNativeUninstallRecord(context)
+  if (!record) return
+  if (record.phase !== 'uninstalled') {
+    refuseNative('native_uninstall_pending', '卸载停在 ' + record.phase + '。请先查看 transition-status。 / Inspect the unfinished uninstall.')
+  }
+  if (record.confirmation === confirmation) {
+    refuseNative('native_confirmation_consumed', '这次确认已执行，请查看 transition-status。 / This confirmation has already been used.')
+  }
+  refuseNative('native_uninstall_completed', '此实例已有完成的卸载记录。请查看 transition-status。 / This installation has a completed uninstall record.')
+}
+
 export async function readNativeTransitionStatus(scope) {
   const context = await nativeServiceContext(scope)
   const { paths, manager, uid } = context
   let journal
   let phase = 'unknown'
   try {
-    journal = await readNativeJournal(context)
+    journal = await readNativeUninstallRecord(context) ?? await readNativeJournal(context)
     phase = journal?.phase ?? 'none'
   } catch (error) {
     if (error.code !== 'native_journal_unknown' && error.code !== 'unsafe_directory') throw error
@@ -123,5 +152,6 @@ export async function readNativeTransitionStatus(scope) {
   return { phase, operation: journal?.operation ?? null,
     current: journal?.current ?? null, target: journal?.target ?? null, backup: journal?.backup ?? null,
     locked: Boolean(await nativeEntry(path.join(context.runtime, 'myapi-native-install'))),
-    activeBinary, service: { state: service.ActiveState, pid: /^\d+$/.test(service.MainPID) ? Number(service.MainPID) : null } }
+    activeBinary, service: { state: service.ActiveState, pid: /^\d+$/.test(service.MainPID) ? Number(service.MainPID) : null },
+    ...(journal?.operation === 'uninstall' ? { remove: journal.remove, preserve: journal.preserve } : {}) }
 }

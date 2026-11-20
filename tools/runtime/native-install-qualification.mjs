@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { installNative } from '../../cli/lib/native-install.mjs'
 import { verifyNativePackage, verifyNativeTransitionPackages } from '../../cli/lib/native-package-verification.mjs'
 import { executeNativeTransition, planNativeTransition, readNativeTransitionStatus } from '../../cli/lib/native-transition.mjs'
+import { executeNativeUninstall, planNativeUninstall } from '../../cli/lib/native-uninstall.mjs'
 
 assert.equal(process.env.GITHUB_ACTIONS, 'true')
 assert.equal(process.env.GITHUB_REPOSITORY, 'ForceMind/MyAPI')
@@ -500,7 +501,7 @@ finally:
     encoding: 'utf8', timeout: 30_000,
     input: JSON.stringify({ action, database: filename, ...(action === 'seed' ? { token_secret: randomBytes(32).toString('hex') } : {}),
       ...(action === 'charge-new-version' ? { upstream_url: fakeUpstreamURL } : {}) }),
-    ...(scope === 'system' && action !== 'snapshot' ? { uid: databaseOwner.uid, gid: databaseOwner.gid } : {}),
+    ...(scope === 'system' && (action !== 'snapshot' || filename === database) ? { uid: databaseOwner.uid, gid: databaseOwner.gid } : {}),
   }))
   const seededAccounting = accounting('seed')
   assert.equal(seededAccounting.users[0].quota, 100012)
@@ -514,13 +515,13 @@ finally:
   const executionInputs = { ...transitionInputs, package: candidateBinary }
   const executionPaths = Object.fromEntries([...plan.matchAll(/^(\w+): (\/.+)$/gm)].map(match => [match[1], match[2]]))
   const stateFile = path.join(paths.state, 'native-transition.json')
-  async function executionSnapshot() {
+  async function executionSnapshot({ includeAutonomous = false } = {}) {
     const files = {}
     async function visit(filename) {
       // The user release root also contains live data. Verify synthetic
       // accounting below; exclude autonomous task rows and SQLite lock bytes
       // rather than take an unsafe byte snapshot of a running database.
-      if ([paths.data, executionPaths.logs, executionPaths.cache].includes(filename)) return
+      if (filename === paths.data || (!includeAutonomous && [executionPaths.logs, executionPaths.cache].includes(filename))) return
       let info
       try { info = await lstat(filename, { bigint: true }) } catch (error) {
         if (error.code !== 'ENOENT') throw error
@@ -540,6 +541,10 @@ finally:
       }
     }
     for (const filename of [path.dirname(executionPaths.releases), paths.config, paths.unit, paths.state, executionPaths.backups]) await visit(filename)
+    if (includeAutonomous) {
+      await visit(executionPaths.logs)
+      await visit(executionPaths.cache)
+    }
     return { files, accounting: accounting('snapshot'),
       pid: manager(['show', 'my-api.service', '--property=MainPID', '--value']),
       active: manager(['show', 'my-api.service', '--property=ActiveState', '--value']),
@@ -634,6 +639,7 @@ finally:
       assert.deepEqual(await readNativeTransitionStatus(scope), interrupted)
       assert.deepEqual(JSON.parse(execFileSync('bash', [shellEntry, 'transition-status', '--scope', scope], { encoding: 'utf8' })), interrupted)
       await assert.rejects(executeNativeTransition(confirmedInputs, verifyTransitionFixture), { code: 'native_transition_pending' })
+      await assert.rejects(planNativeUninstall({ scope }), { code: 'native_transition_pending' })
     })
     assert.equal(JSON.parse(await readFile(stateFile, 'utf8')).phase, 'stopped')
     console.log(`MYAPI_NATIVE_TRANSITION_INTERRUPT_PASS scope=${scope} edition=${edition} real_service=true persisted_phase=stopped child_exit=73 replay_refused=true restarted=false accounting_preserved=true manual_state_preserved=true`)
@@ -931,10 +937,215 @@ finally:
     await unchangedExecution(() => assert.rejects(executeNativeTransition(reupgradeConfirmed, verifyTransitionFixture), { code: 'native_confirmation_consumed' }))
     assert.equal(fakeUpstreamRequests, upstreamBefore)
     console.log(`MYAPI_NATIVE_REUPGRADE_PASS scope=${scope} edition=${edition} retained_new_binary_inode=true same_database=true latest_accounting_preserved=true repeated_confirmation_refused=true fake_upstream_before=${upstreamBefore} fake_upstream_after=${fakeUpstreamRequests}`)
-    manager(['stop', 'my-api.service'])
+
+    const uninstallInputs = { scope }
+    const uninstallJournal = path.join(paths.state, 'native-uninstall.json')
+    const wantsParent = path.join(path.dirname(paths.unit), scope === 'system' ? 'multi-user.target.wants' : 'default.target.wants')
+    const enableLink = path.join(wantsParent, 'my-api.service')
+    await assert.rejects(lstat(enableLink), { code: 'ENOENT' })
+    manager(['enable', 'my-api.service'])
+    assert.equal(manager(['show', 'my-api.service', '--property=MainPID', '--value']).trim(), String(finalPid))
+    assert.equal((await lstat(enableLink)).isSymbolicLink(), true)
+    assert.equal(await realpath(enableLink), paths.unit)
+    const wantsParentBefore = await stat(wantsParent, { bigint: true })
+    const otherWants = (await readdir(wantsParent)).filter(name => name !== 'my-api.service').sort()
+    const uninstallPreview = await stablePlanCheck(() => planNativeUninstall(uninstallInputs))
+    assert.equal(uninstallPreview.eligible, true)
+    assert.equal(uninstallPreview.operation, 'uninstall')
+    assert.match(uninstallPreview.confirmation, /^[a-f0-9]{64}$/)
+    assert.equal(uninstallPreview.service.pid, finalPid)
+    const expectedRemoval = [enableLink, paths.unit, path.dirname(paths.binary), executionPaths.releases,
+      currentBinaryBefore, path.dirname(currentBinaryBefore), path.dirname(path.dirname(currentBinaryBefore)),
+      currentStatus.activeBinary, path.dirname(currentStatus.activeBinary), path.dirname(path.dirname(currentStatus.activeBinary))]
+    assert.deepEqual(new Set(uninstallPreview.remove), new Set(expectedRemoval))
+    const expectedPreservation = [paths.config, paths.data, executionPaths.logs, executionPaths.backups, paths.state, executionPaths.cache]
+    assert.deepEqual(new Set(uninstallPreview.preserve), new Set(expectedPreservation))
+    await stablePlanCheck(() => assert.rejects(executeNativeUninstall(uninstallInputs), { code: 'native_confirmation_required' }))
+    async function refusedUninstall(code) {
+      await stablePlanCheck(async () => {
+        await assert.rejects(planNativeUninstall(uninstallInputs), { code })
+        await assert.rejects(executeNativeUninstall({ scope, confirm: uninstallPreview.confirmation }), { code })
+      })
+    }
+
+    // These owned fixtures alter only service-manager inventory, not the live
+    // process or its environment. Restore them without restarting the service.
+    await writeFile(paths.unit, Buffer.concat([unitBefore, Buffer.from('\n# synthetic foreign unit bytes\n')]))
+    manager(['daemon-reload'])
+    try {
+      await refusedUninstall('native_service_mismatch')
+    } finally {
+      await writeFile(paths.unit, unitBefore)
+      manager(['daemon-reload'])
+    }
+    const dropInDirectory = paths.unit + '.d'
+    const dropIn = path.join(dropInDirectory, '99-native-qualification.conf')
+    await mkdir(dropInDirectory, { mode: 0o700 })
+    await writeFile(dropIn, '[Service]\n# synthetic foreign drop-in; no changed runtime environment\n', { flag: 'wx', mode: 0o600 })
+    manager(['daemon-reload'])
+    try {
+      await refusedUninstall('native_service_mismatch')
+    } finally {
+      await unlink(dropIn)
+      await rmdir(dropInDirectory)
+      manager(['daemon-reload'])
+    }
+    const unownedProgram = path.join(path.dirname(currentStatus.activeBinary), 'uninstall-unowned-fixture')
+    await writeFile(unownedProgram, 'synthetic unowned program entry', { flag: 'wx', mode: 0o600 })
+    try {
+      await refusedUninstall('native_release_conflict')
+    } finally { await unlink(unownedProgram) }
+
+    const settledTransition = await readFile(stateFile)
+    await writeFile(stateFile, JSON.stringify({ ...JSON.parse(settledTransition), phase: 'stop_requested' }) + '\n')
+    try {
+      await refusedUninstall('native_transition_pending')
+    } finally { await writeFile(stateFile, settledTransition) }
+    // This exclusively-created pre-inspection probe is never an execution
+    // result. Both operations must leave it untouched and the real PID active;
+    // only the fixture removes its own probe before the successful operation.
+    await writeFile(uninstallJournal, JSON.stringify({ schema: 1, operation: 'uninstall', scope,
+      phase: 'prepared', confirmation: uninstallPreview.confirmation, current: JSON.parse(settledTransition).target,
+      remove: uninstallPreview.remove, preserve: uninstallPreview.preserve }) + '\n', { flag: 'wx', mode: 0o600 })
+    try {
+      await refusedUninstall('native_uninstall_pending')
+    } finally { await unlink(uninstallJournal) }
+    await writeFile(paths.config, config + '# synthetic uninstall confirmation change\n')
+    try {
+      await stablePlanCheck(() => assert.rejects(executeNativeUninstall({ scope, confirm: uninstallPreview.confirmation }),
+        { code: 'native_confirmation_stale' }))
+    } finally { await writeFile(paths.config, config) }
+
+    const uncertainStopPlan = await stablePlanCheck(() => planNativeUninstall(uninstallInputs))
+    await stablePlanCheck(async () => {
+      const before = await executionSnapshot({ includeAutonomous: true })
+      await assert.rejects(executeNativeUninstall({ scope, confirm: uncertainStopPlan.confirmation }, {
+        prepareDrain: async () => ({ stop: async () => ({ drained: false }), close: async () => {} }),
+      }), { code: 'native_stop_unconfirmed' })
+      const stoppedUnknownBytes = await readFile(uninstallJournal)
+      const stoppedUnknown = JSON.parse(stoppedUnknownBytes)
+      assert.equal(stoppedUnknown.schema, 1)
+      assert.equal(stoppedUnknown.scope, scope)
+      assert.equal(stoppedUnknown.operation, 'uninstall')
+      assert.equal(stoppedUnknown.phase, 'stop_requested')
+      assert.equal(stoppedUnknown.confirmation, uncertainStopPlan.confirmation)
+      assert.deepEqual(stoppedUnknown.current, reupgradeStatus.target)
+      assert.deepEqual(stoppedUnknown.remove, uncertainStopPlan.remove)
+      assert.deepEqual(stoppedUnknown.preserve, uncertainStopPlan.preserve)
+      const after = await executionSnapshot({ includeAutonomous: true })
+      assert.ok(after.files[uninstallJournal])
+      delete after.files[uninstallJournal]
+      assert.deepEqual(after, before, 'an unconfirmed drain may only publish its pending uninstall record')
+      const uncertainStatus = await readNativeTransitionStatus(scope)
+      assert.equal(uncertainStatus.phase, 'stop_requested')
+      assert.equal(uncertainStatus.operation, 'uninstall')
+      assert.equal(uncertainStatus.service.pid, finalPid)
+      assert.equal(uncertainStatus.service.state, 'active')
+      assert.equal(uncertainStatus.activeBinary, reupgradeStatus.activeBinary)
+      await unchangedExecution(async () => {
+        await assert.rejects(planNativeUninstall(uninstallInputs), { code: 'native_uninstall_pending' })
+        await assert.rejects(executeNativeUninstall({ scope, confirm: uncertainStopPlan.confirmation }), { code: 'native_uninstall_pending' })
+      })
+      assert.deepEqual(await readFile(uninstallJournal), stoppedUnknownBytes)
+      const journalInfo = await lstat(uninstallJournal)
+      assert.equal(journalInfo.uid, uid)
+      assert.equal(journalInfo.nlink, 1)
+      assert.equal(journalInfo.mode & 0o777, 0o600)
+      // Only this owned GHA fixture can remove its explicitly injected false-
+      // drain record after checking every field and unchanged live evidence.
+      // A real unconfirmed stop remains pending and is never auto-cleared.
+      await unlink(uninstallJournal)
+    })
     assert.equal(fakeUpstreamRequests, upstreamBefore)
+    console.log(`MYAPI_NATIVE_UNINSTALL_STOP_GUARD_PASS scope=${scope} edition=${edition} real_service_running=true persisted_phase=stop_requested only_pending_record_written=true pending_replay_refused=true database_wal_unchanged=true fixture_record_checked_before_removal=true`)
+
+    const uninstallPlan = await stablePlanCheck(() => planNativeUninstall(uninstallInputs))
+    assert.equal(uninstallPlan.service.pid, finalPid)
+    assert.deepEqual(new Set(uninstallPlan.remove), new Set(expectedRemoval))
+    assert.deepEqual(new Set(uninstallPlan.preserve), new Set(expectedPreservation))
+    const backupsBeforeUninstall = await readdir(executionPaths.backups)
+    assert.deepEqual(new Set(backupsBeforeUninstall), new Set([upgraded.backup, rolledBack.backup, reupgraded.backup].map(filename => path.basename(filename))))
+    const preservationBefore = {}
+    async function preserveInventory(filename, logs = false) {
+      const info = await lstat(filename, { bigint: true })
+      assert.ok(info.isDirectory() || info.isFile())
+      const row = { metadata: [String(info.dev), String(info.ino), String(info.mode), String(info.uid), String(info.gid)] }
+      if (info.isFile()) row.bytes = await readFile(filename)
+      preservationBefore[filename] = { ...row, logs }
+      if (info.isDirectory()) {
+        for (const name of (await readdir(filename)).sort()) await preserveInventory(path.join(filename, name), logs)
+      }
+    }
+    await preserveInventory(paths.config)
+    await preserveInventory(executionPaths.backups)
+    await preserveInventory(executionPaths.logs, true)
+    await preserveInventory(executionPaths.cache)
+    const preservedDirectories = await Promise.all([paths.data, paths.state, executionPaths.cache].map(async filename => {
+      const info = await stat(filename, { bigint: true })
+      return { filename, dev: info.dev, ino: info.ino }
+    }))
+    const uninstallConfirmed = { scope, confirm: uninstallPlan.confirmation }
+    const uninstalled = await executeNativeUninstall(uninstallConfirmed)
+    assert.equal(uninstalled.status, 'uninstalled')
+    assert.equal(uninstalled.operation, 'uninstall')
+    for (const filename of expectedRemoval) await assert.rejects(lstat(filename), { code: 'ENOENT' })
+    const wantsParentAfter = await stat(wantsParent, { bigint: true })
+    assert.equal(wantsParentAfter.dev, wantsParentBefore.dev)
+    assert.equal(wantsParentAfter.ino, wantsParentBefore.ino)
+    assert.deepEqual((await readdir(wantsParent)).sort(), otherWants, 'remove only the exact managed want link, preserving its parent and unrelated entries')
+    for (const { filename, dev, ino } of preservedDirectories) {
+      const info = await stat(filename, { bigint: true })
+      assert.equal(info.dev, dev)
+      assert.equal(info.ino, ino)
+    }
+    for (const [filename, row] of Object.entries(preservationBefore)) {
+      const info = await lstat(filename, { bigint: true })
+      assert.deepEqual([String(info.dev), String(info.ino), String(info.mode), String(info.uid), String(info.gid)], row.metadata)
+      if (row.bytes) {
+        const bytes = await readFile(filename)
+        if (row.logs) assert.deepEqual(bytes.subarray(0, row.bytes.length), row.bytes, 'drain may append logs but must preserve their complete original bytes')
+        else assert.deepEqual(bytes, row.bytes)
+      }
+    }
+    const uninstalledDatabase = await stat(database, { bigint: true })
+    assert.equal(uninstalledDatabase.dev, databaseIdentity.dev)
+    assert.equal(uninstalledDatabase.ino, databaseIdentity.ino)
+    assert.deepEqual(accounting('snapshot'), newerAccounting)
+    assert.deepEqual(await readdir(executionPaths.backups), backupsBeforeUninstall)
+    assert.equal(await readFile(paths.config, 'utf8'), config)
+    if (personalPermissions) {
+      assert.deepEqual(personalDataACLs(paths.data), personalPermissions)
+      for (const backup of [upgraded.backup, rolledBack.backup, reupgraded.backup]) {
+        assert.deepEqual(personalDataACLs(path.join(backup, 'data')), personalPermissions)
+      }
+    }
+    const uninstallStatus = await readNativeTransitionStatus(scope)
+    assert.equal(uninstallStatus.phase, 'uninstalled')
+    assert.equal(uninstallStatus.operation, 'uninstall')
+    assert.equal(uninstallStatus.service.state, 'inactive')
+    assert.equal(uninstallStatus.service.pid, 0)
+    assert.equal(uninstallStatus.activeBinary, null)
+    assert.equal(JSON.parse(await readFile(uninstallJournal, 'utf8')).phase, 'uninstalled')
+    assert.equal((await stat(uninstallJournal)).mode & 0o777, 0o600)
+    async function uninstalledSnapshot() {
+      const files = {}
+      for (const filename of [...Object.keys(preservationBefore), uninstallJournal,
+        path.join(paths.state, 'installation.json'), stateFile]) {
+        const info = await lstat(filename, { bigint: true })
+        files[filename] = { metadata: [String(info.dev), String(info.ino), String(info.mode), String(info.uid), String(info.gid)],
+          bytes: info.isFile() ? await readFile(filename) : null }
+      }
+      return { files, accounting: accounting('snapshot'), backups: await readdir(executionPaths.backups),
+        wants: (await readdir(wantsParent)).sort(), status: await readNativeTransitionStatus(scope) }
+    }
+    const repeatedUninstallBefore = await uninstalledSnapshot()
+    await assert.rejects(executeNativeUninstall(uninstallConfirmed), { code: 'native_confirmation_consumed' })
+    assert.deepEqual(await uninstalledSnapshot(), repeatedUninstallBefore)
+    assert.equal(fakeUpstreamRequests, upstreamBefore)
+    console.log(`MYAPI_NATIVE_UNINSTALL_PASS scope=${scope} edition=${edition} readonly_plan=true foreign_unit_refused=true dropin_refused=true unowned_program_refused=true pending_transition_refused=true pending_uninstall_refused=true stale_confirmation_refused=true unconfirmed_drain_refused=true service_stopped=true owned_program_removed=true exact_want_link_removed=true want_parent_preserved=true same_database=true latest_19_unit_record_preserved=true configuration_logs_three_backups_preserved=true repeated_confirmation_refused=true fake_upstream_before=${upstreamBefore} fake_upstream_after=${fakeUpstreamRequests}`)
   }
-  assert.equal(manager(['show', 'my-api.service', '--property=MainPID', '--value']).trim(), '0')
+  if (executionMode === 'interrupt') assert.equal(manager(['show', 'my-api.service', '--property=MainPID', '--value']).trim(), '0')
+  else assert.equal((await readNativeTransitionStatus(scope)).service.pid, 0)
   assert.ok((await stat(path.join(paths.data, 'my-api.db'))).isFile())
   console.log(`MYAPI_NATIVE_INSTALL_PASS scope=${scope} edition=${edition} health=true configuration_preserved=true port_conflict=true signature_refusal=true repeat_refusal=true stopped=true`)
 } finally {

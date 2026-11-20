@@ -52,7 +52,7 @@ Native backups verify the owner, mode and POSIX access ACL of the data, configur
 bash deploy/install-native.sh transition-status --scope system
 ```
 
-用户服务将 `system` 换成 `user`。`operation` 标明升级或回退，`phase` 显示最近写入记录的步骤，`activeBinary` 和 `service` 显示当前指针、服务状态和 PID。`committed` 表示操作已经核验并记录。`stopped` 表示上一进程已确认退出。`*_requested` 表示操作已经登记、结果还有待核对。遇到断电、响应丢失或状态不明，先看此输出，再检查安装记录中的路径和服务日志。保留最新数据库、WAL、备份和未完成的记录。再次提交同一确认不会重跑。
+用户服务将 `system` 换成 `user`。`operation` 标明升级、回退或卸载，`phase` 显示最近写入记录的步骤，`activeBinary` 和 `service` 显示当前指针、服务状态和 PID。`committed` 表示程序切换已经核验，`uninstalled` 表示卸载已核验。`stopped` 表示上一进程已确认退出。`*_requested` 表示操作已经登记、结果还有待核对。遇到断电、响应丢失或状态不明，先看此输出，再检查安装记录中的路径和服务日志。保留最新数据库、WAL、备份和未完成的记录。再次提交同一确认不会重跑。
 
 Use `--scope user` for a personal service. After interruption, inspect the recorded phase, selected program and service process before taking action. A requested phase records intent. The service or files may have changed since that phase was written. A repeated confirmation does not replay the operation.
 
@@ -79,6 +79,19 @@ bash deploy/install-native.sh rollback --scope system --edition full --tag "$OLD
 ```
 
 Supply the currently installed release as the current manifest and bundle, and the older release as the target. The newer signed manifest must expressly allow this exact code-only transition, and both releases must declare matching configuration and SQLite schemas. Confirm the plan during a downtime window. The command verifies a fresh backup, starts the older program on the same SQLite database, and checks accounting and health. If interrupted, inspect `transition-status` before proceeding.
+
+## 保留数据并卸载 / Uninstall and retain data
+
+在能核对运行进程身份的受管服务上生成卸载预检。系统服务以 root 运行命令，个人 Lite 以安装它的账号运行并选择 `user`。预检显示服务、SQLite 位置、待移除的 `remove` 路径和保留的 `preserve` 路径。核对列表后，将返回的 `confirmation` 填入确认命令。
+
+```bash
+bash deploy/install-native.sh uninstall-plan --scope system
+bash deploy/install-native.sh uninstall --scope system --confirm "$CONFIRMATION"
+```
+
+确认命令重新核对服务及程序，排空并证实原进程已退出，再移除受管单元、标准的受管启动链接（如已启用）、当前程序链接和登记的版本程序。原服务账号、配置、SQLite 及存在的 WAL、日志、备份、缓存和安装记录留存。发现外来单元、附加配置、归属不符或无法证实停服时，先用 `transition-status` 查看阶段和实际服务。结果为 `status: uninstalled` 时，已核对服务退出和保留路径。
+
+Run the plan against the managed service while it is running. Use root for a system service or the installation account for `--scope user`. Review the exact removal and preservation paths, then supply the plan confirmation. The service drains before the managed unit, standard enable link and registered program files are removed. The installation account, configuration, SQLite, logs, backups, cache and receipt remain available. If the command is interrupted, inspect `transition-status` for the recorded phase and observed service state.
 
 ## 首次安装 / First installation
 
@@ -181,8 +194,8 @@ Review the rendered result, not the placeholder template. Paths remain positiona
 
 A successful preview is not a working installation. Artifact trust, configuration, database compatibility, startup, shutdown and recovery still require their own implementation and evidence. An unconfirmed stop is never permission to replace or restore data.
 
-首次安装使用上文的 `install`。运行中的服务可预检升级或代码回退，并在约定的停机窗口内确认。当前与目标的生产签名材料须由受信发行提供。保数据卸载按后续批次交付。
+首次安装使用上文的 `install`。运行中的服务可预检升级、程序回退或保数据卸载，并在约定的停机窗口内确认。升级与回退的生产签名材料须由受信发行提供。
 
-Use `install` for a fresh service. On a running installation, review the upgrade or code rollback plan and confirm it during the downtime window. Supply the production signature materials from the trusted release. Data-preserving uninstall is a subsequent batch.
+Use `install` for a fresh service. On a running installation, review the upgrade, code rollback or data-preserving uninstall plan and confirm it during the downtime window. Supply the trusted release signatures for upgrades and rollbacks.
 
 容器数据保护另见 [备份与隔离恢复](BACKUP_RESTORE.md)。系统 Full 和非特权用户 Lite 的首次安装已有真实 systemd 证据。[首次安装 CI](https://github.com/ForceMind/MyAPI/actions/runs/43147688471)

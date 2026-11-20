@@ -1504,7 +1504,7 @@ jobs:
           sudo mkdir -m 755 "$root"
           for file in VERSION my-api.service deploy/install-native.sh deploy/my-api-user.service cli/lib/native-install.mjs \
             cli/lib/native-package-verification.mjs cli/lib/native-transition.mjs cli/lib/release-manifest.mjs cli/lib/canonical-artifact-reference.mjs \
-            cli/lib/native-transition-record.mjs cli/lib/native-service-stop.mjs cli/lib/native-service-ref.py \
+            cli/lib/native-transition-record.mjs cli/lib/native-uninstall.mjs cli/lib/native-service-stop.mjs cli/lib/native-service-ref.py \
             tools/operations/native_sqlite_transition.py tools/operations/backup_data.py \
             tools/runtime/native-install-qualification.mjs; do
             sudo install -D -m 644 "$file" "$root/$file"

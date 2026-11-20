@@ -316,6 +316,16 @@ test('program rollback requires its explicit confirmation and the read-only comm
   assert.equal(JSON.parse(readOnly.stderr).code, 'invalid_arguments')
 })
 
+test('uninstall requires confirmation and preview cannot accept a confirmation', t => {
+  const local = fixture(t)
+  const confirm = local.run(['uninstall', '--scope', 'user'])
+  assert.equal(confirm.status, 2)
+  assert.equal(JSON.parse(confirm.stderr).code, 'native_confirmation_required')
+  const readOnly = local.run(['uninstall-plan', '--scope', 'user', '--confirm', 'f'.repeat(64)])
+  assert.equal(readOnly.status, 2)
+  assert.equal(JSON.parse(readOnly.stderr).code, 'invalid_arguments')
+})
+
 test('user paths reject unset or empty HOME, explicit empty XDG, relative paths, controls and dot segments', t => {
   const local = fixture(t)
   const invalid = [

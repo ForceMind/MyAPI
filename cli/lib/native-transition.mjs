@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { checkNativeDirectory, nativeAccountEntry, nativeServiceContext, nativeServiceState, stageBinary, waitForService } from './native-install.mjs'
 import { binaryDigest, parseNativePackageArgs, readDocument, verifyNativeTransitionPackages } from './native-package-verification.mjs'
 import { prepareNativeServiceStop } from './native-service-stop.mjs'
-import { isNativeReleaseIdentity, managedFile, nativeEntry, nativeReadFlags as readFlags, readNativeJournal, readNativeTransitionStatus, refuseNative as refuse, requireSettledTransition, storeNativeRecord, syncNativePath } from './native-transition-record.mjs'
+import { isNativeReleaseIdentity, managedFile, nativeEntry, nativeReadFlags as readFlags, readNativeJournal, readNativeTransitionStatus, refuseNative as refuse, requireSettledTransition, requireNoNativeUninstall, storeNativeRecord, syncNativePath } from './native-transition-record.mjs'
 import { compareSemver } from './release-manifest.mjs'
 
 export { readNativeTransitionStatus }
@@ -168,7 +168,7 @@ async function runningDatabase(context, pid, config, serviceUid, record) {
   }
 }
 
-async function liveInstallation(inputs, context, expectedRelease) {
+export async function liveInstallation(inputs, context, expectedRelease) {
   const { scope, uid, paths, manager, unit } = context
   const receiptPath = path.join(paths.state, 'installation.json')
   const receiptFile = await managedFile(receiptPath, uid, true, 'invalid_installation_record')
@@ -179,7 +179,9 @@ async function liveInstallation(inputs, context, expectedRelease) {
     if (typeof record?.version !== 'string' || record.version.length > 256) throw new Error()
     compareSemver(record.version, record.version)
   } catch { refuse('invalid_installation_record', 'Check the completed installation record: ' + receiptPath) }
-  if (record.scope !== scope || record.edition !== inputs.edition || !['amd64', 'arm64'].includes(record.arch) ||
+  if (record.scope !== scope || !['full', 'lite'].includes(record.edition) ||
+      (scope === 'user' && record.edition !== 'lite') ||
+      (inputs.edition !== undefined && record.edition !== inputs.edition) || !['amd64', 'arm64'].includes(record.arch) ||
       ['sourceSha', 'sha256', 'artifact'].some(k => typeof record[k] !== 'string') ||
       !/^[a-z0-9][a-z0-9._-]{0,127}$/.test(record.artifact) ||
       !/^[0-9a-f]{40}$/i.test(record.sourceSha ?? '') || !/^[0-9a-f]{64}$/.test(record.sha256 ?? '') ||
@@ -259,7 +261,7 @@ async function inspectTransition(inputs, context, verifyPackages, operation) {
   return { before, transition, confirmation, documents, placement }
 }
 
-function nativeSQLite(action, context, inspection) {
+export function nativeSQLite(action, context, inspection) {
   const { paths } = context
   const { before, confirmation } = inspection
   const [device, inode] = before.databaseId.split(':')
@@ -303,47 +305,54 @@ function nativeSQLite(action, context, inspection) {
   })
 }
 
-async function inspectTargetRelease(context, before, target, sourcePackage) {
+export async function verifyNativeRetainedRelease(context, before, target) {
   const { paths, uid } = context
   await checkNativeDirectory(paths.releases, uid)
   const directory = path.join(paths.releases, target.version)
   const release = path.join(directory, target.artifact)
   const binary = path.join(release, 'my-api')
-  if (await nativeEntry(directory)) {
-    const known = before.record.ownedReleases?.filter(item => item.version === target.version) ?? []
-    const conflict = () => refuse('native_release_conflict', '目标版本目录与受管记录不符，请核对其归属和内容。 / Check the retained release and its installation record.')
-    if (known.length !== 1 || known[0].artifact !== target.artifact ||
-        known[0].sha256 !== target.sha256 || known[0].sourceSha !== target.sourceSha) conflict()
-    await checkNativeDirectory(release, uid).catch(conflict)
-    const identity = async () => {
-      const files = await Promise.all([directory, release, binary].map(filename => lstat(filename, { bigint: true }))).catch(conflict)
-      if (files.some(info => info.uid !== BigInt(uid) || (info.mode & 0o7022n)) ||
-          !files[0].isDirectory() || !files[1].isDirectory() ||
-          !files[2].isFile() || files[2].nlink !== 1n || !(files[2].mode & 0o100n)) conflict()
-      return files.map(info => [info.dev, info.ino, info.ctimeNs].join(':')).join('/')
-    }
-    const retained = await identity()
-    const [versions, entries] = await Promise.all([readdir(directory), readdir(release)]).catch(conflict)
-    if (versions.length !== 1 || versions[0] !== target.artifact || entries.length !== 1 || entries[0] !== 'my-api') conflict()
-    if (await binaryDigest(binary, before.record.arch) !== target.sha256) {
-      refuse('digest_mismatch', '保留的程序与已签名摘要不符。 / The retained binary does not match its signed digest.')
-    }
-    if (await identity() !== retained) conflict()
-    return { release, binary, retained }
+  const known = (before.record.ownedReleases ?? [before.installed]).filter(item => item.version === target.version)
+  const conflict = () => refuse('native_release_conflict', '版本目录与受管记录不符，请核对其归属和内容。 / Check the program files and their installation record.')
+  if (known.length !== 1 || known[0].artifact !== target.artifact ||
+      known[0].sha256 !== target.sha256 || known[0].sourceSha !== target.sourceSha) conflict()
+  await checkNativeDirectory(release, uid).catch(conflict)
+  const identity = async () => {
+    const files = await Promise.all([directory, release, binary].map(filename => lstat(filename, { bigint: true }))).catch(conflict)
+    if (files.some(info => info.uid !== BigInt(uid) || (info.mode & 0o7022n)) ||
+        !files[0].isDirectory() || !files[1].isDirectory() ||
+        !files[2].isFile() || files[2].nlink !== 1n || !(files[2].mode & 0o100n)) conflict()
+    return files.map(info => [info.dev, info.ino, info.ctimeNs].join(':')).join('/')
   }
+  const retained = await identity()
+  const [versions, entries] = await Promise.all([readdir(directory), readdir(release)]).catch(conflict)
+  if (versions.length !== 1 || versions[0] !== target.artifact || entries.length !== 1 || entries[0] !== 'my-api') conflict()
+  if (await binaryDigest(binary, before.record.arch) !== target.sha256) {
+    refuse('digest_mismatch', '受管程序与已记录的摘要不符。 / The program does not match its recorded digest.')
+  }
+  if (await identity() !== retained) conflict()
+  return { release, binary, retained }
+}
+
+async function inspectTargetRelease(context, before, target, sourcePackage) {
+  const { paths, uid } = context
+  await checkNativeDirectory(paths.releases, uid)
+  const directory = path.join(paths.releases, target.version)
+  if (await nativeEntry(directory)) return verifyNativeRetainedRelease(context, before, target)
   const [disk, source] = await Promise.all([statfs(paths.releases, { bigint: true }), lstat(sourcePackage, { bigint: true })])
   if (!source.isFile() || disk.bavail * disk.bsize < source.size) {
     refuse('native_stage_unavailable', '请检查程序文件和版本目录的剩余空间。 / Check the package and available staging space.')
   }
-  return { release, binary, retained: null }
+  const release = path.join(directory, target.artifact)
+  return { release, binary: path.join(release, 'my-api'), retained: null }
 }
 
-function requireSamePlan(actual, expected) {
+export function requireSamePlan(actual, expected) {
   if (actual !== expected) refuse('native_confirmation_stale', '预检后现场或签名材料已变化，请重新生成本次操作的预检结果。 / Run the plan again for this installation.')
 }
 
 export async function planNativeTransition(inputs, verifyPackages = verifyNativeTransitionPackages, { operation = 'upgrade' } = {}) {
   const context = await nativeServiceContext(inputs.scope)
+  await requireNoNativeUninstall(context)
   requireSettledTransition(await readNativeJournal(context))
   const inspection = await inspectTransition(inputs, context, verifyPackages, operation)
   const { before, transition, confirmation, placement } = inspection
@@ -358,7 +367,7 @@ export async function planNativeTransition(inputs, verifyPackages = verifyNative
   }
 }
 
-async function assertStoppedInstallation(context, before, expectedBinary) {
+export async function assertStoppedInstallation(context, before, expectedBinary) {
   const { paths, uid, manager, unit } = context
   const [receipt, config, unitFile, state, database, pointer] = await Promise.all([
     managedFile(path.join(paths.state, 'installation.json'), uid, true, 'invalid_installation_record'),
@@ -384,6 +393,7 @@ export async function executeNativeTransition(inputs, verifyPackages = verifyNat
   }
   const context = await nativeServiceContext(inputs.scope)
   const { paths, runtime, uid, manager } = context
+  await requireNoNativeUninstall(context)
   requireSettledTransition(await readNativeJournal(context), inputs.confirm)
   const lock = path.join(runtime, 'myapi-native-install')
   await checkNativeDirectory(runtime, uid)
@@ -395,6 +405,7 @@ export async function executeNativeTransition(inputs, verifyPackages = verifyNat
   let drain
   let recorded = false
   try {
+    await requireNoNativeUninstall(context)
     const previous = await readNativeJournal(context)
     requireSettledTransition(previous, inputs.confirm)
     const inspection = await inspectTransition(inputs, context, verifyPackages, operation)

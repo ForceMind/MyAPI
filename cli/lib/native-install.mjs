@@ -130,7 +130,7 @@ export async function nativeAccountEntry(database) {
 }
 
 export async function nativeServiceState(manager) {
-  const args = ['show', unitName, '--property=LoadState,ActiveState,SubState,MainPID,ControlPID,FragmentPath,DropInPaths,NeedDaemonReload,InvocationID,Result,ExecMainPID,ExecMainCode,ExecMainStatus,ExecMainStartTimestampMonotonic']
+  const args = ['show', unitName, '--property=LoadState,ActiveState,SubState,UnitFileState,MainPID,ControlPID,FragmentPath,DropInPaths,NeedDaemonReload,InvocationID,Result,ExecMainPID,ExecMainCode,ExecMainStatus,ExecMainStartTimestampMonotonic']
   let stdout
   try {
     ({ stdout } = await manager(args))

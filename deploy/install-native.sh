@@ -25,6 +25,8 @@ print_help() {
     '  bash deploy/install-native.sh rollback-plan --scope system|user --edition full|lite --tag OLDER_TAG' \
     '    --current-manifest FILE --current-bundle FILE --manifest FILE --bundle FILE --package FILE --cosign FILE --root FILE' \
     '  bash deploy/install-native.sh rollback <same release and scope options> --confirm CONFIRMATION' \
+    '  bash deploy/install-native.sh uninstall-plan --scope system|user' \
+    '  bash deploy/install-native.sh uninstall --scope system|user --confirm CONFIRMATION' \
     '  bash deploy/install-native.sh transition-status --scope system|user' \
     '' \
     'Preview commands are read-only. Install starts a new service on loopback.' \
@@ -35,6 +37,7 @@ print_help() {
     'upgrade uses the confirmation from upgrade-plan. 将预检的确认摘要传给 upgrade。' \
     'rollback-plan checks whether the older program can use the current database. 回退预检核对旧程序是否可使用现有数据库。' \
     'rollback uses the confirmation from rollback-plan and keeps current SQLite data. 确认后回退程序，保留现有 SQLite 数据。' \
+    'uninstall-plan lists managed files and the settings and data to keep. 卸载预检列出程序和要保留的数据。' \
     'transition-status reads the last step and service. 可随时查看当前服务与升级进度。' \
     'verify-package 核验本地包。install 仅用于首次安装。'
 }
@@ -110,10 +113,11 @@ case "$command_name" in
     script_directory="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
     exec node "$script_directory/../cli/lib/native-transition.mjs" "$command_name" "$@"
     ;;
-  plan|render-unit) ;;
-  uninstall)
-    fail 'This lifecycle operation is unavailable / 当前版本暂不支持此操作。'
+  uninstall-plan|uninstall)
+    script_directory="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+    exec node "$script_directory/../cli/lib/native-uninstall.mjs" "$command_name" "$@"
     ;;
+  plan|render-unit) ;;
   *) fail 'Unknown command; use --help / 未知命令，请使用 --help。' ;;
 esac
 [[ "$#" -eq 2 && "$1" == --scope ]] || fail 'Use exactly --scope system or --scope user / 必须明确且仅指定一次 --scope system 或 --scope user。'

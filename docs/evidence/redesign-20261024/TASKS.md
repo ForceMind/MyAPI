@@ -1,8 +1,14 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-20 八批连续开发 · 第 4 批 Linux 保数据卸载
+
+增加 `uninstall-plan` 和 `uninstall --confirm`。预检绑定受管单元、运行代际、登记程序和保留路径，确认后核对停服证据，逐项移除受管文件并查看 systemd。配置、数据库、日志、备份和安装记录继续保留。冲突或未确认时保留进度和现场。验收以本提交的完整 CI 及系统和个人服务专项为准。[操作说明](../../NATIVE_LINUX.md)
+
 ## 2026-11-20 八批连续开发 · 第 3 批 Linux 回退程序
 
 本批增加 `rollback-plan` 和 `rollback --confirm`。两份签名、精确版本和摘要、同配置及 SQLite schema、当前发行的 `code_only` 策略与该边的回退允许声明须一起成立。预检说明同一 SQLite 将继续使用。已存在的目标程序由安装记录、文件身份和摘要核验之后复用。每次执行有独立备份和进度记录。验收以本提交的完整 CI 与原生专项为准。[操作说明](../../NATIVE_LINUX.md)
+
+`c0569a52` 已验收。同一 SHA 的第 2 次完整运行有 15 个作业通过、9 个可选作业跳过。首轮归档检查返回 `unknown`，同一提交复跑时私有和共享 mmap 均识别为占用。系统 Full、系统 Lite 和个人 Lite 实测回退及再升级均使用原 SQLite。旧程序和当次备份均读回新版新增的 19 单位合成账务，假上游计数前后均为 1。原生专项在隔离夹具中启用 WAL，使用合成签名。伪造程序、缺失许可、schema 差异、陈旧和重复确认均被拒绝。[完整 CI](https://github.com/ForceMind/MyAPI/actions/runs/44817527706) · [归档复跑](https://github.com/ForceMind/MyAPI/actions/runs/44817527706/job/136584535608) · [系统 Full 与个人 Lite](https://github.com/ForceMind/MyAPI/actions/runs/44817527706/job/136569732985) · [系统 Lite](https://github.com/ForceMind/MyAPI/actions/runs/44817527706/job/136569732565)
 
 ## 2026-11-20 八批连续开发 · 第 2 批 Linux 确认升级
 
