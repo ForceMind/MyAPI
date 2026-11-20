@@ -100,17 +100,26 @@ def context(request):
           and request['action'] in ('preflight', 'check-work', 'backup', 'check-stopped', 'check-live'), 'invalid_request')
     check(decimal_identity(request['device']) and decimal_identity(request['inode'], True), 'invalid_identity')
     for name in ('data', 'database', 'config', 'receipt'):
-        backup_data.bundle_path(request[name], True)
-    root = backup_data.bundle_path(request['backup'])
+        try:
+            backup_data.bundle_path(request[name], True)
+        except backup_data.BundleFailure:
+            raise TransitionFailure('unsafe_' + name + '_path') from None
+    try:
+        root = backup_data.bundle_path(request['backup'])
+    except backup_data.BundleFailure:
+        raise TransitionFailure('unsafe_backup_path') from None
     parent = os.path.dirname(root)
-    backup_data.bundle_private(parent)
-    check(re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}', os.path.basename(root)) is not None, 'unsafe_path')
-    check(request['database'].startswith(request['data'] + '/'), 'unsafe_path')
-    check(not backup_data.bundle_overlap(request['data'], parent), 'unsafe_path')
+    try:
+        backup_data.bundle_private(parent)
+    except backup_data.BundleFailure:
+        raise TransitionFailure('backup_parent_not_private') from None
+    check(re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}', os.path.basename(root)) is not None, 'backup_name_invalid')
+    check(request['database'].startswith(request['data'] + '/'), 'database_outside_data')
+    check(not backup_data.bundle_overlap(request['data'], parent), 'backup_data_overlap')
     for name in ('config', 'receipt'):
-        check(not backup_data.bundle_overlap(request[name], parent), 'unsafe_path')
-    check(request['config'] != request['receipt'], 'unsafe_path')
-    check(stat.S_ISDIR(os.lstat(request['data']).st_mode), 'unsafe_path')
+        check(not backup_data.bundle_overlap(request[name], parent), 'backup_' + name + '_overlap')
+    check(request['config'] != request['receipt'], 'config_receipt_overlap')
+    check(stat.S_ISDIR(os.lstat(request['data']).st_mode), 'data_not_directory')
     source_identity(request)
     return root, parent, os.path.relpath(request['database'], request['data'])
 
@@ -128,7 +137,8 @@ def source_identity(request):
             extra = os.lstat(sidecar)
         except FileNotFoundError:
             continue
-        check(stat.S_ISREG(extra.st_mode) and extra.st_nlink == 1, 'unsafe_path')
+        check(stat.S_ISREG(extra.st_mode), 'sidecar_not_regular')
+        check(extra.st_nlink == 1, 'sidecar_multilink')
         backup_data.bundle_path(sidecar, True)
     return info
 
@@ -166,20 +176,22 @@ def preflight_tree(request):
     def visit(fd, relative):
         nonlocal total
         info = os.fstat(fd)
-        check(info.st_dev == device, 'unsafe_path')
+        check(info.st_dev == device, 'data_device_mismatch')
         check(os.geteuid() == 0 or (info.st_uid == os.geteuid()
               and info.st_gid in {os.getegid(), *os.getgroups()}), 'metadata_unavailable')
         backup_data.bundle_no_extra_metadata(fd)
         directory = stat.S_ISDIR(info.st_mode)
-        check(directory or stat.S_ISREG(info.st_mode) and info.st_nlink == 1, 'unsafe_path')
+        check(directory or stat.S_ISREG(info.st_mode), 'data_entry_not_regular')
+        check(directory or info.st_nlink == 1, 'data_entry_multilink')
         check(len(rows) < MAX_ENTRIES, 'bounds_exceeded')
         rows.append({'path': relative, 'type': 'directory' if directory else 'file', 'size': None if directory else info.st_size})
         if directory:
             names = backup_data.bundle_names(fd)
             for name in names:
-                check(backup_data.bundle_relative(name) and '/' not in name, 'unsafe_path')
+                check(backup_data.bundle_relative(name) and '/' not in name, 'data_entry_name_invalid')
                 child = os.stat(name, dir_fd=fd, follow_symlinks=False)
-                check(stat.S_ISDIR(child.st_mode) or stat.S_ISREG(child.st_mode) and child.st_nlink == 1, 'unsafe_path')
+                check(stat.S_ISDIR(child.st_mode) or stat.S_ISREG(child.st_mode), 'data_entry_not_regular')
+                check(stat.S_ISDIR(child.st_mode) or child.st_nlink == 1, 'data_entry_multilink')
                 opened = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
                                  | (os.O_DIRECTORY if stat.S_ISDIR(child.st_mode) else 0), dir_fd=fd)
                 try:
@@ -490,8 +502,16 @@ if __name__ == '__main__':
         reply = {'ok': False, 'code': str(error)}
     except backup_data.BundleFailure as error:
         message = str(error)
-        code = ('unsafe_path' if any(word in message for word in ('PATH', 'LINK', 'MOUNT', 'METADATA', 'PRIVATE'))
-                else 'source_changed' if 'CHANGED' in message else 'backup_unverified')
+        code = {
+            'BUNDLE_EXTENDED_METADATA_UNSUPPORTED': 'extended_metadata_unsupported',
+            'BUNDLE_PRIVATE_DIRECTORY_REQUIRED': 'private_directory_required',
+            'BUNDLE_SUBMOUNT_REJECTED': 'submount_rejected',
+            'BUNDLE_MOUNT_INVENTORY_UNAVAILABLE': 'mount_inventory_unknown',
+            'BUNDLE_SPECIAL_OR_LINK_REJECTED': 'unsafe_file_type',
+            'BUNDLE_METADATA_INVALID': 'metadata_invalid',
+            'BUNDLE_UNSAFE_PATH': 'unsafe_path',
+            'BUNDLE_PATH_UNAVAILABLE': 'path_unavailable',
+        }.get(message, 'source_changed' if 'CHANGED' in message else 'backup_unverified')
         reply = {'ok': False, 'code': code}
     except OSError as error:
         reply = {'ok': False, 'code': 'no_space' if error.errno == errno.ENOSPC else 'unavailable'}

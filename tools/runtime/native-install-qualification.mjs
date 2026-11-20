@@ -221,6 +221,80 @@ try {
       },
     })
 
+  async function qualificationPlan(stage) {
+    console.log(`MYAPI_NATIVE_PLAN_STAGE scope=${scope} stage=${stage} result=started`)
+    try {
+      const result = await planNativeTransition(transitionInputs, verifyTransitionFixture)
+      console.log(`MYAPI_NATIVE_PLAN_STAGE scope=${scope} stage=${stage} result=accepted`)
+      return result
+    } catch (error) {
+      console.error(`MYAPI_NATIVE_PLAN_STAGE scope=${scope} stage=${stage} result=rejected code=${/^[a-z_]+$/.test(error.code ?? '') ? error.code : 'unknown'}`)
+      // Re-run only the installed helper's read-only preflight predicates.
+      // Diagnostics expose fixture categories and metadata, never file bytes,
+      // configuration values, credentials, xattr values or database records.
+      const diagnostic = String.raw`
+import importlib.util, inspect, io, json, os, stat, sys
+raw = sys.stdin.buffer.read(65537)
+request = json.loads(raw)
+assert request['action'] == 'preflight'
+sys.stdin = io.TextIOWrapper(io.BytesIO(raw))
+spec = importlib.util.spec_from_file_location('_native_fixture_diagnostic', sys.argv[1])
+helper = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(helper)
+roles = {request[k]: k for k in ('data', 'database', 'config', 'receipt', 'backup')}
+roles[os.path.dirname(request['backup'])] = 'backup-parent'
+for suffix in ('-wal', '-shm', '-journal'):
+    roles[request['database'] + suffix] = 'database' + suffix
+result = {}
+class Refusal(Exception):
+    pass
+def tracked(condition, code):
+    if condition:
+        return
+    frame = inspect.currentframe().f_back
+    result.update(check=frame.f_code.co_name, line=frame.f_lineno, code=code)
+    args = frame.f_locals
+    name = next((args[k] for k in ('filename', 'directory', 'current', 'source', 'value') if isinstance(args.get(k), str)), None)
+    if type(args.get('fd')) is int:
+        name = os.readlink('/proc/self/fd/' + str(args['fd']))
+    if name and os.path.isabs(name):
+        result['role'] = roles.get(name, 'other-entry')
+        try:
+            info = os.lstat(name)
+            result.update(uid=info.st_uid, mode=oct(stat.S_IMODE(info.st_mode)), nlink=info.st_nlink,
+                          xattr_names=sorted(os.listxattr(name, follow_symlinks=False)))
+        except OSError:
+            result['metadata'] = 'unavailable'
+    raise Refusal()
+helper.check = tracked
+helper.backup_data.bundle_check = tracked
+try:
+    helper.main()
+    result['code'] = 'accepted_on_recheck'
+except Refusal:
+    pass
+except Exception as error:
+    result.setdefault('code', type(error).__name__)
+print(json.dumps(result, separators=(',', ':')))
+`
+      const allPaths = Object.fromEntries([...plan.matchAll(/^(\w+): (\/.+)$/gm)].map(match => [match[1], match[2]]))
+      const database = path.join(paths.data, 'my-api.db')
+      const identity = await stat(database, { bigint: true })
+      try {
+        const result = execFileSync('/usr/bin/python3', ['-I', '-B', '-c', diagnostic,
+          fileURLToPath(new URL('../operations/native_sqlite_transition.py', import.meta.url))], {
+          encoding: 'utf8', timeout: 30_000, maxBuffer: 64 * 1024, stdio: ['pipe', 'pipe', 'pipe'],
+          input: JSON.stringify({ action: 'preflight', data: paths.data, database, device: String(identity.dev), inode: String(identity.ino),
+            backup: path.join(allPaths.backups, '0'.repeat(64)), config: paths.config, receipt: path.join(paths.state, 'installation.json') }),
+        })
+        console.error(`MYAPI_NATIVE_PLAN_DIAGNOSTIC scope=${scope} stage=${stage} ${result.trim()}`)
+      } catch {
+        console.error(`MYAPI_NATIVE_PLAN_DIAGNOSTIC scope=${scope} stage=${stage} result=unavailable`)
+      }
+      throw error
+    }
+  }
+
   const database = path.join(paths.data, 'my-api.db')
   const databaseIdentity = await stat(database, { bigint: true })
   const pid = Number(pidBefore.trim())
@@ -323,7 +397,7 @@ try {
         assert.equal(executable.ino, processBinaryBefore.ino)
       }
     }
-    const qualified = await readOnlyCheck(() => planNativeTransition(transitionInputs, verifyTransitionFixture))
+    const qualified = await readOnlyCheck(() => qualificationPlan('initial-plan'))
     assert.equal(qualified.eligible, true)
     assert.equal(qualified.operation, 'upgrade')
     assert.equal(qualified.scope, scope)
@@ -405,7 +479,7 @@ try {
 
     // A complete pre-existing schema-1 first-install record still works after
     // all refusal cases; this batch neither enriches it nor starts the target.
-    const requalified = await readOnlyCheck(() => planNativeTransition(transitionInputs, verifyTransitionFixture))
+    const requalified = await readOnlyCheck(() => qualificationPlan('requalification'))
     assert.equal(requalified.current.version, version)
     assert.deepEqual(await readFile(receiptPath), originalReceipt)
     assert.equal(await readFile(paths.config, 'utf8'), config)

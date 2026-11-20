@@ -52,14 +52,17 @@ async function contentTree(directory, relative = '.') {
   return rows
 }
 
-async function fixture(t) {
+async function fixture(t, { userLayout = false } = {}) {
   const directory = await mkdtemp(path.join(tmpdir(), 'myapi-native-sqlite-'))
   t.after(() => rm(directory, { recursive: true, force: true }))
   await chmod(directory, 0o700)
-  const data = path.join(directory, 'data'), backups = path.join(directory, 'backups')
-  for (const folder of [data, backups]) await mkdir(folder, { mode: 0o700 })
+  const data = path.join(directory, userLayout ? '.local/share/my-api/data' : 'data')
+  const backups = path.join(directory, userLayout ? '.local/state/my-api/backups' : 'backups')
+  for (const folder of [data, backups]) await mkdir(folder, { recursive: true, mode: 0o700 })
   const database = path.join(data, 'my-api.db')
-  const config = path.join(directory, 'runtime.env'), receipt = path.join(directory, 'installation.json')
+  const config = path.join(directory, userLayout ? '.config/my-api/my-api.env' : 'runtime.env')
+  const receipt = path.join(directory, userLayout ? '.local/state/my-api/state/installation.json' : 'installation.json')
+  for (const folder of [path.dirname(config), path.dirname(receipt)]) await mkdir(folder, { recursive: true, mode: 0o700 })
   await writeFile(config, `SESSION_SECRET=${secret}\n`, { mode: 0o600 })
   await writeFile(receipt, JSON.stringify({ version: '1.2.0', privateFixture: secret }), { mode: 0o600 })
   await mkdir(path.join(data, 'uploads'), { mode: 0o750 })
@@ -120,6 +123,38 @@ test('backs up all stopped data, nonempty WAL, private configuration and install
   assert.deepEqual(await readFile(f.request.config), config)
   assert.deepEqual(await readFile(f.request.receipt), receipt)
   assert.deepEqual((await f.call('backup')).value, { ok: false, code: 'backup_exists' })
+})
+
+test('accepts the exact B3c user layout while ignoring the adjacent current-release symlink', async t => {
+  const f = await fixture(t, { userLayout: true })
+  const release = path.join(f.directory, '.local/share/my-api/releases/1.2.0')
+  await mkdir(release, { recursive: true, mode: 0o700 })
+  await symlink(release, path.join(f.directory, '.local/share/my-api/current'))
+  const original = await contentTree(f.request.data)
+  assert.deepEqual((await f.call('preflight')).value, { ok: true, preflight: true })
+  assert.deepEqual((await f.call('preflight')).value, { ok: true, preflight: true })
+  assert.deepEqual(await contentTree(f.request.data), original)
+  await assert.rejects(lstat(f.request.backup), { code: 'ENOENT' })
+  assert.equal((await f.call('backup')).value.backupVerified, true)
+  assert.equal((await f.call('check-stopped')).value.sourceUnchanged, true)
+  assert.equal((await f.call('check-live')).value.historicalRowsVerified, true)
+})
+
+test('distinguishes unsafe user paths and private metadata without weakening their rejection', async t => {
+  const f = await fixture(t, { userLayout: true })
+  const parent = path.dirname(f.request.backup)
+  await chmod(parent, 0o750)
+  assert.deepEqual((await f.call('preflight')).value, { ok: false, code: 'backup_parent_not_private' })
+  await chmod(parent, 0o700)
+  const alias = path.join(f.directory, 'config-alias')
+  await symlink(f.request.config, alias)
+  assert.deepEqual((await f.call('preflight', { config: alias })).value, { ok: false, code: 'unsafe_config_path' })
+  const driver = `import os,runpy,sys
+os.listxattr=lambda _: ['user.synthetic_metadata']
+runpy.run_path(sys.argv[1],run_name='__main__')
+`
+  assert.deepEqual((await f.call('preflight', {}, driver)).value, { ok: false, code: 'extended_metadata_unsupported' })
+  await assert.rejects(lstat(f.request.backup), { code: 'ENOENT' })
 })
 
 test('allows new users, keys, consumption and accounting rows while preserving historical values', async t => {
