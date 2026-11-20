@@ -467,8 +467,8 @@ test('retains an uncommitted backup if source bytes change during exclusive copy
 namespace=runpy.run_path(sys.argv[1],run_name='_native_test')
 module=namespace['backup_data']
 original=module.bundle_copy
-def changing_copy(source,target,maximum,entries):
- original(source,target,maximum,entries)
+def changing_copy(source,target,maximum,entries,*,posix_acls=False):
+ original(source,target,maximum,entries,posix_acls=posix_acls)
  if not source.endswith('/data') or '/backups/' in source: return
  with open(source+'/uploads/history','wb') as writer: writer.write(b'changed-during-copy')
 module.bundle_copy=changing_copy

@@ -24,7 +24,7 @@ function refuse(code, message) {
 // arguments/environment; filesystem messages can contain private paths.
 function installationDiagnostic(error, stage, paths) {
   const applicationCodes = new Set(['unsafe_directory', 'account_unconfirmed', 'service_conflict',
-    'service_failed', 'health_timeout', 'unexpected_service_state', 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'])
+    'service_failed', 'health_timeout', 'service_process_unreadable', 'unexpected_service_state', 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'])
   const code = Object.hasOwn(osConstants.errno, error?.code) || applicationCodes.has(error?.code) ? error.code : 'unknown'
   const exit = Number.isInteger(error?.code) && error.code >= 0 && error.code <= 255 ? ` exit=${error.code}` : ''
   const killed = error?.killed === true ? ' killed=true' : ''
@@ -161,31 +161,44 @@ async function assertFresh({ roots, paths, manager, scope, uid, port }) {
   if (stdout.trim()) refuse('port_conflict', `TCP port ${port} is already in use.`)
 }
 
-export async function waitForService(manager, paths, port, receipt) {
-  const installed = await stat(paths.binary)
-  const deadline = Date.now() + 60_000
-  while (Date.now() < deadline) {
+// Optional dependencies are an in-process test seam, never CLI options.
+export async function waitForService(manager, paths, port, receipt, {
+  stat: inspectFile = stat, exec: run = exec, fetch: request = globalThis.fetch,
+  now = Date.now, delay: pause = delay,
+} = {}) {
+  const installed = await inspectFile(paths.binary)
+  const deadline = now() + 60_000
+  let processAccessDenied = false
+  while (now() < deadline) {
+    processAccessDenied = false
     const state = await nativeServiceState(manager)
     if (state.ActiveState === 'failed') refuse('service_failed', 'The new MyAPI service failed to start.')
     const pid = state.MainPID
     if (state.ActiveState === 'active' && /^[1-9][0-9]*$/.test(pid)) {
-      const executable = await stat(`/proc/${pid}/exe`).catch(error => {
-        if (error.code !== 'ENOENT' && error.code !== 'ESRCH') throw error
+      const executable = await inspectFile(`/proc/${pid}/exe`).catch(error => {
+        // A newly active unprivileged process can briefly deny proc access.
+        // Retry observation only; identity evidence is still mandatory.
+        if (error.code === 'EACCES' || error.code === 'EPERM') processAccessDenied = true
+        else if (error.code !== 'ENOENT' && error.code !== 'ESRCH') throw error
       })
-      const { stdout } = await exec('ss', ['-H', '-ltnp', 'sport', '=', `:${port}`], {
-        env: commandEnv, timeout: 5_000,
-      })
-      if (executable?.ino === installed.ino && executable.dev === installed.dev &&
-        stdout.split('\n').some(line => line.includes(`pid=${pid},`) && line.split(/\s+/)[3] === `127.0.0.1:${port}`)) {
-        const status = await fetch(`http://127.0.0.1:${port}/api/status`, {
-          redirect: 'error', signal: AbortSignal.timeout(2_000),
-        }).then(response => response.ok ? response.json() : null).catch(() => null)
-        const current = await nativeServiceState(manager)
-        if (current.ActiveState === 'active' && current.MainPID === pid && status?.success === true &&
-          status.data?.product_edition === receipt.edition && status.data?.version === receipt.version) return
+      if (executable?.ino === installed.ino && executable.dev === installed.dev) {
+        const { stdout } = await run('ss', ['-H', '-ltnp', 'sport', '=', `:${port}`], {
+          env: commandEnv, timeout: 5_000,
+        })
+        if (stdout.split('\n').some(line => line.includes(`pid=${pid},`) && line.split(/\s+/)[3] === `127.0.0.1:${port}`)) {
+          const status = await request(`http://127.0.0.1:${port}/api/status`, {
+            redirect: 'error', signal: AbortSignal.timeout(2_000),
+          }).then(response => response.ok ? response.json() : null).catch(() => null)
+          const current = await nativeServiceState(manager)
+          if (current.ActiveState === 'active' && current.MainPID === pid && status?.success === true &&
+            status.data?.product_edition === receipt.edition && status.data?.version === receipt.version) return
+        }
       }
     }
-    await delay(500)
+    await pause(500)
+  }
+  if (processAccessDenied) {
+    refuse('service_process_unreadable', '无法读取服务进程身份，请核对当前用户和服务状态。 / The service process identity could not be verified within the startup window.')
   }
   refuse('health_timeout', 'The new process did not report the expected MyAPI version and edition.')
 }

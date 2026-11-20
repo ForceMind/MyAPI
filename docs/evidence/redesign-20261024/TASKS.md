@@ -12,6 +12,10 @@
 
 本次原生备份修正限定为上述两种 POSIX ACL。写入新副本后逐个文件与目录核对，私有清单记录摘要并保留无 ACL 的旧清单读取能力。Actions 专项同时验收真实非特权服务、配置与收据、SQLite/WAL、新增账务和默认 Docker 备份。其余扩展属性沿用拒绝规则。
 
+`4e06e3ed` 的非空 ACL 往返、权限篡改拒绝和旧清单读取用例通过，Docker Full 与 Lite 的备份、隔离恢复和保留策略也通过。旧的“复制中源内容变化”夹具未接收新的 ACL 参数，先抛出类型错误，尚未走到原断言。实际用户服务的首次安装在健康检查阶段得到 `stat EACCES`。从代码看，这一阶段的非受管路径是 `/proc/<MainPID>/exe`。后续检查只在原启动时限内重读进程身份，仍须确认程序 inode、监听 PID、地址和状态版本。[ACL 和复制回归](https://github.com/ForceMind/MyAPI/actions/runs/44804391044/job/136524588657) · [用户服务](https://github.com/ForceMind/MyAPI/actions/runs/44804391044/job/136524588341) · [Docker Full](https://github.com/ForceMind/MyAPI/actions/runs/44804391044/job/136524588683) · [Docker Lite](https://github.com/ForceMind/MyAPI/actions/runs/44804391044/job/136524588581)
+
+同一 SHA 的原生作业复跑通过。非特权用户 Lite 备份保留了访问和默认 ACL，在线源权限保持原样，切换后读回原 SQLite 与预检后新增的合成账务。完整运行仍需修正复制故障夹具并复跑。[原生复跑](https://github.com/ForceMind/MyAPI/actions/runs/44804391044/job/136545486980)
+
 ## 2026-11-20 八批连续开发 · 第 1 批 Linux 升级预检
 
 维护者已确认[八批顺序](PLAN_PHASE2.md)。本批入口为 `deploy/install-native.sh upgrade-plan`。复用首次安装记录、systemd 单元和签名声明，核对双方原始 Manifest、当前与目标二进制、活动进程实际打开的 SQLite 文件。在核验前后复查服务身份和配置，返回版本、数据库位置与停服步骤。GitHub Actions 专项使用隔离的系统 Full、用户 Lite，分别运行真实后端，使用两套明确标记的合成签名。旧安装、配置、数据库及进程保持和拒绝用例以本提交的完整 CI 及专项结果为准。正式发行签名材料另验。
