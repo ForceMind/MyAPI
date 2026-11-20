@@ -81,17 +81,17 @@ export async function readNativeJournal(context) {
   let record
   try { record = JSON.parse(raw) } catch { /* Invalid state requires inspection. */ }
   if (record?.schema !== 1 || !phases.has(record.phase) || record.scope !== context.scope ||
-      record.operation !== 'upgrade' || !/^[a-f0-9]{64}$/.test(record.confirmation ?? '') ||
+      !['upgrade', 'rollback'].includes(record.operation) || !/^[a-f0-9]{64}$/.test(record.confirmation ?? '') ||
       record.backup !== path.join(context.paths.backups, record.confirmation) ||
       ![record.current, record.target].every(isNativeReleaseIdentity)) {
-    refuseNative('native_journal_unknown', '无法确认升级记录，请核对 ' + filename + ' / Review the protected transition record.')
+    refuseNative('native_journal_unknown', '无法确认程序切换记录，请核对 ' + filename + ' / Review the protected transition record.')
   }
   return record
 }
 
 export function requireSettledTransition(record, confirmation) {
   if (record && record.phase !== 'committed') {
-    refuseNative('native_transition_pending', '上次升级停在 ' + record.phase + '。请先查看 transition-status。 / Inspect the unfinished transition before taking action.')
+    refuseNative('native_transition_pending', '上次程序切换停在 ' + record.phase + '。请先查看 transition-status。 / Inspect the unfinished transition before taking action.')
   }
   if (record && record.confirmation === confirmation) {
     refuseNative('native_confirmation_consumed', '这次确认已执行，请查看 transition-status。 / This confirmation has already been used.')

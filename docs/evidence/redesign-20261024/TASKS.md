@@ -1,5 +1,9 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-20 八批连续开发 · 第 3 批 Linux 回退程序
+
+本批增加 `rollback-plan` 和 `rollback --confirm`。两份签名、精确版本和摘要、同配置及 SQLite schema、当前发行的 `code_only` 策略与该边的回退允许声明须一起成立。预检说明同一 SQLite 将继续使用。已存在的目标程序由安装记录、文件身份和摘要核验之后复用。每次执行有独立备份和进度记录。验收以本提交的完整 CI 与原生专项为准。[操作说明](../../NATIVE_LINUX.md)
+
 ## 2026-11-20 八批连续开发 · 第 2 批 Linux 确认升级
 
 第 1 批已验收。`8753e669` 的完整 Actions 有 13 个作业成功、9 个可选作业跳过，前端 421 个测试文件、3,457 项测试通过。Linux 的系统 Full 与非特权用户 Lite 均通过运行中预检、双签名与拒绝场景。预检前后服务 PID、程序与数据库身份一致，目标程序没有启动。[完整 CI](https://github.com/ForceMind/MyAPI/actions/runs/44785958630) · [原生专项](https://github.com/ForceMind/MyAPI/actions/runs/44785958630/job/136460988033)
@@ -15,6 +19,8 @@
 `4e06e3ed` 的非空 ACL 往返、权限篡改拒绝和旧清单读取用例通过，Docker Full 与 Lite 的备份、隔离恢复和保留策略也通过。旧的“复制中源内容变化”夹具未接收新的 ACL 参数，先抛出类型错误，尚未走到原断言。实际用户服务的首次安装在健康检查阶段得到 `stat EACCES`。从代码看，这一阶段的非受管路径是 `/proc/<MainPID>/exe`。后续检查只在原启动时限内重读进程身份，仍须确认程序 inode、监听 PID、地址和状态版本。[ACL 和复制回归](https://github.com/ForceMind/MyAPI/actions/runs/44804391044/job/136524588657) · [用户服务](https://github.com/ForceMind/MyAPI/actions/runs/44804391044/job/136524588341) · [Docker Full](https://github.com/ForceMind/MyAPI/actions/runs/44804391044/job/136524588683) · [Docker Lite](https://github.com/ForceMind/MyAPI/actions/runs/44804391044/job/136524588581)
 
 同一 SHA 的原生作业复跑通过。非特权用户 Lite 备份保留了访问和默认 ACL，在线源权限保持原样，切换后读回原 SQLite 与预检后新增的合成账务。完整运行仍需修正复制故障夹具并复跑。[原生复跑](https://github.com/ForceMind/MyAPI/actions/runs/44804391044/job/136545486980)
+
+`d691677b` 已验收。完整 CI 有 17 个作业通过、8 个可选作业跳过。系统 Full、系统 Lite 与个人 Lite 通过确认升级，原配置、同一 SQLite 和预检后新增合成账务均得到核验。个人实例的访问和默认 ACL 在备份中与源一致。停服中断用例仍拒绝重放，Docker Full/Lite 的备份恢复和保留策略均通过。[完整 CI](https://github.com/ForceMind/MyAPI/actions/runs/44811406783) · [系统 Full 与个人 Lite](https://github.com/ForceMind/MyAPI/actions/runs/44811406783/job/136548625350) · [系统 Lite](https://github.com/ForceMind/MyAPI/actions/runs/44811406783/job/136548624971) · [停服中断](https://github.com/ForceMind/MyAPI/actions/runs/44811406783/job/136548625165)
 
 ## 2026-11-20 八批连续开发 · 第 1 批 Linux 升级预检
 

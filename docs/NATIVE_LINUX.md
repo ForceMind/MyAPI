@@ -52,9 +52,33 @@ Native backups verify the owner, mode and POSIX access ACL of the data, configur
 bash deploy/install-native.sh transition-status --scope system
 ```
 
-用户服务将 `system` 换成 `user`。`phase` 显示最近一次写入安装记录的步骤，`activeBinary` 和 `service` 显示当前指针、服务状态和 PID。`committed` 表示升级已经核验并记录。`stopped` 表示旧进程已确认退出。`*_requested` 表示操作已经登记、结果还有待核对。遇到断电、响应丢失或状态不明，先看此输出，再检查安装记录中的路径和服务日志。保留最新数据库、WAL、备份和未完成的记录。再次提交同一确认不会重跑。
+用户服务将 `system` 换成 `user`。`operation` 标明升级或回退，`phase` 显示最近写入记录的步骤，`activeBinary` 和 `service` 显示当前指针、服务状态和 PID。`committed` 表示操作已经核验并记录。`stopped` 表示上一进程已确认退出。`*_requested` 表示操作已经登记、结果还有待核对。遇到断电、响应丢失或状态不明，先看此输出，再检查安装记录中的路径和服务日志。保留最新数据库、WAL、备份和未完成的记录。再次提交同一确认不会重跑。
 
 Use `--scope user` for a personal service. After interruption, inspect the recorded phase, selected program and service process before taking action. A requested phase records intent. The service or files may have changed since that phase was written. A repeated confirmation does not replay the operation.
+
+## 回退程序，保留最新数据 / Roll back the program and keep current data
+
+先核对当前安装对应的发行文件。将新版 Manifest 和签名包传给 `--current-manifest` 与 `--current-bundle`，将较早版本的发行文件传给目标参数。当前版本的签名声明必须明确允许这对程序在同一配置和数据 schema 上进行 `code_only` 回退。个人安装用 `--scope user --edition lite`。
+
+```bash
+bash deploy/install-native.sh rollback-plan --scope system --edition full --tag "$OLDER_TAG" \
+  --current-manifest "$CURRENT_MANIFEST" --current-bundle "$CURRENT_BUNDLE" \
+  --manifest "$OLDER_MANIFEST" --bundle "$OLDER_BUNDLE" --package "$OLDER_BINARY" \
+  --cosign "$COSIGN" --root "$TRUSTED_ROOT"
+```
+
+预检返回正在运行的版本、可回退到的版本、SQLite 文件和 `dataPolicy: keep_current_sqlite`。`reusesInstalledBinary` 表示可使用经过归属与签名摘要检查的保留程序。目标目录不存在时，可用已核验的目标程序包暂存。若目标目录已存在但归属或内容无法确认，先核对该目录与安装记录。
+
+在停机窗口内，用预检的 `confirmation` 及同一组文件确认回退。服务排空后生成新的备份，旧程序重新打开当前 SQLite，并核对账务及健康状态。
+
+```bash
+bash deploy/install-native.sh rollback --scope system --edition full --tag "$OLDER_TAG" \
+  --current-manifest "$CURRENT_MANIFEST" --current-bundle "$CURRENT_BUNDLE" \
+  --manifest "$OLDER_MANIFEST" --bundle "$OLDER_BUNDLE" --package "$OLDER_BINARY" \
+  --cosign "$COSIGN" --root "$TRUSTED_ROOT" --confirm "$CONFIRMATION"
+```
+
+Supply the currently installed release as the current manifest and bundle, and the older release as the target. The newer signed manifest must expressly allow this exact code-only transition, and both releases must declare matching configuration and SQLite schemas. Confirm the plan during a downtime window. The command verifies a fresh backup, starts the older program on the same SQLite database, and checks accounting and health. If interrupted, inspect `transition-status` before proceeding.
 
 ## 首次安装 / First installation
 
@@ -157,8 +181,8 @@ Review the rendered result, not the placeholder template. Paths remain positiona
 
 A successful preview is not a working installation. Artifact trust, configuration, database compatibility, startup, shutdown and recovery still require their own implementation and evidence. An unconfirmed stop is never permission to replace or restore data.
 
-首次安装使用上文的 `install`。已运行的服务先用 `upgrade-plan`，确认停机窗口后执行 `upgrade`。当前与目标的生产签名材料须由受信发行提供。程序回退与保数据卸载按后续批次交付。
+首次安装使用上文的 `install`。运行中的服务可预检升级或代码回退，并在约定的停机窗口内确认。当前与目标的生产签名材料须由受信发行提供。保数据卸载按后续批次交付。
 
-Use `install` for a fresh service. On a running installation, review `upgrade-plan` and confirm `upgrade` in the downtime window. Supply the production signature materials from the trusted release. Code rollback and data-preserving uninstall are subsequent batches.
+Use `install` for a fresh service. On a running installation, review the upgrade or code rollback plan and confirm it during the downtime window. Supply the production signature materials from the trusted release. Data-preserving uninstall is a subsequent batch.
 
 容器数据保护另见 [备份与隔离恢复](BACKUP_RESTORE.md)。系统 Full 和非特权用户 Lite 的首次安装已有真实 systemd 证据。[首次安装 CI](https://github.com/ForceMind/MyAPI/actions/runs/43147688471)

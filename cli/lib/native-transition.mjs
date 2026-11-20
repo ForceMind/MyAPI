@@ -242,18 +242,21 @@ async function signedDocuments(inputs) {
   return digests.join(':')
 }
 
-async function inspectTransition(inputs, context, verifyPackages) {
+async function inspectTransition(inputs, context, verifyPackages, operation) {
   const before = await liveInstallation(inputs, context)
   const documents = await signedDocuments(inputs)
-  const transition = await verifyPackages(inputs, before.installed, before.binary, 'upgrade')
+  const transition = await verifyPackages(inputs, before.installed, before.binary, operation)
+  const placement = await inspectTargetRelease(context, before, transition.target, inputs.package)
   const after = await liveInstallation(inputs, context)
   if (after.identity !== before.identity || await signedDocuments(inputs) !== documents) {
     refuse('native_state_changed', 'The installation or signed inputs changed during verification. 请重新检查安装和签名文件。')
   }
   // SQLite contents can legitimately grow between plan and confirm. Its
   // path/inode are bound in identity; its latest contents are captured after stop.
-  const confirmation = createHash('sha256').update(JSON.stringify(['native-confirm-v1', before.identity, transition, documents])).digest('hex')
-  return { before, transition, confirmation, documents }
+  const bindings = ['native-confirm-v1', before.identity, transition, documents]
+  if (placement.retained) bindings.push(placement.retained)
+  const confirmation = createHash('sha256').update(JSON.stringify(bindings)).digest('hex')
+  return { before, transition, confirmation, documents, placement }
 }
 
 function nativeSQLite(action, context, inspection) {
@@ -300,34 +303,55 @@ function nativeSQLite(action, context, inspection) {
   })
 }
 
-async function assertNewRelease(context, target, sourcePackage) {
+async function inspectTargetRelease(context, before, target, sourcePackage) {
   const { paths, uid } = context
   await checkNativeDirectory(paths.releases, uid)
   const directory = path.join(paths.releases, target.version)
+  const release = path.join(directory, target.artifact)
+  const binary = path.join(release, 'my-api')
   if (await nativeEntry(directory)) {
-    refuse('native_release_conflict', '目标版本目录已存在，请核对其归属。 / The target release directory already exists.')
+    const known = before.record.ownedReleases?.filter(item => item.version === target.version) ?? []
+    const conflict = () => refuse('native_release_conflict', '目标版本目录与受管记录不符，请核对其归属和内容。 / Check the retained release and its installation record.')
+    if (known.length !== 1 || known[0].artifact !== target.artifact ||
+        known[0].sha256 !== target.sha256 || known[0].sourceSha !== target.sourceSha) conflict()
+    await checkNativeDirectory(release, uid).catch(conflict)
+    const identity = async () => {
+      const files = await Promise.all([directory, release, binary].map(filename => lstat(filename, { bigint: true }))).catch(conflict)
+      if (files.some(info => info.uid !== BigInt(uid) || (info.mode & 0o7022n)) ||
+          !files[0].isDirectory() || !files[1].isDirectory() ||
+          !files[2].isFile() || files[2].nlink !== 1n || !(files[2].mode & 0o100n)) conflict()
+      return files.map(info => [info.dev, info.ino, info.ctimeNs].join(':')).join('/')
+    }
+    const retained = await identity()
+    const [versions, entries] = await Promise.all([readdir(directory), readdir(release)]).catch(conflict)
+    if (versions.length !== 1 || versions[0] !== target.artifact || entries.length !== 1 || entries[0] !== 'my-api') conflict()
+    if (await binaryDigest(binary, before.record.arch) !== target.sha256) {
+      refuse('digest_mismatch', '保留的程序与已签名摘要不符。 / The retained binary does not match its signed digest.')
+    }
+    if (await identity() !== retained) conflict()
+    return { release, binary, retained }
   }
   const [disk, source] = await Promise.all([statfs(paths.releases, { bigint: true }), lstat(sourcePackage, { bigint: true })])
   if (!source.isFile() || disk.bavail * disk.bsize < source.size) {
     refuse('native_stage_unavailable', '请检查程序文件和版本目录的剩余空间。 / Check the package and available staging space.')
   }
-  return path.join(directory, target.artifact)
+  return { release, binary, retained: null }
 }
 
 function requireSamePlan(actual, expected) {
-  if (actual !== expected) refuse('native_confirmation_stale', '预检后现场或签名材料已变化，请重新运行 upgrade-plan。 / Run the plan again for this installation.')
+  if (actual !== expected) refuse('native_confirmation_stale', '预检后现场或签名材料已变化，请重新生成本次操作的预检结果。 / Run the plan again for this installation.')
 }
 
-export async function planNativeTransition(inputs, verifyPackages = verifyNativeTransitionPackages) {
+export async function planNativeTransition(inputs, verifyPackages = verifyNativeTransitionPackages, { operation = 'upgrade' } = {}) {
   const context = await nativeServiceContext(inputs.scope)
   requireSettledTransition(await readNativeJournal(context))
-  const inspection = await inspectTransition(inputs, context, verifyPackages)
-  const { before, transition, confirmation } = inspection
-  await assertNewRelease(context, transition.target, inputs.package)
+  const inspection = await inspectTransition(inputs, context, verifyPackages, operation)
+  const { before, transition, confirmation, placement } = inspection
   await nativeSQLite('preflight', context, inspection)
   requireSamePlan((await liveInstallation(inputs, context)).identity, before.identity)
   return {
     eligible: true, ...transition, confirmation, database: before.database, service: before.service,
+    dataPolicy: 'keep_current_sqlite', reusesInstalledBinary: Boolean(placement.retained),
     steps: ['确认后排空并停止服务 / Drain and stop after confirmation',
       '备份并核验最新 SQLite / Back up and verify the latest SQLite data',
       '切换程序后核对服务和账务 / Switch the program and check service and accounting'],
@@ -354,7 +378,7 @@ async function assertStoppedInstallation(context, before, expectedBinary) {
   }
 }
 
-export async function executeNativeTransition(inputs, verifyPackages = verifyNativeTransitionPackages, { onPhase } = {}) {
+export async function executeNativeTransition(inputs, verifyPackages = verifyNativeTransitionPackages, { operation = 'upgrade', onPhase } = {}) {
   if (!/^[0-9a-f]{64}$/.test(inputs.confirm ?? '')) {
     refuse('native_confirmation_required', '请将刚才预检的 confirmation 传给 --confirm。 / Supply the confirmation from the plan.')
   }
@@ -373,20 +397,23 @@ export async function executeNativeTransition(inputs, verifyPackages = verifyNat
   try {
     const previous = await readNativeJournal(context)
     requireSettledTransition(previous, inputs.confirm)
-    const inspection = await inspectTransition(inputs, context, verifyPackages)
-    const { before, transition, confirmation } = inspection
+    const inspection = await inspectTransition(inputs, context, verifyPackages, operation)
+    const { before, transition, confirmation, placement } = inspection
     requireSamePlan(confirmation, inputs.confirm)
-    const release = await assertNewRelease(context, transition.target, inputs.package)
+    const { release, binary: nextBinary, retained } = placement
     await waitForService(manager, paths, before.record.port, before.installed)
-    stagedDirectory = await mkdtemp(path.join(paths.releases, '.native-stage-'))
-    const staged = path.join(stagedDirectory, 'my-api')
-    await stageBinary(inputs.package, staged)
-    const stagedInputs = { ...inputs, package: staged }
-    const verified = await inspectTransition(stagedInputs, context, verifyPackages)
-    requireSamePlan(verified.confirmation, confirmation)
-    await chmod(staged, 0o755)
-    await syncNativePath(staged)
-    await syncNativePath(stagedDirectory)
+    let stagedInputs = { ...inputs, package: nextBinary }
+    if (!retained) {
+      stagedDirectory = await mkdtemp(path.join(paths.releases, '.native-stage-'))
+      const staged = path.join(stagedDirectory, 'my-api')
+      await stageBinary(inputs.package, staged)
+      stagedInputs = { ...inputs, package: staged }
+      const verified = await inspectTransition(stagedInputs, context, verifyPackages, operation)
+      requireSamePlan(verified.confirmation, confirmation)
+      await chmod(staged, 0o755)
+      await syncNativePath(staged)
+      await syncNativePath(stagedDirectory)
+    }
     // Staging and backups can share a filesystem. Check remaining capacity
     // with the verified binary already on disk, while the old service is live.
     await nativeSQLite('preflight', context, inspection)
@@ -405,6 +432,9 @@ export async function executeNativeTransition(inputs, verifyPackages = verifyNat
     await checkpoint('prepared')
     await checkpoint('stop_requested')
     requireSamePlan((await liveInstallation(inputs, context)).identity, before.identity)
+    if (retained) {
+      requireSamePlan((await inspectTargetRelease(context, before, transition.target, inputs.package)).retained, retained)
+    }
     if ((await drain.stop())?.drained !== true) refuse('native_stop_unconfirmed', '无法确认服务已排空。 / Service drain is unconfirmed.')
     await checkpoint('stopped')
     await assertStoppedInstallation(context, before, before.binary)
@@ -420,19 +450,24 @@ export async function executeNativeTransition(inputs, verifyPackages = verifyNat
     await nativeSQLite('check-stopped', context, inspection)
     await assertStoppedInstallation(context, before, before.binary)
     await checkpoint('switch_requested')
-    const versionDirectory = path.dirname(release)
-    await mkdir(versionDirectory, { mode: 0o755 })
-    await chmod(versionDirectory, 0o755)
-    await chmod(stagedDirectory, 0o755)
-    await rename(stagedDirectory, release)
-    stagedDirectory = null
-    await syncNativePath(versionDirectory)
-    await syncNativePath(paths.releases)
+    if (stagedDirectory) {
+      const versionDirectory = path.dirname(release)
+      await mkdir(versionDirectory, { mode: 0o755 })
+      await chmod(versionDirectory, 0o755)
+      await chmod(stagedDirectory, 0o755)
+      await rename(stagedDirectory, release)
+      stagedDirectory = null
+      await syncNativePath(versionDirectory)
+      await syncNativePath(paths.releases)
+    }
     const pointer = path.dirname(paths.binary)
     const base = path.dirname(pointer)
     const next = path.join(base, '.native-current-' + randomUUID())
     await symlink(path.relative(base, release), next)
     try {
+      if (retained) {
+        requireSamePlan((await inspectTargetRelease(context, before, transition.target, inputs.package)).retained, retained)
+      }
       await assertStoppedInstallation(context, before, before.binary)
       await rename(next, pointer)
     } finally {
@@ -440,7 +475,6 @@ export async function executeNativeTransition(inputs, verifyPackages = verifyNat
     }
     await syncNativePath(base)
     await checkpoint('switched')
-    const nextBinary = path.join(release, 'my-api')
     await assertStoppedInstallation(context, before, nextBinary)
     if (await binaryDigest(nextBinary, before.record.arch) !== transition.target.sha256) {
       refuse('digest_mismatch', '启动前程序摘要不符。 / Installed binary digest changed before start.')
@@ -491,11 +525,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (args.length !== 2 || args[0] !== '--scope') refuse('invalid_arguments', 'Supply --scope system or --scope user.')
       return readNativeTransitionStatus(args[1])
     }
-    if (!['upgrade-plan', 'upgrade'].includes(action)) refuse('invalid_arguments', 'Select upgrade-plan, upgrade or transition-status.')
+    if (!['upgrade-plan', 'upgrade', 'rollback-plan', 'rollback'].includes(action)) {
+      refuse('invalid_arguments', 'Select upgrade-plan, upgrade, rollback-plan, rollback or transition-status.')
+    }
+    const operation = action.startsWith('rollback') ? 'rollback' : 'upgrade'
+    const planning = action.endsWith('-plan')
     const extra = ['current-manifest', 'current-bundle']
-    const inputs = parseNativePackageArgs(args, action === 'upgrade' ? [...extra, 'confirm'] : extra)
+    const inputs = parseNativePackageArgs(args, planning ? extra : [...extra, 'confirm'])
     if (extra.some(key => !inputs[key])) refuse('invalid_arguments', 'Supply both --current-manifest and --current-bundle.')
-    return action === 'upgrade' ? executeNativeTransition(inputs) : planNativeTransition(inputs)
+    return planning ? planNativeTransition(inputs, undefined, { operation }) : executeNativeTransition(inputs, undefined, { operation })
   }).then(result => console.log(JSON.stringify(result))).catch(error => {
     const code = /^[a-z_]+$/.test(error.code ?? '') ? error.code : 'inspection_failed'
     const reason = code === 'inspection_failed' ? '请核对文件和 systemd，再用 transition-status 查看实际进度。 / Check files, systemd and transition-status.' : error.message

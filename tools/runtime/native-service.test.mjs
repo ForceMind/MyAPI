@@ -302,6 +302,20 @@ test('missing, duplicate and unknown native arguments fail without writes or ser
   }
 })
 
+test('program rollback requires its explicit confirmation and the read-only command refuses it', t => {
+  const local = fixture(t)
+  const options = ['--scope', 'system', '--edition', 'full', '--tag', 'v1.0.0',
+    '--current-manifest', 'current.json', '--current-bundle', 'current.sigstore',
+    '--manifest', 'older.json', '--bundle', 'older.sigstore', '--package', 'older-binary',
+    '--cosign', 'cosign', '--root', 'trusted-root.json']
+  const result = local.run(['rollback', ...options])
+  assert.equal(result.status, 2)
+  assert.equal(JSON.parse(result.stderr).code, 'native_confirmation_required')
+  const readOnly = local.run(['rollback-plan', ...options, '--confirm', 'f'.repeat(64)])
+  assert.equal(readOnly.status, 2)
+  assert.equal(JSON.parse(readOnly.stderr).code, 'invalid_arguments')
+})
+
 test('user paths reject unset or empty HOME, explicit empty XDG, relative paths, controls and dot segments', t => {
   const local = fixture(t)
   const invalid = [
