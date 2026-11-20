@@ -283,6 +283,8 @@ function nativeSQLite(action, context, inspection) {
         no_space: '备份与核验需要更多可用磁盘空间。 / More backup space is required.',
         backup_parent_not_private: '请核对备份目录的所有者和权限。目录应归安装管理员所有，权限为 0700。 / Check the backup directory owner and mode 0700.',
         extended_metadata_unsupported: '数据目录含当前备份格式无法保留的扩展属性。请保留现场并核对备份方式。 / The backup format cannot preserve these extended attributes.',
+        acl_unavailable: '无法读全文件的访问控制列表。请核对数据目录和备份目录支持的权限类型。 / The file access controls could not be read in full.',
+        acl_copy_unverified: '备份副本的权限与原文件不一致。请保留原数据并检查备份文件系统。 / Check whether the backup filesystem can preserve the original permissions.',
         submount_rejected: '数据目录内有另一个挂载点。请核对该挂载点的数据归属。 / Check the nested mount in the data directory.',
         metadata_invalid: '请核对配置、安装记录或备份清单的所有者、权限和文件类型。 / Check ownership, permissions and file type for configuration and backup records.',
         source_changed: '原始文件或数据库身份发生变化。请查看 transition-status。 / Inspect the current files and service.',

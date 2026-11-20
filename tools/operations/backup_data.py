@@ -1,4 +1,5 @@
 """Registered-directory copier and isolated bundles; callers prove quiescence."""
+import errno
 import hashlib
 import importlib.util
 import io
@@ -115,7 +116,59 @@ def bundle_no_extra_metadata(fd):
     bundle_check(not os.listxattr(fd), 'BUNDLE_EXTENDED_METADATA_UNSUPPORTED')
 
 
-def bundle_tree(source, maximum, max_entries, with_inodes=False):
+def bundle_posix_acls(fd):
+    """Snapshot only Linux POSIX ACL bytes through an already safe descriptor."""
+    allowed = {'system.posix_acl_access', 'system.posix_acl_default'}
+    bundle_check(sys.platform.startswith('linux'), 'BUNDLE_POSIX_ACL_UNAVAILABLE')
+    before = os.fstat(fd)
+    bundle_check(stat.S_ISDIR(before.st_mode) or stat.S_ISREG(before.st_mode) and before.st_nlink == 1,
+                 'BUNDLE_SPECIAL_OR_LINK_REJECTED')
+    try:
+        names = sorted(os.listxattr(fd))
+        bundle_check(set(names) <= allowed, 'BUNDLE_EXTENDED_METADATA_UNSUPPORTED')
+        bundle_check(stat.S_ISDIR(before.st_mode) or 'system.posix_acl_default' not in names,
+                     'BUNDLE_POSIX_ACL_INVALID')
+        acls = {name: os.getxattr(fd, name) for name in names}
+        bundle_check(all(isinstance(value, bytes) and 0 < len(value) <= 65536 for value in acls.values()),
+                     'BUNDLE_POSIX_ACL_INVALID')
+        bundle_check(names == sorted(os.listxattr(fd))
+                     and all(os.getxattr(fd, name) == value for name, value in acls.items())
+                     and bundle_signature(before) == bundle_signature(os.fstat(fd)), 'BUNDLE_POSIX_ACL_CHANGED')
+        return acls
+    except OSError as error:
+        code = 'BUNDLE_POSIX_ACL_CHANGED' if error.errno == errno.ENODATA else 'BUNDLE_POSIX_ACL_UNAVAILABLE'
+        raise BundleFailure(code) from None
+
+
+def bundle_apply_posix_acls(fd, acls):
+    """Apply/read back ACLs on a NEW private target only; never call on a source.
+
+    The caller owns exclusive creation and a private enclosing directory. ACLs
+    can change permission bits, so the caller must verify its expected mode.
+    """
+    allowed = {'system.posix_acl_access', 'system.posix_acl_default'}
+    bundle_check(isinstance(acls, dict) and set(acls) <= allowed
+                 and all(isinstance(value, bytes) and 0 < len(value) <= 65536 for value in acls.values()),
+                 'BUNDLE_POSIX_ACL_INVALID')
+    before = os.fstat(fd)
+    bundle_check(stat.S_ISDIR(before.st_mode) or 'system.posix_acl_default' not in acls, 'BUNDLE_POSIX_ACL_INVALID')
+    inherited = bundle_posix_acls(fd)
+    try:
+        for name in sorted(set(inherited) - set(acls)):
+            os.removexattr(fd, name)
+        for name, value in sorted(acls.items()):
+            os.setxattr(fd, name, value)
+        bundle_check(bundle_posix_acls(fd) == acls, 'BUNDLE_POSIX_ACL_COPY_FAILED')
+    except OSError:
+        raise BundleFailure('BUNDLE_POSIX_ACL_COPY_FAILED') from None
+    after = os.fstat(fd)
+    bundle_check(all(getattr(before, field) == getattr(after, field) for field in
+                     ('st_dev', 'st_ino', 'st_uid', 'st_gid', 'st_size', 'st_mtime_ns', 'st_nlink'))
+                 and stat.S_IFMT(before.st_mode) == stat.S_IFMT(after.st_mode), 'BUNDLE_COPY_METADATA_MISMATCH')
+
+
+def bundle_tree(source, maximum, max_entries, with_inodes=False, *, posix_acls=False):
+    bundle_check(type(posix_acls) is bool, 'BUNDLE_POSIX_ACL_INVALID')
     bundle_path(source, True)
     bundle_mount_guard(source)
     entries, total = [], 0
@@ -127,13 +180,18 @@ def bundle_tree(source, maximum, max_entries, with_inodes=False):
         bundle_check(bundle_relative(relative, True), 'BUNDLE_UNSAFE_PATH')
         info = os.fstat(fd)
         bundle_check(info.st_dev == device, 'BUNDLE_SUBMOUNT_REJECTED')
-        bundle_no_extra_metadata(fd)
+        acls = bundle_posix_acls(fd) if posix_acls else None
+        if not posix_acls:
+            bundle_no_extra_metadata(fd)
         directory = stat.S_ISDIR(info.st_mode)
         bundle_check(directory or stat.S_ISREG(info.st_mode) and info.st_nlink == 1, 'BUNDLE_SPECIAL_OR_LINK_REJECTED')
         bundle_check(len(entries) < max_entries, 'BUNDLE_ENTRY_LIMIT_EXCEEDED')
         row = {'path': relative, 'type': 'directory' if directory else 'file',
                'uid': info.st_uid, 'gid': info.st_gid, 'mode': stat.S_IMODE(info.st_mode),
                'size': None, 'sha256': None}
+        if acls:
+            row['posix_acls'] = {name: hashlib.sha256(value).hexdigest() for name, value in acls.items()}
+            row['posix_acl_bytes'] = sum(len(value) for value in acls.values())
         if with_inodes:
             row.update(dev=str(info.st_dev), ino=str(info.st_ino),
                        mtime_ns=info.st_mtime_ns, ctime_ns=info.st_ctime_ns)
@@ -166,6 +224,8 @@ def bundle_tree(source, maximum, max_entries, with_inodes=False):
                 checksum.update(chunk)
             bundle_check(count == info.st_size, 'BUNDLE_SOURCE_CHANGED')
             row['size'], row['sha256'] = info.st_size, checksum.hexdigest()
+        if posix_acls:
+            bundle_check(bundle_posix_acls(fd) == acls, 'BUNDLE_POSIX_ACL_CHANGED')
         bundle_check(bundle_signature(info) == bundle_signature(os.fstat(fd)), 'BUNDLE_SOURCE_CHANGED')
 
     try:
@@ -176,8 +236,9 @@ def bundle_tree(source, maximum, max_entries, with_inodes=False):
     return sorted(entries, key=lambda row: row['path'])
 
 
-def bundle_copy(source, target, maximum, max_entries):
+def bundle_copy(source, target, maximum, max_entries, *, posix_acls=False):
     """Exclusive fd-relative copy; failures retain the uncommitted target."""
+    bundle_check(type(posix_acls) is bool, 'BUNDLE_POSIX_ACL_INVALID')
     total, count = 0, 0
     source_fd = os.open(source, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
@@ -188,11 +249,16 @@ def bundle_copy(source, target, maximum, max_entries):
         raise
     device = os.fstat(source_fd).st_dev
 
-    def metadata(fd, original):
+    def metadata(fd, original, acls):
         actual = os.fstat(fd)
         if (actual.st_uid, actual.st_gid) != (original.st_uid, original.st_gid):
             os.fchown(fd, original.st_uid, original.st_gid)
         os.fchmod(fd, stat.S_IMODE(original.st_mode))
+        if posix_acls:
+            bundle_apply_posix_acls(fd, acls)
+            actual = os.fstat(fd)
+            bundle_check((actual.st_uid, actual.st_gid, stat.S_IMODE(actual.st_mode)) ==
+                         (original.st_uid, original.st_gid, stat.S_IMODE(original.st_mode)), 'BUNDLE_COPY_METADATA_MISMATCH')
         os.utime(fd, ns=(original.st_atime_ns, original.st_mtime_ns))
         os.fsync(fd)
 
@@ -200,7 +266,13 @@ def bundle_copy(source, target, maximum, max_entries):
         nonlocal total, count
         original = os.fstat(reader)
         bundle_check(original.st_dev == device, 'BUNDLE_SUBMOUNT_REJECTED')
-        bundle_no_extra_metadata(reader)
+        acls = bundle_posix_acls(reader) if posix_acls else None
+        if posix_acls:
+            # Clear inherited default/access ACLs before creating children. All
+            # source permissions and ACLs are installed only after child copies.
+            bundle_apply_posix_acls(writer, {})
+        else:
+            bundle_no_extra_metadata(reader)
         count += 1
         bundle_check(count <= max_entries, 'BUNDLE_ENTRY_LIMIT_EXCEEDED')
         names = bundle_names(reader)
@@ -213,7 +285,9 @@ def bundle_copy(source, target, maximum, max_entries):
             incoming = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | (os.O_DIRECTORY if stat.S_ISDIR(info.st_mode) else 0), dir_fd=reader)
             try:
                 bundle_check(bundle_signature(info) == bundle_signature(os.fstat(incoming)), 'BUNDLE_SOURCE_CHANGED')
-                bundle_no_extra_metadata(incoming)
+                file_acls = bundle_posix_acls(incoming) if posix_acls else None
+                if not posix_acls:
+                    bundle_no_extra_metadata(incoming)
                 if stat.S_ISDIR(info.st_mode):
                     os.mkdir(name, 0o700, dir_fd=writer)
                     outgoing = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=writer)
@@ -226,6 +300,8 @@ def bundle_copy(source, target, maximum, max_entries):
                     bundle_check(count <= max_entries, 'BUNDLE_ENTRY_LIMIT_EXCEEDED')
                     outgoing = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=writer)
                     try:
+                        if posix_acls:
+                            bundle_apply_posix_acls(outgoing, {})
                         copied = 0
                         while True:
                             chunk = os.read(incoming, 1024 * 1024)
@@ -241,14 +317,21 @@ def bundle_copy(source, target, maximum, max_entries):
                                 bundle_check(written > 0, 'BUNDLE_COPY_UNAVAILABLE')
                                 offset += written
                         bundle_check(copied == info.st_size, 'BUNDLE_SOURCE_CHANGED')
-                        metadata(outgoing, info)
+                        metadata(outgoing, info, file_acls)
                     finally:
                         os.close(outgoing)
+                if posix_acls:
+                    bundle_check(bundle_posix_acls(incoming) == file_acls, 'BUNDLE_POSIX_ACL_CHANGED')
                 bundle_check(bundle_signature(info) == bundle_signature(os.fstat(incoming)), 'BUNDLE_SOURCE_CHANGED')
             finally:
                 os.close(incoming)
         bundle_check(names == bundle_names(reader) and bundle_signature(original) == bundle_signature(os.fstat(reader)), 'BUNDLE_SOURCE_CHANGED')
-        metadata(writer, original)
+        if posix_acls:
+            bundle_check(bundle_posix_acls(reader) == acls, 'BUNDLE_POSIX_ACL_CHANGED')
+        metadata(writer, original, acls)
+        if posix_acls:
+            bundle_check(bundle_posix_acls(reader) == acls, 'BUNDLE_POSIX_ACL_CHANGED')
+            bundle_check(names == bundle_names(reader) and bundle_signature(original) == bundle_signature(os.fstat(reader)), 'BUNDLE_SOURCE_CHANGED')
 
     try:
         copy_directory(source_fd, target_fd)
@@ -265,7 +348,8 @@ def bundle_sync(directory):
         os.close(fd)
 
 
-def bundle_read_file(filename, private=False):
+def bundle_read_file(filename, private=False, *, with_posix_acls=False):
+    bundle_check(type(with_posix_acls) is bool, 'BUNDLE_POSIX_ACL_INVALID')
     info = os.lstat(filename)
     bundle_check(stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_size <= 64 * 1024 ** 2, 'BUNDLE_METADATA_INVALID')
     if private:
@@ -273,9 +357,14 @@ def bundle_read_file(filename, private=False):
     fd = os.open(filename, os.O_RDONLY | os.O_NOFOLLOW)
     try:
         bundle_check(bundle_signature(info) == bundle_signature(os.fstat(fd)), 'BUNDLE_METADATA_CHANGED')
+        acls = bundle_posix_acls(fd) if with_posix_acls else None
         with os.fdopen(fd, 'rb', closefd=False) as stream:
             content = stream.read(64 * 1024 ** 2 + 1)
         bundle_check(len(content) <= 64 * 1024 ** 2 and bundle_signature(info) == bundle_signature(os.fstat(fd)), 'BUNDLE_METADATA_CHANGED')
+        if with_posix_acls:
+            bundle_check(len(content) == info.st_size and bundle_posix_acls(fd) == acls
+                         and bundle_signature(info) == bundle_signature(os.fstat(fd)), 'BUNDLE_POSIX_ACL_CHANGED')
+            return content, info, acls
         return content
     finally:
         os.close(fd)
@@ -454,12 +543,25 @@ def bundle_result(request, value, digest, **flags):
             **bundle_counts(value['entries']), 'source_quiescence_verified': False, **flags}
 
 
-def bundle_write(filename, content):
+def bundle_write(filename, content, *, posix_acls=None, owner=None):
+    bundle_check(posix_acls is None and owner is None or isinstance(posix_acls, dict), 'BUNDLE_POSIX_ACL_INVALID')
+    if owner is not None:
+        bundle_check(isinstance(owner, tuple) and len(owner) == 2
+                     and all(type(value) is int and 0 <= value < 4294967295 for value in owner), 'BUNDLE_POSIX_ACL_INVALID')
     fd = os.open(filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, 'wb') as writer:
         writer.write(content)
         writer.flush()
+        actual = os.fstat(writer.fileno()) if posix_acls is not None else None
+        if owner is not None and (actual.st_uid, actual.st_gid) != owner:
+            os.fchown(writer.fileno(), *owner)
         os.fchmod(writer.fileno(), 0o600)
+        if posix_acls is not None:
+            bundle_apply_posix_acls(writer.fileno(), posix_acls)
+            copied = os.fstat(writer.fileno())
+            expected_owner = owner if owner is not None else (actual.st_uid, actual.st_gid)
+            bundle_check((copied.st_uid, copied.st_gid) == expected_owner and stat.S_IMODE(copied.st_mode) == 0o600,
+                         'BUNDLE_COPY_METADATA_MISMATCH')
         os.fsync(writer.fileno())
 
 

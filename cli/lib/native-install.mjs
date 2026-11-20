@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { constants, createWriteStream } from 'node:fs'
 import { chmod, chown, copyFile, lstat, mkdir, mkdtemp, open, rename, rm, rmdir, stat, symlink, writeFile } from 'node:fs/promises'
+import { constants as osConstants } from 'node:os'
 import path from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -17,6 +18,37 @@ const pathKeys = ['binary', 'releases', 'config', 'data', 'state', 'backups', 'l
 
 function refuse(code, message) {
   throw Object.assign(new Error(message), { code })
+}
+
+// Report only known categories. Child-process messages can contain command
+// arguments/environment; filesystem messages can contain private paths.
+function installationDiagnostic(error, stage, paths) {
+  const applicationCodes = new Set(['unsafe_directory', 'account_unconfirmed', 'service_conflict',
+    'service_failed', 'health_timeout', 'unexpected_service_state', 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'])
+  const code = Object.hasOwn(osConstants.errno, error?.code) || applicationCodes.has(error?.code) ? error.code : 'unknown'
+  const exit = Number.isInteger(error?.code) && error.code >= 0 && error.code <= 255 ? ` exit=${error.code}` : ''
+  const killed = error?.killed === true ? ' killed=true' : ''
+  const syscalls = new Set(['access', 'chmod', 'chown', 'copyfile', 'lstat', 'mkdir', 'open', 'read',
+    'rename', 'rmdir', 'stat', 'symlink', 'unlink', 'write'])
+  const actions = { account: 'useradd_or_getent', service_registration: 'systemctl_reload_or_show',
+    service_start: 'systemctl_start', health: 'verify_health', failure_stop: 'systemctl_stop',
+    failure_stop_check: 'systemctl_show' }
+  const action = syscalls.has(error?.syscall) ? error.syscall : actions[stage] ?? 'unknown'
+  let role = 'unknown'
+  const managedRoles = [
+    [paths.config, 'configuration'], [paths.unit, 'service_unit'],
+    [path.join(paths.state, 'installation.pending.json'), 'installation_record'],
+    [path.join(paths.state, 'installation.json'), 'installation_record'],
+    [paths.data, 'data'], [paths.backups, 'backups'], [paths.state, 'state'],
+    [paths.logs, 'logs'], [paths.cache, 'cache'], [path.dirname(paths.releases), 'program'],
+    [path.dirname(paths.config), 'configuration'], [path.dirname(paths.state), 'state'],
+  ]
+  for (const filename of [error?.dest, error?.path]) {
+    if (typeof filename !== 'string') continue
+    const match = managedRoles.find(([managed]) => filename === managed || filename.startsWith(managed + '/'))
+    if (match) { role = match[1]; break }
+  }
+  return `stage=${stage} action=${action} role=${role} cause=${code}${exit}${killed}`
 }
 
 async function inspect(filename) {
@@ -200,6 +232,7 @@ export async function installNative(inputs, verify = verifyReleaseNativePackage)
       await assertFresh(installContext)
       let startIssued = false
       let writesStarted = false
+      let stage = 'directories'
       try {
         for (const root of roots) {
           await checkNativeDirectory(path.dirname(root), uid, true)
@@ -214,6 +247,7 @@ export async function installNative(inputs, verify = verifyReleaseNativePackage)
           if (!roots.includes(directory)) await mkdir(directory, { mode: 0o700 })
         }
         if (scope === 'system') {
+          stage = 'account'
           await exec('useradd', ['--system', '--user-group', '--no-create-home', '--home-dir', path.dirname(paths.data),
             '--shell', '/usr/sbin/nologin', 'my-api'], { env: commandEnv, timeout: 10_000 })
           const account = (await nativeAccountEntry('passwd'))?.split(':')
@@ -225,6 +259,7 @@ export async function installNative(inputs, verify = verifyReleaseNativePackage)
           for (const directory of [paths.data, paths.logs, paths.cache]) await chown(directory, user, group)
         }
 
+        stage = 'program'
         const versionDirectory = path.join(paths.releases, receipt.version)
         const release = path.join(versionDirectory, receipt.artifact)
         for (const directory of [versionDirectory, release]) await mkdir(directory, { mode: 0o700 })
@@ -248,10 +283,12 @@ export async function installNative(inputs, verify = verifyReleaseNativePackage)
           'BATCH_UPDATE_ENABLED=false',
           '',
         ]
+        stage = 'configuration_record'
         await writeFile(paths.config, config.join('\n'), { flag: 'wx', mode: 0o600 })
         const pending = path.join(paths.state, 'installation.pending.json')
         const installed = { ...receipt, port: Number(port), binary: paths.binary, config: paths.config, unit: paths.unit }
         await writeFile(pending, JSON.stringify(installed) + '\n', { flag: 'wx', mode: 0o600 })
+        stage = 'service_registration'
         await checkNativeDirectory(path.dirname(paths.unit), uid, true)
         await writeFile(paths.unit, unit, { flag: 'wx', mode: 0o644 })
         await manager(['daemon-reload'])
@@ -261,20 +298,32 @@ export async function installNative(inputs, verify = verifyReleaseNativePackage)
           refuse('service_conflict', 'systemd did not load the newly written unit on its own.')
         }
         startIssued = true
+        stage = 'service_start'
         await manager(['start', unitName])
+        stage = 'health'
         await waitForService(manager, paths, port, receipt)
+        stage = 'confirmation_record'
         await rename(pending, path.join(paths.state, 'installation.json'))
         return { ...installed, status: 'healthy', url: `http://127.0.0.1:${port}` }
       } catch (error) {
+        const diagnostic = installationDiagnostic(error, stage, paths)
         if (startIssued) {
-          const stopped = await manager(['stop', unitName]).then(() => nativeServiceState(manager)).catch(() => null)
+          let stopStage = 'failure_stop'
+          let stopError
+          const stopped = await manager(['stop', unitName]).then(() => {
+            stopStage = 'failure_stop_check'
+            return nativeServiceState(manager)
+          }).catch(failure => {
+            stopError = failure
+            return null
+          })
           if (!stopped || !['inactive', 'failed'].includes(stopped.ActiveState) || stopped.MainPID !== '0') {
-            refuse('stop_unconfirmed', 'Could not confirm the new service stopped. Check systemd before retrying.')
+            const stopDiagnostic = installationDiagnostic(stopError ?? { code: 'unexpected_service_state' }, stopStage, paths)
+            refuse('stop_unconfirmed', `请保留安装现场，先确认服务是否已停。 / Service stop is unconfirmed. Installation (${diagnostic}). Stop check (${stopDiagnostic}).`)
           }
         }
         if (writesStarted) {
-          const reason = /^[a-z_]+$/.test(error.code || '') ? error.message : 'A filesystem or systemd operation failed.'
-          refuse('installation_incomplete', `${reason} The new files were preserved. Review systemd and the installation paths before retrying.`)
+          refuse('installation_incomplete', `安装中断，已保留新文件。请按失败阶段检查文件或服务。 / Installation stopped with new files preserved. ${diagnostic}`)
         }
         throw error
       }

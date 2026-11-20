@@ -144,11 +144,14 @@ def source_identity(request):
 
 
 def private_file(filename):
-    before = os.lstat(filename)
-    content = backup_data.bundle_read_file(filename, True)
-    check(backup_data.bundle_signature(before) == backup_data.bundle_signature(os.lstat(filename)), 'source_changed')
-    return content, {'signature': list(backup_data.bundle_signature(before)),
-                     'sha256': hashlib.sha256(content).hexdigest(), 'size': len(content)}
+    content, info, acls = backup_data.bundle_read_file(filename, True, with_posix_acls=True)
+    check(backup_data.bundle_signature(info) == backup_data.bundle_signature(os.lstat(filename)), 'source_changed')
+    check(os.geteuid() == 0 or info.st_gid in {os.getegid(), *os.getgroups()}, 'metadata_unavailable')
+    permissions = {'uid': info.st_uid, 'gid': info.st_gid, 'mode': stat.S_IMODE(info.st_mode),
+                   'posix_acls': {name: hashlib.sha256(value).hexdigest() for name, value in acls.items()}}
+    record = {'signature': list(backup_data.bundle_signature(info)), 'sha256': hashlib.sha256(content).hexdigest(),
+              'size': len(content), 'permissions': permissions}
+    return content, record, acls
 
 
 def binding(request):
@@ -161,7 +164,7 @@ def payload_rows(rows):
 
 def source_tree(request):
     source_identity(request)
-    rows = backup_data.bundle_tree(request['data'], MAX_BYTES, MAX_ENTRIES, with_inodes=True)
+    rows = backup_data.bundle_tree(request['data'], MAX_BYTES, MAX_ENTRIES, with_inodes=True, posix_acls=True)
     source_identity(request)
     return rows
 
@@ -179,12 +182,13 @@ def preflight_tree(request):
         check(info.st_dev == device, 'data_device_mismatch')
         check(os.geteuid() == 0 or (info.st_uid == os.geteuid()
               and info.st_gid in {os.getegid(), *os.getgroups()}), 'metadata_unavailable')
-        backup_data.bundle_no_extra_metadata(fd)
+        acls = backup_data.bundle_posix_acls(fd)
         directory = stat.S_ISDIR(info.st_mode)
         check(directory or stat.S_ISREG(info.st_mode), 'data_entry_not_regular')
         check(directory or info.st_nlink == 1, 'data_entry_multilink')
         check(len(rows) < MAX_ENTRIES, 'bounds_exceeded')
-        rows.append({'path': relative, 'type': 'directory' if directory else 'file', 'size': None if directory else info.st_size})
+        rows.append({'path': relative, 'type': 'directory' if directory else 'file', 'size': None if directory else info.st_size,
+                     'posix_acl_bytes': sum(map(len, acls.values()))})
         if directory:
             names = backup_data.bundle_names(fd)
             for name in names:
@@ -215,7 +219,7 @@ def preflight_tree(request):
 
 
 def space(parent, rows, external_bytes=0, copying=True):
-    size = backup_data.bundle_counts(rows)['total_bytes']
+    size = backup_data.bundle_counts(rows)['total_bytes'] + sum(row.get('posix_acl_bytes', 0) for row in rows)
     # One committed tree and one private verification copy, plus bounded metadata
     # and allocation overhead. Existing-backup checks need only the private copy.
     required = size * (2 if copying else 1) + external_bytes + 64 * 1024 ** 2 + len(rows) * 8192
@@ -379,13 +383,13 @@ def saved_database(root, relative, expected):
     with tempfile.TemporaryDirectory(prefix='.native-verify-', dir=root) as workspace:
         data = os.path.join(root, 'data')
         private_data = os.path.join(workspace, 'data')
-        backup_data.bundle_copy(data, private_data, MAX_BYTES, MAX_ENTRIES)
-        check(backup_data.bundle_tree(data, MAX_BYTES, MAX_ENTRIES) == expected
-              == backup_data.bundle_tree(private_data, MAX_BYTES, MAX_ENTRIES), 'backup_unverified')
+        backup_data.bundle_copy(data, private_data, MAX_BYTES, MAX_ENTRIES, posix_acls=True)
+        check(backup_data.bundle_tree(data, MAX_BYTES, MAX_ENTRIES, posix_acls=True) == expected
+              == backup_data.bundle_tree(private_data, MAX_BYTES, MAX_ENTRIES, posix_acls=True), 'backup_unverified')
         with read_database(os.path.join(private_data, relative)) as db:
             yield db
         # Any SHM/checkpoint coordination happened only inside the private copy.
-        check(backup_data.bundle_tree(data, MAX_BYTES, MAX_ENTRIES) == expected, 'backup_unverified')
+        check(backup_data.bundle_tree(data, MAX_BYTES, MAX_ENTRIES, posix_acls=True) == expected, 'backup_unverified')
 
 
 def load_backup(request, root):
@@ -397,20 +401,30 @@ def load_backup(request, root):
     marker = backup_data.bundle_json(backup_data.bundle_read_file(os.path.join(root, 'COMMITTED'), True))
     check(marker == {'sha256': hashlib.sha256(raw).hexdigest()}, 'backup_unverified')
     check(isinstance(manifest, dict) and set(manifest) == {'schema', 'binding', 'source', 'config', 'receipt', 'accounting'}
-          and type(manifest['schema']) is int and manifest['schema'] == 1
+          and type(manifest['schema']) is int and manifest['schema'] in (1, 2)
           and manifest['binding'] == binding(request), 'backup_unverified')
     check(isinstance(manifest['source'], list) and 1 <= len(manifest['source']) <= MAX_ENTRIES, 'backup_unverified')
     expected = payload_rows(manifest['source'])
-    check(backup_data.bundle_tree(os.path.join(root, 'data'), MAX_BYTES, MAX_ENTRIES) == expected, 'backup_unverified')
+    check(backup_data.bundle_tree(os.path.join(root, 'data'), MAX_BYTES, MAX_ENTRIES, posix_acls=True) == expected, 'backup_unverified')
     for name in ('config', 'receipt'):
-        content = backup_data.bundle_read_file(os.path.join(root, name), True)
-        check(hashlib.sha256(content).hexdigest() == manifest[name]['sha256'] and len(content) == manifest[name]['size'], 'backup_unverified')
+        _, saved, acls = private_file(os.path.join(root, name))
+        expected_file = manifest[name]
+        check(saved['sha256'] == expected_file['sha256'] and saved['size'] == expected_file['size'], 'backup_unverified')
+        if manifest['schema'] == 2:
+            check(saved['permissions'] == expected_file.get('permissions'), 'backup_unverified')
+        else:
+            # V1 never recorded private-file ACLs. Only plain files can be
+            # compared to that format without claiming unrecorded permissions.
+            check(not acls, 'backup_unverified')
     return manifest, expected
 
 
 def original_files(request, manifest):
     for name in ('config', 'receipt'):
-        _, actual = private_file(request[name])
+        _, actual, acls = private_file(request[name])
+        if manifest['schema'] == 1:
+            check(not acls, 'source_changed')
+            del actual['permissions']
         check(actual == manifest[name], 'source_changed')
 
 
@@ -427,21 +441,22 @@ def main():
         check(not os.path.lexists(root), 'backup_exists')
         before = preflight_tree(request) if request['action'] == 'preflight' else source_tree(request)
         files = {name: private_file(request[name]) for name in ('config', 'receipt')}
-        space(parent, before, sum(len(value[0]) for value in files.values()))
+        space(parent, before, sum(len(content) + sum(map(len, acls.values())) for content, _, acls in files.values()))
         if request['action'] == 'preflight':
             return {'ok': True, 'preflight': True}
         os.mkdir(root, 0o700)
         backup_data.bundle_private(root)
-        backup_data.bundle_copy(request['data'], os.path.join(root, 'data'), MAX_BYTES, MAX_ENTRIES)
+        backup_data.bundle_copy(request['data'], os.path.join(root, 'data'), MAX_BYTES, MAX_ENTRIES, posix_acls=True)
         expected = payload_rows(before)
-        check(backup_data.bundle_tree(os.path.join(root, 'data'), MAX_BYTES, MAX_ENTRIES) == expected, 'source_changed')
-        for name, (content, _) in files.items():
-            backup_data.bundle_write(os.path.join(root, name), content)
+        check(backup_data.bundle_tree(os.path.join(root, 'data'), MAX_BYTES, MAX_ENTRIES, posix_acls=True) == expected, 'source_changed')
+        for name, (content, record, acls) in files.items():
+            mode = record['permissions']
+            backup_data.bundle_write(os.path.join(root, name), content, posix_acls=acls, owner=(mode['uid'], mode['gid']))
         with saved_database(root, relative, expected) as db:
             check_work(db)
             tables = inventory(db)
             historical_rows(db, tables)
-        manifest = {'schema': 1, 'binding': binding(request), 'source': before,
+        manifest = {'schema': 2, 'binding': binding(request), 'source': before,
                     'config': files['config'][1], 'receipt': files['receipt'][1], 'accounting': tables}
         original_files(request, manifest)
         check(source_tree(request) == before, 'source_changed')
@@ -504,6 +519,10 @@ if __name__ == '__main__':
         message = str(error)
         code = {
             'BUNDLE_EXTENDED_METADATA_UNSUPPORTED': 'extended_metadata_unsupported',
+            'BUNDLE_POSIX_ACL_UNAVAILABLE': 'acl_unavailable',
+            'BUNDLE_POSIX_ACL_INVALID': 'acl_unavailable',
+            'BUNDLE_POSIX_ACL_COPY_FAILED': 'acl_copy_unverified',
+            'BUNDLE_COPY_METADATA_MISMATCH': 'acl_copy_unverified',
             'BUNDLE_PRIVATE_DIRECTORY_REQUIRED': 'private_directory_required',
             'BUNDLE_SUBMOUNT_REJECTED': 'submount_rejected',
             'BUNDLE_MOUNT_INVENTORY_UNAVAILABLE': 'mount_inventory_unknown',

@@ -44,6 +44,10 @@ bash deploy/install-native.sh upgrade --scope system --edition full --tag "$TARG
 
 Review the source version, target version, database and downtime first. Run `upgrade` with the same local release files and the exact confirmation from the plan. The installer checks the running process again, verifies its clean stop, backs up the latest data and SQLite sidecars, verifies the backup, and switches the program. A healthy result includes the backup path and accounting check. The service continues using the same database.
 
+Linux 原生备份会核对数据、配置和安装记录的所有者、权限位及 POSIX 访问控制列表，包括目录上供新文件继承的默认列表。发现其他扩展属性时预检会说明原因。若备份文件系统无法原样保存权限，升级会停在程序切换之前。可运行 `transition-status` 查看现场。
+
+Native backups verify the owner, mode and POSIX access ACL of the data, configuration and installation record, including default ACLs on directories. Preflight reports unsupported extended attributes. If the backup cannot preserve these permissions, the transition stops before switching the program. Use `transition-status` to inspect progress.
+
 ```bash
 bash deploy/install-native.sh transition-status --scope system
 ```

@@ -8,6 +8,10 @@
 
 `70a03d67` 的完整 CI 有 14 个作业成功、1 个失败、9 个可选作业跳过。系统 Full、系统 Lite 均在预检之后增加 17 单位合成扣费，备份和重启后的同一数据库均能读回。独立系统实例于旧进程停妥后退出 73，保留旧程序和账务，重复确认被拒。用户 Lite 在预检返回 `unsafe_path`，是唯一失败的步骤。后续资格运行记录失败属于哪一次预检和具体文件检查。[完整 CI](https://github.com/ForceMind/MyAPI/actions/runs/44793510797) · [首次升级专项](https://github.com/ForceMind/MyAPI/actions/runs/44793510797/job/136487066279)
 
+`9f9586a6` 上个人安装目录结构、相邻程序链接、私有备份目录和扩展属性拒绝的合成回归通过。第 1 次尝试的实际用户 Lite 在首次安装返回 `installation_incomplete`，没有进入备份预检。第 2 次在新运行器上通过首次安装，预检准确拒绝数据目录的 `system.posix_acl_access` 和 `system.posix_acl_default`，目录权限为 0700。两次尝试均为 14 个作业通过、1 个失败、9 个可选跳过。首次安装的底层错误未记录。[目录回归](https://github.com/ForceMind/MyAPI/actions/runs/44798974146/job/136505978789) · [首次安装中断](https://github.com/ForceMind/MyAPI/actions/runs/44798974146/job/136505978994) · [ACL 证据](https://github.com/ForceMind/MyAPI/actions/runs/44798974146/job/136519085597)
+
+本次原生备份修正限定为上述两种 POSIX ACL。写入新副本后逐个文件与目录核对，私有清单记录摘要并保留无 ACL 的旧清单读取能力。Actions 专项同时验收真实非特权服务、配置与收据、SQLite/WAL、新增账务和默认 Docker 备份。其余扩展属性沿用拒绝规则。
+
 ## 2026-11-20 八批连续开发 · 第 1 批 Linux 升级预检
 
 维护者已确认[八批顺序](PLAN_PHASE2.md)。本批入口为 `deploy/install-native.sh upgrade-plan`。复用首次安装记录、systemd 单元和签名声明，核对双方原始 Manifest、当前与目标二进制、活动进程实际打开的 SQLite 文件。在核验前后复查服务身份和配置，返回版本、数据库位置与停服步骤。GitHub Actions 专项使用隔离的系统 Full、用户 Lite，分别运行真实后端，使用两套明确标记的合成签名。旧安装、配置、数据库及进程保持和拒绝用例以本提交的完整 CI 及专项结果为准。正式发行签名材料另验。
@@ -15,6 +19,8 @@
 第 5 批并行源码核对已定位到 Key 创建抽屉。若创建已入库而响应丢失，现有 catch 会解禁原批次的保存且未提供查询入口。批量中此前成功的 ID 和计数也可能跳过交付。该项保留到核心体验批次，需验证查询已存结果、保留已确认进度、禁止重放。权重就地编辑、按渠道模型、已保存窗口时间、单日历筛选与正文/SSE 分段继续复用已有回归。浏览器未验证。
 
 从代码看，单渠道额度历史还有一处待验。请求按渠道、来源和窗口查询。`resolveQuotaHistorySeriesFilter` 补齐窗口口径，`quotaSameIdentity` 比较渠道和窗口字段，这条路径没有比对两次观测的账号身份。同一渠道更换账号时，两条成功记录可能被相减。第 5 批用两个不同的合成账号和一条身份未知的记录检验，保留原观测，对无法归属的变化显示未知。跨渠道汇总已有账号身份分组，沿用已有实现。[历史查询](../../../service/channel_quota_history.go) · [差值计算](../../../service/quota_consumption.go)
+
+从代码看，账号窗口总览给详情图的 `series_id` 是包含账号身份的 64 位十六进制摘要。详情图请求通用历史时没有传入该值，服务返回仅含窗口元数据的 `quota_` 摘要，页面会将这两者判为不同窗口。第 5 批须用目录实际发出的 ID 打开详情并回读同一 ID，保留不匹配拒绝。已有 Codex 专用历史提供了按公开 ID 选择账号、在范围过大时拒绝的做法。[详情图](../../../web/src/features/channels/components/channel-quota-detail-chart.tsx) · [已有账号选择](../../../controller/codex_usage.go)
 
 ## 2026-11-12 beta.57 账号额度窗口重置时间
 

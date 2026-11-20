@@ -229,73 +229,39 @@ try {
       return result
     } catch (error) {
       console.error(`MYAPI_NATIVE_PLAN_STAGE scope=${scope} stage=${stage} result=rejected code=${/^[a-z_]+$/.test(error.code ?? '') ? error.code : 'unknown'}`)
-      // Re-run only the installed helper's read-only preflight predicates.
-      // Diagnostics expose fixture categories and metadata, never file bytes,
-      // configuration values, credentials, xattr values or database records.
-      const diagnostic = String.raw`
-import importlib.util, inspect, io, json, os, stat, sys
-raw = sys.stdin.buffer.read(65537)
-request = json.loads(raw)
-assert request['action'] == 'preflight'
-sys.stdin = io.TextIOWrapper(io.BytesIO(raw))
-spec = importlib.util.spec_from_file_location('_native_fixture_diagnostic', sys.argv[1])
-helper = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(helper)
-roles = {request[k]: k for k in ('data', 'database', 'config', 'receipt', 'backup')}
-roles[os.path.dirname(request['backup'])] = 'backup-parent'
-for suffix in ('-wal', '-shm', '-journal'):
-    roles[request['database'] + suffix] = 'database' + suffix
-result = {}
-class Refusal(Exception):
-    pass
-def tracked(condition, code):
-    if condition:
-        return
-    frame = inspect.currentframe().f_back
-    result.update(check=frame.f_code.co_name, line=frame.f_lineno, code=code)
-    args = frame.f_locals
-    name = next((args[k] for k in ('filename', 'directory', 'current', 'source', 'value') if isinstance(args.get(k), str)), None)
-    if type(args.get('fd')) is int:
-        name = os.readlink('/proc/self/fd/' + str(args['fd']))
-    if name and os.path.isabs(name):
-        result['role'] = roles.get(name, 'other-entry')
-        try:
-            info = os.lstat(name)
-            result.update(uid=info.st_uid, mode=oct(stat.S_IMODE(info.st_mode)), nlink=info.st_nlink,
-                          xattr_names=sorted(os.listxattr(name, follow_symlinks=False)))
-        except OSError:
-            result['metadata'] = 'unavailable'
-    raise Refusal()
-helper.check = tracked
-helper.backup_data.bundle_check = tracked
-try:
-    helper.main()
-    result['code'] = 'accepted_on_recheck'
-except Refusal:
-    pass
-except Exception as error:
-    result.setdefault('code', type(error).__name__)
-print(json.dumps(result, separators=(',', ':')))
-`
-      const allPaths = Object.fromEntries([...plan.matchAll(/^(\w+): (\/.+)$/gm)].map(match => [match[1], match[2]]))
-      const database = path.join(paths.data, 'my-api.db')
-      const identity = await stat(database, { bigint: true })
-      try {
-        const result = execFileSync('/usr/bin/python3', ['-I', '-B', '-c', diagnostic,
-          fileURLToPath(new URL('../operations/native_sqlite_transition.py', import.meta.url))], {
-          encoding: 'utf8', timeout: 30_000, maxBuffer: 64 * 1024, stdio: ['pipe', 'pipe', 'pipe'],
-          input: JSON.stringify({ action: 'preflight', data: paths.data, database, device: String(identity.dev), inode: String(identity.ino),
-            backup: path.join(allPaths.backups, '0'.repeat(64)), config: paths.config, receipt: path.join(paths.state, 'installation.json') }),
-        })
-        console.error(`MYAPI_NATIVE_PLAN_DIAGNOSTIC scope=${scope} stage=${stage} ${result.trim()}`)
-      } catch {
-        console.error(`MYAPI_NATIVE_PLAN_DIAGNOSTIC scope=${scope} stage=${stage} result=unavailable`)
-      }
       throw error
     }
   }
 
   const database = path.join(paths.data, 'my-api.db')
+  // A personal service can inherit these two ACLs even on a mode-0700 data
+  // directory. Keep any inherited ACL. Supply a masked, fixture-only ACL
+  // when the disposable runner's new home has none.
+  function personalDataACLs(directory, prepare = false) {
+    const inspect = String.raw`
+import hashlib, json, os, stat, struct, sys
+directory, operation = sys.argv[1:]
+assert os.environ['GITHUB_ACTIONS'] == 'true' and os.geteuid() != 0
+assert os.path.realpath(directory) == directory and os.path.commonpath([os.environ['HOME'], directory]) == os.environ['HOME']
+fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+try:
+    info = os.fstat(fd)
+    assert info.st_uid == os.geteuid() and stat.S_IMODE(info.st_mode) == 0o700
+    checks = {}
+    for index, name in enumerate(('system.posix_acl_access', 'system.posix_acl_default')):
+        if operation == 'prepare' and name not in os.listxattr(fd):
+            undefined = 0xffffffff
+            entries = ((1, 7, undefined), (2, 0, 80001 + index), (4, 0, undefined), (16, 0, undefined), (32, 0, undefined))
+            acl = struct.pack('<I', 2) + b''.join(struct.pack('<HHI', *entry) for entry in entries)
+            os.setxattr(fd, name, acl, os.XATTR_CREATE)
+        checks[name] = hashlib.sha256(os.getxattr(fd, name)).hexdigest()
+    print(json.dumps(checks))
+finally:
+    os.close(fd)
+`
+    return JSON.parse(execFileSync('/usr/bin/python3', ['-I', '-B', '-c', inspect, directory, prepare ? 'prepare' : 'inspect'], { encoding: 'utf8' }))
+  }
+  const personalPermissions = scope === 'user' ? personalDataACLs(paths.data, true) : null
   const databaseIdentity = await stat(database, { bigint: true })
   const pid = Number(pidBefore.trim())
   assert.ok(Number.isSafeInteger(pid) && pid > 0)
@@ -685,6 +651,11 @@ print(json.dumps(result, separators=(',', ':')))
     assert.deepEqual(accounting('snapshot', path.join(backupInspection, path.relative(paths.data, database))), latestAccounting)
     assert.deepEqual(await readFile(path.join(upgraded.backup, 'config')), Buffer.from(config))
     assert.deepEqual(await readFile(path.join(upgraded.backup, 'receipt')), receiptBytes)
+    if (personalPermissions) {
+      assert.deepEqual(personalDataACLs(paths.data), personalPermissions)
+      assert.deepEqual(personalDataACLs(path.join(upgraded.backup, 'data')), personalPermissions)
+      console.log('MYAPI_NATIVE_ACL_PASS scope=user access_acl=true default_acl=true live_unchanged=true backup_matches=true')
+    }
     await unchangedExecution(async () => {
       assert.equal((await readNativeTransitionStatus(scope)).phase, 'committed')
       await assert.rejects(executeNativeTransition(confirmedInputs, verifyTransitionFixture), { code: 'native_confirmation_consumed' })

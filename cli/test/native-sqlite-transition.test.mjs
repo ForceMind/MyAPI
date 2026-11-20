@@ -14,6 +14,42 @@ const helper = fileURLToPath(new URL('../../tools/operations/native_sqlite_trans
 const secret = 'SYNTHETIC_NATIVE_ACCOUNTING_SECRET'
 const sha256 = value => createHash('sha256').update(value).digest('hex')
 
+// Linux POSIX ACL xattr format: version 2 followed by sorted 8-byte entries.
+// A named numeric user does not require or refer to an actual passwd entry.
+// Keep the access mask at zero for private files/directories, while retaining
+// nonempty named-user permissions that cannot collapse to a mode-only ACL.
+function posixAcl(namedUser, ownerPermissions, namedPermissions, maskPermissions = 0) {
+  const entries = [[0x01, ownerPermissions, 0xffffffff], [0x02, namedPermissions, namedUser],
+    [0x04, 0, 0xffffffff], [0x10, maskPermissions, 0xffffffff], [0x20, 0, 0xffffffff]]
+  const bytes = Buffer.alloc(4 + entries.length * 8)
+  bytes.writeUInt32LE(2, 0)
+  for (const [index, [tag, permissions, id]] of entries.entries()) {
+    bytes.writeUInt16LE(tag, 4 + index * 8)
+    bytes.writeUInt16LE(permissions, 6 + index * 8)
+    bytes.writeUInt32LE(id, 8 + index * 8)
+  }
+  return bytes.toString('hex')
+}
+
+async function aclFixture(operations) {
+  const program = `import errno,json,os,sys
+result=[]
+for operation in json.loads(sys.argv[1]):
+ for name,value in operation.get('set',{}).items(): os.setxattr(operation['path'],name,bytes.fromhex(value),follow_symlinks=False)
+ row={}
+ for name in dict.fromkeys(['system.posix_acl_access','system.posix_acl_default',*operation.get('set',{})]):
+  try: row[name]=os.getxattr(operation['path'],name,follow_symlinks=False).hex()
+  except OSError as error:
+   if error.errno != errno.ENODATA: raise
+   row[name]=None
+ result.append(row)
+print(json.dumps(result,separators=(',',':')))
+`
+  const { stdout } = await execute('python3', ['-I', '-B', '-c', program, JSON.stringify(operations)])
+  assert.equal(stdout.includes(secret), false)
+  return JSON.parse(stdout)
+}
+
 async function call(request, driver) {
   const args = driver ? ['-I', '-B', '-c', driver, helper] : ['-I', '-B', helper]
   const child = spawn('python3', args, { stdio: ['pipe', 'pipe', 'pipe'] })
@@ -138,6 +174,168 @@ test('accepts the exact B3c user layout while ignoring the adjacent current-rele
   assert.equal((await f.call('backup')).value.backupVerified, true)
   assert.equal((await f.call('check-stopped')).value.sourceUnchanged, true)
   assert.equal((await f.call('check-live')).value.historicalRowsVerified, true)
+})
+
+test('reads retained schema-1 native backups without attributing unrecorded ACLs', async t => {
+  const f = await fixture(t)
+  assert.equal((await f.call('backup')).value.backupVerified, true)
+  const toLegacy = String.raw`
+import hashlib, json, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+manifest = json.loads((root / 'manifest.json').read_bytes())
+assert manifest['schema'] == 2
+assert all('posix_acls' not in row for row in manifest['source'])
+for key in ('config', 'receipt'):
+    assert manifest[key].pop('permissions')['posix_acls'] == {}
+manifest['schema'] = 1
+def canonical(value):
+    return (json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(',', ':')) + '\n').encode()
+raw = canonical(manifest)
+(root / 'manifest.json').write_bytes(raw)
+(root / 'COMMITTED').write_bytes(canonical({'sha256': hashlib.sha256(raw).hexdigest()}))
+`
+  await execute('python3', ['-I', '-B', '-c', toLegacy, f.request.backup])
+  assert.equal((await f.call('check-stopped')).value.sourceUnchanged, true)
+  assert.equal((await f.call('check-live')).value.historicalRowsVerified, true)
+  await aclFixture([{ path: path.join(f.request.backup, 'config'),
+    set: { 'system.posix_acl_access': posixAcl(61016, 6, 4) } }])
+  assert.deepEqual((await f.call('check-stopped')).value, { ok: false, code: 'backup_unverified' })
+})
+
+test('preserves real nonempty access and default ACLs, clearing unrelated inherited ACLs from copies', async t => {
+  const f = await fixture(t, { userLayout: true })
+  const access = 'system.posix_acl_access', defaults = 'system.posix_acl_default'
+  const directoryAcl = posixAcl(61001, 7, 4)
+  const defaultAcl = posixAcl(61002, 7, 5, 5)
+  const parentDefault = posixAcl(62002, 7, 2, 2)
+  const plainDirectory = path.join(f.request.data, 'no-acl')
+  const plainFile = path.join(plainDirectory, 'plain')
+  // Create these before installing the source defaults: absence is deliberate.
+  await mkdir(plainDirectory, { mode: 0o700 })
+  await writeFile(plainFile, 'synthetic no-ACL payload', { mode: 0o600 })
+  const aclFiles = [f.request.database, f.request.database + '-wal',
+    path.join(f.request.data, 'uploads/history'), f.request.config, f.request.receipt]
+  const sourceDirectories = [f.request.data, path.join(f.request.data, 'uploads')]
+  const installed = await aclFixture([
+    ...sourceDirectories.map(filename => ({ path: filename, set: { [access]: directoryAcl, [defaults]: defaultAcl } })),
+    ...aclFiles.map((filename, index) => ({ path: filename, set: { [access]: posixAcl(61100 + index, 6, 4) } })),
+    { path: path.dirname(f.request.backup), set: { [defaults]: parentDefault } },
+  ])
+  for (let index = 0; index < sourceDirectories.length; index++) {
+    assert.deepEqual(installed[index], { [access]: directoryAcl, [defaults]: defaultAcl })
+  }
+  for (let index = 0; index < aclFiles.length; index++) {
+    assert.deepEqual(installed[sourceDirectories.length + index], { [access]: posixAcl(61100 + index, 6, 4), [defaults]: null })
+  }
+  assert.equal(installed.at(-1)[defaults], parentDefault)
+  assert.notEqual(directoryAcl, defaultAcl)
+  assert.notEqual(parentDefault, defaultAcl)
+  const noAcl = { [access]: null, [defaults]: null }
+  assert.deepEqual(await aclFixture([{ path: plainDirectory }, { path: plainFile }]), [noAcl, noAcl])
+  const original = await contentTree(f.request.data)
+  const sourceFiles = original.map(row => row.path === '.' ? f.request.data : path.join(f.request.data, row.path))
+  const sourceAcl = await aclFixture([...sourceFiles, f.request.config, f.request.receipt].map(filename => ({ path: filename })))
+  const config = await readFile(f.request.config), receipt = await readFile(f.request.receipt)
+  const database = await readFile(f.request.database), wal = await readFile(f.request.database + '-wal')
+  assert.ok(wal.length > 32)
+  assert.deepEqual((await f.call('preflight')).value, { ok: true, preflight: true })
+  assert.equal((await f.call('backup')).value.backupVerified, true)
+  const backupData = path.join(f.request.backup, 'data')
+  const copiedFiles = original.map(row => row.path === '.' ? backupData : path.join(backupData, row.path))
+  const copiedAcl = await aclFixture([...copiedFiles, path.join(f.request.backup, 'config'),
+    path.join(f.request.backup, 'receipt')].map(filename => ({ path: filename })))
+  assert.deepEqual(copiedAcl, sourceAcl, 'ACL bytes and ACL absence must match each source, not the backup parent')
+  assert.deepEqual(await contentTree(backupData), original)
+  assert.deepEqual(await contentTree(f.request.data), original)
+  assert.deepEqual(await readFile(path.join(backupData, 'my-api.db')), database)
+  assert.deepEqual(await readFile(path.join(backupData, 'my-api.db-wal')), wal)
+  assert.deepEqual(await readFile(path.join(f.request.backup, 'config')), config)
+  assert.deepEqual(await readFile(path.join(f.request.backup, 'receipt')), receipt)
+  assert.equal((await f.call('check-stopped')).value.sourceUnchanged, true)
+  assert.equal((await f.call('check-live')).value.historicalRowsVerified, true)
+  assert.deepEqual(await aclFixture([...copiedFiles, path.join(f.request.backup, 'config'),
+    path.join(f.request.backup, 'receipt')].map(filename => ({ path: filename }))), copiedAcl,
+  'both verification modes must leave copied access/default ACL bytes unchanged')
+  assert.deepEqual(await aclFixture([...sourceFiles, f.request.config, f.request.receipt].map(filename => ({ path: filename }))), sourceAcl)
+  assert.deepEqual(await readFile(f.request.database), database)
+  assert.deepEqual(await readFile(f.request.database + '-wal'), wal)
+  assert.deepEqual(await readFile(f.request.config), config)
+  assert.deepEqual(await readFile(f.request.receipt), receipt)
+})
+
+test('rejects valid ACL changes to backed-up directories, configuration and receipt without repairing them', async t => {
+  const access = 'system.posix_acl_access', defaults = 'system.posix_acl_default'
+  for (const [relative, attribute, originalAcl, changedAcl] of [
+    ['data', access, posixAcl(61001, 7, 4), posixAcl(61011, 7, 4)],
+    ['data/uploads', defaults, posixAcl(61002, 7, 5, 5), posixAcl(61012, 7, 5, 5)],
+    ['data/my-api.db-wal', access, posixAcl(61005, 6, 4), posixAcl(61015, 6, 4)],
+    ['config', access, posixAcl(61003, 6, 4), posixAcl(61013, 6, 4)],
+    ['receipt', access, posixAcl(61004, 6, 4), posixAcl(61014, 6, 4)],
+  ]) {
+    await t.test(`${relative}:${attribute}`, async t => {
+      const f = await fixture(t)
+      const source = relative === 'config' ? f.request.config : relative === 'receipt' ? f.request.receipt
+        : relative === 'data' ? f.request.data : path.join(f.request.data, relative.slice('data/'.length))
+      assert.equal((await aclFixture([{ path: source, set: { [attribute]: originalAcl } }]))[0][attribute], originalAcl)
+      assert.equal((await f.call('backup')).value.backupVerified, true)
+      const target = path.join(f.request.backup, relative)
+      assert.equal((await aclFixture([{ path: target }]))[0][attribute], originalAcl)
+      const bytesBefore = await contentTree(path.join(f.request.backup, 'data'))
+      const configBefore = await readFile(path.join(f.request.backup, 'config'))
+      const receiptBefore = await readFile(path.join(f.request.backup, 'receipt'))
+      const modeBefore = (await lstat(target)).mode
+      assert.equal((await aclFixture([{ path: target, set: { [attribute]: changedAcl } }]))[0][attribute], changedAcl)
+      assert.equal((await lstat(target)).mode, modeBefore, 'tampering changes ACL identity without changing POSIX mode')
+      assert.deepEqual(await contentTree(path.join(f.request.backup, 'data')), bytesBefore)
+      for (const action of ['check-stopped', 'check-live']) {
+        assert.deepEqual((await f.call(action)).value, { ok: false, code: 'backup_unverified' })
+        assert.equal((await aclFixture([{ path: target }]))[0][attribute], changedAcl, 'verification must not repair ACLs')
+      }
+      assert.deepEqual(await readFile(path.join(f.request.backup, 'config')), configBefore)
+      assert.deepEqual(await readFile(path.join(f.request.backup, 'receipt')), receiptBefore)
+    })
+  }
+})
+
+test('rejects changed source ACLs and actual unsupported xattrs while default Docker copies still refuse ACLs', async t => {
+  const f = await fixture(t)
+  const access = 'system.posix_acl_access', defaults = 'system.posix_acl_default'
+  const acl = posixAcl(61001, 7, 4)
+  assert.equal((await aclFixture([{ path: f.request.data, set: { [access]: acl } }]))[0][access], acl)
+  assert.equal((await f.call('backup')).value.backupVerified, true)
+  const changed = posixAcl(61002, 7, 4)
+  assert.equal((await aclFixture([{ path: f.request.data, set: { [access]: changed } }]))[0][access], changed)
+  assert.deepEqual((await f.call('check-stopped')).value, { ok: false, code: 'source_changed' })
+
+  const unsupported = await fixture(t)
+  const extra = Buffer.from('synthetic non-ACL metadata').toString('hex')
+  const observed = await aclFixture([{ path: unsupported.request.data,
+    set: { [access]: acl, [defaults]: posixAcl(61003, 7, 5, 5), 'user.myapi_synthetic_unsupported': extra } }])
+  assert.equal(observed[0][access], acl)
+  assert.equal(observed[0]['user.myapi_synthetic_unsupported'], extra)
+  const original = await contentTree(unsupported.request.data)
+  for (const action of ['preflight', 'backup']) {
+    assert.deepEqual((await unsupported.call(action)).value, { ok: false, code: 'extended_metadata_unsupported' })
+  }
+  await assert.rejects(lstat(path.join(unsupported.request.backup, 'COMMITTED')), { code: 'ENOENT' })
+  assert.deepEqual(await contentTree(unsupported.request.data), original)
+
+  const target = path.join(f.directory, 'default-docker-copy')
+  const program = `import json,runpy,sys
+module=runpy.run_path(sys.argv[1],run_name='_default_bundle_acl_test')
+result={}
+for action in ('tree','copy'):
+ try:
+  if action=='tree': module['bundle_tree'](sys.argv[2],1024*1024,100)
+  else: module['bundle_copy'](sys.argv[2],sys.argv[3],1024*1024,100)
+ except module['BundleFailure'] as error: result[action]=str(error)
+ else: result[action]='unexpectedly_accepted'
+print(json.dumps(result))
+`
+  const { stdout } = await execute('python3', ['-I', '-B', '-c', program,
+    fileURLToPath(new URL('../../tools/operations/backup_data.py', import.meta.url)), f.request.data, target])
+  assert.deepEqual(JSON.parse(stdout), { tree: 'BUNDLE_EXTENDED_METADATA_UNSUPPORTED', copy: 'BUNDLE_EXTENDED_METADATA_UNSUPPORTED' })
+  assert.deepEqual(await readdir(target), [])
 })
 
 test('distinguishes unsafe user paths and private metadata without weakening their rejection', async t => {
