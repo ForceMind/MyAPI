@@ -44,7 +44,7 @@ on:
         type: boolean
         default: false
       run_native_install_qualification:
-        description: 'Qualify Linux first installation and read-only native transition plans with isolated signed fixtures'
+        description: 'Qualify native installation, confirmed upgrade, accounting backup and interrupted status on disposable runners'
         type: boolean
         default: false
       baseline_red:
@@ -1434,10 +1434,23 @@ jobs:
           PY
 
   native-install-qualification:
-    name: Linux first installation and read-only transition plans
+    name: Native ${{ matrix.edition }} ${{ matrix.scenario }} qualification
     if: github.event_name == 'workflow_dispatch' && inputs.run_native_install_qualification && github.ref == 'refs/heads/dev' && github.repository == 'ForceMind/MyAPI'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - edition: full
+            scenario: upgrade
+            user_lite: true
+          - edition: lite
+            scenario: upgrade
+            user_lite: false
+          - edition: full
+            scenario: interrupt
+            user_lite: false
     permissions:
       contents: read
     steps:
@@ -1457,6 +1470,9 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: '22'
+      - name: Verify live SQLite reader and WAL ownership under the system service identity
+        if: matrix.edition == 'full' && matrix.scenario == 'upgrade'
+        run: sudo "$(command -v node)" --test --test-name-pattern='root reads live SQLite' cli/test/native-sqlite-transition.test.mjs
       - name: Build current and newer source-bound native fixtures
         run: |
           set -euo pipefail
@@ -1465,10 +1481,10 @@ jobs:
           touch web/dist/index.html
           go build -ldflags "-X github.com/ForceMind/MyAPI/common.Version=$(cat VERSION)" -o "$RUNNER_TEMP/myapi-native-qualification" .
           # The newer local fixture is authenticated by test-only signatures.
-          # It is not published and is never started in this read-only batch.
+          # It is started only by the confirmed upgrade fixture, never published.
           target_version="$(node --input-type=module -e 'import { readFileSync } from "node:fs"; const [, major, minor, patch] = readFileSync("VERSION", "utf8").trim().match(/^(\d+)\.(\d+)\.(\d+)/); console.log(`${major}.${minor}.${BigInt(patch) + 1n}`)')"
           go build -ldflags "-X github.com/ForceMind/MyAPI/common.Version=$target_version" -o "$RUNNER_TEMP/myapi-native-transition-target" .
-      - name: Qualify system Full and user Lite installation and read-only plans
+      - name: Qualify isolated system native lifecycle
         run: |
           set -euo pipefail
           test "$(ps -p 1 -o comm=)" = systemd
@@ -1488,6 +1504,8 @@ jobs:
           sudo mkdir -m 755 "$root"
           for file in VERSION my-api.service deploy/install-native.sh deploy/my-api-user.service cli/lib/native-install.mjs \
             cli/lib/native-package-verification.mjs cli/lib/native-transition.mjs cli/lib/release-manifest.mjs cli/lib/canonical-artifact-reference.mjs \
+            cli/lib/native-transition-record.mjs cli/lib/native-service-stop.mjs cli/lib/native-service-ref.py \
+            tools/operations/native_sqlite_transition.py tools/operations/backup_data.py \
             tools/runtime/native-install-qualification.mjs; do
             sudo install -D -m 644 "$file" "$root/$file"
           done
@@ -1496,7 +1514,21 @@ jobs:
           node_path="$(command -v node)"
           qualification=(GITHUB_ACTIONS=true "GITHUB_REPOSITORY=$GITHUB_REPOSITORY" "GITHUB_REF=$GITHUB_REF"
             "GITHUB_EVENT_NAME=$GITHUB_EVENT_NAME" "GITHUB_SHA=$GITHUB_SHA")
-          sudo env "${qualification[@]}" "$node_path" "$root/tools/runtime/native-install-qualification.mjs" system "$root/my-api" "$root/my-api-transition-target"
+          sudo env "${qualification[@]}" "$node_path" "$root/tools/runtime/native-install-qualification.mjs" system "$root/my-api" "$root/my-api-transition-target" '${{ matrix.edition }}' '${{ matrix.scenario }}'
+      - name: Qualify separate unprivileged user Lite lifecycle
+        if: matrix.user_lite
+        run: |
+          set -euo pipefail
+          root=/opt/myapi-native-qualification
+          account=myapi-ci-personal
+          node_path="$(command -v node)"
+          qualification=(GITHUB_ACTIONS=true "GITHUB_REPOSITORY=$GITHUB_REPOSITORY" "GITHUB_REF=$GITHUB_REF"
+            "GITHUB_EVENT_NAME=$GITHUB_EVENT_NAME" "GITHUB_SHA=$GITHUB_SHA")
+          test ! -e "/home/$account" && test ! -L "/home/$account"
+          if getent passwd "$account" > /dev/null || getent group "$account" > /dev/null; then
+            echo 'The qualification account already exists.'
+            exit 1
+          fi
           sudo useradd --create-home --user-group "$account"
           uid="$(id -u "$account")"
           sudo loginctl enable-linger "$account"
@@ -1504,7 +1536,7 @@ jobs:
           sudo -H -u "$account" env -u XDG_DATA_HOME -u XDG_CONFIG_HOME -u XDG_STATE_HOME -u XDG_CACHE_HOME \
             "${qualification[@]}" "XDG_RUNTIME_DIR=/run/user/$uid" \
             "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus" \
-            "$node_path" "$root/tools/runtime/native-install-qualification.mjs" user "$root/my-api" "$root/my-api-transition-target"
+            "$node_path" "$root/tools/runtime/native-install-qualification.mjs" user "$root/my-api" "$root/my-api-transition-target" lite upgrade
 
   distribution-contract:
     name: Distribution and release contracts

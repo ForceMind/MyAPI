@@ -73,7 +73,7 @@ async function layout(scope) {
   return { paths, roots, unit }
 }
 
-async function stageBinary(source, target) {
+export async function stageBinary(source, target) {
   const file = await open(source, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK)
   try {
     const info = await file.stat()
@@ -98,7 +98,7 @@ export async function nativeAccountEntry(database) {
 }
 
 export async function nativeServiceState(manager) {
-  const args = ['show', unitName, '--property=LoadState,ActiveState,MainPID,FragmentPath,DropInPaths,NeedDaemonReload,InvocationID']
+  const args = ['show', unitName, '--property=LoadState,ActiveState,SubState,MainPID,ControlPID,FragmentPath,DropInPaths,NeedDaemonReload,InvocationID,Result,ExecMainPID,ExecMainCode,ExecMainStatus,ExecMainStartTimestampMonotonic']
   let stdout
   try {
     ({ stdout } = await manager(args))
@@ -129,7 +129,7 @@ async function assertFresh({ roots, paths, manager, scope, uid, port }) {
   if (stdout.trim()) refuse('port_conflict', `TCP port ${port} is already in use.`)
 }
 
-async function waitForService(manager, paths, port, receipt) {
+export async function waitForService(manager, paths, port, receipt) {
   const installed = await stat(paths.binary)
   const deadline = Date.now() + 60_000
   while (Date.now() < deadline) {
@@ -167,7 +167,7 @@ export async function nativeServiceContext(scope) {
   const { paths, roots, unit } = await layout(scope)
   const runtime = scope === 'system' ? '/run' : `/run/user/${uid}`
   const env = scope === 'system' ? commandEnv : { ...commandEnv, XDG_RUNTIME_DIR: runtime, DBUS_SESSION_BUS_ADDRESS: `unix:path=${runtime}/bus` }
-  const manager = args => exec('systemctl', [...(scope === 'user' ? ['--user'] : []), ...args], { env, timeout: 20_000 })
+  const manager = (args, timeout = 20_000) => exec('systemctl', [...(scope === 'user' ? ['--user'] : []), ...args], { env, timeout })
   return { paths, roots, unit, manager, scope, uid, runtime }
 }
 

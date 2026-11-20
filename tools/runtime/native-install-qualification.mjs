@@ -1,24 +1,28 @@
 import assert from 'node:assert/strict'
 import { execFileSync, spawn } from 'node:child_process'
-import { createHash, generateKeyPairSync, sign, verify } from 'node:crypto'
+import { createHash, generateKeyPairSync, randomBytes, sign, verify } from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { lstat, mkdir, mkdtemp, readFile, readdir, readlink, realpath, rename, rm, rmdir, stat, unlink, writeFile } from 'node:fs/promises'
+import { appendFile, copyFile, cp, lstat, mkdir, mkdtemp, readFile, readdir, readlink, realpath, rename, rm, rmdir, stat, truncate, unlink, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { userInfo } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { installNative } from '../../cli/lib/native-install.mjs'
 import { verifyNativePackage, verifyNativeTransitionPackages } from '../../cli/lib/native-package-verification.mjs'
-import { planNativeTransition } from '../../cli/lib/native-transition.mjs'
+import { executeNativeTransition, planNativeTransition, readNativeTransitionStatus } from '../../cli/lib/native-transition.mjs'
 
 assert.equal(process.env.GITHUB_ACTIONS, 'true')
 assert.equal(process.env.GITHUB_REPOSITORY, 'ForceMind/MyAPI')
 assert.equal(process.env.GITHUB_EVENT_NAME, 'workflow_dispatch')
 assert.equal(process.env.GITHUB_REF, 'refs/heads/dev')
-const [scope, binary, targetBinary] = process.argv.slice(2)
+const [scope, binary, targetBinary, requestedEdition = scope === 'system' ? 'full' : 'lite', executionMode = 'upgrade'] = process.argv.slice(2)
 assert.ok(['system', 'user'].includes(scope))
 assert.ok(path.isAbsolute(binary))
 assert.ok(path.isAbsolute(targetBinary))
+assert.ok(['full', 'lite'].includes(requestedEdition))
+assert.ok(scope !== 'user' || requestedEdition === 'lite')
+assert.ok(['upgrade', 'interrupt'].includes(executionMode))
+assert.ok(executionMode !== 'interrupt' || scope === 'system')
 const uid = process.getuid()
 assert.equal(uid === 0, scope === 'system')
 const manager = args => execFileSync('systemctl', [...(scope === 'user' ? ['--user'] : []), ...args], {
@@ -36,16 +40,62 @@ if (scope === 'user') {
 for (const filename of Object.values(paths)) await assert.rejects(stat(filename), { code: 'ENOENT' })
 
 const version = (await readFile(new URL('../../VERSION', import.meta.url), 'utf8')).trim()
-// A source-bound CI fixture, built with a newer version but never launched in
-// this read-only batch. This is not a published release or a migration test.
+// A source-bound CI fixture with a newer version, first inspected read-only,
+// then started only in the explicitly authorized upgrade qualification.
 const [major, minor, patch] = version.match(/^(\d+)\.(\d+)\.(\d+)/).slice(1)
 const targetVersion = `${major}.${minor}.${BigInt(patch) + 1n}`
-const edition = scope === 'system' ? 'full' : 'lite'
+const edition = requestedEdition
 const port = scope === 'system' ? '21951' : '21952'
 const hash = createHash('sha256')
 for await (const chunk of createReadStream(binary)) hash.update(chunk)
 const sha256 = hash.digest('hex')
 const scratch = await mkdtemp('/tmp/myapi-native-qualification-')
+const accountingFixture = String.raw`
+import json, os, pathlib, sqlite3, stat, sys
+request = json.load(sys.stdin)
+assert os.environ.get('GITHUB_ACTIONS') == 'true'
+database = request['database']
+assert os.path.isabs(database) and os.path.realpath(database) == database
+info = os.lstat(database)
+assert stat.S_ISREG(info.st_mode) and info.st_nlink == 1
+action = request['action']
+assert action in ('seed', 'charge', 'snapshot')
+db = sqlite3.connect(pathlib.Path(database).as_uri() + ('?mode=ro' if action == 'snapshot' else '?mode=rw'), uri=True, timeout=10)
+db.row_factory = sqlite3.Row
+try:
+    if action == 'seed':
+        db.execute('BEGIN IMMEDIATE')
+        assert db.execute('SELECT count(*) FROM users WHERE id=900001').fetchone()[0] == 0
+        assert db.execute('SELECT count(*) FROM tokens WHERE id=900001').fetchone()[0] == 0
+        # Disabled synthetic identities; no login or provider request is made.
+        db.execute('INSERT INTO users (id,username,password,display_name,role,status,quota,quota_version,used_quota,request_count,aff_code,setting) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', (900001,'native-fixture','!synthetic-no-login','Native fixture',1,2,100012,2,11,1,'native-fixture','{}'))
+        db.execute('INSERT INTO tokens (id,user_id,key,status,name,created_time,accessed_time,expired_time,remain_quota,used_quota,quota_version,credential_version,unlimited_quota,model_limits_enabled,model_limits,allow_ips,"group",access_profile_id,cross_group_retry,auto_groups) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', (900001,900001,request['token_secret'],2,'native-synthetic',1700000000,0,-1,89989,11,1,1,0,0,'','','default','standard',0,'[]'))
+        db.execute('INSERT INTO admin_quota_adjustments (admin_user_id,target_user_id,request_id,operation,delta,target_quota,applied_quota_before,applied_quota_after,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)', (900001,900001,'native-synthetic-adjustment','add',23,100023,100000,100023,'succeeded',1700000000,1700000000))
+        db.execute('INSERT INTO logs (user_id,created_at,type,content,username,token_name,model_name,quota,prompt_tokens,completion_tokens,use_time,is_stream,channel_id,token_id,"group",ip,request_id,upstream_request_id,other) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', (900001,1700000001,2,'synthetic fixture; no provider request','native-fixture','native-synthetic','synthetic-no-provider',11,0,0,0,0,0,900001,'default','127.0.0.1','native-synthetic-baseline','','{"synthetic":true}'))
+        db.commit()
+    elif action == 'charge':
+        db.execute('BEGIN IMMEDIATE')
+        assert db.execute('SELECT count(*) FROM logs WHERE request_id=?', ('native-synthetic-after-plan',)).fetchone()[0] == 0
+        assert db.execute('UPDATE users SET quota=quota-17,used_quota=used_quota+17,request_count=request_count+1,quota_version=quota_version+1 WHERE id=900001 AND quota=100012 AND used_quota=11').rowcount == 1
+        assert db.execute('UPDATE tokens SET remain_quota=remain_quota-17,used_quota=used_quota+17,quota_version=quota_version+1 WHERE id=900001 AND remain_quota=89989 AND used_quota=11').rowcount == 1
+        db.execute('INSERT INTO logs (user_id,created_at,type,content,username,token_name,model_name,quota,prompt_tokens,completion_tokens,use_time,is_stream,channel_id,token_id,"group",ip,request_id,upstream_request_id,other) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', (900001,1700000002,2,'synthetic committed after plan; no provider request','native-fixture','native-synthetic','synthetic-no-provider',17,0,0,0,0,0,900001,'default','127.0.0.1','native-synthetic-after-plan','','{"synthetic":true,"units":17}'))
+        db.commit()
+    else:
+        db.execute('PRAGMA query_only=ON')
+    def rows(statement):
+        return [dict(row) for row in db.execute(statement)]
+    value = {
+        'users': rows('SELECT id,username,status,quota,quota_version,used_quota,request_count,self_use_no_balance,usage_policy_revision FROM users WHERE id=900001'),
+        'tokens': rows('SELECT id,user_id,name,status,remain_quota,used_quota,quota_version,credential_version,unlimited_quota,model_limits_enabled,model_limits,"group",expired_time FROM tokens WHERE id=900001'),
+        'logs': rows('SELECT id,user_id,request_id,token_id,quota,prompt_tokens,completion_tokens,type,content,other FROM logs WHERE user_id=900001 ORDER BY id'),
+        'adjustments': rows('SELECT * FROM admin_quota_adjustments WHERE target_user_id=900001 ORDER BY id'),
+        'options': rows('SELECT "key",value FROM options ORDER BY "key"'),
+    }
+    assert len(value['users']) == 1 and len(value['tokens']) == 1 and len(value['adjustments']) == 1
+    print(json.dumps(value,separators=(',',':')))
+finally:
+    db.close()
+`
 try {
   const manifest = path.join(scratch, 'manifest.json')
   const bytes = Buffer.from(JSON.stringify({
@@ -107,7 +157,8 @@ try {
   }
   assert.equal(installed.status, 'healthy')
   assert.equal(installed.sha256, sha256)
-  const receipt = JSON.parse(await readFile(path.join(paths.state, 'installation.json'), 'utf8'))
+  const receiptBytes = await readFile(path.join(paths.state, 'installation.json'))
+  const receipt = JSON.parse(receiptBytes)
   assert.equal(receipt.sha256, sha256)
   assert.equal(receipt.sourceSha, process.env.GITHUB_SHA)
   assert.equal(receipt.edition, edition)
@@ -375,7 +426,198 @@ try {
     const result = await guardExited
     assert.deepEqual(result, { code: 0, signal: null }, guardError)
   }
-  manager(['stop', 'my-api.service'])
+
+  const databaseOwner = await stat(database)
+  const accounting = (action, filename = database) => JSON.parse(execFileSync('python3', ['-I', '-B', '-c', accountingFixture], {
+    encoding: 'utf8', timeout: 30_000,
+    input: JSON.stringify({ action, database: filename, ...(action === 'seed' ? { token_secret: randomBytes(32).toString('hex') } : {}) }),
+    ...(scope === 'system' && action !== 'snapshot' ? { uid: databaseOwner.uid, gid: databaseOwner.gid } : {}),
+  }))
+  const seededAccounting = accounting('seed')
+  assert.equal(seededAccounting.users[0].quota, 100012)
+  assert.equal(seededAccounting.users[0].used_quota, 11)
+  assert.equal(seededAccounting.tokens[0].remain_quota, 89989)
+  assert.equal(seededAccounting.logs.length, 1)
+  assert.equal(seededAccounting.adjustments[0].delta, 23)
+
+  const candidateBinary = path.join(scratch, 'execution-candidate')
+  await copyFile(targetBinary, candidateBinary)
+  const executionInputs = { ...transitionInputs, package: candidateBinary }
+  const executionPaths = Object.fromEntries([...plan.matchAll(/^(\w+): (\/.+)$/gm)].map(match => [match[1], match[2]]))
+  const stateFile = path.join(paths.state, 'native-transition.json')
+  async function executionSnapshot() {
+    const files = {}
+    async function visit(filename) {
+      // The user release root also contains live data. Verify synthetic
+      // accounting below; exclude autonomous task rows and SQLite lock bytes
+      // rather than take an unsafe byte snapshot of a running database.
+      if ([paths.data, executionPaths.logs, executionPaths.cache].includes(filename)) return
+      let info
+      try { info = await lstat(filename, { bigint: true }) } catch (error) {
+        if (error.code !== 'ENOENT') throw error
+        files[filename] = null
+        return
+      }
+      const metadata = [String(info.dev), String(info.ino), String(info.mode), String(info.uid), String(info.gid)]
+      if (info.isDirectory()) {
+        files[filename] = [...metadata, 'directory']
+        for (const name of (await readdir(filename)).sort()) await visit(path.join(filename, name))
+      } else if (info.isSymbolicLink()) files[filename] = [...metadata, 'symlink', await readlink(filename)]
+      else {
+        assert.ok(info.isFile())
+        const digest = createHash('sha256')
+        for await (const chunk of createReadStream(filename)) digest.update(chunk)
+        files[filename] = [...metadata, String(info.size), digest.digest('hex')]
+      }
+    }
+    for (const filename of [path.dirname(executionPaths.releases), paths.config, paths.unit, paths.state, executionPaths.backups]) await visit(filename)
+    return { files, accounting: accounting('snapshot'),
+      pid: manager(['show', 'my-api.service', '--property=MainPID', '--value']),
+      active: manager(['show', 'my-api.service', '--property=ActiveState', '--value']),
+      activeBinary: await realpath(paths.binary) }
+  }
+  async function unchangedExecution(action) {
+    const before = await executionSnapshot()
+    try { return await action() } finally {
+      assert.deepEqual(await executionSnapshot(), before, 'A refused or repeated confirmation must not stop, restart, back up or change accounting')
+    }
+  }
+  const approval = await planNativeTransition(executionInputs, verifyTransitionFixture)
+  assert.match(approval.confirmation, /^[a-f0-9]{64}$/)
+  await unchangedExecution(() => assert.rejects(executeNativeTransition(executionInputs, verifyTransitionFixture), { code: 'native_confirmation_required' }))
+  await writeFile(paths.config, config + '# qualification changed after confirmation\n')
+  try {
+    await unchangedExecution(() => assert.rejects(executeNativeTransition({ ...executionInputs, confirm: approval.confirmation }, verifyTransitionFixture), { code: 'native_confirmation_stale' }))
+  } finally { await writeFile(paths.config, config) }
+
+  const targetBytes = await readFile(targetManifest)
+  await appendFile(targetManifest, ' ')
+  try {
+    await unchangedExecution(() => assert.rejects(executeNativeTransition({ ...executionInputs, confirm: approval.confirmation }, verifyTransitionFixture), { code: 'signature_rejected' }))
+  } finally { await writeFile(targetManifest, targetBytes) }
+  const candidateSize = (await stat(candidateBinary)).size
+  await appendFile(candidateBinary, 'qualification digest changed after plan')
+  try {
+    await unchangedExecution(() => assert.rejects(executeNativeTransition({ ...executionInputs, confirm: approval.confirmation }, verifyTransitionFixture), { code: 'digest_mismatch' }))
+  } finally { await truncate(candidateBinary, candidateSize) }
+
+  const lockDirectory = path.join(scope === 'system' ? '/run' : `/run/user/${uid}`, 'myapi-native-install')
+  await mkdir(lockDirectory, { mode: 0o700 })
+  try {
+    await unchangedExecution(() => assert.rejects(executeNativeTransition({ ...executionInputs, confirm: approval.confirmation }, verifyTransitionFixture), { code: 'installation_busy' }))
+  } finally { await rmdir(lockDirectory) }
+
+  const executionPlan = await planNativeTransition(executionInputs, verifyTransitionFixture)
+  assert.match(executionPlan.confirmation, /^[a-f0-9]{64}$/)
+  const latestAccounting = accounting('charge')
+  assert.equal(latestAccounting.users[0].quota, 99995)
+  assert.equal(latestAccounting.users[0].used_quota, 28)
+  assert.equal(latestAccounting.tokens[0].remain_quota, 89972)
+  assert.equal(latestAccounting.tokens[0].used_quota, 28)
+  assert.equal(latestAccounting.logs.length, 2)
+  assert.equal(latestAccounting.logs[1].request_id, 'native-synthetic-after-plan')
+  assert.deepEqual(latestAccounting.adjustments, seededAccounting.adjustments)
+  const confirmedInputs = { ...executionInputs, confirm: executionPlan.confirmation }
+  if (executionMode === 'interrupt') {
+    const interruptPayload = path.join(scratch, 'interrupt-input.json')
+    await writeFile(interruptPayload, JSON.stringify({ inputs: confirmedInputs, version,
+      currentKey: key.publicKey.export({ type: 'spki', format: 'pem' }),
+      targetKey: targetKey.publicKey.export({ type: 'spki', format: 'pem' }) }), { flag: 'wx', mode: 0o600 })
+    const interruptProgram = String.raw`
+      import { readFile } from 'node:fs/promises';
+      import { verify } from 'node:crypto';
+      const { executeNativeTransition } = await import(process.argv[1]);
+      const { verifyNativeTransitionPackages } = await import(process.argv[2]);
+      const fixture = JSON.parse(await readFile(process.argv[3], 'utf8'));
+      const authenticated = (inputs, installed, currentBinary, operation) => verifyNativeTransitionPackages(inputs, installed, currentBinary, operation, {
+        arch: 'amd64', bootstrapVersion: fixture.version,
+        async verifySignature(raw, inputs, arch, tag) {
+          const bundle = JSON.parse(await readFile(inputs.bundle, 'utf8'));
+          const key = tag === 'v' + fixture.version ? fixture.currentKey : fixture.targetKey;
+          if (!verify(null, raw, key, Buffer.from(bundle.signature, 'base64'))) throw Object.assign(new Error('Fixture signature rejected'), { code: 'signature_rejected' });
+        }
+      });
+      await executeNativeTransition(fixture.inputs, authenticated, { onPhase: async phase => {
+        if (phase === 'stopped') process.exit(73);
+      }});
+      process.exit(74);
+    `
+    assert.throws(() => execFileSync(process.execPath, ['--input-type=module', '--eval', interruptProgram,
+      new URL('../../cli/lib/native-transition.mjs', import.meta.url).href,
+      new URL('../../cli/lib/native-package-verification.mjs', import.meta.url).href, interruptPayload], {
+      encoding: 'utf8', timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'],
+    }), error => {
+      assert.equal(error.status, 73, error.stderr)
+      return true
+    })
+    const interrupted = await readNativeTransitionStatus(scope)
+    assert.equal(interrupted.phase, 'stopped')
+    assert.equal(interrupted.service.state, 'inactive')
+    assert.equal(Number(interrupted.service.pid), 0)
+    assert.equal(interrupted.activeBinary, currentBinaryBefore)
+    const interruptedDatabase = await stat(database, { bigint: true })
+    assert.equal(interruptedDatabase.dev, databaseIdentity.dev)
+    assert.equal(interruptedDatabase.ino, databaseIdentity.ino)
+    assert.deepEqual(accounting('snapshot'), latestAccounting)
+    assert.equal(await readFile(paths.config, 'utf8'), config)
+    assert.deepEqual(await readFile(paths.unit), unitBefore)
+    await unchangedExecution(async () => {
+      assert.deepEqual(await readNativeTransitionStatus(scope), interrupted)
+      assert.deepEqual(JSON.parse(execFileSync('bash', [shellEntry, 'transition-status', '--scope', scope], { encoding: 'utf8' })), interrupted)
+      await assert.rejects(executeNativeTransition(confirmedInputs, verifyTransitionFixture), { code: 'native_transition_pending' })
+    })
+    assert.equal(JSON.parse(await readFile(stateFile, 'utf8')).phase, 'stopped')
+    console.log(`MYAPI_NATIVE_TRANSITION_INTERRUPT_PASS scope=${scope} edition=${edition} real_service=true persisted_phase=stopped child_exit=73 replay_refused=true restarted=false accounting_preserved=true manual_state_preserved=true`)
+  } else {
+    const upgraded = await executeNativeTransition(confirmedInputs, verifyTransitionFixture)
+    assert.equal(upgraded.status, 'healthy')
+    assert.equal(upgraded.operation, 'upgrade')
+    assert.equal(upgraded.current.version, version)
+    assert.equal(upgraded.target.version, targetVersion)
+    assert.equal(upgraded.database, database)
+    assert.equal(upgraded.accountingVerified, true)
+    assert.ok(path.isAbsolute(upgraded.backup))
+    const databaseAfter = await stat(database, { bigint: true })
+    assert.equal(databaseAfter.dev, databaseIdentity.dev)
+    assert.equal(databaseAfter.ino, databaseIdentity.ino)
+    assert.deepEqual(accounting('snapshot'), latestAccounting)
+    assert.equal(await readFile(paths.config, 'utf8'), config)
+    assert.deepEqual(await readFile(paths.unit), unitBefore)
+    const currentStatus = await readNativeTransitionStatus(scope)
+    assert.equal(currentStatus.phase, 'committed')
+    assert.equal(currentStatus.service.state, 'active')
+    const newPid = Number(manager(['show', 'my-api.service', '--property=MainPID', '--value']).trim())
+    assert.ok(newPid > 0 && newPid !== pid)
+    assert.equal(currentStatus.service.pid, newPid)
+    assert.equal(currentStatus.activeBinary, await realpath(paths.binary))
+    assert.notEqual(currentStatus.activeBinary, currentBinaryBefore)
+    const targetExecutable = await stat(`/proc/${newPid}/exe`, { bigint: true })
+    const installedExecutable = await stat(paths.binary, { bigint: true })
+    assert.equal(targetExecutable.dev, installedExecutable.dev)
+    assert.equal(targetExecutable.ino, installedExecutable.ino)
+    const statusResponse = await fetch(`http://127.0.0.1:${port}/api/status`, { redirect: 'error', signal: AbortSignal.timeout(2_000) })
+    assert.equal(statusResponse.ok, true)
+    const statusBody = await statusResponse.json()
+    assert.equal(statusBody.success, true)
+    assert.equal(statusBody.data.version, targetVersion)
+    assert.equal(statusBody.data.product_edition, edition)
+    const newReceipt = JSON.parse(await readFile(path.join(paths.state, 'installation.json'), 'utf8'))
+    assert.equal(newReceipt.version, targetVersion)
+    assert.equal(newReceipt.sha256, targetSha256)
+    // Read only a disposable copy: SQLite lock/SHM coordination must not alter
+    // the committed backup tree while proving the after-plan record is there.
+    const backupInspection = path.join(scratch, 'backup-inspection')
+    await cp(path.join(upgraded.backup, 'data'), backupInspection, { recursive: true, errorOnExist: true, force: false })
+    assert.deepEqual(accounting('snapshot', path.join(backupInspection, path.relative(paths.data, database))), latestAccounting)
+    assert.deepEqual(await readFile(path.join(upgraded.backup, 'config')), Buffer.from(config))
+    assert.deepEqual(await readFile(path.join(upgraded.backup, 'receipt')), receiptBytes)
+    await unchangedExecution(async () => {
+      assert.equal((await readNativeTransitionStatus(scope)).phase, 'committed')
+      await assert.rejects(executeNativeTransition(confirmedInputs, verifyTransitionFixture), { code: 'native_confirmation_consumed' })
+    })
+    console.log(`MYAPI_NATIVE_TRANSITION_EXECUTE_PASS scope=${scope} edition=${edition} same_database=true accounting_preserved=true after_plan_record_backed_up=true real_target_healthy=true repeated_confirmation_refused=true signature_change_refused=true digest_change_refused=true active_lock_refused=true configuration_preserved=true`)
+    manager(['stop', 'my-api.service'])
+  }
   assert.equal(manager(['show', 'my-api.service', '--property=MainPID', '--value']).trim(), '0')
   assert.ok((await stat(path.join(paths.data, 'my-api.db'))).isFile())
   console.log(`MYAPI_NATIVE_INSTALL_PASS scope=${scope} edition=${edition} health=true configuration_preserved=true port_conflict=true signature_refusal=true repeat_refusal=true stopped=true`)

@@ -1,5 +1,11 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-20 八批连续开发 · 第 2 批 Linux 确认升级
+
+第 1 批已验收。`8753e669` 的完整 Actions 有 13 个作业成功、9 个可选作业跳过，前端 421 个测试文件、3,457 项测试通过。Linux 的系统 Full 与非特权用户 Lite 均通过运行中预检、双签名与拒绝场景。预检前后服务 PID、程序与数据库身份一致，目标程序没有启动。[完整 CI](https://github.com/ForceMind/MyAPI/actions/runs/44785958630) · [原生专项](https://github.com/ForceMind/MyAPI/actions/runs/44785958630/job/136460988033)
+
+第 2 批入口为 `upgrade-plan`、`upgrade --confirm` 和 `transition-status`。确认绑定程序、签名材料、运行代际、配置和数据库身份。最新数据在原进程排空后备份。程序切换后回读原数据库、历史账务和状态接口，中断时保留持久阶段供管理员核对。GitHub Actions 的目标矩阵是系统 Full、系统 Lite、用户 Lite，另在一次性系统实例中于停服后中断。本批实测结果以对应提交的完整作业及专项为准。[操作说明](../../NATIVE_LINUX.md)
+
 ## 2026-11-20 八批连续开发 · 第 1 批 Linux 升级预检
 
 维护者已确认[八批顺序](PLAN_PHASE2.md)。本批入口为 `deploy/install-native.sh upgrade-plan`。复用首次安装记录、systemd 单元和签名声明，核对双方原始 Manifest、当前与目标二进制、活动进程实际打开的 SQLite 文件。在核验前后复查服务身份和配置，返回版本、数据库位置与停服步骤。GitHub Actions 专项使用隔离的系统 Full、用户 Lite，分别运行真实后端，使用两套明确标记的合成签名。旧安装、配置、数据库及进程保持和拒绝用例以本提交的完整 CI 及专项结果为准。正式发行签名材料另验。

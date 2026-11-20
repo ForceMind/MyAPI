@@ -29,6 +29,29 @@ bash deploy/install-native.sh upgrade-plan --scope system --edition full --tag "
 
 Use `upgrade-plan` on a running managed system or user installation. Supply both original release manifests with their respective signature bundles, the target binary and the pinned local trust material. Success identifies the installed and target versions, service PID, actual SQLite file and the steps that would require downtime. The configuration and data schema versions come from the signed declarations. A refusal returns exit code 2 and identifies the record, service, database or release material to inspect. This command leaves the service running.
 
+## 确认升级与查看结果 / Confirm an upgrade and inspect its result
+
+先读上一步返回的当前版本、目标版本、数据库路径和停服步骤。在可以短暂停机时，将该结果的 `confirmation` 原样放入 `CONFIRMATION`，使用与预检相同的本地发行文件。需要宿主的 `/usr/bin/python3`、SQLite 标准库和 systemd。系统服务用 root，用户服务用创建该服务的账户。
+
+```bash
+bash deploy/install-native.sh upgrade --scope system --edition full --tag "$TARGET_TAG" \
+  --current-manifest "$CURRENT_MANIFEST" --current-bundle "$CURRENT_BUNDLE" \
+  --manifest "$TARGET_MANIFEST" --bundle "$TARGET_BUNDLE" --package "$TARGET_BINARY" \
+  --cosign "$COSIGN" --root "$TRUSTED_ROOT" --confirm "$CONFIRMATION"
+```
+
+程序会重新验签并核对运行现场。在确认原进程已排空并退出后，将此刻的数据目录、SQLite 及存在的 WAL、配置和安装记录保存到 `backups/<confirmation>/`。核验备份后才切换程序。新服务继续打开原数据库。状态接口、配置、数据库身份和历史账务均能读回时，结果为 `status: healthy`。预检后正常新增的账务纳入本次备份。启用 Redis 批量记账的实例，其待写金额无法从本地 SQLite 核实，命令会提示检查。
+
+Review the source version, target version, database and downtime first. Run `upgrade` with the same local release files and the exact confirmation from the plan. The installer checks the running process again, verifies its clean stop, backs up the latest data and SQLite sidecars, verifies the backup, and switches the program. A healthy result includes the backup path and accounting check. The service continues using the same database.
+
+```bash
+bash deploy/install-native.sh transition-status --scope system
+```
+
+用户服务将 `system` 换成 `user`。`phase` 显示最近一次写入安装记录的步骤，`activeBinary` 和 `service` 显示当前指针、服务状态和 PID。`committed` 表示升级已经核验并记录。`stopped` 表示旧进程已确认退出。`*_requested` 表示操作已经登记、结果还有待核对。遇到断电、响应丢失或状态不明，先看此输出，再检查安装记录中的路径和服务日志。保留最新数据库、WAL、备份和未完成的记录。再次提交同一确认不会重跑。
+
+Use `--scope user` for a personal service. After interruption, inspect the recorded phase, selected program and service process before taking action. A requested phase records intent. The service or files may have changed since that phase was written. A repeated confirmation does not replay the operation.
+
 ## 首次安装 / First installation
 
 将 `verify-package` 替换为 `install` 并传入相同参数。系统服务需要 root，支持 Full 和 Lite。用户服务需以目标用户运行，支持 Lite，并需要已运行的 systemd 用户管理器。两种方式均需系统提供 `ss`，系统安装还使用 `getent` 和 `useradd` 创建专用账号。
@@ -52,9 +75,9 @@ Run from a reviewed MyAPI source checkout with Bash. These preview commands need
 bash deploy/install-native.sh --help
 ```
 
-成功时会显示预览、包核验和首次安装命令。缺参数、未知 scope 或重复参数会被拒绝。升级、回退和卸载安排在后续批次。
+帮助列出预览、包核验、首次安装、升级和状态查询命令。缺参数、未知 scope 或重复参数会被拒绝。
 
-The help lists preview, verification and first installation commands. Missing, duplicate or unknown arguments fail. Upgrade, rollback and uninstall are planned separately.
+The help lists the preview, verification, first install, upgrade and status commands. Missing, duplicate or unknown arguments fail.
 
 ## 2. 系统服务：只看计划 / Preview a system service
 
@@ -130,8 +153,8 @@ Review the rendered result, not the placeholder template. Paths remain positiona
 
 A successful preview is not a working installation. Artifact trust, configuration, database compatibility, startup, shutdown and recovery still require their own implementation and evidence. An unconfirmed stop is never permission to replace or restore data.
 
-首次安装使用上文的 `install`，已运行的服务使用 `upgrade-plan`。当前与目标的生产签名材料须由受信发行提供。程序切换、回退和保数据卸载按后续批次交付。自动更新保持关闭。
+首次安装使用上文的 `install`。已运行的服务先用 `upgrade-plan`，确认停机窗口后执行 `upgrade`。当前与目标的生产签名材料须由受信发行提供。程序回退与保数据卸载按后续批次交付。
 
-Use `install` for a fresh service and `upgrade-plan` to inspect a running service. Production signature materials must come from the trusted release. Program switching, rollback and data-preserving uninstall are subsequent batches. Automatic updates remain off.
+Use `install` for a fresh service. On a running installation, review `upgrade-plan` and confirm `upgrade` in the downtime window. Supply the production signature materials from the trusted release. Code rollback and data-preserving uninstall are subsequent batches.
 
 容器数据保护另见 [备份与隔离恢复](BACKUP_RESTORE.md)。系统 Full 和非特权用户 Lite 的首次安装已有真实 systemd 证据。[首次安装 CI](https://github.com/ForceMind/MyAPI/actions/runs/43147688471)

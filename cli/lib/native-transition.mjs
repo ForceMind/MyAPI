@@ -1,40 +1,22 @@
-import { createHash } from 'node:crypto'
-import { constants } from 'node:fs'
-import { lstat, open, readFile, readdir, readlink, realpath, stat } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
+import { createHash, randomUUID } from 'node:crypto'
+import { chmod, lstat, mkdir, mkdtemp, open, readFile, readdir, readlink, realpath, rename, rmdir, stat, statfs, symlink, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { checkNativeDirectory, nativeAccountEntry, nativeServiceContext, nativeServiceState } from './native-install.mjs'
-import { parseNativePackageArgs, verifyNativeTransitionPackages } from './native-package-verification.mjs'
+import { checkNativeDirectory, nativeAccountEntry, nativeServiceContext, nativeServiceState, stageBinary, waitForService } from './native-install.mjs'
+import { binaryDigest, parseNativePackageArgs, readDocument, verifyNativeTransitionPackages } from './native-package-verification.mjs'
+import { prepareNativeServiceStop } from './native-service-stop.mjs'
+import { isNativeReleaseIdentity, managedFile, nativeEntry, nativeReadFlags as readFlags, readNativeJournal, readNativeTransitionStatus, refuseNative as refuse, requireSettledTransition, storeNativeRecord, syncNativePath } from './native-transition-record.mjs'
 import { compareSemver } from './release-manifest.mjs'
 
-const readFlags = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
-const storeKeys = new Set(['SQL_DSN', 'LOG_SQL_DSN', 'SQLITE_PATH'])
-const unitName = 'my-api.service'
+export { readNativeTransitionStatus }
 
-function refuse(code, message) {
-  throw Object.assign(new Error(message), { code })
-}
+const storeKeys = new Set(['SQL_DSN', 'LOG_SQL_DSN', 'SQLITE_PATH', 'BATCH_UPDATE_ENABLED', 'PORT', 'MYAPI_BIND_ADDRESS', 'MYAPI_EDITION'])
+const unitName = 'my-api.service'
+const sqliteHelper = fileURLToPath(new URL('../../tools/operations/native_sqlite_transition.py', import.meta.url))
 
 function unknownDatabase() {
   refuse('native_sqlite_mismatch', 'Check the SQLite path and main/log database settings in the service configuration. 请核对服务配置中的 SQLite 路径和主库、日志库设置。')
-}
-
-async function managedText(filename, uid, privateFile, errorCode) {
-  await checkNativeDirectory(path.dirname(filename), uid)
-  const file = await open(filename, readFlags).catch(() => refuse(errorCode, 'Check the managed file: ' + filename))
-  try {
-    const info = await file.stat()
-    if (!info.isFile() || info.uid !== uid || info.nlink !== 1 || (info.mode & (privateFile ? 0o077 : 0o022)) ||
-        info.size < 1 || info.size > 4 * 1024 * 1024) {
-      refuse(errorCode, 'Check the owner, permissions and contents of ' + filename)
-    }
-    const bytes = Buffer.alloc(info.size + 1)
-    const { bytesRead } = await file.read(bytes, 0, bytes.length, 0)
-    if (bytesRead !== info.size) refuse(errorCode, 'The managed file changed while being read: ' + filename)
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, bytesRead))
-  } finally {
-    await file.close()
-  }
 }
 
 // Read systemd EnvironmentFile assignments as data. Consume multiline values,
@@ -115,7 +97,7 @@ async function sqliteFile(dsn, data) {
   return resolved
 }
 
-async function runningDatabase(context, pid, config, serviceUid) {
+async function runningDatabase(context, pid, config, serviceUid, record) {
   const { paths, manager } = context
   const saved = databaseSettings(config)
   const live = new Map()
@@ -128,7 +110,7 @@ async function runningDatabase(context, pid, config, serviceUid) {
   // A user manager can inject variables omitted by an edited EnvironmentFile.
   // B3c configurations explicitly clear both DSNs and need no manager lookup.
   const inherited = new Map()
-  if (context.scope === 'user' && (!saved.has('SQL_DSN') || !saved.has('LOG_SQL_DSN'))) {
+  if (context.scope === 'user' && [...storeKeys].some(key => key !== 'SQLITE_PATH' && !saved.has(key))) {
     const { stdout } = await manager(['show-environment'])
     for (const line of stdout.split('\n')) {
       const [key] = line.split('=', 1)
@@ -146,6 +128,19 @@ async function runningDatabase(context, pid, config, serviceUid) {
   for (const key of ['SQL_DSN', 'LOG_SQL_DSN']) {
     for (const dsn of [live.get(key), saved.get(key) ?? inherited.get(key)]) {
       if (dsn && !dsn.startsWith('local')) unknownDatabase()
+    }
+  }
+  // SQLite alone cannot prove pending balances of the optional Redis batch
+  // writer. Never stop that writer or change its flag on the user's behalf.
+  if ([live.get('BATCH_UPDATE_ENABLED'), saved.get('BATCH_UPDATE_ENABLED') ?? inherited.get('BATCH_UPDATE_ENABLED')]
+    .some(setting => setting && setting !== 'false')) {
+    refuse('native_batch_writer_unknown', '无法从 SQLite 核对批量记账的待写金额。请检查当前记账方式。 / Pending batch balances cannot be verified from SQLite.')
+  }
+  const defaults = { PORT: '3000', MYAPI_EDITION: 'full', MYAPI_BIND_ADDRESS: '' }
+  const expected = { PORT: String(record.port), MYAPI_EDITION: record.edition, MYAPI_BIND_ADDRESS: '127.0.0.1' }
+  for (const [key, value] of Object.entries(expected)) {
+    if ((live.get(key) || defaults[key]) !== value || ((saved.get(key) ?? inherited.get(key)) || defaults[key]) !== value) {
+      refuse('native_listener_mismatch', '请核对已安装服务的监听地址、端口和版本形态。 / Check the saved listener, port and edition before stopping.')
     }
   }
   const database = await sqliteFile(live.get('SQLITE_PATH'), paths.data)
@@ -173,10 +168,11 @@ async function runningDatabase(context, pid, config, serviceUid) {
   }
 }
 
-async function liveInstallation(inputs, context) {
+async function liveInstallation(inputs, context, expectedRelease) {
   const { scope, uid, paths, manager, unit } = context
   const receiptPath = path.join(paths.state, 'installation.json')
-  const raw = await managedText(receiptPath, uid, true, 'invalid_installation_record')
+  const receiptFile = await managedFile(receiptPath, uid, true, 'invalid_installation_record')
+  const raw = receiptFile.text
   let record
   try {
     record = JSON.parse(raw)
@@ -191,17 +187,25 @@ async function liveInstallation(inputs, context) {
       record.binary !== paths.binary || record.config !== paths.config || record.unit !== paths.unit) {
     refuse('invalid_installation_record', 'Check the edition, installed artifact and paths in ' + receiptPath)
   }
+  if (record.ownedReleases !== undefined && (!Array.isArray(record.ownedReleases) ||
+      !record.ownedReleases.every(isNativeReleaseIdentity) || !record.ownedReleases.some(item =>
+        item.version === record.version && item.artifact === record.artifact && item.sha256 === record.sha256 && item.sourceSha === record.sourceSha))) {
+    refuse('invalid_installation_record', '请核对安装记录中的版本归属。 / Check the release inventory in ' + receiptPath)
+  }
   const installed = Object.fromEntries(['version', 'sourceSha', 'artifact', 'sha256', 'edition', 'scope', 'arch'].map(k => [k, record[k]]))
   installed.sourceSha = installed.sourceSha.toLowerCase()
   installed.sha256 = installed.sha256.toLowerCase()
-  const binary = path.join(paths.releases, record.version, record.artifact, 'my-api')
+  if (expectedRelease) Object.assign(installed, expectedRelease)
+  const binary = path.join(paths.releases, installed.version, installed.artifact, 'my-api')
   const unexpected = () => refuse('native_service_mismatch', 'Check the running service, unit and current release. 请核对运行中的服务、单元文件和当前程序目录。')
   await checkNativeDirectory(path.dirname(binary), uid)
-  const [state, unitText, config] = await Promise.all([
+  const [state, unitFile, configFile] = await Promise.all([
     nativeServiceState(manager),
-    managedText(paths.unit, uid, false, 'native_service_mismatch'),
-    managedText(paths.config, uid, true, 'native_sqlite_mismatch'),
+    managedFile(paths.unit, uid, false, 'native_service_mismatch'),
+    managedFile(paths.config, uid, true, 'native_sqlite_mismatch'),
   ])
+  const unitText = unitFile.text
+  const config = configFile.text
   const pid = state.MainPID
   if (state.ActiveState !== 'active' || state.LoadState !== 'loaded' || state.FragmentPath !== paths.unit ||
       state.DropInPaths !== '' || state.NeedDaemonReload !== 'no' || !/^[1-9]\d*$/.test(pid) ||
@@ -216,39 +220,279 @@ async function liveInstallation(inputs, context) {
   if (selected !== binary || !metadata.isFile() || metadata.uid !== BigInt(uid) || (metadata.mode & 0o022n) ||
       metadata.dev !== exe.dev || metadata.ino !== exe.ino || cwd !== paths.data ||
       !dataRoot.isDirectory() || dataRoot.uid !== serviceUid || !serviceUid || serviceUid !== expectedUid) unexpected()
-  const { database, id } = await runningDatabase(context, pid, config, serviceUid)
+  const pointer = path.dirname(paths.binary)
+  const selectedLink = await lstat(pointer, { bigint: true }).catch(unexpected)
+  if (!selectedLink.isSymbolicLink() || selectedLink.uid !== BigInt(uid) ||
+      await readlink(pointer) !== path.relative(path.dirname(pointer), path.dirname(binary))) unexpected()
+  const { database, id } = await runningDatabase(context, pid, config, serviceUid, record)
+  const filesIdentity = createHash('sha256').update(JSON.stringify([receiptFile, configFile, unitFile])).digest('hex')
+  const settingsIdentity = createHash('sha256').update(JSON.stringify([configFile, unitFile])).digest('hex')
   const identity = createHash('sha256').update(JSON.stringify([
-    raw, config, unitText, state.InvocationID, pid, binary, String(metadata.dev), String(metadata.ino),
+    filesIdentity, state.InvocationID, pid, binary, String(selectedLink.ino), String(selectedLink.ctimeNs), String(metadata.dev), String(metadata.ino),
     String(metadata.ctimeNs), database, id,
   ])).digest('hex')
-  return { installed, binary, database, service: { name: unitName, scope, pid: Number(pid) }, identity }
+  return { installed, record, binary, database, databaseId: id, filesIdentity, settingsIdentity, invocationId: state.InvocationID,
+    service: { name: unitName, scope, pid: Number(pid) }, identity }
+}
+
+async function signedDocuments(inputs) {
+  const keys = ['current-manifest', 'current-bundle', 'manifest', 'bundle']
+  const digests = await Promise.all(keys.map(async key =>
+    createHash('sha256').update(await readDocument(inputs[key])).digest('hex')))
+  return digests.join(':')
+}
+
+async function inspectTransition(inputs, context, verifyPackages) {
+  const before = await liveInstallation(inputs, context)
+  const documents = await signedDocuments(inputs)
+  const transition = await verifyPackages(inputs, before.installed, before.binary, 'upgrade')
+  const after = await liveInstallation(inputs, context)
+  if (after.identity !== before.identity || await signedDocuments(inputs) !== documents) {
+    refuse('native_state_changed', 'The installation or signed inputs changed during verification. 请重新检查安装和签名文件。')
+  }
+  // SQLite contents can legitimately grow between plan and confirm. Its
+  // path/inode are bound in identity; its latest contents are captured after stop.
+  const confirmation = createHash('sha256').update(JSON.stringify(['native-confirm-v1', before.identity, transition, documents])).digest('hex')
+  return { before, transition, confirmation, documents }
+}
+
+function nativeSQLite(action, context, inspection) {
+  const { paths } = context
+  const { before, confirmation } = inspection
+  const [device, inode] = before.databaseId.split(':')
+  const backup = path.join(paths.backups, confirmation)
+  const request = { action, data: paths.data, database: before.database, device, inode, backup,
+    config: paths.config, receipt: path.join(paths.state, 'installation.json') }
+  return new Promise((resolve, reject) => {
+    const child = execFile('/usr/bin/python3', ['-I', '-B', sqliteHelper], {
+      env: { PATH: '/usr/bin:/bin', LC_ALL: 'C' }, timeout: 15 * 60_000, maxBuffer: 64 * 1024,
+    }, (error, stdout) => {
+      let reply
+      try { reply = JSON.parse(stdout) } catch { /* No confirmed result. */ }
+      if (!error && reply?.ok === true &&
+          (action === 'preflight' ? reply.preflight === true : action === 'check-work' ? reply.workSettled === true : reply.backup === backup &&
+            reply.backupVerified === true && reply.accountingVerified === true &&
+            (action !== 'check-stopped' || reply.sourceUnchanged === true) &&
+            (action !== 'check-live' || reply.historicalRowsVerified === true))) {
+        resolve(reply)
+        return
+      }
+      const code = /^[a-z_]{1,96}$/.test(reply?.code ?? '') ? reply.code : 'native_sqlite_check_unavailable'
+      const reasons = {
+        work_pending: '仍有运行中或结果待核对的任务。请先查看任务和账务记录。 / Review pending tasks and accounting before switching.',
+        no_space: '备份与核验需要更多可用磁盘空间。 / More backup space is required.',
+        source_changed: '原始文件或数据库身份发生变化。请查看 transition-status。 / Inspect the current files and service.',
+        accounting_changed: '历史账务与备份不一致，请保留最新数据库并查看 transition-status。 / Reconcile the historical records against the backup.',
+        accounting_unknown: '有账务字段无法核对，请保留最新数据库并查看 transition-status。 / Historical accounting could not be verified.',
+        backup_unverified: '备份缺少可靠校验结果，请查看 transition-status。 / Inspect the unverified backup.',
+      }
+      const reason = reasons[code] ?? 'SQLite 核验未通过。请检查数据权限和升级状态。 / Review SQLite permissions and transition-status.'
+      reject(Object.assign(new Error(reason), { code }))
+    })
+    child.stdin.on('error', () => {}) // execFile reports early exit/spawn failure.
+    child.stdin.end(JSON.stringify(request))
+  })
+}
+
+async function assertNewRelease(context, target, sourcePackage) {
+  const { paths, uid } = context
+  await checkNativeDirectory(paths.releases, uid)
+  const directory = path.join(paths.releases, target.version)
+  if (await nativeEntry(directory)) {
+    refuse('native_release_conflict', '目标版本目录已存在，请核对其归属。 / The target release directory already exists.')
+  }
+  const [disk, source] = await Promise.all([statfs(paths.releases, { bigint: true }), lstat(sourcePackage, { bigint: true })])
+  if (!source.isFile() || disk.bavail * disk.bsize < source.size) {
+    refuse('native_stage_unavailable', '请检查程序文件和版本目录的剩余空间。 / Check the package and available staging space.')
+  }
+  return path.join(directory, target.artifact)
+}
+
+function requireSamePlan(actual, expected) {
+  if (actual !== expected) refuse('native_confirmation_stale', '预检后现场或签名材料已变化，请重新运行 upgrade-plan。 / Run the plan again for this installation.')
 }
 
 export async function planNativeTransition(inputs, verifyPackages = verifyNativeTransitionPackages) {
   const context = await nativeServiceContext(inputs.scope)
-  const before = await liveInstallation(inputs, context)
-  const transition = await verifyPackages(inputs, before.installed, before.binary, 'upgrade')
-  const after = await liveInstallation(inputs, context)
-  if (after.identity !== before.identity) {
-    refuse('native_state_changed', 'The running installation changed during verification. 请重新检查运行中的安装。')
-  }
+  requireSettledTransition(await readNativeJournal(context))
+  const inspection = await inspectTransition(inputs, context, verifyPackages)
+  const { before, transition, confirmation } = inspection
+  await assertNewRelease(context, transition.target, inputs.package)
+  await nativeSQLite('preflight', context, inspection)
+  requireSamePlan((await liveInstallation(inputs, context)).identity, before.identity)
   return {
-    eligible: true, ...transition, database: before.database, service: before.service,
+    eligible: true, ...transition, confirmation, database: before.database, service: before.service,
     steps: ['确认后排空并停止服务 / Drain and stop after confirmation',
       '备份并核验最新 SQLite / Back up and verify the latest SQLite data',
       '切换程序后核对服务和账务 / Switch the program and check service and accounting'],
   }
 }
 
+async function assertStoppedInstallation(context, before, expectedBinary) {
+  const { paths, uid, manager, unit } = context
+  const [receipt, config, unitFile, state, database, pointer] = await Promise.all([
+    managedFile(path.join(paths.state, 'installation.json'), uid, true, 'invalid_installation_record'),
+    managedFile(paths.config, uid, true, 'native_configuration_changed'),
+    managedFile(paths.unit, uid, false, 'native_service_mismatch'), nativeServiceState(manager),
+    lstat(before.database, { bigint: true }), lstat(path.dirname(paths.binary)),
+  ])
+  if (unitFile.text !== unit || createHash('sha256').update(JSON.stringify([receipt, config, unitFile])).digest('hex') !== before.filesIdentity ||
+      state.LoadState !== 'loaded' || state.FragmentPath !== paths.unit || state.DropInPaths !== '' || state.NeedDaemonReload !== 'no' ||
+      state.ActiveState !== 'inactive' || state.MainPID !== '0' || state.ControlPID !== '0' ||
+      (state.ExecMainPID !== '0' && state.ExecMainPID !== String(before.service.pid)) ||
+      (state.InvocationID && !/^0{32}$/.test(state.InvocationID) && state.InvocationID !== before.invocationId) ||
+      !database.isFile() || database.nlink !== 1n || database.dev + ':' + database.ino !== before.databaseId ||
+      !pointer.isSymbolicLink() || pointer.uid !== uid || await realpath(paths.binary) !== expectedBinary ||
+      await readlink(path.dirname(paths.binary)) !== path.relative(path.dirname(path.dirname(paths.binary)), path.dirname(expectedBinary))) {
+    refuse('native_state_changed', '服务、指针、数据或配置已变化，请查看 transition-status。 / Inspect the current stopped installation.')
+  }
+}
+
+export async function executeNativeTransition(inputs, verifyPackages = verifyNativeTransitionPackages, { onPhase } = {}) {
+  if (!/^[0-9a-f]{64}$/.test(inputs.confirm ?? '')) {
+    refuse('native_confirmation_required', '请将刚才预检的 confirmation 传给 --confirm。 / Supply the confirmation from the plan.')
+  }
+  const context = await nativeServiceContext(inputs.scope)
+  const { paths, runtime, uid, manager } = context
+  requireSettledTransition(await readNativeJournal(context), inputs.confirm)
+  const lock = path.join(runtime, 'myapi-native-install')
+  await checkNativeDirectory(runtime, uid)
+  try { await mkdir(lock, { mode: 0o700 }) } catch (error) {
+    if (error.code === 'EEXIST') refuse('installation_busy', '已有安装操作持锁。请查看 transition-status。 / Another operation holds the installation lock.')
+    throw error
+  }
+  let stagedDirectory
+  let drain
+  let recorded = false
+  try {
+    const previous = await readNativeJournal(context)
+    requireSettledTransition(previous, inputs.confirm)
+    const inspection = await inspectTransition(inputs, context, verifyPackages)
+    const { before, transition, confirmation } = inspection
+    requireSamePlan(confirmation, inputs.confirm)
+    const release = await assertNewRelease(context, transition.target, inputs.package)
+    await waitForService(manager, paths, before.record.port, before.installed)
+    stagedDirectory = await mkdtemp(path.join(paths.releases, '.native-stage-'))
+    const staged = path.join(stagedDirectory, 'my-api')
+    await stageBinary(inputs.package, staged)
+    const stagedInputs = { ...inputs, package: staged }
+    const verified = await inspectTransition(stagedInputs, context, verifyPackages)
+    requireSamePlan(verified.confirmation, confirmation)
+    await chmod(staged, 0o755)
+    await syncNativePath(staged)
+    await syncNativePath(stagedDirectory)
+    // Staging and backups can share a filesystem. Check remaining capacity
+    // with the verified binary already on disk, while the old service is live.
+    await nativeSQLite('preflight', context, inspection)
+    await nativeSQLite('check-work', context, inspection)
+    drain = await prepareNativeServiceStop(context, before.service)
+
+    const backup = path.join(paths.backups, confirmation)
+    const journal = { schema: 1, scope: context.scope, confirmation, operation: transition.operation,
+      current: transition.current, target: transition.target, backup }
+    const journalPath = path.join(paths.state, 'native-transition.json')
+    const checkpoint = async phase => {
+      await storeNativeRecord(journalPath, { ...journal, phase }, phase === 'prepared' && !previous)
+      recorded = true
+      if (onPhase) await onPhase(phase)
+    }
+    await checkpoint('prepared')
+    await checkpoint('stop_requested')
+    requireSamePlan((await liveInstallation(inputs, context)).identity, before.identity)
+    if ((await drain.stop())?.drained !== true) refuse('native_stop_unconfirmed', '无法确认服务已排空。 / Service drain is unconfirmed.')
+    await checkpoint('stopped')
+    await assertStoppedInstallation(context, before, before.binary)
+
+    await checkpoint('backup_requested')
+    await nativeSQLite('backup', context, inspection)
+    await checkpoint('backed_up')
+    // Verify the bytes which will be started and both original signed
+    // declarations once more before changing any live program pointer.
+    const checked = await verifyPackages(stagedInputs, before.installed, before.binary, transition.operation)
+    requireSamePlan(JSON.stringify(checked), JSON.stringify(transition))
+    requireSamePlan(await signedDocuments(inputs), inspection.documents)
+    await nativeSQLite('check-stopped', context, inspection)
+    await assertStoppedInstallation(context, before, before.binary)
+    await checkpoint('switch_requested')
+    const versionDirectory = path.dirname(release)
+    await mkdir(versionDirectory, { mode: 0o755 })
+    await chmod(versionDirectory, 0o755)
+    await chmod(stagedDirectory, 0o755)
+    await rename(stagedDirectory, release)
+    stagedDirectory = null
+    await syncNativePath(versionDirectory)
+    await syncNativePath(paths.releases)
+    const pointer = path.dirname(paths.binary)
+    const base = path.dirname(pointer)
+    const next = path.join(base, '.native-current-' + randomUUID())
+    await symlink(path.relative(base, release), next)
+    try {
+      await assertStoppedInstallation(context, before, before.binary)
+      await rename(next, pointer)
+    } finally {
+      await unlink(next).catch(error => { if (error.code !== 'ENOENT') throw error })
+    }
+    await syncNativePath(base)
+    await checkpoint('switched')
+    const nextBinary = path.join(release, 'my-api')
+    await assertStoppedInstallation(context, before, nextBinary)
+    if (await binaryDigest(nextBinary, before.record.arch) !== transition.target.sha256) {
+      refuse('digest_mismatch', '启动前程序摘要不符。 / Installed binary digest changed before start.')
+    }
+    await checkpoint('start_requested')
+    await manager(['start', unitName])
+    await waitForService(manager, paths, before.record.port, { ...before.installed, ...transition.target })
+    await checkpoint('started')
+    const current = await liveInstallation(inputs, context, transition.target)
+    if (current.databaseId !== before.databaseId || current.filesIdentity !== before.filesIdentity) {
+      refuse('native_state_changed', '启动后数据或配置身份不符。 / Check the running database and configuration.')
+    }
+    await nativeSQLite('check-live', context, inspection)
+    requireSamePlan((await liveInstallation(inputs, context, transition.target)).identity, current.identity)
+    // Keep signed release identities for future provenance checks. This
+    // inventory is not permission to remove any data or unrecognized file.
+    const known = Array.isArray(before.record.ownedReleases) ? before.record.ownedReleases : []
+    const ownedReleases = [...known.filter(item => ![transition.current, transition.target].some(release =>
+      item.version === release.version && item.artifact === release.artifact)),
+      transition.current, transition.target]
+    await checkpoint('receipt_requested')
+    await storeNativeRecord(path.join(paths.state, 'installation.json'), { ...before.record, ...transition.target, ownedReleases })
+    const committed = await liveInstallation(inputs, context)
+    if (committed.databaseId !== before.databaseId || committed.settingsIdentity !== before.settingsIdentity || committed.service.pid !== current.service.pid ||
+        committed.installed.sha256 !== transition.target.sha256) {
+      refuse('native_state_changed', '核对新安装记录时现场变化。 / Inspect the installation record.')
+    }
+    await checkpoint('committed')
+    return { status: 'healthy', ...transition, backup, database: before.database, accountingVerified: true }
+  } finally {
+    try {
+      if (drain) await drain.close()
+    } finally {
+      try {
+        if (stagedDirectory && !recorded) {
+          await unlink(path.join(stagedDirectory, 'my-api')).catch(error => { if (error.code !== 'ENOENT') throw error })
+          await rmdir(stagedDirectory)
+        }
+      } finally { await rmdir(lock) }
+    }
+  }
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   Promise.resolve().then(async () => {
+    const [action, ...args] = process.argv.slice(2)
+    if (action === 'transition-status') {
+      if (args.length !== 2 || args[0] !== '--scope') refuse('invalid_arguments', 'Supply --scope system or --scope user.')
+      return readNativeTransitionStatus(args[1])
+    }
+    if (!['upgrade-plan', 'upgrade'].includes(action)) refuse('invalid_arguments', 'Select upgrade-plan, upgrade or transition-status.')
     const extra = ['current-manifest', 'current-bundle']
-    const inputs = parseNativePackageArgs(process.argv.slice(2), extra)
+    const inputs = parseNativePackageArgs(args, action === 'upgrade' ? [...extra, 'confirm'] : extra)
     if (extra.some(key => !inputs[key])) refuse('invalid_arguments', 'Supply both --current-manifest and --current-bundle.')
-    console.log(JSON.stringify(await planNativeTransition(inputs)))
-  }).catch(error => {
+    return action === 'upgrade' ? executeNativeTransition(inputs) : planNativeTransition(inputs)
+  }).then(result => console.log(JSON.stringify(result))).catch(error => {
     const code = /^[a-z_]+$/.test(error.code ?? '') ? error.code : 'inspection_failed'
-    const reason = code === 'inspection_failed' ? 'Check the installation record, file permissions and systemd. 请核对安装记录、文件权限和 systemd。' : error.message
+    const reason = code === 'inspection_failed' ? '请核对文件和 systemd，再用 transition-status 查看实际进度。 / Check files, systemd and transition-status.' : error.message
     console.error(JSON.stringify({ eligible: false, code, reason }))
     process.exitCode = 2
   })

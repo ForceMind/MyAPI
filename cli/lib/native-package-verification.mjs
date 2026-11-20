@@ -25,7 +25,7 @@ function refuse(code, message) {
   throw Object.assign(new Error(message), { code })
 }
 
-async function readDocument(filename) {
+export async function readDocument(filename) {
   const file = await open(filename, inputFlags)
   try {
     const stat = await file.stat()
@@ -94,7 +94,7 @@ async function verifyManifestSignature(bytes, inputs, arch, tag) {
   }
 }
 
-async function binaryDigest(filename, arch) {
+export async function binaryDigest(filename, arch) {
   const file = await open(filename, inputFlags)
   try {
     const before = await file.stat({ bigint: true })

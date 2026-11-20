@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Service preview, verified first installation and running upgrade inspection.
+# Local service preview, verified installation and confirmed Linux upgrades.
 set -euo pipefail
 export LC_ALL=C
 
@@ -21,13 +21,16 @@ print_help() {
     '    --manifest FILE --bundle FILE --package FILE --cosign FILE --root FILE [--port PORT]' \
     '  bash deploy/install-native.sh upgrade-plan --scope system|user --edition full|lite --tag TARGET_TAG' \
     '    --current-manifest FILE --current-bundle FILE --manifest FILE --bundle FILE --package FILE --cosign FILE --root FILE' \
+    '  bash deploy/install-native.sh upgrade <same release and scope options> --confirm CONFIRMATION' \
+    '  bash deploy/install-native.sh transition-status --scope system|user' \
     '' \
     'Preview commands are read-only. Install starts a new service on loopback.' \
     '仅预览，不检查现有安装、配置或服务状态，不可据此接管或安装。' \
     'Use plan to review target folders; render-unit prints a service file for review.' \
     'plan 查看目标目录；render-unit 输出服务文件，供审阅。' \
     'upgrade-plan checks the running installation and both signed packages. 升级预检只读核对当前服务和目标包。' \
-    'Upgrade, rollback and uninstall are unavailable.' \
+    'upgrade uses the confirmation from upgrade-plan. 将预检的确认摘要传给 upgrade。' \
+    'transition-status reads the last step and service. 可随时查看当前服务与升级进度。' \
     'verify-package 核验本地包。install 仅用于首次安装。'
 }
 
@@ -98,12 +101,12 @@ case "$command_name" in
     script_directory="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
     exec node "$script_directory/../cli/lib/native-install.mjs" "$@"
     ;;
-  upgrade-plan)
+  upgrade-plan|upgrade|transition-status)
     script_directory="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-    exec node "$script_directory/../cli/lib/native-transition.mjs" "$@"
+    exec node "$script_directory/../cli/lib/native-transition.mjs" "$command_name" "$@"
     ;;
   plan|render-unit) ;;
-  upgrade|rollback|uninstall)
+  rollback|uninstall)
     fail 'This lifecycle operation is unavailable / 当前版本暂不支持此操作。'
     ;;
   *) fail 'Unknown command; use --help / 未知命令，请使用 --help。' ;;
