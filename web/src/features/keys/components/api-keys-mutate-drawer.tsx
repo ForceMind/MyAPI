@@ -36,6 +36,7 @@ import {
   sideDrawerSwitchItemClassName,
 } from '@/components/drawer-layout'
 import { MultiSelect } from '@/components/multi-select'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -103,6 +104,14 @@ type ApiKeyMutateDrawerProps = {
   currentRow?: ApiKey
 }
 
+type UncertainKeyCreation = {
+  name: string
+  confirmedCount: number
+  requestedCount: number
+  lastConfirmedId?: number
+  listOpened: boolean
+}
+
 function modelScopeModeLabel(enabled: boolean, models: string, t: TFunction) {
   if (!enabled) return t('No additional model limit')
   if (!models) return t('Block all models')
@@ -121,6 +130,9 @@ export function ApiKeysMutateDrawer({
   const { triggerRefresh, configureKey } = useApiKeys()
   const { status, loading: statusLoading } = useStatus()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const submissionInFlight = useRef(false)
+  const unresolvedCreation = useRef<UncertainKeyCreation | null>(null)
+  const [creationReview, setCreationReview] = useState<UncertainKeyCreation | null>(null)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const openedQuotaVersion = useRef<string | undefined>(undefined)
   const openedMetadataFingerprint = useRef<string | undefined>(undefined)
@@ -358,7 +370,9 @@ export function ApiKeysMutateDrawer({
   }, [groups, form, selectedGroup])
 
   const onSubmit = async (data: ApiKeyFormValues) => {
-    if (!isCurrentSession()) return
+    if (!open || !isFormInitialized || !isCurrentSession() || submissionInFlight.current ||
+      (!isUpdate && unresolvedCreation.current)) return
+    submissionInFlight.current = true
     setIsSubmitting(true)
     try {
       let basePayload = transformFormDataToPayload(data)
@@ -434,21 +448,25 @@ export function ApiKeysMutateDrawer({
 
         for (let i = 0; i < count; i++) {
           if (!isCurrentSession()) return
-          const result = await createApiKey(
-            {
-              ...basePayload,
-              name:
-                i === 0 && data.name
-                  ? data.name
-                  : `${data.name || 'default'}-${Math.random().toString(36).slice(2, 8)}`,
-            },
-            {
-              skipErrorHandler: true,
-              skipBusinessError: true,
-              skipAuthRefresh: true,
-            }
-          )
+          const name = i === 0 && data.name
+            ? data.name
+            : `${data.name || 'default'}-${Math.random().toString(36).slice(2, 8)}`
+          const result = await createApiKey({ ...basePayload, name }, {
+            skipErrorHandler: true,
+            skipBusinessError: true,
+            skipAuthRefresh: true,
+          }).catch(() => null)
           if (!isCurrentSession()) return
+          if (result === null || typeof result.success !== 'boolean') {
+            const review = {
+              name, confirmedCount: successCount, requestedCount: count,
+              lastConfirmedId: createdId, listOpened: false,
+            }
+            unresolvedCreation.current = review
+            setCreationReview(review)
+            toast.error(t('Key creation result unknown'))
+            return
+          }
           if (result.success) {
             successCount++
             if (result.data?.id !== undefined) createdId = result.data.id
@@ -480,8 +498,26 @@ export function ApiKeysMutateDrawer({
     } catch {
       if (isCurrentSession()) toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     } finally {
+      submissionInFlight.current = false
       if (isCurrentSession()) setIsSubmitting(false)
     }
+  }
+
+  const reviewSavedKeys = () => {
+    const review = unresolvedCreation.current
+    if (!isCurrentSession() || !review) return
+    const opened = { ...review, listOpened: true }
+    unresolvedCreation.current = opened
+    setCreationReview(opened)
+    triggerRefresh()
+    onOpenChange(false)
+  }
+
+  const startFreshKey = () => {
+    if (!isCurrentSession() || !unresolvedCreation.current?.listOpened) return
+    unresolvedCreation.current = null
+    setCreationReview(null)
+    form.reset(getApiKeyFormDefaultValues(defaultUseAutoGroup && backendHasAuto))
   }
 
   const onInvalid: SubmitErrorHandler<ApiKeyFormValues> = () => {
@@ -548,12 +584,47 @@ export function ApiKeysMutateDrawer({
               : t('Add a new API key by providing necessary info.')}
           </SheetDescription>
         </SheetHeader>
+        {!isUpdate && creationReview && (
+          <Alert className='mx-4 max-h-[40vh] w-auto shrink-0 overflow-y-auto'>
+            <AlertTitle>{t('Key creation result unknown')}</AlertTitle>
+            <AlertDescription>
+              <p className='wrap-anywhere'>
+                {t('Check whether the Key named {{name}} is in the saved list.', { name: creationReview.name })}
+              </p>
+              <p>{t('{{confirmed}} of {{requested}} Keys confirmed', {
+                confirmed: creationReview.confirmedCount, requested: creationReview.requestedCount,
+              })}</p>
+              <div className='flex flex-wrap gap-2'>
+                <Button type='button' variant='outline' onClick={reviewSavedKeys}>
+                  {t('Review saved Keys')}
+                </Button>
+                {creationReview.lastConfirmedId !== undefined && configureKey && (
+                  <Button type='button' variant='outline' onClick={() => {
+                    const id = unresolvedCreation.current?.lastConfirmedId
+                    if (isCurrentSession() && id !== undefined) {
+                      triggerRefresh()
+                      onOpenChange(false)
+                      configureKey(id)
+                    }
+                  }}>
+                    {t('Configure Key #{{id}}', { id: creationReview.lastConfirmedId })}
+                  </Button>
+                )}
+                {creationReview.listOpened && (
+                  <Button type='button' variant='outline' onClick={startFreshKey}>
+                    {t('Start a new Key')}
+                  </Button>
+                )}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
         <Form {...form}>
           <form
             id='api-key-form'
             onSubmit={form.handleSubmit(onSubmit, onInvalid)}
             aria-busy={!isFormInitialized}
-            inert={!isFormInitialized || isSubmitting ? true : undefined}
+            inert={!isFormInitialized || isSubmitting || (!isUpdate && creationReview !== null) ? true : undefined}
             className={sideDrawerFormClassName('gap-5')}
           >
             <SideDrawerSection>
@@ -985,7 +1056,7 @@ export function ApiKeysMutateDrawer({
           <Button
             type='button'
             onClick={form.handleSubmit(onSubmit, onInvalid)}
-            disabled={!isFormInitialized || isSubmitting}
+            disabled={!isFormInitialized || isSubmitting || (!isUpdate && creationReview !== null)}
             className='h-auto min-h-11 w-full min-w-0 py-2 wrap-anywhere whitespace-normal sm:w-auto'
           >
             {isSubmitting ? t('Saving...') : t('Save changes')}

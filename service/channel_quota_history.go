@@ -2,11 +2,9 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
+	"errors"
 	"math"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -27,6 +25,12 @@ const (
 	QuotaHistoryAuto               QuotaHistoryGranularity = "auto"
 	MaxQuotaHistoryPointLimit                              = 5000
 	MaxQuotaHistoryRawObservations                         = 150000
+)
+
+var (
+	ErrQuotaHistoryInvalidSeries     = errors.New("invalid quota history series")
+	ErrQuotaHistorySeriesNotFound    = errors.New("quota history series not found")
+	ErrQuotaHistorySelectionTooLarge = errors.New("quota history selection too large")
 )
 
 func resolveQuotaHistorySeriesFilter(filter model.ChannelQuotaSnapshotQuery, latest model.ChannelQuotaSnapshot) model.ChannelQuotaSnapshotQuery {
@@ -389,34 +393,31 @@ func quotaHistoryFailureSources(source string) []string {
 
 func quotaHistoryEventFilter(identity model.ChannelQuotaSnapshotQuery) model.ChannelQuotaSnapshotQuery {
 	return model.ChannelQuotaSnapshotQuery{
-		EventMetadata: true,
-		MetricType:    identity.MetricType,
-		WindowType:    identity.WindowType,
-		PlanType:      identity.PlanType,
-		Unit:          identity.Unit,
-		Currency:      identity.Currency,
-		WindowSeconds: identity.WindowSeconds,
-		Sources:       quotaHistoryFailureSources(identity.Source),
-		Statuses:      []string{"error", "unsupported"},
+		IdentityScoped:  identity.IdentityScoped,
+		SubjectRef:      identity.SubjectRef,
+		IdentityQuality: identity.IdentityQuality,
+		AccountRef:      identity.AccountRef,
+		EventMetadata:   true,
+		MetricType:      identity.MetricType,
+		WindowType:      identity.WindowType,
+		PlanType:        identity.PlanType,
+		Unit:            identity.Unit,
+		Currency:        identity.Currency,
+		WindowSeconds:   identity.WindowSeconds,
+		Sources:         quotaHistoryFailureSources(identity.Source),
+		Statuses:        []string{"error", "unsupported"},
 	}
 }
 
-func quotaHistorySeriesID(identity model.ChannelQuotaSnapshotQuery) string {
-	parts := []string{
-		identity.MetricType,
-		identity.WindowType,
-		identity.Source,
-		identity.PlanType,
-		identity.Unit,
-		identity.Currency,
-	}
+func quotaHistorySeriesID(channelID int, identity model.ChannelQuotaSnapshotQuery) string {
+	snapshot := model.ChannelQuotaSnapshot{ChannelId: channelID,
+		SubjectRef: identity.SubjectRef, IdentityQuality: identity.IdentityQuality, AccountRef: identity.AccountRef,
+		MetricType: identity.MetricType, WindowType: identity.WindowType, Source: identity.Source,
+		PlanType: identity.PlanType, Unit: identity.Unit, Currency: identity.Currency}
 	if identity.WindowSeconds != nil {
-		parts = append(parts, strconv.FormatInt(*identity.WindowSeconds, 10))
-	} else {
-		parts = append(parts, "")
+		snapshot.WindowSeconds = *identity.WindowSeconds
 	}
-	digest := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
-	return "quota_" + hex.EncodeToString(digest[:12])
+	return model.ChannelQuotaSnapshotSeriesID(snapshot)
 }
 
 func quotaHistoryLatestSnapshot(left, right *model.ChannelQuotaSnapshot) *model.ChannelQuotaSnapshot {
@@ -715,7 +716,7 @@ func quotaHistoryValueSummaryFor(snapshots []model.ChannelQuotaSnapshot, value f
 			summary.Maximum = quotaHistoryFloatPointer(current)
 		}
 	}
-	if summary.Start != nil && summary.End != nil {
+	if summary.Samples > 1 && summary.Start != nil && summary.End != nil {
 		change := *summary.End - *summary.Start
 		summary.Change = quotaHistoryFloatPointer(change)
 		if *summary.Start != 0 {
@@ -802,11 +803,11 @@ func quotaHistoryCurrent(snapshot *model.ChannelQuotaSnapshot, seriesSource stri
 	return current
 }
 
-func quotaHistoryMetadata(response map[string]any, identity model.ChannelQuotaSnapshotQuery) {
+func quotaHistoryMetadata(response map[string]any, channelID int, identity model.ChannelQuotaSnapshotQuery) {
 	if identity.MetricType == "" {
 		return
 	}
-	response["series_id"] = quotaHistorySeriesID(identity)
+	response["series_id"] = quotaHistorySeriesID(channelID, identity)
 	response["metric_type"] = identity.MetricType
 	response["window_type"] = identity.WindowType
 	response["source"] = identity.Source
@@ -832,6 +833,7 @@ func quotaHistoryMetadata(response map[string]any, identity model.ChannelQuotaSn
 // accepted by the HTTP handler. It does not carry credentials or transport state.
 type ChannelQuotaHistoryRequest struct {
 	ChannelID            int
+	SeriesID             string
 	Start                int64
 	End                  int64
 	Limit                int
@@ -855,6 +857,32 @@ func GetChannelQuotaHistory(ctx context.Context, request ChannelQuotaHistoryRequ
 	analysisStart := end - request.RateWindowSeconds
 	ewmaHalfLifeSeconds := request.EWMAHalfLifeSeconds
 	seriesFilter := request.SeriesFilter
+	if request.SeriesID != "" {
+		if len(request.SeriesID) != 64 || strings.Trim(request.SeriesID, "0123456789abcdef") != "" {
+			return nil, ErrQuotaHistoryInvalidSeries
+		}
+		candidates, err := model.ListChannelQuotaSnapshotsForHistory(ctx, id, start, end, seriesFilter, MaxQuotaHistoryRawObservations)
+		if err != nil {
+			return nil, err
+		}
+		if !candidates.Complete {
+			return nil, ErrQuotaHistorySelectionTooLarge
+		}
+		var selected *model.ChannelQuotaSnapshot
+		for index := len(candidates.Snapshots) - 1; index >= 0; index-- {
+			snapshot := candidates.Snapshots[index]
+			if model.ChannelQuotaSnapshotSeriesID(snapshot) == request.SeriesID {
+				selected = &snapshot
+				break
+			}
+		}
+		if selected == nil {
+			return nil, ErrQuotaHistorySeriesNotFound
+		}
+		seriesFilter = resolveQuotaHistorySeriesFilter(seriesFilter, *selected)
+		seriesFilter.IdentityScoped = true
+		seriesFilter.SubjectRef, seriesFilter.IdentityQuality, seriesFilter.AccountRef = selected.SubjectRef, selected.IdentityQuality, selected.AccountRef
+	}
 	// Resolve the chart identity from the newest successful sample, not a
 	// generic failure marker. A current failure is queried separately below and
 	// still wins the current/alert state, while the historical line remains the
@@ -896,7 +924,7 @@ func GetChannelQuotaHistory(ctx context.Context, request ChannelQuotaHistoryRequ
 		"points":                []quotaHistoryPoint{},
 		"analysis":              AnalyzeQuotaConsumption(QuotaConsumptionResult{}, analysisStart, end, ewmaHalfLifeSeconds),
 	}
-	quotaHistoryMetadata(response, identity)
+	quotaHistoryMetadata(response, id, identity)
 	if response["requested_granularity"] == "" {
 		response["requested_granularity"] = string(QuotaHistoryRaw)
 	}
@@ -936,6 +964,9 @@ func GetChannelQuotaHistory(ctx context.Context, request ChannelQuotaHistoryRequ
 	response["alert"] = DeriveQuotaHistoryAlert(latestSnapshot)
 
 	if rawObservations > MaxQuotaHistoryRawObservations {
+		if request.SeriesID != "" {
+			return nil, ErrQuotaHistorySelectionTooLarge
+		}
 		analysis := response["analysis"].(QuotaAnalysis)
 		analysis.Complete = false
 		response["analysis"] = analysis
@@ -959,6 +990,9 @@ func GetChannelQuotaHistory(ctx context.Context, request ChannelQuotaHistoryRequ
 		return nil, err
 	}
 	if !successes.Complete || !events.Complete {
+		if request.SeriesID != "" {
+			return nil, ErrQuotaHistorySelectionTooLarge
+		}
 		// A concurrent sampler can add rows between Count and List. Do not use
 		// the partial prefix from either query as a history range.
 		analysis := response["analysis"].(QuotaAnalysis)
@@ -976,6 +1010,27 @@ func GetChannelQuotaHistory(ctx context.Context, request ChannelQuotaHistoryRequ
 	}
 
 	snapshots := mergeQuotaHistorySnapshots(successes.Snapshots, events.Snapshots)
+	unscopedAccounts := false
+	if request.SeriesID == "" && len(snapshots) > 0 {
+		// Unselected observations remain readable across account changes. Name
+		// the response as one public series only if every observation proves
+		// the same account, including provider-level failure markers.
+		account, _, known := model.ChannelQuotaSnapshotIdentity(snapshots[0])
+		for _, snapshot := range snapshots[1:] {
+			other, _, otherKnown := model.ChannelQuotaSnapshotIdentity(snapshot)
+			if !otherKnown || other != account {
+				known = false
+				break
+			}
+		}
+		if known {
+			metadata := identity
+			metadata.SubjectRef, metadata.IdentityQuality, metadata.AccountRef = snapshots[0].SubjectRef, snapshots[0].IdentityQuality, snapshots[0].AccountRef
+			quotaHistoryMetadata(response, id, metadata)
+		} else {
+			unscopedAccounts = true
+		}
+	}
 	// Count/list are separate read-only queries; report the actual stable end of
 	// the loaded range if a sampler appended a same-second observation meanwhile.
 	response["raw_observations"] = len(snapshots)
@@ -985,9 +1040,33 @@ func GetChannelQuotaHistory(ctx context.Context, request ChannelQuotaHistoryRequ
 	consumption := DeriveQuotaConsumption(snapshots, identity.Unit)
 	response["analysis"] = AnalyzeQuotaConsumption(consumption, analysisStart, end, ewmaHalfLifeSeconds)
 	metrics := quotaHistoryMetricsFromConsumption(consumption)
+	if unscopedAccounts {
+		// Each point may retain its own proven interval. Combining intervals
+		// from different/unknown accounts is not one account's consumption.
+		consumption.Summary.Observed = nil
+		consumption.Summary.Basis = "unavailable"
+		consumption.Summary.AverageRatePerMinute = nil
+		consumption.Summary.PeakRatePerMinute = nil
+		consumption.Summary.PeakRateObservedAt = nil
+		response["analysis"] = AnalyzeQuotaConsumption(QuotaConsumptionResult{}, analysisStart, end, ewmaHalfLifeSeconds)
+		metrics.DropRatePerDay, metrics.ForecastZeroAt = nil, nil
+		metrics.ForecastConfidence = "insufficient"
+		if request.RequestedGranularity == "" {
+			response["requested_granularity"] = string(granularity)
+		}
+		granularity = QuotaHistoryRaw
+		response["granularity"] = string(granularity)
+	}
 	points := quotaHistoryPointsFromObservations(consumption.Observations, granularity, timezoneOffset, identity.Source)
 	availablePoints := len(points)
-	points, pointTruncated := limitQuotaHistoryPoints(points, limit)
+	pointTruncated := false
+	if unscopedAccounts && len(points) > limit {
+		// Keep actual observations: compaction would add otherwise valid
+		// account-specific intervals into a misleading cross-account point.
+		points, pointTruncated = points[len(points)-limit:], true
+	} else {
+		points, pointTruncated = limitQuotaHistoryPoints(points, limit)
+	}
 	response["points"] = points
 	response["available_points"] = availablePoints
 	response["returned_points"] = len(points)
@@ -1000,6 +1079,16 @@ func GetChannelQuotaHistory(ctx context.Context, request ChannelQuotaHistoryRequ
 	}
 	response["data_quality"] = metrics.DataQuality
 	if summary := quotaHistorySummaryFromConsumption(consumption, metrics); summary != nil {
+		if unscopedAccounts {
+			summary.Change, summary.ChangePercent = nil, nil
+			summary.Available.Change, summary.Available.ChangePercent = nil, nil
+			if summary.Used != nil {
+				summary.Used.Change, summary.Used.ChangePercent = nil, nil
+			}
+			if summary.Total != nil {
+				summary.Total.Change, summary.Total.ChangePercent = nil, nil
+			}
+		}
 		response["summary"] = summary
 	}
 	return response, nil

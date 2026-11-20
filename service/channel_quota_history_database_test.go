@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ForceMind/MyAPI/common"
@@ -114,7 +115,7 @@ func TestChannelQuotaHistoryConfiguredDatabases(t *testing.T) {
 				for index, available := range []float64{100, 80, 70} {
 					used, total := 100-available, float64(100)
 					require.NoError(t, db.Create(&model.ChannelQuotaSnapshot{
-						ChannelId: channelID, ObservedAt: base + int64(index*3600+17),
+						AccountRef: quotaHistoryFixtureAccount, ChannelId: channelID, ObservedAt: base + int64(index*3600+17),
 						Available: available, Used: &used, Total: &total,
 						MetricType: "codex_rate_limit", WindowType: "five_hour", WindowSeconds: 18000,
 						Source: "codex_wham_usage_primary", PlanType: "pro", Unit: "percent", Status: "success",
@@ -150,9 +151,9 @@ func TestChannelQuotaHistoryConfiguredDatabases(t *testing.T) {
 			t.Run("latest-failure-does-not-become-zero", func(t *testing.T) {
 				channelID := createQuotaHistoryFixtureChannel(t, db)
 				for _, row := range []model.ChannelQuotaSnapshot{
-					{ChannelId: channelID, ObservedAt: 100, Available: 10, MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", Status: "success"},
-					{ChannelId: channelID, ObservedAt: 160, Available: 8, MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", Status: "success"},
-					{ChannelId: channelID, ObservedAt: 220, MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", Status: "error", ErrorCode: "query_failed"},
+					{AccountRef: quotaHistoryFixtureAccount, ChannelId: channelID, ObservedAt: 100, Available: 10, MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", Status: "success"},
+					{AccountRef: quotaHistoryFixtureAccount, ChannelId: channelID, ObservedAt: 160, Available: 8, MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", Status: "success"},
+					{AccountRef: quotaHistoryFixtureAccount, ChannelId: channelID, ObservedAt: 220, MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", Status: "error", ErrorCode: "query_failed"},
 				} {
 					require.NoError(t, db.Create(&row).Error)
 				}
@@ -177,9 +178,9 @@ func TestChannelQuotaHistoryConfiguredDatabases(t *testing.T) {
 			t.Run("resolved-empty-identity-is-exact", func(t *testing.T) {
 				channelID := createQuotaHistoryFixtureChannel(t, db)
 				for _, row := range []model.ChannelQuotaSnapshot{
-					{ChannelId: channelID, ObservedAt: 100, Available: 100, MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", Currency: "USD", Status: "success"},
-					{ChannelId: channelID, ObservedAt: 160, Available: 90, MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", Status: "success"},
-					{ChannelId: channelID, ObservedAt: 220, MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", PlanType: "other-plan", Status: "error"},
+					{AccountRef: quotaHistoryFixtureAccount, ChannelId: channelID, ObservedAt: 100, Available: 100, MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", Currency: "USD", Status: "success"},
+					{AccountRef: quotaHistoryFixtureAccount, ChannelId: channelID, ObservedAt: 160, Available: 90, MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", Status: "success"},
+					{AccountRef: quotaHistoryFixtureAccount, ChannelId: channelID, ObservedAt: 220, MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", PlanType: "other-plan", Status: "error"},
 				} {
 					require.NoError(t, db.Create(&row).Error)
 				}
@@ -193,6 +194,150 @@ func TestChannelQuotaHistoryConfiguredDatabases(t *testing.T) {
 				current := data["current"].(map[string]any)
 				assert.Equal(t, "success", current["status"])
 				assert.Equal(t, float64(160), current["observed_at"])
+			})
+
+			t.Run("canonical-account-series-selects-own-successes-and-known-failures", func(t *testing.T) {
+				channelID := createQuotaHistoryFixtureChannel(t, db)
+				accountA, accountB := strings.Repeat("A", 43), strings.Repeat("B", 42) + "A"
+				rows := []model.ChannelQuotaSnapshot{
+					{ObservedAt: 100, Available: 100, Used: quotaNumber(0), Total: quotaNumber(100), Status: "success", SubjectRef: accountA, IdentityQuality: model.ChannelQuotaIdentityQualityProviderConfirmed},
+					{ObservedAt: 130, Available: 80, Used: quotaNumber(20), Total: quotaNumber(100), Status: "success", SubjectRef: accountB, IdentityQuality: model.ChannelQuotaIdentityQualityProviderConfirmed},
+					{ObservedAt: 160, Available: 90, Used: quotaNumber(10), Total: quotaNumber(100), Status: "success", SubjectRef: accountA, IdentityQuality: model.ChannelQuotaIdentityQualityProviderConfirmed},
+					{ObservedAt: 190, Available: 0, Used: quotaNumber(100), Total: quotaNumber(100), Status: "success"},
+					{ObservedAt: 220, Available: 0, Used: quotaNumber(100), Total: quotaNumber(100), Status: "success", SubjectRef: accountB, IdentityQuality: model.ChannelQuotaIdentityQualityProviderConfirmed},
+					{ObservedAt: 250, Status: "error", ErrorCode: "account_a_failure", SubjectRef: accountA, IdentityQuality: model.ChannelQuotaIdentityQualityProviderConfirmed},
+					{ObservedAt: 280, Status: "error", ErrorCode: "account_b_failure", SubjectRef: accountB, IdentityQuality: model.ChannelQuotaIdentityQualityProviderConfirmed},
+					{ObservedAt: 310, Status: "error", ErrorCode: "unknown_account_failure"},
+				}
+				for index := range rows {
+					row := &rows[index]
+					row.ChannelId, row.MetricType, row.Unit = channelID, "codex_rate_limit", "percent"
+					if row.Status == "success" {
+						row.WindowType, row.Source, row.PlanType, row.WindowSeconds = "five_hour", "codex_wham_usage_primary", "pro", 18000
+					} else {
+						row.WindowType, row.Source = "none", "codex_wham_usage"
+					}
+					require.NoError(t, db.Create(row).Error)
+				}
+				weekly := rows[0]
+				weekly.Id, weekly.ObservedAt, weekly.WindowSeconds = 0, 340, 604800
+				weekly.WindowType, weekly.Source = "weekly", "codex_wham_usage_secondary"
+				require.NoError(t, db.Create(&weekly).Error)
+				request := ChannelQuotaHistoryRequest{ChannelID: channelID, Start: 1, End: 400, Limit: 500,
+					Granularity: QuotaHistoryRaw, RateWindowSeconds: 399, EWMAHalfLifeSeconds: 199}
+				before := readQuotaHistoryFixtureRows(t, db, channelID)
+				for _, selected := range []struct {
+					row      int
+					failure  string
+					consumed float64
+				}{
+					{0, "account_a_failure", 10}, {1, "account_b_failure", 80},
+				} {
+					request.SeriesID = model.ChannelQuotaSnapshotSeriesID(rows[selected.row])
+					require.Len(t, request.SeriesID, 64)
+					data := readQuotaHistoryFixtureResponse(t, request)
+					assert.Equal(t, request.SeriesID, data["series_id"])
+					assert.Equal(t, request.SeriesID, data["series"].(map[string]any)["id"])
+					assert.Equal(t, float64(3), data["raw_observations"])
+					current := data["current"].(map[string]any)
+					assert.Equal(t, "error", current["status"])
+					assert.Equal(t, selected.failure, current["error_code"])
+					assert.NotContains(t, current, "available")
+					points := data["points"].([]any)
+					require.Len(t, points, 3)
+					assert.NotContains(t, points[2].(map[string]any), "available")
+					assert.Equal(t, selected.consumed, data["summary"].(map[string]any)["consumption"].(map[string]any)["observed"])
+					if selected.row == 1 {
+						assert.Equal(t, float64(0), points[1].(map[string]any)["available"], "known measured zero must remain numeric")
+					}
+					payload, err := common.Marshal(data)
+					require.NoError(t, err)
+					for _, private := range []string{accountA, accountB, "subject_ref", "account_ref", "unknown_account_failure"} {
+						assert.NotContains(t, string(payload), private)
+					}
+				}
+				request.SeriesID = model.ChannelQuotaSnapshotSeriesID(rows[0])
+				request.SeriesFilter = model.ChannelQuotaSnapshotQuery{WindowType: "weekly"}
+				response, err := GetChannelQuotaHistory(context.Background(), request)
+				require.ErrorIs(t, err, ErrQuotaHistorySeriesNotFound)
+				assert.Nil(t, response)
+				request.SeriesFilter = model.ChannelQuotaSnapshotQuery{WindowType: "five_hour"}
+				request.SeriesID = ""
+				unselected := readQuotaHistoryFixtureResponse(t, request)
+				assert.Equal(t, float64(8), unselected["raw_observations"])
+				assert.Equal(t, "", unselected["series_id"])
+				assert.NotContains(t, unselected["summary"].(map[string]any)["consumption"].(map[string]any), "observed")
+				assert.Equal(t, before, readQuotaHistoryFixtureRows(t, db, channelID))
+			})
+
+			t.Run("unselected-accounts-never-combine-separately-valid-pairs", func(t *testing.T) {
+				channelID := createQuotaHistoryFixtureChannel(t, db)
+				for index, available := range []float64{100, 90, 80, 70} {
+					account := "first"
+					if index >= 2 {
+						account = "second"
+					}
+					require.NoError(t, db.Create(&model.ChannelQuotaSnapshot{ChannelId: channelID,
+						AccountRef: model.ChannelQuotaAccountRef("synthetic-history", account), ObservedAt: 100 + int64(index*60),
+						Available: available, Status: "success", MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd"}).Error)
+				}
+				data := readQuotaHistoryFixtureResponse(t, ChannelQuotaHistoryRequest{ChannelID: channelID, Start: 1, End: 300,
+					Limit: 500, Granularity: QuotaHistoryRaw, RateWindowSeconds: 299, EWMAHalfLifeSeconds: 149})
+				assert.Equal(t, "", data["series_id"])
+				points := data["points"].([]any)
+				require.Len(t, points, 4)
+				assert.Equal(t, float64(10), points[1].(map[string]any)["consumption"])
+				assert.Equal(t, float64(10), points[3].(map[string]any)["consumption"])
+				assert.NotContains(t, points[2].(map[string]any), "consumption")
+				summary := data["summary"].(map[string]any)
+				assert.NotContains(t, summary, "change")
+				consumption := summary["consumption"].(map[string]any)
+				for _, field := range []string{"observed", "average_rate_per_minute", "peak_rate_per_minute"} {
+					assert.NotContains(t, consumption, field)
+				}
+				assert.Equal(t, "unavailable", consumption["basis"])
+				analysis := data["analysis"].(map[string]any)["methods"].(map[string]any)
+				for _, method := range []string{"latest_interval", "observed_window", "ewma"} {
+					assert.Nil(t, analysis[method].(map[string]any)["rate_per_minute"])
+				}
+				compacted := readQuotaHistoryFixtureResponse(t, ChannelQuotaHistoryRequest{ChannelID: channelID, Start: 1, End: 300,
+					Limit: 1, Granularity: QuotaHistoryHour, RequestedGranularity: "hour", RateWindowSeconds: 299, EWMAHalfLifeSeconds: 149})
+				assert.Equal(t, "raw", compacted["granularity"])
+				assert.Equal(t, "hour", compacted["requested_granularity"])
+				assert.Equal(t, true, compacted["truncated"])
+				assert.Equal(t, "point_limit", compacted["truncation_reason"])
+				compactedPoints := compacted["points"].([]any)
+				require.Len(t, compactedPoints, 1)
+				assert.Equal(t, float64(10), compactedPoints[0].(map[string]any)["consumption"], "never sum the two accounts into a single bucket")
+				assert.Equal(t, float64(280), compactedPoints[0].(map[string]any)["timestamp"])
+			})
+
+			t.Run("measured-zero-and-unproven-zero-remain-distinct", func(t *testing.T) {
+				for _, known := range []bool{true, false} {
+					channelID := createQuotaHistoryFixtureChannel(t, db)
+					for _, at := range []int64{100, 160} {
+						row := model.ChannelQuotaSnapshot{ChannelId: channelID, ObservedAt: at, Available: 0, Status: "success",
+							MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd"}
+						if known {
+							row.AccountRef = quotaHistoryFixtureAccount
+						}
+						require.NoError(t, db.Create(&row).Error)
+					}
+					data := readQuotaHistoryFixtureResponse(t, ChannelQuotaHistoryRequest{ChannelID: channelID, Start: 1, End: 200,
+						Limit: 500, Granularity: QuotaHistoryRaw, RateWindowSeconds: 199, EWMAHalfLifeSeconds: 99})
+					points := data["points"].([]any)
+					require.Len(t, points, 2)
+					assert.Equal(t, float64(0), points[1].(map[string]any)["available"])
+					consumption := data["summary"].(map[string]any)["consumption"].(map[string]any)
+					if known {
+						assert.Equal(t, float64(0), consumption["observed"])
+						assert.Equal(t, float64(0), points[1].(map[string]any)["consumption"])
+					} else {
+						assert.NotContains(t, consumption, "observed")
+						assert.NotContains(t, points[1].(map[string]any), "consumption")
+						assert.NotContains(t, data["summary"].(map[string]any), "change")
+					}
+				}
 			})
 
 			t.Run("empty-range-and-database-error", func(t *testing.T) {

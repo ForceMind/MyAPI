@@ -3,9 +3,12 @@ package controller
 import (
 	"encoding/json"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/ForceMind/MyAPI/common"
+	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/service"
 	"github.com/gin-gonic/gin"
@@ -117,7 +120,7 @@ func TestGetChannelQuotaHistoryReadsFullRangeBeforePointLimitAndKeepsRawCurrent(
 	for index, available := range []float64{100, 80, 70} {
 		used := 100 - available
 		require.NoError(t, db.Create(&model.ChannelQuotaSnapshot{
-			ChannelId: 971, ObservedAt: base + int64(index*3600+17),
+			AccountRef: model.ChannelQuotaAccountRef("synthetic-history", "same-account"), ChannelId: 971, ObservedAt: base + int64(index*3600+17),
 			Available: available, Used: &used, Total: ptrFloat(100),
 			MetricType: "codex_rate_limit", WindowType: "five_hour",
 			Source: "codex_wham_usage_primary", PlanType: "pro", Unit: "percent",
@@ -150,7 +153,7 @@ func TestGetChannelQuotaHistoryAnalysisDoesNotDependOnGranularity(t *testing.T) 
 	base := int64(1_700_050_000)
 	for index, available := range []float64{100, 94, 88} {
 		require.NoError(t, db.Create(&model.ChannelQuotaSnapshot{
-			ChannelId: 971, ObservedAt: base + int64(index*60), Available: available,
+			AccountRef: model.ChannelQuotaAccountRef("synthetic-history", "same-account"), ChannelId: 971, ObservedAt: base + int64(index*60), Available: available,
 			MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", Status: "success",
 		}).Error)
 	}
@@ -200,12 +203,12 @@ func TestGetChannelQuotaHistoryUsesLatestGenericFailureForCurrentAndBucket(t *te
 	base := int64(1_700_100_000)
 	used := 10.0
 	require.NoError(t, db.Create(&model.ChannelQuotaSnapshot{
-		ChannelId: 971, ObservedAt: base + 10, Available: 90, Used: &used, Total: ptrFloat(100),
+		AccountRef: model.ChannelQuotaAccountRef("synthetic-history", "same-account"), ChannelId: 971, ObservedAt: base + 10, Available: 90, Used: &used, Total: ptrFloat(100),
 		MetricType: "codex_rate_limit", WindowType: "five_hour", Source: "codex_wham_usage_primary",
 		PlanType: "pro", Unit: "percent", WindowSeconds: 18000, Status: "success",
 	}).Error)
 	require.NoError(t, db.Create(&model.ChannelQuotaSnapshot{
-		ChannelId: 971, ObservedAt: base + 20, MetricType: "codex_rate_limit", WindowType: "none",
+		AccountRef: model.ChannelQuotaAccountRef("synthetic-history", "same-account"), ChannelId: 971, ObservedAt: base + 20, MetricType: "codex_rate_limit", WindowType: "none",
 		Source: "codex_wham_usage", Unit: "percent", Status: "error", ErrorCode: "upstream_http",
 	}).Error)
 	data := getChannelQuotaHistoryTestData(t, "start=1700100000&end=1700100100&granularity=minute&limit=10")
@@ -234,9 +237,9 @@ func ptrFloat(value float64) *float64 { return &value }
 func TestQuotaHistoryResolvedEmptyIdentityDoesNotMixCurrencyOrPlanEvents(t *testing.T) {
 	db := setupChannelQuotaHistoryHandlerTestDB(t)
 	rows := []model.ChannelQuotaSnapshot{
-		{ChannelId: 971, ObservedAt: 100, Available: 100, Status: "success", MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", Currency: "USD"},
-		{ChannelId: 971, ObservedAt: 160, Available: 90, Status: "success", MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd"},
-		{ChannelId: 971, ObservedAt: 220, Status: "error", MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", PlanType: "other-plan"},
+		{AccountRef: model.ChannelQuotaAccountRef("synthetic-history", "same-account"), ChannelId: 971, ObservedAt: 100, Available: 100, Status: "success", MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", Currency: "USD"},
+		{AccountRef: model.ChannelQuotaAccountRef("synthetic-history", "same-account"), ChannelId: 971, ObservedAt: 160, Available: 90, Status: "success", MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd"},
+		{AccountRef: model.ChannelQuotaAccountRef("synthetic-history", "same-account"), ChannelId: 971, ObservedAt: 220, Status: "error", MetricType: "balance", WindowType: "none", Source: "provider", Unit: "usd", PlanType: "other-plan"},
 	}
 	require.NoError(t, db.Create(&rows).Error)
 	data := getChannelQuotaHistoryTestData(t, "range=custom&start=1&end=300&granularity=raw")
@@ -244,4 +247,68 @@ func TestQuotaHistoryResolvedEmptyIdentityDoesNotMixCurrencyOrPlanEvents(t *test
 	current := data["current"].(map[string]any)
 	require.Equal(t, "success", current["status"])
 	require.Equal(t, float64(160), current["observed_at"])
+}
+
+func TestChannelQuotaHistorySelectsCanonicalAccountAndLocalizesSelectionRefusals(t *testing.T) {
+	db := setupChannelQuotaHistoryHandlerTestDB(t)
+	require.NoError(t, i18n.Init())
+	accountA := model.ChannelQuotaAccountRef("synthetic-history", "account-a")
+	accountB := model.ChannelQuotaAccountRef("synthetic-history", "account-b")
+	rows := []model.ChannelQuotaSnapshot{
+		{ChannelId: 971, ObservedAt: 100, Available: 10, AccountRef: accountA, Status: "success"},
+		{ChannelId: 971, ObservedAt: 160, Available: 8, AccountRef: accountA, Status: "success"},
+		{ChannelId: 971, ObservedAt: 220, AccountRef: accountA, Status: "error", ErrorCode: "selected_account_failure"},
+		{ChannelId: 971, ObservedAt: 250, AccountRef: accountB, Status: "error", ErrorCode: "other_account_failure"},
+		{ChannelId: 971, ObservedAt: 280, Status: "error", ErrorCode: "unknown_account_failure"},
+	}
+	for index := range rows {
+		rows[index].MetricType, rows[index].WindowType, rows[index].Source, rows[index].Unit = "balance", "none", "provider", "usd"
+	}
+	require.NoError(t, db.Create(&rows).Error)
+	seriesID := model.ChannelQuotaSnapshotSeriesID(rows[0])
+	require.Len(t, seriesID, 64)
+	data := getChannelQuotaHistoryTestData(t, "start=1&end=300&series_id="+seriesID)
+	require.Equal(t, seriesID, data["series_id"])
+	require.Equal(t, seriesID, data["series"].(map[string]any)["id"])
+	require.Equal(t, float64(3), data["raw_observations"])
+	require.Equal(t, "selected_account_failure", data["current"].(map[string]any)["error_code"])
+	require.NotContains(t, data["current"].(map[string]any), "available")
+	payload, err := common.Marshal(data)
+	require.NoError(t, err)
+	for _, private := range []string{accountA, accountB, "subject_ref", "account_ref", "other_account_failure", "unknown_account_failure"} {
+		require.NotContains(t, string(payload), private)
+	}
+	for _, fixture := range []struct{ name, query, code, key string }{
+		{"uppercase", "start=1&end=300&series_id=" + strings.Repeat("A", 64), "quota_history_invalid_series", i18n.MsgQuotaHistoryInvalidSeries},
+		{"short", "start=1&end=300&series_id=short", "quota_history_invalid_series", i18n.MsgQuotaHistoryInvalidSeries},
+		{"missing", "start=1&end=300&series_id=" + strings.Repeat("0", 64), "quota_history_series_not_found", i18n.MsgQuotaHistorySeriesNotFound},
+		{"different-window", "start=1&end=300&window_type=weekly&series_id=" + seriesID, "quota_history_series_not_found", i18n.MsgQuotaHistorySeriesNotFound},
+		{"outside-time-range", "start=400&end=500&series_id=" + seriesID, "quota_history_series_not_found", i18n.MsgQuotaHistorySeriesNotFound},
+		{"too-large-range", "start=1&end=15552002&series_id=" + seriesID, "quota_history_selection_too_large", i18n.MsgQuotaHistorySelectionTooLarge},
+	} {
+		for _, language := range []string{"en", "zh-CN"} {
+			t.Run(fixture.name+"/"+language, func(t *testing.T) {
+				recorder := httptest.NewRecorder()
+				ctx, _ := gin.CreateTestContext(recorder)
+				ctx.Params = gin.Params{{Key: "id", Value: "971"}}
+				ctx.Set(string(constant.ContextKeyLanguage), language)
+				ctx.Request = httptest.NewRequest("GET", "/api/channel/971/quota/history?"+fixture.query, nil)
+				GetChannelQuotaHistory(ctx)
+				require.Equal(t, 200, recorder.Code)
+				require.Equal(t, "no-store", recorder.Header().Get("Cache-Control"))
+				var response struct {
+					Success bool
+					Code    string
+					Message string
+				}
+				require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+				require.False(t, response.Success)
+				require.Equal(t, fixture.code, response.Code)
+				require.Equal(t, i18n.Translate(language, fixture.key), response.Message)
+				require.NotEqual(t, fixture.key, response.Message)
+				require.NotContains(t, recorder.Body.String(), accountA)
+				require.NotContains(t, recorder.Body.String(), accountB)
+			})
+		}
+	}
 }

@@ -2,18 +2,77 @@ package service
 
 import (
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/stretchr/testify/require"
 )
 
+var quotaHistoryFixtureAccount = model.ChannelQuotaAccountRef("synthetic-history", "same-account")
+
 func quotaConsumptionFixture(times []int64) []model.ChannelQuotaSnapshot {
 	rows := make([]model.ChannelQuotaSnapshot, len(times))
 	for i, at := range times {
-		rows[i] = model.ChannelQuotaSnapshot{Id: i + 1, ChannelId: 7, ObservedAt: at, Available: 100 - float64(i), Status: "success", MetricType: "codex_rate_limit", Source: "codex_wham_usage_primary", WindowType: "weekly", Unit: "percent"}
+		rows[i] = model.ChannelQuotaSnapshot{AccountRef: quotaHistoryFixtureAccount, Id: i + 1, ChannelId: 7, ObservedAt: at, Available: 100 - float64(i), Status: "success", MetricType: "codex_rate_limit", Source: "codex_wham_usage_primary", WindowType: "weekly", Unit: "percent"}
 	}
 	return rows
+}
+
+func TestQuotaConsumptionRequiresKnownAccountAndSameWindow(t *testing.T) {
+	for _, fixture := range []struct {
+		name   string
+		mutate func([]model.ChannelQuotaSnapshot)
+	}{
+		{"different accounts", func(rows []model.ChannelQuotaSnapshot) { rows[1].AccountRef = model.ChannelQuotaAccountRef("synthetic-history", "other-account") }},
+		{"unknown next account", func(rows []model.ChannelQuotaSnapshot) { rows[1].AccountRef = "" }},
+		{"both unknown", func(rows []model.ChannelQuotaSnapshot) { rows[0].AccountRef, rows[1].AccountRef = "", "" }},
+		{"malformed account", func(rows []model.ChannelQuotaSnapshot) { rows[1].AccountRef = "not-an-account-reference" }},
+		{"different persistent subjects", func(rows []model.ChannelQuotaSnapshot) {
+			for index := range rows {
+				rows[index].SubjectRef, rows[index].IdentityQuality = strings.Repeat("A", 43), model.ChannelQuotaIdentityQualityProviderConfirmed
+			}
+			rows[1].SubjectRef = strings.Repeat("B", 42) + "A"
+		}},
+		{"identity quality changed", func(rows []model.ChannelQuotaSnapshot) {
+			for index := range rows {
+				rows[index].SubjectRef, rows[index].IdentityQuality = strings.Repeat("A", 43), model.ChannelQuotaIdentityQualityProviderConfirmed
+			}
+			rows[1].IdentityQuality = model.ChannelQuotaIdentityQualityCredentialScoped
+		}},
+		{"legacy is not a persistent subject", func(rows []model.ChannelQuotaSnapshot) {
+			rows[1].SubjectRef, rows[1].IdentityQuality = strings.Repeat("A", 43), model.ChannelQuotaIdentityQualityProviderConfirmed
+		}},
+		{"different window", func(rows []model.ChannelQuotaSnapshot) { rows[1].WindowType = "five_hour" }},
+		{"different window duration", func(rows []model.ChannelQuotaSnapshot) { rows[1].WindowSeconds = 18000 }},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			rows := quotaConsumptionFixture([]int64{100, 160})
+			fixture.mutate(rows)
+			result := DeriveQuotaConsumption(rows, "percent")
+			require.Len(t, result.Observations, 2, "original observations remain readable")
+			require.Nil(t, result.Observations[1].Consumption)
+			require.Nil(t, result.Observations[1].RatePerMinute)
+			require.True(t, result.Observations[1].ContinuityBreak)
+			require.Nil(t, result.Summary.Observed)
+			require.Nil(t, result.Summary.AverageRatePerMinute)
+			require.Zero(t, result.Summary.PairCount)
+		})
+	}
+}
+
+func TestQuotaConsumptionKnownMeasuredZeroIsNotUnknown(t *testing.T) {
+	rows := quotaConsumptionFixture([]int64{100, 160})
+	rows[1].Available = rows[0].Available
+	known := DeriveQuotaConsumption(rows, "percent")
+	require.NotNil(t, known.Summary.Observed)
+	require.Zero(t, *known.Summary.Observed)
+	require.NotNil(t, known.Observations[1].RatePerMinute)
+	require.Zero(t, *known.Observations[1].RatePerMinute)
+	rows[0].AccountRef, rows[1].AccountRef = "", ""
+	unknown := DeriveQuotaConsumption(rows, "percent")
+	require.Nil(t, unknown.Summary.Observed)
+	require.Nil(t, unknown.Observations[1].RatePerMinute)
 }
 
 func TestQuotaConsumptionRatesUseActualElapsedSeconds(t *testing.T) {

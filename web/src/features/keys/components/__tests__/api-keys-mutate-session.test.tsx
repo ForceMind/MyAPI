@@ -23,7 +23,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
 import { ApiKeysMutateDrawer } from '../api-keys-mutate-drawer'
-import { ApiKeysProvider } from '../api-keys-provider'
+import { ApiKeysProvider, useApiKeys } from '../api-keys-provider'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 const { toast } = await import('sonner')
@@ -62,16 +62,23 @@ function changeIdentity(kind: 'user' | 'role' | 'session') {
   }))
 }
 
+function KeyListRefresh() {
+  const { refreshTrigger } = useApiKeys()
+  return <output data-testid='key-list-refresh'>{refreshTrigger}</output>
+}
+
 async function startBatch(configureKey?: (id: number) => void, count = 2) {
   const user = userEvent.setup()
   const onOpenChange = vi.fn()
-  const view = render(
+  const drawer = (open: boolean) => (
     <QueryClientProvider client={client}>
       <ApiKeysProvider configureKey={configureKey}>
-        <ApiKeysMutateDrawer open onOpenChange={onOpenChange} />
+        <KeyListRefresh />
+        <ApiKeysMutateDrawer open={open} onOpenChange={onOpenChange} />
       </ApiKeysProvider>
     </QueryClientProvider>
   )
+  const view = render(drawer(true))
   const save = await screen.findByRole('button', { name: 'Save changes' })
   await waitFor(() => expect(save).toBeEnabled())
   await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Device')
@@ -79,7 +86,7 @@ async function startBatch(configureKey?: (id: number) => void, count = 2) {
   fireEvent.change(quantity, { target: { value: String(count) } })
   await user.click(save)
   await waitFor(() => expect(api.post).toHaveBeenCalledOnce())
-  return { ...view, onOpenChange, save }
+  return { ...view, onOpenChange, save, setOpen: (open: boolean) => view.rerender(drawer(open)) }
 }
 
 beforeEach(() => {
@@ -192,18 +199,62 @@ test('a current session completes the requested two-Key batch and closes once', 
   expect(toast.error).not.toHaveBeenCalled()
 })
 
-test('a current creation failure remains visible and is never replayed automatically', async () => {
+test('an uncertain creation stays visible and cannot be replayed from the original form', async () => {
   const pending = deferredCreate()
   vi.mocked(api.post).mockReturnValueOnce(pending.promise)
   const view = await startBatch()
   await act(async () =>
     pending.reject(new Error('synthetic request disconnected'))
   )
-  await waitFor(() => expect(view.save).toBeEnabled())
+  expect(await screen.findByText('Key creation result unknown')).toBeVisible()
+  expect(screen.getByText('Check whether the Key named Device is in the saved list.')).toBeVisible()
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled())
+  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
   expect(api.post).toHaveBeenCalledOnce()
   expect(toast.error).toHaveBeenCalledOnce()
   expect(toast.success).not.toHaveBeenCalled()
   expect(view.onOpenChange).not.toHaveBeenCalled()
+})
+
+test('an interrupted batch keeps its confirmed Key and makes review a separate read action', async () => {
+  const first = deferredCreate()
+  const unknown = deferredCreate()
+  vi.mocked(api.post).mockReturnValueOnce(first.promise).mockReturnValueOnce(unknown.promise)
+  const configure = vi.fn()
+  const view = await startBatch(configure, 3)
+  await act(async () => first.resolve({ data: { success: true, data: { id: 31 } } }))
+  await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2))
+  await act(async () => unknown.reject(new Error('synthetic connection loss')))
+  expect(await screen.findByText('1 of 3 Keys confirmed')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Configure Key #31' })).toBeEnabled()
+  expect(screen.queryByRole('button', { name: 'Start a new Key' })).not.toBeInTheDocument()
+  expect(screen.getByTestId('key-list-refresh')).toHaveTextContent('0')
+
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: 'Review saved Keys' }))
+  expect(view.onOpenChange).toHaveBeenCalledWith(false)
+  expect(screen.getByTestId('key-list-refresh')).toHaveTextContent('1')
+  expect(configure).not.toHaveBeenCalled()
+  expect(api.post).toHaveBeenCalledTimes(2)
+  view.setOpen(false)
+  view.setOpen(true)
+  expect(await screen.findByText('1 of 3 Keys confirmed')).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Start a new Key' }))
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled())
+  expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('')
+  expect(api.post).toHaveBeenCalledTimes(2)
+})
+
+test('an explicitly rejected first write still permits correcting the draft', async () => {
+  const pending = deferredCreate()
+  vi.mocked(api.post).mockReturnValueOnce(pending.promise)
+  const view = await startBatch(undefined, 1)
+  await act(async () => pending.resolve({ data: { success: false, data: {} } }))
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled())
+  expect(screen.queryByText('Key creation result unknown')).not.toBeInTheDocument()
+  expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Device')
+  expect(view.onOpenChange).not.toHaveBeenCalled()
+  expect(api.post).toHaveBeenCalledTimes(1)
 })
 
 

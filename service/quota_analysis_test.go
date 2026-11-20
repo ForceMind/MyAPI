@@ -10,9 +10,9 @@ import (
 
 func TestAnalyzeQuotaConsumptionCalculatesAllRateMethodsFromRawIntervals(t *testing.T) {
 	result := DeriveQuotaConsumption([]model.ChannelQuotaSnapshot{
-		{Id: 1, ChannelId: 7, ObservedAt: 1_000, Available: 100, Status: "success"},
-		{Id: 2, ChannelId: 7, ObservedAt: 1_060, Available: 94, Status: "success"},
-		{Id: 3, ChannelId: 7, ObservedAt: 1_180, Available: 88, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 1, ChannelId: 7, ObservedAt: 1_000, Available: 100, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 2, ChannelId: 7, ObservedAt: 1_060, Available: 94, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 3, ChannelId: 7, ObservedAt: 1_180, Available: 88, Status: "success"},
 	}, "percent")
 
 	analysis := AnalyzeQuotaConsumption(result, 1_000, 1_180, 60)
@@ -45,10 +45,10 @@ func TestAnalyzeQuotaConsumptionCalculatesAllRateMethodsFromRawIntervals(t *test
 
 func TestAnalyzeQuotaConsumptionUsesOnlyLatestContinuousSegment(t *testing.T) {
 	result := DeriveQuotaConsumption([]model.ChannelQuotaSnapshot{
-		{Id: 1, ChannelId: 7, ObservedAt: 100, Available: 100, ResetAt: 220, Status: "success"},
-		{Id: 2, ChannelId: 7, ObservedAt: 160, Available: 80, ResetAt: 220, Status: "success"},
-		{Id: 3, ChannelId: 7, ObservedAt: 220, Available: 100, ResetAt: 1_000, Status: "success"},
-		{Id: 4, ChannelId: 7, ObservedAt: 280, Available: 98, ResetAt: 1_000, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 1, ChannelId: 7, ObservedAt: 100, Available: 100, ResetAt: 220, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 2, ChannelId: 7, ObservedAt: 160, Available: 80, ResetAt: 220, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 3, ChannelId: 7, ObservedAt: 220, Available: 100, ResetAt: 1_000, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 4, ChannelId: 7, ObservedAt: 280, Available: 98, ResetAt: 1_000, Status: "success"},
 	}, "percent")
 
 	analysis := AnalyzeQuotaConsumption(result, 100, 280, 60)
@@ -68,39 +68,39 @@ func TestAnalyzeQuotaConsumptionRestartsAfterEveryContinuityBoundary(t *testing.
 		{
 			name: "failure",
 			rows: []model.ChannelQuotaSnapshot{
-				{Id: 1, ObservedAt: 100, Available: 100, Status: "success"},
-				{Id: 2, ObservedAt: 160, Available: 80, Status: "success"},
-				{Id: 3, ObservedAt: 220, Status: "error"},
-				{Id: 4, ObservedAt: 280, Available: 90, Status: "success"},
-				{Id: 5, ObservedAt: 340, Available: 88, Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 1, ObservedAt: 100, Available: 100, Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 2, ObservedAt: 160, Available: 80, Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 3, ObservedAt: 220, Status: "error"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 4, ObservedAt: 280, Available: 90, Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 5, ObservedAt: 340, Available: 88, Status: "success"},
 			},
 		},
 		{
 			name: "recovery",
 			rows: []model.ChannelQuotaSnapshot{
-				{Id: 1, ObservedAt: 100, Available: 100, Status: "success"},
-				{Id: 2, ObservedAt: 160, Available: 80, Status: "success"},
-				{Id: 3, ObservedAt: 220, Available: 90, Status: "success"},
-				{Id: 4, ObservedAt: 280, Available: 88, Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 1, ObservedAt: 100, Available: 100, Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 2, ObservedAt: 160, Available: 80, Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 3, ObservedAt: 220, Available: 90, Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 4, ObservedAt: 280, Available: 88, Status: "success"},
 			},
 		},
 		{
 			name: "baseline change",
 			rows: []model.ChannelQuotaSnapshot{
-				{Id: 1, ObservedAt: 100, Available: 100, Total: quotaNumber(100), Status: "success"},
-				{Id: 2, ObservedAt: 160, Available: 80, Total: quotaNumber(100), Status: "success"},
-				{Id: 3, ObservedAt: 220, Available: 90, Total: quotaNumber(200), Status: "success"},
-				{Id: 4, ObservedAt: 280, Available: 88, Total: quotaNumber(200), Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 1, ObservedAt: 100, Available: 100, Total: quotaNumber(100), Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 2, ObservedAt: 160, Available: 80, Total: quotaNumber(100), Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 3, ObservedAt: 220, Available: 90, Total: quotaNumber(200), Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 4, ObservedAt: 280, Available: 88, Total: quotaNumber(200), Status: "success"},
 			},
 		},
 		{
 			name: "sampling gap",
 			rows: []model.ChannelQuotaSnapshot{
-				{Id: 1, ObservedAt: 100, Available: 100, Status: "success"},
-				{Id: 2, ObservedAt: 160, Available: 99, Status: "success"},
-				{Id: 3, ObservedAt: 220, Available: 98, Status: "success"},
-				{Id: 4, ObservedAt: 3_820, Available: 90, Status: "success"},
-				{Id: 5, ObservedAt: 3_880, Available: 88, Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 1, ObservedAt: 100, Available: 100, Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 2, ObservedAt: 160, Available: 99, Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 3, ObservedAt: 220, Available: 98, Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 4, ObservedAt: 3_820, Available: 90, Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 5, ObservedAt: 3_880, Available: 88, Status: "success"},
 			},
 		},
 	}
@@ -122,9 +122,9 @@ func TestAnalyzeQuotaConsumptionRestartsAfterEveryContinuityBoundary(t *testing.
 
 func TestAnalyzeQuotaConsumptionDoesNotUseAnIntervalCrossingRateWindowStart(t *testing.T) {
 	result := DeriveQuotaConsumption([]model.ChannelQuotaSnapshot{
-		{Id: 1, ChannelId: 7, ObservedAt: 100, Available: 100, Status: "success"},
-		{Id: 2, ChannelId: 7, ObservedAt: 200, Available: 90, Status: "success"},
-		{Id: 3, ChannelId: 7, ObservedAt: 260, Available: 89, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 1, ChannelId: 7, ObservedAt: 100, Available: 100, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 2, ChannelId: 7, ObservedAt: 200, Available: 90, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 3, ChannelId: 7, ObservedAt: 260, Available: 89, Status: "success"},
 	}, "percent")
 
 	analysis := AnalyzeQuotaConsumption(result, 160, 260, 60)
@@ -147,8 +147,8 @@ func TestAnalyzeQuotaConsumptionReturnsResetAwareETAForEachMethod(t *testing.T) 
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			result := DeriveQuotaConsumption([]model.ChannelQuotaSnapshot{
-				{Id: 1, ChannelId: 7, ObservedAt: 100, Available: 10, ResetAt: test.resetAt, Status: "success"},
-				{Id: 2, ChannelId: 7, ObservedAt: 160, Available: 8, ResetAt: test.resetAt, Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 1, ChannelId: 7, ObservedAt: 100, Available: 10, ResetAt: test.resetAt, Status: "success"},
+				{AccountRef: quotaHistoryFixtureAccount, Id: 2, ChannelId: 7, ObservedAt: 160, Available: 8, ResetAt: test.resetAt, Status: "success"},
 			}, "percent")
 			analysis := AnalyzeQuotaConsumption(result, 100, 160, 60)
 
@@ -173,16 +173,16 @@ func TestAnalyzeQuotaConsumptionReturnsResetAwareETAForEachMethod(t *testing.T) 
 
 func TestAnalyzeQuotaConsumptionHandlesZeroAndNegativeAvailableETA(t *testing.T) {
 	zero := AnalyzeQuotaConsumption(DeriveQuotaConsumption([]model.ChannelQuotaSnapshot{
-		{Id: 1, ObservedAt: 100, Available: 0, ResetAt: 1_000, Status: "success"},
-		{Id: 2, ObservedAt: 160, Available: 0, ResetAt: 1_000, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 1, ObservedAt: 100, Available: 0, ResetAt: 1_000, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 2, ObservedAt: 160, Available: 0, ResetAt: 1_000, Status: "success"},
 	}, "percent"), 100, 160, 60)
 	require.Equal(t, QuotaETADepletesBeforeReset, zero.Methods.ObservedWindow.ETA.Outcome)
 	require.Equal(t, int64(0), *zero.Methods.ObservedWindow.ETA.SecondsToDepletion)
 	require.Equal(t, int64(160), *zero.Methods.ObservedWindow.ETA.EstimatedDepletionAt)
 
 	negative := AnalyzeQuotaConsumption(DeriveQuotaConsumption([]model.ChannelQuotaSnapshot{
-		{Id: 1, ObservedAt: 100, Available: 0, Status: "success"},
-		{Id: 2, ObservedAt: 160, Available: -1, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 1, ObservedAt: 100, Available: 0, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 2, ObservedAt: 160, Available: -1, Status: "success"},
 	}, "percent"), 100, 160, 60)
 	require.Equal(t, QuotaETAInsufficientData, negative.Methods.ObservedWindow.ETA.Outcome)
 	require.Nil(t, negative.Methods.ObservedWindow.ETA.SecondsToDepletion)
@@ -190,15 +190,15 @@ func TestAnalyzeQuotaConsumptionHandlesZeroAndNegativeAvailableETA(t *testing.T)
 
 func TestAnalyzeQuotaConsumptionEWMAIsInvariantToEquivalentIntervalSplits(t *testing.T) {
 	unsplit := AnalyzeQuotaConsumption(DeriveQuotaConsumption([]model.ChannelQuotaSnapshot{
-		{Id: 1, ObservedAt: 100, Available: 100, Status: "success"},
-		{Id: 2, ObservedAt: 220, Available: 88, Status: "success"},
-		{Id: 3, ObservedAt: 280, Available: 86, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 1, ObservedAt: 100, Available: 100, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 2, ObservedAt: 220, Available: 88, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 3, ObservedAt: 280, Available: 86, Status: "success"},
 	}, "percent"), 100, 280, 60)
 	split := AnalyzeQuotaConsumption(DeriveQuotaConsumption([]model.ChannelQuotaSnapshot{
-		{Id: 1, ObservedAt: 100, Available: 100, Status: "success"},
-		{Id: 2, ObservedAt: 160, Available: 94, Status: "success"},
-		{Id: 3, ObservedAt: 220, Available: 88, Status: "success"},
-		{Id: 4, ObservedAt: 280, Available: 86, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 1, ObservedAt: 100, Available: 100, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 2, ObservedAt: 160, Available: 94, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 3, ObservedAt: 220, Available: 88, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 4, ObservedAt: 280, Available: 86, Status: "success"},
 	}, "percent"), 100, 280, 60)
 
 	require.InDelta(t, *unsplit.Methods.EWMA.RatePerMinute, *split.Methods.EWMA.RatePerMinute, 1e-12)
@@ -208,8 +208,8 @@ func TestAnalyzeQuotaConsumptionEWMAIsInvariantToEquivalentIntervalSplits(t *tes
 func TestAnalyzeQuotaConsumptionAvoidsFiniteExtremeIntermediateOverflow(t *testing.T) {
 	maximum := math.MaxFloat64
 	analysis := AnalyzeQuotaConsumption(DeriveQuotaConsumption([]model.ChannelQuotaSnapshot{
-		{Id: 1, ObservedAt: 100, Available: maximum, Status: "success"},
-		{Id: 2, ObservedAt: 220, Available: maximum / 2, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 1, ObservedAt: 100, Available: maximum, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 2, ObservedAt: 220, Available: maximum / 2, Status: "success"},
 	}, "units"), 100, 220, 60)
 
 	require.NotNil(t, analysis.Methods.ObservedWindow.RatePerMinute)
@@ -221,15 +221,15 @@ func TestAnalyzeQuotaConsumptionAvoidsFiniteExtremeIntermediateOverflow(t *testi
 
 func TestAnalyzeQuotaConsumptionDistinguishesStableAndInsufficientETA(t *testing.T) {
 	stable := AnalyzeQuotaConsumption(DeriveQuotaConsumption([]model.ChannelQuotaSnapshot{
-		{Id: 1, ObservedAt: 100, Available: 8, Status: "success"},
-		{Id: 2, ObservedAt: 160, Available: 8, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 1, ObservedAt: 100, Available: 8, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 2, ObservedAt: 160, Available: 8, Status: "success"},
 	}, "percent"), 100, 160, 60)
 	require.NotNil(t, stable.Methods.ObservedWindow.RatePerMinute)
 	require.Zero(t, *stable.Methods.ObservedWindow.RatePerMinute)
 	require.Equal(t, QuotaETAStableOrNoObservedConsumption, stable.Methods.ObservedWindow.ETA.Outcome)
 
 	insufficient := AnalyzeQuotaConsumption(DeriveQuotaConsumption([]model.ChannelQuotaSnapshot{
-		{Id: 1, ObservedAt: 100, Available: 8, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 1, ObservedAt: 100, Available: 8, Status: "success"},
 	}, "percent"), 100, 160, 60)
 	require.Nil(t, insufficient.Methods.ObservedWindow.RatePerMinute)
 	require.Equal(t, QuotaETAInsufficientData, insufficient.Methods.ObservedWindow.ETA.Outcome)
@@ -237,9 +237,9 @@ func TestAnalyzeQuotaConsumptionDistinguishesStableAndInsufficientETA(t *testing
 
 func TestAnalyzeQuotaConsumptionKeepsLastObservedRateWhenCurrentSampleFails(t *testing.T) {
 	analysis := AnalyzeQuotaConsumption(DeriveQuotaConsumption([]model.ChannelQuotaSnapshot{
-		{Id: 1, ObservedAt: 100, Available: 100, Status: "success"},
-		{Id: 2, ObservedAt: 160, Available: 90, Status: "success"},
-		{Id: 3, ObservedAt: 220, Status: "error"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 1, ObservedAt: 100, Available: 100, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 2, ObservedAt: 160, Available: 90, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 3, ObservedAt: 220, Status: "error"},
 	}, "percent"), 100, 220, 60)
 
 	require.InDelta(t, 10, *analysis.Methods.ObservedWindow.RatePerMinute, 1e-9)
@@ -252,14 +252,14 @@ func TestAnalyzeQuotaConsumptionKeepsLastObservedRateWhenCurrentSampleFails(t *t
 
 func TestBuildQuotaOverviewPointsCompactsWithoutConnectingContinuityBreaks(t *testing.T) {
 	consumption := DeriveQuotaConsumption([]model.ChannelQuotaSnapshot{
-		{Id: 1, ObservedAt: 100, Available: 100, ResetAt: 280, Status: "success"},
-		{Id: 2, ObservedAt: 160, Available: 90, ResetAt: 280, Status: "success"},
-		{Id: 3, ObservedAt: 220, Available: 80, ResetAt: 280, Status: "success"},
-		{Id: 4, ObservedAt: 280, Available: 100, ResetAt: 1_000, Status: "success"},
-		{Id: 5, ObservedAt: 340, Available: 90, ResetAt: 1_000, Status: "success"},
-		{Id: 6, ObservedAt: 400, Status: "error"},
-		{Id: 7, ObservedAt: 460, Available: 80, ResetAt: 1_000, Status: "success"},
-		{Id: 8, ObservedAt: 520, Available: 70, ResetAt: 1_000, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 1, ObservedAt: 100, Available: 100, ResetAt: 280, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 2, ObservedAt: 160, Available: 90, ResetAt: 280, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 3, ObservedAt: 220, Available: 80, ResetAt: 280, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 4, ObservedAt: 280, Available: 100, ResetAt: 1_000, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 5, ObservedAt: 340, Available: 90, ResetAt: 1_000, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 6, ObservedAt: 400, Status: "error"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 7, ObservedAt: 460, Available: 80, ResetAt: 1_000, Status: "success"},
+		{AccountRef: quotaHistoryFixtureAccount, Id: 8, ObservedAt: 520, Available: 70, ResetAt: 1_000, Status: "success"},
 	}, "percent")
 
 	points := BuildQuotaOverviewPoints(consumption.Observations, 4)

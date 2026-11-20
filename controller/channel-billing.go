@@ -15,6 +15,7 @@ import (
 
 	"github.com/ForceMind/MyAPI/common"
 	"github.com/ForceMind/MyAPI/constant"
+	"github.com/ForceMind/MyAPI/i18n"
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/ForceMind/MyAPI/relay/channel/advancedcustom"
 	relaycommon "github.com/ForceMind/MyAPI/relay/common"
@@ -886,6 +887,7 @@ func quotaHistoryRangeSeconds(value string) (int64, bool) {
 // exceeded, the response is marked incomplete instead of pretending that the
 // newest observations represent the requested range.
 func GetChannelQuotaHistory(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		common.ApiError(c, err)
@@ -927,6 +929,10 @@ func GetChannelQuotaHistory(c *gin.Context) {
 		return
 	}
 	if end-start > 180*24*60*60 {
+		if c.Query("series_id") != "" {
+			c.JSON(http.StatusOK, gin.H{"success": false, "code": "quota_history_selection_too_large", "message": common.TranslateMessage(c, i18n.MsgQuotaHistorySelectionTooLarge)})
+			return
+		}
 		common.ApiError(c, errors.New("quota history range cannot exceed 180 days"))
 		return
 	}
@@ -982,6 +988,7 @@ func GetChannelQuotaHistory(c *gin.Context) {
 	}
 	response, err := service.GetChannelQuotaHistory(requestContext, service.ChannelQuotaHistoryRequest{
 		ChannelID:            id,
+		SeriesID:             c.Query("series_id"),
 		Start:                start,
 		End:                  end,
 		Limit:                limit,
@@ -993,6 +1000,19 @@ func GetChannelQuotaHistory(c *gin.Context) {
 		SeriesFilter:         seriesFilter,
 	})
 	if err != nil {
+		var code, messageKey string
+		switch {
+		case errors.Is(err, service.ErrQuotaHistoryInvalidSeries):
+			code, messageKey = "quota_history_invalid_series", i18n.MsgQuotaHistoryInvalidSeries
+		case errors.Is(err, service.ErrQuotaHistorySeriesNotFound):
+			code, messageKey = "quota_history_series_not_found", i18n.MsgQuotaHistorySeriesNotFound
+		case errors.Is(err, service.ErrQuotaHistorySelectionTooLarge):
+			code, messageKey = "quota_history_selection_too_large", i18n.MsgQuotaHistorySelectionTooLarge
+		}
+		if code != "" {
+			c.JSON(http.StatusOK, gin.H{"success": false, "code": code, "message": common.TranslateMessage(c, messageKey)})
+			return
+		}
 		common.ApiError(c, err)
 		return
 	}

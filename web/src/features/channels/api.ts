@@ -365,6 +365,7 @@ export async function updateChannelBalance(
 export async function getChannelQuotaHistory(
   id: number,
   params: {
+    series_id?: string
     range?: ChannelQuotaHistoryRange
     start?: string
     end?: string

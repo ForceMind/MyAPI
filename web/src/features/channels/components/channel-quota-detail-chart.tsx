@@ -151,6 +151,7 @@ export function ChannelQuotaDetailChart({
       const auth = useAuthStore.getState().auth
       if (signal.aborted || identity !== `${auth.user?.id ?? null}:${auth.user?.role ?? 0}:${auth.session?.sid ?? null}`) throw new CanceledError('Quota detail identity changed')
       const response = await getChannelQuotaHistory(item.channel_id, {
+        series_id: item.series_id || undefined,
         range,
         start,
         end,
@@ -172,7 +173,11 @@ export function ChannelQuotaDetailChart({
       const current = useAuthStore.getState().auth
       if (signal.aborted || identity !== `${current.user?.id ?? null}:${current.user?.role ?? 0}:${current.session?.sid ?? null}`) throw new CanceledError('Quota detail identity changed')
       const returnedSeriesId = response.data?.series_id ?? response.data?.series?.id
-      if (response.success && item.series_id && returnedSeriesId && item.series_id !== returnedSeriesId) throw new Error(t('This history belongs to a different account window. Refresh the directory before continuing.'))
+      if (response.success && item.series_id && item.series_id !== returnedSeriesId) {
+        throw new Error(returnedSeriesId
+          ? t('This history belongs to a different account window. Refresh the directory before continuing.')
+          : t('This history does not provide an account-window identity.'))
+      }
       return response
     },
     staleTime: 60 * 1000,

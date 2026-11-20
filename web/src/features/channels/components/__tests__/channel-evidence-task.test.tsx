@@ -14,10 +14,10 @@ import { ChannelQuotaEvents } from '../channel-quota-events'
 import { ChannelRoutingPreview } from '../channel-routing-preview'
 
 const originalAuth = useAuthStore.getState()
-const series = { channel_id: 7, name: 'Synthetic channel', account_label: 'Synthetic quota account', source: 'codex_wham_usage_primary', window_type: 'five_hour', window_seconds: 18000, metric_type: 'codex_rate_limit', unit: 'percent', status: 'error', current_available: null, series_id: 'synthetic-series-one', observed_at: 100 }
+const series = { channel_id: 7, name: 'Synthetic channel', account_label: 'Synthetic quota account', source: 'codex_wham_usage_primary', window_type: 'five_hour', window_seconds: 18000, metric_type: 'codex_rate_limit', unit: 'percent', status: 'error', current_available: null, series_id: 'a'.repeat(64), observed_at: 100 }
 const savedList = { success: true, data: { items: [series], source_complete: false, items_complete: true } }
-const history = { success: true, data: { channel_id: 7, start: 100, end: 200, limit: 5000, unit: 'percent', source_complete: true, points_complete: true, complete: true, points: [{ timestamp: 100, status: 'error', error_code: 'synthetic-upstream-error' }] } }
-const event = { id: 1, event_key: 'synthetic-event-key', snapshot_id: 1, channel_id: 7, series_ref: 'synthetic-series-one', status: 'exhausted', kind: 'threshold', state: 'retryable', attempt_count: 0, observed_at: 100, created_at: 100, updated_at: 100, last_error_code: 'synthetic-delivery-error', evidence: { channel_id: 7, observed_at: 100, available: 0, total: 100, unit: 'percent', metric_type: 'codex_rate_limit', window_type: 'five_hour' } }
+const history = { success: true, data: { channel_id: 7, series_id: series.series_id, start: 100, end: 200, limit: 5000, unit: 'percent', source_complete: true, points_complete: true, complete: true, points: [{ timestamp: 100, status: 'error', error_code: 'synthetic-upstream-error' }] } }
+const event = { id: 1, event_key: 'synthetic-event-key', snapshot_id: 1, channel_id: 7, series_ref: series.series_id, status: 'exhausted', kind: 'threshold', state: 'retryable', attempt_count: 0, observed_at: 100, created_at: 100, updated_at: 100, last_error_code: 'synthetic-delivery-error', evidence: { channel_id: 7, observed_at: 100, available: 0, total: 100, unit: 'percent', metric_type: 'codex_rate_limit', window_type: 'five_hour' } }
 const snapshot = { success: true, data: { group: 'default', model: 'synthetic-model', source: 'database', generation: 7, cache_enabled: false, cache_pending: false, tiers: [], rejected: [] } }
 let client: QueryClient
 function setActor(sid: string) {
@@ -63,7 +63,7 @@ it('reads quota only after entry, leaves the series unselected, and preserves fa
   await waitFor(() => expect(report).toHaveBeenLastCalledWith(expect.objectContaining({ phase: 'ready', incomplete: true, samplingEnabled: false })))
   await userEvent.setup().selectOptions(screen.getByLabelText('Detailed series'), screen.getByRole('option', { name: /Synthetic quota account/ }))
   await waitFor(() => expect(calls('/api/channel/7/quota/history')).toHaveLength(1))
-  expect(calls('/api/channel/7/quota/history')[0]?.[1]).toEqual(expect.objectContaining({ signal: expect.any(AbortSignal), params: expect.objectContaining({ limit: 5000, source: series.source, window_seconds: 18000, unit: 'percent' }) }))
+  expect(calls('/api/channel/7/quota/history')[0]?.[1]).toEqual(expect.objectContaining({ signal: expect.any(AbortSignal), params: expect.objectContaining({ series_id: series.series_id, limit: 5000, source: series.source, window_seconds: 18000, unit: 'percent' }) }))
   expect(api.post).not.toHaveBeenCalled()
   expect(api.put).not.toHaveBeenCalled()
 })
@@ -178,17 +178,20 @@ it('does not publish old-session quota evidence after the same user replaces the
 })
 
 
-it('does not display another known account-window identity under the selected series title', async () => {
+it.each([
+  ['b'.repeat(64), 'This history belongs to a different account window. Refresh the directory before continuing.'],
+  [undefined, 'This history does not provide an account-window identity.'],
+] as const)('does not attach an unverified account-window response (%s) to the selected series', async (returnedSeries, detail) => {
   const original = vi.mocked(api.get).getMockImplementation()
   if (!original) throw new Error('Expected synthetic evidence transport')
-  vi.mocked(api.get).mockImplementation((url, ...args) => url === '/api/channel/7/quota/history' ? Promise.resolve({ data: { ...history, data: { ...history.data, series_id: 'different-synthetic-series' } } }) : original(url, ...args))
+  vi.mocked(api.get).mockImplementation((url, ...args) => url === '/api/channel/7/quota/history' ? Promise.resolve({ data: { ...history, data: { ...history.data, series_id: returnedSeries } } }) : original(url, ...args))
   const report = await renderTask('quota', vi.fn(), true)
   await userEvent.setup().selectOptions(await screen.findByLabelText('Detailed series'), screen.getByRole('option', { name: /Synthetic quota account/ }))
   const title = await screen.findByText('Unable to load quota history')
   const error = title.closest<HTMLElement>('[role=alert]')
   if (!error) throw new Error('Expected the original history error boundary')
   await userEvent.setup().click(within(error).getByText('Details'))
-  expect(screen.getByText('This history belongs to a different account window. Refresh the directory before continuing.')).toBeVisible()
+  expect(screen.getByText(detail)).toBeVisible()
   await waitFor(() => expect(report).toHaveBeenLastCalledWith(expect.objectContaining({ phase: 'error' })))
   expect(api.post).not.toHaveBeenCalled()
   expect(api.put).not.toHaveBeenCalled()

@@ -56,7 +56,9 @@ func QuotaSnapshotUsable(snapshot model.ChannelQuotaSnapshot) bool {
 }
 
 func quotaSameIdentity(a, b model.ChannelQuotaSnapshot) bool {
-	return a.ChannelId == b.ChannelId && a.MetricType == b.MetricType && a.WindowType == b.WindowType &&
+	left, _, leftKnown := model.ChannelQuotaSnapshotIdentity(a)
+	right, _, rightKnown := model.ChannelQuotaSnapshotIdentity(b)
+	return leftKnown && rightKnown && left == right && a.ChannelId == b.ChannelId && a.MetricType == b.MetricType && a.WindowType == b.WindowType &&
 		a.Source == b.Source && a.PlanType == b.PlanType && a.Unit == b.Unit &&
 		a.Currency == b.Currency && a.WindowSeconds == b.WindowSeconds
 }
