@@ -16,7 +16,7 @@ test('Actions synthetic owned child is stopped only after its actual close, with
     const child = fork(fixture, [], { cwd: directory, env: { MYAPI_DESKTOP_CHILD_FIXTURE: '1', SystemRoot: process.env.SystemRoot, PATH: process.env.PATH }, stdio: ['ignore', 'ignore', 'ignore', 'ipc'] })
     children.push(child)
     const ready = once(child, 'message').then(([message]) => { assert.deepEqual(message, { ready: true }) })
-    return { child, ready }
+    return { child, ready, requestShutdown: process.platform === 'win32' ? () => child.send('exit') : undefined }
   }
   try {
     const unrelated = launch()
@@ -29,7 +29,8 @@ test('Actions synthetic owned child is stopped only after its actual close, with
     await closed
     assert.equal(stopped.state, 'stopped')
     assert.equal(stopped.owned, false)
-    assert.notEqual(owned.exitCode === null && owned.signalCode === null, true)
+    assert.equal(owned.exitCode, 0)
+    assert.equal(owned.signalCode, null)
     assert.equal(unrelated.child.exitCode, null)
     assert.equal(unrelated.child.signalCode, null)
     const unrelatedClosed = once(unrelated.child, 'close')

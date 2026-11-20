@@ -7,9 +7,8 @@ function createServiceController(options) {
   }
   const timers = options.timers || { setTimeout, clearTimeout };
   const gracefulTimeoutMs = options.gracefulTimeoutMs ?? 5000;
-  const forceTimeoutMs = options.forceTimeoutMs ?? 2000;
-  if (![gracefulTimeoutMs, forceTimeoutMs].every((value) => Number.isFinite(value) && value >= 0)) {
-    throw new TypeError('Desktop stop deadlines must be finite and nonnegative');
+  if (!Number.isFinite(gracefulTimeoutMs) || gracefulTimeoutMs < 0) {
+    throw new TypeError('The desktop stop deadline must be finite and nonnegative');
   }
   let state = options.external ? 'external' : 'stopped';
   let reason = options.external ? 'externally-managed' : null;
@@ -40,17 +39,9 @@ function createServiceController(options) {
     record.resolve(snapshot());
   }
 
-  function clearStopTimers(record) {
-    if (!record) return;
-    if (record.graceTimer !== null) timers.clearTimeout(record.graceTimer);
-    if (record.forceTimer !== null) timers.clearTimeout(record.forceTimer);
-    record.graceTimer = null;
-    record.forceTimer = null;
-  }
-
   function finishStop(record) {
     if (!record || record.finished) return;
-    clearStopTimers(record);
+    timers.clearTimeout(record.timer);
     record.finished = true;
     if (stopping === record) stopping = null;
     record.resolve(snapshot());
@@ -76,16 +67,16 @@ function createServiceController(options) {
       finishStart(record);
       return record.promise;
     }
-    const current = { child: launched.child, generation, stopRequested: false, abort };
+    const current = { child: launched.child, stopRequested: false, abort, requestShutdown: launched.requestShutdown };
     owner = current;
-    current.child.once('close', (code) => {
+    current.child.once('close', (code, signal) => {
       if (owner !== current) return;
       owner = null;
       abort.abort();
       const stop = stopping;
-      clearStopTimers(stop);
       if (current.stopRequested) {
-        publish('stopped');
+        if (code === 0 && signal == null) publish('stopped');
+        else publish('failed', 'shutdown-failed');
       } else if (code === 0) {
         publish('stopped', 'process-exited');
       } else {
@@ -125,28 +116,25 @@ function createServiceController(options) {
   function stop() {
     if (stopping) return stopping.promise;
     if (options.external) return Promise.resolve(snapshot());
-    if (!owner) return Promise.resolve(snapshot());
+    if (!owner || state === 'stop-unconfirmed') return Promise.resolve(snapshot());
     const current = owner;
     current.stopRequested = true;
-    const record = { owner: current, graceTimer: null, forceTimer: null, finished: false, resolve: null, promise: null };
+    const record = { timer: null, finished: false, resolve: null, promise: null };
     record.promise = new Promise((resolve) => { record.resolve = resolve; });
     stopping = record;
     publish('stopping');
     current.abort.abort();
     finishStart(starting);
-    record.graceTimer = timers.setTimeout(() => {
+    record.timer = timers.setTimeout(() => {
       if (owner !== current || stopping !== record || record.finished) return;
-      record.graceTimer = null;
-      record.forceTimer = timers.setTimeout(() => {
-        if (owner !== current || stopping !== record || record.finished) return;
-        record.forceTimer = null;
-        publish('stop-unconfirmed', 'stop-timeout');
-        finishStop(record);
-      }, forceTimeoutMs);
-      try { current.child.kill('SIGKILL'); } catch { /* only close can confirm a stop */ }
+      publish('stop-unconfirmed', 'stop-timeout');
+      finishStop(record);
     }, gracefulTimeoutMs);
-    // close was registered at adoption time, before either termination signal.
-    try { current.child.kill('SIGTERM'); } catch { /* still await close and the bounded deadline */ }
+    // The owned process can still be draining requests when the UI deadline expires.
+    try {
+      if (current.requestShutdown) current.requestShutdown();
+      else current.child.kill('SIGTERM');
+    } catch { /* still await close and the bounded deadline */ }
     return record.promise;
   }
 

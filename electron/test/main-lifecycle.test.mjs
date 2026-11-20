@@ -139,6 +139,11 @@ async function boot(options = {}) {
     child_process: { spawn(binary, args, config) {
       const child = new EventEmitter(); child.stdout = new EventEmitter(); child.stderr = new EventEmitter(); child.signals = []
       child.kill = (signal) => { child.signals.push(signal); return true }
+      child.stopFrames = []
+      if (config.stdio?.[0] === 'pipe') {
+        child.stdin = new EventEmitter()
+        child.stdin.end = (frame) => child.stopFrames.push(frame)
+      }
       children.push({ child, binary, args, config }); return child
     } },
     http: { get(config, callback) {
@@ -249,16 +254,20 @@ for (const platform of ['darwin', 'win32']) {
     f.panel().close()
     assert.equal(f.panel().visible, false)
     assert.deepEqual(f.children[0].child.signals, [])
+    assert.deepEqual(f.children[0].child.stopFrames, [])
     assert.equal(f.quits, 0)
     f.app.emit('second-instance')
     assert.equal(f.panel().visible, true)
     f.answers.push({ response: 0 })
     await f.invoke('stop')
     assert.deepEqual(f.children[0].child.signals, [])
+    assert.deepEqual(f.children[0].child.stopFrames, [])
     f.answers.push({ response: 1 })
     const stop = f.invoke('stop')
     await f.waitForState('stopping')
-    assert.deepEqual(f.children[0].child.signals, ['SIGTERM'])
+    assert.equal(f.children[0].config.env.MYAPI_DESKTOP_SERVICE, platform === 'win32' ? 'stdin' : 'signal')
+    assert.deepEqual(f.children[0].child.signals, platform === 'win32' ? [] : ['SIGTERM'])
+    assert.deepEqual(f.children[0].child.stopFrames, platform === 'win32' ? ['shutdown\n'] : [])
     assert.equal(f.exits, 0)
     f.children[0].child.emit('close', 0)
     const stopped = await stop
@@ -273,6 +282,8 @@ for (const platform of ['darwin', 'win32']) {
     const quit = f.invoke('quit')
     await f.waitForState('stopping')
     assert.equal(f.exits, 0)
+    assert.deepEqual(f.children[1].child.signals, platform === 'win32' ? [] : ['SIGTERM'])
+    assert.deepEqual(f.children[1].child.stopFrames, platform === 'win32' ? ['shutdown\n'] : [])
     f.children[1].child.emit('close', 0)
     await quit
     assert.equal(f.exits, 1)
@@ -312,13 +323,13 @@ test('the real main status probe exhausts exactly its existing 30 attempts and r
   assert.equal(f.windows.length, 1)
 })
 
-test('stop-unconfirmed never exits the application or permits another start, even though both kill calls returned true', async () => {
+test('stop-unconfirmed never exits the application, force-kills the child or permits another start', async () => {
   const f = await boot()
   await running(f)
   f.answers.push({ response: 1 })
   const stop = f.invoke('stop')
   await f.waitForState('stopping')
-  f.fireTimer(5000); f.fireTimer(2000)
+  f.fireTimer(125000)
   const state = await stop
   assert.equal(state.state, 'stop-unconfirmed')
   assert.equal(state.owned, true)
@@ -326,7 +337,27 @@ test('stop-unconfirmed never exits the application or permits another start, eve
   assert.equal(f.exits, 0)
   await f.invoke('start')
   assert.equal(f.children.length, 1)
-  assert.deepEqual(f.children[0].child.signals, ['SIGTERM', 'SIGKILL'])
+  assert.deepEqual(f.children[0].child.signals, ['SIGTERM'])
+})
+
+test('Windows quit remains open and reports a failed stop when the owned backend exits nonzero', async () => {
+  const f = await boot({ platform: 'win32', locale: 'zh-CN' })
+  await running(f)
+  f.answers.push({ response: 1 })
+  const quit = f.invoke('quit')
+  await f.waitForState('stopping')
+  assert.deepEqual(f.children[0].child.stopFrames, ['shutdown\n'])
+  assert.deepEqual(f.children[0].child.signals, [])
+  f.children[0].child.emit('close', 1, null)
+  const result = await quit
+  assert.equal(result.state, 'failed')
+  assert.equal(result.owned, false)
+  assert.equal(f.exits, 0)
+  assert.equal(f.children.length, 1)
+  assert.deepEqual({ ...result.notice }, {
+    message: '服务已退出，但未确认正常停止。请查看本地日志后再试。',
+    tone: 'warning',
+  })
 })
 
 test('confirmation cannot act after the original local panel is replaced', async () => {

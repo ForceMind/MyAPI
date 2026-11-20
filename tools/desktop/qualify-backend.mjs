@@ -91,23 +91,26 @@ function localAPI(port) {
   let accessToken = null
   return {
     setToken(value) { demand(typeof value === 'string' && value.length > 0, 'DESKTOP_AUTH_TOKEN_MISSING'); accessToken = value },
-    request(method, pathname, body) {
-      demand((method === 'GET' && ['/api/status', '/api/user/self'].includes(pathname)) ||
-        (method === 'POST' && ['/api/setup', '/api/user/login'].includes(pathname)) ||
-        (method === 'PUT' && pathname === '/api/user/self'), 'DESKTOP_API_SCOPE_REJECTED')
+    request(method, pathname, body, { credential = accessToken } = {}) {
+      const route = new URL(pathname, 'http://127.0.0.1').pathname
+      const relay = method === 'POST' && pathname === '/v1/chat/completions'
+      demand(pathname.startsWith('/') && !pathname.startsWith('//') && ((method === 'GET' &&
+        (['/api/status', '/api/user/self', '/api/option/', '/api/token/search', '/api/channel/search', '/api/log/self', '/api/data/self'].includes(route) || /^\/api\/token\/[1-9][0-9]*$/.test(route))) ||
+        (method === 'POST' && (['/api/setup', '/api/user/login', '/api/channel/', '/api/token/'].includes(route) || /^\/api\/token\/[1-9][0-9]*\/key$/.test(route))) ||
+        (method === 'PUT' && ['/api/user/self', '/api/option/'].includes(route)) || relay), 'DESKTOP_API_SCOPE_REJECTED')
       const payload = body === undefined ? null : Buffer.from(JSON.stringify(body))
       return new Promise((resolve, reject) => {
         const request = http.request({ hostname: '127.0.0.1', port, method, path: pathname, timeout: 10000,
           headers: { ...(payload ? { 'Content-Type': 'application/json', 'Content-Length': payload.length } : {}),
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) } }, response => {
+            ...(credential ? { Authorization: `Bearer ${credential}` } : {}) } }, response => {
           const chunks = []; let size = 0
           response.on('data', chunk => { size += chunk.length; if (size > 1024 * 1024) response.destroy(new Error('DESKTOP_API_RESPONSE_TOO_LARGE')); else chunks.push(chunk) })
           response.on('error', () => reject(new Error('DESKTOP_API_READ_FAILED')))
           response.on('end', () => {
             try {
               const value = JSON.parse(Buffer.concat(chunks))
-              demand(response.statusCode === 200 && value.success === true, 'DESKTOP_API_REJECTED')
-              resolve(value.data ?? null)
+              demand(response.statusCode === 200 && (relay || value.success === true), 'DESKTOP_API_REJECTED')
+              resolve(relay ? { body: value, requestId: response.headers['x-oneapi-request-id'] } : value.data ?? null)
             } catch { reject(new Error('DESKTOP_API_REJECTED')) }
           })
         })
@@ -119,13 +122,138 @@ function localAPI(port) {
   }
 }
 
-function businessProjection(value) {
+function businessProjection(value, { usedQuota = 0, requestCount = 0 } = {}) {
   const keys = ['id', 'username', 'display_name', 'role', 'status', 'group', 'quota', 'used_quota', 'request_count', 'setting']
   demand(value && keys.every(key => Object.hasOwn(value, key)), 'DESKTOP_BUSINESS_FIELDS_MISSING')
   demand(Number.isSafeInteger(value.id) && value.id > 0 && value.username === 'desktopqa' && value.role === 100 &&
-    value.status === 1 && value.quota === 0 && value.used_quota === 0 && value.request_count === 0, 'DESKTOP_BUSINESS_MISMATCH')
+    value.status === 1 && value.quota === 0 && value.used_quota === usedQuota && value.request_count === requestCount, 'DESKTOP_BUSINESS_MISMATCH')
   demand(value.display_name === 'Desktop QA marker' && typeof value.setting === 'string', 'DESKTOP_MARKER_MISSING')
   return Object.fromEntries(keys.map(key => [key, value[key]]))
+}
+
+const syntheticModel = 'desktop-synthetic-model'
+const syntheticQuota = 15
+
+export function verifySyntheticAccounting({ user, token, logs }, expected) {
+  demand(user?.id === expected.userId && user.quota === 0 && user.self_use_no_balance === true &&
+    user.used_quota === syntheticQuota && user.request_count === 1, 'DESKTOP_ACCOUNTING_USER_MISMATCH')
+  demand(token?.id === expected.tokenId && token.user_id === expected.userId && token.remain_quota === 1000 - syntheticQuota &&
+    token.used_quota === syntheticQuota && token.unlimited_quota === false, 'DESKTOP_ACCOUNTING_KEY_MISMATCH')
+  demand(logs?.total === 1 && Array.isArray(logs.items) && logs.items.length === 1, 'DESKTOP_ACCOUNTING_LOG_COUNT_MISMATCH')
+  const row = logs.items[0]
+  let other
+  try { other = JSON.parse(row.other) } catch { throw new Error('DESKTOP_ACCOUNTING_LOG_MISMATCH') }
+  demand(row.user_id === expected.userId && row.token_id === expected.tokenId && (row.channel ?? row.channel_id) === expected.channelId &&
+    row.request_id === expected.requestId && row.type === 2 && row.quota === syntheticQuota &&
+    row.prompt_tokens === 10 && row.completion_tokens === 5 && other.billing_source === 'self_use', 'DESKTOP_ACCOUNTING_LOG_MISMATCH')
+}
+
+export function verifyDashboardRows(rows, userId, expectedCount) {
+  demand(Array.isArray(rows) && rows.length === expectedCount, 'DESKTOP_DASHBOARD_COUNT_MISMATCH')
+  if (expectedCount === 0) return
+  demand(expectedCount === 1 && rows[0].user_id === userId && rows[0].model_name === syntheticModel &&
+    rows[0].count === 1 && rows[0].quota === syntheticQuota && rows[0].token_used === 15, 'DESKTOP_DASHBOARD_USAGE_MISMATCH')
+}
+
+export async function readStoppedAccounting(database, expected) {
+  const info = await lstat(database)
+  demand(info.isFile() && !info.isSymbolicLink() && await realpath(database) === database, 'DESKTOP_ACCOUNTING_DATABASE_REJECTED')
+  const { DatabaseSync } = await import('node:sqlite')
+  const db = new DatabaseSync(database, { readOnly: true })
+  try {
+    db.exec('PRAGMA query_only=ON')
+    const user = db.prepare('SELECT id,quota,used_quota,request_count,self_use_no_balance FROM users WHERE id=?').get(expected.userId)
+    const token = db.prepare('SELECT id,user_id,remain_quota,used_quota,unlimited_quota FROM tokens WHERE id=?').get(expected.tokenId)
+    if (user) user.self_use_no_balance = user.self_use_no_balance === 1
+    if (token) token.unlimited_quota = token.unlimited_quota === 1
+    const logs = db.prepare('SELECT user_id,token_id,channel_id,request_id,type,quota,prompt_tokens,completion_tokens,other FROM logs WHERE request_id=?').all(expected.requestId)
+    verifySyntheticAccounting({ user, token, logs: { total: logs.length, items: logs } }, expected)
+    const dashboard = db.prepare('SELECT user_id,model_name,count,quota,token_used FROM quota_data WHERE user_id=? AND model_name=?').all(expected.userId, syntheticModel)
+    verifyDashboardRows(dashboard, expected.userId, 1)
+    return { ledgerVerified: true, dashboardVerified: true }
+  } finally { db.close() }
+}
+
+export async function createSyntheticUpstream() {
+  let count = 0, violation = false
+  const server = http.createServer((request, response) => {
+    count++
+    const chunks = []; let size = 0
+    request.on('data', chunk => { size += chunk.length; if (size > 65536) { violation = true; request.destroy() } else chunks.push(chunk) })
+    request.on('error', () => { violation = true; response.destroy() })
+    request.on('end', () => {
+      let body
+      try { body = JSON.parse(Buffer.concat(chunks)) } catch { violation = true }
+      if (request.method !== 'POST' || request.url !== '/v1/chat/completions' || request.headers.authorization !== 'Bearer synthetic-desktop-upstream-key' ||
+          body?.model !== syntheticModel || body.stream !== false || body.max_tokens !== 8 ||
+          body.messages?.length !== 1 || body.messages[0]?.role !== 'user' || body.messages[0]?.content !== 'synthetic desktop qualification') violation = true
+      response.writeHead(violation ? 400 : 200, { 'Content-Type': 'application/json' })
+      response.end(JSON.stringify({ id: 'synthetic-desktop-response', object: 'chat.completion', model: syntheticModel,
+        choices: [{ index: 0, message: { role: 'assistant', content: 'synthetic fixture reply' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } }))
+    })
+  })
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve) })
+  return { origin: `http://127.0.0.1:${server.address().port}`, stats: () => ({ count, violation }),
+    async close() {
+      const closed = new Promise((resolve, reject) => server.close(error => error ? reject(new Error('DESKTOP_SYNTHETIC_CLOSE_UNKNOWN')) : resolve()))
+      server.closeAllConnections()
+      await bounded(closed, 5000, 'DESKTOP_SYNTHETIC_CLOSE_TIMEOUT')
+    } }
+}
+
+async function prepareSyntheticAccounting(api, upstream, report) {
+  const user = await api.request('GET', '/api/user/self')
+  demand(user?.role === 100 && user.quota === 0 && user.self_use_no_balance === true && user.used_quota === 0 && user.request_count === 0,
+    'DESKTOP_SELF_USE_POLICY_MISMATCH')
+  for (const [key, value] of [['ModelRatio', JSON.stringify({ [syntheticModel]: 1 })],
+    ['CompletionRatio', JSON.stringify({ [syntheticModel]: 1 })], ['GroupRatio', '{"default":1}'], ['GroupGroupRatio', '{}'],
+    ['LogConsumeEnabled', 'true'], ['DataExportEnabled', 'true'], ['DataExportInterval', '60']]) {
+    await api.request('PUT', '/api/option/', { key, value })
+  }
+  const options = await api.request('GET', '/api/option/')
+  demand(Array.isArray(options) && options.find(item => item.key === 'DataExportInterval')?.value === '60' &&
+    options.find(item => item.key === 'DataExportEnabled')?.value === 'true', 'DESKTOP_DASHBOARD_INTERVAL_UNCONFIRMED')
+  report.accounting_check.checks.long_dashboard_interval_verified = true
+  await api.request('POST', '/api/channel/', { mode: 'single', channel: { type: 1, key: 'synthetic-desktop-upstream-key',
+    status: 1, name: 'desktop-native-synthetic', models: syntheticModel, group: 'default', base_url: upstream.origin } })
+  const channels = await api.request('GET', '/api/channel/search?keyword=desktop-native-synthetic&p=1&page_size=10')
+  const channelRows = channels?.items?.filter(item => item.name === 'desktop-native-synthetic' && item.type === 1)
+  demand(channelRows?.length === 1 && Number.isSafeInteger(channelRows[0].id), 'DESKTOP_SYNTHETIC_CHANNEL_UNCONFIRMED')
+  await api.request('POST', '/api/token/', { name: 'desktop-self-use-key', remain_quota: 1000, unlimited_quota: false,
+    model_limits_enabled: true, model_limits: syntheticModel, group: 'default', expired_time: -1 })
+  const tokens = await api.request('GET', '/api/token/search?keyword=desktop-self-use-key&p=1&page_size=10')
+  const tokenRows = tokens?.items?.filter(item => item.name === 'desktop-self-use-key')
+  demand(tokenRows?.length === 1 && Number.isSafeInteger(tokenRows[0].id), 'DESKTOP_SYNTHETIC_KEY_UNCONFIRMED')
+  const key = await api.request('POST', `/api/token/${tokenRows[0].id}/key`)
+  demand(typeof key?.key === 'string' && key.key.length > 0, 'DESKTOP_SYNTHETIC_KEY_UNAVAILABLE')
+  const start = Math.floor(Date.now() / 1000) - 60
+  const dashboardPath = `/api/data/self?start_timestamp=${start}&end_timestamp=${start + 600}&granularity=minute`
+  verifyDashboardRows(await api.request('GET', dashboardPath), user.id, 0)
+  demand(upstream.stats().count === 0 && upstream.stats().violation === false, 'DESKTOP_SYNTHETIC_NOT_FRESH')
+  report.model_requests++
+  report.accounting_check.direct_model_requests++
+  const relay = await api.request('POST', '/v1/chat/completions', { model: syntheticModel,
+    messages: [{ role: 'user', content: 'synthetic desktop qualification' }], max_tokens: 8, stream: false }, { credential: key.key })
+  demand(relay.body?.usage?.prompt_tokens === 10 && relay.body.usage.completion_tokens === 5 && relay.body.usage.total_tokens === 15 &&
+    typeof relay.requestId === 'string' && relay.requestId.length > 0, 'DESKTOP_SYNTHETIC_RELAY_MISMATCH')
+  const expected = { userId: user.id, tokenId: tokenRows[0].id, channelId: channelRows[0].id, requestId: relay.requestId }
+  return { expected, dashboardPath }
+}
+
+async function readSyntheticAccounting(api, expected) {
+  let logs
+  const deadline = Date.now() + 10000
+  while (Date.now() < deadline) {
+    logs = await api.request('GET', `/api/log/self?type=2&request_id=${encodeURIComponent(expected.requestId)}&p=1&page_size=100`)
+    demand(Array.isArray(logs?.items), 'DESKTOP_ACCOUNTING_LOG_MISMATCH')
+    if (logs.total !== 0 || logs.items.length !== 0) break
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  const user = await api.request('GET', '/api/user/self')
+  const token = await api.request('GET', `/api/token/${expected.tokenId}`)
+  verifySyntheticAccounting({ user, token, logs }, expected)
+  return businessProjection(user, { usedQuota: syntheticQuota, requestCount: 1 })
 }
 
 // The only transport substitution is owned by this qualification fixture. The
@@ -422,7 +550,8 @@ async function qualifyPublicEntry(host, proxy, userData, version, report, checkI
 
 async function closeOwned(child, closedPromise) {
   if (child.exitCode !== null || child.signalCode !== null) { await bounded(closedPromise, 5000, 'DESKTOP_CHILD_CLOSE_UNKNOWN'); return }
-  child.kill('SIGTERM')
+  if (process.platform === 'win32' && child.stdin && !child.stdin.writableEnded) child.stdin.end('shutdown\n')
+  else if (process.platform !== 'win32') child.kill('SIGTERM')
   try { await bounded(closedPromise, 10000, 'DESKTOP_CLEANUP_TERM_TIMEOUT') }
   catch { child.kill('SIGKILL'); await bounded(closedPromise, 5000, 'DESKTOP_CLEANUP_CLOSE_UNKNOWN') }
 }
@@ -430,10 +559,15 @@ async function closeOwned(child, closedPromise) {
 export async function runQualification(env = process.env, args = process.argv.slice(2)) {
   const report = { schema_version: 1, source_sha: null, run_id: null, run_attempt: null, platform: process.platform,
     architecture: process.arch, binary_sha256: null, passed: false, phase: 'scope', error_code: null, checks: {}, lifecycle: [],
-    qualified_scope: 'owned_backend_lifecycle_and_persistence', graceful_stop_verified: false,
+    qualified_scope: 'owned_backend_lifecycle_and_accounting', graceful_stop_verified: false,
     termination_semantics: 'not_verified', accounting_verified: false,
     cleanup: { confirmed: false, owned_children_closed: false, fixture_removed: false },
     electron_started: false, gui_verified: false, model_requests: 0, production_touched: false,
+    accounting_check: { scope: 'owned_loopback_self_use_fixture', direct_model_requests: 0, upstream_model_requests: 0,
+      real_provider_requests: 0, usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15, quota: 15 },
+      checks: { long_dashboard_interval_verified: false, exact_upstream_contract: false, user_key_and_log_once: false,
+        dashboard_pending_before_stop: false, dashboard_flushed_after_stop: false, same_sqlite: false,
+        restart_no_replay: false, fixture_closed: false } },
     public_entry_check: {
       scope: 'owned_go_https_reverse_proxy_main_controls', transport: 'controlled-dns-ca-loopback',
       external_verification: 'unknown', same_instance_verified: false, model_requests: 0,
@@ -444,9 +578,11 @@ export async function runQualification(env = process.env, args = process.argv.sl
     } }
   let publicProxy = null, publicEntryBinding = null, publicProxyCreationStarted = false
   const publicCheckIds = new Set()
-  let fixture = null, host = null, canary = null, canaryClosed = null
+  let fixture = null, host = null, canary = null, canaryClosed = null, syntheticUpstream = null
   try {
     const scope = qualificationScope(env, args)
+    const [nodeMajor, nodeMinor] = process.versions.node.split('.').map(Number)
+    demand(nodeMajor > 22 || nodeMajor === 22 && nodeMinor >= 13, 'DESKTOP_SQLITE_RUNTIME_UNAVAILABLE')
     Object.assign(report, scope)
     report.phase = 'source'
     const git = (...parts) => execFileSync('git', ['-c', 'core.fileMode=false', ...parts], { cwd: repository, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
@@ -502,7 +638,9 @@ export async function runQualification(env = process.env, args = process.argv.sl
     const secretPath = path.join(userData, 'myapi-session-secret')
     const secret = await readFile(secretPath)
     demand(/^[a-f0-9]{64}\n$/.test(secret.toString()), 'DESKTOP_SECRET_INVALID')
-    const database = await lstat(path.join(userData, 'data', 'my-api.db'))
+    const databasePath = path.join(userData, 'data', 'my-api.db')
+    const database = await lstat(databasePath)
+    const databaseIdentity = await lstat(databasePath, { bigint: true })
     demand(database.isFile() && !database.isSymbolicLink() && database.size > 0, 'DESKTOP_DATABASE_MISSING')
     const secretStat = await lstat(secretPath)
     const profileStat = await lstat(userData)
@@ -516,25 +654,48 @@ export async function runQualification(env = process.env, args = process.argv.sl
     publicEntryBinding = await qualifyPublicEntry(host, publicProxy, userData, version, report.public_entry_check, publicCheckIds)
     demand(JSON.stringify(businessProjection(await api.request('GET', '/api/user/self'))) === JSON.stringify(before) &&
       Buffer.compare(secret, await readFile(secretPath)) === 0, 'DESKTOP_PUBLIC_BUSINESS_OR_SECRET_CHANGED')
+    report.phase = 'accounting'
+    syntheticUpstream = await createSyntheticUpstream()
+    const accounting = await prepareSyntheticAccounting(api, syntheticUpstream, report)
+    const chargedBusiness = await readSyntheticAccounting(api, accounting.expected)
+    demand(JSON.stringify({ ...chargedBusiness, used_quota: 0, request_count: 0 }) === JSON.stringify(before), 'DESKTOP_ACCOUNTING_IDENTITY_CHANGED')
+    demand(syntheticUpstream.stats().count === 1 && syntheticUpstream.stats().violation === false, 'DESKTOP_SYNTHETIC_REQUEST_COUNT_MISMATCH')
+    report.accounting_check.checks.exact_upstream_contract = true
+    report.accounting_check.checks.user_key_and_log_once = true
+    report.checks.synthetic_self_use_accounting = true
     const first = host.children[0]
     host.panel().close()
     const hidden = await host.invoke('snapshot')
     demand(!host.panel().isVisible() && hidden.state === 'running' && !first.closed && first.child.pid === first.pid, 'DESKTOP_WINDOW_CLOSE_CHANGED_SERVICE')
     const cancelled = await host.invoke('stop') // The facade defaults to Cancel.
-    demand(cancelled.state === 'running' && first.requested_signals.length === 0 && !first.closed && host.exits === 0, 'DESKTOP_CANCEL_CHANGED_SERVICE')
+    demand(cancelled.state === 'running' && first.requested_signals.length === 0 && first.stdin_shutdown_count === 0 && !first.closed && host.exits === 0, 'DESKTOP_CANCEL_CHANGED_SERVICE')
+    demand(Date.now() - first.startedAt < 240000, 'DESKTOP_INITIAL_DASHBOARD_INTERVAL_ELAPSED')
+    verifyDashboardRows(await api.request('GET', accounting.dashboardPath), accounting.expected.userId, 0)
+    demand(JSON.stringify(await readSyntheticAccounting(api, accounting.expected)) === JSON.stringify(chargedBusiness), 'DESKTOP_CANCEL_ACCOUNTING_CHANGED')
+    report.accounting_check.checks.dashboard_pending_before_stop = true
+    report.checks.dashboard_pending_before_stop = true
     report.checks.close_and_cancel_preserve_process = true
     report.phase = 'stop'
     host.answers.push(1)
     const stopped = await bounded(host.invoke('stop'), 15000, 'DESKTOP_STOP_TIMEOUT')
     await bounded(first.closedPromise, 5000, 'DESKTOP_STOP_CLOSE_UNKNOWN')
     demand(stopped.state === 'stopped' && stopped.owned === false && first.closed && host.exits === 0 &&
-      (Number.isInteger(first.exit_code) || typeof first.signal_code === 'string') &&
+      first.exit_code === 0 && first.signal_code === null &&
       !first.requested_signals.includes('SIGKILL'), 'DESKTOP_STOP_UNCONFIRMED')
     demand(stopped.publicAccess.localCheck?.id === publicEntryBinding.id && stopped.publicAccess.localCheck.state === 'stale' &&
       stopped.publicAccess.savedOrigin === publicEntryBinding.origin && stopped.publicAccess.recordRevision === publicEntryBinding.revision,
       'DESKTOP_PUBLIC_STOP_INVALIDATION_UNVERIFIED')
     demand(canary.exitCode === null && canary.signalCode === null && canary.connected, 'DESKTOP_UNRELATED_CHILD_STOPPED')
-    if (process.platform === 'darwin') demand(first.exit_code === 0 && first.signal_code === null, 'DESKTOP_STOP_NOT_GRACEFUL')
+    demand(process.platform === 'win32' ? first.stdin_shutdown_count === 1 && first.requested_signals.length === 0 :
+      first.stdin_shutdown_count === 0 && first.requested_signals.length === 1 && first.requested_signals[0] === 'SIGTERM', 'DESKTOP_STOP_NOT_GRACEFUL')
+    const afterStopDatabase = await lstat(databasePath, { bigint: true })
+    demand(afterStopDatabase.dev === databaseIdentity.dev && afterStopDatabase.ino === databaseIdentity.ino, 'DESKTOP_ACCOUNTING_DATABASE_CHANGED')
+    const stoppedAccounting = await readStoppedAccounting(databasePath, accounting.expected)
+    demand(stoppedAccounting.ledgerVerified && stoppedAccounting.dashboardVerified, 'DESKTOP_STOP_ACCOUNTING_UNVERIFIED')
+    demand(syntheticUpstream.stats().count === 1, 'DESKTOP_STOP_REPLAYED_MODEL_REQUEST')
+    report.accounting_check.checks.dashboard_flushed_after_stop = true
+    report.accounting_check.checks.same_sqlite = true
+    report.checks.dashboard_flushed_after_stop = true
     report.checks.owned_stop_confirmed = true
     report.checks.unrelated_child_preserved = true
     report.phase = 'restart'
@@ -549,10 +710,16 @@ export async function runQualification(env = process.env, args = process.argv.sl
     const afterStatus = await api.request('GET', '/api/status')
     demand(afterStatus.product_edition === 'lite' && afterStatus.version === version && afterStatus.setup === true, 'DESKTOP_RESTART_SETUP_CHANGED')
     // The pre-stop authenticated session must still work with the same secret.
-    demand(JSON.stringify(businessProjection(await api.request('GET', '/api/user/self'))) === JSON.stringify(before) &&
+    demand(JSON.stringify(businessProjection(await api.request('GET', '/api/user/self'), { usedQuota: syntheticQuota, requestCount: 1 })) === JSON.stringify(chargedBusiness) &&
       Buffer.compare(secret, await readFile(secretPath)) === 0, 'DESKTOP_PERSISTENCE_CHANGED')
     await login()
-    demand(JSON.stringify(businessProjection(await api.request('GET', '/api/user/self'))) === JSON.stringify(before), 'DESKTOP_RELOGIN_CHANGED')
+    demand(JSON.stringify(await readSyntheticAccounting(api, accounting.expected)) === JSON.stringify(chargedBusiness), 'DESKTOP_RELOGIN_CHANGED')
+    verifyDashboardRows(await api.request('GET', accounting.dashboardPath), accounting.expected.userId, 1)
+    const restartedDatabase = await lstat(databasePath, { bigint: true })
+    demand(restartedDatabase.dev === databaseIdentity.dev && restartedDatabase.ino === databaseIdentity.ino &&
+      syntheticUpstream.stats().count === 1 && syntheticUpstream.stats().violation === false, 'DESKTOP_RESTART_ACCOUNTING_REPLAYED')
+    report.accounting_check.checks.restart_no_replay = true
+    report.checks.restart_no_accounting_replay = true
     await binaryDigest(binary, scope.binary_sha256)
     report.checks.restart_business_and_secret_preserved = true
     report.phase = 'quit'
@@ -561,18 +728,25 @@ export async function runQualification(env = process.env, args = process.argv.sl
     const second = host.children[1]
     await bounded(second.closedPromise, 5000, 'DESKTOP_QUIT_CLOSE_UNKNOWN')
     demand(host.exits === 1 && second.closed && !second.requested_signals.includes('SIGKILL') &&
-      (Number.isInteger(second.exit_code) || typeof second.signal_code === 'string') &&
+      second.exit_code === 0 && second.signal_code === null &&
       canary.exitCode === null && canary.signalCode === null, 'DESKTOP_QUIT_UNCONFIRMED')
-    if (process.platform === 'darwin') demand(second.exit_code === 0 && second.signal_code === null, 'DESKTOP_QUIT_NOT_GRACEFUL')
+    demand(process.platform === 'win32' ? second.stdin_shutdown_count === 1 && second.requested_signals.length === 0 :
+      second.stdin_shutdown_count === 0 && second.requested_signals.length === 1 && second.requested_signals[0] === 'SIGTERM', 'DESKTOP_QUIT_NOT_GRACEFUL')
+    const quitDatabase = await lstat(databasePath, { bigint: true })
+    demand(quitDatabase.dev === databaseIdentity.dev && quitDatabase.ino === databaseIdentity.ino, 'DESKTOP_ACCOUNTING_DATABASE_CHANGED')
+    await readStoppedAccounting(databasePath, accounting.expected)
+    demand(syntheticUpstream.stats().count === 1 && syntheticUpstream.stats().violation === false, 'DESKTOP_QUIT_REPLAYED_MODEL_REQUEST')
     report.checks.quit_waited_for_close = true
-    report.graceful_stop_verified = process.platform === 'darwin'
-    report.termination_semantics = process.platform === 'darwin' ? 'normal_exit_zero_without_sigkill' : 'windows_graceful_flush_not_verified'
+    report.graceful_stop_verified = true
+    report.accounting_verified = true
+    report.termination_semantics = process.platform === 'darwin' ? 'normal_exit_zero_without_sigkill' : 'owned_stdin_normal_exit_zero_without_sigkill'
     report.phase = 'completed'
     report.passed = true
   } catch (error) { report.error_code = safeError(error) }
   finally {
     // A failed partial proxy construction is not proof that no handles exist.
     let networkClosed = !publicProxyCreationStarted
+    let syntheticClosed = syntheticUpstream === null
     if (publicProxy) {
       try {
         const current = host ? await bounded(host.invoke('snapshot'), 10000, 'DESKTOP_PUBLIC_CLEANUP_SNAPSHOT_UNKNOWN') : null
@@ -630,8 +804,25 @@ export async function runQualification(env = process.env, args = process.argv.sl
         report.error_code ??= safeError(error)
       }
     }
+    if (syntheticUpstream) {
+      try {
+        await syntheticUpstream.close()
+        syntheticClosed = true
+        report.accounting_check.checks.fixture_closed = true
+      } catch (error) {
+        report.passed = false
+        report.error_code ??= safeError(error)
+      }
+      const stats = syntheticUpstream.stats()
+      report.accounting_check.upstream_model_requests = stats.count
+      if (stats.count !== 1 || stats.violation !== false) {
+        report.passed = false
+        report.accounting_verified = false
+        report.error_code ??= 'DESKTOP_SYNTHETIC_REQUEST_COUNT_MISMATCH'
+      }
+    }
     report.cleanup.owned_children_closed = childrenClosed
-    if (networkClosed && childrenClosed) {
+    if (networkClosed && syntheticClosed && childrenClosed) {
       try {
         if (fixture) await removeOwnedFixture(fixture)
         report.cleanup.fixture_removed = true
@@ -641,8 +832,8 @@ export async function runQualification(env = process.env, args = process.argv.sl
         report.error_code ??= safeError(error)
       }
     }
-    report.lifecycle = (host?.children ?? []).map(({ generation, pid, requested_signals, exit_code, signal_code, closed }) =>
-      ({ generation, pid, requested_signals, exit_code, signal_code, closed }))
+    report.lifecycle = (host?.children ?? []).map(({ generation, pid, requested_signals, stdin_shutdown_count, exit_code, signal_code, closed }) =>
+      ({ generation, pid, requested_signals, stdin_shutdown_count, exit_code, signal_code, closed }))
   }
   if (publicProxy) {
     const counts = publicProxy.stats()
@@ -651,6 +842,8 @@ export async function runQualification(env = process.env, args = process.argv.sl
   }
   if (report.passed && (Object.values(report.public_entry_check.checks).some(value => value !== true) ||
       report.public_entry_check.proxy_get_count !== 4 || report.public_entry_check.backend_status_get_count !== 4 ||
+      !report.accounting_verified || Object.values(report.accounting_check.checks).some(value => value !== true) ||
+      report.model_requests !== 1 || report.accounting_check.direct_model_requests !== 1 || report.accounting_check.upstream_model_requests !== 1 ||
       !Object.values(report.cleanup).every(value => value === true))) {
     report.passed = false
     report.error_code ??= 'DESKTOP_PUBLIC_QUALIFICATION_INCOMPLETE'

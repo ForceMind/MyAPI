@@ -192,6 +192,7 @@
     "The owned process reported a startup or process error.": "The owned process reported a startup or process error.",
     "The persistent session secret could not be saved. Check the application data folder permissions.": "The persistent session secret could not be saved. Check the application data folder permissions.",
     "The response exceeded the check limit.": "The response exceeded the check limit.",
+    "The service exited without confirming a clean stop. Check local logs before trying again.": "The service exited without confirming a clean stop. Check local logs before trying again.",
     "The save was cancelled or rejected. Your draft is preserved; review the current saved entry.": "The save was cancelled or rejected. Your draft is preserved; review the current saved entry.",
     "The saved entry cannot be read. Clear this computer's entry record before saving a new one. External infrastructure is unchanged.": "The saved entry cannot be read. Clear this computer's entry record before saving a new one. External infrastructure is unchanged.",
     "The saved entry changed. Review the current record before trying again.": "The saved entry changed. Review the current record before trying again.",

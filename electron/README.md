@@ -61,6 +61,10 @@ Sleep, closing a laptop, power loss, disconnection, quitting or address changes 
 | 停止内置服务 / Stop bundled service | 默认取消的确认后，只停止本应用持有的 child；应用和面板保留，可明确再次开始。 / After a default-cancel confirmation, stops only this app's owned child. The app and panel remain available for an explicit start. |
 | 退出 MyAPI / Quit MyAPI | 默认取消的确认后，先确认 owned child 真正关闭再退出；未知停止结果不会被当成安全退出。 / After confirmation, verifies the owned child closed before exiting. An unknown stop is not treated as a completed exit. |
 
+看到“正在停止”时，可以保留面板等待已有请求结束。内置服务正常退出后才显示已停止。超时会提示停服未确认，服务可能仍在处理请求。异常退出时，请通过面板打开本地日志核对结果。
+
+While the panel shows **Stopping**, leave it open so existing requests can finish. It shows **Stopped** after a clean exit. If the wait expires, the stop remains unconfirmed while the service may still be working. If the service exits with an error, open the local logs from the panel.
+
 这些动作不按端口杀进程，不操作开发模式外部 server，不自动重启、回灌数据库或重放模型请求。只有前置探测与实际 close 证据成立时才显示对应状态。未知时保留面板和日志入口，避免反复点开始。
 
 These actions do not kill by port, control external development servers, automatically restart, restore databases or replay model requests. Unknown outcomes retain the panel and log access; do not repeatedly start another process.

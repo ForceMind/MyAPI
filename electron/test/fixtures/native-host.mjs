@@ -8,6 +8,21 @@ import path from 'node:path'
 import vm from 'node:vm'
 import * as childProcess from 'node:child_process'
 
+export function observeNativeShutdown(child, record) {
+  const originalKill = child.kill.bind(child)
+  child.kill = signal => { record.requested_signals.push(signal ?? 'SIGTERM'); return originalKill(signal) }
+  if (child.stdin) {
+    const originalEnd = child.stdin.end.bind(child.stdin)
+    child.stdin.end = (chunk, ...args) => {
+      if ((typeof chunk !== 'string' && !Buffer.isBuffer(chunk)) || String(chunk) !== 'shutdown\n') {
+        throw new Error('NATIVE_HOST_STDIN_FRAME_REJECTED')
+      }
+      record.stdin_shutdown_count++
+      return originalEnd(chunk, ...args)
+    }
+  }
+}
+
 export async function createNativeHost({ electronDirectory, resources, userData, env, version, port, publicAccessCheckFactory }) {
   if (publicAccessCheckFactory !== undefined && typeof publicAccessCheckFactory !== 'function') {
     throw new Error('NATIVE_HOST_CHECK_FACTORY_REJECTED')
@@ -90,12 +105,14 @@ export async function createNativeHost({ electronDirectory, resources, userData,
     spawn(binary, args, options) {
       if (binary !== path.join(resources, 'bin', process.platform === 'win32' ? 'my-api.exe' : 'my-api') ||
           options.cwd !== resources || options.env.SQLITE_PATH !== path.join(userData, 'data', 'my-api.db') ||
-          options.env.MYAPI_BIND_ADDRESS !== '127.0.0.1' || options.env.MYAPI_EDITION !== 'lite') {
+          options.env.MYAPI_BIND_ADDRESS !== '127.0.0.1' || options.env.MYAPI_EDITION !== 'lite' ||
+          options.env.MYAPI_DESKTOP_SERVICE !== (process.platform === 'win32' ? 'stdin' : 'signal') ||
+          (process.platform === 'win32' && options.stdio?.[0] !== 'pipe')) {
         throw new Error('NATIVE_HOST_SPAWN_REJECTED')
       }
       const child = childProcess.spawn(binary, args, options)
       const record = { child, generation: children.length + 1, pid: child.pid ?? null,
-        requested_signals: [], exit_code: null, signal_code: null, closed: false }
+        requested_signals: [], stdin_shutdown_count: 0, startedAt: Date.now(), exit_code: null, signal_code: null, closed: false }
       // Capture both Go writer streams independently of the presentation
       // console. Each owned generation has its own bounded private buffer;
       // neither original text nor paths enter the qualification report.
@@ -103,8 +120,7 @@ export async function createNativeHost({ electronDirectory, resources, userData,
       childDiagnostics.set(record, diagnostics)
       child.stdout?.on('data', value => diagnostics.append(value))
       child.stderr?.on('data', value => diagnostics.append(value))
-      const originalKill = child.kill.bind(child)
-      child.kill = signal => { record.requested_signals.push(signal ?? 'SIGTERM'); return originalKill(signal) }
+      observeNativeShutdown(child, record)
       record.closedPromise = new Promise(resolve => child.once('close', (code, signal) => {
         record.exit_code = code
         record.signal_code = signal

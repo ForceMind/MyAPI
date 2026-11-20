@@ -6,6 +6,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -46,10 +47,35 @@ var buildFS embed.FS
 //go:embed web/dist/index.html
 var indexPage []byte
 
+const desktopShutdownFrame = "shutdown\n"
+
+func readDesktopShutdown(input io.Reader) bool {
+	frame, err := io.ReadAll(io.LimitReader(input, int64(len(desktopShutdownFrame)+1)))
+	return err == nil && string(frame) == desktopShutdownFrame
+}
+
 func main() {
 	if handled, code := handleEditionCompatibilityCommand(os.Args[1:], os.Stdout); handled {
 		os.Exit(code)
 	}
+	desktopService := os.Getenv("MYAPI_DESKTOP_SERVICE")
+	desktopOwned := desktopService == "signal" || desktopService == "stdin"
+	var desktopStop <-chan struct{}
+	if desktopService == "stdin" {
+		stop := make(chan struct{})
+		desktopStop = stop
+		go func() {
+			if readDesktopShutdown(os.Stdin) {
+				close(stop)
+			}
+		}()
+	}
+	quit := make(chan os.Signal, 1)
+	if desktopOwned {
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	}
+	defer signal.Stop(quit)
+	var shutdownErr error
 	startTime := time.Now()
 	kitutil.SetLogging(common.SysLog, func(message string) {
 		logger.LogError(nil, message)
@@ -77,6 +103,10 @@ func main() {
 		if err != nil {
 			common.FatalLog("failed to close database: " + err.Error())
 		}
+		if desktopOwned && shutdownErr != nil {
+			common.FatalLog("desktop service shutdown: " + shutdownErr.Error())
+		}
+		common.SysLog("server exited")
 	}()
 
 	if common.RedisEnabled {
@@ -237,23 +267,31 @@ func main() {
 
 	common.LogStartupSuccess(startTime, port)
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	sig := <-quit
-	common.SysLog(fmt.Sprintf("received signal: %v, shutting down...", sig))
+	if !desktopOwned {
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	}
+	select {
+	case sig := <-quit:
+		common.SysLog(fmt.Sprintf("received signal: %v, shutting down...", sig))
+	case <-desktopStop:
+		common.SysLog("received desktop shutdown command")
+	}
 
 	// SSE streams may run for minutes; give them time to finish before forced exit
 	shutdownTimeout := time.Duration(common.GetEnvOrDefault("SHUTDOWN_TIMEOUT_SECONDS", 120)) * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
-		common.SysError(fmt.Sprintf("server forced to shutdown: %v", err))
+	shutdownErr = srv.Shutdown(ctx)
+	if shutdownErr != nil {
+		common.SysError(fmt.Sprintf("server forced to shutdown: %v", shutdownErr))
 	}
 	// 内存中的看板数据保存入库，避免重启丢失未落库数据 (issue #5679)
-	if common.DataExportEnabled {
-		model.SaveQuotaDataCache()
+	if common.DataExportEnabled || desktopOwned {
+		if err := model.SaveQuotaDataCache(); err != nil {
+			shutdownErr = errors.Join(shutdownErr, err)
+			common.SysError(err.Error())
+		}
 	}
-	common.SysLog("server exited")
 }
 
 func InjectUmamiAnalytics() {

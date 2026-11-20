@@ -82,28 +82,30 @@ test('stop cancels pending readiness, settles start and waits for actual close b
   assert.equal((await next).state, 'running')
 })
 
-test('successful kill return values never prove stop; TERM/KILL deadlines retain the unconfirmed child and block new spawn', async () => {
+test('a sent shutdown signal never proves stop; the deadline retains ownership and does not kill or replay', async () => {
   const f = fixture()
   const start = f.service.start()
   f.children[0].ready.resolve(); await start
   const child = f.children[0]
   const stop = f.service.stop()
   assert.equal(f.service.snapshot().state, 'stopping')
-  const oldGrace = f.fireNext()
-  assert.deepEqual(child.signals, ['SIGTERM', 'SIGKILL'])
+  const oldDeadline = f.fireNext()
+  assert.deepEqual(child.signals, ['SIGTERM'])
   assert.equal(f.service.snapshot().owned, true)
-  const oldForce = f.fireNext()
   assert.equal((await stop).state, 'stop-unconfirmed')
   assert.equal(f.service.snapshot().reason, 'stop-timeout')
   assert.equal(f.service.snapshot().owned, true)
   assert.equal((await f.service.start()).state, 'stop-unconfirmed')
+  assert.equal((await f.service.stop()).state, 'stop-unconfirmed')
+  assert.deepEqual(child.signals, ['SIGTERM'])
   assert.equal(f.children.length, 1)
   assert.equal(f.scheduled.size, 0)
   child.child.emit('close', null, 'SIGKILL')
-  assert.equal(f.service.snapshot().state, 'stopped')
+  assert.equal(f.service.snapshot().state, 'failed')
+  assert.equal(f.service.snapshot().reason, 'shutdown-failed')
   assert.equal(f.service.snapshot().owned, false)
   const next = f.service.start()
-  oldGrace(); oldForce()
+  oldDeadline()
   assert.deepEqual(f.children[1].signals, [], 'expired callbacks cannot target the new child')
   f.children[1].ready.resolve(); await next
 })
@@ -157,7 +159,7 @@ test('signal errors do not release ownership or claim successful shutdown', asyn
   const start = f.service.start()
   f.children[0].ready.resolve(); await start
   const stop = f.service.stop()
-  f.fireNext(); f.fireNext()
+  f.fireNext()
   assert.equal((await stop).state, 'stop-unconfirmed')
   assert.equal(f.service.snapshot().owned, true)
   assert.equal(f.children.length, 1)

@@ -187,7 +187,7 @@ func TestLogQuotaDataSplitsRowsByUseGroupTokenChannelAndNode(t *testing.T) {
 		TokenUsed: 5,
 	})
 
-	SaveQuotaDataCache()
+	require.NoError(t, SaveQuotaDataCache())
 
 	var rows []QuotaData
 	require.NoError(t, DB.Order("created_at ASC, quota DESC").Find(&rows).Error)
@@ -205,4 +205,28 @@ func TestLogQuotaDataSplitsRowsByUseGroupTokenChannelAndNode(t *testing.T) {
 	require.Equal(t, int64(3720), rows[2].CreatedAt)
 	require.Equal(t, "vip", rows[2].UseGroup)
 	require.Equal(t, int64(10), rows[2].Quota)
+}
+
+func TestSaveQuotaDataCacheReportsUnappliedUsageWithoutReplayingIt(t *testing.T) {
+	truncateTables(t)
+	params := QuotaDataLogParams{
+		UserID: 1, Username: "alice", ModelName: "gpt-a", CreatedAt: 3660,
+		UseGroup: "default", TokenID: 11, ChannelID: 1, NodeName: "node-a", Quota: 15, TokenUsed: 15,
+	}
+	seedFlowQuotaData(t, QuotaData{
+		UserID: params.UserID, Username: params.Username, ModelName: params.ModelName, CreatedAt: params.CreatedAt,
+		UseGroup: params.UseGroup, TokenID: params.TokenID, ChannelID: params.ChannelID, NodeName: params.NodeName,
+		Quota: common.MaxQuotaBalance, Count: 1, TokenUsed: 10,
+	})
+
+	LogQuotaData(params)
+	require.ErrorContains(t, SaveQuotaDataCache(), "did not confirm 1 of 1 rows")
+	require.NoError(t, SaveQuotaDataCache())
+
+	var rows []QuotaData
+	require.NoError(t, DB.Find(&rows).Error)
+	require.Len(t, rows, 1)
+	require.Equal(t, common.MaxQuotaBalance, rows[0].Quota)
+	require.Equal(t, 1, rows[0].Count)
+	require.Equal(t, 10, rows[0].TokenUsed)
 }

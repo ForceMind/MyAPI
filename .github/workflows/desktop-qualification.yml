@@ -232,7 +232,7 @@ jobs:
           try { report = JSON.parse(result.stdout) } catch { throw new Error('DESKTOP_SAFE_REPORT_UNAVAILABLE') }
           const fields = ['schema_version', 'source_sha', 'run_id', 'run_attempt', 'platform', 'architecture', 'binary_sha256',
             'passed', 'phase', 'error_code', 'checks', 'lifecycle', 'qualified_scope', 'graceful_stop_verified',
-            'termination_semantics', 'accounting_verified', 'cleanup', 'electron_started', 'gui_verified', 'model_requests', 'production_touched', 'public_entry_check']
+            'termination_semantics', 'accounting_verified', 'cleanup', 'electron_started', 'gui_verified', 'model_requests', 'production_touched', 'public_entry_check', 'accounting_check']
           check(report && Object.keys(report).sort().join() === fields.sort().join(), 'DESKTOP_REPORT_SCHEMA_INVALID')
           check(report.schema_version === 1 && typeof report.passed === 'boolean', 'DESKTOP_REPORT_SCHEMA_INVALID')
           check(report.source_sha === null || /^[a-f0-9]{40}$/.test(report.source_sha), 'DESKTOP_REPORT_IDENTITY_INVALID')
@@ -240,15 +240,16 @@ jobs:
           check(report.run_attempt === null || /^[1-9][0-9]*$/.test(report.run_attempt), 'DESKTOP_REPORT_IDENTITY_INVALID')
           check(report.binary_sha256 === null || /^[a-f0-9]{64}$/.test(report.binary_sha256), 'DESKTOP_REPORT_IDENTITY_INVALID')
           check(report.platform === process.env.EXPECTED_PLATFORM && report.architecture === process.env.EXPECTED_ARCH, 'DESKTOP_REPORT_PLATFORM_INVALID')
-          check(['scope', 'source', 'start', 'configure', 'public-entry', 'stop', 'restart', 'quit', 'completed'].includes(report.phase) &&
+          check(['scope', 'source', 'start', 'configure', 'public-entry', 'accounting', 'stop', 'restart', 'quit', 'completed'].includes(report.phase) &&
             (report.error_code === null || /^[A-Z][A-Z0-9_]{0,79}$/.test(report.error_code)), 'DESKTOP_REPORT_CLASSIFICATION_INVALID')
-          check(report.qualified_scope === 'owned_backend_lifecycle_and_persistence' && report.accounting_verified === false &&
-            report.electron_started === false && report.gui_verified === false && report.model_requests === 0 && report.production_touched === false, 'DESKTOP_REPORT_SCOPE_INVALID')
+          check(report.qualified_scope === 'owned_backend_lifecycle_and_accounting' && typeof report.accounting_verified === 'boolean' &&
+            report.electron_started === false && report.gui_verified === false && [0, 1].includes(report.model_requests) && report.production_touched === false, 'DESKTOP_REPORT_SCOPE_INVALID')
           check(typeof report.graceful_stop_verified === 'boolean' &&
-            ['not_verified', 'normal_exit_zero_without_sigkill', 'windows_graceful_flush_not_verified'].includes(report.termination_semantics), 'DESKTOP_REPORT_TERMINATION_INVALID')
+            ['not_verified', 'normal_exit_zero_without_sigkill', 'owned_stdin_normal_exit_zero_without_sigkill'].includes(report.termination_semantics), 'DESKTOP_REPORT_TERMINATION_INVALID')
           const required = ['source_and_binary_bound', 'owned_filesystem_bound', 'real_lite_status', 'local_configuration_saved',
             'close_and_cancel_preserve_process', 'owned_stop_confirmed', 'unrelated_child_preserved',
-            'restart_business_and_secret_preserved', 'quit_waited_for_close']
+            'restart_business_and_secret_preserved', 'quit_waited_for_close', 'synthetic_self_use_accounting',
+            'dashboard_pending_before_stop', 'dashboard_flushed_after_stop', 'restart_no_accounting_replay']
           check(report.checks && Object.entries(report.checks).every(([key, value]) => required.includes(key) && typeof value === 'boolean'), 'DESKTOP_REPORT_CHECKS_INVALID')
           const cleanupKeys = ['confirmed', 'owned_children_closed', 'fixture_removed']
           check(report.cleanup && Object.keys(report.cleanup).sort().join() === cleanupKeys.sort().join() &&
@@ -267,11 +268,28 @@ jobs:
             'stale_entry_ignored', 'credential_free_get_only', 'declaration_unverified', 'owned_proxy_closed']
           check(entry.checks && Object.keys(entry.checks).sort().join() === [...entryChecks].sort().join() &&
             entryChecks.every(key => typeof entry.checks[key] === 'boolean'), 'DESKTOP_PUBLIC_ENTRY_CHECKS_INVALID')
+          const accounting = report.accounting_check
+          const accountingFields = ['scope', 'direct_model_requests', 'upstream_model_requests', 'real_provider_requests', 'usage', 'checks']
+          check(accounting && Object.keys(accounting).sort().join() === accountingFields.sort().join() &&
+            accounting.scope === 'owned_loopback_self_use_fixture' && accounting.real_provider_requests === 0,
+            'DESKTOP_ACCOUNTING_SCOPE_INVALID')
+          for (const key of ['direct_model_requests', 'upstream_model_requests']) {
+            check(Number.isSafeInteger(accounting[key]) && accounting[key] >= 0, 'DESKTOP_ACCOUNTING_COUNT_INVALID')
+          }
+          const usage = accounting.usage
+          check(usage && Object.keys(usage).sort().join() === ['prompt_tokens', 'completion_tokens', 'total_tokens', 'quota'].sort().join() &&
+            usage.prompt_tokens === 10 && usage.completion_tokens === 5 && usage.total_tokens === 15 && usage.quota === 15,
+            'DESKTOP_ACCOUNTING_USAGE_INVALID')
+          const accountingChecks = ['long_dashboard_interval_verified', 'exact_upstream_contract', 'user_key_and_log_once',
+            'dashboard_pending_before_stop', 'dashboard_flushed_after_stop', 'same_sqlite', 'restart_no_replay', 'fixture_closed']
+          check(accounting.checks && Object.keys(accounting.checks).sort().join() === [...accountingChecks].sort().join() &&
+            accountingChecks.every(key => typeof accounting.checks[key] === 'boolean'), 'DESKTOP_ACCOUNTING_CHECKS_INVALID')
           check(Array.isArray(report.lifecycle), 'DESKTOP_REPORT_LIFECYCLE_INVALID')
-          const lifecycleFields = ['generation', 'pid', 'requested_signals', 'exit_code', 'signal_code', 'closed']
+          const lifecycleFields = ['generation', 'pid', 'requested_signals', 'stdin_shutdown_count', 'exit_code', 'signal_code', 'closed']
           for (const item of report.lifecycle) {
             check(item && Object.keys(item).every(key => lifecycleFields.includes(key)), 'DESKTOP_REPORT_LIFECYCLE_INVALID')
             check(Number.isSafeInteger(item.generation) && item.generation > 0 && typeof item.closed === 'boolean' &&
+              Number.isSafeInteger(item.stdin_shutdown_count) && item.stdin_shutdown_count >= 0 &&
               Array.isArray(item.requested_signals) && item.requested_signals.every(signal => ['SIGTERM', 'SIGKILL'].includes(signal)), 'DESKTOP_REPORT_LIFECYCLE_INVALID')
             check(item.pid === undefined || Number.isSafeInteger(item.pid) && item.pid > 0, 'DESKTOP_REPORT_LIFECYCLE_INVALID')
             check(item.exit_code === null || Number.isSafeInteger(item.exit_code) && item.exit_code >= 0, 'DESKTOP_REPORT_LIFECYCLE_INVALID')
@@ -290,24 +308,28 @@ jobs:
             cleanupKeys.every(key => report.cleanup[key] === true), 'DESKTOP_QUALIFICATION_INCOMPLETE')
           check(entryChecks.every(key => entry.checks[key] === true) && entry.proxy_get_count === 4 &&
             entry.backend_status_get_count === 4, 'DESKTOP_PUBLIC_ENTRY_INCOMPLETE')
+          check(report.accounting_verified === true && report.model_requests === 1 && accounting.direct_model_requests === 1 &&
+            accounting.upstream_model_requests === 1 && accountingChecks.every(key => accounting.checks[key] === true),
+            'DESKTOP_ACCOUNTING_INCOMPLETE')
           check(report.lifecycle.length === 2, 'DESKTOP_GENERATIONS_UNCONFIRMED')
           for (const [index, item] of report.lifecycle.entries()) {
             check(item.generation === index + 1 && Number.isSafeInteger(item.pid) && item.pid > 0 && item.closed === true &&
-              item.requested_signals.length === 1 && item.requested_signals[0] === 'SIGTERM' && item.signal_code !== 'SIGKILL', 'DESKTOP_OWNED_CLOSE_UNCONFIRMED')
+              item.exit_code === 0 && item.signal_code === null && item.signal_code !== 'SIGKILL' &&
+              (process.platform === 'win32' ? item.requested_signals.length === 0 && item.stdin_shutdown_count === 1 :
+                item.requested_signals.length === 1 && item.requested_signals[0] === 'SIGTERM' && item.stdin_shutdown_count === 0), 'DESKTOP_OWNED_CLOSE_UNCONFIRMED')
           }
           if (process.platform === 'darwin') {
             check(report.graceful_stop_verified === true && report.termination_semantics === 'normal_exit_zero_without_sigkill' &&
               report.lifecycle.every(item => item.exit_code === 0 && item.signal_code === null), 'DESKTOP_MAC_GRACEFUL_STOP_UNCONFIRMED')
           } else {
-            check(report.graceful_stop_verified === false && report.termination_semantics === 'windows_graceful_flush_not_verified', 'DESKTOP_WINDOWS_EVIDENCE_MISCLASSIFIED')
+            check(report.graceful_stop_verified === true && report.termination_semantics === 'owned_stdin_normal_exit_zero_without_sigkill' &&
+              report.lifecycle.every(item => item.exit_code === 0 && item.signal_code === null), 'DESKTOP_WINDOWS_GRACEFUL_STOP_UNCONFIRMED')
           }
           const binary = process.platform === 'win32' ? 'my-api.exe' : 'my-api'
           check(createHash('sha256').update(fs.readFileSync(binary)).digest('hex') === process.env.MYAPI_DESKTOP_BINARY_SHA256, 'DESKTOP_SOURCE_BINARY_CHANGED')
-          const limit = process.platform === 'win32'
-            ? 'Windows graceful shutdown/flush and accounting remain unverified.'
-            : 'Native macOS graceful close was observed; accounting remains unverified.'
+          const limit = 'Owned signal/stdin normal close, same-SQLite accounting and pending dashboard flush were verified with one controlled loopback request.'
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, 'Owned backend lifecycle and persistence passed on ' + process.platform + '/' + process.arch +
-            '. Owned Go/HTTPS entry checks passed with controlled DNS/CA/loopback; external verification remains unknown. ' + limit + ' No Electron launch, GUI, installer, model request, production operation or full B5 acceptance is claimed.\n')
+            '. Owned Go/HTTPS entry checks passed with controlled DNS/CA/loopback; external verification remains unknown. ' + limit + ' No Electron launch, GUI, installer, real-provider request, production operation or full B5 acceptance is claimed.\n')
           NODE
 
       - name: Require the original tracked source to remain unchanged
@@ -547,7 +569,7 @@ jobs:
           try { report = JSON.parse(result.stdout) } catch { throw new Error('DESKTOP_SAFE_REPORT_UNAVAILABLE') }
           const fields = ['schema_version', 'source_sha', 'run_id', 'run_attempt', 'platform', 'architecture', 'binary_sha256',
             'passed', 'phase', 'error_code', 'checks', 'lifecycle', 'qualified_scope', 'graceful_stop_verified',
-            'termination_semantics', 'accounting_verified', 'cleanup', 'electron_started', 'gui_verified', 'model_requests', 'production_touched', 'public_entry_check']
+            'termination_semantics', 'accounting_verified', 'cleanup', 'electron_started', 'gui_verified', 'model_requests', 'production_touched', 'public_entry_check', 'accounting_check']
           check(report && Object.keys(report).sort().join() === fields.sort().join(), 'DESKTOP_REPORT_SCHEMA_INVALID')
           check(report.schema_version === 1 && typeof report.passed === 'boolean', 'DESKTOP_REPORT_SCHEMA_INVALID')
           check(report.source_sha === null || /^[a-f0-9]{40}$/.test(report.source_sha), 'DESKTOP_REPORT_IDENTITY_INVALID')
@@ -555,15 +577,16 @@ jobs:
           check(report.run_attempt === null || /^[1-9][0-9]*$/.test(report.run_attempt), 'DESKTOP_REPORT_IDENTITY_INVALID')
           check(report.binary_sha256 === null || /^[a-f0-9]{64}$/.test(report.binary_sha256), 'DESKTOP_REPORT_IDENTITY_INVALID')
           check(report.platform === process.env.EXPECTED_PLATFORM && report.architecture === process.env.EXPECTED_ARCH, 'DESKTOP_REPORT_PLATFORM_INVALID')
-          check(['scope', 'source', 'start', 'configure', 'public-entry', 'stop', 'restart', 'quit', 'completed'].includes(report.phase) &&
+          check(['scope', 'source', 'start', 'configure', 'public-entry', 'accounting', 'stop', 'restart', 'quit', 'completed'].includes(report.phase) &&
             (report.error_code === null || /^[A-Z][A-Z0-9_]{0,79}$/.test(report.error_code)), 'DESKTOP_REPORT_CLASSIFICATION_INVALID')
-          check(report.qualified_scope === 'owned_backend_lifecycle_and_persistence' && report.accounting_verified === false &&
-            report.electron_started === false && report.gui_verified === false && report.model_requests === 0 && report.production_touched === false, 'DESKTOP_REPORT_SCOPE_INVALID')
+          check(report.qualified_scope === 'owned_backend_lifecycle_and_accounting' && typeof report.accounting_verified === 'boolean' &&
+            report.electron_started === false && report.gui_verified === false && [0, 1].includes(report.model_requests) && report.production_touched === false, 'DESKTOP_REPORT_SCOPE_INVALID')
           check(typeof report.graceful_stop_verified === 'boolean' &&
-            ['not_verified', 'normal_exit_zero_without_sigkill', 'windows_graceful_flush_not_verified'].includes(report.termination_semantics), 'DESKTOP_REPORT_TERMINATION_INVALID')
+            ['not_verified', 'normal_exit_zero_without_sigkill', 'owned_stdin_normal_exit_zero_without_sigkill'].includes(report.termination_semantics), 'DESKTOP_REPORT_TERMINATION_INVALID')
           const required = ['source_and_binary_bound', 'owned_filesystem_bound', 'real_lite_status', 'local_configuration_saved',
             'close_and_cancel_preserve_process', 'owned_stop_confirmed', 'unrelated_child_preserved',
-            'restart_business_and_secret_preserved', 'quit_waited_for_close']
+            'restart_business_and_secret_preserved', 'quit_waited_for_close', 'synthetic_self_use_accounting',
+            'dashboard_pending_before_stop', 'dashboard_flushed_after_stop', 'restart_no_accounting_replay']
           check(report.checks && Object.entries(report.checks).every(([key, value]) => required.includes(key) && typeof value === 'boolean'), 'DESKTOP_REPORT_CHECKS_INVALID')
           const cleanupKeys = ['confirmed', 'owned_children_closed', 'fixture_removed']
           check(report.cleanup && Object.keys(report.cleanup).sort().join() === cleanupKeys.sort().join() &&
@@ -582,11 +605,28 @@ jobs:
             'stale_entry_ignored', 'credential_free_get_only', 'declaration_unverified', 'owned_proxy_closed']
           check(entry.checks && Object.keys(entry.checks).sort().join() === [...entryChecks].sort().join() &&
             entryChecks.every(key => typeof entry.checks[key] === 'boolean'), 'DESKTOP_PUBLIC_ENTRY_CHECKS_INVALID')
+          const accounting = report.accounting_check
+          const accountingFields = ['scope', 'direct_model_requests', 'upstream_model_requests', 'real_provider_requests', 'usage', 'checks']
+          check(accounting && Object.keys(accounting).sort().join() === accountingFields.sort().join() &&
+            accounting.scope === 'owned_loopback_self_use_fixture' && accounting.real_provider_requests === 0,
+            'DESKTOP_ACCOUNTING_SCOPE_INVALID')
+          for (const key of ['direct_model_requests', 'upstream_model_requests']) {
+            check(Number.isSafeInteger(accounting[key]) && accounting[key] >= 0, 'DESKTOP_ACCOUNTING_COUNT_INVALID')
+          }
+          const usage = accounting.usage
+          check(usage && Object.keys(usage).sort().join() === ['prompt_tokens', 'completion_tokens', 'total_tokens', 'quota'].sort().join() &&
+            usage.prompt_tokens === 10 && usage.completion_tokens === 5 && usage.total_tokens === 15 && usage.quota === 15,
+            'DESKTOP_ACCOUNTING_USAGE_INVALID')
+          const accountingChecks = ['long_dashboard_interval_verified', 'exact_upstream_contract', 'user_key_and_log_once',
+            'dashboard_pending_before_stop', 'dashboard_flushed_after_stop', 'same_sqlite', 'restart_no_replay', 'fixture_closed']
+          check(accounting.checks && Object.keys(accounting.checks).sort().join() === [...accountingChecks].sort().join() &&
+            accountingChecks.every(key => typeof accounting.checks[key] === 'boolean'), 'DESKTOP_ACCOUNTING_CHECKS_INVALID')
           check(Array.isArray(report.lifecycle), 'DESKTOP_REPORT_LIFECYCLE_INVALID')
-          const lifecycleFields = ['generation', 'pid', 'requested_signals', 'exit_code', 'signal_code', 'closed']
+          const lifecycleFields = ['generation', 'pid', 'requested_signals', 'stdin_shutdown_count', 'exit_code', 'signal_code', 'closed']
           for (const item of report.lifecycle) {
             check(item && Object.keys(item).every(key => lifecycleFields.includes(key)), 'DESKTOP_REPORT_LIFECYCLE_INVALID')
             check(Number.isSafeInteger(item.generation) && item.generation > 0 && typeof item.closed === 'boolean' &&
+              Number.isSafeInteger(item.stdin_shutdown_count) && item.stdin_shutdown_count >= 0 &&
               Array.isArray(item.requested_signals) && item.requested_signals.every(signal => ['SIGTERM', 'SIGKILL'].includes(signal)), 'DESKTOP_REPORT_LIFECYCLE_INVALID')
             check(item.pid === undefined || Number.isSafeInteger(item.pid) && item.pid > 0, 'DESKTOP_REPORT_LIFECYCLE_INVALID')
             check(item.exit_code === null || Number.isSafeInteger(item.exit_code) && item.exit_code >= 0, 'DESKTOP_REPORT_LIFECYCLE_INVALID')
@@ -605,24 +645,28 @@ jobs:
             cleanupKeys.every(key => report.cleanup[key] === true), 'DESKTOP_QUALIFICATION_INCOMPLETE')
           check(entryChecks.every(key => entry.checks[key] === true) && entry.proxy_get_count === 4 &&
             entry.backend_status_get_count === 4, 'DESKTOP_PUBLIC_ENTRY_INCOMPLETE')
+          check(report.accounting_verified === true && report.model_requests === 1 && accounting.direct_model_requests === 1 &&
+            accounting.upstream_model_requests === 1 && accountingChecks.every(key => accounting.checks[key] === true),
+            'DESKTOP_ACCOUNTING_INCOMPLETE')
           check(report.lifecycle.length === 2, 'DESKTOP_GENERATIONS_UNCONFIRMED')
           for (const [index, item] of report.lifecycle.entries()) {
             check(item.generation === index + 1 && Number.isSafeInteger(item.pid) && item.pid > 0 && item.closed === true &&
-              item.requested_signals.length === 1 && item.requested_signals[0] === 'SIGTERM' && item.signal_code !== 'SIGKILL', 'DESKTOP_OWNED_CLOSE_UNCONFIRMED')
+              item.exit_code === 0 && item.signal_code === null && item.signal_code !== 'SIGKILL' &&
+              (process.platform === 'win32' ? item.requested_signals.length === 0 && item.stdin_shutdown_count === 1 :
+                item.requested_signals.length === 1 && item.requested_signals[0] === 'SIGTERM' && item.stdin_shutdown_count === 0), 'DESKTOP_OWNED_CLOSE_UNCONFIRMED')
           }
           if (process.platform === 'darwin') {
             check(report.graceful_stop_verified === true && report.termination_semantics === 'normal_exit_zero_without_sigkill' &&
               report.lifecycle.every(item => item.exit_code === 0 && item.signal_code === null), 'DESKTOP_MAC_GRACEFUL_STOP_UNCONFIRMED')
           } else {
-            check(report.graceful_stop_verified === false && report.termination_semantics === 'windows_graceful_flush_not_verified', 'DESKTOP_WINDOWS_EVIDENCE_MISCLASSIFIED')
+            check(report.graceful_stop_verified === true && report.termination_semantics === 'owned_stdin_normal_exit_zero_without_sigkill' &&
+              report.lifecycle.every(item => item.exit_code === 0 && item.signal_code === null), 'DESKTOP_WINDOWS_GRACEFUL_STOP_UNCONFIRMED')
           }
           const binary = process.platform === 'win32' ? 'my-api.exe' : 'my-api'
           check(createHash('sha256').update(fs.readFileSync(binary)).digest('hex') === process.env.MYAPI_DESKTOP_BINARY_SHA256, 'DESKTOP_SOURCE_BINARY_CHANGED')
-          const limit = process.platform === 'win32'
-            ? 'Windows graceful shutdown/flush and accounting remain unverified.'
-            : 'Native macOS graceful close was observed; accounting remains unverified.'
+          const limit = 'Owned signal/stdin normal close, same-SQLite accounting and pending dashboard flush were verified with one controlled loopback request.'
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, 'Owned backend lifecycle and persistence passed on ' + process.platform + '/' + process.arch +
-            '. Owned Go/HTTPS entry checks passed with controlled DNS/CA/loopback; external verification remains unknown. ' + limit + ' No Electron launch, GUI, installer, model request, production operation or full B5 acceptance is claimed.\n')
+            '. Owned Go/HTTPS entry checks passed with controlled DNS/CA/loopback; external verification remains unknown. ' + limit + ' No Electron launch, GUI, installer, real-provider request, production operation or full B5 acceptance is claimed.\n')
           NODE
 
       - name: Require the original tracked source to remain unchanged

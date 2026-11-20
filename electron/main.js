@@ -388,18 +388,25 @@ function startServer({ signal, generation }) {
     fs.mkdirSync(dataDir, { recursive: true });
     fs.mkdirSync(logsDir, { recursive: true });
     process.env.ELECTRON_DATA_DIR = dataDir;
+    const stopOverStdin = process.platform === "win32";
     const env = {
       ...process.env,
       PORT: PORT.toString(),
       MYAPI_BIND_ADDRESS: BIND_ADDRESS,
       MYAPI_EDITION: "lite",
+      MYAPI_DESKTOP_SERVICE: stopOverStdin ? "stdin" : "signal",
       SESSION_COOKIE_SECURE: "false",
       FULL_CONTENT_LOG_DIR: path.join(logsDir, "full-content"),
     };
     env.SESSION_SECRET = process.env.SESSION_SECRET || ensureSessionSecret(userDataPath);
     env.SQLITE_PATH = databasePath;
     const binaryPath = getBinaryPath();
-    const child = spawn(binaryPath, ["--log-dir", logsDir], { env, cwd: process.resourcesPath });
+    const child = spawn(binaryPath, ["--log-dir", logsDir], {
+      env,
+      cwd: process.resourcesPath,
+      stdio: [stopOverStdin ? "pipe" : "ignore", "pipe", "pipe"],
+    });
+    if (stopOverStdin) child.stdin?.on("error", () => { /* Wait for close or the stop deadline. */ });
     child.stdout?.on("data", (data) => {
       if (launchDiagnostics === diagnostics) console.log(`Server: ${data}`);
     });
@@ -421,7 +428,11 @@ function startServer({ signal, generation }) {
         recordNativeReason("readiness-failed");
       throw error;
     });
-    return { child, ready };
+    return {
+      child,
+      ready,
+      requestShutdown: stopOverStdin ? () => child.stdin.end("shutdown\n") : undefined,
+    };
   } catch (error) {
     diagnostics.append(`${error.code || ""}: ${error.stack || error.message || String(error)}\n`);
     recordNativeReason("launch-failed");
@@ -600,6 +611,8 @@ function reasonLabel(reason) {
       return t("The owned process reported a startup or process error.");
     case "process-exited":
       return t("The owned process exited. No automatic restart or request replay was performed.");
+    case "shutdown-failed":
+      return t("The service exited without confirming a clean stop. Check local logs before trying again.");
     case "stop-timeout":
       return t("Closure was not confirmed before the stop deadline. MyAPI will remain open.");
     case "externally-managed":
@@ -1382,10 +1395,15 @@ async function applyConfirmedServiceAction(name, context) {
     )
       return;
     invalidatePublicCheck();
-    await controller.stop();
-    if (controller.snapshot().owned)
+    const stopped = await controller.stop();
+    if (stopped.owned)
       notice = {
         key: "Stop was not confirmed. MyAPI will stay open and will not start another process.",
+        tone: "warning",
+      };
+    else if (stopped.state === "failed")
+      notice = {
+        key: "The service exited without confirming a clean stop. Check local logs before trying again.",
         tone: "warning",
       };
   } else {
@@ -1424,12 +1442,18 @@ async function applyConfirmedServiceAction(name, context) {
       return;
     }
     invalidatePublicCheck();
-    await controller.stop();
+    const stopped = await controller.stop();
     if (!context.isTrusted()) return;
-    const stopped = controller.snapshot();
     if (stopped.owned || ["starting", "stopping", "stop-unconfirmed"].includes(stopped.state)) {
       notice = {
         key: "Stop was not confirmed. MyAPI will stay open and will not start another process.",
+        tone: "warning",
+      };
+      return;
+    }
+    if (current.owned && stopped.state === "failed") {
+      notice = {
+        key: "The service exited without confirming a clean stop. Check local logs before trying again.",
         tone: "warning",
       };
       return;
@@ -1674,6 +1698,8 @@ app
     controller = createServiceController({
       launch: startServer,
       external: IS_DEV,
+      // Give the backend its default 120-second shutdown window before showing unknown.
+      gracefulTimeoutMs: 125000,
       onChange: () => publishState(),
     });
     const actions = {};
