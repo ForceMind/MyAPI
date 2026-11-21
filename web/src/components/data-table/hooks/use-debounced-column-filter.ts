@@ -39,7 +39,8 @@ export function useDebouncedColumnFilter({
       | string
       | undefined) ?? ''
   const [inputValue, setInputValue] = React.useState(value)
-  const [pendingValue, setPendingValue] = React.useState(value)
+  const [draft, setDraft] = React.useState({ baseValue: value, value })
+  const pendingValue = draft.baseValue === value ? draft.value : value
   const isComposingRef = React.useRef(false)
   const debouncedValue = useDebounce(pendingValue, delay)
   const onColumnFiltersChangeRef = React.useRef(onColumnFiltersChange)
@@ -52,11 +53,12 @@ export function useDebouncedColumnFilter({
       setInputValue(value)
     }
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPendingValue(value)
+    setDraft({ baseValue: value, value })
   }, [value])
 
   React.useEffect(() => {
-    if (debouncedValue === value) return
+    // A route change can replace the filter while the previous value is queued.
+    if (debouncedValue !== pendingValue || pendingValue === value) return
 
     onColumnFiltersChangeRef.current((previous) => {
       const filters = previous.filter((filter) => filter.id !== columnId)
@@ -64,15 +66,18 @@ export function useDebouncedColumnFilter({
         ? [...filters, { id: columnId, value: debouncedValue }]
         : filters
     })
-  }, [columnId, debouncedValue, value])
+  }, [columnId, debouncedValue, pendingValue, value])
 
-  const updateInputValue = React.useCallback((nextValue: string) => {
-    setInputValue(nextValue)
+  const updateInputValue = React.useCallback(
+    (nextValue: string) => {
+      setInputValue(nextValue)
 
-    if (!isComposingRef.current) {
-      setPendingValue(nextValue)
-    }
-  }, [])
+      if (!isComposingRef.current) {
+        setDraft({ baseValue: value, value: nextValue })
+      }
+    },
+    [value]
+  )
 
   const handleChange = React.useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,16 +95,16 @@ export function useDebouncedColumnFilter({
       isComposingRef.current = false
       const nextValue = event.currentTarget.value
       setInputValue(nextValue)
-      setPendingValue(nextValue)
+      setDraft({ baseValue: value, value: nextValue })
     },
-    []
+    [value]
   )
 
   const resetInput = React.useCallback(() => {
     isComposingRef.current = false
     setInputValue('')
-    setPendingValue('')
-  }, [])
+    setDraft({ baseValue: value, value: '' })
+  }, [value])
 
   return {
     value,
