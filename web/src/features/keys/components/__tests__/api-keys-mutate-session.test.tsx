@@ -18,12 +18,11 @@ import {
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { renderListRoute } from '@/components/data-table/layout/__tests__/list-route-fixture'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
-import { ApiKeys } from '../../index'
+import { KEY_21, renderKeysPage } from '../../__tests__/keys-page-fixture'
 import { ApiKeysMutateDrawer } from '../api-keys-mutate-drawer'
 import { ApiKeysProvider, useApiKeys } from '../api-keys-provider'
 
@@ -268,30 +267,32 @@ test('review opens the literal creation name on the first page and keeps the old
     readRequests.push(query)
     const items = query.get('keyword') === name && query.get('exact_name') === 'true' &&
       query.get('p') === '1' && !query.has('token')
-      ? [{ id: 41, name, key: 'masked', status: 1, remain_quota: 100, used_quota: 0,
-          unlimited_quota: false, expired_time: -1, created_time: 1, accessed_time: 1,
-          group: 'default', model_limits_enabled: false }]
+      ? [{ ...KEY_21, id: 41, name }]
       : []
     return { data: { success: true, data: { items, total: items.length || 100 } } }
   })
   vi.mocked(api.post).mockRejectedValueOnce(new Error('synthetic response lost after save'))
   const previous = { filter: 'old', token: 'old-token-filter', status: ['2'], page: 3, pageSize: 25 }
-  const { router } = await renderListRoute({
+  const { router } = await renderKeysPage(
     client,
-    path: '/keys/',
-    entry: '/keys/?filter=old&token=old-token-filter&status=%5B%222%22%5D&page=3&pageSize=25',
-    element: <ApiKeys />,
-  })
+    '/keys?filter=old&token=old-token-filter&status=%5B%222%22%5D&page=3&pageSize=25'
+  )
   await waitFor(() => expect(readRequests[0]?.get('p')).toBe('3'))
   await user.click(await screen.findByRole('button', { name: 'Create API Key' }))
   const save = await screen.findByRole('button', { name: 'Save changes' })
   await waitFor(() => expect(save).toBeEnabled())
   await user.type(screen.getByRole('textbox', { name: 'Name' }), name)
   await user.click(save)
-  await user.click(await screen.findByRole('button', { name: 'Review saved Keys' }))
+  const review = await screen.findByRole('button', { name: 'Review saved Keys' })
+  expect(review).toBeEnabled()
+  expect(api.post).toHaveBeenCalledExactlyOnceWith('/api/token/', expect.objectContaining({ name }), expect.any(Object))
+  await user.click(review)
+  await waitFor(() => expect(router.state.location.search).toEqual({
+    filter: name, exactName: true, pageSize: 25,
+  }))
+  await waitFor(() => expect(readRequests.map((query) => query.toString()))
+    .toContain('keyword=Device%25_%21&exact_name=true&p=1&size=25'))
   expect(await screen.findByText(name)).toBeVisible()
-  expect(router.state.location.search).toEqual({ filter: name, exactName: true, pageSize: 25 })
-  expect(readRequests.some((query) => query.toString() === 'keyword=Device%25_%21&exact_name=true&p=1&size=25')).toBe(true)
   expect(api.post).toHaveBeenCalledOnce()
 
   act(() => router.history.back())
