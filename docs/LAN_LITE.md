@@ -1,6 +1,6 @@
 # MyAPI Docker Lite 与 Legacy LAN 兼容
 
-> 当前源码已有 Full/Lite Docker CLI、Desktop 本机服务面板与已有 HTTPS 反代记录向导；`lan`/`myapi-lan`兼容身份保持。beta.55 / 202d01c9完整CI、24条教程及Full/Lite隔离镜像验证已过；统一下载/验签/原生安装、自动更新、自动形态切换及真实公网仍未接线或未验收，详见下文。
+从这里开始使用 Docker Lite。已有 Linux systemd 环境且希望直接管理服务时，查看原生安装。希望在启动应用后从托盘管理服务时，查看 Desktop。`lan` 和 `myapi-lan` 是兼容名称。[Linux 原生服务](NATIVE_LINUX.md) · [Desktop](../electron/README.md)
 
 Lite 是面向个人和小规模使用的 MyAPI 功能版，可部署在个人服务器、云服务器、VPS 或个人电脑。轻量化意味着 SQLite-first、低依赖、低资源和精简默认流程；它不意味着只能在局域网使用。Desktop 是 Lite 的桌面安装和管理形态，业务核心和数据模型必须与 Lite 一致。
 
@@ -10,9 +10,9 @@ Lite 是面向个人和小规模使用的 MyAPI 功能版，可部署在个人�
 
 ## Docker Lite 源码教程 / Docker Lite from source
 
-**当前边界：** `0.2.0-beta.55`、源码 `202d01c9` 的[完整CI与教程](https://github.com/ForceMind/MyAPI/actions/runs/42487543625)、[Full/Lite镜像验证](https://github.com/ForceMind/MyAPI/actions/runs/42489190681)已通过；准确构件与限制见[TASKS](evidence/redesign-20261024/TASKS.md)，对应NPM/GHCR发行仍未发布。Lite的Docker启停和版本门禁已有实现；`lan`是兼容别名，不是另一个产品。以下从源码运行，不使用`npx`、`latest`或未发布tag。
+下方命令使用已审阅的源码。先确认 Docker 和 Compose 可以使用，再用独立目录创建新项目。需要镜像时使用维护者明确提供的版本和摘要。[教程命令验收](https://github.com/ForceMind/MyAPI/actions/runs/42487543625) · [Full/Lite 候选验证](https://github.com/ForceMind/MyAPI/actions/runs/42489190681)
 
-**Current boundary:** full CI, exact tutorial commands and Full/Lite image checks passed at `0.2.0-beta.55` / `202d01c9`. TASKS records exact candidate artifacts and limits. Corresponding NPM/GHCR releases remain unpublished. Docker lifecycle and edition gates exist; `lan` remains the compatibility alias of Lite. Use reviewed source, not `npx`, `latest`, or an unpublished tag.
+Run the commands from a reviewed source checkout. Confirm Docker and Compose are available, then create the new project in its own directory. For an image, use the exact version and digest provided by your maintainer. [Tutorial command evidence](https://github.com/ForceMind/MyAPI/actions/runs/42487543625) · [Full/Lite candidate qualification](https://github.com/ForceMind/MyAPI/actions/runs/42489190681)
 
 ### 1. 选择本机或私网 / Choose local or private LAN
 
@@ -60,9 +60,9 @@ node cli/myapi.mjs lan start --project-dir "${MYAPI_PROJECT_DIR:?}"
 node cli/myapi.mjs lan status --project-dir "${MYAPI_PROJECT_DIR:?}"
 ```
 
-启动成功须经过健康等待；`status` 只报告当前配置与部署状态。随后在显示的本机控制台完成管理员设置，按首页的“管理连接→管理 Key→选择 Key 配置客户端”操作。控制台地址与 API Base URL 不同，客户端使用所见 `/v1` 地址和自己的 Key。浏览器、真实客户端与供应商请求不在本批教程验收内。
+启动失败时，先用上面的 `status` 查看部署状态。显示就绪后，在本机控制台完成管理员设置，然后在首页管理连接和 Key。选择 Key 后打开 **交付**，把显示的 `/v1` 地址填到客户端的 API Base URL。已有请求可在 **调用记录** 查详情。
 
-Startup must pass its health wait. Status describes configuration and deployment, not a successful model request. Complete first-admin setup at the displayed local console, then manage connections, create/select a Key and configure a client with the displayed `/v1` Base URL. Browser, real-client and provider acceptance are separate.
+If startup fails, run `status` above to check the deployment. When it is ready, complete administrator setup in the local console, then manage connections and Keys from the home page. Choose a Key and open **Delivery**. Use the displayed `/v1` address as the client's API Base URL. Open **Call records** to look up an existing request.
 
 ### 4. 可选私网分享 / Optional private-LAN sharing
 
@@ -92,10 +92,11 @@ node cli/myapi.mjs lan stop --project-dir "${MYAPI_PROJECT_DIR:?}"
 
 停止不删除挂载目录，仍不是已验证备份。保留项目配置、会话密钥、数据和日志；不要用全新配置覆盖已有身份，不回灌旧账务。当前[备份/恢复CLI](BACKUP_RESTORE.md)已在34b47daf / CI42465372403通过Root Linux amd64 Docker **Full/Lite + SQLite**真实备份、隔离恢复及保留策略；这不等于Docker Desktop、非root、原生或Desktop恢复资格。
 
-Stopping retains mounted data, but is not a verified backup. Preserve configuration, session identity, data and logs; do not replace existing identities or roll accounting back. The linked backup CLI is qualified for root Linux amd64 Docker **Full/SQLite**, not as a general Lite/Desktop recovery tool. Beta.47 retention qualification is pending.
+Stopping retains mounted data. For a verified backup, use the separate procedure qualified on root Linux amd64 Docker **Full/Lite with SQLite**. Keep the original configuration, session identity, account records and logs. [Backup and isolated restore](BACKUP_RESTORE.md)
 
-个人电脑的 Docker 文件共享、休眠、关机和系统权限另见[个人电脑教程](PERSONAL_COMPUTER.md)；原生安装的当前范围见[Linux 预览](NATIVE_LINUX.md)。以下保留兼容性和高级参考，不替代上述当前源码路径。
-For workstation sharing, sleep and permissions, see the personal-computer guide. Native support is currently a preview. The following advanced references retain compatibility information rather than introducing another installation path.
+在个人电脑上使用 Docker 时，先了解文件共享、休眠和系统权限。Linux systemd 服务从本地签名包安装，使用独立的原生教程。[个人电脑教程](PERSONAL_COMPUTER.md) · [Linux 原生服务](NATIVE_LINUX.md)
+
+Check file sharing, sleep and permissions when using Docker on a personal computer. For a Linux systemd service, follow the native guide and use a signed local package. [Personal computer](PERSONAL_COMPUTER.md) · [Linux native service](NATIVE_LINUX.md)
 
 ## 当前 Legacy LAN 行为（和它不代表的内容）
 

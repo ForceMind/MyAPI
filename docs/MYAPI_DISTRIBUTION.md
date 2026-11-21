@@ -6,22 +6,21 @@ MyAPI 是面向自建部署的发行品牌，提供可审计的完整源码、�
 的命名和迁移边界；OpenAI、Anthropic、Google 等第三方协议名称仍按其官方
 名称保留。
 
-**发行状态：** 当前已验源码为 `0.2.0-beta.55`（`202d01c9`），[完整CI42487543625](https://github.com/ForceMind/MyAPI/actions/runs/42487543625)与24条教程命令已通过，[Full/Lite镜像候选及隔离SQLite验证](https://github.com/ForceMind/MyAPI/actions/runs/42489190681)也已通过。准确构件身份见[TASKS](evidence/redesign-20261024/TASKS.md)；对应NPM/GHCR发行仍未发布，测试构件不是受信任正式安装来源。Full/Lite Docker CLI、Desktop 本机服务面板和已有 HTTPS 反代记录向导已有源码，实际验收边界见下文及当前 TASKS；统一 Release Manifest 的下载/验签/安装、原生生命周期执行器、Desktop updater 和自动形态切换仍未接线。现有 `cli/lib/release-manifest.mjs` 与 `installation-state.mjs` 仅为未接线的 schema-1 结构选择和内存安装状态/cleanup plan；`legacy-installation-profile.mjs` 仅对显式旧 Docker 配置作 fail-closed 的 Full/Lite/local/LAN/needs_manual 画像映射。三者都不能获取或验签资产、读写文件、安装、更新、切换或回退。源码检出时，旧示例中的全局 `myapi ...` 命令应替换为从源码根运行的 `node cli/myapi.mjs ...`，或使用维护者
-审核过的本地 tarball；正式发布后再按版本和 registry 复核 `npx` 示例。
+Docker Full 和 Lite 可从审阅过的源码执行下方步骤。Linux 原生使用本地签名包，可预检、首次安装、升级、只回退程序和保数据卸载。Desktop 通过托盘管理本机的 Lite 服务。核对候选包的源码 SHA、平台、摘要和保留期限后，再决定采用哪条路径。[当前验收记录](evidence/redesign-20261024/TASKS.md) · [Linux 原生](NATIVE_LINUX.md) · [Desktop](../electron/README.md)
 
 产品定位、制品关系、更新状态机和验收见 [发行制品、安装与更新合同](RELEASE_MANIFEST.md)；提示词学习数据与 Codex 应用备份的保留规则见 [S5-P 专题](PROMPT_LEARNING.md)。本文保留当前可用 Legacy CLI/Docker 事实，不能把未来命令写成当前可执行命令。
 
 ## Docker Full 源码教程 / Docker Full from source
 
-**当前身份：** 本教程按 `0.2.0-beta.47`、源码 `90cb0f6c` 编写，该源码的完整 CI `42441559549` 尚待验收；本次教程命令也待独立 Actions 验证。NPM 包和对应 GHCR 镜像尚未发布，不能用 `npx`、`latest` 或猜测的版本 tag 代替源码。已有 B4a 资格只证明隔离 Runner 的 root Docker Full/SQLite 备份恢复，不代表你的服务器已安装或可上线。
+请在已审阅的 MyAPI 源码目录执行固定命令。Actions 已使用临时项目构建并启动 Full 和 Lite。使用镜像时请核对维护者实际提供的版本和摘要。[教程命令验收](https://github.com/ForceMind/MyAPI/actions/runs/42487543625) · [候选镜像与隔离 SQLite 验收](https://github.com/ForceMind/MyAPI/actions/runs/42489190681)
 
-**Current identity:** these instructions describe `0.2.0-beta.47` at source `90cb0f6c`. Its full CI `42441559549` and this tutorial's command qualification are pending. The NPM package and corresponding GHCR images are unpublished. Use an explicitly reviewed source checkout; do not substitute `npx`, `latest`, or an invented release tag. Existing isolated Full/SQLite qualification is not acceptance of your server.
+Run the fixed commands from a reviewed MyAPI source checkout. Actions built and started Full and Lite in disposable projects. If you use an image, confirm the exact version and digest published by your maintainer. [Tutorial command evidence](https://github.com/ForceMind/MyAPI/actions/runs/42487543625) · [Candidate images and isolated SQLite qualification](https://github.com/ForceMind/MyAPI/actions/runs/42489190681)
 
 ### 1. 选择与准备 / Choose and prepare
 
-Full 适合需要完整管理、计费和服务端功能的部署。只需个人接入时，先看 [Docker Lite](LAN_LITE.md)；个人电脑和原生服务分别见 [个人电脑](PERSONAL_COMPUTER.md)、[Linux 原生预览](NATIVE_LINUX.md)，Desktop 见 [桌面说明](../electron/README.md)。这不是数据库或版本形态迁移教程，已有数据不能当全新目录初始化。
+Full 适合需要完整管理、计费和服务端功能的部署。安装前先确认这是新项目。已有数据库时先查对应的备份和恢复流程，保留原配置和数据。只需个人接入时可选 Lite。[Docker Lite](LAN_LITE.md) · [个人电脑](PERSONAL_COMPUTER.md) · [Linux 原生服务](NATIVE_LINUX.md) · [Desktop](../electron/README.md)
 
-Full provides the complete server feature set. For a personal gateway, consider Lite. The linked guides distinguish personal Docker, native preview and Desktop. Do not use fresh initialization to migrate an existing database or change editions.
+Full provides the complete server feature set. Start here for a new project. For an existing database, check the backup and recovery instructions and keep the original configuration and data. For a personal gateway, see Lite. [Docker Lite](LAN_LITE.md) · [Personal computer](PERSONAL_COMPUTER.md) · [Linux native service](NATIVE_LINUX.md) · [Desktop](../electron/README.md)
 
 以下命令从审核过的**源码根目录**运行，使用 Node.js 22、可用的 Docker Engine 和 Compose v2.17+。先为当前终端明确设置下列变量；没有隐式默认值，不要使用已有项目、Home 根目录或生产路径。CI 会把它们绑定到一次性私有夹具。
 
@@ -88,9 +87,13 @@ node cli/myapi.mjs up --project-dir "${MYAPI_PROJECT_DIR:?}"
 node cli/myapi.mjs status --project-dir "${MYAPI_PROJECT_DIR:?}"
 ```
 
-`up` 使用有界健康等待，失败不能写成成功；`status` 显示部署状态，不证明 TLS、公网或模型成功。首次管理员设置在所选实例的控制台完成；随后明确添加连接、创建 Key，再把所见 API Base URL 和该 Key 交给客户端。不要在教程验收中调用真实供应商。控制台与真实浏览器操作另行验证。
+`up` 等待服务健康。如果启动失败，先执行上面的 `status` 核对当前项目。显示就绪后，打开控制台完成管理员设置，再按以下顺序操作。
 
-Startup waits for health and fails if it cannot confirm readiness. Status is not a TLS, public-network or model test. Complete first-admin setup in the selected console, then add a connection, create a Key and configure a client with the displayed API Base URL. Real browser and provider acceptance are separate.
+Startup waits for health. If it fails, run `status` above for this project. When the console is ready, complete administrator setup and follow these steps.
+
+1. 打开 **连接 → 渠道库**，新增渠道，选该渠道支持的模型。具备渠道写权限时，可在该渠道的 **权重** 栏调整数值。保存结果不明时先点 **读取已保存路由值**。 / Open **Connections → Channel inventory**, add a channel and select a model it supports. With channel write permission, edit the channel's **Weight**. If the save result is unknown, choose **Read saved routing value** first.
+2. 创建或选择一个 API Key，打开详情的 **交付**，按显示的 `/v1` 地址和模型配置客户端。 / Create or select an API Key, then use **Delivery** in its details to configure the client with the displayed `/v1` address and model.
+3. 客户端已经发过请求时，在 **调用记录** 按请求 ID 查详情。请求结果、用量和结算分别查看，缺少用量的请求会显示对应状态。 / After the client sends a request, use its request ID in **Call records**. Check outcome, usage and settlement separately. Missing usage has its own status.
 
 ### 4. 停止与保留数据 / Stop and preserve data
 
@@ -99,9 +102,9 @@ Startup waits for health and fails if it cannot confirm readiness. Status is not
 node cli/myapi.mjs down --project-dir "${MYAPI_PROJECT_DIR:?}"
 ```
 
-`down` 不附带删除 volume 的参数，但停止和保留挂载目录不等于已做备份。独立 root Docker Full/SQLite 的备份/隔离恢复请严格按 [备份与恢复](BACKUP_RESTORE.md) 的登记、维护窗口和确认要求执行；该 CLI 会自行正常停机，不要先用本段停止流程替代它的停写证据。beta.47 清理候选尚待自身 CI，不在本教程中承诺可用。原生、Desktop、其他数据库、跨机器恢复以及自动回灌旧账务均不属于这条路径。
+`down` 停止容器并保留数据卷。需要备份时，按 Root Linux amd64 Docker Full/Lite + SQLite 的登记和确认流程操作，备份命令会自行等待正常停止。始终保留当前配置、卷和账务。[备份与隔离恢复](BACKUP_RESTORE.md)
 
-`down` does not request volume deletion, but retained folders are not a verified backup. Follow the linked root Docker Full/SQLite backup/restore guide, including registration, maintenance and confirmation. Let that command establish its own normal-stop evidence. The beta.47 prune candidate is still pending CI. Native/Desktop recovery, other databases and cross-host restoration are not covered here; never roll live accounting back to an old snapshot.
+`down` stops the containers and retains their volumes. For a backup on root-owned Linux amd64 Docker Full or Lite with SQLite, follow the registration and confirmation steps and let the backup command verify the clean stop. Keep the current configuration, volumes and accounting records. [Backup and isolated restore](BACKUP_RESTORE.md)
 
 以下章节保留发行、高级配置和维护合同；未标记为 `tutorial-command` 的发布、迁移及平台参考不属于本批待验的教程命令集合。
 The remaining sections retain advanced distribution and maintenance contracts. Release, migration and platform references are not qualified installation steps unless explicitly marked and subsequently verified.

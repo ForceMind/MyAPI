@@ -6,11 +6,62 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { parseNativePackageArgs } from '../../cli/lib/native-package-verification.mjs'
 
 const repository = fileURLToPath(new URL('../../', import.meta.url))
 const script = path.join(repository, 'deploy/install-native.sh')
 const secret = 'SYNTHETIC_NATIVE_CONFIG_SECRET_DO_NOT_PRINT'
 const xdgKeys = ['XDG_DATA_HOME', 'XDG_CONFIG_HOME', 'XDG_STATE_HOME', 'XDG_CACHE_HOME']
+
+test('native tutorial keeps five preview commands and binds nine service commands to exact supported flags', () => {
+  const source = readFileSync(path.join(repository, 'docs/NATIVE_LINUX.md'), 'utf8').replace(/\r\n/g, '\n')
+  const previews = [...source.matchAll(/<!-- tutorial-command: (native-preview-[a-z-]+) -->\n```bash\n([^\n]+)\n```/g)]
+  assert.deepEqual(previews.map(([, marker, command]) => [marker, command]), [
+    ['native-preview-help', 'bash deploy/install-native.sh --help'],
+    ['native-preview-system-plan', 'bash deploy/install-native.sh plan --scope system'],
+    ['native-preview-system-render', 'bash deploy/install-native.sh render-unit --scope system'],
+    ['native-preview-user-plan', 'bash deploy/install-native.sh plan --scope user'],
+    ['native-preview-user-render', 'bash deploy/install-native.sh render-unit --scope user'],
+  ])
+  const commands = [...source.matchAll(/<!-- native-service-command: ([a-z-]+) -->\n```bash\n([\s\S]*?)\n```/g)]
+  assert.equal([...source.matchAll(/<!-- native-service-command:/g)].length, 9)
+  assert.deepEqual(commands.map(([, command]) => command), [
+    'verify-package', 'install', 'upgrade-plan', 'upgrade', 'rollback-plan', 'rollback', 'uninstall-plan', 'uninstall', 'transition-status',
+  ])
+  const common = ['scope', 'edition', 'tag', 'manifest', 'bundle', 'package', 'cosign', 'root']
+  for (const [, command, script] of commands) {
+    const words = script.replace(/\\\n[ \t]*/g, '').trim().split(/\s+/)
+    assert.deepEqual(words.slice(0, 3), ['bash', 'deploy/install-native.sh', command])
+    const selected = /^(uninstall|transition-status)/.test(command) ? ['scope'] : [...common]
+    if (/^(upgrade|rollback)/.test(command)) selected.splice(3, 0, 'current-manifest', 'current-bundle')
+    if (command === 'install') selected.push('port')
+    if (['upgrade', 'rollback', 'uninstall'].includes(command)) selected.push('confirm')
+    assert.equal(words.length, 3 + selected.length * 2)
+    const prefix = command.startsWith('rollback') ? 'OLDER' : command.startsWith('upgrade') ? 'TARGET' : 'RELEASE'
+    const variables = { scope: 'SCOPE', edition: 'EDITION', tag: `${prefix}_TAG`, manifest: `${prefix}_MANIFEST`,
+      bundle: `${prefix}_BUNDLE`, package: `${prefix}_BINARY`, cosign: 'COSIGN', root: 'TRUSTED_ROOT',
+      'current-manifest': 'CURRENT_MANIFEST', 'current-bundle': 'CURRENT_BUNDLE', port: 'PORT', confirm: 'CONFIRMATION' }
+    for (const [index, flag] of selected.entries()) {
+      assert.equal(words[3 + index * 2], `--${flag}`)
+      // Only one quoted required variable may supply an argument. No shell
+      // fragments, optional expansion, external hooks or unquoted paths.
+      assert.equal(words[4 + index * 2], '"${' + variables[flag] + ':?}"')
+    }
+    if (selected.includes('package')) {
+      for (const [scope, edition] of [['system', 'full'], ['system', 'lite'], ['user', 'lite']]) {
+        const values = { scope, edition, tag: 'v1.2.3', manifest: '/fixture space/manifest.json',
+          bundle: '/fixture space/bundle.json', package: '/fixture space/my-api', cosign: '/fixture space/cosign',
+          root: '/fixture space/root.json', port: '21951', confirm: 'a'.repeat(64),
+          'current-manifest': '/fixture space/current.json', 'current-bundle': '/fixture space/current-bundle.json' }
+        const argv = selected.flatMap(flag => [`--${flag}`, values[flag]])
+        assert.deepEqual(parseNativePackageArgs(argv, ['port', 'current-manifest', 'current-bundle', 'confirm']),
+          Object.fromEntries(selected.map(flag => [flag, values[flag]])))
+        assert.throws(() => parseNativePackageArgs([...argv, '--fixture-signature', 'bypass'],
+          ['port', 'current-manifest', 'current-bundle', 'confirm']), { code: 'invalid_arguments' })
+      }
+    }
+  }
+})
 
 function snapshotTree(directory, relative = '') {
   const entries = []

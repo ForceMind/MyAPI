@@ -4,16 +4,18 @@
 
 Use the Lite container workflow if you already use Docker Desktop. Use the Desktop guide for the bundled local service and tray controls. Their data locations and update paths differ; neither is an automatic migration into the other.
 
-当前教程原命令已在beta.55 / 202d01c9 / [CI42487543625](https://github.com/ForceMind/MyAPI/actions/runs/42487543625)通过。该SHA的Docker Full/Lite及Mac→Win候选包已在Actions构建；准确链接、摘要和范围见[electron教程](../electron/README.md)与[TASKS](evidence/redesign-20261024/TASKS.md)。安装/GUI/开发者签名公证未验，不是正式发行；beta.40旧包仍属原来源，未发布NPM/GHCR tag不提供伪下载承诺。 Exact commands passed at beta.55 / 202d01c9; candidate artifacts do not imply trusted publication, installation or GUI acceptance.
+Docker 教程命令已有隔离运行记录。Desktop 的 macOS、Windows 后端已验证正常停服与重启账务保全，实际安装、GUI 和平台签名待验证。[Docker 命令](https://github.com/ForceMind/MyAPI/actions/runs/42487543625) · [Desktop 入口](../electron/README.md)
+
+The Docker commands passed in disposable environments. Desktop backend qualification on macOS and Windows verified clean stop and accounting after restart. Check the Desktop guide for installer identity, GUI and platform signing status. [Docker command evidence](https://github.com/ForceMind/MyAPI/actions/runs/42487543625) · [Desktop guide](../electron/README.md)
 
 ## 1. 先选一条路 / Choose your route
 
 | 你要做的事 / Task | 入口 / Where to go | 当前边界 / Boundary |
 | --- | --- | --- |
-| 在已有 Docker Desktop 上运行个人 Lite | [Lite / Legacy LAN](LAN_LITE.md) | 源码 CLI 已有 init/start/status/stop；启动仍需实际可用、已审阅的镜像和 Docker 权限 |
-| 查看托盘、本地服务面板和桌面打包 | [electron/README.md](../electron/README.md) 及下文 Desktop 步骤 | 已有源码与合成合同；平台包、真实 GUI/设备另行验收 |
-| 查看 Linux system/XDG 目录与 unit | [Linux 原生预览](NATIVE_LINUX.md) | 只有 help/plan/render-unit，尚不能安装服务 |
-| 备份或恢复数据 | [备份与隔离恢复](BACKUP_RESTORE.md) | Root Linux amd64 Docker Full/Lite + SQLite已证；不是Docker Desktop或Desktop备份资格 |
+| 用现成的 Docker Desktop 启用 Lite / Run Lite in Docker Desktop | [Docker Lite](LAN_LITE.md) | 先确认 Docker 权限和镜像身份。 / Confirm Docker access and image identity. |
+| 从托盘管理本地服务 / Control the local service from the tray | [Desktop](../electron/README.md) | 先核对 macOS 或 Windows 安装包。 / Check the macOS or Windows package first. |
+| 用自己的 Linux 账号运行 Lite / Run Lite under your Linux account | [Linux 原生 / Native Linux](NATIVE_LINUX.md) | 需要 systemd 用户服务和对应架构的本地签名包。 / Requires a systemd user service and a signed local package for the architecture. |
+| 备份或恢复数据 / Back up or restore | [备份与隔离恢复 / Backup and isolated restore](BACKUP_RESTORE.md) | 已验证范围为 Root Linux amd64 Docker Full/Lite + SQLite。 / Qualified for root Linux amd64 Docker Full/Lite with SQLite. |
 
 Desktop 首发顺序为 macOS、再 Windows，Linux Desktop 不纳入首发支持。`electron/README.md` 中仍有 Linux 开发构建项和旧 LAN 说明；这些不能当作 Linux 发行或当前所有面板动作已经实机验收。本文的能力边界用于阅读现有源码，不新增平台承诺。
 
@@ -88,7 +90,9 @@ LAN sharing is an explicit listener change with confirmation. A private address 
 
 Desktop 的 **Public access help** 打开默认折叠的四步本地向导：选反代位置、确认已有 HTTPS 条件、输入 HTTPS 根 origin、保存后复制明确的 `/v1` 并回本地控制台选择 Key。另一台 LAN 设备的反代需要实际 LAN 监听；向导只指向原入口，不自动重启。根 origin 不接受路径前缀、账号密码、查询或片段。
 
-The public guide records an existing HTTPS root origin supplied by you. It does not create DNS, TLS, a proxy, tunnel or public listener, read a Key, or make DNS/HTTPS/model probes. A saved entry always remains **unverified**.
+保存入口后，可手动选择 **检查已保存入口**。这一步只检查已保存地址的 DNS、TLS 和状态接口，结果来自当前电脑。公网可达性仍显示未验证。[Desktop HTTPS 入口](../electron/README.md)
+
+After saving the entry, choose **Check saved entry** to check DNS, TLS and the status endpoint for that saved address from this computer. Public reachability remains unverified. [Desktop HTTPS entry](../electron/README.md)
 
 清除保存入口需要确认，只清本应用记录；外部反代、DNS、隧道和路由器设置仍须你自行撤销。无法读取的记录须先明确清除，不能静默覆盖。保存、清除或复制结果未知时保留草稿，核对当前记录后再处理，不猜成功。
 

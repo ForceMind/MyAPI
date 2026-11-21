@@ -3,6 +3,18 @@ import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import {
+  CHANNEL_STATUS_CONFIG,
+  MULTI_KEY_STATUS_CONFIG,
+} from '@/features/channels/constants'
+import {
+  API_KEY_STATUSES,
+  ERROR_MESSAGES as KEY_ERRORS,
+  SUCCESS_MESSAGES as KEY_RESULTS,
+} from '@/features/keys/constants'
+import { usageLogSchema } from '@/features/usage-logs/data/schema'
+import { getRequestFacts } from '@/features/usage-logs/lib/request-facts'
+
 import en from '../locales/en.json'
 import fr from '../locales/fr.json'
 import ja from '../locales/ja.json'
@@ -71,6 +83,61 @@ describe('shipped quota page translation coverage', () => {
       ) {
         expect(labels[key], key).toMatch(/[\u3400-\u9fff]/)
       }
+    }
+  })
+})
+
+describe('dynamic labels on the connection, Key and request paths', () => {
+  const requestStates = [
+    { type: 5, other: {} },
+    {
+      type: 5,
+      other: { request_outcome: 'rejected', settlement_status: 'not_dispatched' },
+    },
+    {
+      type: 2,
+      other: { usage_outcome: 'reported', settlement_status: 'settled' },
+    },
+    {
+      type: 5,
+      other: {
+        request_outcome: 'completed',
+        usage_outcome: 'missing',
+        settlement_status: 'pending_review',
+      },
+    },
+    { type: 2, other: { settlement_status: 'manual' } },
+  ]
+  const requestKeys = requestStates.flatMap(({ type, other }) => {
+    const log = usageLogSchema.parse({
+      id: 1,
+      user_id: 1,
+      created_at: 1,
+      type,
+      content: '',
+      other: JSON.stringify(other),
+    })
+    const facts = getRequestFacts(log)
+    return [facts.outcome.label, facts.usage.label, facts.settlement.label]
+  })
+  const keys = new Set([
+    ...Object.values(CHANNEL_STATUS_CONFIG).map(({ label }) => label),
+    ...Object.values(MULTI_KEY_STATUS_CONFIG).map(({ label }) => label),
+    ...Object.values(API_KEY_STATUSES).map(({ label }) => label),
+    ...Object.values(KEY_ERRORS),
+    ...Object.values(KEY_RESULTS),
+    ...requestKeys,
+  ])
+
+  it.each(allLocaleResources)('%s supplies each dynamic label', (_locale, resource) => {
+    const dictionary: Record<string, string> = resource.translation
+    expect([...keys].filter((key) => !dictionary[key]?.trim())).toEqual([])
+  })
+
+  it('keeps Chinese request outcome, usage and settlement labels readable', () => {
+    const dictionary: Record<string, string> = zh.translation
+    for (const key of requestKeys) {
+      expect(dictionary[key], key).toMatch(/[\u3400-\u9fff]/)
     }
   })
 })

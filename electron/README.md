@@ -5,11 +5,13 @@ This directory contains the Lite desktop wrapper for MyAPI. Initial platforms ar
 
 ## Desktop 使用教程 / Desktop task guide
 
-当前仓库最新应用源码为beta.56 / `84c76ee9`，[非浏览器CI42513976744](https://github.com/ForceMind/MyAPI/actions/runs/42513976744)已通过，变更仅Web渠道编辑抽屉局部布局；尚无beta.56 Desktop包。下文实际beta.55包仍绑定202d01c9，不包含此修正，不因源码升级而重标；安装/GUI/实际热区仍未验。The latest source is beta.56 / 84c76ee9, with passing non-browser CI. No beta.56 Desktop package was built; the beta.55 artifacts below retain their original identity and exclude this change.
+Desktop 封装 Lite。第一次使用时，打开托盘面板，等服务显示运行中，再打开控制台。需要安装包时，先核对版本、源码 SHA、平台架构和摘要。[候选包记录](../docs/evidence/redesign-20261024/TASKS.md)
 
-**先看身份：** 当前已验源码为 **0.2.0-beta.55 / `202d01c9`**，已通过[完整CI42487543625](https://github.com/ForceMind/MyAPI/actions/runs/42487543625)及24条教程命令。同SHA按Mac→Win顺序构建候选包：macOS arm64 DMG/ZIP（[包13620767707](https://github.com/ForceMind/MyAPI/actions/runs/42489194257/artifacts/13620767707)；[CI42489194257](https://github.com/ForceMind/MyAPI/actions/runs/42489194257)）与Windows x64 NSIS/portable（[包13621485445](https://github.com/ForceMind/MyAPI/actions/runs/42489929687/artifacts/13621485445)；[CI42489929687](https://github.com/ForceMind/MyAPI/actions/runs/42489929687)），各151合同通过、发布作业skip。构建SHA/版本/架构已核，SHA256SUMS生成步骤通过；没有独立source manifest，未下载、安装或启动真实GUI，不宣称开发者签名/公证、托盘、防火墙、账务或跨机已验。准确GitHub摘要与期限见[TASKS](../docs/evidence/redesign-20261024/TASKS.md)。旧beta.40包保留原来源，不重标。限定Native后端/Go→owned HTTPS资格仍绑定beta.54 / e06c252a / [CI42485203085](https://github.com/ForceMind/MyAPI/actions/runs/42485203085)；Root Linux Docker Full/Lite备份资格见[CI42465372403](https://github.com/ForceMind/MyAPI/actions/runs/42465372403)。Linux Desktop不纳入首发。
+Desktop bundles Lite. Open the tray panel, wait for **Running**, then open the console. For an installer, match its version, source SHA, platform architecture and digest. [Candidate package evidence](../docs/evidence/redesign-20261024/TASKS.md)
 
-**Identity first:** **0.2.0-beta.55 / `202d01c9`** passed full CI and all 24 tutorial commands. Same-source macOS arm64 DMG/ZIP and Windows x64 NSIS/portable candidates were built in that order, linked above; each passed 151 contracts and skipped publication. Checkout/build SHA, version and architecture were checked, and SHA256SUMS were generated. There is no independent source manifest. No local download, real installation, GUI, developer signing/notarization, tray, firewall, accounting or second-device acceptance is claimed. GitHub artifact digests and expiry are in TASKS. Historical beta.40 artifacts retain their original identity. Limited native backend/owned-HTTPS qualification remains bound to beta.54 / e06c252a; root Linux Docker Full/Lite backup qualification has its separate source. Linux Desktop is not a first-release platform.
+目前的后端验收绑定 beta.63 / `3208e408`，覆盖 macOS arm64 与 Windows x64。beta.55 的历史安装包仍绑定 `202d01c9`。安装、实际托盘和防火墙、跨设备访问、开发者签名与公证待验证。[后端验收](https://github.com/ForceMind/MyAPI/actions/runs/44836174814) · [历史 macOS 打包](https://github.com/ForceMind/MyAPI/actions/runs/42489194257) · [历史 Windows 打包](https://github.com/ForceMind/MyAPI/actions/runs/42489929687)
+
+Backend qualification is bound to beta.63 / `3208e408` on macOS arm64 and Windows x64. Historical beta.55 installer candidates remain bound to `202d01c9`. Installation, the real tray and firewall, access from another device, developer signing and notarization are pending. [Backend qualification](https://github.com/ForceMind/MyAPI/actions/runs/44836174814) · [Historical macOS build](https://github.com/ForceMind/MyAPI/actions/runs/42489194257) · [Historical Windows build](https://github.com/ForceMind/MyAPI/actions/runs/42489929687)
 
 下面说明的是**当前源码行为**，供维护者审核和后续受控包验收；没有与目标源码匹配并审核过的包时，不提供猜测下载链接、绕过 Gatekeeper/SmartScreen 的命令或自动安装步骤。源码构建只在明确的构建任务中执行，不代表已安装到你的电脑。
 
@@ -83,7 +85,7 @@ Copying one directory alone does not guarantee a complete consistent backup. Con
 
 以下从仓库根运行，不安装或启动 GUI。第一条检查资源/打包合同，第二条执行 Node/VM/合成 child 合同；它们不能证明托盘显示、真实安装、签名或防火墙访问。这两条原命令已在上文beta.54教程复现；限定原生后端/HTTPS联动资格绑定beta.54 / e06c252a。
 
-Run from the repository root. The first command checks packaging/resource contracts; the second exercises Node/VM/synthetic-child contracts without launching Electron GUI. Neither verifies a real tray, installation, signing or firewall. The two exact commands passed in the beta.54 tutorial run above; the limited native-backend/HTTPS qualification is bound to beta.54 / e06c252a.
+Run from the repository root. The first command checks package resources. The second checks service controls with a Node fixture. The actual GUI, installer, signing and firewall require separate verification. [Exact tutorial command evidence](https://github.com/ForceMind/MyAPI/actions/runs/42487543625)
 
 <!-- tutorial-command: desktop-source-contract -->
 ```bash
@@ -95,9 +97,9 @@ node tools/desktop/check.mjs --json
 node --test electron/test/*.test.mjs
 ```
 
-新增维护者专用 Actions 资格入口 `run_desktop_backend_qualification` 默认关闭，仅 manual/dev 使用。它从当前源码分别构建 macOS arm64、再 Windows x64 的真实 Lite 后端，在无 Electron GUI 的夹具中核 owned child 启停、配置标记与会话身份重启复读；只保留安全 JSON，不上传数据库、密钥、原始日志或二进制。该限定资格及真实Go经owned HTTPS反代的联动已在beta.54 / e06c252a同SHA通过：原9项保留，保存入口、真实响应、进度、取消及旧结果失效等8个新增检查通过，实际proxy/backend GET各4次。测试内受控DNS/CA/loopback不证明真实公网或同一实例。Windows 的进程关闭不会被称为已验证优雅 flush，两版均不宣称账务或在途恢复通过。
+维护者在 `dev` 手动启用 Actions 输入 `run_desktop_backend_qualification`，可先验证 macOS arm64，再验证 Windows x64 的真实 Lite 后端。beta.63 两平台都正常停服，原 SQLite 中的账务仍可读，停服时各写入 15 单位合成用量，重启后的假上游请求数仍为 1。受控 HTTPS 检查只验证测试机到假反代的路径，实际公网仍待验证。报告只包含安全计数和结果。[macOS 报告作业](https://github.com/ForceMind/MyAPI/actions/runs/44836174814/job/136633129519) · [Windows 报告作业](https://github.com/ForceMind/MyAPI/actions/runs/44836174814/job/136635364322)
 
-The new maintainer-only Actions input is off by default and limited to manual dev runs. It builds same-source native Lite backends, macOS arm64 before Windows x64, then checks owned-process lifecycle, configuration and session-identity persistence through an Electron facade. Only safe JSON is retained. The limited backend and real-Go-through-owned-HTTPS integration qualifications passed at beta.54 / e06c252a: all original nine checks remained, all eight new checks passed and four proxy/backend GETs were observed. Controlled DNS/CA/loopback does not verify a real public network or the same instance. Windows graceful flush and accounting remain unverified. No Electron/GUI, installer or real public-network entry test is performed.
+On `dev`, the maintainer can enable `run_desktop_backend_qualification` in a manual Actions run. It checks the actual Lite backend on macOS arm64 before Windows x64. At beta.63, both platforms stopped cleanly and reopened the original SQLite accounting records. Each flushed 15 units of synthetic usage on stop, and the upstream fixture still showed one request after restart. Controlled HTTPS checks cover the fixture path from the runner. Real public reachability is pending. The jobs retain a safe report. [macOS qualification](https://github.com/ForceMind/MyAPI/actions/runs/44836174814/job/136633129519) · [Windows qualification](https://github.com/ForceMind/MyAPI/actions/runs/44836174814/job/136635364322)
 
 以下开发与打包内容继续保留为维护参考。只有匹配源码的 Actions 构建、平台签名和真实主机步骤分别完成后，才可扩大支持声明；未标记为 `tutorial-command` 的构建/GUI例子不属于本批待验的教程命令集合。
 The following development and packaging references remain available. Source-matched Actions builds, signing and real-host acceptance are separate gates; reference examples are not current qualified installation steps.

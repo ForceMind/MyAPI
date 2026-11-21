@@ -9,7 +9,7 @@ import { userInfo } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { installNative } from '../../cli/lib/native-install.mjs'
-import { verifyNativePackage, verifyNativeTransitionPackages } from '../../cli/lib/native-package-verification.mjs'
+import { parseNativePackageArgs, verifyNativePackage, verifyNativeTransitionPackages } from '../../cli/lib/native-package-verification.mjs'
 import { executeNativeTransition, planNativeTransition, readNativeTransitionStatus } from '../../cli/lib/native-transition.mjs'
 import { executeNativeUninstall, planNativeUninstall } from '../../cli/lib/native-uninstall.mjs'
 
@@ -31,6 +31,63 @@ const manager = args => execFileSync('systemctl', [...(scope === 'user' ? ['--us
   encoding: 'utf8', timeout: 30_000,
 })
 const shellEntry = fileURLToPath(new URL('../../deploy/install-native.sh', import.meta.url))
+// Never evaluate document text. Accept only these command/flag/variable tuples,
+// then pass the independently bound argv to the real launcher or module API.
+const tutorialSource = (await readFile(new URL('../../docs/NATIVE_LINUX.md', import.meta.url), 'utf8')).replace(/\r\n/g, '\n')
+const tutorialCommands = new Map()
+const tutorialEvidence = new Map()
+const packageFlags = ['scope', 'edition', 'tag', 'manifest', 'bundle', 'package', 'cosign', 'root']
+for (const match of tutorialSource.matchAll(/<!-- native-service-command: ([a-z-]+) -->\n```bash\n([\s\S]*?)\n```/g)) {
+  const [, command, source] = match
+  assert.ok(['verify-package', 'install', 'upgrade-plan', 'upgrade', 'rollback-plan', 'rollback', 'uninstall-plan', 'uninstall', 'transition-status'].includes(command))
+  assert.ok(!tutorialCommands.has(command))
+  const transition = /^(upgrade|rollback)(-plan)?$/.test(command)
+  const flags = ['uninstall-plan', 'uninstall', 'transition-status'].includes(command) ? ['scope'] : [...packageFlags]
+  if (transition) flags.splice(3, 0, 'current-manifest', 'current-bundle')
+  if (command === 'install') flags.push('port')
+  if (['upgrade', 'rollback', 'uninstall'].includes(command)) flags.push('confirm')
+  const prefix = command.startsWith('rollback') ? 'OLDER' : transition ? 'TARGET' : 'RELEASE'
+  const variables = { scope: 'SCOPE', edition: 'EDITION', port: 'PORT', cosign: 'COSIGN', root: 'TRUSTED_ROOT', confirm: 'CONFIRMATION',
+    tag: `${prefix}_TAG`, manifest: `${prefix}_MANIFEST`, bundle: `${prefix}_BUNDLE`, package: `${prefix}_BINARY`,
+    'current-manifest': 'CURRENT_MANIFEST', 'current-bundle': 'CURRENT_BUNDLE' }
+  const words = source.replace(/\\\n[ \t]*/g, '').trim().split(/\s+/)
+  assert.deepEqual(words, ['bash', 'deploy/install-native.sh', command,
+    ...flags.flatMap(flag => [`--${flag}`, '"${' + variables[flag] + ':?}"'])], `Unrecognized native tutorial command: ${command}`)
+  tutorialCommands.set(command, { flags, command_sha256: createHash('sha256').update(source + '\n').digest('hex'),
+    source_line: tutorialSource.slice(0, match.index).split('\n').length + 2 })
+}
+assert.equal(tutorialCommands.size, 9)
+assert.equal([...tutorialSource.matchAll(/<!-- native-service-command:/g)].length, 9)
+function tutorialArguments(command, inputs) {
+  const specification = tutorialCommands.get(command)
+  assert.ok(specification)
+  return specification.flags.flatMap(flag => {
+    assert.equal(typeof inputs[flag], 'string', `Missing tutorial value: ${flag}`)
+    assert.ok(inputs[flag].length > 0)
+    return [`--${flag}`, inputs[flag]]
+  })
+}
+function tutorialInputs(command, inputs) {
+  const argv = tutorialArguments(command, inputs)
+  if (['uninstall-plan', 'uninstall', 'transition-status'].includes(command)) {
+    return Object.fromEntries(tutorialCommands.get(command).flags.map((flag, index) => [flag, argv[index * 2 + 1]]))
+  }
+  return parseNativePackageArgs(argv, ['port', 'current-manifest', 'current-bundle', 'confirm'])
+}
+function tutorialReceipt(command, execution, result) {
+  assert.ok(['launcher', 'document-bound-injected-fixture'].includes(execution))
+  if (!tutorialEvidence.has(command)) tutorialEvidence.set(command, new Set())
+  tutorialEvidence.get(command).add(execution)
+  const { command_sha256, source_line } = tutorialCommands.get(command)
+  console.log('MYAPI_NATIVE_TUTORIAL_RECEIPT ' + JSON.stringify({ command, command_sha256, source_line, scope, edition: requestedEdition,
+    execution, passed: true, production_signatures_verified: false,
+    ...Object.fromEntries(['eligible', 'status', 'operation', 'phase', 'code', 'version'].filter(key => Object.hasOwn(result, key)).map(key => [key, result[key]])) }))
+}
+function tutorialLauncher(command, inputs) {
+  return JSON.parse(execFileSync('bash', [shellEntry, command, ...tutorialArguments(command, inputs)], {
+    encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 90_000,
+  }))
+}
 const plan = execFileSync('bash', [shellEntry, 'plan', '--scope', scope], { encoding: 'utf8' })
 const paths = Object.fromEntries([...plan.matchAll(/^(binary|config|state|data|unit): (\/.+)$/gm)].map(match => [match[1], match[2]]))
 assert.equal(Object.keys(paths).length, 5)
@@ -141,7 +198,37 @@ try {
   const key = generateKeyPairSync('ed25519')
   const signature = sign(null, bytes, key.privateKey)
   await writeFile(manifest, bytes)
-  const inputs = { scope, edition, port, tag: `v${version}`, manifest, package: binary }
+  const currentBundle = path.join(scratch, 'current-bundle.json')
+  await writeFile(currentBundle, JSON.stringify({ signature: signature.toString('base64') }))
+  const testRoot = path.join(scratch, 'untrusted-root.json')
+  await writeFile(testRoot, '{}')
+  const inputs = tutorialInputs('install', { scope, edition, port, tag: `v${version}`, manifest, bundle: currentBundle, package: binary,
+    cosign: '/qualification-fixture/not-production-cosign', root: testRoot })
+  const verified = await verifyNativePackage(tutorialInputs('verify-package', inputs), {
+    arch: 'amd64', bootstrapVersion: version, verifySignature(raw) {
+      assert.ok(verify(null, raw, key.publicKey, signature))
+    },
+  })
+  assert.equal(verified.version, version)
+  assert.equal(verified.scope, scope)
+  assert.equal(verified.edition, edition)
+  assert.equal(verified.sha256, sha256)
+  tutorialReceipt('verify-package', 'document-bound-injected-fixture', verified)
+  // An actual production launcher must reject the very fixture trusted by the
+  // in-process seam. No fixture key, bypass flag or environment hook is added.
+  assert.throws(() => tutorialLauncher('verify-package', inputs), error => {
+    assert.equal(error.status, 2)
+    assert.match(error.stderr, /\[trust_root_mismatch\]/)
+    return true
+  })
+  tutorialReceipt('verify-package', 'launcher', { code: 'trust_root_mismatch' })
+  assert.throws(() => tutorialLauncher('install', inputs), error => {
+    assert.equal(error.status, 2)
+    assert.equal(JSON.parse(error.stderr).code, 'trust_root_mismatch')
+    return true
+  })
+  for (const filename of Object.values(paths)) await assert.rejects(stat(filename), { code: 'ENOENT' })
+  tutorialReceipt('install', 'launcher', { code: 'trust_root_mismatch' })
   const verifyFixture = staged => {
     assert.notEqual(staged.package, binary)
     return verifyNativePackage(staged, { arch: 'amd64', bootstrapVersion: version, verifySignature(raw) {
@@ -185,6 +272,7 @@ try {
   }
   assert.equal(installed.status, 'healthy')
   assert.equal(installed.sha256, sha256)
+  tutorialReceipt('install', 'document-bound-injected-fixture', installed)
   const receiptBytes = await readFile(path.join(paths.state, 'installation.json'))
   const receipt = JSON.parse(receiptBytes)
   assert.equal(receipt.sha256, sha256)
@@ -201,10 +289,8 @@ try {
   assert.deepEqual(await readFile(paths.unit), unitBefore)
   assert.equal(manager(['show', 'my-api.service', '--property=MainPID', '--value']), pidBefore)
 
-  const currentBundle = path.join(scratch, 'current-bundle.json')
   const targetManifest = path.join(scratch, 'target-manifest.json')
   const targetBundle = path.join(scratch, 'target-bundle.json')
-  await writeFile(currentBundle, JSON.stringify({ signature: signature.toString('base64') }))
   const targetHash = createHash('sha256')
   for await (const chunk of createReadStream(targetBinary)) targetHash.update(chunk)
   const targetSha256 = targetHash.digest('hex')
@@ -229,13 +315,13 @@ try {
     await writeFile(targetBundle, JSON.stringify({ signature: sign(null, raw, targetKey.privateKey).toString('base64') }))
   }
   await writeTarget(targetDocument)
-  const transitionInputs = {
+  const transitionInputs = tutorialInputs('upgrade-plan', {
     scope, edition, tag: `v${targetVersion}`, manifest: targetManifest, bundle: targetBundle, package: targetBinary,
     'current-manifest': manifest, 'current-bundle': currentBundle,
     // These test-only paths cannot be consumed by the production pinned
     // verifier. Only the explicitly injected Ed25519 fixture verifier is used.
     cosign: '/qualification-fixture/not-production-cosign', root: '/qualification-fixture/not-production-root',
-  }
+  })
   const authenticatedTags = []
   const verifyTransitionFixture = (requested, identity, currentBinary, operation) =>
     verifyNativeTransitionPackages(requested, identity, currentBinary, operation, {
@@ -406,15 +492,12 @@ finally:
     assert.equal(qualified.service.pid, pid)
     assert.ok(Array.isArray(qualified.steps) && qualified.steps.length > 0)
     assert.deepEqual(new Set(authenticatedTags), new Set([`v${version}`, `v${targetVersion}`]))
+    tutorialReceipt('upgrade-plan', 'document-bound-injected-fixture', qualified)
 
     // The installed command goes through the pinned verifier, even with the
     // very same fixture that the isolated integration seam accepted.
-    const testRoot = path.join(scratch, 'untrusted-root.json')
-    await writeFile(testRoot, '{}')
     await readOnlyCheck(() => {
-      const cliArgs = Object.entries({ ...transitionInputs, root: testRoot }).flatMap(([key, value]) => ['--' + key, value])
-      assert.throws(() => execFileSync('bash', [shellEntry, 'upgrade-plan', ...cliArgs],
-        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }), error => {
+      assert.throws(() => tutorialLauncher('upgrade-plan', { ...transitionInputs, root: testRoot }), error => {
         assert.equal(error.status, 2)
         const refusal = JSON.parse(error.stderr)
         assert.equal(refusal.eligible, false)
@@ -422,6 +505,7 @@ finally:
         return true
       })
     })
+    tutorialReceipt('upgrade-plan', 'launcher', { code: 'trust_root_mismatch' })
 
     await writeFile(manifest, Buffer.concat([bytes, Buffer.from(' ')]))
     try {
@@ -512,7 +596,7 @@ finally:
 
   const candidateBinary = path.join(scratch, 'execution-candidate')
   await copyFile(targetBinary, candidateBinary)
-  const executionInputs = { ...transitionInputs, package: candidateBinary }
+  const executionInputs = tutorialInputs('upgrade-plan', { ...transitionInputs, package: candidateBinary })
   const executionPaths = Object.fromEntries([...plan.matchAll(/^(\w+): (\/.+)$/gm)].map(match => [match[1], match[2]]))
   const stateFile = path.join(paths.state, 'native-transition.json')
   async function executionSnapshot({ includeAutonomous = false } = {}) {
@@ -591,7 +675,15 @@ finally:
   assert.equal(latestAccounting.logs.length, 2)
   assert.equal(latestAccounting.logs[1].request_id, 'native-synthetic-after-plan')
   assert.deepEqual(latestAccounting.adjustments, seededAccounting.adjustments)
-  const confirmedInputs = { ...executionInputs, confirm: executionPlan.confirmation }
+  const confirmedInputs = tutorialInputs('upgrade', { ...executionInputs, confirm: executionPlan.confirmation })
+  await unchangedExecution(() => {
+    assert.throws(() => tutorialLauncher('upgrade', { ...confirmedInputs, root: testRoot }), error => {
+      assert.equal(error.status, 2)
+      assert.equal(JSON.parse(error.stderr).code, 'trust_root_mismatch')
+      return true
+    })
+  })
+  tutorialReceipt('upgrade', 'launcher', { code: 'trust_root_mismatch' })
   if (executionMode === 'interrupt') {
     const interruptPayload = path.join(scratch, 'interrupt-input.json')
     await writeFile(interruptPayload, JSON.stringify({ inputs: confirmedInputs, version,
@@ -637,11 +729,12 @@ finally:
     assert.deepEqual(await readFile(paths.unit), unitBefore)
     await unchangedExecution(async () => {
       assert.deepEqual(await readNativeTransitionStatus(scope), interrupted)
-      assert.deepEqual(JSON.parse(execFileSync('bash', [shellEntry, 'transition-status', '--scope', scope], { encoding: 'utf8' })), interrupted)
+      assert.deepEqual(tutorialLauncher('transition-status', { scope }), interrupted)
       await assert.rejects(executeNativeTransition(confirmedInputs, verifyTransitionFixture), { code: 'native_transition_pending' })
       await assert.rejects(planNativeUninstall({ scope }), { code: 'native_transition_pending' })
     })
     assert.equal(JSON.parse(await readFile(stateFile, 'utf8')).phase, 'stopped')
+    tutorialReceipt('transition-status', 'launcher', interrupted)
     console.log(`MYAPI_NATIVE_TRANSITION_INTERRUPT_PASS scope=${scope} edition=${edition} real_service=true persisted_phase=stopped child_exit=73 replay_refused=true restarted=false accounting_preserved=true manual_state_preserved=true`)
   } else {
     let fixtureWAL = false
@@ -659,6 +752,7 @@ finally:
     } })
     assert.equal(fixtureWAL, true)
     assert.equal(upgraded.status, 'healthy')
+    tutorialReceipt('upgrade', 'document-bound-injected-fixture', upgraded)
     assert.equal(upgraded.operation, 'upgrade')
     assert.equal(upgraded.current.version, version)
     assert.equal(upgraded.target.version, targetVersion)
@@ -746,8 +840,8 @@ finally:
     assert.deepEqual(newerAccounting.options, latestAccounting.options)
     assert.ok((await stat(database + '-wal')).size > 32, 'the newer-version charge must have a real nonempty WAL')
     assert.equal(manager(['show', 'my-api.service', '--property=MainPID', '--value']).trim(), String(newPid))
-    const rollbackInputs = { ...transitionInputs, tag: `v${version}`, manifest, bundle: currentBundle, package: binary,
-      'current-manifest': targetManifest, 'current-bundle': targetBundle }
+    const rollbackInputs = tutorialInputs('rollback-plan', { ...transitionInputs, tag: `v${version}`, manifest, bundle: currentBundle, package: binary,
+      'current-manifest': targetManifest, 'current-bundle': targetBundle })
     const rollbackOptions = { operation: 'rollback' }
 
     async function stablePlanCheck(action) {
@@ -791,6 +885,14 @@ finally:
     }
 
     const rollbackPreview = await stablePlanCheck(() => planNativeTransition(rollbackInputs, verifyTransitionFixture, rollbackOptions))
+    await stablePlanCheck(() => {
+      assert.throws(() => tutorialLauncher('rollback-plan', { ...rollbackInputs, root: testRoot }), error => {
+        assert.equal(error.status, 2)
+        assert.equal(JSON.parse(error.stderr).code, 'trust_root_mismatch')
+        return true
+      })
+    })
+    tutorialReceipt('rollback-plan', 'launcher', { code: 'trust_root_mismatch' })
     assert.equal(rollbackPreview.operation, 'rollback')
     assert.equal(rollbackPreview.current.version, targetVersion)
     assert.equal(rollbackPreview.target.version, version)
@@ -848,9 +950,19 @@ finally:
     assert.match(rollbackPlan.confirmation, /^[a-f0-9]{64}$/)
     assert.equal(rollbackPlan.dataPolicy, 'keep_current_sqlite')
     assert.equal(rollbackPlan.reusesInstalledBinary, true)
-    const rollbackConfirmed = { ...rollbackInputs, confirm: rollbackPlan.confirmation }
+    tutorialReceipt('rollback-plan', 'document-bound-injected-fixture', rollbackPlan)
+    const rollbackConfirmed = tutorialInputs('rollback', { ...rollbackInputs, confirm: rollbackPlan.confirmation })
+    await stablePlanCheck(() => {
+      assert.throws(() => tutorialLauncher('rollback', { ...rollbackConfirmed, root: testRoot }), error => {
+        assert.equal(error.status, 2)
+        assert.equal(JSON.parse(error.stderr).code, 'trust_root_mismatch')
+        return true
+      })
+    })
+    tutorialReceipt('rollback', 'launcher', { code: 'trust_root_mismatch' })
     const rolledBack = await executeNativeTransition(rollbackConfirmed, verifyTransitionFixture, rollbackOptions)
     assert.equal(rolledBack.status, 'healthy')
+    tutorialReceipt('rollback', 'document-bound-injected-fixture', rolledBack)
     assert.equal(rolledBack.operation, 'rollback')
     assert.equal(rolledBack.current.version, targetVersion)
     assert.equal(rolledBack.target.version, version)
@@ -938,7 +1050,7 @@ finally:
     assert.equal(fakeUpstreamRequests, upstreamBefore)
     console.log(`MYAPI_NATIVE_REUPGRADE_PASS scope=${scope} edition=${edition} retained_new_binary_inode=true same_database=true latest_accounting_preserved=true repeated_confirmation_refused=true fake_upstream_before=${upstreamBefore} fake_upstream_after=${fakeUpstreamRequests}`)
 
-    const uninstallInputs = { scope }
+    const uninstallInputs = tutorialInputs('uninstall-plan', { scope })
     const uninstallJournal = path.join(paths.state, 'native-uninstall.json')
     const wantsParent = path.join(path.dirname(paths.unit), scope === 'system' ? 'multi-user.target.wants' : 'default.target.wants')
     const enableLink = path.join(wantsParent, 'my-api.service')
@@ -1059,7 +1171,8 @@ finally:
     assert.equal(fakeUpstreamRequests, upstreamBefore)
     console.log(`MYAPI_NATIVE_UNINSTALL_STOP_GUARD_PASS scope=${scope} edition=${edition} real_service_running=true persisted_phase=stop_requested only_pending_record_written=true pending_replay_refused=true database_wal_unchanged=true fixture_record_checked_before_removal=true`)
 
-    const uninstallPlan = await stablePlanCheck(() => planNativeUninstall(uninstallInputs))
+    const uninstallPlan = await stablePlanCheck(() => tutorialLauncher('uninstall-plan', uninstallInputs))
+    tutorialReceipt('uninstall-plan', 'launcher', uninstallPlan)
     assert.equal(uninstallPlan.service.pid, finalPid)
     assert.deepEqual(new Set(uninstallPlan.remove), new Set(expectedRemoval))
     assert.deepEqual(new Set(uninstallPlan.preserve), new Set(expectedPreservation))
@@ -1084,10 +1197,11 @@ finally:
       const info = await stat(filename, { bigint: true })
       return { filename, dev: info.dev, ino: info.ino }
     }))
-    const uninstallConfirmed = { scope, confirm: uninstallPlan.confirmation }
-    const uninstalled = await executeNativeUninstall(uninstallConfirmed)
+    const uninstallConfirmed = tutorialInputs('uninstall', { scope, confirm: uninstallPlan.confirmation })
+    const uninstalled = tutorialLauncher('uninstall', uninstallConfirmed)
     assert.equal(uninstalled.status, 'uninstalled')
     assert.equal(uninstalled.operation, 'uninstall')
+    tutorialReceipt('uninstall', 'launcher', uninstalled)
     for (const filename of expectedRemoval) await assert.rejects(lstat(filename), { code: 'ENOENT' })
     const wantsParentAfter = await stat(wantsParent, { bigint: true })
     assert.equal(wantsParentAfter.dev, wantsParentBefore.dev)
@@ -1120,6 +1234,8 @@ finally:
       }
     }
     const uninstallStatus = await readNativeTransitionStatus(scope)
+    assert.deepEqual(tutorialLauncher('transition-status', { scope }), uninstallStatus)
+    tutorialReceipt('transition-status', 'launcher', uninstallStatus)
     assert.equal(uninstallStatus.phase, 'uninstalled')
     assert.equal(uninstallStatus.operation, 'uninstall')
     assert.equal(uninstallStatus.service.state, 'inactive')
@@ -1140,9 +1256,19 @@ finally:
     }
     const repeatedUninstallBefore = await uninstalledSnapshot()
     await assert.rejects(executeNativeUninstall(uninstallConfirmed), { code: 'native_confirmation_consumed' })
+    assert.throws(() => tutorialLauncher('uninstall', uninstallConfirmed), error => {
+      assert.equal(error.status, 2)
+      assert.equal(JSON.parse(error.stderr).code, 'native_confirmation_consumed')
+      return true
+    })
     assert.deepEqual(await uninstalledSnapshot(), repeatedUninstallBefore)
     assert.equal(fakeUpstreamRequests, upstreamBefore)
     console.log(`MYAPI_NATIVE_UNINSTALL_PASS scope=${scope} edition=${edition} readonly_plan=true foreign_unit_refused=true dropin_refused=true unowned_program_refused=true pending_transition_refused=true pending_uninstall_refused=true stale_confirmation_refused=true unconfirmed_drain_refused=true service_stopped=true owned_program_removed=true exact_want_link_removed=true want_parent_preserved=true same_database=true latest_19_unit_record_preserved=true configuration_logs_three_backups_preserved=true repeated_confirmation_refused=true fake_upstream_before=${upstreamBefore} fake_upstream_after=${fakeUpstreamRequests}`)
+    for (const command of tutorialCommands.keys()) assert.ok(tutorialEvidence.get(command)?.has('launcher'), `Missing launcher receipt: ${command}`)
+    for (const command of ['verify-package', 'install', 'upgrade-plan', 'upgrade', 'rollback-plan', 'rollback']) {
+      assert.ok(tutorialEvidence.get(command)?.has('document-bound-injected-fixture'), `Missing signed fixture receipt: ${command}`)
+    }
+    console.log(`MYAPI_NATIVE_TUTORIAL_PASS scope=${scope} edition=${edition} commands=9 document_parameters_bound=true fixture_signatures=isolated-ed25519 actual_launcher_trust_refused=true actual_launcher_uninstall=true actual_launcher_status=true production_signatures_verified=false real_service=true preserved_accounting=true`)
   }
   if (executionMode === 'interrupt') assert.equal(manager(['show', 'my-api.service', '--property=MainPID', '--value']).trim(), '0')
   else assert.equal((await readNativeTransitionStatus(scope)).service.pid, 0)
