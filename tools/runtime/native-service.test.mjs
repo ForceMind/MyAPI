@@ -54,8 +54,9 @@ test('native tutorial keeps five preview commands and binds nine service command
           root: '/fixture space/root.json', port: '21951', confirm: 'a'.repeat(64),
           'current-manifest': '/fixture space/current.json', 'current-bundle': '/fixture space/current-bundle.json' }
         const argv = selected.flatMap(flag => [`--${flag}`, values[flag]])
-        assert.deepEqual(parseNativePackageArgs(argv, ['port', 'current-manifest', 'current-bundle', 'confirm']),
-          Object.fromEntries(selected.map(flag => [flag, values[flag]])))
+        const parsed = parseNativePackageArgs(argv, ['port', 'current-manifest', 'current-bundle', 'confirm'])
+        assert.equal(Object.getPrototypeOf(parsed), null)
+        assert.deepEqual(Object.entries(parsed), selected.map(flag => [flag, values[flag]]))
         assert.throws(() => parseNativePackageArgs([...argv, '--fixture-signature', 'bypass'],
           ['port', 'current-manifest', 'current-bundle', 'confirm']), { code: 'invalid_arguments' })
       }

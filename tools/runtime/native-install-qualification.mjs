@@ -224,7 +224,7 @@ try {
   tutorialReceipt('verify-package', 'launcher', { code: 'trust_root_mismatch' })
   assert.throws(() => tutorialLauncher('install', inputs), error => {
     assert.equal(error.status, 2)
-    assert.equal(JSON.parse(error.stderr).code, 'trust_root_mismatch')
+    assert.equal(error.stderr.trim(), 'MyAPI installation failed [trust_root_mismatch]. Use the pinned Sigstore trust root.')
     return true
   })
   for (const filename of Object.values(paths)) await assert.rejects(stat(filename), { code: 'ENOENT' })
