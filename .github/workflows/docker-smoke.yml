@@ -38,7 +38,8 @@ jobs:
     # One current-source build per edition; no application or credentials run here.
     if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft && github.event.pull_request.head.ref == 'dev')
     name: Prepare immutable smoke image bundles
-    runs-on: ubuntu-latest
+    # Match the image-store environment used by the archive consumers below.
+    runs-on: ubuntu-24.04
     timeout-minutes: 50
     outputs:
       prefix: ${{ steps.identity.outputs.prefix }}
@@ -362,7 +363,7 @@ jobs:
     # Manual Full/LAN coverage remains available unchanged.
     if: always() && !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft && github.event.pull_request.head.ref == 'dev')) && (needs.prepare-smoke-images.outputs.full-manifest != '' || needs.prepare-smoke-images.outputs.lan-manifest != '')
     name: ${{ matrix.edition }} ${{ matrix.scenario }} ${{ matrix.writer }} image and SQLite smoke
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     strategy:
       fail-fast: false
@@ -428,6 +429,7 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
+          docker info --format 'docker={{.ServerVersion}} storage={{.Driver}}'
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
           if [[ "$MYAPI_SMOKE_EDITION" == 'full' ]]; then BUNDLE_MANIFEST_SHA="$FULL_MANIFEST_SHA"; else BUNDLE_MANIFEST_SHA="$LAN_MANIFEST_SHA"; fi
           node tools/runtime/smoke-image-bundle.mjs verify-load \
