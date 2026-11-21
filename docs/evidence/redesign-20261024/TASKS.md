@@ -4,7 +4,33 @@
 
 两份独立审查覆盖原生升级、回退、卸载和排空证明，Desktop 持有进程的停止与账务，以及连接、Key、请求的主要路径。确认两项阻断候选的问题。Linux 排空校验此前遗漏新版看板持久化失败日志，现拒绝新旧两种格式。Key 写入结果不明时，核对入口此前沿用旧筛选。现进入按本次提交的名称匹配的第一页，清除旧状态和凭据筛选，并通过历史记录保留原列表。名称中的百分号、下划线等作为字面内容。核对只读取当前账号的掩码记录，原创建请求不重放。
 
-应用版本推进到 beta.64。由完整 Actions、三库 Key 查询回归、原生与 Desktop 专项及同 SHA 的 Full/Lite 和 macOS 后 Windows 候选包验证。
+候选版为 `0.2.0-beta.64`，源码 `c52e0d88ca19d034e7ab57b66a06a974cc1c01dc`，树 `7b2118bbf2e422b0d1371a3a472d7642c766e6ad`。
+
+八批在已批准的非浏览器范围内验收通过。候选 CI 第 2 次运行 21 个作业成功，5 个按范围跳过。已读取 21 个作业的 28110 行日志并核对全部 SHA。Go 根模块、独立 relaykit、竞态检查、SQLite/MySQL/PostgreSQL、前端 421 个文件 3469 项测试、原生服务、Desktop Lite 后端、备份恢复、部署教程和七语清单均通过。三库均验证 Key 名称中的通配符按字面查询。首轮系统 Lite 在停服后的合成快照读到多出的一条默认 `user_funding_state` 记录，原比较拒绝继续。只复跑该作业，源码、测试和断言保持原样。复跑验证同一 SQLite、原配置、新增 19 单位账务、全量备份和不重放。[完整 CI](https://github.com/ForceMind/MyAPI/actions/runs/44859717168/attempts/2) · [首次失败](https://github.com/ForceMind/MyAPI/actions/runs/44859717168/job/136710139722) · [系统 Lite 复跑](https://github.com/ForceMind/MyAPI/actions/runs/44859717168/job/136718491966) · [三库 Key 回归](https://github.com/ForceMind/MyAPI/actions/runs/44859717168/job/136710139570)
+
+候选过程中，前端回归确认了旧凭据防抖回写。已把待提交的筛选绑定到当前值，原回归验证精确名称、结果行、返回筛选及创建请求仅一次。[失败回归](https://github.com/ForceMind/MyAPI/actions/runs/44851625330) · [修复后的完整 CI](https://github.com/ForceMind/MyAPI/actions/runs/44853963619)
+
+首次 Docker 归档验收在 Ubuntu 26.04 / Docker 29.4.2 上拒绝装载后的镜像身份。打包端和消费端现固定 Ubuntu 24.04。本候选三次消费均实测 Docker 28.0.4 / overlay2，继续校验源码、树、运行次数、归档摘要、镜像 ID 和平台。工作流合同同时要求两端使用这一运行器。[首轮 Docker](https://github.com/ForceMind/MyAPI/actions/runs/44854959470) · [固定环境后的 Docker](https://github.com/ForceMind/MyAPI/actions/runs/44856887974) · [运行器合同首轮](https://github.com/ForceMind/MyAPI/actions/runs/44856888446)
+
+| 形态 | 候选验收与恢复入口 |
+| --- | --- |
+| Docker Full / Lite，Linux amd64 + SQLite | 同源临时实例的全新安装各 19/19 项通过，独立 LAN 安装器 8/8 项，Full 历史交接 8/8 项。交接专项确认有未兼容账务时拒绝启动并保留数据库和 WAL，兼容旧记录可读。备份恢复按 [Docker 备份与隔离恢复](../../BACKUP_RESTORE.md) 操作，隔离目录恢复前核对原数据是否有新写入。[Docker CI](https://github.com/ForceMind/MyAPI/actions/runs/44859723051) · [Full 报告](https://github.com/ForceMind/MyAPI/actions/runs/44859723051/artifacts/14688844417) · [Lite 报告](https://github.com/ForceMind/MyAPI/actions/runs/44859723051/artifacts/14688798316) · [Full 历史交接](https://github.com/ForceMind/MyAPI/actions/runs/44859723051/artifacts/14689536978) · [LAN 安装报告](https://github.com/ForceMind/MyAPI/actions/runs/44859723051/artifacts/14688967200) |
+| Linux 原生 | [原生教程](../../NATIVE_LINUX.md) 提供预检、升级、程序回退、保数据卸载和 `transition-status`。结果不明时先读取收据、程序和服务实际状态。真实服务的签名正例来自隔离测例，正式 MyAPI 发行签名待验。 |
+| Desktop Lite | 先构建 macOS arm64 DMG 和 ZIP，再构建 Windows x64 安装版和便携版。每个平台 152 项合同通过，归档含平台内文件校验清单。应用或后端停服后按 [桌面排查说明](../../../electron/README.md) 查状态与日志。实际安装、GUI、平台签名与公证、外部可达性待验。[macOS](https://github.com/ForceMind/MyAPI/actions/runs/44859721401) · [Windows](https://github.com/ForceMind/MyAPI/actions/runs/44860010046) |
+
+| Actions 构件 | ZIP 的 SHA-256 | 到期时间 UTC |
+| --- | --- | --- |
+| [Docker Full 镜像包](https://github.com/ForceMind/MyAPI/actions/runs/44859723051/artifacts/14689262809) | `sha256:884318e083e53a3622a285eb74f83e320d1a5bff9d57f0d206805b0491d7a7ee` | 2026-12-21 03:13:07 |
+| [Docker Lite 镜像包](https://github.com/ForceMind/MyAPI/actions/runs/44859723051/artifacts/14688653318) | `sha256:1c6f3ff83e57ca626e8a68d2e87861b820801b3bd82a82efb1b5a38baf67c4fc` | 2026-12-21 03:14:59 |
+| [macOS arm64](https://github.com/ForceMind/MyAPI/actions/runs/44859721401/artifacts/14689126754) | `sha256:8751ebfca3fb4f13f057394390adae2065ffa1e4636b52d1c445812be60735a3` | 2027-02-19 03:10:23 |
+| [Windows x64](https://github.com/ForceMind/MyAPI/actions/runs/44860010046/artifacts/14689558294) | `sha256:17df0cb5492ae197eb190ec51c97516fa53eceb4e2424619f103cd57a05878e2` | 2027-02-19 03:13:41 |
+| [离线运维工具包](https://github.com/ForceMind/MyAPI/actions/runs/44859723051/artifacts/14689636158) | `sha256:bbb752105e386a423cd03906762bae0ca6b381dfee768a96e58f39ce1a93a8b1` | 2026-11-28 03:10:46 |
+
+- Full 镜像 ID `sha256:e6053eae03b0af25d18832f8fc5898266a23da48cb164581cd79db471d5072c7`，OCI manifest `sha256:ecfb3c7b2d66600b16a42a35ec80e51fd010cb483d3f67a9a96c41053a9dfab0`，包内 `manifest.json` 的 SHA-256 为 `e0107e98cbff531b85922f26fa2d7f68d59b964c66a2fb58ee350db17e6c9111`。
+- Lite 镜像 ID `sha256:86aadcd34eb27b98c85619f92afdb8422e4867def3a47d27608bd09887f75485`，OCI manifest `sha256:0b0c9170240e17979762dbe54f6bafac5fffe89cd914856a4cbe489005088112`，包内 `manifest.json` 的 SHA-256 为 `828fa2f2dd0d958678d61c04f1cdddc753e39b9ae03facca796e60d1e49ebfd3`。
+- 运维工具包内 TAR 的 SHA-256 为 `db5b27e6eec71136bdd971d278a3bab50e880c7d54ccef96613642e895721c6f`。Actions 核对了清单中的全部 32 个文件，未启动运维服务。
+
+本轮使用合成数据和回环假上游。浏览器、真实客户端与供应商流量、七语母语人工审读、正式签名发行和生产部署仍待单独验收。
 
 ## 2026-11-20 八批连续开发 · 第 7 批 部署教程与动态文案
 
