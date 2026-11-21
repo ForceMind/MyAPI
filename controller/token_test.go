@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/ForceMind/MyAPI/model"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/require"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -484,6 +486,48 @@ func TestSearchTokensMasksKeyInResponse(t *testing.T) {
 	}
 	if strings.Contains(recorder.Body.String(), token.Key) {
 		t.Fatalf("search response leaked raw token key: %s", recorder.Body.String())
+	}
+}
+
+func TestSearchTokensByExactNameTreatsWildcardsAsLiteral(t *testing.T) {
+	verify := func(t *testing.T, db *gorm.DB) {
+		t.Helper()
+		name := "Device%_!"
+		token := seedToken(t, db, 1, name, "exact-name-key-of-owner")
+		seedToken(t, db, 1, "Device-other_!", "similar-name-key-of-owner")
+		seedToken(t, db, 2, name, "exact-name-key-of-someone-else")
+
+		path := "/api/token/search?exact_name=true&keyword=" + url.QueryEscape(name)
+		ctx, recorder := newAuthenticatedContext(t, http.MethodGet, path, nil, 1)
+		SearchTokens(ctx)
+
+		response := decodeAPIResponse(t, recorder)
+		require.True(t, response.Success, "%s", response.Message)
+		var page tokenPageResponse
+		require.NoError(t, common.Unmarshal(response.Data, &page))
+		require.Equal(t, []tokenResponseItem{{
+			ID: token.Id, Name: name, Key: token.GetMaskedKey(), Status: token.Status,
+		}}, page.Items)
+		require.NotContains(t, recorder.Body.String(), token.Key)
+	}
+	t.Run("sqlite", func(t *testing.T) {
+		verify(t, setupTokenControllerTestDB(t))
+	})
+	if os.Getenv("MYAPI_S1_DATABASE_TESTS") != "1" {
+		return
+	}
+	for _, backend := range []struct{ dialect, dsnEnv string }{
+		{"mysql", "MYAPI_S1_MYSQL_DSN"},
+		{"postgres", "MYAPI_S1_POSTGRES_DSN"},
+	} {
+		t.Run(backend.dialect, func(t *testing.T) {
+			dsn := os.Getenv(backend.dsnEnv)
+			require.NotEmpty(t, dsn, "missing disposable database configuration")
+			db, managed := openTokenControllerExternalDB(t, backend.dialect, dsn)
+			*managed = true
+			migrateTokenControllerTestDB(t, db)
+			verify(t, db)
+		})
 	}
 }
 

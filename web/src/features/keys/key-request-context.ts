@@ -19,6 +19,7 @@ export const keyRequestContextSchema = z.object({
   page: z.number().int().positive().optional(),
   pageSize: z.number().int().positive().max(1000).optional(),
   filter: z.string().max(512).optional(),
+  exactName: z.literal(true).optional(),
   status: z
     .array(z.enum(API_KEY_STATUS_OPTIONS.map((s) => s.value as `${number}`)))
     .optional(),

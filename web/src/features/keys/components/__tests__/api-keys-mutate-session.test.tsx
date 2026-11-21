@@ -18,10 +18,12 @@ import {
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
+import { renderListRoute } from '@/components/data-table/layout/__tests__/list-route-fixture'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
+import { ApiKeys } from '../../index'
 import { ApiKeysMutateDrawer } from '../api-keys-mutate-drawer'
 import { ApiKeysProvider, useApiKeys } from '../api-keys-provider'
 
@@ -67,14 +69,18 @@ function KeyListRefresh() {
   return <output data-testid='key-list-refresh'>{refreshTrigger}</output>
 }
 
-async function startBatch(configureKey?: (id: number) => void, count = 2) {
+async function startBatch(
+  configureKey?: (id: number) => void,
+  count = 2,
+  reviewSavedKeys = vi.fn<(name: string) => Promise<void>>().mockResolvedValue(undefined)
+) {
   const user = userEvent.setup()
   const onOpenChange = vi.fn()
   const drawer = (open: boolean) => (
     <QueryClientProvider client={client}>
       <ApiKeysProvider configureKey={configureKey}>
         <KeyListRefresh />
-        <ApiKeysMutateDrawer open={open} onOpenChange={onOpenChange} />
+        <ApiKeysMutateDrawer open={open} onOpenChange={onOpenChange} onReviewSavedKeys={reviewSavedKeys} />
       </ApiKeysProvider>
     </QueryClientProvider>
   )
@@ -221,7 +227,8 @@ test('an interrupted batch keeps its confirmed Key and makes review a separate r
   const unknown = deferredCreate()
   vi.mocked(api.post).mockReturnValueOnce(first.promise).mockReturnValueOnce(unknown.promise)
   const configure = vi.fn()
-  const view = await startBatch(configure, 3)
+  const review = vi.fn<(name: string) => Promise<void>>().mockResolvedValue(undefined)
+  const view = await startBatch(configure, 3, review)
   await act(async () => first.resolve({ data: { success: true, data: { id: 31 } } }))
   await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2))
   await act(async () => unknown.reject(new Error('synthetic connection loss')))
@@ -232,6 +239,8 @@ test('an interrupted batch keeps its confirmed Key and makes review a separate r
 
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'Review saved Keys' }))
+  expect(review).toHaveBeenCalledOnce()
+  expect(api.post).toHaveBeenNthCalledWith(2, '/api/token/', expect.objectContaining({ name: review.mock.calls[0][0] }), expect.any(Object))
   expect(view.onOpenChange).toHaveBeenCalledWith(false)
   expect(screen.getByTestId('key-list-refresh')).toHaveTextContent('1')
   expect(configure).not.toHaveBeenCalled()
@@ -243,6 +252,51 @@ test('an interrupted batch keeps its confirmed Key and makes review a separate r
   await waitFor(() => expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled())
   expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('')
   expect(api.post).toHaveBeenCalledTimes(2)
+})
+
+test('review opens the literal creation name on the first page and keeps the old list in history', async () => {
+  const user = userEvent.setup()
+  const existingGet = vi.mocked(api.get).getMockImplementation()
+  const name = 'Device%_!'
+  const readRequests: URLSearchParams[] = []
+  vi.mocked(api.get).mockImplementation(async (url, config) => {
+    if (!url.startsWith('/api/token/search?')) {
+      if (!existingGet) throw new Error('Expected the original API fixture')
+      return existingGet(url, config)
+    }
+    const query = new URLSearchParams(url.split('?')[1])
+    readRequests.push(query)
+    const items = query.get('keyword') === name && query.get('exact_name') === 'true' &&
+      query.get('p') === '1' && !query.has('token')
+      ? [{ id: 41, name, key: 'masked', status: 1, remain_quota: 100, used_quota: 0,
+          unlimited_quota: false, expired_time: -1, created_time: 1, accessed_time: 1,
+          group: 'default', model_limits_enabled: false }]
+      : []
+    return { data: { success: true, data: { items, total: items.length || 100 } } }
+  })
+  vi.mocked(api.post).mockRejectedValueOnce(new Error('synthetic response lost after save'))
+  const previous = { filter: 'old', token: 'old-token-filter', status: ['2'], page: 3, pageSize: 25 }
+  const { router } = await renderListRoute({
+    client,
+    path: '/keys/',
+    entry: '/keys/?filter=old&token=old-token-filter&status=%5B%222%22%5D&page=3&pageSize=25',
+    element: <ApiKeys />,
+  })
+  await waitFor(() => expect(readRequests[0]?.get('p')).toBe('3'))
+  await user.click(await screen.findByRole('button', { name: 'Create API Key' }))
+  const save = await screen.findByRole('button', { name: 'Save changes' })
+  await waitFor(() => expect(save).toBeEnabled())
+  await user.type(screen.getByRole('textbox', { name: 'Name' }), name)
+  await user.click(save)
+  await user.click(await screen.findByRole('button', { name: 'Review saved Keys' }))
+  expect(await screen.findByText(name)).toBeVisible()
+  expect(router.state.location.search).toEqual({ filter: name, exactName: true, pageSize: 25 })
+  expect(readRequests.some((query) => query.toString() === 'keyword=Device%25_%21&exact_name=true&p=1&size=25')).toBe(true)
+  expect(api.post).toHaveBeenCalledOnce()
+
+  act(() => router.history.back())
+  await waitFor(() => expect(router.state.location.search).toEqual(previous))
+  expect(api.post).toHaveBeenCalledOnce()
 })
 
 test('an explicitly rejected first write still permits correcting the draft', async () => {

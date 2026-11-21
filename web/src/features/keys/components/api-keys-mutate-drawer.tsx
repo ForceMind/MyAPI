@@ -102,6 +102,7 @@ type ApiKeyMutateDrawerProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   currentRow?: ApiKey
+  onReviewSavedKeys?: (name: string) => Promise<void>
 }
 
 type UncertainKeyCreation = {
@@ -122,6 +123,7 @@ export function ApiKeysMutateDrawer({
   open,
   onOpenChange,
   currentRow,
+  onReviewSavedKeys,
 }: ApiKeyMutateDrawerProps) {
   const { t } = useTranslation()
   const isCurrentSession = useKeyMaintenanceSession()
@@ -503,9 +505,16 @@ export function ApiKeysMutateDrawer({
     }
   }
 
-  const reviewSavedKeys = () => {
+  const reviewSavedKeys = async () => {
     const review = unresolvedCreation.current
-    if (!isCurrentSession() || !review) return
+    if (!isCurrentSession() || !review || !onReviewSavedKeys) return
+    try {
+      await onReviewSavedKeys(review.name)
+    } catch {
+      if (isCurrentSession()) toast.error(t(ERROR_MESSAGES.LOAD_FAILED))
+      return
+    }
+    if (!isCurrentSession() || unresolvedCreation.current !== review) return
     const opened = { ...review, listOpened: true }
     unresolvedCreation.current = opened
     setCreationReview(opened)
@@ -595,7 +604,12 @@ export function ApiKeysMutateDrawer({
                 confirmed: creationReview.confirmedCount, requested: creationReview.requestedCount,
               })}</p>
               <div className='flex flex-wrap gap-2'>
-                <Button type='button' variant='outline' onClick={reviewSavedKeys}>
+                <Button
+                  type='button'
+                  variant='outline'
+                  onClick={reviewSavedKeys}
+                  disabled={!onReviewSavedKeys}
+                >
                   {t('Review saved Keys')}
                 </Button>
                 {creationReview.lastConfirmedId !== undefined && configureKey && (

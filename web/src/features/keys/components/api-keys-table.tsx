@@ -48,7 +48,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { usePersonalWorkbenchMode } from '@/hooks/use-personal-workbench-mode'
-import { useTableUrlState } from '@/hooks/use-table-url-state'
+import { useTableUrlState, type NavigateFn } from '@/hooks/use-table-url-state'
 import { CONSOLE_MOBILE_QUERY } from '@/lib/console-layout'
 import { cn } from '@/lib/utils'
 
@@ -200,6 +200,8 @@ function ApiKeysTableSession() {
     return () => window.clearInterval(intervalId)
   }, [])
 
+  const search = route.useSearch()
+  const navigate: NavigateFn = route.useNavigate()
   const {
     globalFilter,
     onGlobalFilterChange,
@@ -209,8 +211,20 @@ function ApiKeysTableSession() {
     onPaginationChange,
     ensurePageInRange,
   } = useTableUrlState({
-    search: route.useSearch(),
-    navigate: route.useNavigate(),
+    search,
+    navigate: ({ search: nextSearch, replace }) => {
+      navigate({
+        replace,
+        search: (previous) => {
+          if (nextSearch === true) return previous
+          const next =
+            typeof nextSearch === 'function' ? nextSearch(previous) : nextSearch
+          return next.filter === previous.filter
+            ? next
+            : { ...next, exactName: undefined }
+        },
+      })
+    },
     pagination: { defaultPage: 1, defaultPageSize: 20 },
     globalFilter: { enabled: true, key: 'filter' },
     columnFilters: [
@@ -230,7 +244,12 @@ function ApiKeysTableSession() {
     columnId: '_tokenSearch',
     onColumnFiltersChange,
   })
-  const shouldSearch = Boolean(globalFilter?.trim() || tokenFilter.trim())
+  const exactName = search.exactName === true
+  const nameFilter = exactName ? search.filter : globalFilter
+  const credentialFilter = exactName ? search.token ?? '' : tokenFilter
+  const shouldSearch = Boolean(
+    (exactName ? nameFilter : nameFilter?.trim()) || credentialFilter.trim()
+  )
 
   // Fetch data with React Query
   // eslint-disable-next-line @tanstack/query/exhaustive-deps
@@ -240,15 +259,17 @@ function ApiKeysTableSession() {
       userId, role, sid, showQuota,
       pagination.pageIndex + 1,
       pagination.pageSize,
-      globalFilter,
-      tokenFilter,
+      nameFilter,
+      credentialFilter,
+      exactName,
       refreshTrigger,
     ],
     queryFn: async () => {
       const result = shouldSearch
         ? await searchApiKeys({
-            keyword: globalFilter,
-            token: tokenFilter,
+            keyword: nameFilter,
+            token: credentialFilter,
+            exactName,
             p: pagination.pageIndex + 1,
             size: pagination.pageSize,
           })

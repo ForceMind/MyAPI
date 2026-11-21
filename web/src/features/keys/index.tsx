@@ -102,7 +102,15 @@ export function ApiKeys() {
         </SectionPageLayout.Content>
       </SectionPageLayout>
 
-      <ApiKeysDialogs />
+      <ApiKeysDialogs
+        onReviewSavedKeys={(name) =>
+          navigate({
+            to: '/keys',
+            search: { filter: name, exactName: true, pageSize: search.pageSize },
+            replace: false,
+          })
+        }
+      />
     </ApiKeysProvider>
   )
 }

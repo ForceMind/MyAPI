@@ -114,6 +114,7 @@ export interface GetApiKeysResponse {
 export interface SearchApiKeysParams {
   keyword?: string
   token?: string
+  exactName?: boolean
   p?: number
   size?: number
 }

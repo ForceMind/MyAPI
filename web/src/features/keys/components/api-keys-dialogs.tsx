@@ -35,7 +35,9 @@ function KeyClientImportDialog(props: { apiKey: ApiKey; tokenKey: string; onOpen
   return <CCSwitchDialog open apiKey={props.apiKey} tokenKey={props.tokenKey} onOpenChange={props.onOpenChange} address={keyClientAddresses(status?.server_address, window.location.origin)} />
 }
 
-export function ApiKeysDialogs() {
+export function ApiKeysDialogs(props: {
+  onReviewSavedKeys?: (name: string) => Promise<void>
+}) {
   const { open, setOpen, currentRow, resolvedKey, setResolvedKey } = useApiKeys()
 
   return (
@@ -65,6 +67,7 @@ export function ApiKeysDialogs() {
         open={open === 'create' || open === 'update'}
         onOpenChange={(isOpen) => !isOpen && setOpen(null)}
         currentRow={open === 'update' ? currentRow || undefined : undefined}
+        onReviewSavedKeys={props.onReviewSavedKeys}
       />
       <ApiKeysDeleteDialog />
       {open === 'cc-switch' && currentRow && <KeyClientImportDialog

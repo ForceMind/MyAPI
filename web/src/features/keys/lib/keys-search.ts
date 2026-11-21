@@ -67,6 +67,7 @@ export const apiKeySearchSchema = z.object({
     .optional()
     .catch([]),
   filter: z.string().optional().catch(''),
+  exactName: z.literal(true).optional().catch(undefined),
   token: z.string().optional().catch(''),
 })
 
@@ -74,12 +75,13 @@ export type ApiKeySearch = z.infer<typeof apiKeySearchSchema>
 
 /** The list state a Key page returns to; credential searches stay out. */
 export function keyListContext(
-  search: Pick<ApiKeySearch, 'page' | 'pageSize' | 'filter' | 'status'>
+  search: Pick<ApiKeySearch, 'page' | 'pageSize' | 'filter' | 'exactName' | 'status'>
 ): KeyRequestContext | undefined {
   const context = keyRequestContextSchema.safeParse({
     page: search.page && search.page > 1 ? search.page : undefined,
     pageSize: search.pageSize,
     filter: search.filter || undefined,
+    exactName: search.filter ? search.exactName : undefined,
     status: search.status?.length ? search.status : undefined,
   })
   if (!context.success) return undefined

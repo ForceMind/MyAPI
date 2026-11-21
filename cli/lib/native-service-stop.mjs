@@ -241,7 +241,7 @@ export function verifyNativeServiceDrain({ before, after, appendedLog }) {
     // Request errors are not drain failures. Match the actual system/flush diagnostics,
     // without searching arbitrary provider text or access-log paths for "error".
     if (entry[1] === 'FATAL' || (entry[1] === 'SYS' && (
-      /^(?:server forced to shutdown:|panic detected:|InitChannelCache panic:|failed to close database:|increaseQuotaData error:)/.test(body) ||
+      /^(?:server forced to shutdown:|panic detected:|InitChannelCache panic:|failed to close database:|increaseQuotaData error:|dashboard usage flush did not confirm )/.test(body) ||
       /^failed to (?:persist quota balance (?:batch drain|generation error)|recover quota balance (?:compensation|batch preparation)|list quota balance batch drains|apply quota balance batch drain|cleanup quota balance batch drains|batch update token quota):/.test(body)
     ))) refuse()
     const signal = body === 'received signal: terminated, shutting down...'
