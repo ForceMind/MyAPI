@@ -1,0 +1,151 @@
+name: Audit beta.64 Full OCI evidence
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+
+jobs:
+  compare:
+    if: github.repository == 'ForceMind/MyAPI' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Read immutable beta.64 artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          cd "$RUNNER_TEMP"
+          gh api repos/ForceMind/MyAPI/actions/artifacts/14688967556/zip > build-record.zip
+          gh api repos/ForceMind/MyAPI/actions/artifacts/14689262809/zip > full-bundle.zip
+          sha256sum --check <<'DIGESTS'
+          de0b0690fbf64acddd923591ca04c93e938e030148369e9f59f1fa04b780ba57  build-record.zip
+          884318e083e53a3622a285eb74f83e320d1a5bff9d57f0d206805b0491d7a7ee  full-bundle.zip
+          DIGESTS
+
+      - name: Compare original Buildx output and exported image
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          python3 -B <<'PYTHON'
+          import gzip
+          import hashlib
+          import json
+          import re
+          import shutil
+          import tarfile
+          import zipfile
+
+          source = "c52e0d88ca19d034e7ab57b66a06a974cc1c01dc"
+          tree = "7b2118bbf2e422b0d1371a3a472d7642c766e6ad"
+          tag = f"myapi:smoke-full-{source}"
+          buildx_digest = "sha256:ecfb3c7b2d66600b16a42a35ec80e51fd010cb483d3f67a9a96c41053a9dfab0"
+          saved_digest = "sha256:d2e3c6ec7b8e06d4241c6333ddf123252d44a6dca9c81c981612eedf0b10996b"
+          config_digest = "sha256:e6053eae03b0af25d18832f8fc5898266a23da48cb164581cd79db471d5072c7"
+          manifest_type = "application/vnd.oci.image.manifest.v1+json"
+
+          def digest(data):
+              return "sha256:" + hashlib.sha256(data).hexdigest()
+
+          def blob_path(value):
+              assert re.fullmatch(r"sha256:[0-9a-f]{64}", value), "Invalid blob digest"
+              return "blobs/sha256/" + value[7:]
+
+          def member(archive, path):
+              entries = [entry for entry in archive.getmembers() if entry.name.removeprefix("./") == path]
+              assert len(entries) == 1 and entries[0].isfile(), f"Expected one regular member: {path}"
+              return archive.extractfile(entries[0]), entries[0].size
+
+          def json_member(archive, path):
+              stream, size = member(archive, path)
+              assert size <= 1_048_576, "Expected small JSON member"
+              with stream:
+                  raw = stream.read()
+              return raw, json.loads(raw)
+
+          with zipfile.ZipFile("full-bundle.zip") as bundle:
+              assert sorted(bundle.namelist()) == ["images.tar", "manifest.json"], "Unexpected ZIP members"
+              metadata = bundle.read("manifest.json")
+              assert digest(metadata) == "sha256:e0107e98cbff531b85922f26fa2d7f68d59b964c66a2fb58ee350db17e6c9111"
+              manifest = json.loads(metadata)
+              identity = {
+                  "schemaVersion": 1, "sourceSha": source, "headSha": source, "treeSha": tree,
+                  "runId": "44859723051", "producerAttempt": "1", "edition": "full",
+                  "personal": "0", "platform": "linux/amd64",
+              }
+              assert all(manifest[k] == v for k, v in identity.items()), "Unexpected bundle identity"
+              apps = [image for image in manifest["images"] if image["role"] == "app"]
+              assert apps == [{"role": "app", "tag": tag, "id": config_digest, "registryRef": None}]
+              tar_info = manifest["tar"]
+              assert tar_info["file"] == "images.tar"
+              assert bundle.getinfo("images.tar").file_size == tar_info["bytes"], "TAR size mismatch"
+              with bundle.open("images.tar") as stream, open("images.tar", "xb") as target:
+                  shutil.copyfileobj(stream, target)
+          with open("images.tar", "rb") as stream:
+              assert hashlib.file_digest(stream, "sha256").hexdigest() == tar_info["sha256"], "TAR digest mismatch"
+
+          with tarfile.open("images.tar", "r:") as saved:
+              _, index = json_member(saved, "index.json")
+              _, legacy = json_member(saved, "manifest.json")
+              descriptors = [
+                  desc for desc in index["manifests"]
+                  if desc.get("annotations", {}).get("io.containerd.image.name", "").removeprefix("docker.io/library/") == tag
+              ]
+              assert len(descriptors) == 1, "Expected one indexed application image"
+              desc = descriptors[0]
+              saved_raw, saved_manifest = json_member(saved, blob_path(desc["digest"]))
+              assert desc["mediaType"] == saved_manifest["mediaType"] == manifest_type
+              assert desc["digest"] == digest(saved_raw) == saved_digest and desc["size"] == len(saved_raw)
+              config_desc = saved_manifest["config"]
+              config_raw, config = json_member(saved, blob_path(config_desc["digest"]))
+              assert config_desc["digest"] == digest(config_raw) == config_digest
+              assert config_desc["size"] == len(config_raw)
+              assert (config["os"], config["architecture"]) == ("linux", "amd64")
+              labels = config["config"]["Labels"]
+              assert [labels[f"io.myapi.smoke.{key}"] for key in ("source", "head", "tree")] == [source, source, tree]
+              assert labels["io.myapi.edition"] == "full"
+              rows = [row for row in legacy if tag in row["RepoTags"]]
+              assert len(rows) == 1 and rows[0]["Config"] == blob_path(config_digest)
+              layers = saved_manifest["layers"]
+              diff_ids = config["rootfs"]["diff_ids"]
+              assert len(layers) == len(diff_ids) == len(rows[0]["Layers"]) and diff_ids
+              for layer, diff_id, path in zip(layers, diff_ids, rows[0]["Layers"], strict=True):
+                  stream, size = member(saved, blob_path(layer["digest"]))
+                  assert size == layer["size"], "OCI layer size mismatch"
+                  with stream:
+                      binary_digest = "sha256:" + hashlib.file_digest(stream, "sha256").hexdigest()
+                  assert binary_digest == layer["digest"], "OCI layer digest mismatch"
+                  assert path == blob_path(diff_id), "Docker layer points outside the expected DiffID"
+                  stream, _ = member(saved, path)
+                  with stream:
+                      assert "sha256:" + hashlib.file_digest(stream, "sha256").hexdigest() == diff_id, "RootFS DiffID mismatch"
+
+          print(json.dumps({
+              "archive_manifest": saved_digest, "archive_manifest_size": len(saved_raw),
+              "config": config_digest, "platform": "linux/amd64", "edition": "full",
+              "tar_sha256": tar_info["sha256"], "verified_ordered_diff_ids": diff_ids,
+          }), flush=True)
+          with zipfile.ZipFile("build-record.zip") as downloaded:
+              names = downloaded.namelist()
+              assert len(names) == 1 and names[0].endswith(".dockerbuild"), "Expected one Buildx record"
+              with downloaded.open(names[0]) as compressed, gzip.GzipFile(fileobj=compressed) as stream:
+                  with tarfile.open(fileobj=stream, mode="r:") as record:
+                      buildx_raw, buildx_manifest = json_member(record, blob_path(buildx_digest))
+
+          assert digest(buildx_raw) == buildx_digest and len(buildx_raw) == 1242, "Buildx manifest differs from producer output"
+          assert buildx_manifest["mediaType"] == manifest_type
+          assert buildx_manifest["config"]["digest"] == config_digest
+          assert buildx_manifest["config"]["size"] == len(config_raw)
+          assert len(buildx_manifest["layers"]) == len(diff_ids)
+          print(json.dumps({
+              "buildx_manifest": buildx_digest, "buildx_manifest_size": len(buildx_raw),
+              "archive_manifest": saved_digest, "archive_manifest_size": len(saved_raw),
+              "same_config": True, "same_ordered_rootfs": True,
+              "json_format_differs": b"\n" in buildx_raw and b"\n" not in saved_raw,
+          }))
+          for ordinal, (before, after, diff_id) in enumerate(zip(buildx_manifest["layers"], layers, diff_ids, strict=True), 1):
+              print(json.dumps({"layer": ordinal, "buildx": before, "archive": after, "diff_id": diff_id}))
+          PYTHON
