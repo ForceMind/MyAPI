@@ -26,7 +26,7 @@
 | [Windows x64](https://github.com/ForceMind/MyAPI/actions/runs/44860010046/artifacts/14689558294) | `sha256:17df0cb5492ae197eb190ec51c97516fa53eceb4e2424619f103cd57a05878e2` | 2027-02-19 03:13:41 |
 | [离线运维工具包](https://github.com/ForceMind/MyAPI/actions/runs/44859723051/artifacts/14689636158) | `sha256:bbb752105e386a423cd03906762bae0ca6b381dfee768a96e58f39ce1a93a8b1` | 2026-11-28 03:10:46 |
 
-- Full 镜像 ID `sha256:e6053eae03b0af25d18832f8fc5898266a23da48cb164581cd79db471d5072c7`，OCI manifest `sha256:ecfb3c7b2d66600b16a42a35ec80e51fd010cb483d3f67a9a96c41053a9dfab0`，包内 `manifest.json` 的 SHA-256 为 `e0107e98cbff531b85922f26fa2d7f68d59b964c66a2fb58ee350db17e6c9111`。
+- Full 镜像配置摘要（原打包器 overlay2 的镜像 ID）为 `sha256:e6053eae03b0af25d18832f8fc5898266a23da48cb164581cd79db471d5072c7`。Buildx 构建阶段的 OCI 清单摘要为 `sha256:ecfb3c7b2d66600b16a42a35ec80e51fd010cb483d3f67a9a96c41053a9dfab0`。交付 `images.tar` 内 Full 应用的 OCI 清单摘要为 `sha256:d2e3c6ec7b8e06d4241c6333ddf123252d44a6dca9c81c981612eedf0b10996b`，用后者验收交付和 containerd 上的应用清单。包内 `manifest.json` 的 SHA-256 为 `e0107e98cbff531b85922f26fa2d7f68d59b964c66a2fb58ee350db17e6c9111`，`images.tar` 的 SHA-256 为 `d1b8488a9e7edcc616a9b7885869d7d516b30b4f8a44e5a08676e5496b59e7e7`。两份原始清单指向同一份配置，交付 TAR 的五层字节按顺序匹配配置中的 DiffID。[原始构件取证](https://github.com/ForceMind/MyAPI/actions/runs/45029674192/job/137230264239)
 - Lite 镜像 ID `sha256:86aadcd34eb27b98c85619f92afdb8422e4867def3a47d27608bd09887f75485`，OCI manifest `sha256:0b0c9170240e17979762dbe54f6bafac5fffe89cd914856a4cbe489005088112`，包内 `manifest.json` 的 SHA-256 为 `828fa2f2dd0d958678d61c04f1cdddc753e39b9ae03facca796e60d1e49ebfd3`。
 - 运维工具包内 TAR 的 SHA-256 为 `db5b27e6eec71136bdd971d278a3bab50e880c7d54ccef96613642e895721c6f`。Actions 核对了清单中的全部 32 个文件，未启动运维服务。
 

@@ -11,7 +11,7 @@ permissions:
 jobs:
   compare:
     if: github.repository == 'ForceMind/MyAPI' && github.ref == 'refs/heads/dev'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 12
     steps:
       - name: Read immutable beta.64 artifacts
@@ -35,10 +35,15 @@ jobs:
           python3 -B <<'PYTHON'
           import hashlib
           import json
+          import os
           import re
+          import secrets
           import shutil
+          import subprocess
           import tarfile
+          import time
           import zipfile
+          from pathlib import Path
 
           source = "c52e0d88ca19d034e7ab57b66a06a974cc1c01dc"
           tree = "7b2118bbf2e422b0d1371a3a472d7642c766e6ad"
@@ -145,4 +150,82 @@ jobs:
           }))
           for ordinal, (before, after, diff_id) in enumerate(zip(buildx_manifest["layers"], layers, diff_ids, strict=True), 1):
               print(json.dumps({"layer": ordinal, "buildx": before, "archive": after, "diff_id": diff_id}))
+
+          def docker(*args, **kwargs):
+              return subprocess.check_output(["docker", *args], text=True, timeout=120, **kwargs).strip()
+
+          info = json.loads(docker("info", "--format", "{{json .}}"))
+          engine = {
+              "version": info["ServerVersion"], "storage_driver": info["Driver"],
+              "storage_type": dict(info["DriverStatus"]).get("driver-type"),
+              "platform": f'{info["OSType"]}/{info["Architecture"]}',
+          }
+          print(json.dumps({"docker_engine": engine}), flush=True)
+          assert (info["OSType"], info["Architecture"]) == ("linux", "x86_64")
+          assert engine["storage_driver"] == "overlayfs", "Runner does not match production's overlayfs snapshotter"
+          assert engine["storage_type"] == "io.containerd.snapshotter.v1", "Runner does not use the containerd image store"
+          assert docker("image", "ls", "--quiet", "--no-trunc", "--filter", f"reference={tag}") == "", "Candidate tag already exists"
+          print(docker("image", "load", "--platform", "linux/amd64", "--input", "images.tar"), flush=True)
+          loaded = json.loads(docker("image", "inspect", "--platform", "linux/amd64", "--format", "{{json .}}", tag))
+          platform = (loaded["Os"], loaded["Architecture"])
+          assert platform == ("linux", "amd64"), "Loaded image platform mismatch"
+          target = loaded["Descriptor"]
+          print(json.dumps({"loaded_id": loaded["Id"], "loaded_descriptor": target}), flush=True)
+          assert loaded["Id"] == target["digest"] == saved_digest, "Loaded image manifest mismatch"
+          assert target["size"] == len(saved_raw) and target["mediaType"] == manifest_type
+          assert tag in loaded["RepoTags"]
+          assert loaded["RootFS"] == {"Type": "layers", "Layers": diff_ids}, "Loaded image RootFS mismatch"
+          assert loaded["Config"]["Labels"] == labels, "Loaded image labels mismatch"
+
+          docker("image", "save", "--platform", "linux/amd64", "--output", "loaded-image.tar", tag)
+          with tarfile.open("loaded-image.tar", "r:") as loaded_tar:
+              loaded_manifest_raw, _ = json_member(loaded_tar, blob_path(saved_digest))
+              loaded_config_raw, _ = json_member(loaded_tar, blob_path(config_digest))
+              assert loaded_manifest_raw == saved_raw, "Loaded image manifest bytes mismatch"
+              assert loaded_config_raw == config_raw, "Loaded image config bytes mismatch"
+              for layer in layers:
+                  stream, size = member(loaded_tar, blob_path(layer["digest"]))
+                  with stream:
+                      assert "sha256:" + hashlib.file_digest(stream, "sha256").hexdigest() == layer["digest"]
+                  assert size == layer["size"]
+
+          data = Path("isolated-data").resolve()
+          data.mkdir(mode=0o700)
+          container = docker(
+              "create", "--pull", "never", "--platform", "linux/amd64", "--network", "none",
+              "--user", f"{os.getuid()}:{os.getgid()}", "--mount", f"type=bind,src={data},dst=/data",
+              "--env", "SESSION_SECRET", saved_digest,
+              env={**os.environ, "SESSION_SECRET": secrets.token_hex(32)},
+          )
+          try:
+              actual = json.loads(docker("container", "inspect", "--format", "{{json .}}", container))
+              assert actual["Image"] == actual["ImageManifestDescriptor"]["digest"] == saved_digest
+              assert actual["HostConfig"]["NetworkMode"] == "none"
+              docker("start", container)
+              status = None
+              deadline = time.monotonic() + 60
+              while time.monotonic() < deadline:
+                  probe = subprocess.run(
+                      ["docker", "exec", container, "wget", "-T", "2", "-qO-", "http://127.0.0.1:3000/api/status"],
+                      capture_output=True, text=True, timeout=8,
+                  )
+                  if probe.returncode == 0:
+                      status = json.loads(probe.stdout)
+                      break
+                  time.sleep(2)
+              assert status and status["success"] is True, "Candidate HTTP status did not become ready"
+              assert status["data"]["version"] == "0.2.0-beta.64"
+              assert status["data"]["product_edition"] == "full"
+              actual = json.loads(docker("container", "inspect", "--format", "{{json .}}", container))
+              assert actual["State"]["Running"] is True
+              assert actual["Image"] == actual["ImageManifestDescriptor"]["digest"] == saved_digest
+              print(json.dumps({
+                  "rehearsal": "passed", "source": source, "artifact": 14689262809,
+                  "docker_engine": engine, "image_id": actual["Image"], "archive_oci_manifest": saved_digest,
+                  "config": config_digest, "verified_ordered_layers": len(diff_ids), "platform": "linux/amd64",
+                  "runtime_version": status["data"]["version"], "edition": status["data"]["product_edition"],
+                  "network": "none",
+              }), flush=True)
+          finally:
+              docker("container", "rm", "--force", container)
           PYTHON
