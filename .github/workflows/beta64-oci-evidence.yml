@@ -21,10 +21,10 @@ jobs:
           set -euo pipefail
           umask 077
           cd "$RUNNER_TEMP"
-          gh api repos/ForceMind/MyAPI/actions/artifacts/14688967556/zip > build-record.zip
+          gh api repos/ForceMind/MyAPI/actions/artifacts/14688967556/zip > build-record.dockerbuild
           gh api repos/ForceMind/MyAPI/actions/artifacts/14689262809/zip > full-bundle.zip
           sha256sum --check <<'DIGESTS'
-          de0b0690fbf64acddd923591ca04c93e938e030148369e9f59f1fa04b780ba57  build-record.zip
+          de0b0690fbf64acddd923591ca04c93e938e030148369e9f59f1fa04b780ba57  build-record.dockerbuild
           884318e083e53a3622a285eb74f83e320d1a5bff9d57f0d206805b0491d7a7ee  full-bundle.zip
           DIGESTS
 
@@ -33,7 +33,6 @@ jobs:
           set -euo pipefail
           cd "$RUNNER_TEMP"
           python3 -B <<'PYTHON'
-          import gzip
           import hashlib
           import json
           import re
@@ -130,12 +129,8 @@ jobs:
               "config": config_digest, "platform": "linux/amd64", "edition": "full",
               "tar_sha256": tar_info["sha256"], "verified_ordered_diff_ids": diff_ids,
           }), flush=True)
-          with zipfile.ZipFile("build-record.zip") as downloaded:
-              names = downloaded.namelist()
-              assert len(names) == 1 and names[0].endswith(".dockerbuild"), "Expected one Buildx record"
-              with downloaded.open(names[0]) as compressed, gzip.GzipFile(fileobj=compressed) as stream:
-                  with tarfile.open(fileobj=stream, mode="r:") as record:
-                      buildx_raw, buildx_manifest = json_member(record, blob_path(buildx_digest))
+          with tarfile.open("build-record.dockerbuild", "r:gz") as record:
+              buildx_raw, buildx_manifest = json_member(record, blob_path(buildx_digest))
 
           assert digest(buildx_raw) == buildx_digest and len(buildx_raw) == 1242, "Buildx manifest differs from producer output"
           assert buildx_manifest["mediaType"] == manifest_type
