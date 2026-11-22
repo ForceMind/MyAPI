@@ -1,7 +1,9 @@
 name: Audit beta.64 Full OCI evidence
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [dev]
+    paths: ['.github/workflows/beta64-oci-evidence.yml']
 
 permissions:
   actions: read
