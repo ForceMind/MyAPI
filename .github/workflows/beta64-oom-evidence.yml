@@ -1,0 +1,112 @@
+name: Verify Docker OOM defaults for beta.64
+
+on:
+  push:
+    branches: [dev]
+    paths: ['.github/workflows/beta64-oom-evidence.yml']
+
+permissions: {}
+
+jobs:
+  compare:
+    if: github.repository == 'ForceMind/MyAPI' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 7
+    steps:
+      - name: Compare raw Docker create inputs and observe bounded cgroup OOMs
+        run: |
+          set -euo pipefail
+          python3 -u -B <<'PYTHON'
+          import json
+          import os
+          import re
+          import subprocess
+          import time
+
+          def docker(*args):
+              return subprocess.check_output(["docker", *args], text=True, timeout=40).strip()
+
+          info = json.loads(docker("info", "--format", "{{json .}}"))
+          storage = dict(info["DriverStatus"]).get("driver-type")
+          assert (info["OSType"], info["Architecture"]) == ("linux", "x86_64")
+          assert (info["Driver"], storage) == ("overlayfs", "io.containerd.snapshotter.v1")
+          assert info["CgroupVersion"] == "2", "Expected a cgroup v2 memory controller"
+          version = docker("version", "--format", "{{.Server.APIVersion}}")
+          assert re.fullmatch(r"\d+\.\d+", version)
+          print(json.dumps({
+              "head_sha": os.environ["GITHUB_SHA"],
+              "engine_version": info["ServerVersion"], "api_version": version,
+              "storage_driver": info["Driver"], "storage_type": storage,
+              "cgroup_version": info["CgroupVersion"],
+          }))
+
+          def inspect(container):
+              return json.loads(docker("container", "inspect", "--format", "{{json .}}", container))
+
+          image = "alpine:3.22@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce"
+          docker("image", "pull", "--platform", "linux/amd64", image)
+          limit = 64 * 1024 * 1024
+          # Only PID 1 allocates. The tmpfs is bounded, has no swap, and lives in a disposable container.
+          script = "while [ ! -f /tmp/apply-pressure ]; do sleep 0.1; done; exec dd if=/dev/zero of=/pressure/payload bs=1048576 count=96"
+          expected_behavior = None
+          for variant, oom_option in (("omitted", {}), ("null", {"OomKillDisable": None}), ("false", {"OomKillDisable": False})):
+              payload = {
+                  "Image": image, "Cmd": ["sh", "-ec", script],
+                  "HostConfig": {
+                      "Memory": limit, "MemorySwap": limit, "NetworkMode": "none",
+                      "CgroupnsMode": "private", "PidsLimit": 16,
+                      "Tmpfs": {"/pressure": "rw,nosuid,nodev,noexec,size=128m"},
+                      **oom_option,
+                  },
+              }
+              created = json.loads(subprocess.check_output(
+                  ["curl", "--fail-with-body", "--silent", "--show-error", "--unix-socket", "/var/run/docker.sock",
+                   "--header", "Content-Type: application/json", "--data-binary", "@-",
+                   f"http://localhost/v{version}/containers/create?platform=linux%2Famd64"],
+                  input=json.dumps(payload), text=True, timeout=15,
+              ))
+              container = created["Id"]
+              assert re.fullmatch(r"[0-9a-f]{64}", container)
+              try:
+                  assert not created["Warnings"], f"{variant}: unexpected create warnings"
+                  host = inspect(container)["HostConfig"]
+                  assert host["OomKillDisable"] is False, f"{variant}: create did not persist boolean false"
+                  assert host["Memory"] == host["MemorySwap"] == limit
+                  assert host["NetworkMode"] == "none" and host["CgroupnsMode"] == "private"
+                  docker("container", "start", container)
+                  started = inspect(container)
+                  assert started["State"]["Running"] is True
+                  assert started["HostConfig"]["OomKillDisable"] is False
+                  controls = ["/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory.swap.max", "/sys/fs/cgroup/memory.oom.group"]
+                  memory_max, swap_max, oom_group = docker("exec", container, "cat", *controls).splitlines()
+                  assert int(memory_max) == limit and int(swap_max) == 0
+                  assert oom_group in {"0", "1"}
+                  events = dict(line.split() for line in docker("exec", container, "cat", "/sys/fs/cgroup/memory.events").splitlines())
+                  assert int(events["oom_kill"]) == 0
+                  since = str(int(time.time()) - 1)
+                  docker("exec", container, "touch", "/tmp/apply-pressure")
+                  waited_exit = docker("container", "wait", container)
+                  ended = inspect(container)
+                  assert waited_exit == "137" and ended["State"]["ExitCode"] == 137
+                  assert ended["State"]["OOMKilled"] is True, f"{variant}: exit was not attributed to OOM"
+                  assert ended["HostConfig"]["OomKillDisable"] is False
+                  oom_events = docker(
+                      "events", "--since", since, "--until", str(int(time.time()) + 2),
+                      "--filter", "type=container", "--filter", f"container={container}",
+                      "--filter", "event=oom", "--format", "{{.Action}}",
+                  ).splitlines()
+                  assert oom_events == ["oom"], f"{variant}: expected exactly one engine oom event"
+                  behavior = {
+                      "inspect_oom_kill_disable": host["OomKillDisable"], "memory_max": int(memory_max),
+                      "memory_swap_max": int(swap_max), "memory_oom_group": int(oom_group),
+                      "exit_code": ended["State"]["ExitCode"], "oom_killed": ended["State"]["OOMKilled"],
+                      "docker_oom_events": len(oom_events),
+                  }
+                  if expected_behavior is None:
+                      expected_behavior = behavior
+                  assert behavior == expected_behavior, f"{variant}: behavior differs"
+                  print(json.dumps({"request_oom_kill_disable": variant, **behavior}))
+              finally:
+                  docker("container", "rm", "--force", container)
+          print(json.dumps({"qualification": "passed", "same_behavior": True, "new_container_preserves_null": False}))
+          PYTHON
