@@ -31,13 +31,14 @@ jobs:
           assert (info["OSType"], info["Architecture"]) == ("linux", "x86_64")
           assert (info["Driver"], storage) == ("overlayfs", "io.containerd.snapshotter.v1")
           assert info["CgroupVersion"] == "2", "Expected a cgroup v2 memory controller"
+          assert info["OomKillDisable"] is False, "Expected cgroup v2 to lack the disable switch"
           version = docker("version", "--format", "{{.Server.APIVersion}}")
           assert re.fullmatch(r"\d+\.\d+", version)
           print(json.dumps({
               "head_sha": os.environ["GITHUB_SHA"],
               "engine_version": info["ServerVersion"], "api_version": version,
               "storage_driver": info["Driver"], "storage_type": storage,
-              "cgroup_version": info["CgroupVersion"],
+              "cgroup_version": info["CgroupVersion"], "oom_disable_supported": info["OomKillDisable"],
           }))
 
           def inspect(container):
@@ -76,7 +77,12 @@ jobs:
                   docker("container", "start", container)
                   started = inspect(container)
                   assert started["State"]["Running"] is True
-                  assert started["HostConfig"]["OomKillDisable"] is False
+                  running_option = started["HostConfig"]["OomKillDisable"]
+                  print(json.dumps({
+                      "request": variant, "created_flag": host["OomKillDisable"], "started_flag": running_option,
+                  }))
+                  # Start revalidates HostConfig and clears the unsupported disable switch on cgroup v2.
+                  assert running_option is None, f"{variant}: start did not clear the unsupported flag"
                   controls = ["/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory.swap.max", "/sys/fs/cgroup/memory.oom.group"]
                   memory_max, swap_max, oom_group = docker("exec", container, "cat", *controls).splitlines()
                   assert int(memory_max) == limit and int(swap_max) == 0
@@ -89,7 +95,7 @@ jobs:
                   ended = inspect(container)
                   assert waited_exit == "137" and ended["State"]["ExitCode"] == 137
                   assert ended["State"]["OOMKilled"] is True, f"{variant}: exit was not attributed to OOM"
-                  assert ended["HostConfig"]["OomKillDisable"] is False
+                  assert ended["HostConfig"]["OomKillDisable"] is None
                   oom_events = docker(
                       "events", "--since", since, "--until", str(int(time.time()) + 2),
                       "--filter", "type=container", "--filter", f"container={container}",
@@ -97,7 +103,8 @@ jobs:
                   ).splitlines()
                   assert oom_events == ["oom"], f"{variant}: expected exactly one engine oom event"
                   behavior = {
-                      "inspect_oom_kill_disable": host["OomKillDisable"], "memory_max": int(memory_max),
+                      "created_flag": host["OomKillDisable"], "started_flag": running_option,
+                      "stopped_flag": ended["HostConfig"]["OomKillDisable"], "memory_max": int(memory_max),
                       "memory_swap_max": int(swap_max), "memory_oom_group": int(oom_group),
                       "exit_code": ended["State"]["ExitCode"], "oom_killed": ended["State"]["OOMKilled"],
                       "docker_oom_events": len(oom_events),
@@ -108,5 +115,5 @@ jobs:
                   print(json.dumps({"request_oom_kill_disable": variant, **behavior}))
               finally:
                   docker("container", "rm", "--force", container)
-          print(json.dumps({"qualification": "passed", "same_behavior": True, "new_container_preserves_null": False}))
+          print(json.dumps({"qualification": "passed", "same_behavior": True, "created_flag": False, "started_flag": None}))
           PYTHON
