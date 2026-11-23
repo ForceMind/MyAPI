@@ -26,7 +26,7 @@ import {
   RotateCcw,
   AlertTriangle,
 } from 'lucide-react'
-import { type ReactNode, useCallback, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
@@ -58,6 +58,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+import { hasPermission } from '@/lib/admin-permissions'
 import dayjs from '@/lib/dayjs'
 import { formatDateTimeStr, formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -151,6 +152,9 @@ type CodexUsageDialogProps = {
   response: CodexUsageDialogData | null
   onRefresh?: () => void | Promise<void>
   isRefreshing?: boolean
+  resetCreditsOnly?: boolean
+  canOperate?: boolean
+  returnFocus?: () => HTMLElement | null
 }
 
 function formatUnixSeconds(unixSeconds: unknown): string {
@@ -741,6 +745,8 @@ function ResetCreditsPanel(props: {
   errorMessage: string
   resetErrorMessage: string
   resetSuccessMessage: string
+  canOperate: boolean
+  canRequestReset: boolean
   onRefresh: () => void
   onRequestReset: () => void
 }) {
@@ -837,36 +843,38 @@ function ResetCreditsPanel(props: {
           variant='outline'
           size='sm'
           onClick={props.onRefresh}
-          disabled={props.isLoading}
+          disabled={props.isLoading || props.isResetting}
         >
           <RefreshCw data-icon='inline-start' />
           {t('Refresh details')}
         </Button>
       </div>
 
-      <div className='bg-muted/30 flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between'>
-        <div className='min-w-0'>
-          <div className='text-sm font-semibold'>{t('Reset usage window')}</div>
-          <div className='text-muted-foreground mt-1 text-xs leading-5'>
-            {t(
-              'Use one available reset credit to refresh the current Codex usage windows.'
-            )}
+      {props.canOperate && (
+        <div className='bg-muted/30 flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between'>
+          <div className='min-w-0'>
+            <div className='text-sm font-semibold'>{t('Reset usage window')}</div>
+            <div className='text-muted-foreground mt-1 text-xs leading-5'>
+              {t(
+                'Use one available reset credit to refresh the current Codex usage windows.'
+              )}
+            </div>
           </div>
+          <Button
+            type='button'
+            variant={canReset ? 'destructive' : 'outline'}
+            size='sm'
+            onClick={props.onRequestReset}
+            disabled={!props.canRequestReset}
+            className='shrink-0'
+          >
+            <RotateCcw data-icon='inline-start' />
+            {props.isResetting ? t('Resetting...') : t('Apply reset')}
+          </Button>
         </div>
-        <Button
-          type='button'
-          variant={canReset ? 'destructive' : 'outline'}
-          size='sm'
-          onClick={props.onRequestReset}
-          disabled={!canReset || props.isLoading || props.isResetting}
-          className='shrink-0'
-        >
-          <RotateCcw data-icon='inline-start' />
-          {props.isResetting ? t('Resetting...') : t('Apply reset')}
-        </Button>
-      </div>
+      )}
 
-      {!canReset ? (
+      {props.canOperate && !canReset && !props.isLoading && !props.errorMessage ? (
         <Alert>
           <AlertTriangle />
           <AlertTitle>{t('No reset credits available')}</AlertTitle>
@@ -1019,9 +1027,16 @@ export function CodexUsageDialog({
   response,
   onRefresh,
   isRefreshing,
+  resetCreditsOnly = false,
+  canOperate: connectionCanOperate,
+  returnFocus,
 }: CodexUsageDialogProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const hasOperateGrant = useAuthStore((state) =>
+    hasPermission(state.auth.user, 'channel', 'operate')
+  )
+  const canOperate = hasOperateGrant && connectionCanOperate !== false
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const [showRawJson, setShowRawJson] = useState(false)
   const [showResetCredits, setShowResetCredits] = useState(false)
@@ -1034,6 +1049,8 @@ export function CodexUsageDialog({
   const [resetActionError, setResetActionError] = useState('')
   const [resetActionMessage, setResetActionMessage] = useState('')
   const [usageTab, setUsageTab] = useState<'current' | 'history'>('current')
+  const resetCreditsRead = useRef<symbol | null>(null)
+  const resetInFlight = useRef(false)
 
   const payload: CodexUsagePayload | null = useMemo(() => {
     const raw = response?.data
@@ -1063,7 +1080,13 @@ export function CodexUsageDialog({
   const resetCreditsText = Number.isFinite(Number(resetCredits))
     ? String(resetCredits)
     : '-'
-  const canResetCodexUsage = Number(resetCredits) > 0
+  const canResetCodexUsage =
+    canOperate &&
+    Number(resetCredits) > 0 &&
+    !isLoadingResetCredits &&
+    !resetCreditsError &&
+    !resetActionError &&
+    !isResetting
   const channelLabelName = channelDisplayName ?? channelName ?? '-'
   let channelLabelId = ''
   if (channelDisplayId != null) {
@@ -1079,38 +1102,44 @@ export function CodexUsageDialog({
       ? response?.message?.trim() || t('Failed to fetch usage')
       : ''
 
-  const loadResetCredits = useCallback(
-    async (force = false) => {
-      if (!channelId) {
-        setResetCreditsError(t('Channel ID is required'))
-        return
-      }
-      if (isLoadingResetCredits || (!force && resetCreditsResponse)) {
-        return
-      }
+  const loadResetCredits = async (force = false) => {
+    if (!channelId) {
+      setResetCreditsError(t('Channel ID is required'))
+      return
+    }
+    if (resetCreditsRead.current || (!force && resetCreditsResponse)) return
 
-      setIsLoadingResetCredits(true)
-      setResetCreditsError('')
-      try {
-        const res = await getCodexResetCredits(channelId)
-        if (!res.success) {
-          throw new Error(
-            res.message || t('Failed to fetch reset credit details')
-          )
-        }
-        setResetCreditsResponse(res)
-      } catch (error) {
-        setResetCreditsError(
-          error instanceof Error
-            ? error.message
-            : t('Failed to fetch reset credit details')
-        )
-      } finally {
+    const request = Symbol()
+    resetCreditsRead.current = request
+    setIsLoadingResetCredits(true)
+    setResetCreditsError('')
+    try {
+      const res = await getCodexResetCredits(channelId)
+      if (resetCreditsRead.current !== request) return
+      if (!res.success) {
+        throw new Error(res.message || t('Failed to fetch reset credit details'))
+      }
+      setResetCreditsResponse(res)
+      setResetActionError('')
+    } catch (error) {
+      if (resetCreditsRead.current !== request) return
+      setResetCreditsError(
+        error instanceof Error
+          ? error.message
+          : t('Failed to fetch reset credit details')
+      )
+    } finally {
+      if (resetCreditsRead.current === request) {
+        resetCreditsRead.current = null
         setIsLoadingResetCredits(false)
       }
-    },
-    [channelId, isLoadingResetCredits, resetCreditsResponse, t]
-  )
+    }
+  }
+
+  const readOnOpen = useEffectEvent(() => void loadResetCredits())
+  useEffect(() => {
+    if (open && resetCreditsOnly) readOnOpen()
+  }, [open, resetCreditsOnly])
 
   const handleResetCreditsOpenChange = (nextOpen: boolean) => {
     setShowResetCredits(nextOpen)
@@ -1121,6 +1150,8 @@ export function CodexUsageDialog({
 
   const handleDialogOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
+      if (resetInFlight.current) return
+      resetCreditsRead.current = null
       setShowRawJson(false)
       setShowResetCredits(false)
       setResetCreditsResponse(null)
@@ -1136,10 +1167,14 @@ export function CodexUsageDialog({
   }
 
   const handleConfirmReset = async () => {
-    if (!channelId || isResetting || !canResetCodexUsage) {
+    if (
+      !open || !resetConfirmOpen || !channelId ||
+      resetInFlight.current || !canResetCodexUsage
+    ) {
       return
     }
 
+    resetInFlight.current = true
     setIsResetting(true)
     setResetActionError('')
     setResetActionMessage('')
@@ -1153,12 +1188,13 @@ export function CodexUsageDialog({
         | { windows_reset?: number; code?: string }
         | undefined
       const windowsReset = Number(resetPayload?.windows_reset)
+      const successMessage = onRefresh
+        ? t('Reset completed. Latest usage has been refreshed.')
+        : t('Reset completed')
       setResetActionMessage(
         Number.isFinite(windowsReset)
-          ? `${t('Reset completed. Latest usage has been refreshed.')} ${t(
-              'Affected windows:'
-            )} ${windowsReset}`
-          : t('Reset completed. Latest usage has been refreshed.')
+          ? `${successMessage} ${t('Affected windows:')} ${windowsReset}`
+          : successMessage
       )
       setResetConfirmOpen(false)
       await Promise.resolve(onRefresh?.())
@@ -1170,10 +1206,12 @@ export function CodexUsageDialog({
           query.queryKey[3] === channelId,
       })
     } catch (error) {
+      setResetConfirmOpen(false)
       setResetActionError(
         error instanceof Error ? error.message : t('Failed to reset usage')
       )
     } finally {
+      resetInFlight.current = false
       setIsResetting(false)
     }
   }
@@ -1198,12 +1236,36 @@ export function CodexUsageDialog({
     }
   }, [response])
 
+  const resetCreditsPanel = (
+    <ResetCreditsPanel
+      payload={resetCreditsPayload}
+      response={resetCreditsResponse}
+      usageAvailableCount={resetCreditsText}
+      isLoading={isLoadingResetCredits}
+      isResetting={isResetting}
+      errorMessage={resetCreditsError}
+      resetErrorMessage={resetActionError}
+      resetSuccessMessage={resetActionMessage}
+      canOperate={canOperate}
+      canRequestReset={canResetCodexUsage}
+      onRefresh={() => void loadResetCredits(true)}
+      onRequestReset={() => {
+        if (!canResetCodexUsage) return
+        setResetActionMessage('')
+        setResetConfirmOpen(true)
+      }}
+    />
+  )
+
   return (
     <Dialog
       open={open}
       onOpenChange={handleDialogOpenChange}
-      title={t('Codex Account & Usage')}
-      contentClassName='sm:max-w-[900px]'
+      title={resetCreditsOnly ? t('Reset Credits') : t('Codex Account & Usage')}
+      description={resetCreditsOnly ? channelLabel : undefined}
+      returnFocus={returnFocus}
+      showCloseButton={!isResetting}
+      contentClassName={resetCreditsOnly ? undefined : 'sm:max-w-[900px]'}
       titleClassName='flex items-center gap-2'
       contentHeight='auto'
       bodyClassName='flex flex-col gap-4'
@@ -1211,13 +1273,15 @@ export function CodexUsageDialog({
         <Button
           type='button'
           variant='outline'
+          disabled={isResetting}
           onClick={() => handleDialogOpenChange(false)}
         >
           {t('Close')}
         </Button>
       }
     >
-      <div className='flex flex-col gap-4'>
+      {resetCreditsOnly && resetCreditsPanel}
+      {!resetCreditsOnly && <div className='flex flex-col gap-4'>
         {errorMessage && (
           <div className='rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400'>
             {errorMessage}
@@ -1340,22 +1404,7 @@ export function CodexUsageDialog({
             )}
           </CollapsibleTrigger>
           <CollapsibleContent className='border-t'>
-            <ResetCreditsPanel
-              payload={resetCreditsPayload}
-              response={resetCreditsResponse}
-              usageAvailableCount={resetCreditsText}
-              isLoading={isLoadingResetCredits}
-              isResetting={isResetting}
-              errorMessage={resetCreditsError}
-              resetErrorMessage={resetActionError}
-              resetSuccessMessage={resetActionMessage}
-              onRefresh={() => void loadResetCredits(true)}
-              onRequestReset={() => {
-                setResetActionError('')
-                setResetActionMessage('')
-                setResetConfirmOpen(true)
-              }}
-            />
+            {resetCreditsPanel}
           </CollapsibleContent>
         </Collapsible>
 
@@ -1469,10 +1518,12 @@ export function CodexUsageDialog({
             />
           </TabsContent>
         </Tabs>
-      </div>
+      </div>}
       <ConfirmDialog
-        open={resetConfirmOpen}
-        onOpenChange={setResetConfirmOpen}
+        open={canOperate && resetConfirmOpen}
+        onOpenChange={(nextOpen) => {
+          if (!resetInFlight.current) setResetConfirmOpen(nextOpen)
+        }}
         title={t('Confirm usage reset')}
         desc={
           <div className='flex flex-col gap-2'>

@@ -63,6 +63,7 @@ export type ConnectionsFixtureOptions = {
   holdDetail?: boolean
   freshId?: number
   testOutcome?: 'success' | 'failure'
+  resetOutcome?: 'success' | 'unconfirmed'
   logs?: Record<string, unknown>[]
   failLogs?: boolean
   /** Other reads answered as `{ success: true, data }`, by path. */
@@ -179,6 +180,13 @@ export async function mountConnections(
       if (method === 'post' && statusWrite) {
         status.set(Number(statusWrite[1]), JSON.parse(config.data).status)
         data = { success: true, data: true }
+      } else if (
+        method === 'post' && path === '/api/channel/7/codex/usage/reset' && options.resetOutcome
+      ) {
+        if (options.resetOutcome === 'unconfirmed') {
+          throw new Error('Synthetic reset response lost')
+        }
+        data = { success: true, data: { windows_reset: 2 } }
       } else throw new Error(`Unexpected write: ${method} ${path}`)
     } else if (options.extraReads && Object.hasOwn(options.extraReads, path)) {
       data = { success: true, data: options.extraReads[path] }

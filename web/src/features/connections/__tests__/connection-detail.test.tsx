@@ -191,3 +191,68 @@ test('a subscription with saved windows still exposes that it has never been tes
   expect(await page.findByText('Not tested')).toBeVisible()
   expect(page.getAllByText(/Last test/)).toHaveLength(1)
 })
+
+const resetCreditsPath = '/api/channel/7/codex/usage/reset-credits'
+const resetPath = '/api/channel/7/codex/usage/reset'
+const resetCredits = {
+  [resetCreditsPath]: {
+    available_count: 1,
+    credits: [{ id: 'synthetic-credit', title: 'Synthetic reset credit', status: 'available' }],
+  },
+}
+
+test('a read-only operator can view the Codex reset card without being offered a reset', async () => {
+  const { requests } = await mount({ entry: '/connections/7', write: false, extraReads: resetCredits })
+  const user = userEvent.setup()
+  const windows = await screen.findByRole('region', { name: 'Saved account windows' })
+  const open = within(windows).getByRole('button', { name: 'Reset Credits' })
+  expect(requests.filter(({ path }) => path.includes('/codex/usage'))).toEqual([])
+
+  await user.click(open)
+  const dialog = within(await screen.findByRole('dialog', { name: 'Reset Credits' }))
+  expect(await dialog.findByText('Synthetic reset credit')).toBeVisible()
+  expect(dialog.queryByRole('button', { name: 'Apply reset' })).not.toBeInTheDocument()
+  expect(requests.filter(({ path }) => path.includes('/codex/usage'))).toEqual([
+    expect.objectContaining({ method: 'get', path: resetCreditsPath }),
+  ])
+  await user.keyboard('{Escape}')
+  expect(screen.queryByRole('dialog', { name: 'Reset Credits' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+})
+
+test.each(['success', 'unconfirmed'] as const)(
+  'Codex reset sends exactly one write after confirmation when the result is %s',
+  async (resetOutcome) => {
+    const { requests } = await mount({
+      entry: '/connections/7', operate: true, extraReads: resetCredits, resetOutcome,
+    })
+    const resetWrites = () => requests.filter(({ method }) => method === 'post')
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Reset Credits' }))
+    const dialog = within(await screen.findByRole('dialog', { name: 'Reset Credits' }))
+    await dialog.findByText('Synthetic reset credit')
+
+    await user.click(dialog.getByRole('button', { name: 'Apply reset' }))
+    const confirmation = () => screen.findByRole('alertdialog', { name: 'Confirm usage reset' })
+    await user.click(within(await confirmation()).getByRole('button', { name: 'Cancel' }))
+    expect(resetWrites()).toEqual([])
+
+    await user.click(dialog.getByRole('button', { name: 'Apply reset' }))
+    expect(resetWrites()).toEqual([])
+    await user.dblClick(within(await confirmation()).getByRole('button', { name: 'Apply reset' }))
+
+    if (resetOutcome === 'success') {
+      expect(await dialog.findByText(/Affected windows: 2/)).toBeVisible()
+    } else {
+      expect(await dialog.findByText('Synthetic reset response lost')).toBeVisible()
+      expect(dialog.getByRole('button', { name: 'Apply reset' })).toBeDisabled()
+    }
+    expect(resetWrites()).toEqual([expect.objectContaining({ path: resetPath })])
+  }
+)
+
+test('a non-Codex connection does not offer a reset credit action', async () => {
+  await mount({ entry: '/connections/7', operate: true, items: [{ ...CONNECTION, type: 1 }] })
+  const windows = await screen.findByRole('region', { name: 'Saved account windows' })
+  expect(within(windows).queryByRole('button', { name: 'Reset Credits' })).not.toBeInTheDocument()
+})

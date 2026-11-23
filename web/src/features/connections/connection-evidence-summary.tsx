@@ -131,9 +131,9 @@ export function ChannelSavedEvidence(props: { channelId: number }) {
   if (!evidence) return null
   const windows = evidence.data?.filter((item) => item.channel_id === props.channelId) ?? []
   return <div className='flex min-w-0 flex-col gap-1'>
-    <ConnectionEvidenceSummary windows={windows} windowsKnown={evidence.known} windowsIncomplete={evidence.incomplete} windowsLoading={evidence.loading} now={evidence.now} compact />
+    <ConnectionEvidenceSummary windows={windows} windowsKnown={evidence.known} windowsIncomplete={evidence.incomplete} windowsLoading={evidence.loading} now={evidence.now} compact showResetTime />
     {(evidence.known || evidence.incomplete) && windows.length > 0 && <SummaryDisclosure key={`${evidence.identity}:${props.channelId}:evidence`} summary={t('Saved evidence details ({{count}})', { count: windows.length })}>
-      <ConnectionEvidenceSummary windows={windows} windowsKnown={evidence.known} windowsIncomplete={evidence.incomplete} windowsLoading={evidence.loading} now={evidence.now} />
+      <ConnectionEvidenceSummary windows={windows} windowsKnown={evidence.known} windowsIncomplete={evidence.incomplete} windowsLoading={evidence.loading} now={evidence.now} showResetTime />
     </SummaryDisclosure>}
   </div>
 }

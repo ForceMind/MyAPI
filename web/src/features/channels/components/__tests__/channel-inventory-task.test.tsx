@@ -6,6 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { renderListRoute } from '@/components/data-table/layout/__tests__/list-route-fixture'
 import { api } from '@/lib/api'
+import { formatTimestampToDate } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth-store'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
@@ -182,6 +183,45 @@ it.each(['table', 'card'])('the table preserves saved evidence with legacy %s pr
   expect(vi.mocked(api.get).mock.calls.some(([url]) => /test|update_balance|codex\/usage/.test(String(url)))).toBe(false)
   expect(api.post).not.toHaveBeenCalled()
   expect(api.put).not.toHaveBeenCalled()
+})
+
+it.each(['expired', 'missing'] as const)('shows reset times inline for the 5-hour window and a %s 7-day window', async (weeklyReset) => {
+  const now = Math.floor(Date.now() / 1000)
+  const upcoming = now + 1800
+  const expired = now - 10
+  items = [{ ...item, type: 57 }]
+  const fiveHours = {
+    channel_id: item.id, name: item.name, metric_type: 'codex_rate_limit',
+    source: 'codex_wham_usage_primary', unit: 'percent', status: 'success',
+    observed_at: now - 30, current_available: 82, series_id: 'a'.repeat(64),
+    window_type: 'five_hour', window_seconds: 18000, reset_at: upcoming,
+  }
+  savedEvidence = [fiveHours, {
+    ...fiveHours, source: 'codex_wham_usage_secondary', current_available: 42,
+    series_id: 'b'.repeat(64), window_type: 'weekly', window_seconds: 604800,
+    reset_at: weeklyReset === 'expired' ? expired : undefined,
+  }]
+
+  const user = userEvent.setup()
+  await mount()
+  await user.click(screen.getByRole('button', { name: 'Read saved usage status' }))
+  const upcomingText = `Resets ${formatTimestampToDate(upcoming)}`
+  const weeklyText = weeklyReset === 'expired'
+    ? `Last recorded reset: ${formatTimestampToDate(expired)}`
+    : 'Reset time unknown'
+  const compact = await screen.findByRole('list', { name: 'Current account windows' })
+  const [shortWindow, weeklyWindow] = within(compact).getAllByRole('listitem')
+  expect(shortWindow).toHaveTextContent('5 hours · 82% left')
+  expect(within(shortWindow).getByText(upcomingText)).toBeVisible()
+  expect(weeklyWindow).toHaveTextContent('7 days · 42% left')
+  expect(within(weeklyWindow).getByText(weeklyText)).toBeVisible()
+
+  await user.click(screen.getByRole('button', { name: 'Saved evidence details (2)' }))
+  const expanded = await screen.findByRole('list', { name: 'Saved account windows' })
+  expect(within(expanded).getByText(upcomingText)).toBeVisible()
+  expect(within(expanded).getByText(weeklyText)).toBeVisible()
+  expect(vi.mocked(api.get).mock.calls.some(([url]) => /codex\/usage/.test(String(url)))).toBe(false)
+  expect(api.post).not.toHaveBeenCalled()
 })
 
 it('changing the inventory actor discards saved evidence before reading that actor scope', async () => {

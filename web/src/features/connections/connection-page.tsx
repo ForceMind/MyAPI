@@ -61,6 +61,7 @@ import {
 import {
   connectionKind,
   connectionsToTableSearch,
+  SUBSCRIPTION_CONNECTION_TYPE,
   type ConnectionPageTab,
   type ConnectionReturn,
   type ConnectionSummary,
@@ -87,7 +88,7 @@ const route = getRouteApi('/_authenticated/connections/$connectionId/')
  * shares), routing and models, requests and history as tabs. The tab is in
  * the URL; Back returns to the grid with its filters, page and focus on the
  * card. Opening it reads saved configuration, observations and call records;
- * only Test contacts the provider.
+ * only explicit actions such as Test or Reset Credits contact the provider.
  */
 export function ConnectionPage() {
   const params = route.useParams()
@@ -285,7 +286,12 @@ function ConnectionPageContent(props: {
             <TabsTrigger value='history'>{t('History')}</TabsTrigger>
           </TabsList>
           <TabsContent value='windows' className='flex min-w-0 flex-col gap-4'>
-            <ConnectionWindows query={windows} now={windows.now} />
+            <ConnectionWindows
+              query={windows}
+              now={windows.now}
+              codexChannel={item.type === SUBSCRIPTION_CONNECTION_TYPE ? item : undefined}
+              canOperate={access.canOperate}
+            />
             <WindowShareObservation
               channelId={item.id}
               canReadPoolUsage={access.isRoot}

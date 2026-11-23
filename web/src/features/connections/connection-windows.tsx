@@ -6,11 +6,13 @@ it under the terms of the GNU Affero General Public License as published by
 the Free Software Foundation, either version 3 of the License, or any later
 version.
 */
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { QuotaRing } from '@/components/quota-ring'
 import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
+import { CodexUsageDialog } from '@/features/channels/components/dialogs/codex-usage-dialog'
 import { quotaSeriesKey } from '@/features/channels/lib/quota-history'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
 import { nativeWindowResetLabel, nativeWindowUsage } from '@/features/personal-upstream/window-state'
@@ -36,8 +38,12 @@ export function ConnectionWindows(props: {
     refetch: () => unknown
   }
   now: number
+  codexChannel?: { id: number; name: string }
+  canOperate?: boolean
 }) {
   const { t } = useTranslation()
+  const [resetCreditsOpen, setResetCreditsOpen] = useState(false)
+  const resetCreditsButton = useRef<HTMLButtonElement>(null)
   const hasBalance = props.query.data?.some((item) => item.metric_type === 'balance') ?? false
   const heading = hasBalance ? t('Saved quota evidence') : t('Saved account windows')
   return (
@@ -47,15 +53,41 @@ export function ConnectionWindows(props: {
     >
       <div className='flex flex-wrap items-center justify-between gap-2'>
         <h2 className='text-body font-semibold'>{heading}</h2>
-        <Button
-          variant='outline'
-          size='sm'
-          disabled={props.query.isFetching}
-          onClick={() => void props.query.refetch()}
-        >
-          {t('Refresh saved windows')}
-        </Button>
+        <div className='flex flex-wrap items-center gap-2'>
+          {props.codexChannel && (
+            <Button
+              ref={resetCreditsButton}
+              type='button'
+              variant='outline'
+              size='sm'
+              aria-haspopup='dialog'
+              onClick={() => setResetCreditsOpen(true)}
+            >
+              {t('Reset Credits')}
+            </Button>
+          )}
+          <Button
+            variant='outline'
+            size='sm'
+            disabled={props.query.isFetching}
+            onClick={() => void props.query.refetch()}
+          >
+            {t('Refresh saved windows')}
+          </Button>
+        </div>
       </div>
+      {props.codexChannel && (
+        <CodexUsageDialog
+          open={resetCreditsOpen}
+          onOpenChange={setResetCreditsOpen}
+          returnFocus={() => resetCreditsButton.current}
+          channelId={props.codexChannel.id}
+          channelName={props.codexChannel.name}
+          response={null}
+          resetCreditsOnly
+          canOperate={props.canOperate === true}
+        />
+      )}
       {props.query.isPending && <p role='status'>{t('Loading...')}</p>}
       {props.query.isError && (
         <div role='alert' className='text-body text-destructive'>
