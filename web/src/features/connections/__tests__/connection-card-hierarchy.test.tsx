@@ -20,6 +20,7 @@ afterEach(() => {
   if (originalMatchMedia) Object.defineProperty(window, 'matchMedia', originalMatchMedia)
   else Reflect.deleteProperty(window, 'matchMedia')
   useAuthStore.setState(originalAuth)
+  vi.useRealTimers()
 })
 
 test('a card defaults to model and group counts and keyboard expansion keeps all values without navigation or network work', async () => {
@@ -60,6 +61,8 @@ test('current quota is visible while historical details retain each observation 
   const details = await card.findByRole('button', { name: 'Window details (2), historical records (1)' })
   const current = card.getByRole('list', { name: 'Current account windows' })
   expect(within(current).getByText(/18% left/)).toBeVisible()
+  expect(within(current).getByText(/7 days.*Remaining quota: Unknown.*Reset time unknown/)).toBeVisible()
+  expect(within(current).queryByText(/Saved sample error|WHAM usage sample failed/)).not.toBeInTheDocument()
   expect(card.getByText('Used')).toBeVisible()
   const history = card.getByText('A newer WHAM observation exists for this connection. This saved error may belong to a different identity and is not marked resolved.')
   expect(history).not.toBeVisible()
@@ -95,7 +98,7 @@ test('a healthy different account window never hides the failed weekly series wh
   dispose = fixture.teardown
   const card = within(await screen.findByRole('article', { name: CONNECTION.name }))
   const current = await card.findByRole('list', { name: 'Current account windows' })
-  expect(within(current).getByText(/7 days.*Saved sample error; recovery unconfirmed/)).toBeVisible()
+  expect(within(current).getByText(/7 days.*WHAM usage sample failed.*Remaining quota: Unknown/)).toBeVisible()
   expect(within(current).getByText(/82% left/)).toBeVisible()
   const toggle = card.getByRole('button', { name: 'Window details (2), historical records (1)' })
   expect(toggle).toHaveAttribute('aria-expanded', 'false')
@@ -129,6 +132,7 @@ test('expanded card evidence retains account identity and source for each indepe
   const card = within(await screen.findByRole('article', { name: CONNECTION.name }))
   const current = await card.findByRole('list', { name: 'Current account windows' })
   expect(within(current).getByText(/Window reporting unsupported/)).toBeVisible()
+  expect(within(current).queryByText(/sample failed|recovery unconfirmed/)).not.toBeInTheDocument()
   const before = fixture.requests.length
   await userEvent.setup().click(card.getByRole('button', { name: 'Window details (2)' }))
   const rows = within(card.getByRole('list', { name: 'Saved account windows' })).getAllByRole('listitem')
@@ -137,4 +141,20 @@ test('expanded card evidence retains account identity and source for each indepe
   expect(within(rows[1]).getByText('Synthetic primary account')).toBeVisible()
   expect(within(rows[1]).getByText(/codex_wham_usage_primary/)).toBeVisible()
   expect(fixture.requests.slice(before)).toEqual([])
+})
+
+test('the card shows individual countdowns from saved timestamps, retaining a measured zero', async () => {
+  const now = 1_800_000_000
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(now * 1000)
+  const first = { channel_id: 7, name: CONNECTION.name, metric_type: 'codex_rate_limit', unit: 'percent', window_type: 'five_hour', window_seconds: 18000, status: 'success', source: 'codex_wham_usage_primary', current_available: 0, observed_at: now - 15, reset_at: now + 4 * 3600 + 16 * 60, series_id: 'a'.repeat(64) }
+  const second = { ...first, window_type: 'weekly', window_seconds: 604800, source: 'codex_wham_usage_secondary', current_available: 38, reset_at: now + 27 * 3600, series_id: 'b'.repeat(64) }
+  const fixture = await mountConnections({ windows: [second, first] })
+  dispose = fixture.teardown
+  const rows = within(await screen.findByRole('list', { name: 'Current account windows' })).getAllByRole('listitem')
+  expect(rows).toHaveLength(2)
+  expect(rows[0]).toHaveTextContent('5 hours · 0% left')
+  expect(within(rows[0]).getByText('Resets in: 4 hours 16 minutes')).toBeVisible()
+  expect(rows[1]).toHaveTextContent('7 days · 38% left')
+  expect(within(rows[1]).getByText('Resets in: 1 day 3 hours')).toBeVisible()
 })

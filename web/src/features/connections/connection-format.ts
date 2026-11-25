@@ -28,3 +28,17 @@ export function windowName(item: ChannelQuotaChangeItem, t: TFunction) {
     ? formatQuotaDuration(item.window_seconds, t)
     : quotaWindowLabel(item.window_type, t)
 }
+
+/** Show two whole units without rounding up across the reported reset. */
+export function formatWindowCountdown(seconds: number, t: TFunction) {
+  if (seconds < 60) return formatQuotaDuration(Math.ceil(seconds), t)
+  const hour = 3600
+  const day = 24 * hour
+  const majorUnit = seconds >= day ? day : hour
+  const minorUnit = majorUnit === day ? hour : 60
+  const major = Math.floor(seconds / majorUnit) * majorUnit
+  const minor = Math.floor((seconds % majorUnit) / minorUnit) * minorUnit
+  if (major === 0) return formatQuotaDuration(minor, t)
+  if (minor === 0) return formatQuotaDuration(major, t)
+  return `${formatQuotaDuration(major, t)} ${formatQuotaDuration(minor, t)}`
+}

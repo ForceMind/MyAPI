@@ -44,21 +44,28 @@ export function nativeWindowFreshness(
   return nowSeconds - (item.observed_at as number) > 300 ? 'stale' : 'fresh'
 }
 
+export function nativeWindowResetAt(item: ChannelQuotaChangeItem): number | null {
+  const reset = item.reset_at
+  if (
+    item.metric_type !== 'codex_rate_limit' ||
+    typeof reset !== 'number' ||
+    !Number.isSafeInteger(reset) ||
+    reset <= 0 ||
+    !Number.isFinite(new Date(reset * 1000).getTime())
+  ) {
+    return null
+  }
+  return reset
+}
+
 export function nativeWindowResetLabel(
   item: ChannelQuotaChangeItem,
   nowSeconds: number,
   t: (key: string, options?: { time: string }) => string
 ): string | null {
   if (item.metric_type !== 'codex_rate_limit') return null
-  const reset = item.reset_at
-  if (
-    typeof reset !== 'number' ||
-    !Number.isSafeInteger(reset) ||
-    reset <= 0 ||
-    !Number.isFinite(new Date(reset * 1000).getTime())
-  ) {
-    return t('Reset time unknown')
-  }
+  const reset = nativeWindowResetAt(item)
+  if (reset === null) return t('Reset time unknown')
   const time = formatTimestampToDate(reset)
   if (reset <= nowSeconds || nativeWindowState(item, nowSeconds) !== 'available') {
     return t('Last recorded reset: {{time}}', { time })

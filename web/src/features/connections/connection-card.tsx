@@ -222,6 +222,7 @@ export function ConnectionCard(props: {
               now={props.now}
               compact
               showResetTime
+              showSubscriptionCountdown={kind === 'subscription'}
             />
             {(props.windowsKnown || props.windowsIncomplete) && props.windows.length > 0 && <SummaryDisclosure
               key={`${identity}:${connection.id}:windows`}

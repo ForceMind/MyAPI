@@ -15,7 +15,7 @@ import { api } from '@/lib/api'
 import { formatTimestampToDate } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth-store'
 
-import { mountConnections } from './connections-page-fixture'
+import { CONNECTION, mountConnections } from './connections-page-fixture'
 
 vi.mock('@/hooks/use-sidebar-config', () => ({
   useIsSidebarModuleVisible: () => true,
@@ -93,9 +93,19 @@ test.each(['/connections', '/connections/7'])(
         },
       ],
     })
-    const windows = entry === '/connections'
-      ? within(await screen.findByRole('list', { name: 'Current account windows' })).getAllByRole('listitem')
-      : await screen.findAllByTestId('connection-window')
+    let windows: HTMLElement[]
+    if (entry === '/connections') {
+      const card = within(await screen.findByRole('article', { name: CONNECTION.name }))
+      const summary = within(await card.findByRole('list', { name: 'Current account windows' })).getAllByRole('listitem')
+      expect(summary).toHaveLength(3)
+      expect(within(summary[0]).getByText(/^Resets in:/)).toBeVisible()
+      expect(within(summary[1]).getByText(`Last recorded reset: ${formatTimestampToDate(expired)}`)).toBeVisible()
+      expect(within(summary[2]).getByText('Reset time unknown')).toBeVisible()
+      await userEvent.setup().click(card.getByRole('button', { name: 'Window details (3)' }))
+      windows = within(card.getByRole('list', { name: 'Saved account windows' })).getAllByRole('listitem')
+    } else {
+      windows = await screen.findAllByTestId('connection-window')
+    }
     expect(windows).toHaveLength(3)
     expect(within(windows[0]).getByText(`Resets ${formatTimestampToDate(upcoming)}`)).toBeVisible()
     expect(within(windows[1]).getByText(`Last recorded reset: ${formatTimestampToDate(expired)}`)).toBeVisible()

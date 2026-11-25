@@ -3,14 +3,28 @@ import { useContext } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SummaryDisclosure } from '@/components/summary-disclosure'
+import { formatQuotaDuration } from '@/features/channels/lib/quota-history'
 import type { ChannelQuotaChangeItem } from '@/features/channels/types'
-import { nativeWindowResetLabel, nativeWindowUsage } from '@/features/personal-upstream/window-state'
+import { nativeWindowResetAt, nativeWindowResetLabel, nativeWindowState, nativeWindowUsage } from '@/features/personal-upstream/window-state'
 import { formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-import { windowName } from './connection-format'
+import { formatWindowCountdown, windowName } from './connection-format'
 import { ConnectionEvidenceContext } from './connection-evidence-context'
 import { describeConnectionWindow, isHistoricalConnectionWindow, savedBalanceAmount } from './window-state'
+
+const subscriptionWindowDurations = [5 * 3600, 7 * 24 * 3600]
+
+type EvidenceRow =
+  | { item: ChannelQuotaChangeItem; duration: number | undefined }
+  | { item: null; duration: number }
+
+function subscriptionWindowDuration(item: ChannelQuotaChangeItem): number | undefined {
+  if (item.metric_type !== 'codex_rate_limit' || item.source === 'codex_relay_usage_limit') return
+  if (item.window_seconds && item.window_seconds > 0) return item.window_seconds
+  if (item.window_type === 'five_hour' || item.window_type === '5h') return subscriptionWindowDurations[0]
+  if (item.window_type === 'weekly') return subscriptionWindowDurations[1]
+}
 
 /** Counts describe this saved series and do not claim old failures recovered. */
 export function ConnectionEvidenceQuality(props: { item: ChannelQuotaChangeItem }) {
@@ -36,6 +50,7 @@ export function ConnectionEvidenceSummary(props: {
   now: number
   compact?: boolean
   showResetTime?: boolean
+  showSubscriptionCountdown?: boolean
 }) {
   const { t } = useTranslation()
   if (props.windowsLoading) {
@@ -44,29 +59,67 @@ export function ConnectionEvidenceSummary(props: {
   if (!props.windowsKnown && !props.windowsIncomplete) {
     return <span>{t('Account windows could not be read')}</span>
   }
-  if (props.windows.length === 0 && !props.windowsIncomplete) {
+  const noSavedWindows = props.windows.length === 0 && !props.windowsIncomplete
+  if (noSavedWindows && !props.showSubscriptionCountdown) {
     return <div><p>{t('No saved window sample')}</p><p>{t('Window query capability unknown')}</p></div>
   }
   const hasBalance = props.windows.some((item) => item.metric_type === 'balance')
+  const rows = props.windows
+    .filter((item) => !(
+      props.showSubscriptionCountdown &&
+      item.source === 'codex_wham_usage' &&
+      isHistoricalConnectionWindow(item, props.windows, props.now)
+    ))
+    .map((item) => ({ item, duration: subscriptionWindowDuration(item) }))
+  const visibleRows = props.showSubscriptionCountdown
+    ? [
+        ...subscriptionWindowDurations.flatMap<EvidenceRow>((duration) => {
+          const matches = rows.filter((row) => row.duration === duration)
+          return matches.length > 0 ? matches : [{ item: null, duration }]
+        }),
+        ...rows.filter((row) => row.duration === undefined || !subscriptionWindowDurations.includes(row.duration)),
+      ]
+    : rows
   let label = props.compact ? t('Current account windows') : t('Saved account windows')
   if (hasBalance) label = t('Saved quota evidence')
   return (
     <div className='flex min-w-0 flex-col gap-1'>
     {props.windowsIncomplete && <p role='status' className='text-warning'>{t('Saved quota evidence is incomplete. Missing series and earlier failures may be omitted.')}</p>}
-    <ul aria-label={label} className={cn('flex min-w-0', props.compact ? 'flex-wrap gap-x-3 gap-y-1' : 'flex-col gap-2')}>
-      {props.windows.map((item) => {
+    {noSavedWindows && <div><p>{t('No saved window sample')}</p><p>{t('Window query capability unknown')}</p></div>}
+    <ul aria-label={label} className={cn('flex min-w-0', props.compact && !props.showSubscriptionCountdown ? 'flex-wrap gap-x-3 gap-y-1' : 'flex-col gap-2')}>
+      {visibleRows.map(({ item, duration }) => {
+        if (!item) {
+          return <li key={duration} className='min-w-0 wrap-anywhere'>
+            {formatQuotaDuration(duration, t)} · {t('Remaining quota')}: {t('Unknown')} · {t('Reset time unknown')}
+          </li>
+        }
         const used = nativeWindowUsage(item)
-        const reset = props.showResetTime
+        const resetAt = props.showSubscriptionCountdown ? nativeWindowResetAt(item) : null
+        let reset = props.showResetTime
           ? nativeWindowResetLabel(item, props.now, t)
           : null
+        if (resetAt !== null && resetAt > props.now && nativeWindowState(item, props.now) === 'available') {
+          reset = `${t('Resets in:')} ${formatWindowCountdown(resetAt - props.now, t)}`
+        }
         const balance = savedBalanceAmount(item)
         const state = describeConnectionWindow(item, props.windows, props.now, t)
-        const stateLabel = props.compact && isHistoricalConnectionWindow(item, props.windows, props.now)
-          ? t('Saved sample error; recovery unconfirmed')
-          : state.label
+        let stateLabel = state.label
+        if (props.compact && isHistoricalConnectionWindow(item, props.windows, props.now)) {
+          if (!props.showSubscriptionCountdown) {
+            stateLabel = t('Saved sample error; recovery unconfirmed')
+          } else {
+            // A separate series can still be failing while another has a newer snapshot.
+            stateLabel = item.source?.startsWith('codex_wham_usage_')
+              ? t('WHAM usage sample failed')
+              : t('Usage sample failed')
+          }
+        }
+        const name = props.showSubscriptionCountdown && duration !== undefined && subscriptionWindowDurations.includes(duration)
+          ? formatQuotaDuration(duration, t)
+          : windowName(item, t)
         let summary = used === null
-          ? t('{{window}}: {{state}}', { window: windowName(item, t), state: stateLabel })
-          : t('{{window}} · {{value}}% left', { window: windowName(item, t), value: Math.round(100 - used) })
+          ? t('{{window}}: {{state}}', { window: name, state: stateLabel })
+          : t('{{window}} · {{value}}% left', { window: name, value: Math.round(100 - used) })
         if (balance !== null) {
           summary = t('{{window}}: {{value}} {{unit}}', {
             window: windowName(item, t),
@@ -87,7 +140,7 @@ export function ConnectionEvidenceSummary(props: {
             className={cn('min-w-0 wrap-anywhere', props.compact && state.variant === 'danger' && 'text-destructive', props.compact && state.variant === 'warning' && 'text-warning')}
           >
             <span>
-              {[summary, used !== null || balance !== null ? stateLabel : null, props.compact ? null : time]
+              {[summary, props.showSubscriptionCountdown && duration !== undefined && used === null ? `${t('Remaining quota')}: ${t('Unknown')}` : null, used !== null || balance !== null ? stateLabel : null, props.compact ? null : time]
                 .filter(Boolean)
                 .join(' · ')}
             </span>
