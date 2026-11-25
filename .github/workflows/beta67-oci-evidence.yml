@@ -3,17 +3,23 @@ name: Verify beta.67 Full archive on containerd
 on:
   push:
     branches: [dev]
-    paths: ['.github/workflows/beta67-oci-evidence.yml']
+    paths:
+      - '.github/workflows/beta67-oci-evidence.yml'
+      - 'tools/operations/rehearse_beta67_sqlite_cutover.py'
 
 permissions:
   actions: read
+  contents: read
 
 jobs:
   rehearse:
     if: github.repository == 'ForceMind/MyAPI' && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-26.04
-    timeout-minutes: 12
+    timeout-minutes: 20
     steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - name: Read the original beta.67 artifacts
         env:
           GH_TOKEN: ${{ github.token }}
@@ -226,3 +232,14 @@ jobs:
           finally:
               docker("container", "rm", "--force", container)
           PYTHON
+
+      - name: Rehearse SQLite cutover against the original Full images
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          gh api repos/ForceMind/MyAPI/actions/artifacts/14993142696/zip > "$RUNNER_TEMP/beta66-full-bundle.zip"
+          unset GH_TOKEN
+          python3 -u -B tools/operations/rehearse_beta67_sqlite_cutover.py \
+            --beta66-bundle "$RUNNER_TEMP/beta66-full-bundle.zip"
