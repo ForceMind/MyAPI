@@ -1,0 +1,228 @@
+name: Verify beta.67 Full archive on containerd
+
+on:
+  push:
+    branches: [dev]
+    paths: ['.github/workflows/beta67-oci-evidence.yml']
+
+permissions:
+  actions: read
+
+jobs:
+  rehearse:
+    if: github.repository == 'ForceMind/MyAPI' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 12
+    steps:
+      - name: Read the original beta.67 artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          cd "$RUNNER_TEMP"
+          gh api repos/ForceMind/MyAPI/actions/artifacts/15019413468/zip > build-record.dockerbuild
+          gh api repos/ForceMind/MyAPI/actions/artifacts/15018789555/zip > full-bundle.zip
+          sha256sum --check <<'DIGESTS'
+          4796287d79096442e56110f0642a4306f4df58d0825c8cdd77f0969a3d69fa3f  build-record.dockerbuild
+          50d0210928d75243841e3c84e98d501c89f3aea06ad08ea955f31bb4a7a651ae  full-bundle.zip
+          DIGESTS
+
+      - name: Verify archive identity and start the loaded image without network access
+        run: |
+          set -euo pipefail
+          umask 077
+          cd "$RUNNER_TEMP"
+          python3 -u -B <<'PYTHON'
+          import hashlib
+          import json
+          import os
+          import re
+          import secrets
+          import shutil
+          import subprocess
+          import tarfile
+          import time
+          import zipfile
+          from pathlib import Path
+
+          source = "ed419430cbded84678057d17b1d79e083323002c"
+          tree = "e82528a6b8c7834dea1b6a4afd041b0dec1275d8"
+          tag = f"myapi:smoke-full-{source}"
+          buildx_digest = "sha256:973af7921bfa0e87c6cf47ec71754cb7e322511c7f44b0c7cd0eedb8eee50100"
+          config_digest = "sha256:b94f36c7392e6e74fceecf1b12243babb11079cc3d543935e251ef3b70321f43"
+          bundle_manifest_digest = "1485236d42529db976f2cf2847bd5507e30eea5ed1a43adf7fd154d772e56585"
+          manifest_type = "application/vnd.oci.image.manifest.v1+json"
+
+          def digest(data):
+              return "sha256:" + hashlib.sha256(data).hexdigest()
+
+          def blob_path(value):
+              assert re.fullmatch(r"sha256:[0-9a-f]{64}", value), "Invalid blob digest"
+              return "blobs/sha256/" + value[7:]
+
+          def member(archive, path):
+              entries = [entry for entry in archive.getmembers() if entry.name.removeprefix("./") == path]
+              assert len(entries) == 1 and entries[0].isfile(), f"Expected one regular member: {path}"
+              return archive.extractfile(entries[0]), entries[0].size
+
+          def json_member(archive, path):
+              stream, size = member(archive, path)
+              assert size <= 1_048_576, "Expected small JSON member"
+              with stream:
+                  raw = stream.read()
+              return raw, json.loads(raw)
+
+          def verify_blob(archive, descriptor):
+              stream, size = member(archive, blob_path(descriptor["digest"]))
+              assert size == descriptor["size"], "OCI layer size mismatch"
+              with stream:
+                  assert "sha256:" + hashlib.file_digest(stream, "sha256").hexdigest() == descriptor["digest"], "OCI layer digest mismatch"
+
+          def docker(*args, **kwargs):
+              return subprocess.check_output(["docker", *args], text=True, timeout=120, **kwargs).strip()
+
+          with zipfile.ZipFile("full-bundle.zip") as bundle:
+              assert sorted(bundle.namelist()) == ["images.tar", "manifest.json"], "Unexpected ZIP members"
+              assert bundle.getinfo("manifest.json").file_size <= 16384
+              metadata = bundle.read("manifest.json")
+              assert hashlib.sha256(metadata).hexdigest() == bundle_manifest_digest
+              manifest = json.loads(metadata)
+              identity = {
+                  "schemaVersion": 1, "sourceSha": source, "headSha": source, "treeSha": tree,
+                  "runId": "45610270551", "producerAttempt": "1", "edition": "full",
+                  "personal": "0", "platform": "linux/amd64",
+              }
+              assert all(manifest[key] == value for key, value in identity.items()), "Unexpected bundle identity"
+              apps = [image for image in manifest["images"] if image["role"] == "app"]
+              assert apps == [{"role": "app", "tag": tag, "id": config_digest, "registryRef": None}]
+              tar_info = manifest["tar"]
+              assert tar_info["file"] == "images.tar"
+              assert 0 < bundle.getinfo("images.tar").file_size == tar_info["bytes"] <= 8 * 1024 ** 3
+              with bundle.open("images.tar") as stream, open("images.tar", "xb") as target:
+                  shutil.copyfileobj(stream, target)
+          with open("images.tar", "rb") as stream:
+              assert hashlib.file_digest(stream, "sha256").hexdigest() == tar_info["sha256"], "TAR digest mismatch"
+
+          with tarfile.open("images.tar", "r:") as saved:
+              _, index = json_member(saved, "index.json")
+              _, legacy = json_member(saved, "manifest.json")
+              descriptors = [
+                  desc for desc in index["manifests"]
+                  if desc.get("annotations", {}).get("io.containerd.image.name", "").removeprefix("docker.io/library/") == tag
+              ]
+              assert len(descriptors) == 1, "Expected one indexed application image"
+              desc = descriptors[0]
+              saved_digest = desc["digest"]
+              saved_raw, saved_manifest = json_member(saved, blob_path(saved_digest))
+              assert desc["mediaType"] == saved_manifest["mediaType"] == manifest_type
+              assert saved_digest == digest(saved_raw) and desc["size"] == len(saved_raw)
+              config_desc = saved_manifest["config"]
+              config_raw, config = json_member(saved, blob_path(config_desc["digest"]))
+              assert config_desc["digest"] == digest(config_raw) == config_digest
+              assert config_desc["size"] == len(config_raw)
+              assert (config["os"], config["architecture"]) == ("linux", "amd64")
+              labels = config["config"]["Labels"]
+              assert [labels[f"io.myapi.smoke.{key}"] for key in ("source", "head", "tree")] == [source, source, tree]
+              assert labels["io.myapi.edition"] == "full"
+              rows = [row for row in legacy if tag in row["RepoTags"]]
+              assert len(rows) == 1 and rows[0]["Config"] == blob_path(config_digest)
+              layers = saved_manifest["layers"]
+              diff_ids = config["rootfs"]["diff_ids"]
+              assert len(layers) == len(diff_ids) == len(rows[0]["Layers"]) == 5
+              for layer, diff_id, path in zip(layers, diff_ids, rows[0]["Layers"], strict=True):
+                  verify_blob(saved, layer)
+                  assert path == blob_path(diff_id), "Docker layer points outside the expected DiffID"
+                  stream, _ = member(saved, path)
+                  with stream:
+                      assert "sha256:" + hashlib.file_digest(stream, "sha256").hexdigest() == diff_id, "RootFS DiffID mismatch"
+
+          with tarfile.open("build-record.dockerbuild", "r:gz") as record:
+              buildx_raw, buildx_manifest = json_member(record, blob_path(buildx_digest))
+          assert digest(buildx_raw) == buildx_digest, "Buildx manifest differs from producer output"
+          assert buildx_manifest["mediaType"] == manifest_type
+          assert buildx_manifest["config"]["digest"] == config_digest
+          assert buildx_manifest["config"]["size"] == len(config_raw)
+          assert len(buildx_manifest["layers"]) == len(diff_ids)
+          print(json.dumps({
+              "source": source, "tree": tree, "artifact": 15018789555,
+              "buildx_manifest": buildx_digest, "archive_oci_manifest": saved_digest,
+              "config": config_digest, "tar_sha256": tar_info["sha256"],
+              "bundle_manifest_sha256": bundle_manifest_digest, "verified_ordered_diff_ids": diff_ids,
+          }))
+
+          info = json.loads(docker("info", "--format", "{{json .}}"))
+          engine = {
+              "version": info["ServerVersion"], "storage_driver": info["Driver"],
+              "storage_type": dict(info["DriverStatus"]).get("driver-type"),
+              "cgroup_version": info["CgroupVersion"],
+          }
+          print(json.dumps({"docker_engine": engine}))
+          assert (info["OSType"], info["Architecture"]) == ("linux", "x86_64")
+          assert info["CgroupVersion"] == "2" and info["OomKillDisable"] is False
+          assert (engine["storage_driver"], engine["storage_type"]) == ("overlayfs", "io.containerd.snapshotter.v1")
+          assert docker("image", "ls", "--quiet", "--no-trunc", "--filter", f"reference={tag}") == "", "Candidate tag already exists"
+          print(docker("image", "load", "--platform", "linux/amd64", "--input", "images.tar"))
+          loaded = json.loads(docker("image", "inspect", "--platform", "linux/amd64", "--format", "{{json .}}", tag))
+          assert (loaded["Os"], loaded["Architecture"]) == ("linux", "amd64")
+          target = loaded["Descriptor"]
+          assert loaded["Id"] == target["digest"] == saved_digest, "Loaded image manifest mismatch"
+          assert target["size"] == len(saved_raw) and target["mediaType"] == manifest_type
+          assert tag in loaded["RepoTags"]
+          assert loaded["RootFS"] == {"Type": "layers", "Layers": diff_ids}, "Loaded image RootFS mismatch"
+          assert loaded["Config"]["Labels"] == labels, "Loaded image labels mismatch"
+          assert loaded["Config"] == config["config"], "Loaded full image configuration mismatch"
+
+          docker("image", "save", "--platform", "linux/amd64", "--output", "loaded-image.tar", tag)
+          with tarfile.open("loaded-image.tar", "r:") as loaded_tar:
+              loaded_manifest_raw, _ = json_member(loaded_tar, blob_path(saved_digest))
+              loaded_config_raw, _ = json_member(loaded_tar, blob_path(config_digest))
+              assert loaded_manifest_raw == saved_raw, "Loaded image manifest bytes mismatch"
+              assert loaded_config_raw == config_raw, "Loaded image config bytes mismatch"
+              for layer in layers:
+                  verify_blob(loaded_tar, layer)
+
+          data = Path("isolated-data").resolve()
+          data.mkdir(mode=0o700)
+          container = docker(
+              "create", "--pull", "never", "--platform", "linux/amd64", "--network", "none",
+              "--user", f"{os.getuid()}:{os.getgid()}", "--mount", f"type=bind,src={data},dst=/data",
+              "--env", "SESSION_SECRET", saved_digest,
+              env={**os.environ, "SESSION_SECRET": secrets.token_hex(32)},
+          )
+          try:
+              created = json.loads(docker("container", "inspect", "--format", "{{json .}}", container))
+              assert created["Image"] == created["ImageManifestDescriptor"]["digest"] == saved_digest
+              assert created["HostConfig"]["NetworkMode"] == "none"
+              assert created["HostConfig"]["OomKillDisable"] is False, "Created OOM state mismatch"
+              docker("start", container)
+              deadline = time.monotonic() + 60
+              status = None
+              while time.monotonic() < deadline:
+                  probe = subprocess.run(
+                      ["docker", "exec", container, "wget", "-T", "2", "-qO-", "http://127.0.0.1:3000/api/status"],
+                      capture_output=True, text=True, timeout=8,
+                  )
+                  if probe.returncode == 0:
+                      status = json.loads(probe.stdout)
+                      break
+                  time.sleep(2)
+              assert status and status["success"] is True, "Candidate HTTP status did not become ready"
+              assert status["data"]["version"] == "0.2.0-beta.67"
+              assert status["data"]["product_edition"] == "full"
+              running = json.loads(docker("container", "inspect", "--format", "{{json .}}", container))
+              assert running["State"]["Running"] is True
+              assert running["Image"] == running["ImageManifestDescriptor"]["digest"] == saved_digest
+              assert running["HostConfig"]["NetworkMode"] == "none"
+              assert running["HostConfig"]["OomKillDisable"] is None, "Running OOM state mismatch"
+              print(json.dumps({
+                  "rehearsal": "passed", "source": source, "artifact": 15018789555,
+                  "engine": engine, "loaded_image_id": running["Image"], "archive_oci_manifest": saved_digest,
+                  "config": config_digest, "verified_layers": len(diff_ids), "platform": "linux/amd64",
+                  "runtime_version": status["data"]["version"], "edition": status["data"]["product_edition"],
+                  "network": "none", "created_oom_kill_disable": created["HostConfig"]["OomKillDisable"],
+                  "started_oom_kill_disable": running["HostConfig"]["OomKillDisable"],
+              }))
+          finally:
+              docker("container", "rm", "--force", container)
+          PYTHON

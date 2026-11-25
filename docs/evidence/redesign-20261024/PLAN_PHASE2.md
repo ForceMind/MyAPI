@@ -6,6 +6,8 @@
 
 验收在 GitHub Actions 覆盖两种布局、旧列偏好、未知及过期窗口、读取重试、窄屏编辑与不重放，以及渠道页返回上下文。浏览器与现网验收另行确认。 [交互线稿与状态说明](ui-design-v2/wireframes/README.md#2026-11-25-渠道表交互线稿)
 
+beta.67 Full 源码为 `ed419430cbded84678057d17b1d79e083323002c`。Actions 已用临时 SQLite 完成 20/20 项验收。原包绑定打包运行第 1 次尝试及制品摘要。同存储演练复用该原包，核验交付 OCI 清单、配置、五层内容、重导出和断网启动。通过后将证据交给服务器任务拟定更新方案，部署由维护者另行确认。 [源码 CI](https://github.com/ForceMind/MyAPI/actions/runs/45603183356) · [打包 CI](https://github.com/ForceMind/MyAPI/actions/runs/45610270551) · [Full 原包](https://github.com/ForceMind/MyAPI/actions/runs/45610270551/artifacts/15018789555) · [验收报告](https://github.com/ForceMind/MyAPI/actions/runs/45610270551/artifacts/15019698203)
+
 ## 2026-11-24 · Codex 连接卡片额度
 
 维护者批准调整连接卡片摘要。5 小时与 7 天分别显示剩余额度和根据已保存重置时刻计算的倒计时。各窗口缺失值显示未知，过期值标注上次记录。较新有效快照之前的历史通用采样错误保留于窗口明细，仍显示当前失败和独立窗口的失败证据。已知不支持查询的记录采用中性状态。
