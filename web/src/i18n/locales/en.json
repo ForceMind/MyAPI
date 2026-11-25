@@ -5679,6 +5679,7 @@
     "Reset usage window": "Reset usage window",
     "Resets {{time}}": "Resets {{time}}",
     "Resets at": "Resets at",
+    "Resets in {{duration}}": "Resets in {{duration}}",
     "Resets in:": "Resets in:",
     "Resetting...": "Resetting...",
     "Resize column": "Resize column",

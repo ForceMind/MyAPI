@@ -92,7 +92,8 @@ it('monitoring and routing profiles change only information while custom restore
   const user = userEvent.setup()
   await mount()
   await screen.findByRole('link', { name: item.name })
-  expect(screen.getAllByRole('columnheader')).toHaveLength(8)
+  expect(screen.getAllByRole('columnheader')).toHaveLength(9)
+  expect(screen.getByRole('columnheader', { name: 'Account windows' })).toBeVisible()
   expect(screen.getByRole('columnheader', { name: /Last saved test/ })).toBeVisible()
   expect(screen.getByRole('columnheader', { name: /Priority/ })).toBeVisible()
   expect(screen.getByRole('columnheader', { name: /Weight/ })).toBeVisible()
@@ -103,10 +104,12 @@ it('monitoring and routing profiles change only information while custom restore
   expect(await screen.findByRole('columnheader', { name: /Priority/ })).toBeVisible()
   expect(screen.getByRole('columnheader', { name: /Weight/ })).toBeVisible()
   expect(screen.getByRole('columnheader', { name: /Models/ })).toBeVisible()
+  expect(screen.getByRole('columnheader', { name: 'Account windows' })).toBeVisible()
   expect(localStorage.getItem('channels:column-visibility')).toBe(JSON.stringify(legacy))
   await user.selectOptions(screen.getByRole('combobox', { name: 'Column preset' }), 'custom')
   expect(await screen.findByRole('columnheader', { name: /^ID/ })).toBeVisible()
   expect(screen.getByRole('columnheader', { name: /Models/ })).toBeVisible()
+  expect(screen.getByRole('columnheader', { name: 'Account windows' })).toBeVisible()
   expect(JSON.parse(localStorage.getItem('channels:column-sizing') ?? '{}')).toMatchObject({ name: 333 })
   expect(inventoryReads()).toHaveLength(reads)
   expect(api.post).not.toHaveBeenCalled()
@@ -185,8 +188,10 @@ it.each(['table', 'card'])('the table preserves saved evidence with legacy %s pr
   expect(api.put).not.toHaveBeenCalled()
 })
 
-it.each(['expired', 'missing'] as const)('shows reset times inline for the 5-hour window and a %s 7-day window', async (weeklyReset) => {
-  const now = Math.floor(Date.now() / 1000)
+it.each(['expired', 'missing'] as const)('shows reset countdown in the dedicated column and retains a %s 7-day record', async (weeklyReset) => {
+  const now = 1_800_000_000
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(now * 1000)
   const upcoming = now + 1800
   const expired = now - 10
   items = [{ ...item, type: 57 }]
@@ -210,9 +215,14 @@ it.each(['expired', 'missing'] as const)('shows reset times inline for the 5-hou
     ? `Last recorded reset: ${formatTimestampToDate(expired)}`
     : 'Reset time unknown'
   const compact = await screen.findByRole('list', { name: 'Current account windows' })
+  const quota = compact.closest('td')
+  const name = screen.getByRole('link', { name: item.name }).closest('td')
+  expect(quota).not.toBeNull()
+  expect(quota).not.toBe(name)
+  expect(quota).toBeVisible()
   const [shortWindow, weeklyWindow] = within(compact).getAllByRole('listitem')
   expect(shortWindow).toHaveTextContent('5 hours · 82% left')
-  expect(within(shortWindow).getByText(upcomingText)).toBeVisible()
+  expect(within(shortWindow).getByText('Resets in 30 minutes')).toBeVisible()
   expect(weeklyWindow).toHaveTextContent('7 days · 42% left')
   expect(within(weeklyWindow).getByText(weeklyText)).toBeVisible()
 
@@ -222,6 +232,64 @@ it.each(['expired', 'missing'] as const)('shows reset times inline for the 5-hou
   expect(within(expanded).getByText(weeklyText)).toBeVisible()
   expect(vi.mocked(api.get).mock.calls.some(([url]) => /codex\/usage/.test(String(url)))).toBe(false)
   expect(api.post).not.toHaveBeenCalled()
+})
+
+it('narrow inventory retries saved evidence explicitly and updates its countdown without another quota read', async () => {
+  const now = 1_800_000_000
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(now * 1000)
+  vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+  const original = window.matchMedia
+  vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({ ...original(query), matches: query === '(max-width: 640px)' }))
+  items = [{ ...item, type: 57 }]
+  savedEvidence = [{
+    channel_id: item.id, name: item.name, metric_type: 'codex_rate_limit',
+    source: 'codex_wham_usage_secondary', unit: 'percent', status: 'success',
+    observed_at: now - 30, current_available: 66, series_id: 'a'.repeat(64),
+    window_type: 'weekly', window_seconds: 604800, reset_at: now + 1800,
+  }]
+  evidenceMetadata = { items: null }
+  const user = userEvent.setup()
+  await mount()
+  await user.click(screen.getByRole('button', { name: 'Read saved usage status' }))
+  expect(await screen.findByText('Account windows could not be read')).toBeVisible()
+  evidenceMetadata = {}
+  await user.click(screen.getByRole('button', { name: 'Retry' }))
+  const row = within(screen.getByRole('article'))
+  const windows = within(await row.findByRole('list', { name: 'Current account windows' }))
+  expect(windows.getByText(/5 hours.*Remaining quota: Unknown.*Reset time unknown/)).toBeVisible()
+  expect(windows.getByText(/7 days.*66% left/)).toBeVisible()
+  expect(windows.getByText('Resets in 30 minutes')).toBeVisible()
+  await act(async () => {
+    vi.setSystemTime((now + 60) * 1000)
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  expect(windows.getByText('Resets in 29 minutes')).toBeVisible()
+  expect(vi.mocked(api.get).mock.calls.filter(([url]) => url === '/api/channel/quota/changes')).toHaveLength(2)
+  expect(api.put).not.toHaveBeenCalled()
+})
+
+it('narrow weight editing locks an unknown response and reads the current numerical row without replaying', async () => {
+  const original = window.matchMedia
+  vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({ ...original(query), matches: query === '(max-width: 640px)' }))
+  const mockGet = vi.mocked(api.get).getMockImplementation()
+  if (!mockGet) throw new Error('Missing inventory read fixture')
+  vi.mocked(api.get).mockImplementation((url, config) => url === '/api/channel/23'
+    ? Promise.resolve({ data: { success: true, data: { id: 23, weight: 0 } } })
+    : mockGet(url, config))
+  vi.mocked(api.put).mockRejectedValueOnce(new Error('Synthetic response lost'))
+  const { router } = await mount()
+  const group = within(await screen.findByRole('group', { name: 'Weight' }))
+  fireEvent.click(group.getByRole('button', { name: 'Increment' }))
+  await act(async () => fireEvent.blur(group.getByRole('button', { name: '1' }), { relatedTarget: document.body }))
+  expect(group.getByRole('alert')).toHaveTextContent('Save result unknown')
+  expect(group.getByRole('button', { name: 'Increment' })).toBeDisabled()
+  expect(vi.mocked(api.get).mock.calls.filter(([url]) => url === '/api/channel/23')).toHaveLength(0)
+  await userEvent.setup().click(group.getByRole('button', { name: 'Read saved routing value' }))
+  expect(await group.findByRole('button', { name: '0' })).toBeVisible()
+  expect(group.getByText('Previous draft: 1')).toBeVisible()
+  expect(router.state.location.pathname).toBe('/channels/')
+  expect(api.put).toHaveBeenCalledExactlyOnceWith('/api/channel/', { id: 23, weight: 1 }, expect.objectContaining({ skipAuthRefresh: true }))
 })
 
 it('changing the inventory actor discards saved evidence before reading that actor scope', async () => {
@@ -349,7 +417,7 @@ it('global maintenance and display settings are explicit scopes while read-only 
   expect(api.delete).not.toHaveBeenCalled()
 })
 
-it('mobile table keeps operational status and all original fields available through column configuration', async () => {
+it('narrow inventory keeps operational status and all original fields available through column configuration', async () => {
   localStorage.setItem('channels:view-mode', 'card')
   const original = window.matchMedia
   vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({ ...original(query), matches: query === '(max-width: 640px)' }))
@@ -360,14 +428,16 @@ it('mobile table keeps operational status and all original fields available thro
   expect(screen.getByRole('button', { name: 'Disable' })).toBeVisible()
   expect(screen.getByRole('button', { name: 'Edit' })).toBeVisible()
   expect(screen.getByRole('button', { name: 'Test Connection' })).toBeVisible()
-  expect(screen.getByRole('table')).toBeVisible()
+  expect(screen.getByRole('article')).toBeVisible()
+  expect(screen.queryByRole('table')).not.toBeInTheDocument()
   const reads = inventoryReads().length
   await user.selectOptions(screen.getByRole('combobox', { name: 'Column preset' }), 'custom')
   await user.click(screen.getByRole('button', { name: 'View' }))
   await user.click(screen.getByRole('menuitemcheckbox', { name: 'Models' }))
   await user.keyboard('{Escape}')
-  expect(screen.getByRole('columnheader', { name: /Priority/ })).toBeVisible()
-  expect(screen.getByRole('columnheader', { name: /Weight/ })).toBeVisible()
+  expect(screen.getByRole('group', { name: 'Priority' })).toBeVisible()
+  expect(screen.getByRole('group', { name: 'Weight' })).toBeVisible()
+  await user.click(screen.getByRole('button', { name: 'Details', exact: true }))
   await user.click(screen.getByRole('button', { name: 'Models (2)' }))
   expect(screen.getByText('alpha')).toBeVisible()
   expect(screen.getByText('beta')).toBeVisible()
@@ -472,21 +542,23 @@ it.each(['blur', 'cleanup'] as const)('same-actor %s still commits exactly one o
 })
 
 
-it('mobile table retains Tag aggregation, numerical child selection and sensitive masks after removing the duplicate card display', async () => {
+it('narrow inventory retains Tag aggregation, numerical child selection and sensitive masks', async () => {
   const original = window.matchMedia
   vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({ ...original(query), matches: query === '(max-width: 640px)' }))
   items = [item, { ...item, id: 24, name: 'Second synthetic channel' }]
   const user = userEvent.setup()
   await mount()
   await screen.findByRole('link', { name: item.name })
-  expect(screen.getByRole('table')).toBeVisible()
+  expect(screen.getAllByRole('article')).toHaveLength(2)
+  expect(screen.queryByRole('table')).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Display settings' }))
   await user.click(screen.getByRole('menuitemcheckbox', { name: 'Tag Mode' }))
   await user.keyboard('{Escape}')
   await user.click(await screen.findByRole('button', { name: 'Expand tag synthetic-tag' }))
   await user.click(screen.getByRole('button', { name: 'Select channels' }))
-  const row = screen.getByRole('link', { name: item.name }).closest('tr')
-  if (!row) throw new Error('Expected a real channel table row')
+  const row = screen.getByRole('link', { name: item.name }).closest('article')
+  if (!row) throw new Error('Expected a numerical channel in the narrow inventory')
+  expect(screen.getByRole('checkbox', { name: 'Select all' })).toBeVisible()
   await user.click(within(row).getByRole('checkbox', { name: 'Select row' }))
   expect(screen.getByText('Selected channel IDs (1)')).toBeVisible()
   expect(screen.getByRole('button', { name: 'Disable selected channels' })).toBeVisible()

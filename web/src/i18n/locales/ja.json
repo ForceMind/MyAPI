@@ -5679,6 +5679,7 @@
     "Reset usage window": "使用量ウィンドウをリセット",
     "Resets {{time}}": "Resets {{time}}",
     "Resets at": "リセット日時",
+    "Resets in {{duration}}": "Resets in {{duration}}",
     "Resets in:": "リセットまで：",
     "Resetting...": "リセット中...",
     "Resize column": "列幅を変更",

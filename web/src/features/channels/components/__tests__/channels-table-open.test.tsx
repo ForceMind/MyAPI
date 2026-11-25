@@ -204,23 +204,34 @@ test('changing account clears the previous inventory while the new account read 
   expect(screen.queryByRole('link', { name: 'needle-channel' })).not.toBeInTheDocument()
 })
 
-test.each([390, 1440])('the table URL stays a real scrollable table at %ipx despite a legacy card preference and refresh', async (width) => {
+test.each([390, 1440])('the inventory keeps its responsive layout and URL at %ipx despite a legacy card preference and refresh', async (width) => {
   localStorage.setItem('channels:view-mode', 'card')
   const original = window.matchMedia
   vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({ ...original(query), matches: query === '(max-width: 640px)' && width < 640 }))
   const { router } = await renderTable('/channels/?pageSize=50&filter=needle&model=public-model&focusConnectionId=23')
   await screen.findByRole('link', { name: 'needle-channel' })
-  const table = screen.getByRole('table')
-  expect(table).toBeVisible()
-  expect(table.closest('[data-slot="table-container"]')).toHaveClass('overflow-x-auto')
+  const verifyLayout = () => {
+    if (width < 640) {
+      const row = screen.getByRole('article')
+      expect(row).toBeVisible()
+      expect(within(row).getByRole('link', { name: 'needle-channel' })).toBeVisible()
+      expect(row.closest('[data-slot="data-table-card"]')?.parentElement).toHaveClass('grid-cols-1', 'min-w-0')
+      expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    } else {
+      const table = screen.getByRole('table')
+      expect(table).toBeVisible()
+      expect(table.closest('[data-slot="table-container"]')).toHaveClass('overflow-x-auto')
+      expect(screen.queryByRole('article')).not.toBeInTheDocument()
+    }
+  }
+  verifyLayout()
   expect(screen.queryByRole('button', { name: 'Card view' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Table view' })).not.toBeInTheDocument()
-  expect(screen.queryByRole('article')).not.toBeInTheDocument()
   const views = screen.getByRole('navigation', { name: 'Connection views' })
   expect(within(views).getByText('Table view')).toHaveAttribute('aria-current', 'page')
   expect(within(views).getByRole('link', { name: 'Card view' })).toHaveAttribute('href', expect.stringContaining('/connections'))
   await act(async () => client.invalidateQueries({ queryKey: ['channels'] }))
-  expect(screen.getByRole('table')).toBeVisible()
+  verifyLayout()
   expect(router.state.location.pathname).toBe('/channels')
   expect(router.state.location.search).toMatchObject({ filter: 'needle', model: 'public-model', pageSize: 50, focusConnectionId: 23 })
   expect(localStorage.getItem('channels:view-mode')).toBe('card')

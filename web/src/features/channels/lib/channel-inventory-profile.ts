@@ -4,14 +4,14 @@ export type ChannelInventoryProfile = 'monitoring' | 'routing' | 'custom'
 
 export const CHANNEL_INVENTORY_PROFILE_KEY = 'channels:inventory-profile'
 
-const columns = ['id', 'name', 'type', 'status', 'models', 'group', 'tag', 'priority', 'weight', 'balance', 'response_time', 'test_time', 'actions']
+const columns = ['id', 'name', 'type', 'status', 'models', 'group', 'tag', 'priority', 'weight', 'saved_quota', 'balance', 'response_time', 'test_time', 'actions']
 
 /** Existing column IDs stay available; profiles only choose presentation. */
 export function channelInventoryVisibility(profile: ChannelInventoryProfile): VisibilityState {
   if (profile === 'custom') return { models: false, tag: false }
   const visible = profile === 'monitoring'
-    ? ['name', 'type', 'status', 'priority', 'weight', 'balance', 'response_time', 'actions']
-    : ['name', 'type', 'status', 'models', 'group', 'tag', 'priority', 'weight', 'actions']
+    ? ['name', 'type', 'status', 'priority', 'weight', 'saved_quota', 'balance', 'response_time', 'actions']
+    : ['name', 'type', 'status', 'models', 'group', 'tag', 'priority', 'weight', 'saved_quota', 'actions']
   return Object.fromEntries(columns.map((id) => [id, visible.includes(id)]))
 }
 

@@ -34,6 +34,7 @@ import { toast } from 'sonner'
 
 import { ConnectionListContext } from '@/features/connections/connection-list-context'
 import { ChannelSavedEvidence } from '@/features/connections/connection-evidence-summary'
+import { SUBSCRIPTION_CONNECTION_TYPE } from '@/features/connections/connection-state'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { hasPermission } from '@/lib/admin-permissions'
@@ -768,7 +769,6 @@ export function useChannelsColumns(
                     <p className='text-muted-foreground text-xs wrap-anywhere'>{channel.remark}</p>
                   </SummaryDisclosure>
                 )}
-                {sensitiveVisible && <div className='text-caption text-muted-foreground min-w-0 wrap-anywhere'><ChannelSavedEvidence channelId={channel.id} /></div>}
               </div>
             </div>
           )
@@ -1132,6 +1132,20 @@ export function useChannelsColumns(
         cell: ({ row }) => <WeightCell channel={row.original} readVersion={readVersion.current} />,
         size: profile === 'custom' ? 90 : 160,
         enableSorting: !isChannelSortDisabledInTagMode('weight', tagMode),
+      },
+
+      {
+        id: 'saved_quota',
+        header: t('Account windows'),
+        cell: ({ row }) => {
+          const channel = row.original
+          if (isTagAggregateRow(channel)) return null
+          if (!sensitiveVisible) return <span>{SENSITIVE_MASK}</span>
+          return <ChannelSavedEvidence channelId={channel.id} subscription={channel.type === SUBSCRIPTION_CONNECTION_TYPE} />
+        },
+        enableSorting: false,
+        size: 280,
+        minSize: 220,
       },
 
       // Balance column (Used/Remaining)

@@ -177,12 +177,13 @@ export function useConnectionDetail(
 export function useConnectionWindows(
   access: Pick<ConnectionAccess, 'identity' | 'canRead'>,
   connectionIds: number[],
-  options: { manual?: boolean } = {}
+  options: { manual?: boolean; trackClock?: boolean } = {}
 ) {
   const ids = [...new Set(connectionIds)].sort((a, b) => a - b)
   const [now, setNow] = useState(() => Date.now() / 1000)
   const enabled = access.canRead && ids.length > 0
   const manual = options.manual ?? false
+  const keepTime = !manual || options.trackClock === true
   const query = useQuery({
     queryKey: ['connections-windows', access.identity, ids.join(',')],
     queryFn: async ({ signal }) => {
@@ -227,12 +228,13 @@ export function useConnectionWindows(
     return readSaved()
   }, [readSaved])
   useEffect(() => {
-    if (!enabled || manual) return
+    if (!enabled || !keepTime) return
     const refreshVisible = () => {
       if (document.visibilityState !== 'visible') return
       // This query reads saved rows only; never refresh provider credentials,
       // run WHAM sampling or substitute the connection's Test action.
-      void refetch()
+      if (manual) setNow(Date.now() / 1000)
+      else void refetch()
     }
     const timer = window.setInterval(refreshVisible, 60_000)
     document.addEventListener('visibilitychange', refreshVisible)
@@ -240,7 +242,7 @@ export function useConnectionWindows(
       window.clearInterval(timer)
       document.removeEventListener('visibilitychange', refreshVisible)
     }
-  }, [enabled, manual, refetch])
+  }, [enabled, keepTime, manual, refetch])
   return { ...query, data: query.data?.items, complete: query.isSuccess && query.data.complete, refetch, now }
 }
 

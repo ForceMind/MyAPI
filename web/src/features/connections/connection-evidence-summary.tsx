@@ -99,7 +99,7 @@ export function ConnectionEvidenceSummary(props: {
           ? nativeWindowResetLabel(item, props.now, t)
           : null
         if (resetAt !== null && resetAt > props.now && nativeWindowState(item, props.now) === 'available') {
-          reset = `${t('Resets in:')} ${formatWindowCountdown(resetAt - props.now, t)}`
+          reset = t('Resets in {{duration}}', { duration: formatWindowCountdown(resetAt - props.now, t) })
         }
         const balance = savedBalanceAmount(item)
         const state = describeConnectionWindow(item, props.windows, props.now, t)
@@ -178,13 +178,13 @@ export function ConnectionEvidenceSummary(props: {
 }
 
 
-export function ChannelSavedEvidence(props: { channelId: number }) {
+export function ChannelSavedEvidence(props: { channelId: number; subscription: boolean }) {
   const { t } = useTranslation()
   const evidence = useContext(ConnectionEvidenceContext)
   if (!evidence) return null
   const windows = evidence.data?.filter((item) => item.channel_id === props.channelId) ?? []
   return <div className='flex min-w-0 flex-col gap-1'>
-    <ConnectionEvidenceSummary windows={windows} windowsKnown={evidence.known} windowsIncomplete={evidence.incomplete} windowsLoading={evidence.loading} now={evidence.now} compact showResetTime />
+    <ConnectionEvidenceSummary windows={windows} windowsKnown={evidence.known} windowsIncomplete={evidence.incomplete} windowsLoading={evidence.loading} now={evidence.now} compact showResetTime showSubscriptionCountdown={props.subscription || windows.some((item) => item.metric_type === 'codex_rate_limit')} />
     {(evidence.known || evidence.incomplete) && windows.length > 0 && <SummaryDisclosure key={`${evidence.identity}:${props.channelId}:evidence`} summary={t('Saved evidence details ({{count}})', { count: windows.length })}>
       <ConnectionEvidenceSummary windows={windows} windowsKnown={evidence.known} windowsIncomplete={evidence.incomplete} windowsLoading={evidence.loading} now={evidence.now} showResetTime />
     </SummaryDisclosure>}

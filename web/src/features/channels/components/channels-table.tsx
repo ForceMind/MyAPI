@@ -18,11 +18,13 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
-import type {
-  ColumnFiltersState,
-  OnChangeFn,
-  SortingState,
-  Row,
+import {
+  flexRender,
+  type Cell,
+  type ColumnFiltersState,
+  type OnChangeFn,
+  type SortingState,
+  type Row,
 } from '@tanstack/react-table'
 import { Eye, EyeOff } from 'lucide-react'
 import { useState, useMemo, useEffect, useRef, type MouseEvent } from 'react'
@@ -30,6 +32,8 @@ import { useTranslation } from 'react-i18next'
 
 import {
   DISABLED_ROW_DESKTOP,
+  DISABLED_ROW_MOBILE,
+  DataTableCardGrid,
   DataTablePage,
   DataTableToolbar,
   DataTableRow,
@@ -56,6 +60,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { SummaryDisclosure } from '@/components/summary-disclosure'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { useMediaQuery } from '@/hooks'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
@@ -88,6 +93,64 @@ const CHANNELS_STATUS_FILTER_STORAGE_KEY = 'channel-status-filter'
 function isDisabledChannelRow(channel: Channel) {
   return (
     !isTagAggregateRow(channel) && channel.status !== CHANNEL_STATUS.ENABLED
+  )
+}
+
+function ChannelInventoryRow({ row }: { row: Row<Channel> }) {
+  const { t } = useTranslation()
+  const cells = row.getVisibleCells()
+  const byId = new Map(cells.map((cell) => [cell.column.id, cell]))
+  const renderCell = (cell: Cell<Channel, unknown> | undefined) =>
+    cell && flexRender(cell.column.columnDef.cell, cell.getContext())
+  const reserved = ['select', 'name', 'type', 'status', 'priority', 'weight', 'saved_quota', 'actions']
+  const otherFields = cells.filter((cell) => !reserved.includes(cell.column.id))
+  const isTag = isTagAggregateRow(row.original)
+  const routes = [byId.get('priority'), byId.get('weight')]
+
+  return (
+    <article data-channel-inventory-row className='flex min-w-0 flex-col gap-3 [&_button]:min-h-11'>
+      <header className='flex min-w-0 flex-wrap items-start gap-2'>
+        {renderCell(byId.get('select'))}
+        <div className='min-w-0 flex-1 wrap-anywhere'>
+          {renderCell(byId.get('name'))}
+          {renderCell(byId.get('type'))}
+        </div>
+        {renderCell(byId.get('status'))}
+      </header>
+      {routes.some(Boolean) && (
+        <dl className='grid min-w-0 grid-cols-2 gap-2'>
+          {routes.map((cell) => cell && (
+            <div key={cell.id} className='min-w-0'>
+              <dt className='text-caption text-muted-foreground'>{String(cell.column.columnDef.header)}</dt>
+              <dd className='mt-1 min-w-0 wrap-anywhere'>{renderCell(cell)}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {!isTag && byId.has('saved_quota') && (
+        <div className='min-w-0 rounded-lg bg-muted/60 p-2 text-sm'>
+          <p className='mb-1 font-medium'>{t('Account windows')}</p>
+          {renderCell(byId.get('saved_quota'))}
+        </div>
+      )}
+      {otherFields.length > 0 && (
+        <SummaryDisclosure summary={t('Details')}>
+          <dl className='space-y-1'>
+            {otherFields.map((cell) => (
+              <div key={cell.id} className='min-w-0 wrap-anywhere'>
+                {typeof cell.column.columnDef.header === 'string' && (
+                  <dt className='text-caption text-muted-foreground'>{cell.column.columnDef.header}</dt>
+                )}
+                <dd>{renderCell(cell)}</dd>
+              </div>
+            ))}
+          </dl>
+        </SummaryDisclosure>
+      )}
+      <div className='min-w-0 [&_[data-row-actions]]:flex-wrap'>
+        {renderCell(byId.get('actions'))}
+      </div>
+    </article>
   )
 }
 
@@ -361,7 +424,7 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
   const evidenceScope = JSON.stringify([actor, evidenceIdsKey])
   const [evidenceIntent, setEvidenceIntent] = useState<string | null>(null)
   const evidenceRequested = active && canRead && !isError && evidenceIds.length > 0 && evidenceIntent === evidenceScope
-  const savedEvidence = useConnectionWindows({ identity: actor, canRead: canRead && active }, evidenceIds, { manual: true })
+  const savedEvidence = useConnectionWindows({ identity: actor, canRead: canRead && active }, evidenceIds, { manual: true, trackClock: evidenceRequested })
   useEffect(() => {
     // Reading saved usage is a one-time intent for this actor and this page of IDs.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -372,9 +435,9 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
     data: savedEvidence.isError ? undefined : savedEvidence.data,
     known: savedEvidence.complete,
     incomplete: savedEvidence.isSuccess && !savedEvidence.complete,
-    loading: savedEvidence.isPending,
+    loading: savedEvidence.isFetching || savedEvidence.isPending,
     now: savedEvidence.now,
-  }) : null, [evidenceRequested, actor, savedEvidence.data, savedEvidence.complete, savedEvidence.isError, savedEvidence.isSuccess, savedEvidence.isPending, savedEvidence.now])
+  }) : null, [evidenceRequested, actor, savedEvidence.data, savedEvidence.complete, savedEvidence.isError, savedEvidence.isSuccess, savedEvidence.isFetching, savedEvidence.isPending, savedEvidence.now])
 
   const knownTotal = isError || isFetching || !canRead ? undefined : data?.data?.total
   const totalCount = knownTotal ?? 0
@@ -529,6 +592,10 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
     return <Alert variant='destructive'><AlertDescription>{t('Connection access could not be verified.')}</AlertDescription></Alert>
   }
 
+  const selectPageHeader = isMobile && batchMode && active && !isError && channels.length > 0
+    ? table.getLeafHeaders().find((header) => header.column.id === 'select')
+    : undefined
+
   return (
     <ConnectionListContext value={connectionReturn}>
     <ConnectionEvidenceContext value={evidenceContext}>
@@ -546,7 +613,7 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
             void savedEvidence.refetch()
           }}
         >
-          {t('Read saved usage status')}
+          {evidenceRequested && savedEvidence.isError ? t('Retry') : t('Read saved usage status')}
         </Button>
       </div>
       {enableTagMode ? (
@@ -579,7 +646,26 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
           'No channels available. Create your first channel to get started.'
         )}
         skeletonKeyPrefix='channel-skeleton'
-        hideMobile
+        mobile={
+          <div className={cn('min-w-0 space-y-3 transition-opacity', isFetching && !isLoading && 'pointer-events-none opacity-60')}>
+            {selectPageHeader && (
+              <div className='flex min-h-11 items-center gap-2'>
+                {flexRender(selectPageHeader.column.columnDef.header, selectPageHeader.getContext())}
+                <span aria-hidden='true'>{t('Select all')}</span>
+              </div>
+            )}
+            <DataTableCardGrid
+              table={table}
+              isLoading={isLoading}
+              emptyTitle={t('No Channels Found')}
+              emptyDescription={t('No channels available. Create your first channel to get started.')}
+              gridClassName='grid min-w-0 grid-cols-1 gap-3'
+              skeletonKeyPrefix='channel-inventory'
+              renderCard={(row) => <ChannelInventoryRow row={row} />}
+              getRowClassName={(row) => isDisabledChannelRow(row.original) ? DISABLED_ROW_MOBILE : undefined}
+            />
+          </div>
+        }
         tableClassName='max-sm:[&_button]:min-h-11 max-sm:[&_button]:min-w-11 max-sm:[&_a]:min-h-11'
         applyHeaderSize
         fixedHeight={false}
@@ -683,6 +769,7 @@ export function ChannelsTable(props: ChannelTaskProps = {}) {
           }
           return DISABLED_ROW_DESKTOP
         }}
+        afterTable={isMobile && active && batchMode ? <DataTableBulkActions table={table} /> : null}
         bulkActions={active && batchMode ? <DataTableBulkActions table={table} /> : null}
       />
     </ConnectionEvidenceContext>

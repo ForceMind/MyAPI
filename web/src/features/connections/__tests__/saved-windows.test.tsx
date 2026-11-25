@@ -98,7 +98,7 @@ test.each(['/connections', '/connections/7'])(
       const card = within(await screen.findByRole('article', { name: CONNECTION.name }))
       const summary = within(await card.findByRole('list', { name: 'Current account windows' })).getAllByRole('listitem')
       expect(summary).toHaveLength(3)
-      expect(within(summary[0]).getByText(/^Resets in:/)).toBeVisible()
+      expect(within(summary[0]).getByText(/^Resets in /)).toBeVisible()
       expect(within(summary[1]).getByText(`Last recorded reset: ${formatTimestampToDate(expired)}`)).toBeVisible()
       expect(within(summary[2]).getByText('Reset time unknown')).toBeVisible()
       await userEvent.setup().click(card.getByRole('button', { name: 'Window details (3)' }))
