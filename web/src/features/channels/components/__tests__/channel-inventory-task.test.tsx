@@ -437,7 +437,7 @@ it('narrow inventory keeps operational status and all original fields available 
   await user.keyboard('{Escape}')
   expect(screen.getByRole('group', { name: 'Priority' })).toBeVisible()
   expect(screen.getByRole('group', { name: 'Weight' })).toBeVisible()
-  await user.click(screen.getByRole('button', { name: 'Details', exact: true }))
+  await user.click(screen.getByRole('button', { name: /^Details$/ }))
   await user.click(screen.getByRole('button', { name: 'Models (2)' }))
   expect(screen.getByText('alpha')).toBeVisible()
   expect(screen.getByText('beta')).toBeVisible()
