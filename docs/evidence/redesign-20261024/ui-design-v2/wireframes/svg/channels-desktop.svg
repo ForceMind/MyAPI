@@ -1,1 +1,117 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1235" viewBox="0 0 1200 1235" role="img" aria-labelledby="title desc"><title id="title">连接 · 表格视图（原渠道） · 桌面</title><desc id="desc">低保真设计源文件，合成数据，待确认。沿用现有身份、角色和服务端权限</desc><rect width="100%" height="100%" fill="#ffffff"/><g font-family="system-ui, -apple-system, BlinkMacSystemFont, sans-serif"><rect x="0" y="0" width="1200" height="56" rx="0" fill="#f0f0f0" stroke="#777777"/><text x="40" y="34" font-size="14" font-weight="600" fill="#262626">MyAPI  [Logo保留]</text><text x="250" y="34" font-size="14" font-weight="normal" fill="#262626">概览    上游    API Key    请求    设置    管理 ▾       搜索 / 账户</text><text x="40" y="96" font-size="26" font-weight="600" fill="#262626">连接 · 表格视图（原渠道）</text><text x="40" y="135" font-size="11" font-weight="normal" fill="#666666">/channels</text><rect x="40" y="151" width="1120" height="48" rx="5" fill="#f5f5f5" stroke="#aaaaaa" stroke-dasharray="5 4"/><text x="52" y="173" font-size="12" font-weight="normal" fill="#262626">已批准的信息层级方案 · 合成占位 · 实现待CI / 浏览器未验证 · 不连接API</text><rect x="40.0" y="215" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/><text x="48.0" y="240" font-size="12" font-weight="normal" fill="#262626">渠道库</text><rect x="322.0" y="215" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/><text x="330.0" y="240" font-size="12" font-weight="normal" fill="#262626">额度证据</text><rect x="604.0" y="215" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/><text x="612.0" y="240" font-size="12" font-weight="normal" fill="#262626">全部事件</text><rect x="886.0" y="215" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/><text x="894.0" y="240" font-size="12" font-weight="normal" fill="#262626">路由预览</text><rect x="40.0" y="275" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/><text x="48.0" y="300" font-size="12" font-weight="normal" fill="#262626">创建渠道</text><rect x="322.0" y="275" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/><text x="330.0" y="300" font-size="12" font-weight="normal" fill="#262626">选择渠道</text><rect x="604.0" y="275" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/><text x="612.0" y="300" font-size="12" font-weight="normal" fill="#262626">显示设置 ▾</text><rect x="886.0" y="275" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/><text x="894.0" y="300" font-size="12" font-weight="normal" fill="#262626">全库维护 ▾</text><rect x="40.0" y="335" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/><text x="48.0" y="360" font-size="12" font-weight="normal" fill="#262626">搜索名称 / ID / Key …</text><rect x="322.0" y="335" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/><text x="330.0" y="360" font-size="12" font-weight="normal" fill="#262626">状态：全部 ▾</text><rect x="604.0" y="335" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/><text x="612.0" y="360" font-size="12" font-weight="normal" fill="#262626">更多筛选 N ▾</text><rect x="886.0" y="335" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/><text x="894.0" y="360" font-size="12" font-weight="normal" fill="#262626">监控 / 选路 / 自定义 ▾</text><rect x="40" y="395" width="268.8" height="44" rx="0" fill="#ededed" stroke="#aaaaaa"/><text x="50" y="422" font-size="12" font-weight="600" fill="#262626">渠道名称 / ID</text><rect x="308.8" y="395" width="145.6" height="44" rx="0" fill="#ededed" stroke="#aaaaaa"/><text x="318.8" y="422" font-size="12" font-weight="600" fill="#262626">供应商</text><rect x="454.4" y="395" width="134.4" height="44" rx="0" fill="#ededed" stroke="#aaaaaa"/><text x="464.4" y="422" font-size="12" font-weight="600" fill="#262626">状态</text><rect x="588.8" y="395" width="201.6" height="44" rx="0" fill="#ededed" stroke="#aaaaaa"/><text x="598.8" y="422" font-size="12" font-weight="600" fill="#262626">余额 / 用量</text><rect x="790.4" y="395" width="190.4" height="44" rx="0" fill="#ededed" stroke="#aaaaaa"/><text x="800.4" y="422" font-size="12" font-weight="600" fill="#262626">上次保存测试</text><rect x="980.8" y="395" width="179.20000000000002" height="44" rx="0" fill="#ededed" stroke="#aaaaaa"/><text x="990.8" y="422" font-size="12" font-weight="600" fill="#262626">操作</text><rect x="40" y="439" width="268.8" height="62" rx="0" fill="#ffffff" stroke="#bbbbbb"/><text x="50" y="469" font-size="12" font-weight="normal" fill="#262626">合成渠道 1  #7</text><rect x="308.8" y="439" width="145.6" height="62" rx="0" fill="#ffffff" stroke="#bbbbbb"/><text x="318.8" y="469" font-size="12" font-weight="normal" fill="#262626">原供应商</text><rect x="454.4" y="439" width="134.4" height="62" rx="0" fill="#ffffff" stroke="#bbbbbb"/><text x="464.4" y="469" font-size="12" font-weight="normal" fill="#262626">未知</text><rect x="588.8" y="439" width="201.6" height="62" rx="0" fill="#ffffff" stroke="#bbbbbb"/><text x="598.8" y="469" font-size="12" font-weight="normal" fill="#262626">— / 未知</text><rect x="790.4" y="439" width="190.4" height="62" rx="0" fill="#ffffff" stroke="#bbbbbb"/><text x="800.4" y="469" font-size="12" font-weight="normal" fill="#262626">未测试 / 已存时间</text><rect x="980.8" y="439" width="179.20000000000002" height="62" rx="0" fill="#ffffff" stroke="#bbbbbb"/><text x="990.8" y="469" font-size="12" font-weight="normal" fill="#262626">编辑 测试 更多</text><rect x="40" y="501" width="268.8" height="62" rx="0" fill="#ffffff" stroke="#bbbbbb"/><text x="50" y="531" font-size="12" font-weight="normal" fill="#262626">合成渠道 2  #8</text><rect x="308.8" y="501" width="145.6" height="62" rx="0" fill="#ffffff" stroke="#bbbbbb"/><text x="318.8" y="531" font-size="12" font-weight="normal" fill="#262626">原供应商</text><rect x="454.4" y="501" width="134.4" height="62" rx="0" fill="#ffffff" stroke="#bbbbbb"/><text x="464.4" y="531" font-size="12" font-weight="normal" fill="#262626">未知</text><rect x="588.8" y="501" width="201.6" height="62" rx="0" fill="#ffffff" stroke="#bbbbbb"/><text x="598.8" y="531" font-size="12" font-weight="normal" fill="#262626">— / 未知</text><rect x="790.4" y="501" width="190.4" height="62" rx="0" fill="#ffffff" stroke="#bbbbbb"/><text x="800.4" y="531" font-size="12" font-weight="normal" fill="#262626">未测试 / 已存时间</text><rect x="980.8" y="501" width="179.20000000000002" height="62" rx="0" fill="#ffffff" stroke="#bbbbbb"/><text x="990.8" y="531" font-size="12" font-weight="normal" fill="#262626">编辑 测试 更多</text><rect x="40" y="563" width="268.8" height="62" rx="0" fill="#ffffff" stroke="#bbbbbb"/><text x="50" y="593" font-size="12" font-weight="normal" fill="#262626">合成渠道 3  #9</text><rect x="308.8" y="563" width="145.6" height="62" rx="0" fill="#ffffff" stroke="#bbbbbb"/><text x="318.8" y="593" font-size="12" font-weight="normal" fill="#262626">原供应商</text><rect x="454.4" y="563" width="134.4" height="62" rx="0" fill="#ffffff" stroke="#bbbbbb"/><text x="464.4" y="593" font-size="12" font-weight="normal" fill="#262626">未知</text><rect x="588.8" y="563" width="201.6" height="62" rx="0" fill="#ffffff" stroke="#bbbbbb"/><text x="598.8" y="593" font-size="12" font-weight="normal" fill="#262626">— / 未知</text><rect x="790.4" y="563" width="190.4" height="62" rx="0" fill="#ffffff" stroke="#bbbbbb"/><text x="800.4" y="593" font-size="12" font-weight="normal" fill="#262626">未测试 / 已存时间</text><rect x="980.8" y="563" width="179.20000000000002" height="62" rx="0" fill="#ffffff" stroke="#bbbbbb"/><text x="990.8" y="593" font-size="12" font-weight="normal" fill="#262626">编辑 测试 更多</text><rect x="40.0" y="641" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/><text x="48.0" y="666" font-size="12" font-weight="normal" fill="#262626">首 / 上一页</text><rect x="322.0" y="641" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/><text x="330.0" y="666" font-size="12" font-weight="normal" fill="#262626">第 N 页 · 总数未知</text><rect x="604.0" y="641" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/><text x="612.0" y="666" font-size="12" font-weight="normal" fill="#262626">20 / 50 / 100 条</text><rect x="886.0" y="641" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/><text x="894.0" y="666" font-size="12" font-weight="normal" fill="#262626">下一页 / 末页</text><rect x="40" y="701" width="1120" height="147" rx="5" fill="#ffffff" stroke="#888888"/><text x="54" y="727" font-size="16" font-weight="600" fill="#262626">显式信息视图与操作范围</text><line x1="54" y1="756" x2="1146" y2="756" stroke="#aaaaaa"/><text x="54" y="776" font-size="13" font-weight="normal" fill="#262626">· 选路视图：优先级 / 权重 / 分组 / 模型 / Tag与原行内编辑</text><text x="54" y="806" font-size="13" font-weight="normal" fill="#262626">· 自定义列：保留原所有列和个人列宽，不覆盖旧偏好</text><text x="54" y="836" font-size="13" font-weight="normal" fill="#262626">· 选中数值ID / 整个Tag / 全部渠道分别确认，不混同范围</text><rect x="40" y="866" width="1120" height="177" rx="5" fill="#ffffff" stroke="#888888"/><text x="54" y="892" font-size="16" font-weight="600" fill="#262626">状态与返回边界</text><line x1="54" y1="921" x2="1146" y2="921" stroke="#aaaaaa"/><text x="54" y="941" font-size="13" font-weight="normal" fill="#262626">· 库存为默认工作区，重证据不默认读取；当前故障/Unknown/操作错误保留。</text><text x="54" y="971" font-size="13" font-weight="normal" fill="#262626">· 切任务保筛选、分页、排序、列偏好、选择、滚动与返回焦点。</text><text x="54" y="1001" font-size="13" font-weight="normal" fill="#262626">· 维护是全库；Tag是全标签；批选是数值ID，不混淆范围。</text><text x="54" y="1031" font-size="13" font-weight="normal" fill="#262626">· 旧锚点与quotaChannelId保留；默认不测试模型/查供应商余额。</text><rect x="40" y="1061" width="1120" height="117" rx="5" fill="#ffffff" stroke="#888888"/><text x="54" y="1087" font-size="16" font-weight="600" fill="#262626">拟精简 / 合并方式</text><line x1="54" y1="1116" x2="1146" y2="1116" stroke="#aaaaaa"/><text x="54" y="1136" font-size="13" font-weight="normal" fill="#262626">· 与连接卡片共用筛选、对象详情、编辑器和动作；保留管理员渠道表格所需的高级列。</text><text x="54" y="1166" font-size="13" font-weight="normal" fill="#262626">· 本轮只提交设计，不删除页面、参数、权限或业务功能。</text><text x="40" y="1210" font-size="10" font-weight="normal" fill="#666666">channels · 桌面1200 · 来源 c916051e · 浏览器未验证</text></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1606" viewBox="0 0 1200 1606" role="img" aria-labelledby="title desc"><title id="title">连接 · 表格视图（原渠道） · 桌面</title><desc id="desc">渠道交互线稿。含额度读取、窗口倒计时、权重编辑和结果核对。合成数据，交互待确认。</desc><rect width="100%" height="100%" fill="#ffffff"/><g font-family="system-ui, -apple-system, BlinkMacSystemFont, sans-serif">
+<rect x="0" y="0" width="1200" height="56" rx="0" fill="#f0f0f0" stroke="#777777"/>
+<text x="40" y="34" font-size="14" font-weight="600" fill="#262626">MyAPI  [Logo保留]</text>
+<text x="250" y="34" font-size="14" font-weight="normal" fill="#262626">概览    上游    API Key    请求    设置    管理 ▾       搜索 / 账户</text>
+<text x="40" y="96" font-size="26" font-weight="600" fill="#262626">连接 · 表格视图（原渠道）</text>
+<text x="40" y="135" font-size="11" font-weight="normal" fill="#666666">/channels</text>
+<rect x="40" y="151" width="1120" height="48" rx="5" fill="#f5f5f5" stroke="#aaaaaa" stroke-dasharray="5 4"/>
+<text x="52" y="173" font-size="12" font-weight="normal" fill="#262626">已批准的信息层级方案 · 合成占位 · 实现待CI / 浏览器未验证 · 不连接API</text>
+<rect x="40.0" y="215" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/>
+<text x="48.0" y="240" font-size="12" font-weight="normal" fill="#262626">渠道库</text>
+<rect x="322.0" y="215" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/>
+<text x="330.0" y="240" font-size="12" font-weight="normal" fill="#262626">额度证据</text>
+<rect x="604.0" y="215" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/>
+<text x="612.0" y="240" font-size="12" font-weight="normal" fill="#262626">全部事件</text>
+<rect x="886.0" y="215" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/>
+<text x="894.0" y="240" font-size="12" font-weight="normal" fill="#262626">路由预览</text>
+<rect x="40.0" y="275" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/>
+<text x="48.0" y="300" font-size="12" font-weight="normal" fill="#262626">创建渠道</text>
+<rect x="322.0" y="275" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/>
+<text x="330.0" y="300" font-size="12" font-weight="normal" fill="#262626">选择渠道</text>
+<rect x="604.0" y="275" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/>
+<text x="612.0" y="300" font-size="12" font-weight="normal" fill="#262626">显示设置 ▾</text>
+<rect x="886.0" y="275" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/>
+<text x="894.0" y="300" font-size="12" font-weight="normal" fill="#262626">全库维护 ▾</text>
+<rect x="40.0" y="335" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/>
+<text x="48.0" y="360" font-size="12" font-weight="normal" fill="#262626">搜索名称 / ID / Key …</text>
+<rect x="322.0" y="335" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/>
+<text x="330.0" y="360" font-size="12" font-weight="normal" fill="#262626">状态：全部 ▾</text>
+<rect x="604.0" y="335" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/>
+<text x="612.0" y="360" font-size="12" font-weight="normal" fill="#262626">更多筛选 N ▾</text>
+<rect x="886.0" y="335" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/>
+<text x="894.0" y="360" font-size="12" font-weight="normal" fill="#262626">监控 / 选路 / 自定义 ▾</text>
+<rect x="40" y="393" width="214" height="44" rx="5" fill="#f5f5f5" stroke="#777777"/><text x="50" y="420" font-size="12" font-weight="600" fill="#262626">读取已保存用量状态</text>
+<text x="269" y="420" font-size="12" font-weight="400" fill="#262626">当前页 · 示例为读取完成</text>
+<rect x="40" y="453" width="1120" height="35" rx="5" fill="#f3f3f3" stroke="#777777"/>
+<rect x="40" y="488" width="1120" height="138" rx="5" fill="#ffffff" stroke="#777777"/>
+<rect x="40" y="626" width="1120" height="78" rx="5" fill="#ffffff" stroke="#777777"/>
+<text x="54" y="476" font-size="13" font-weight="600" fill="#262626">渠道名称 / ID</text>
+<text x="294" y="476" font-size="13" font-weight="600" fill="#262626">优先级</text>
+<text x="416" y="476" font-size="13" font-weight="600" fill="#262626">权重</text>
+<text x="548" y="476" font-size="13" font-weight="600" fill="#262626">额度窗口</text>
+<text x="921" y="476" font-size="13" font-weight="600" fill="#262626">操作</text>
+<text x="54" y="524" font-size="17" font-weight="600" fill="#262626">Codex 示例连接 · #7</text>
+<text x="54" y="550" font-size="13" font-weight="400" fill="#262626">ChatGPT 订阅 · 使用中</text>
+<rect x="286" y="505" width="106" height="44" rx="5" fill="#f5f5f5" stroke="#777777"/><text x="296" y="532" font-size="12" font-weight="600" fill="#262626">9  编辑</text>
+<rect x="408" y="505" width="112" height="44" rx="5" fill="#f5f5f5" stroke="#777777"/><text x="418" y="532" font-size="12" font-weight="600" fill="#262626">25  编辑</text>
+<text x="548" y="519" font-size="13" font-weight="600" fill="#262626">5 小时窗口</text>
+<text x="642" y="519" font-size="13" font-weight="400" fill="#262626">4 小时 16 分钟后重置</text>
+<text x="817" y="519" font-size="13" font-weight="400" fill="#262626">剩余 82%</text>
+<line x1="548" y1="534" x2="894" y2="534" stroke="#aaaaaa"/>
+<text x="548" y="557" font-size="13" font-weight="600" fill="#262626">7 天窗口</text>
+<text x="642" y="557" font-size="13" font-weight="400" fill="#262626">4 天 19 小时后重置</text>
+<text x="817" y="557" font-size="13" font-weight="400" fill="#262626">剩余 66%</text>
+<text x="548" y="594" font-size="13" font-weight="600" fill="#262626">查看重置时刻与记录  ▾</text>
+<rect x="911" y="505" width="235" height="44" rx="5" fill="#f5f5f5" stroke="#777777"/><text x="921" y="532" font-size="12" font-weight="600" fill="#262626">查看 / 编辑 / 测试 / 更多〔原权限〕</text>
+<text x="921" y="578" font-size="13" font-weight="400" fill="#262626">上次保存测试与响应时间</text>
+<text x="54" y="657" font-size="16" font-weight="600" fill="#262626">合成渠道 · #8</text>
+<text x="54" y="683" font-size="13" font-weight="400" fill="#262626">状态与供应商 · 保存的连接资料</text>
+<text x="294" y="662" font-size="13" font-weight="400" fill="#262626">10</text>
+<text x="416" y="662" font-size="13" font-weight="400" fill="#262626">20</text>
+<text x="548" y="651" font-size="13" font-weight="400" fill="#262626">5 小时窗口 · 剩余未知 · 重置时间未知</text>
+<text x="548" y="680" font-size="13" font-weight="400" fill="#262626">7 天窗口 · 上次剩余 38%〔查看记录〕</text>
+<text x="921" y="661" font-size="13" font-weight="400" fill="#262626">查看 / 编辑 / 测试 / 更多</text>
+<g transform="translate(0 78)">
+<rect x="40.0" y="641" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/>
+<text x="48.0" y="666" font-size="12" font-weight="normal" fill="#262626">首 / 上一页</text>
+<rect x="322.0" y="641" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/>
+<text x="330.0" y="666" font-size="12" font-weight="normal" fill="#262626">第 N 页 · 总数未知</text>
+<rect x="604.0" y="641" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/>
+<text x="612.0" y="666" font-size="12" font-weight="normal" fill="#262626">20 / 50 / 100 条</text>
+<rect x="886.0" y="641" width="274.0" height="44" rx="5" fill="#fafafa" stroke="#888888"/>
+<text x="894.0" y="666" font-size="12" font-weight="normal" fill="#262626">下一页 / 末页</text>
+<rect x="40" y="701" width="1120" height="147" rx="5" fill="#ffffff" stroke="#888888"/>
+<text x="54" y="727" font-size="16" font-weight="600" fill="#262626">显式信息视图与操作范围</text>
+<line x1="54" y1="756" x2="1146" y2="756" stroke="#aaaaaa"/>
+<text x="54" y="776" font-size="13" font-weight="normal" fill="#262626">· 选路视图：优先级 / 权重 / 分组 / 模型 / Tag与原行内编辑</text>
+<text x="54" y="806" font-size="13" font-weight="normal" fill="#262626">· 自定义列：保留原所有列和个人列宽，不覆盖旧偏好</text>
+<text x="54" y="836" font-size="13" font-weight="normal" fill="#262626">· 选中数值ID / 整个Tag / 全部渠道分别确认，不混同范围</text>
+<rect x="40" y="866" width="1120" height="177" rx="5" fill="#ffffff" stroke="#888888"/>
+<text x="54" y="892" font-size="16" font-weight="600" fill="#262626">状态与返回边界</text>
+<line x1="54" y1="921" x2="1146" y2="921" stroke="#aaaaaa"/>
+<text x="54" y="941" font-size="13" font-weight="normal" fill="#262626">· 库存为默认工作区，重证据不默认读取；当前故障/Unknown/操作错误保留。</text>
+<text x="54" y="971" font-size="13" font-weight="normal" fill="#262626">· 切任务保筛选、分页、排序、列偏好、选择、滚动与返回焦点。</text>
+<text x="54" y="1001" font-size="13" font-weight="normal" fill="#262626">· 维护是全库；Tag是全标签；批选是数值ID，不混淆范围。</text>
+<text x="54" y="1031" font-size="13" font-weight="normal" fill="#262626">· 旧锚点与quotaChannelId保留；默认不测试模型/查供应商余额。</text>
+<rect x="40" y="1061" width="1120" height="117" rx="5" fill="#ffffff" stroke="#888888"/>
+<text x="54" y="1087" font-size="16" font-weight="600" fill="#262626">拟精简 / 合并方式</text>
+<line x1="54" y1="1116" x2="1146" y2="1116" stroke="#aaaaaa"/>
+<text x="54" y="1136" font-size="13" font-weight="normal" fill="#262626">· 与连接卡片共用筛选、对象详情、编辑器和动作；保留管理员渠道表格所需的高级列。</text>
+<text x="54" y="1166" font-size="13" font-weight="normal" fill="#262626">· 本轮只提交设计，不删除页面、参数、权限或业务功能。</text>
+</g>
+<rect x="40" y="1274" width="546" height="129" rx="5" fill="#ffffff" stroke="#777777"/>
+<text x="54" y="1299" font-size="15" font-weight="600" fill="#262626">额度 · 读取已保存用量状态</text>
+<line x1="54" y1="1311" x2="572" y2="1311" stroke="#aaaaaa"/>
+<text x="54" y="1332" font-size="13" font-weight="400" fill="#262626">未读：按需读取当前页渠道，跟随当前身份与读取权限。</text>
+<text x="54" y="1354" font-size="13" font-weight="400" fill="#262626">读取中：显示进度，按钮不可重复触发。</text>
+<text x="54" y="1376" font-size="13" font-weight="400" fill="#262626">读取失败：原处显示「无法读取」与重试。权限撤回后隐藏额度。</text>
+<rect x="614" y="1274" width="546" height="129" rx="5" fill="#ffffff" stroke="#777777"/>
+<text x="628" y="1299" font-size="15" font-weight="600" fill="#262626">额度 · 读到记录后</text>
+<line x1="628" y1="1311" x2="1146" y2="1311" stroke="#aaaaaa"/>
+<text x="628" y="1332" font-size="13" font-weight="400" fill="#262626">5 小时、7 天各有剩余值和「多久后重置」。</text>
+<text x="628" y="1354" font-size="13" font-weight="400" fill="#262626">展开查看绝对时刻、观测来源、历史错误。过期标「上次记录」。</text>
+<text x="628" y="1376" font-size="13" font-weight="400" fill="#262626">缺失显示未知，不支持显示中性状态，当前故障在原处保留。</text>
+<rect x="40" y="1422" width="546" height="129" rx="5" fill="#ffffff" stroke="#777777"/>
+<text x="54" y="1447" font-size="15" font-weight="600" fill="#262626">编辑权重 · 原行保存</text>
+<line x1="54" y1="1459" x2="572" y2="1459" stroke="#aaaaaa"/>
+<text x="54" y="1480" font-size="13" font-weight="400" fill="#262626">有写权限：点编辑并调整数值，沿用现有提交规则。</text>
+<text x="54" y="1502" font-size="13" font-weight="400" fill="#262626">保存中锁定当前字段，成功确认保存值。</text>
+<text x="54" y="1524" font-size="13" font-weight="400" fill="#262626">保存结果不明：锁住编辑，提供「读取已保存值」；只读，不重放。</text>
+<rect x="614" y="1422" width="546" height="129" rx="5" fill="#ffffff" stroke="#777777"/>
+<text x="628" y="1447" font-size="15" font-weight="600" fill="#262626">读取结果与返回位置</text>
+<line x1="628" y1="1459" x2="1146" y2="1459" stroke="#aaaaaa"/>
+<text x="628" y="1480" font-size="13" font-weight="400" fill="#262626">读回成功后显示保存值，原草稿如不同可供对照。</text>
+<text x="628" y="1502" font-size="13" font-weight="400" fill="#262626">读回失败提示原因，锁定保留并提供再次读取。</text>
+<text x="628" y="1524" font-size="13" font-weight="400" fill="#262626">详情返回原页、筛选、滚动位置和触发焦点。</text>
+<text x="40" y="1584" font-size="11" font-weight="400" fill="#262626">渠道表 · 桌面 1200px · 交互待确认</text>
+</g></svg>
