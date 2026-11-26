@@ -77,6 +77,22 @@ func geminiRelayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewA
 	return err
 }
 
+// writeChatCompletionStreamError writes a terminal frame to an already committed stream.
+func writeChatCompletionStreamError(c *gin.Context, displayError types.OpenAIError) {
+	body, err := common.Marshal(gin.H{"error": displayError})
+	if err != nil || c.Request.Context().Err() != nil {
+		return
+	}
+	frame := append([]byte("data: "), body...)
+	frame = append(frame, '\n', '\n')
+	helper.ExtendWriteDeadline(c)
+	n, err := c.Writer.Write(frame)
+	if err != nil || n != len(frame) || c.Request.Context().Err() != nil {
+		return
+	}
+	_ = http.NewResponseController(c.Writer).Flush()
+}
+
 func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	defer service.FinishUpstreamAcceptanceRelayOperation(c)
 
@@ -104,12 +120,28 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	defer func() {
 		if newAPIError != nil {
-			displayError := service.SafeRelayError(c, newAPIError)
-			if common.SensitiveRequestDiagnostics(c) {
+			sensitive := common.SensitiveRequestDiagnostics(c)
+			committedSSE := c.Writer.Written() && strings.HasPrefix(c.Writer.Header().Get("Content-Type"), "text/event-stream")
+			chatCompletions := relayFormat == types.RelayFormatOpenAI && c.FullPath() == "/v1/chat/completions"
+			chatTerminalError := chatCompletions && committedSSE
+			displayError := newAPIError
+			if sensitive || chatTerminalError {
+				displayError = service.RelayErrorWithoutContent(c, newAPIError)
+			}
+			if sensitive {
 				logger.LogErrorMetadata(c, displayError.ToOpenAIError().Type, string(displayError.GetErrorCode()), displayError.StatusCode)
 			} else {
 				logger.LogError(c, fmt.Sprintf("relay error: %s", common.LocalLogPreview(newAPIError.Error())))
-				displayError.SetMessage(common.MessageWithRequestId(displayError.Error(), requestId))
+				if !chatTerminalError {
+					displayError.SetMessage(common.MessageWithRequestId(displayError.Error(), requestId))
+				}
+			}
+			if chatCompletions && c.Request.Context().Err() != nil {
+				return
+			}
+			if chatTerminalError {
+				writeChatCompletionStreamError(c, displayError.ToOpenAIError())
+				return
 			}
 			switch relayFormat {
 			case types.RelayFormatOpenAIRealtime:
@@ -120,12 +152,12 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 					"error": displayError.ToClaudeError(),
 				})
 			default:
-				if common.SensitiveRequestDiagnostics(c) && c.Writer.Written() && strings.HasPrefix(c.Writer.Header().Get("Content-Type"), "text/event-stream") {
+				if sensitive && committedSSE {
 					// Once a partial stream is written its HTTP status cannot change.
 					// Emit a parseable terminal error event rather than bare JSON.
 					_ = helper.ObjectData(c, gin.H{"error": displayError.ToOpenAIError()})
 				} else {
-					if common.SensitiveRequestDiagnostics(c) {
+					if sensitive || (chatCompletions && !c.Writer.Written()) {
 						c.Header("Content-Type", "application/json")
 					}
 					c.JSON(displayError.StatusCode, gin.H{

@@ -126,8 +126,16 @@ func RelayErrorHandler(ctx context.Context, resp *http.Response, showBodyWhenFai
 // The original error remains available for retry, usage-limit and billing
 // classification; provider message matching must never use this display copy.
 func SafeRelayError(ctx context.Context, original *types.NewAPIError) *types.NewAPIError {
-	if original == nil || !common.SensitiveRequestDiagnostics(ctx) {
+	if !common.SensitiveRequestDiagnostics(ctx) {
 		return original
+	}
+	return RelayErrorWithoutContent(ctx, original)
+}
+
+// RelayErrorWithoutContent returns a display copy without provider content.
+func RelayErrorWithoutContent(ctx context.Context, original *types.NewAPIError) *types.NewAPIError {
+	if original == nil {
+		return nil
 	}
 	code := common.SafeDiagnosticIdentifier(string(original.GetErrorCode()))
 	errorType := string(original.GetErrorType())
