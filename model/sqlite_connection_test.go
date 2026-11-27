@@ -143,8 +143,8 @@ func TestSQLiteNormalizedConnectionHandlesConcurrentWritesWithoutBusy(t *testing
 	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
 	configureDatabasePool(sqlDB, dbType)
 
-	require.NoError(t, db.Exec("CREATE TABLE sqlite_lock_counter (id INTEGER PRIMARY KEY, count INTEGER NOT NULL)").Error)
-	require.NoError(t, db.Exec("INSERT INTO sqlite_lock_counter (id, count) VALUES (1, 0)").Error)
+	require.NoError(t, db.Exec("CREATE TABLE lock_counter (id INTEGER PRIMARY KEY, count INTEGER NOT NULL)").Error)
+	require.NoError(t, db.Exec("INSERT INTO lock_counter (id, count) VALUES (1, 0)").Error)
 
 	const workers = 8
 	const iterations = 3
@@ -157,10 +157,10 @@ func TestSQLiteNormalizedConnectionHandlesConcurrentWritesWithoutBusy(t *testing
 			for j := 0; j < iterations; j++ {
 				txErr := db.Transaction(func(tx *gorm.DB) error {
 					var current int
-					if err := tx.Raw("SELECT count FROM sqlite_lock_counter WHERE id = 1").Scan(&current).Error; err != nil {
+					if err := tx.Raw("SELECT count FROM lock_counter WHERE id = 1").Scan(&current).Error; err != nil {
 						return err
 					}
-					return tx.Exec("UPDATE sqlite_lock_counter SET count = ? WHERE id = 1", current+1).Error
+					return tx.Exec("UPDATE lock_counter SET count = ? WHERE id = 1", current+1).Error
 				})
 				if txErr != nil {
 					errCh <- txErr
@@ -182,7 +182,7 @@ func TestSQLiteNormalizedConnectionHandlesConcurrentWritesWithoutBusy(t *testing
 
 	extTx, err := externalDB.Begin()
 	require.NoError(t, err)
-	_, err = extTx.Exec("UPDATE sqlite_lock_counter SET count = count + 1 WHERE id = 1")
+	_, err = extTx.Exec("UPDATE lock_counter SET count = count + 1 WHERE id = 1")
 	require.NoError(t, err)
 
 	releaseDone := make(chan error, 1)
@@ -192,11 +192,11 @@ func TestSQLiteNormalizedConnectionHandlesConcurrentWritesWithoutBusy(t *testing
 	}()
 
 	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
-		return tx.Exec("UPDATE sqlite_lock_counter SET count = count + 1 WHERE id = 1").Error
+		return tx.Exec("UPDATE lock_counter SET count = count + 1 WHERE id = 1").Error
 	}))
 	require.NoError(t, <-releaseDone)
 
 	var finalCount int
-	require.NoError(t, db.Raw("SELECT count FROM sqlite_lock_counter WHERE id = 1").Scan(&finalCount).Error)
+	require.NoError(t, db.Raw("SELECT count FROM lock_counter WHERE id = 1").Scan(&finalCount).Error)
 	assert.Equal(t, workers*iterations+2, finalCount)
 }
