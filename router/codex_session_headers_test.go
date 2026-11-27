@@ -219,6 +219,7 @@ type codexSessionHeadersFixture struct {
 	observed         chan http.Header
 	observedBodies   chan []byte
 	responseSSE      string
+	holdUntilDone    bool
 	noContentType    bool
 	contentLog       bool
 	diagnostics      bool
@@ -295,6 +296,7 @@ func newCodexSessionHeadersFixture(t *testing.T, modelName string, channelPass, 
 	}
 	t.Setenv("FULL_CONTENT_LOG_ENABLED", strconv.FormatBool(fixture.contentLog))
 	t.Setenv("MYAPI_UPSTREAM_DIAGNOSTIC_ENABLED", strconv.FormatBool(fixture.diagnostics))
+	stopUpstream := make(chan struct{})
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fixture.calls.Add(1)
 		select {
@@ -323,6 +325,13 @@ func newCodexSessionHeadersFixture(t *testing.T, modelName string, channelPass, 
 			}
 			return
 		}
+		if fixture.holdUntilDone && fixture.responseSSE == "" {
+			select {
+			case <-r.Context().Done():
+			case <-stopUpstream:
+			}
+			return
+		}
 		if fixture.responseStatus != 0 {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(fixture.responseStatus)
@@ -334,11 +343,21 @@ func newCodexSessionHeadersFixture(t *testing.T, modelName string, channelPass, 
 		w.Header().Set("X-Codex-Turn-State", "synthetic-next-turn")
 		if fixture.responseSSE != "" {
 			_, _ = io.WriteString(w, fixture.responseSSE)
+			if fixture.holdUntilDone {
+				if flusher, ok := w.(http.Flusher); ok {
+					flusher.Flush()
+				}
+				select {
+				case <-r.Context().Done():
+				case <-stopUpstream:
+				}
+			}
 			return
 		}
 		fmt.Fprintf(w, "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"synthetic-header-response\",\"object\":\"response\",\"status\":\"completed\",\"model\":%q,\"output\":[],\"usage\":{\"input_tokens\":10,\"output_tokens\":5,\"total_tokens\":15,\"input_tokens_details\":{\"cached_tokens\":0}}}}\n\ndata: [DONE]\n\n", modelName)
 	}))
 	t.Cleanup(upstream.Close)
+	t.Cleanup(func() { close(stopUpstream) })
 	transport := &http.Transport{
 		Proxy: nil,
 		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {

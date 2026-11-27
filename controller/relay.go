@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -78,16 +79,16 @@ func geminiRelayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewA
 }
 
 // writeChatCompletionStreamError writes a terminal frame to an already committed stream.
-func writeChatCompletionStreamError(c *gin.Context, displayError types.OpenAIError) {
+func writeChatCompletionStreamError(c *gin.Context, clientCtx context.Context, displayError types.OpenAIError) {
 	body, err := common.Marshal(gin.H{"error": displayError})
-	if err != nil || c.Request.Context().Err() != nil {
+	if err != nil || (clientCtx != nil && clientCtx.Err() != nil) {
 		return
 	}
 	frame := append([]byte("data: "), body...)
 	frame = append(frame, '\n', '\n')
 	helper.ExtendWriteDeadline(c)
 	n, err := c.Writer.Write(frame)
-	if err != nil || n != len(frame) || c.Request.Context().Err() != nil {
+	if err != nil || n != len(frame) || (clientCtx != nil && clientCtx.Err() != nil) {
 		return
 	}
 	_ = http.NewResponseController(c.Writer).Flush()
@@ -97,6 +98,10 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	defer service.FinishUpstreamAcceptanceRelayOperation(c)
 
 	requestId := c.GetString(common.RequestIdKey)
+	var clientCtx context.Context
+	if c.Request != nil {
+		clientCtx = c.Request.Context()
+	}
 	failover := service.BeginRelayFailover(c)
 	defer failover.Close()
 	c.Set("relay_success", false)
@@ -136,11 +141,11 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 					displayError.SetMessage(common.MessageWithRequestId(displayError.Error(), requestId))
 				}
 			}
-			if chatCompletions && c.Request.Context().Err() != nil {
+			if chatCompletions && clientCtx != nil && clientCtx.Err() != nil {
 				return
 			}
 			if chatTerminalError {
-				writeChatCompletionStreamError(c, displayError.ToOpenAIError())
+				writeChatCompletionStreamError(c, clientCtx, displayError.ToOpenAIError())
 				return
 			}
 			switch relayFormat {

@@ -73,13 +73,16 @@ func TestResponsesChatTerminalErrorsAreFramedWithoutReplay(t *testing.T) {
 		status    int
 		sensitive bool
 		cancel    bool
+		deadline  bool
 		failWrite bool
 		success   bool
 	}{
 		{name: "before first event 401", status: http.StatusUnauthorized},
 		{name: "before first event 429", status: http.StatusTooManyRequests},
 		{name: "before first event 503", status: http.StatusServiceUnavailable},
+		{name: "internal deadline before first event", status: http.StatusInternalServerError, deadline: true},
 		{name: "partial stream error"},
+		{name: "internal deadline during partial stream", deadline: true},
 		{name: "sensitive partial stream error", sensitive: true},
 		{name: "canceled during partial stream", cancel: true},
 		{name: "terminal writer failure", failWrite: true},
@@ -88,6 +91,11 @@ func TestResponsesChatTerminalErrorsAreFramedWithoutReplay(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			fixture := newCodexSessionHeadersFixture(t, "gpt-5-codex", false, false, "", func(f *codexSessionHeadersFixture) {
 				switch {
+				case test.deadline && test.status != 0:
+					f.holdUntilDone = true
+				case test.deadline:
+					f.responseSSE = responsesChatTerminalPrefix
+					f.holdUntilDone = true
 				case test.status != 0:
 					f.responseStatus = test.status
 					f.responseSSE = `{"error":{"message":"synthetic refusal","type":"api_error","code":"api_error"}}`
@@ -98,7 +106,10 @@ func TestResponsesChatTerminalErrorsAreFramedWithoutReplay(t *testing.T) {
 				}
 			})
 			common.LogConsumeEnabled = true
-			if test.status == 0 {
+			if test.deadline {
+				common.RelayFailoverTimeoutSeconds = 1
+			}
+			if test.status == 0 || test.deadline {
 				common.RetryTimes = 2
 			}
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(
@@ -133,6 +144,8 @@ func TestResponsesChatTerminalErrorsAreFramedWithoutReplay(t *testing.T) {
 			require.Zero(t, out.flushesAfterError)
 			if test.cancel {
 				require.ErrorIs(t, ctx.Err(), context.Canceled)
+			} else {
+				require.NoError(t, ctx.Err())
 			}
 
 			body := out.Body.String()
@@ -144,7 +157,12 @@ func TestResponsesChatTerminalErrorsAreFramedWithoutReplay(t *testing.T) {
 					Error types.OpenAIError `json:"error"`
 				}
 				require.NoError(t, common.Unmarshal(out.Body.Bytes(), &envelope))
-				require.Contains(t, envelope.Error.Message, "synthetic refusal")
+				if test.deadline {
+					require.Contains(t, envelope.Error.Message, "synthetic-header-request-0")
+					require.NotEmpty(t, envelope.Error.Code)
+				} else {
+					require.Contains(t, envelope.Error.Message, "synthetic refusal")
+				}
 				require.Zero(t, out.terminalWrites)
 			} else {
 				require.Equal(t, http.StatusOK, out.Code)
