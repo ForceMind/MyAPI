@@ -2,11 +2,13 @@ package model
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -145,6 +147,75 @@ func resolveDatabaseTarget(envName string, isLog bool) (databaseTarget, error) {
 	return databaseTarget{databaseType: common.DatabaseTypeMySQL, dsn: dsn}, nil
 }
 
+const defaultSQLiteBusyTimeoutMS = 30000
+
+// normalizeSQLiteDriverDSN translates legacy _busy_timeout query parameters
+// into the _pragma syntax supported by glebarez/sqlite (modernc.org/sqlite)
+// and enables busy_timeout + WAL on file-backed read/write connections so
+// pooled connections inherit them across ConnMaxLifetime recycles.
+func normalizeSQLiteDriverDSN(dsn string) string {
+	trimmed := strings.TrimSpace(dsn)
+	if trimmed == "" || trimmed == ":memory:" {
+		return trimmed
+	}
+	base, rawQuery, hasQuery := strings.Cut(trimmed, "?")
+	query := url.Values{}
+	if hasQuery {
+		parsed, err := url.ParseQuery(rawQuery)
+		if err != nil {
+			return dsn
+		}
+		query = parsed
+	}
+
+	hasPragma := func(name string) bool {
+		prefix := strings.ToLower(name)
+		for _, entry := range query["_pragma"] {
+			lower := strings.ToLower(strings.TrimSpace(entry))
+			if strings.HasPrefix(lower, prefix+"(") || strings.HasPrefix(lower, prefix+"=") {
+				return true
+			}
+		}
+		return false
+	}
+
+	busyTimeout := defaultSQLiteBusyTimeoutMS
+	if rawTimeout := strings.TrimSpace(query.Get("_busy_timeout")); rawTimeout != "" {
+		if parsedTimeout, err := strconv.Atoi(rawTimeout); err == nil && parsedTimeout > 0 {
+			busyTimeout = parsedTimeout
+		}
+		query.Del("_busy_timeout")
+	}
+	if !hasPragma("busy_timeout") {
+		query.Add("_pragma", fmt.Sprintf("busy_timeout(%d)", busyTimeout))
+	}
+
+	isMemory := strings.EqualFold(base, "file::memory:") || strings.EqualFold(strings.TrimSpace(query.Get("mode")), "memory")
+	isReadOnly := strings.EqualFold(strings.TrimSpace(query.Get("mode")), "ro") || strings.TrimSpace(query.Get("immutable")) == "1"
+	if !isMemory && !isReadOnly && !hasPragma("journal_mode") {
+		query.Add("_pragma", "journal_mode(WAL)")
+	}
+
+	return base + "?" + query.Encode()
+}
+
+func configureDatabasePool(sqlDB *sql.DB, dbType common.DatabaseType) {
+	defaultIdleConns := 100
+	defaultOpenConns := 1000
+	if dbType == common.DatabaseTypeSQLite {
+		defaultIdleConns = 1
+		defaultOpenConns = 1
+	}
+	maxOpenConns := common.GetEnvOrDefault("SQL_MAX_OPEN_CONNS", defaultOpenConns)
+	maxIdleConns := common.GetEnvOrDefault("SQL_MAX_IDLE_CONNS", defaultIdleConns)
+	if dbType == common.DatabaseTypeSQLite && maxOpenConns > 0 && maxIdleConns > maxOpenConns {
+		maxIdleConns = maxOpenConns
+	}
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+	sqlDB.SetMaxOpenConns(maxOpenConns)
+	sqlDB.SetConnMaxLifetime(time.Second * time.Duration(common.GetEnvOrDefault("SQL_MAX_LIFETIME", 60)))
+}
+
 func chooseDB(envName string, isLog bool) (*gorm.DB, common.DatabaseType, error) {
 	target, err := resolveDatabaseTarget(envName, isLog)
 	if err != nil {
@@ -168,7 +239,7 @@ func chooseDB(envName string, isLog bool) (*gorm.DB, common.DatabaseType, error)
 		return db, target.databaseType, openErr
 	default:
 		common.SysLog("SQL_DSN not set, using SQLite as database")
-		db, openErr := gorm.Open(sqlite.Open(target.dsn), newGormConfig(true))
+		db, openErr := gorm.Open(sqlite.Open(normalizeSQLiteDriverDSN(target.dsn)), newGormConfig(true))
 		return db, common.DatabaseTypeSQLite, openErr
 	}
 }
@@ -223,9 +294,7 @@ func InitDB() (err error) {
 		if err != nil {
 			return err
 		}
-		sqlDB.SetMaxIdleConns(common.GetEnvOrDefault("SQL_MAX_IDLE_CONNS", 100))
-		sqlDB.SetMaxOpenConns(common.GetEnvOrDefault("SQL_MAX_OPEN_CONNS", 1000))
-		sqlDB.SetConnMaxLifetime(time.Second * time.Duration(common.GetEnvOrDefault("SQL_MAX_LIFETIME", 60)))
+		configureDatabasePool(sqlDB, dbType)
 
 		if !common.IsMasterNode {
 			if os.Getenv("LOG_SQL_DSN") == "" {
@@ -310,9 +379,7 @@ func InitLogDB() (err error) {
 		if err != nil {
 			return err
 		}
-		sqlDB.SetMaxIdleConns(common.GetEnvOrDefault("SQL_MAX_IDLE_CONNS", 100))
-		sqlDB.SetMaxOpenConns(common.GetEnvOrDefault("SQL_MAX_OPEN_CONNS", 1000))
-		sqlDB.SetConnMaxLifetime(time.Second * time.Duration(common.GetEnvOrDefault("SQL_MAX_LIFETIME", 60)))
+		configureDatabasePool(sqlDB, dbType)
 
 		if !common.IsMasterNode {
 			return ValidateLogProjectionSchemaWithDB(LOG_DB)
