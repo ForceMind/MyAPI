@@ -30,6 +30,7 @@ var managementOperations = []managementOperation{
 	{"channels.ops", "GET", "/api/channel/ops", "channels.read", "channel", false, false},
 	{"channels.quota_history", "GET", "/api/channel/:id/quota/history", "channels.read", "channel", true, false},
 	{"channels.quota_status", "GET", "/api/channel/quota/status", "channels.read", "channel", false, false},
+	{"channels.quota_events", "GET", "/api/channel/quota/events", "channels.read", "channel", false, false},
 	{"channels.set_status", "POST", "/api/channel/:id/status", "channels.operate", "channel", true, false},
 	{"tokens.list", "GET", "/api/token/", "tokens.read", "token", false, false},
 	{"tokens.get", "GET", "/api/token/:id", "tokens.read", "token", true, false},

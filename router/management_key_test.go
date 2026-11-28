@@ -40,7 +40,7 @@ func newManagementHTTPFixture(t *testing.T) *managementHTTPFixture {
 	conn, err := db.DB()
 	require.NoError(t, err)
 	conn.SetMaxOpenConns(1)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSession{}, &model.Channel{}, &model.Ability{}, &model.Token{}, &model.Log{}, &model.BillingLogProjectionIdentity{}, &model.SystemInstance{}, &model.ManagementKey{}, &model.ManagementKeyAudit{}, &model.CasbinRule{}, &model.AuthzRole{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSession{}, &model.Channel{}, &model.Ability{}, &model.Token{}, &model.Log{}, &model.BillingLogProjectionIdentity{}, &model.SystemInstance{}, &model.ManagementKey{}, &model.ManagementKeyAudit{}, &model.CasbinRule{}, &model.AuthzRole{}, &model.ChannelQuotaAlertEvent{}))
 	model.DB, model.LOG_DB = db, db
 	common.RedisEnabled, common.MemoryCacheEnabled, common.IsMasterNode = false, false, true
 	common.SessionSecret = "management-http-test-session-secret"
@@ -176,7 +176,7 @@ func TestManagementKeyHTTPTargetsAndCredentialProjection(t *testing.T) {
 	// These are the original resource-scoped dashboard permissions. Host
 	// operations deliberately cannot be combined with channel/token ID scopes.
 	_, secret := fixture.create(t, fixture.session, []string{"channels.read", "channels.operate", "tokens.read", "logs.read", "system.read"}, []int{1}, []int{1})
-	for _, path := range []string{"/api/channel/", "/api/channel/ops", "/api/channel/quota/status", "/api/token/", "/api/log/", "/api/log/stat", "/api/log/overview", "/api/channel/2", "/api/token/2", "/api/channel/2/quota/history"} {
+	for _, path := range []string{"/api/channel/", "/api/channel/ops", "/api/channel/quota/status", "/api/channel/quota/events", "/api/token/", "/api/log/", "/api/log/stat", "/api/log/overview", "/api/channel/2", "/api/token/2", "/api/channel/2/quota/history"} {
 		assert.Equal(t, 403, fixture.request("GET", path, secret, "", "", "").Code, path)
 	}
 	for _, path := range []string{"/api/channel/1", "/api/token/1"} {
@@ -343,4 +343,185 @@ func TestManagementKeyHTTPUnicodeNameBoundaries(t *testing.T) {
 			assert.Equal(t, name, saved.Name)
 		})
 	}
+}
+
+func TestManagementKeyHTTPReadOnlyDiagnosticsProjection(t *testing.T) {
+	fixture := newManagementHTTPFixture(t)
+	_, secret := fixture.create(t, fixture.session, []string{"logs.read", "channels.read"}, nil, nil)
+
+	capabilities := fixture.request("GET", "/api/management/capabilities", secret, "", "", "")
+	require.Equal(t, http.StatusOK, capabilities.Code, capabilities.Body.String())
+	assert.Contains(t, capabilities.Body.String(), "channels.quota_events")
+
+	// 1. Log diagnostics projection by request_id, sanitizing error identifiers
+	// and dropping raw admin_info secrets, content, and non-whitelisted fields.
+	diagOther := `{"request_path":"/v1/chat/completions","status_code":503,"upstream_status_code":503,"error_type":"upstream_error","error_code":"raw provider secret!","channel_id":2,"channel_type":1,"admin_info":{"access_token":"raw-admin-secret","use_channel":["1","2","bad"],"is_multi_key":true,"multi_key_index":1,"relay_attempts":[{"channel_id":1,"key_index":0,"upstream_model":"gpt-5-codex","outcome":"retryable_refusal","status":429,"cooldown_seconds":60},{"channel_id":2,"key_index":1,"upstream_model":"gpt-5-codex","outcome":"failed","status":503}],"model_route":{"requested_model":"gpt-5-codex","upstream_model":"gpt-5-codex","endpoint":"/v1/chat/completions","reason":"configured_model","channel_id":1,"priority":10,"weight":1,"selection_policy":"existing_priority_weight_or_affinity","config_digest":"digest-ignored"},"billing_settlement":{"state":"applied","actual_quota":50,"event_key":"event-ignored"}}}`
+	require.NoError(t, model.DB.Create(&model.Log{
+		Id:        201,
+		UserId:    fixture.root.Id,
+		CreatedAt: 1795700100,
+		Type:      model.LogTypeError,
+		ChannelId: 2,
+		ModelName: "gpt-5-codex",
+		RequestId: "diag-req-503",
+		Content:   "raw-error-body-secret",
+		Other:     diagOther,
+	}).Error)
+
+	logResp := fixture.request("GET", "/api/log/?request_id=diag-req-503&type=5", secret, "", "", "")
+	require.Equal(t, http.StatusOK, logResp.Code, logResp.Body.String())
+	for _, forbidden := range []string{"raw-error-body-secret", "raw-admin-secret", "raw provider secret!", "digest-ignored", "event-ignored", `"other"`, `"admin_info"`, `"content"`} {
+		assert.NotContains(t, logResp.Body.String(), forbidden)
+	}
+	var logEnvelope struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Items []struct {
+				RequestID   string `json:"request_id"`
+				Diagnostics struct {
+					RequestPath        string   `json:"request_path"`
+					StatusCode         int      `json:"status_code"`
+					UpstreamStatusCode int      `json:"upstream_status_code"`
+					ErrorType          string   `json:"error_type"`
+					ErrorCode          string   `json:"error_code"`
+					ChannelID          int      `json:"channel_id"`
+					ChannelType        int      `json:"channel_type"`
+					UseChannel         []string `json:"use_channel"`
+					IsMultiKey         bool     `json:"is_multi_key"`
+					MultiKeyIndex      int      `json:"multi_key_index"`
+					RelayAttempts      []struct {
+						ChannelID       int    `json:"channel_id"`
+						KeyIndex        int    `json:"key_index"`
+						UpstreamModel   string `json:"upstream_model"`
+						Outcome         string `json:"outcome"`
+						Status          int    `json:"status"`
+						CooldownSeconds int    `json:"cooldown_seconds"`
+					} `json:"relay_attempts"`
+					ModelRoute struct {
+						RequestedModel string `json:"requested_model"`
+						UpstreamModel  string `json:"upstream_model"`
+						ChannelID      int    `json:"channel_id"`
+					} `json:"model_route"`
+					BillingSettlement struct {
+						State       string `json:"state"`
+						ActualQuota int64  `json:"actual_quota"`
+					} `json:"billing_settlement"`
+				} `json:"diagnostics"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(logResp.Body.Bytes(), &logEnvelope))
+	require.True(t, logEnvelope.Success)
+	require.Len(t, logEnvelope.Data.Items, 1)
+	item := logEnvelope.Data.Items[0]
+	assert.Equal(t, "diag-req-503", item.RequestID)
+	assert.Equal(t, "/v1/chat/completions", item.Diagnostics.RequestPath)
+	assert.Equal(t, 503, item.Diagnostics.StatusCode)
+	assert.Equal(t, 503, item.Diagnostics.UpstreamStatusCode)
+	assert.Equal(t, "upstream_error", item.Diagnostics.ErrorType)
+	assert.Equal(t, "unknown_error", item.Diagnostics.ErrorCode)
+	assert.Equal(t, []string{"1", "2"}, item.Diagnostics.UseChannel)
+	assert.True(t, item.Diagnostics.IsMultiKey)
+	assert.Equal(t, 1, item.Diagnostics.MultiKeyIndex)
+	require.Len(t, item.Diagnostics.RelayAttempts, 2)
+	assert.Equal(t, 1, item.Diagnostics.RelayAttempts[0].ChannelID)
+	assert.Equal(t, "retryable_refusal", item.Diagnostics.RelayAttempts[0].Outcome)
+	assert.Equal(t, 60, item.Diagnostics.RelayAttempts[0].CooldownSeconds)
+	assert.Equal(t, 2, item.Diagnostics.RelayAttempts[1].ChannelID)
+	assert.Equal(t, 1, item.Diagnostics.RelayAttempts[1].KeyIndex)
+	assert.Equal(t, "gpt-5-codex", item.Diagnostics.ModelRoute.UpstreamModel)
+	assert.Equal(t, "applied", item.Diagnostics.BillingSettlement.State)
+	assert.Equal(t, int64(50), item.Diagnostics.BillingSettlement.ActualQuota)
+
+	// 2. Channel status_time and multi-key status projection without exposing
+	// status_reason, multi_key_disabled_reason, or raw credentials.
+	require.NoError(t, model.DB.Model(&model.Channel{}).Where("id = ?", 2).Updates(map[string]any{
+		"status":     common.ChannelStatusAutoDisabled,
+		"other_info": `{"status_time":1795700105,"status_reason":"raw-channel-disable-reason-secret"}`,
+		"channel_info": model.ChannelInfo{
+			IsMultiKey:             true,
+			MultiKeySize:           2,
+			MultiKeyStatusList:     map[int]int{0: common.ChannelStatusAutoDisabled, 1: common.ChannelStatusEnabled},
+			MultiKeyDisabledReason: map[int]string{0: "raw-multikey-reason-secret"},
+			MultiKeyDisabledTime:   map[int]int64{0: 1795700104},
+			MultiKeyPollingIndex:   1,
+			MultiKeyMode:           constant.MultiKeyModePolling,
+		},
+	}).Error)
+
+	chResp := fixture.request("GET", "/api/channel/2", secret, "", "", "")
+	require.Equal(t, http.StatusOK, chResp.Code, chResp.Body.String())
+	for _, forbidden := range []string{"channel-two-secret", "raw-channel-disable-reason-secret", "raw-multikey-reason-secret", `"other_info"`, `"multi_key_disabled_reason"`, `"key"`} {
+		assert.NotContains(t, chResp.Body.String(), forbidden)
+	}
+	var chEnvelope struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Status      int   `json:"status"`
+			StatusTime  int64 `json:"status_time"`
+			ChannelInfo struct {
+				IsMultiKey           bool          `json:"is_multi_key"`
+				MultiKeySize         int           `json:"multi_key_size"`
+				MultiKeyStatusList   map[int]int   `json:"multi_key_status_list"`
+				MultiKeyDisabledTime map[int]int64 `json:"multi_key_disabled_time"`
+				MultiKeyPollingIndex int           `json:"multi_key_polling_index"`
+				MultiKeyMode         string        `json:"multi_key_mode"`
+			} `json:"channel_info"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(chResp.Body.Bytes(), &chEnvelope))
+	require.True(t, chEnvelope.Success)
+	assert.Equal(t, common.ChannelStatusAutoDisabled, chEnvelope.Data.Status)
+	assert.Equal(t, int64(1795700105), chEnvelope.Data.StatusTime)
+	assert.True(t, chEnvelope.Data.ChannelInfo.IsMultiKey)
+	assert.Equal(t, 2, chEnvelope.Data.ChannelInfo.MultiKeySize)
+	assert.Equal(t, common.ChannelStatusAutoDisabled, chEnvelope.Data.ChannelInfo.MultiKeyStatusList[0])
+	assert.Equal(t, common.ChannelStatusEnabled, chEnvelope.Data.ChannelInfo.MultiKeyStatusList[1])
+	assert.Equal(t, 1, chEnvelope.Data.ChannelInfo.MultiKeyPollingIndex)
+	assert.Equal(t, string(constant.MultiKeyModePolling), chEnvelope.Data.ChannelInfo.MultiKeyMode)
+	assert.Empty(t, chEnvelope.Data.ChannelInfo.MultiKeyDisabledTime)
+
+	// 3. Quota alert events read-only projection.
+	require.NoError(t, model.DB.Create(&model.ChannelQuotaAlertEvent{
+		EventKey:      "evt-diag-1",
+		SeriesKey:     strings.Repeat("a", 64),
+		SnapshotID:    7,
+		ChannelID:     2,
+		Status:        "critical",
+		Kind:          "threshold",
+		State:         "delivered",
+		AttemptCount:  1,
+		LastErrorCode: "",
+		ObservedAt:    1795700102,
+		CreatedAt:     1795700103,
+		UpdatedAt:     1795700104,
+		EvidenceJSON:  `{"secret_webhook":"must-not-leak"}`,
+	}).Error)
+
+	eventsResp := fixture.request("GET", "/api/channel/quota/events?channel_id=2", secret, "", "", "")
+	require.Equal(t, http.StatusOK, eventsResp.Code, eventsResp.Body.String())
+	assert.NotContains(t, eventsResp.Body.String(), "must-not-leak")
+	assert.NotContains(t, eventsResp.Body.String(), `"series_ref"`)
+	var eventsEnvelope struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Total int `json:"total"`
+			Items []struct {
+				EventKey   string `json:"event_key"`
+				ChannelID  int    `json:"channel_id"`
+				Status     string `json:"status"`
+				State      string `json:"state"`
+				ObservedAt int64  `json:"observed_at"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(eventsResp.Body.Bytes(), &eventsEnvelope))
+	require.True(t, eventsEnvelope.Success)
+	require.Equal(t, 1, eventsEnvelope.Data.Total)
+	require.Len(t, eventsEnvelope.Data.Items, 1)
+	assert.Equal(t, "evt-diag-1", eventsEnvelope.Data.Items[0].EventKey)
+	assert.Equal(t, 2, eventsEnvelope.Data.Items[0].ChannelID)
+	assert.Equal(t, "critical", eventsEnvelope.Data.Items[0].Status)
+	assert.Equal(t, "delivered", eventsEnvelope.Data.Items[0].State)
+	assert.Equal(t, int64(1795700102), eventsEnvelope.Data.Items[0].ObservedAt)
 }

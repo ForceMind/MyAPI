@@ -98,6 +98,25 @@ func projectManagementJSON(raw json.RawMessage, schema managementProjection) (js
 				}
 				continue
 			}
+			if field == "diagnostics" {
+				if source, present := fields["other"]; present {
+					var metadata string
+					if common.Unmarshal(source, &metadata) == nil {
+						if projected, ok := projectManagementLogDiagnostics(metadata); ok {
+							result[field] = projected
+						}
+					}
+				}
+				continue
+			}
+			if field == "status_time" {
+				if source, present := fields["other_info"]; present {
+					if projected, ok := projectManagementChannelStatusTime(source); ok {
+						result[field] = projected
+					}
+				}
+				continue
+			}
 			if value, ok := fields[field]; ok {
 				projected, err := projectManagementJSON(value, child)
 				if err != nil {
@@ -110,8 +129,153 @@ func projectManagementJSON(raw json.RawMessage, schema managementProjection) (js
 	return common.Marshal(result)
 }
 
+func projectManagementLogDiagnostics(metadata string) (json.RawMessage, bool) {
+	if strings.TrimSpace(metadata) == "" {
+		return nil, false
+	}
+	var fields map[string]json.RawMessage
+	if common.Unmarshal([]byte(metadata), &fields) != nil {
+		return nil, false
+	}
+	diag := map[string]json.RawMessage{}
+	if rawPath, ok := fields["request_path"]; ok {
+		var path string
+		if common.Unmarshal(rawPath, &path) == nil && strings.HasPrefix(path, "/") && len(path) <= 256 {
+			if encoded, err := common.Marshal(path); err == nil {
+				diag["request_path"] = encoded
+			}
+		}
+	}
+	numSchema := managementProjection{"$number": nil}
+	for _, field := range strings.Fields("status_code upstream_status_code channel_id channel_type") {
+		if rawVal, ok := fields[field]; ok {
+			if projected, err := projectManagementJSON(rawVal, numSchema); err == nil && !bytes.Equal(projected, []byte("null")) {
+				diag[field] = projected
+			}
+		}
+	}
+	for _, field := range strings.Fields("error_type error_code") {
+		if rawVal, ok := fields[field]; ok {
+			var value string
+			if common.Unmarshal(rawVal, &value) == nil && value != "" {
+				if encoded, err := common.Marshal(common.SafeDiagnosticIdentifier(value)); err == nil {
+					diag[field] = encoded
+				}
+			}
+		}
+	}
+	if rawAdmin, ok := fields["admin_info"]; ok {
+		var admin map[string]json.RawMessage
+		if common.Unmarshal(rawAdmin, &admin) == nil {
+			attemptSchema := managementProjection{
+				"channel_id":       numSchema,
+				"key_index":        numSchema,
+				"upstream_model":   nil,
+				"outcome":          nil,
+				"status":           numSchema,
+				"cooldown_seconds": numSchema,
+			}
+			if rawAttempts, ok := admin["relay_attempts"]; ok {
+				if projected, err := projectManagementJSON(rawAttempts, managementProjection{"*": attemptSchema}); err == nil && !bytes.Equal(projected, []byte("null")) {
+					diag["relay_attempts"] = projected
+				}
+			}
+			if rawUsed, ok := admin["use_channel"]; ok {
+				var used []string
+				if common.Unmarshal(rawUsed, &used) == nil && len(used) > 0 {
+					safeUsed := make([]string, 0, len(used))
+					for _, item := range used {
+						if _, err := strconv.Atoi(item); err == nil {
+							safeUsed = append(safeUsed, item)
+						}
+					}
+					if len(safeUsed) > 0 {
+						if encoded, err := common.Marshal(safeUsed); err == nil {
+							diag["use_channel"] = encoded
+						}
+					}
+				}
+			}
+			if rawMulti, ok := admin["is_multi_key"]; ok {
+				var isMulti bool
+				if common.Unmarshal(rawMulti, &isMulti) == nil {
+					if encoded, err := common.Marshal(isMulti); err == nil {
+						diag["is_multi_key"] = encoded
+					}
+				}
+			}
+			if rawIdx, ok := admin["multi_key_index"]; ok {
+				if projected, err := projectManagementJSON(rawIdx, numSchema); err == nil && !bytes.Equal(projected, []byte("null")) {
+					diag["multi_key_index"] = projected
+				}
+			}
+			routeSchema := managementProjection{
+				"requested_model":  nil,
+				"upstream_model":   nil,
+				"endpoint":         nil,
+				"reason":           nil,
+				"channel_id":       numSchema,
+				"priority":         numSchema,
+				"weight":           numSchema,
+				"selection_policy": nil,
+			}
+			if rawRoute, ok := admin["model_route"]; ok {
+				if projected, err := projectManagementJSON(rawRoute, routeSchema); err == nil && !bytes.Equal(projected, []byte("null")) {
+					diag["model_route"] = projected
+				}
+			}
+			settlementSchema := managementProjection{
+				"state":        nil,
+				"actual_quota": numSchema,
+			}
+			if rawSettlement, ok := admin["billing_settlement"]; ok {
+				if projected, err := projectManagementJSON(rawSettlement, settlementSchema); err == nil && !bytes.Equal(projected, []byte("null")) {
+					diag["billing_settlement"] = projected
+				}
+			}
+		}
+	}
+	if len(diag) == 0 {
+		return nil, false
+	}
+	encoded, err := common.Marshal(diag)
+	if err != nil {
+		return nil, false
+	}
+	return encoded, true
+}
+
+func projectManagementChannelStatusTime(rawOtherInfo json.RawMessage) (json.RawMessage, bool) {
+	var otherInfo string
+	if common.Unmarshal(rawOtherInfo, &otherInfo) != nil || strings.TrimSpace(otherInfo) == "" {
+		return nil, false
+	}
+	var fields map[string]json.RawMessage
+	if common.Unmarshal([]byte(otherInfo), &fields) != nil {
+		return nil, false
+	}
+	rawTime, ok := fields["status_time"]
+	if !ok {
+		return nil, false
+	}
+	projected, err := projectManagementJSON(rawTime, managementProjection{"$number": nil})
+	if err != nil || bytes.Equal(projected, []byte("null")) {
+		return nil, false
+	}
+	return projected, true
+}
+
 func managementResponseSchema(operation string) managementProjection {
 	channel := managementScalars("id name type status weight created_time test_time response_time balance balance_updated_time models group used_quota priority auto_ban tag")
+	channel["status_time"] = nil
+	channel["channel_info"] = managementProjection{
+		"is_multi_key":            nil,
+		"multi_key_size":          {"$number": nil},
+		"multi_key_status_list":   {"#": nil},
+		"multi_key_disabled_time": {"#": nil},
+		"multi_key_polling_index": {"$number": nil},
+		"multi_key_mode":          nil,
+	}
 	token := managementScalars("id name status created_time accessed_time expired_time remain_quota unlimited_quota model_limits_enabled model_limits used_quota group access_profile_id cross_group_retry quota_version")
 	log := managementScalars("id user_id created_at type username token_name model_name quota prompt_tokens completion_tokens use_time is_stream channel channel_name token_id group request_id upstream_request_id")
 
@@ -127,6 +291,7 @@ func managementResponseSchema(operation string) managementProjection {
 		usage[field] = nil
 	}
 	log["usage"] = usage
+	log["diagnostics"] = nil
 	page := managementScalars("total page page_size")
 	switch operation {
 	case "channels.list":
@@ -154,6 +319,10 @@ func managementResponseSchema(operation string) managementProjection {
 		return managementScalars("retry_times")
 	case "channels.quota_status":
 		return managementScalars("enabled interval_seconds max_channels")
+	case "channels.quota_events":
+		event := managementScalars("id event_key snapshot_id channel_id status kind state attempt_count next_attempt_at last_error_code last_error_at delivered_at observed_at created_at updated_at")
+		page["items"] = managementProjection{"*": event}
+		return page
 	case "channels.quota_history":
 		schema := managementScalars("channel_id start end limit granularity requested_granularity timezone_offset raw_observation_limit raw_observations available_points returned_points source_complete points_complete complete truncated metric_type window_type window_seconds source unit currency plan_type")
 		point := managementScalars("timestamp observed_at status available used used_source total reset_at sample_count success_count failed_count unsupported_count reset continuity_break consumption rate_per_minute peak_rate_per_minute observed_seconds interval_count gap recovery baseline_change period_start period_end")
