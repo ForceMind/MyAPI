@@ -1,5 +1,15 @@
 # 全项目评估、精简、三版本与 UI 重设计：任务清单（2026-10-24）
 
+## 2026-11-27 · beta.69 源码验收收口
+
+`0.2.0-beta.69` 应用源码定稿于 `dev` 上的 `72477e1164a90f5443c17707a94180c830d89f3f`，已完成三项独立后端修复并通过各自完整非浏览器 CI（均未执行浏览器、未发送真实模型请求、未合 `main`、未发布、未动生产）：
+
+1. **Chat Completions SSE 终止错误帧与原始客户端取消判定**：提交 `4e80473fb1b41ba12cf6c5159f95bc68d4002f98`（基于 `538d3cca` 失败 CI `45758494614` 中 `TestRelayFailoverActualDispatch/overall_deadline_preserves_fixed_price_hold` 返回 200 而非 500 定位）。`controller/relay.go` 改为使用 `BeginRelayFailover` 之前捕获的原始客户端 context 判定是否可写响应，并补充假 Codex 上游内部限时超时（首帧前与流中）两项回归。[完整 CI 45949872765](https://github.com/ForceMind/MyAPI/actions/runs/45949872765)（12 成功 / 10 跳过；Backend `140342998122` 3,061 行全核，`TestResponsesChatTerminalErrorsAreFramedWithoutReplay` 10/10 PASS，`TestRelayFailoverActualDispatch` 全通过，0 失败/0 race）· [cache-compat 45949872816](https://github.com/ForceMind/MyAPI/actions/runs/45949872816)（成功）。
+2. **SQLite `SQLITE_BUSY`（`500 update_data_error`）并发锁修复**：实现提交 `4ac8a280e5cf65601641cc35767097e5d59c5943`（首轮 [CI 46031785923](https://github.com/ForceMind/MyAPI/actions/runs/46031785923) 因测试临时表名使用保留前缀 `sqlite_` 失败），修正测试表名后的最终提交 `f60360b807447658e34a7db5f2a2e15acc9c66d6`。保留外部 `SQLITE_PATH` 合同与 `resolveDatabaseTarget`，在 `model/main.go` 的 `chooseDB` 内规范化驱动 DSN 为 `_pragma=busy_timeout(30000)` + `_pragma=journal_mode(WAL)`（保留默认 `synchronous=FULL`），并对 SQLite 默认收敛连接池为 `1`/`1`（显式环境变量仍优先）。[完整 CI 46037542641](https://github.com/ForceMind/MyAPI/actions/runs/46037542641)（12 成功 / 10 跳过；Backend `140636660363` 3,038 行全核，新增 3 组 SQLite 连接与并发回归、只读 URI 合同与三库/分发/Native/Desktop 合同全通过，0 失败/0 race）。
+3. **ManagementKey 第 1 阶段只读脱敏诊断 API**：提交 `72477e1164a90f5443c17707a94180c830d89f3f`。复用现有 `myapi_mgmt_...` 密钥、短期有效期、撤销与审计机制，在 `middleware/management_response.go` 扩展 `GET /api/log/` 白名单 `diagnostics` 投影、`GET /api/channel/` 与 `GET /api/channel/:id` 的 `status_time`/`channel_info` 投影，并在 `middleware/management_key.go` 注册只读 `GET /api/channel/quota/events`。响应继续禁止泄露 `other`、`admin_info`、`content`、`key`、`other_info`、`status_reason` 与原始上游错误正文。[完整 CI 46096853924](https://github.com/ForceMind/MyAPI/actions/runs/46096853924)（12 成功 / 10 跳过；Backend `140830079811` 3,045 行全核，`Verify scoped management keys and API boundaries` 6/6 PASS，含新增 `TestManagementKeyHTTPReadOnlyDiagnosticsProjection`，0 失败/0 race）。
+
+后续若需在服务器部署 `beta.69`，需先经维护者明确授权再在 GitHub Actions 触发 `docker-smoke.yml` 构建与验收镜像归档包（源提交绑定 `72477e1164a90f5443c17707a94180c830d89f3f`）。
+
 ## 2026-11-25 · Chat Completions 流中错误帧
 
 beta.67 现网只读样本中，两条流式请求在最后模型增量后约 26 毫秒和 134 毫秒写出取消错误。HTTP 状态已提交为 200，终止块为裸 JSON。服务器日志能证明 MyAPI 本地写出，客户端接收和远端取消原因仍未知。

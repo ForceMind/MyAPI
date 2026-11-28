@@ -2,6 +2,16 @@
 
 ## 零、最新交接状态（优先于下文历史阶段描述）
 
+### 2026-11-27 · beta.69 源码验收收口（SSE 错误帧、SQLite 并发锁与只读诊断 API）
+
+`0.2.0-beta.69` 应用源码定稿为 `72477e1164a90f5443c17707a94180c830d89f3f`（五处版本文件 `VERSION`、`package.json`、`docker-compose.yml`、`deploy/docker-compose.yml`、`deploy/.env.example` 均为 `0.2.0-beta.69`），包含三项已分别通过完整非浏览器 CI 的后端改动：
+
+1. **Chat Completions SSE 终止错误帧与原始客户端取消判定**（`4e80473fb1b41ba12cf6c5159f95bc68d4002f98` · [完整 CI 45949872765](https://github.com/ForceMind/MyAPI/actions/runs/45949872765) · [cache-compat 45949872816](https://github.com/ForceMind/MyAPI/actions/runs/45949872816)）：在 `service.BeginRelayFailover` 前捕获原始客户端 context，修正内部超时误判为客户端断开的问题；假 Codex 上游 10/10 回归与原 Failover 回归全通过。
+2. **SQLite `SQLITE_BUSY` 并发锁修复**（`f60360b807447658e34a7db5f2a2e15acc9c66d6` · [完整 CI 46037542641](https://github.com/ForceMind/MyAPI/actions/runs/46037542641)）：在 `model/main.go` 打开 `glebarez/sqlite` 时将 `_busy_timeout` 规范化为驱动生效的 `_pragma=busy_timeout(30000)` 并对非内存/非只读文件库启用 `_pragma=journal_mode(WAL)`（保留默认 `synchronous=FULL` 与外部 `SQLITE_PATH` 合同），SQLite 未显式配置连接池时默认收敛为单连接（`1`/`1`）。
+3. **ManagementKey 第 1 阶段只读脱敏诊断 API**（`72477e1164a90f5443c17707a94180c830d89f3f` · [完整 CI 46096853924](https://github.com/ForceMind/MyAPI/actions/runs/46096853924)）：复用现有受限管理密钥体系，扩展 `GET /api/log/` 白名单 `diagnostics` 投影、`GET /api/channel/` 与 `GET /api/channel/:id` 的 `status_time`/`channel_info` 投影，新增只读 `GET /api/channel/quota/events`；继续严格隔离原始密钥、请求正文与错误原文。
+
+上述三轮完整 CI 均为 Attempt 1 `success`（12 执行通过 / 10 可选跳过，0 失败 / 0 `DATA RACE`，浏览器未运行）。本交接提交仅更新文档，镜像与部署源码绑定 `72477e1164a90f5443c17707a94180c830d89f3f`；尚未打包 `beta.69` Docker 归档、未合入 `main`、未发布或动生产。[任务清单](../TASKS.md#2026-11-27--beta69-源码验收收口)
+
 ### 2026-11-25 · Chat Completions 流中错误帧
 
 beta.69 源码候选修正公用 Chat Completions 流已提交时的错误格式。采用已提交 SSE 的终止错误帧，首帧前保留 HTTP 状态，取消不再写入。通过现有 Responses→Chat Actions 假上游回归及完整 CI 核验。该改动修复错误呈现，现网两条远端取消的触发方仍待客户端和边缘记录核对。[任务清单](../TASKS.md#2026-11-25--chat-completions-流中错误帧)
